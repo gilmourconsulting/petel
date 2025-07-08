@@ -1,0 +1,62 @@
+using Hangfire;
+using Hangfire.PostgreSql;
+using Microsoft.EntityFrameworkCore;
+using PetelApp.Api.Data;
+using PetelApp.Api.Services;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+// Database
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+// Hangfire - Correct syntax
+builder.Services.AddHangfire(config =>
+    config.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("HangfireConnection")));
+builder.Services.AddHangfireServer();
+
+// CORS for React
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ReactApp", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+// HttpClient and Custom services
+builder.Services.AddHttpClient<IScheduledTaskService, ScheduledTaskService>();
+builder.Services.AddScoped<IScheduledTaskService, ScheduledTaskService>();
+
+var app = builder.Build();
+
+// Configure pipeline
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+app.UseCors("ReactApp");
+
+// Hangfire Dashboard
+app.UseHangfireDashboard("/hangfire");
+
+app.UseAuthorization();
+app.MapControllers();
+
+// Schedule recurring jobs
+RecurringJob.AddOrUpdate<IScheduledTaskService>(
+    "fetch-external-data",
+    service => service.FetchExternalDataAsync(),
+    Cron.Minutely); // Run every minute
+
+app.Run();
