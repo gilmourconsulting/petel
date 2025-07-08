@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "E27jMn0YX0E=",
+  "dgSpecHash": "8/QVXYBJ4l0=",
   "success": true,
-  "projectFilePath": "C:\\dev\\PetelFullApp\\PetelApp.Api\\PetelApp.Api.csproj",
+  "projectFilePath": "c:\\dev\\PetelFullApp\\PetelApp.Api\\PetelApp.Api.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Asher\\.nuget\\packages\\dapper\\2.0.123\\dapper.2.0.123.nupkg.sha512",
     "C:\\Users\\Asher\\.nuget\\packages\\hangfire.aspnetcore\\1.8.20\\hangfire.aspnetcore.1.8.20.nupkg.sha512",

@@ -30,6 +30,22 @@
             width: 100%;
             max-width: 420px;
             border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+        }
+
+        .logo {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 60px;
+            height: 60px;
+            z-index: 10;
+        }
+
+        .logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
 
         .login-header {
@@ -185,6 +201,10 @@
 </head>
 <body>
     <div class="login-container">
+        <div class="logo">
+            <img src="petel_logo.png" alt="לוגו המערכת" />
+        </div>
+        
         <div class="login-header">
             <h1 class="login-title">כניסה למערכת</h1>
             <p class="login-subtitle">בחר את הארגון שלך ולאחר מכן הזן את פרטי ההתחברות</p>
@@ -209,14 +229,9 @@
 
         <div class="error-message" id="errorMessage"></div>
 
-        <div class="tenant-info" id="tenantInfo">
-            <div class="tenant-name" id="tenantName"></div>
-            <div class="tenant-description">אתה מתחבר לארגון זה</div>
-        </div>
-
         <form id="loginForm">
             <div class="form-group">
-                <label for="entity" class="form-label">ישות / ארגון</label>
+                <label for="entity" class="form-label">בית ספר/עיריה/רשת</label>
                 <select id="entity" name="entity" class="form-select" required>
                     <option value="">בחר ישות...</option>
                 </select>
@@ -269,8 +284,6 @@
         // Elements
         const entitySelect = document.getElementById('entity');
         const credentialsSection = document.getElementById('credentialsSection');
-        const tenantInfo = document.getElementById('tenantInfo');
-        const tenantName = document.getElementById('tenantName');
         const loginForm = document.getElementById('loginForm');
         const loginButton = document.getElementById('loginButton');
         const errorMessage = document.getElementById('errorMessage');
@@ -283,17 +296,22 @@
         // Handle entity selection
         entitySelect.addEventListener('change', function() {
             const selectedEntityId = this.value;
-            const selectedEntity = mockEntities.find(e => e.id == selectedEntityId);
             
             if (selectedEntityId) {
+                // Parse to integer to remove any padding
+                const entityIdInt = parseInt(selectedEntityId);
+                const entityIdString = entityIdInt.toString();
+                
+                console.log('Entity selected:', {
+                    originalValue: selectedEntityId,
+                    parsedInt: entityIdInt,
+                    finalString: entityIdString
+                });
+                
                 // Update step indicator
                 document.getElementById('step1').classList.add('completed');
                 document.getElementById('step1').classList.remove('active');
                 document.getElementById('step2').classList.add('active');
-                
-                // Show tenant info
-                tenantName.textContent = selectedEntity.name;
-                tenantInfo.classList.add('show');
                 
                 // Show credentials section with animation
                 credentialsSection.style.display = 'block';
@@ -305,8 +323,8 @@
                 loginButton.disabled = false;
                 loginButton.textContent = 'התחבר';
                 
-                // Set tenant context for API calls
-                setTenantContext(selectedEntityId);
+                // Set tenant context for API calls (use parsed integer)
+                setTenantContext(entityIdString);
                 
                 // Focus on username field
                 setTimeout(() => {
@@ -319,8 +337,7 @@
                 document.getElementById('step2').classList.remove('active');
                 document.getElementById('step3').classList.remove('active');
                 
-                // Hide everything
-                tenantInfo.classList.remove('show');
+                // Hide credentials section
                 credentialsSection.classList.remove('show');
                 setTimeout(() => {
                     credentialsSection.style.display = 'none';
@@ -333,32 +350,82 @@
 
         // Set tenant context for API calls
         function setTenantContext(tenantId) {
+            // Parse to ensure it's a clean integer string
+            const cleanTenantId = parseInt(tenantId).toString();
+            
             // Store tenant ID for subsequent API calls
-            sessionStorage.setItem('selectedTenant', tenantId);
+            sessionStorage.setItem('selectedTenant', cleanTenantId);
+            
+            console.log('Tenant context set:', cleanTenantId);
             
             // You might want to validate tenant access here
-            // validateTenantAccess(tenantId);
+            // validateTenantAccess(cleanTenantId);
         }
 
         // Load entities from database
         async function loadEntities() {
             try {
-                // Replace this with actual API call to your .NET backend
-                // const response = await fetch('/api/entities');
-                // const entities = await response.json();
+                // Use real API endpoint
+                const apiUrl = 'http://localhost:5082/api/entities';
                 
-                // Using mock data for demonstration
-                const entities = mockEntities;
+                console.log('Loading entities from:', apiUrl);
+                
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const entities = await response.json();
+                console.log('Loaded entities:', entities);
+                
+                if (!entities || entities.length === 0) {
+                    console.log('No entities found, using mock data');
+                    loadMockEntities();
+                    return;
+                }
                 
                 entities.forEach(entity => {
                     const option = document.createElement('option');
-                    option.value = entity.id;
+                    // Ensure ID is stored as integer, not string with padding
+                    option.value = parseInt(entity.id).toString();
                     option.textContent = entity.name;
                     entitySelect.appendChild(option);
+                    
+                    // Debug logging
+                    console.log('Added entity:', { 
+                        originalId: entity.id, 
+                        parsedId: parseInt(entity.id), 
+                        finalValue: option.value,
+                        name: entity.name 
+                    });
                 });
+                
+                console.log('Successfully loaded', entities.length, 'entities from database');
             } catch (error) {
+                console.error('Error loading entities:', error);
                 showError('שגיאה בטעינת הישויות');
+                
+                // Fallback to mock data for testing
+                console.log('Falling back to mock data');
+                loadMockEntities();
             }
+        }
+        
+        // Fallback function with mock data
+        function loadMockEntities() {
+            const mockEntities = [
+                { id: 1, name: 'חברת אלפא בע"מ' },
+                { id: 2, name: 'חברת בטא בע"מ' },
+                { id: 3, name: 'חברת גמא בע"מ' }
+            ];
+            
+            mockEntities.forEach(entity => {
+                const option = document.createElement('option');
+                option.value = entity.id;
+                option.textContent = entity.name;
+                entitySelect.appendChild(option);
+            });
         }
 
         // Handle form submission
@@ -380,57 +447,92 @@
             hideError();
 
             try {
+                // Update step indicator to login step
+                document.getElementById('step2').classList.add('completed');
+                document.getElementById('step2').classList.remove('active');
+                document.getElementById('step3').classList.add('active');
+                
                 // Multi-tenant login data
+                const entityIdInt = parseInt(entityId);
                 const loginData = {
                     username: username,
                     password: password,
-                    tenantId: parseInt(entityId) // Using tenantId instead of entityId
+                    tenantId: entityIdInt // Send as integer
                 };
 
-                // In a real multi-tenant system, you would:
-                // 1. Set tenant context in headers
-                // 2. API validates user belongs to this tenant
-                // 3. Return tenant-specific token/session
-                
+                console.log('Login attempt:', { 
+                    username, 
+                    originalEntityId: entityId,
+                    parsedEntityId: entityIdInt,
+                    entityIdType: typeof entityIdInt,
+                    loginData 
+                });
+
+                // Set tenant context in headers (Entity-First approach)
                 const headers = {
                     'Content-Type': 'application/json',
-                    'X-Tenant-ID': entityId // Tenant context header
+                    'X-Tenant-ID': entityIdInt.toString() // Send as clean string without padding
                 };
 
-                // Replace with actual API call
-                // const response = await fetch('/api/auth/login', {
-                //     method: 'POST',
-                //     headers: headers,
-                //     body: JSON.stringify(loginData)
-                // });
+                console.log('Request headers:', headers);
+                console.log('Entity ID being sent in header:', entityIdInt.toString());
 
-                // Mock multi-tenant authentication
-                const isValid = mockUsers.some(user => 
-                    user.username === username && 
-                    user.password === password && 
-                    user.entityId === parseInt(entityId)
-                );
+                // Replace with actual API call to your .NET backend
+                const response = await fetch('http://localhost:5082/api/auth/login', { // Updated to port 5082
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(loginData)
+                });
 
-                if (isValid) {
+                console.log('Response status:', response.status);
+                console.log('Response headers:', response.headers);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('API Error Response:', errorText);
+                    throw new Error('Authentication failed');
+                }
+
+                const result = await response.json();
+                console.log('Login response:', result);
+
+                if (result.success) {
                     // Successful login
+                    document.getElementById('step3').classList.add('completed');
+                    
                     loginButton.innerHTML = 'התחברות בוצעה בהצלחה!';
                     loginButton.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
                     
-                    // Store tenant information for the session
-                    sessionStorage.setItem('authToken', 'mock_jwt_token');
-                    sessionStorage.setItem('tenantId', entityId);
-                    sessionStorage.setItem('tenantName', mockEntities.find(e => e.id == entityId).name);
+                    // Store tenant-specific session data
+                    sessionStorage.setItem('authToken', result.token);
+                    sessionStorage.setItem('tenantId', result.tenantId);
+                    sessionStorage.setItem('tenantName', result.tenantName);
+                    sessionStorage.setItem('userFullName', result.userFullName);
+                    sessionStorage.setItem('userEmail', result.userEmail);
                     
                     // Redirect to tenant-specific dashboard
                     setTimeout(() => {
-                        alert('התחברות בוצעה בהצלחה! מעביר לעמוד הראשי...');
-                        // window.location.href = `/dashboard?tenant=${entityId}`;
+                        alert(`התחברות בוצעה בהצלחה!\nארגון: ${result.tenantName}\nמשתמש: ${result.userFullName}\nמעביר לעמוד הראשי...`);
+                        // In real app: window.location.href = `/dashboard?tenant=${entityId}`;
                     }, 1000);
                 } else {
-                    showError('שם משתמש או סיסמה שגויים, או שאינך רשאי לגשת לארגון זה');
+                    // Reset step on failure
+                    document.getElementById('step2').classList.remove('completed');
+                    document.getElementById('step2').classList.add('active');
+                    document.getElementById('step3').classList.remove('active');
+                    
+                    showError(result.message || 'שם משתמש או סיסמה שגויים, או שאינך רשאי לגשת לארגון זה');
                 }
 
             } catch (error) {
+                // Reset step on error
+                document.getElementById('step2').classList.remove('completed');
+                document.getElementById('step2').classList.add('active');
+                document.getElementById('step3').classList.remove('active');
+                
+                console.error('Login error details:', error);
+                
+                // Show generic error message only
                 showError('שגיאה בהתחברות. אנא נסה שוב.');
             } finally {
                 // Reset button state if authentication failed

@@ -1,27 +1,175 @@
+// PetelApp.Api/Data/AppDbContext.cs
 using Microsoft.EntityFrameworkCore;
 
-namespace PetelApp.Api.Data;
-
-public class AppDbContext : DbContext
+namespace PetelApp.Api.Data
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+    public class AppDbContext : DbContext
+    {
+        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+        {
+        }
 
-    public DbSet<Product> Products { get; set; }
-    public DbSet<User> Users { get; set; }
-}
+        // Entity tables
+        public DbSet<Entity> Entities { get; set; }
+        public DbSet<User> Users { get; set; }
 
-public class Product
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public decimal Price { get; set; }
-    public DateTime CreatedAt { get; set; }
-}
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
 
-public class User
-{
-    public int Id { get; set; }
-    public string Email { get; set; } = string.Empty;
-    public string Name { get; set; } = string.Empty;
-    public DateTime LastSync { get; set; }
+            // Set default schema for all tables
+            modelBuilder.HasDefaultSchema("petel_schema");
+
+            // Configure Entities table
+            modelBuilder.Entity<Entity>(entity =>
+            {
+                entity.ToTable("entities", "petel_schema"); // Add schema name
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Id)
+                    .HasColumnName("id");
+                entity.Property(e => e.EntityTypeId)
+                    .HasColumnName("entity_type_id")
+                    .IsRequired();
+                entity.Property(e => e.Name)
+                    .HasColumnName("name")
+                    .IsRequired()
+                    .HasMaxLength(200);
+                entity.Property(e => e.Address)
+                    .HasColumnName("address")
+                    .HasMaxLength(500);
+                entity.Property(e => e.Phone)
+                    .HasColumnName("phone")
+                    .HasMaxLength(20);
+                entity.Property(e => e.Email)
+                    .HasColumnName("email")
+                    .HasMaxLength(200);
+                entity.Property(e => e.PrincipalName)
+                    .HasColumnName("principal_name")
+                    .HasMaxLength(200);
+                entity.Property(e => e.ApiConnectionId)
+                    .HasColumnName("api_connection_id");
+                entity.Property(e => e.IsActive)
+                    .HasColumnName("is_active")
+                    .HasDefaultValue(true);
+                entity.Property(e => e.SchoolLogo)
+                    .HasColumnName("school_logo")
+                    .HasMaxLength(500);
+                entity.Property(e => e.CreatedAt)
+                    .HasColumnName("created_at")
+                    .HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(e => e.UpdatedAt)
+                    .HasColumnName("updated_at")
+                    .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                // Index for performance
+                entity.HasIndex(e => e.IsActive);
+                entity.HasIndex(e => e.Name);
+                entity.HasIndex(e => e.EntityTypeId);
+            });
+
+            // Configure Users table
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.ToTable("users", "petel_schema"); // Add schema name
+                entity.HasKey(u => u.Id);
+                entity.Property(u => u.Id)
+                    .HasColumnName("id");
+                entity.Property(u => u.EntityId)
+                    .HasColumnName("entity_id")
+                    .IsRequired();
+                entity.Property(u => u.Username)
+                    .HasColumnName("username")
+                    .IsRequired()
+                    .HasMaxLength(100);
+                entity.Property(u => u.PasswordHash)
+                    .HasColumnName("password_hash")
+                    .IsRequired()
+                    .HasMaxLength(255);
+                entity.Property(u => u.Email)
+                    .HasColumnName("email")
+                    .IsRequired()
+                    .HasMaxLength(200);
+                entity.Property(u => u.Phone)
+                    .HasColumnName("phone")
+                    .HasMaxLength(20);
+                entity.Property(u => u.FirstName)
+                    .HasColumnName("first_name")
+                    .IsRequired()
+                    .HasMaxLength(100);
+                entity.Property(u => u.LastName)
+                    .HasColumnName("last_name")
+                    .IsRequired()
+                    .HasMaxLength(100);
+                entity.Property(u => u.LastLogin)
+                    .HasColumnName("last_login");
+                entity.Property(u => u.IsActive)
+                    .HasColumnName("is_active")
+                    .HasDefaultValue(true);
+                entity.Property(u => u.UpdateUser)
+                    .HasColumnName("update_user");
+                entity.Property(u => u.CreatedAt)
+                    .HasColumnName("created_at")
+                    .HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(u => u.UpdatedAt)
+                    .HasColumnName("updated_at")
+                    .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                // Unique constraint on Username + EntityId (multi-tenant)
+                entity.HasIndex(u => new { u.Username, u.EntityId })
+                    .IsUnique();
+
+                // Foreign key to Entity (using EntityId)
+                entity.HasOne(u => u.Entity)
+                    .WithMany(e => e.Users)
+                    .HasForeignKey(u => u.EntityId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Indexes for performance
+                entity.HasIndex(u => u.Username);
+                entity.HasIndex(u => u.EntityId);
+                entity.HasIndex(u => u.IsActive);
+                entity.HasIndex(u => u.Email);
+            });
+        }
+    }
+
+    // Entity Models
+    public class Entity
+    {
+        public int Id { get; set; }
+        public int EntityTypeId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Address { get; set; }
+        public string? Phone { get; set; }
+        public string? Email { get; set; }
+        public string? PrincipalName { get; set; }
+        public int? ApiConnectionId { get; set; }
+        public bool IsActive { get; set; } = true;
+        public string? SchoolLogo { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        // Navigation properties
+        public virtual ICollection<User> Users { get; set; } = new List<User>();
+    }
+
+    public class User
+    {
+        public int Id { get; set; }
+        public int EntityId { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string PasswordHash { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? Phone { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public DateTime? LastLogin { get; set; }
+        public bool IsActive { get; set; } = true;
+        public int? UpdateUser { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        // Navigation properties
+        public virtual Entity Entity { get; set; } = null!;
+    }
 }

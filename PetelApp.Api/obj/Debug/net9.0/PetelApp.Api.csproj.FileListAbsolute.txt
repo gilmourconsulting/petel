@@ -150,3 +150,4 @@ c:\dev\PetelFullApp\PetelApp.Api\obj\Debug\net9.0\refint\PetelApp.Api.dll
 c:\dev\PetelFullApp\PetelApp.Api\obj\Debug\net9.0\PetelApp.Api.pdb
 c:\dev\PetelFullApp\PetelApp.Api\obj\Debug\net9.0\PetelApp.Api.genruntimeconfig.cache
 c:\dev\PetelFullApp\PetelApp.Api\obj\Debug\net9.0\ref\PetelApp.Api.dll
+c:\dev\PetelFullApp\PetelApp.Api\obj\Debug\net9.0\PetelApp.Api.sourcelink.json
