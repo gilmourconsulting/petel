@@ -258,7 +258,7 @@
         </form>
 
         <div class="form-footer">
-            מערכת ניהול - גרסה 1.0
+            מערכת ניהול - גרסה <span id="systemVersion">טוען...</span>
         </div>
     </div>
 
@@ -291,6 +291,7 @@
         // Load entities on page load
         document.addEventListener('DOMContentLoaded', function() {
             loadEntities();
+            loadSystemVersion();
         });
 
         // Handle entity selection
@@ -505,15 +506,23 @@
                     
                     // Store tenant-specific session data
                     sessionStorage.setItem('authToken', result.token);
-                    sessionStorage.setItem('tenantId', result.tenantId);
+                    sessionStorage.setItem('tenantId', result.tenantId.toString());
                     sessionStorage.setItem('tenantName', result.tenantName);
                     sessionStorage.setItem('userFullName', result.userFullName);
                     sessionStorage.setItem('userEmail', result.userEmail);
                     
+                    console.log('Stored session data:', {
+                        authToken: result.token,
+                        tenantId: result.tenantId,
+                        tenantName: result.tenantName,
+                        userFullName: result.userFullName,
+                        userEmail: result.userEmail
+                    });
+                    
                     // Redirect to tenant-specific dashboard
                     setTimeout(() => {
-                        alert(`התחברות בוצעה בהצלחה!\nארגון: ${result.tenantName}\nמשתמש: ${result.userFullName}\nמעביר לעמוד הראשי...`);
-                        // In real app: window.location.href = `/dashboard?tenant=${entityId}`;
+                        console.log('Redirecting to main page...');
+                        window.location.href = 'index.html'; // Redirect to main application
                     }, 1000);
                 } else {
                     // Reset step on failure
@@ -550,6 +559,25 @@
 
         function hideError() {
             errorMessage.style.display = 'none';
+        }
+
+        // Load system version from database
+        async function loadSystemVersion() {
+            try {
+                const response = await fetch('http://localhost:5082/api/test/system-version');
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('systemVersion').textContent = data.version || '1.0';
+                    console.log('System version loaded:', data.version);
+                } else {
+                    console.log('Failed to load system version, response not ok');
+                    document.getElementById('systemVersion').textContent = '1.0';
+                }
+            } catch (error) {
+                console.log('Could not load system version, using default. Error:', error);
+                document.getElementById('systemVersion').textContent = '1.0';
+            }
         }
 
         // API Integration Examples for your .NET backend:

@@ -37,7 +37,7 @@ namespace PetelApp.Api.Controllers
                     {
                         Id = e.Id,
                         Name = e.Name,
-                        Description = e.PrincipalName ?? string.Empty, // Using principal name as description
+                        Description = e.PrincipalName ?? string.Empty,
                         Address = e.Address ?? string.Empty,
                         Phone = e.Phone ?? string.Empty,
                         Email = e.Email ?? string.Empty
@@ -75,6 +75,7 @@ namespace PetelApp.Api.Controllers
                 // so we can validate tenant access if needed
                 
                 var entity = await _context.Entities
+                    .Include(e => e.EntityType)
                     .Where(e => e.Id == id && e.IsActive == true)
                     .Select(e => new EntityDetailDto
                     {
@@ -84,6 +85,7 @@ namespace PetelApp.Api.Controllers
                         Address = e.Address ?? string.Empty,
                         Phone = e.Phone ?? string.Empty,
                         Email = e.Email ?? string.Empty,
+                        EntityTypeName = e.EntityType.Name,
                         CreatedDate = e.CreatedAt,
                         IsActive = e.IsActive,
                         UserCount = e.Users.Count(u => u.IsActive == true)
@@ -181,6 +183,7 @@ namespace PetelApp.Api.Controllers
 
     public class EntityDetailDto : EntityDto
     {
+        public string EntityTypeName { get; set; } = string.Empty;
         public DateTime CreatedDate { get; set; }
         public bool IsActive { get; set; }
         public int UserCount { get; set; }

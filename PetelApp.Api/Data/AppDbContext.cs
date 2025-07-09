@@ -1,5 +1,7 @@
 // PetelApp.Api/Data/AppDbContext.cs
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace PetelApp.Api.Data
 {
@@ -12,6 +14,8 @@ namespace PetelApp.Api.Data
         // Entity tables
         public DbSet<Entity> Entities { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<SystemAttribute> SystemAttributes { get; set; }
+        public DbSet<EntityType> EntityTypes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -23,7 +27,7 @@ namespace PetelApp.Api.Data
             // Configure Entities table
             modelBuilder.Entity<Entity>(entity =>
             {
-                entity.ToTable("entities", "petel_schema"); // Add schema name
+                entity.ToTable("entities", "petel_schema");
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Id)
                     .HasColumnName("id");
@@ -61,6 +65,12 @@ namespace PetelApp.Api.Data
                     .HasColumnName("updated_at")
                     .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
+                // Foreign key to EntityType
+                entity.HasOne(e => e.EntityType)
+                    .WithMany(et => et.Entities)
+                    .HasForeignKey(e => e.EntityTypeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
                 // Index for performance
                 entity.HasIndex(e => e.IsActive);
                 entity.HasIndex(e => e.Name);
@@ -70,7 +80,7 @@ namespace PetelApp.Api.Data
             // Configure Users table
             modelBuilder.Entity<User>(entity =>
             {
-                entity.ToTable("users", "petel_schema"); // Add schema name
+                entity.ToTable("users", "petel_schema");
                 entity.HasKey(u => u.Id);
                 entity.Property(u => u.Id)
                     .HasColumnName("id");
@@ -130,6 +140,50 @@ namespace PetelApp.Api.Data
                 entity.HasIndex(u => u.IsActive);
                 entity.HasIndex(u => u.Email);
             });
+
+            // Configure SystemAttributes table
+            modelBuilder.Entity<SystemAttribute>(entity =>
+            {
+                entity.ToTable("system_attributes", "petel_schema");
+                entity.HasKey(s => s.Id);
+                entity.Property(s => s.Id)
+                    .HasColumnName("id");
+                entity.Property(s => s.Description)
+                    .HasColumnName("description")
+                    .HasMaxLength(500);
+                entity.Property(s => s.Value)
+                    .HasColumnName("value")
+                    .HasMaxLength(255);
+                entity.Property(s => s.ValueType)
+                    .HasColumnName("value_type")
+                    .HasMaxLength(50);
+                entity.Property(s => s.CreatedAt)
+                    .HasColumnName("created_at");
+                entity.Property(s => s.UpdatedAt)
+                    .HasColumnName("updated_at");
+            });
+
+            // Configure EntityTypes table
+            modelBuilder.Entity<EntityType>(entity =>
+            {
+                entity.ToTable("entity_types", "petel_schema");
+                entity.HasKey(et => et.Id);
+                entity.Property(et => et.Id)
+                    .HasColumnName("id");
+                entity.Property(et => et.Name)
+                    .HasColumnName("name")
+                    .IsRequired()
+                    .HasMaxLength(100);
+                entity.Property(et => et.Description)
+                    .HasColumnName("description")
+                    .HasMaxLength(255);
+                entity.Property(et => et.CreatedAt)
+                    .HasColumnName("created_at");
+                entity.Property(et => et.UpdatedAt)
+                    .HasColumnName("updated_at");
+
+                entity.HasIndex(et => et.Name);
+            });
         }
     }
 
@@ -151,6 +205,7 @@ namespace PetelApp.Api.Data
 
         // Navigation properties
         public virtual ICollection<User> Users { get; set; } = new List<User>();
+        public virtual EntityType EntityType { get; set; } = null!;
     }
 
     public class User
@@ -171,5 +226,27 @@ namespace PetelApp.Api.Data
 
         // Navigation properties
         public virtual Entity Entity { get; set; } = null!;
+    }
+
+    public class SystemAttribute
+    {
+        public int Id { get; set; }
+        public string? Description { get; set; }
+        public string? Value { get; set; }
+        public string? ValueType { get; set; }
+        public DateTime? CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+    }
+
+    public class EntityType
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public DateTime? CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+
+        // Navigation properties
+        public virtual ICollection<Entity> Entities { get; set; } = new List<Entity>();
     }
 }

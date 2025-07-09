@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PetelApp.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e7c5faf57467a939290e6ab156192ed08c90c7f5")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+216d5adbc7d3bda30ce7aa6b84b66f636e3c35ca")]
 [assembly: System.Reflection.AssemblyProductAttribute("PetelApp.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PetelApp.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

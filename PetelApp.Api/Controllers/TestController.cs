@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
 using PetelApp.Api.Services;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace PetelApp.Api.Controllers
 {
@@ -12,11 +14,13 @@ namespace PetelApp.Api.Controllers
     {
         private readonly AppDbContext _context;
         private readonly ITenantService _tenantService;
+        private readonly ILogger<TestController> _logger;
 
-        public TestController(AppDbContext context, ITenantService tenantService)
+        public TestController(AppDbContext context, ITenantService tenantService, ILogger<TestController> logger)
         {
             _context = context;
             _tenantService = tenantService;
+            _logger = logger;
         }
 
         [HttpGet]
@@ -33,7 +37,6 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
-                // Try to count entities
                 var entityCount = await _context.Entities.CountAsync();
                 return Ok(new { 
                     message = "Database connected!", 
@@ -50,19 +53,118 @@ namespace PetelApp.Api.Controllers
             }
         }
 
+        [HttpGet("system-version")]
+        public async Task<IActionResult> GetSystemVersion()
+        {
+            try
+            {
+                _logger.LogInformation("Getting system version from database");
+                
+                var versionAttribute = await _context.SystemAttributes
+                    .Where(s => s.Id == 1)
+                    .FirstOrDefaultAsync();
+
+                if (versionAttribute == null)
+                {
+                    _logger.LogWarning("No system attribute found with id = 1");
+                    return Ok(new { 
+                        version = "1.0",
+                        timestamp = DateTime.UtcNow,
+                        source = "default",
+                        message = "No version record found in database"
+                    });
+                }
+
+                var version = versionAttribute.Value ?? "1.0";
+                _logger.LogInformation("System version retrieved: {Version}", version);
+
+                return Ok(new { 
+                    version = version,
+                    timestamp = DateTime.UtcNow,
+                    source = "database",
+                    description = versionAttribute.Description,
+                    valueType = versionAttribute.ValueType
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting system version");
+                return StatusCode(500, new { 
+                    version = "1.0",
+                    timestamp = DateTime.UtcNow,
+                    source = "fallback",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [HttpGet("debug-system-version")]
+        public async Task<IActionResult> DebugSystemVersion()
+        {
+            try
+            {
+                _logger.LogInformation("Debug system version query");
+                
+                // Check if SystemAttributes table exists and has data
+                var allAttributes = await _context.SystemAttributes.ToListAsync();
+                
+                var systemAttribute = await _context.SystemAttributes
+                    .Where(s => s.Id == 1)
+                    .FirstOrDefaultAsync();
+
+                return Ok(new { 
+                    found = systemAttribute != null,
+                    systemAttribute = systemAttribute != null ? new {
+                        systemAttribute.Id,
+                        systemAttribute.Description,
+                        systemAttribute.Value,
+                        systemAttribute.ValueType,
+                        systemAttribute.CreatedAt,
+                        systemAttribute.UpdatedAt
+                    } : null,
+                    allAttributesCount = allAttributes.Count,
+                    allAttributes = allAttributes.Select(a => new {
+                        a.Id,
+                        a.Description,
+                        a.Value,
+                        a.ValueType,
+                        a.CreatedAt,
+                        a.UpdatedAt
+                    }),
+                    message = systemAttribute != null ? "System attribute found" : "No system attribute found with id = 1"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in debug system version");
+                return StatusCode(500, new { 
+                    error = ex.Message, 
+                    stackTrace = ex.StackTrace 
+                });
+            }
+        }
+
         [HttpPost("test-tenant-context")]
         public IActionResult TestTenantContext([FromBody] object data)
         {
-            var contextTenantId = HttpContext.Items["TenantId"]?.ToString();
-            var tenantServiceId = _tenantService.GetCurrentTenantId();
-            var headers = Request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString());
-            
-            return Ok(new {
-                contextTenantId = contextTenantId,
-                tenantServiceId = tenantServiceId,
-                xTenantIdHeader = Request.Headers.ContainsKey("X-Tenant-ID") ? Request.Headers["X-Tenant-ID"].ToString() : "Not found",
-                allHeaders = headers
-            });
+            try
+            {
+                var contextTenantId = HttpContext.Items["TenantId"]?.ToString();
+                var tenantServiceId = _tenantService.GetCurrentTenantId();
+                var headers = Request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString());
+                
+                return Ok(new {
+                    contextTenantId = contextTenantId,
+                    tenantServiceId = tenantServiceId,
+                    xTenantIdHeader = Request.Headers.ContainsKey("X-Tenant-ID") ? Request.Headers["X-Tenant-ID"].ToString() : "Not found",
+                    allHeaders = headers
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in test tenant context");
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
 
         [HttpPost("test-password")]
@@ -70,11 +172,9 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
-                // Test the current hash method
                 var computedHash = HashPassword(request.Password);
                 var isMatch = request.StoredHash == computedHash;
                 
-                // Also test if it's BCrypt
                 bool isBCryptMatch = false;
                 try
                 {
@@ -87,7 +187,7 @@ namespace PetelApp.Api.Controllers
                     storedHash = request.StoredHash,
                     computedSHA256Hash = computedHash,
                     sha256Match = isMatch,
-               //     bcryptMatch = isBCryptMatch,
+                    bcryptMatch = isBCryptMatch,
                     hashMethod = isMatch ? "SHA256" : (isBCryptMatch ? "BCrypt" : "Unknown")
                 });
             }
@@ -100,21 +200,29 @@ namespace PetelApp.Api.Controllers
         [HttpGet("check-user/{username}/{entityId}")]
         public async Task<IActionResult> CheckUser(string username, int entityId)
         {
-            var user = await _context.Users
-                .Include(u => u.Entity)
-                .Where(u => u.Username == username && u.EntityId == entityId)
-                .Select(u => new {
-                    u.Id,
-                    u.Username,
-                    u.EntityId,
-                    EntityName = u.Entity.Name,
-                    u.IsActive,
-                    HasPassword = !string.IsNullOrEmpty(u.PasswordHash),
-                    PasswordHashLength = u.PasswordHash.Length
-                })
-                .FirstOrDefaultAsync();
-                
-            return Ok(user);
+            try
+            {
+                var user = await _context.Users
+                    .Include(u => u.Entity)
+                    .Where(u => u.Username == username && u.EntityId == entityId)
+                    .Select(u => new {
+                        u.Id,
+                        u.Username,
+                        u.EntityId,
+                        EntityName = u.Entity.Name,
+                        u.IsActive,
+                        HasPassword = !string.IsNullOrEmpty(u.PasswordHash),
+                        PasswordHashLength = u.PasswordHash.Length
+                    })
+                    .FirstOrDefaultAsync();
+                    
+                return Ok(user);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error checking user {Username} in entity {EntityId}", username, entityId);
+                return StatusCode(500, new { error = ex.Message });
+            }
         }
 
         [HttpGet("entities-mock")]
@@ -131,9 +239,9 @@ namespace PetelApp.Api.Controllers
 
         private string HashPassword(string password)
         {
-            using (var sha256 = System.Security.Cryptography.SHA256.Create())
+            using (var sha256 = SHA256.Create())
             {
-                var hashedBytes = sha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(password));
+                var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
                 return Convert.ToBase64String(hashedBytes);
             }
         }
