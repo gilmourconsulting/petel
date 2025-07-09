@@ -16,6 +16,8 @@ namespace PetelApp.Api.Data
         public DbSet<User> Users { get; set; }
         public DbSet<SystemAttribute> SystemAttributes { get; set; }
         public DbSet<EntityType> EntityTypes { get; set; }
+        public DbSet<Role> Roles { get; set; }
+        public DbSet<UserRole> UserRoles { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -184,6 +186,39 @@ namespace PetelApp.Api.Data
 
                 entity.HasIndex(et => et.Name);
             });
+
+            // Configure Roles table
+            modelBuilder.Entity<Role>(entity =>
+            {
+                entity.ToTable("roles", "petel_schema");
+                entity.HasKey(r => r.Id);
+                entity.Property(r => r.Id).HasColumnName("id");
+                entity.Property(r => r.Name).HasColumnName("name").IsRequired().HasMaxLength(100);
+                entity.Property(r => r.CreatedAt).HasColumnName("created_at");
+                entity.Property(r => r.UpdatedAt).HasColumnName("updated_at");
+                entity.HasIndex(r => r.Name).IsUnique();
+            });
+
+            // Configure UserRoles table
+            modelBuilder.Entity<UserRole>(entity =>
+            {
+                entity.ToTable("user_roles", "petel_schema");
+                entity.HasKey(ur => ur.Id);
+                entity.Property(ur => ur.Id).HasColumnName("id");
+                entity.Property(ur => ur.UserId).HasColumnName("user_id").IsRequired();
+                entity.Property(ur => ur.RoleId).HasColumnName("role_id").IsRequired();
+                entity.Property(ur => ur.CreatedAt).HasColumnName("created_at");
+                entity.Property(ur => ur.UpdatedAt).HasColumnName("updated_at");
+                entity.Property(ur => ur.UpdateUser).HasColumnName("update_user");
+
+                entity.HasOne(ur => ur.User)
+                    .WithMany()
+                    .HasForeignKey(ur => ur.UserId);
+
+                entity.HasOne(ur => ur.Role)
+                    .WithMany(r => r.UserRoles)
+                    .HasForeignKey(ur => ur.RoleId);
+            });
         }
     }
 
@@ -226,6 +261,7 @@ namespace PetelApp.Api.Data
 
         // Navigation properties
         public virtual Entity Entity { get; set; } = null!;
+        public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     }
 
     public class SystemAttribute
@@ -248,5 +284,30 @@ namespace PetelApp.Api.Data
 
         // Navigation properties
         public virtual ICollection<Entity> Entities { get; set; } = new List<Entity>();
+    }
+
+    public class Role
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+
+        // Navigation
+        public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+    }
+
+    public class UserRole
+    {
+        public int Id { get; set; }
+        public int UserId { get; set; }
+        public int RoleId { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public int? UpdateUser { get; set; }
+
+        // Navigation
+        public virtual User User { get; set; } = null!;
+        public virtual Role Role { get; set; } = null!;
     }
 }

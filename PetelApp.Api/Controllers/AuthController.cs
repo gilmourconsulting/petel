@@ -5,6 +5,7 @@ using PetelApp.Api.Data;
 using PetelApp.Api.Services;
 using System.Security.Cryptography;
 using System.Text;
+using Newtonsoft.Json;
 
 namespace PetelApp.Api.Controllers
 {
@@ -62,19 +63,14 @@ namespace PetelApp.Api.Controllers
                     });
                 }
 
-                // Find user with entity relationship
+                // 1. Get user by username/email
                 var user = await _context.Users
                     .Include(u => u.Entity)
-                    .Where(u => u.Username == request.Username && 
-                               u.EntityId == request.TenantId &&
-                               u.IsActive == true)
-                    .FirstOrDefaultAsync();
+                    .FirstOrDefaultAsync(u => u.Username == request.Username && u.IsActive);
 
                 if (user == null)
                 {
-                    _logger.LogWarning("Login attempt failed: User {Username} not found in tenant {TenantId}", 
-                        request.Username, request.TenantId);
-                    
+                    // Handle invalid login
                     return Unauthorized(new LoginResponse 
                     { 
                         Success = false, 
@@ -96,6 +92,18 @@ namespace PetelApp.Api.Controllers
                         Message = "שם משתמש או סיסמה שגויים, או שאינך רשאי לגשת לארגון זה" 
                     });
                 }
+
+                // 2. Get roles for the user
+                var roleNames = await _context.UserRoles
+                    .Where(ur => ur.UserId == user.Id)
+                    .Join(_context.Roles,
+                          ur => ur.RoleId,
+                          r => r.Id,
+                          (ur, r) => r.Name)
+                    .ToListAsync();
+
+                // 3. Store roles in session (example)
+                HttpContext.Session.SetString("UserRoles", System.Text.Json.JsonSerializer.Serialize(roleNames));
 
                 // Update last login
                 user.LastLogin = DateTime.UtcNow;

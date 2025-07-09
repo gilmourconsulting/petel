@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\dev\\PetelFullApp\\PetelApp.Api\\PetelApp.Api.csproj": {}
+    "c:\\dev\\PetelFullApp\\PetelApp.Api\\PetelApp.Api.csproj": {}
   },
   "projects": {
-    "C:\\dev\\PetelFullApp\\PetelApp.Api\\PetelApp.Api.csproj": {
+    "c:\\dev\\PetelFullApp\\PetelApp.Api\\PetelApp.Api.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\dev\\PetelFullApp\\PetelApp.Api\\PetelApp.Api.csproj",
+        "projectUniqueName": "c:\\dev\\PetelFullApp\\PetelApp.Api\\PetelApp.Api.csproj",
         "projectName": "PetelApp.Api",
-        "projectPath": "C:\\dev\\PetelFullApp\\PetelApp.Api\\PetelApp.Api.csproj",
+        "projectPath": "c:\\dev\\PetelFullApp\\PetelApp.Api\\PetelApp.Api.csproj",
         "packagesPath": "C:\\Users\\Asher\\.nuget\\packages\\",
-        "outputPath": "C:\\dev\\PetelFullApp\\PetelApp.Api\\obj\\",
+        "outputPath": "c:\\dev\\PetelFullApp\\PetelApp.Api\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Asher\\AppData\\Roaming\\NuGet\\NuGet.Config"

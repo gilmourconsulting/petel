@@ -32,12 +32,21 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromHours(1);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
+
 var app = builder.Build();
 
 // Simple pipeline
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors("AllowAll");
+app.UseSession();
 
 // Add tenant middleware
 app.UseMiddleware<TenantMiddleware>();
