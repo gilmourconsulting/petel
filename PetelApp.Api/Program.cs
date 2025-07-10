@@ -20,6 +20,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<PetelApp.Api.Session.UserSessionService>();
 builder.Services.AddScoped<TenantService>();
+builder.Services.AddScoped<SystemAttributeService>();
+builder.Services.AddHostedService<SystemAttributeLoaderHostedService>();
 
 // Simple CORS for testing
 builder.Services.AddCors(options =>

@@ -564,18 +564,16 @@
         // Load system version from database
         async function loadSystemVersion() {
             try {
-                const response = await fetch('http://localhost:5082/api/test/system-version');
-                
+                const response = await fetch('http://localhost:5082/api/systemattributes');
                 if (response.ok) {
-                    const data = await response.json();
-                    document.getElementById('systemVersion').textContent = data.version || '1.0';
-                    console.log('System version loaded:', data.version);
+                    const attributes = await response.json();
+                    const versionAttr = attributes.find(attr => attr.name === "System Version");
+                    document.getElementById('systemVersion').textContent = versionAttr ? versionAttr.value : '1.0';
                 } else {
-                    console.log('Failed to load system version, response not ok');
                     document.getElementById('systemVersion').textContent = '1.0';
                 }
             } catch (error) {
-                console.log('Could not load system version, using default. Error:', error);
+                console.log('Could not load system version, using default');
                 document.getElementById('systemVersion').textContent = '1.0';
             }
         }

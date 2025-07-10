@@ -13,10 +13,10 @@ namespace PetelApp.Api.Controllers
     public class TestController : ControllerBase
     {
         private readonly AppDbContext _context;
-        private readonly ITenantService _tenantService;
+        private readonly TenantService _tenantService;
         private readonly ILogger<TestController> _logger;
 
-        public TestController(AppDbContext context, ITenantService tenantService, ILogger<TestController> logger)
+        public TestController(AppDbContext context, TenantService tenantService, ILogger<TestController> logger)
         {
             _context = context;
             _tenantService = tenantService;

@@ -81,9 +81,9 @@
                             </div>
                         </div>
                                                 <div class="context-buttons-section">
-                            <button class="context-btn">כפתור 1</button>
-                            <button class="context-btn">כפתור 2</button>
-                            <button class="context-btn">כפתור 3</button>
+                            <button class="context-btn" onclick="showSchoolYear('current')">שנה נוכחית</button>
+                            <button class="context-btn" onclick="showSchoolYear('previous')">שנה קודמת</button>
+                            <button class="context-btn" onclick="showSchoolYear('next')">שנה הבאה</button>
                         </div>
                     </div>
                         <!-- Context Buttons Section (now on the left of dashboard cards) -->
@@ -338,7 +338,56 @@
                 dashboardContent.style.display = 'none';
                 dynamicContent.style.display = 'block';
                 dynamicContent.innerHTML = '<div class="content-card"><h2>עזרה ותמיכה</h2></div>';
+            } else if (section === 'systemAttributes') {
+                document.getElementById('pageTitle').textContent = 'מאפייני מערכת';
+                document.getElementById('pageSubtitle').textContent = 'רשימת מאפייני המערכת הטעונים';
+                document.getElementById('dashboardContent').style.display = 'none';
+                document.getElementById('dynamicContent').style.display = 'block';
+
+                fetch('system-attributes.html')
+                    .then(response => response.text())
+                    .then(html => {
+                        document.getElementById('dynamicContent').innerHTML = html;
+                        loadSystemAttributes();
+                    });
             }
+        }
+
+        function loadSystemAttributes() {
+            fetch('/api/systemattributes') // Adjust the API endpoint as needed
+                .then(response => response.json())
+                .then(data => {
+                    const table = document.createElement('table');
+                    table.className = 'attributes-table';
+                    table.innerHTML = `
+                        <thead>
+                            <tr>
+                                <th>שם</th>
+                                <th>תיאור</th>
+                                <th>ערך</th>
+                                <th>סוג ערך</th>
+                                <th>עודכן לאחרונה</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.map(attr => `
+                                <tr>
+                                    <td>${attr.name}</td>
+                                    <td>${attr.description}</td>
+                                    <td>${attr.value}</td>
+                                    <td>${attr.valueType}</td>
+                                    <td>${attr.updatedAt ? new Date(attr.updatedAt).toLocaleString('he-IL') : ''}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    `;
+                    const container = document.getElementById('systemAttributesTable');
+                    container.innerHTML = '';
+                    container.appendChild(table);
+                })
+                .catch(() => {
+                    document.getElementById('systemAttributesTable').innerHTML = '<p style="color:red;">שגיאה בטעינת מאפייני מערכת.</p>';
+                });
         }
 
         // Load dashboard data
@@ -446,6 +495,60 @@
 
         // Uncomment this line to test with dummy values
         // setTestValues();
+
+        function showSchoolYear(type) {
+    // Hide dashboard and other dynamic content
+    document.getElementById('dashboardContent').style.display = 'none';
+    document.getElementById('dynamicContent').style.display = 'block';
+
+    // Load the schoolyear.html content
+    fetch('schoolyear.html')
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('dynamicContent').innerHTML = html;
+
+            // Fetch system attributes for years
+            fetch('http://localhost:5082/api/systemattributes')
+                .then(response => response.json())
+                .then(attributes => {
+                    const currentYearAttr = attributes.find(attr => attr.name === "Current Year");
+                    const previousYearAttr = attributes.find(attr => attr.name === "Previous Year");
+
+                    let label = '';
+                    if (type === 'current') {
+                        label = 'שנה נוכחית' + (currentYearAttr ? ` (${currentYearAttr.value})` : '');
+                    } else if (type === 'previous') {
+                        label = 'שנה קודמת' + (previousYearAttr ? ` (${previousYearAttr.value})` : '');
+                    } else if (type === 'next') {
+                        label = 'שנה הבאה';
+                    }
+                    document.getElementById('schoolYearInfo').textContent = label;
+                    document.getElementById('pageTitle').textContent = 'שנת לימודים';
+                    document.getElementById('pageSubtitle').textContent = label;
+                });
+        });
+}
+
+function updateContextButtonLabels() {
+    fetch('http://localhost:5082/api/systemattributes')
+        .then(response => response.json())
+        .then(attributes => {
+            const currentYearAttr = attributes.find(attr => attr.name === "Current Year");
+            const previousYearAttr = attributes.find(attr => attr.name === "Previous Year");
+
+            document.querySelector('.context-btn[onclick*="current"]').textContent =
+                'שנה נוכחית' + (currentYearAttr ? ` (${currentYearAttr.value})` : '');
+            document.querySelector('.context-btn[onclick*="previous"]').textContent =
+                'שנה קודמת' + (previousYearAttr ? ` (${previousYearAttr.value})` : '');
+            // שנה הבאה remains unchanged
+        });
+}
+
+// Call this after DOMContentLoaded
+document.addEventListener('DOMContentLoaded', function() {
+    // ...existing code...
+    updateContextButtonLabels();
+});
     </script>
 </body>
 </html>

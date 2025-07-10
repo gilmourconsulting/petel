@@ -14,7 +14,7 @@ namespace PetelApp.Api.Data
         // Entity tables
         public DbSet<Entity> Entities { get; set; }
         public DbSet<User> Users { get; set; }
-        public DbSet<SystemAttribute> SystemAttributes { get; set; }
+        public DbSet<PetelApp.Api.Models.SystemAttribute> SystemAttributes { get; set; }
         public DbSet<EntityType> EntityTypes { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<UserRole> UserRoles { get; set; }
@@ -145,25 +145,18 @@ namespace PetelApp.Api.Data
             });
 
             // Configure SystemAttributes table
-            modelBuilder.Entity<SystemAttribute>(entity =>
+            modelBuilder.Entity<PetelApp.Api.Models.SystemAttribute>(entity =>
             {
                 entity.ToTable("system_attributes", "petel_schema");
                 entity.HasKey(s => s.Id);
-                entity.Property(s => s.Id)
-                    .HasColumnName("id");
-                entity.Property(s => s.Description)
-                    .HasColumnName("description")
-                    .HasMaxLength(500);
-                entity.Property(s => s.Value)
-                    .HasColumnName("value")
-                    .HasMaxLength(255);
-                entity.Property(s => s.ValueType)
-                    .HasColumnName("value_type")
-                    .HasMaxLength(50);
-                entity.Property(s => s.CreatedAt)
-                    .HasColumnName("created_at");
-                entity.Property(s => s.UpdatedAt)
-                    .HasColumnName("updated_at");
+                entity.Property(s => s.Id).HasColumnName("id");
+                entity.Property(s => s.Name).HasColumnName("name").HasMaxLength(255); // <-- Map to "name"
+                entity.Property(s => s.Description).HasColumnName("description").HasMaxLength(500);
+                entity.Property(s => s.Value).HasColumnName("value").HasMaxLength(255);
+                entity.Property(s => s.ValueType).HasColumnName("value_type").HasMaxLength(50);
+                entity.Property(s => s.CreatedAt).HasColumnName("created_at");
+                entity.Property(s => s.UpdatedAt).HasColumnName("updated_at");
+                entity.Property(s => s.UpdateUser).HasColumnName("update_user"); // <-- Map to "update_user"
             });
 
             // Configure EntityTypes table
