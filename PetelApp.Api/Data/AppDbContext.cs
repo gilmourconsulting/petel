@@ -18,6 +18,7 @@ namespace PetelApp.Api.Data
         public DbSet<EntityType> EntityTypes { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<UserRole> UserRoles { get; set; }
+        public DbSet<RolesAction> RolesActions { get; set; } // Added DbSet for RolesAction
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -219,6 +220,23 @@ namespace PetelApp.Api.Data
                     .WithMany(r => r.UserRoles)
                     .HasForeignKey(ur => ur.RoleId);
             });
+
+            // Configure RolesActions table
+            modelBuilder.Entity<RolesAction>(entity =>
+            {
+                entity.ToTable("roles_actions", "petel_schema");
+                entity.HasKey(ra => ra.Id);
+                entity.Property(ra => ra.Id).HasColumnName("id");
+                entity.Property(ra => ra.ActionId).HasColumnName("action_id").IsRequired();
+                entity.Property(ra => ra.RoleId).HasColumnName("role_id").IsRequired();
+                entity.Property(ra => ra.ActionLevel).HasColumnName("action_level").IsRequired();
+                entity.Property(ra => ra.UpdatedAt).HasColumnName("updated_at");
+                entity.Property(ra => ra.UpdateUser).HasColumnName("update_user");
+
+                entity.HasOne(ra => ra.Role)
+                    .WithMany(r => r.RolesActions)
+                    .HasForeignKey(ra => ra.RoleId);
+            });
         }
     }
 
@@ -295,6 +313,7 @@ namespace PetelApp.Api.Data
 
         // Navigation
         public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+        public virtual ICollection<RolesAction> RolesActions { get; set; } = new List<RolesAction>(); // Added navigation property for RolesActions
     }
 
     public class UserRole
@@ -308,6 +327,19 @@ namespace PetelApp.Api.Data
 
         // Navigation
         public virtual User User { get; set; } = null!;
+        public virtual Role Role { get; set; } = null!;
+    }
+
+    public class RolesAction
+    {
+        public int Id { get; set; }
+        public int ActionId { get; set; }
+        public int RoleId { get; set; }
+        public int ActionLevel { get; set; }
+        public DateTime UpdatedAt { get; set; }
+        public int? UpdateUser { get; set; }
+
+        // Navigation
         public virtual Role Role { get; set; } = null!;
     }
 }

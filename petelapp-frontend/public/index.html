@@ -46,13 +46,6 @@
             <!-- Collapsible Side Menu - Operational Area -->
             <div id="sideMenuContainer"></div>
 
-            <!-- Context Buttons Section (left side, 25% width, 30% height) -->
-            <div class="context-buttons-section">
-                <button class="context-btn">כפתור 1</button>
-                <button class="context-btn">כפתור 2</button>
-                <button class="context-btn">כפתור 3</button>
-            </div>
-
             <!-- Main Content Area -->
             <div class="main-content">
                 <div class="content-header">
@@ -62,31 +55,38 @@
 
                 <!-- Dashboard Content -->
                 <div id="dashboardContent">
-                    <div class="dashboard-grid">
-                        <div class="dashboard-card">
-                            <div class="dashboard-card-icon">👥</div>
-                            <div class="dashboard-card-title">משתמשים פעילים</div>
-                            <div class="dashboard-card-value" id="activeUsers">-</div>
+                    <div class="dashboard-flex-row">
+
+                        <!-- Dashboard cards (now on the right in RTL) -->
+                        <div class="dashboard-grid">
+                            <div class="dashboard-card">
+                                <div class="dashboard-card-icon">👥</div>
+                                <div class="dashboard-card-title">משתמשים פעילים</div>
+                                <div class="dashboard-card-value" id="activeUsers">-</div>
+                            </div>
+                            <div class="dashboard-card">
+                                <div class="dashboard-card-icon">📋</div>
+                                <div class="dashboard-card-title">משימות פתוחות</div>
+                                <div class="dashboard-card-value" id="openTasks">-</div>
+                            </div>
+                            <div class="dashboard-card">
+                                <div class="dashboard-card-icon">📊</div>
+                                <div class="dashboard-card-title">דוחות השבוע</div>
+                                <div class="dashboard-card-value" id="weeklyReports">-</div>
+                            </div>
+                            <div class="dashboard-card">
+                                <div class="dashboard-card-icon">🔔</div>
+                                <div class="dashboard-card-title">התראות חדשות</div>
+                                <div class="dashboard-card-value" id="notifications">-</div>
+                            </div>
                         </div>
-                        
-                        <div class="dashboard-card">
-                            <div class="dashboard-card-icon">📋</div>
-                            <div class="dashboard-card-title">משימות פתוחות</div>
-                            <div class="dashboard-card-value" id="openTasks">-</div>
-                        </div>
-                        
-                        <div class="dashboard-card">
-                            <div class="dashboard-card-icon">📊</div>
-                            <div class="dashboard-card-title">דוחות השבוע</div>
-                            <div class="dashboard-card-value" id="weeklyReports">-</div>
-                        </div>
-                        
-                        <div class="dashboard-card">
-                            <div class="dashboard-card-icon">🔔</div>
-                            <div class="dashboard-card-title">התראות חדשות</div>
-                            <div class="dashboard-card-value" id="notifications">-</div>
+                                                <div class="context-buttons-section">
+                            <button class="context-btn">כפתור 1</button>
+                            <button class="context-btn">כפתור 2</button>
+                            <button class="context-btn">כפתור 3</button>
                         </div>
                     </div>
+                        <!-- Context Buttons Section (now on the left of dashboard cards) -->
 
                     <div class="content-card">
                         <h2 style="margin-bottom: 20px; color: #333;">פעילות אחרונה</h2>
@@ -282,55 +282,62 @@
             });
             event.target.closest('.menu-item').classList.add('active');
 
-            // Update page content
             const pageTitle = document.getElementById('pageTitle');
             const pageSubtitle = document.getElementById('pageSubtitle');
             const dashboardContent = document.getElementById('dashboardContent');
             const dynamicContent = document.getElementById('dynamicContent');
 
-            switch(section) {
-                case 'tasks':
-                    pageTitle.textContent = 'משימות';
-                    pageSubtitle.textContent = 'ניהול משימות יומיות ופרויקטים';
-                    dashboardContent.style.display = 'none';
-                    dynamicContent.style.display = 'block';
-                    break;
-                case 'analytics':
-                    pageTitle.textContent = 'ניתוח נתונים';
-                    pageSubtitle.textContent = 'ניתוח מתקדם של נתוני המערכת';
-                    dashboardContent.style.display = 'none';
-                    dynamicContent.style.display = 'block';
-                    break;
-                case 'dashboard':
-                    pageTitle.textContent = 'עמוד ראשי';
-                    pageSubtitle.textContent = 'ברוכים הבאים למערכת הניהול';
-                    dashboardContent.style.display = 'block';
-                    dynamicContent.style.display = 'none';
-                    break;
-                case 'users':
-                    pageTitle.textContent = 'ניהול משתמשים';
-                    pageSubtitle.textContent = 'הוספה, עריכה ומחיקה של משתמשים במערכת';
-                    dashboardContent.style.display = 'none';
-                    dynamicContent.style.display = 'block';
-                    break;
-                case 'reports':
-                    pageTitle.textContent = 'דוחות';
-                    pageSubtitle.textContent = 'צפייה ויצירה של דוחות מערכת';
-                    dashboardContent.style.display = 'none';
-                    dynamicContent.style.display = 'block';
-                    break;
-                case 'settings':
-                    pageTitle.textContent = 'הגדרות מערכת';
-                    pageSubtitle.textContent = 'ניהול הגדרות המערכת והמשתמש';
-                    dashboardContent.style.display = 'none';
-                    dynamicContent.style.display = 'block';
-                    break;
-                case 'help':
-                    pageTitle.textContent = 'עזרה ותמיכה';
-                    pageSubtitle.textContent = 'מדריכים ותמיכה טכנית';
-                    dashboardContent.style.display = 'none';
-                    dynamicContent.style.display = 'block';
-                    break;
+            // Sections to load from file
+            const sectionFiles = {
+                tasks: 'tasks.html',
+                analytics: 'analytics.html',
+                users: 'users.html',
+                reports: 'reports.html'
+            };
+
+            if (sectionFiles[section]) {
+                pageTitle.textContent = {
+                    tasks: 'משימות',
+                    analytics: 'ניתוח נתונים',
+                    users: 'ניהול משתמשים',
+                    reports: 'דוחות'
+                }[section];
+                pageSubtitle.textContent = {
+                    tasks: 'ניהול משימות יומיות ופרויקטים',
+                    analytics: 'ניתוח מתקדם של נתוני המערכת',
+                    users: 'הוספה, עריכה ומחיקה של משתמשים במערכת',
+                    reports: 'צפייה ויצירה של דוחות מערכת'
+                }[section];
+
+                dashboardContent.style.display = 'none';
+                dynamicContent.style.display = 'block';
+
+                // Load the section HTML
+                fetch(sectionFiles[section])
+                    .then(response => response.text())
+                    .then(html => {
+                        dynamicContent.innerHTML = html;
+                    })
+                    .catch(() => {
+                        dynamicContent.innerHTML = '<div class="content-card"><p>שגיאה בטעינת התוכן.</p></div>';
+                    });
+            } else if (section === 'dashboard') {
+                pageTitle.textContent = 'עמוד ראשי';
+                pageSubtitle.textContent = 'ברוכים הבאים למערכת הניהול';
+                dashboardContent.style.display = 'block';
+                dynamicContent.style.display = 'none';
+            } else if (section === 'settings') {
+                pageTitle.textContent = 'הגדרות מערכת';
+                pageSubtitle.textContent = 'ניהול הגדרות המערכת והמשתמש';
+                dashboardContent.style.display = 'none';
+                dynamicContent.style.display = 'block';
+                dynamicContent.innerHTML = '<div class="content-card"><h2>הגדרות</h2></div>';
+            } else if (section === 'help') {
+                pageTitle.textContent = 'עזרה ותמיכה';
+                pageSubtitle.textContent = 'מדריכים ותמיכה טכנית';
+                dashboardContent.style.display = 'none';
+                dynamicContent.style.display = 'block';
+                dynamicContent.innerHTML = '<div class="content-card"><h2>עזרה ותמיכה</h2></div>';
             }
         }
 

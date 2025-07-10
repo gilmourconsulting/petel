@@ -18,7 +18,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // Add your services
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<ITenantService, TenantService>();  // This should work now
+builder.Services.AddScoped<PetelApp.Api.Session.UserSessionService>();
+builder.Services.AddScoped<TenantService>();
 
 // Simple CORS for testing
 builder.Services.AddCors(options =>

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
 using PetelApp.Api.Services;
+using PetelApp.Api.Session;
 using System.Security.Cryptography;
 using System.Text;
 using Newtonsoft.Json;
@@ -14,17 +15,20 @@ namespace PetelApp.Api.Controllers
     public class AuthController : ControllerBase
     {
         private readonly AppDbContext _context;
-        private readonly ITenantService _tenantService;
+        private readonly TenantService _tenantService;
         private readonly ILogger<AuthController> _logger;
+        private readonly UserSessionService _userSessionService;
 
         public AuthController(
             AppDbContext context, 
-            ITenantService tenantService,
-            ILogger<AuthController> logger)
+            TenantService tenantService,
+            ILogger<AuthController> logger,
+            UserSessionService userSessionService)
         {
             _context = context;
             _tenantService = tenantService;
             _logger = logger;
+            _userSessionService = userSessionService;
         }
 
         [HttpPost("login")]
@@ -93,17 +97,39 @@ namespace PetelApp.Api.Controllers
                     });
                 }
 
-                // 2. Get roles for the user
-                var roleNames = await _context.UserRoles
+                // 1. Get user roles
+                var roleIdsAndNames = await _context.UserRoles
                     .Where(ur => ur.UserId == user.Id)
                     .Join(_context.Roles,
                           ur => ur.RoleId,
                           r => r.Id,
-                          (ur, r) => r.Name)
+                          (ur, r) => new { r.Id, r.Name })
                     .ToListAsync();
 
-                // 3. Store roles in session (example)
-                HttpContext.Session.SetString("UserRoles", System.Text.Json.JsonSerializer.Serialize(roleNames));
+                var roleNames = roleIdsAndNames.Select(r => r.Name).ToList();
+                var roleIds = roleIdsAndNames.Select(r => r.Id).ToList();
+
+                // 2. Get allowed actions for these roles (action_level != 0)
+                var allowedActions = await _context.RolesActions
+                    .Where(ra => roleIds.Contains(ra.RoleId) && ra.ActionLevel != 0)
+                    .Select(ra => ra.ActionId)
+                    .Distinct()
+                    .ToListAsync();
+
+                // 3. Store in user session
+                var userSession = new UserSession
+                {
+                    UserId = user.Id,
+                    UserFullName = $"{user.FirstName} {user.LastName}",
+                    UserEmail = user.Email,
+                    TenantId = request.TenantId,
+                    TenantName = user.Entity.Name,
+                    Roles = roleNames,
+                    LoginTime = DateTime.UtcNow,
+                    AllowedActions = allowedActions
+                };
+
+                _userSessionService.SetUserSession(userSession);
 
                 // Update last login
                 user.LastLogin = DateTime.UtcNow;
