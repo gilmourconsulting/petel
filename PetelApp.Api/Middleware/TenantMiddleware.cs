@@ -16,6 +16,19 @@ namespace PetelApp.Api.Middleware
 
         public async Task InvokeAsync(HttpContext context)
         {
+            var path = context.Request.Path.Value?.ToLower();
+
+            // Exclude global endpoints from tenant check
+            if (path != null && (
+                path.StartsWith("/api/systemattributes") ||
+                path.StartsWith("/swagger") ||
+                path.StartsWith("/api/health")
+            ))
+            {
+                await _next(context);
+                return;
+            }
+
             var tenantId = GetTenantId(context);
             
             if (!string.IsNullOrEmpty(tenantId))
@@ -29,11 +42,11 @@ namespace PetelApp.Api.Middleware
             {
                 // For login endpoint, tenant ID might come in the request body
                 // For other endpoints, we might require tenant context
-                var path = context.Request.Path.Value?.ToLower();
+                var requestPath = context.Request.Path.Value?.ToLower();
                 
-                if (!IsPublicEndpoint(path))
+                if (!IsPublicEndpoint(requestPath))
                 {
-                    _logger.LogWarning("No tenant context found for protected endpoint: {Path}", path);
+                    _logger.LogWarning("No tenant context found for protected endpoint: {Path}", requestPath);
                 }
             }
 

@@ -7,28 +7,27 @@ using ModelSystemAttribute = PetelApp.Api.Models.SystemAttribute;
 
 public class SystemAttributeService
 {
-    private readonly AppDbContext _context;
+    private readonly IServiceScopeFactory _scopeFactory;
     private Dictionary<string, ModelSystemAttribute> _cache = new();
-    private bool _isLoaded = false;
 
-    public SystemAttributeService(AppDbContext context)
+    public SystemAttributeService(IServiceScopeFactory scopeFactory)
     {
-        _context = context;
-    }
-
-    public async Task EnsureLoadedAsync()
-    {
-        if (!_isLoaded)
-        {
-            await LoadAttributesAsync();
-            _isLoaded = true;
-        }
+        _scopeFactory = scopeFactory;
     }
 
     public async Task LoadAttributesAsync()
     {
-        var attributes = await _context.SystemAttributes.ToListAsync();
+        using var scope = _scopeFactory.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        
+        var attributes = await context.SystemAttributes.ToListAsync();
         _cache = attributes.ToDictionary(a => a.Name, a => a);
+
+        Console.WriteLine($"Loaded {attributes.Count} system attributes");
+        foreach (var attr in attributes)
+        {
+            Console.WriteLine($"  - {attr.Name}: {attr.Value}");
+        }
     }
 
     public List<ModelSystemAttribute> GetAllAttributes()

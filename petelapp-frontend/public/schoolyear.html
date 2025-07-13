@@ -3,4 +3,83 @@
     <div id="schoolYearInfo" style="font-size: 18px; color: #667eea; text-align: center;">
         <!-- The year info will be loaded here -->
     </div>
+    
+    <!-- Add context buttons for school year -->
+    <div class="context-buttons-section" style="margin: 20px 0; text-align: center;">
+        <button class="context-btn" onclick="showSchoolYearSection('students')" style="background: #C15A16; color: #fff; border: none; margin: 0 10px;">תלמידים</button>
+        <button class="context-btn" onclick="showSchoolYearSection('personnel')" style="background: #008031; color: #fff; border: none; margin: 0 10px;">עובדי הוראה</button>
+        <button class="context-btn" onclick="showSchoolYearSection('budget')" style="background: #1D9CF3; color: #fff; border: none; margin: 0 10px;">תקציב הוראה</button>
+    </div>
+    
+    <div id="budgetDetails" style="margin-top: 32px;">
+        <h3 style="color: #333;">פרטי תקציב</h3>
+        <table style="width:100%; border-collapse:collapse;">
+            <tr>
+                <td style="font-weight:600;">גרסת תקציב:</td>
+                <td>
+                    <div id="budgetVersion"></div>
+                    <div id="budgetVersion2" style="color:#888; font-size:14px;"></div>
+                </td>
+            </tr>
+            <tr>
+                <td style="font-weight:600;">סטטוס תקציב:</td>
+                <td>
+                    <div id="budgetStatus"></div>
+                    <div id="budgetStatus2" style="color:#888; font-size:14px;"></div>
+                </td>
+            </tr>
+            <tr>
+                <td style="font-weight:600;">שם תקציב:</td>
+                <td>
+                    <div id="budgetName"></div>
+                    <div id="budgetName2" style="color:#888; font-size:14px;"></div>
+                </td>
+            </tr>
+            <tr>
+                <td style="font-weight:600;">תיאור תקציב:</td>
+                <td>
+                    <div id="budgetDescription"></div>
+                    <div id="budgetDescription2" style="color:#888; font-size:14px;"></div>
+                </td>
+            </tr>
+        </table>
+    </div>
+    
+    <!-- Content area for the selected section -->
+    <div id="schoolYearSectionContent" style="margin-top: 20px;">
+        <!-- Dynamic content will be loaded here -->
+    </div>
 </div>
+
+<script>
+function showSchoolYearSection(section) {
+    const contentDiv = document.getElementById('schoolYearSectionContent');
+    
+    switch(section) {
+        case 'students':
+            contentDiv.innerHTML = `
+                <div class="content-card">
+                    <h3 style="color: #C15A16;">תלמידים</h3>
+                    <p>מידע על תלמידים יוצג כאן</p>
+                </div>
+            `;
+            break;
+        case 'personnel':
+            contentDiv.innerHTML = `
+                <div class="content-card">
+                    <h3 style="color: #008031;">עובדי הוראה</h3>
+                    <p>מידע על עובדי הוראה יוצג כאן</p>
+                </div>
+            `;
+            break;
+        case 'budget':
+            contentDiv.innerHTML = `
+                <div class="content-card">
+                    <h3 style="color: #1D9CF3;">תקציב הוראה</h3>
+                    <p>מידע על תקציב הוראה יוצג כאן</p>
+                </div>
+            `;
+            break;
+    }
+}
+</script>

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת ניהול - עמוד ראשי</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="config.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -43,18 +44,20 @@
 
         <!-- Main Container -->
         <div class="main-container">
+                        <div id="sideMenuContainer"></div>
             <!-- Collapsible Side Menu - Operational Area -->
-            <div id="sideMenuContainer"></div>
+
 
             <!-- Main Content Area -->
             <div class="main-content">
-                <div class="content-header">
-                    <h1 class="page-title" id="pageTitle">עמוד ראשי</h1>
-                    <p class="page-subtitle" id="pageSubtitle">ברוכים הבאים למערכת הניהול</p>
-                </div>
-
+               <!-- <div class="content-header">
+                  <h1 class="page-title" id="pageTitle">עמוד ראשי</h1>
+                   <p class="page-subtitle" id="pageSubtitle">ברוכים הבאים למערכת הניהול</p> 
+                </div>-->
+  
                 <!-- Dashboard Content -->
                 <div id="dashboardContent">
+
                     <div class="dashboard-flex-row">
 
                         <!-- Dashboard cards (now on the right in RTL) -->
@@ -80,9 +83,9 @@
                                 <div class="dashboard-card-value" id="notifications">-</div>
                             </div>
                         </div>
-                                                <div class="context-buttons-section">
-                            <button class="context-btn" onclick="showSchoolYear('current')">שנה נוכחית</button>
+                        <div class="context-buttons-section">
                             <button class="context-btn" onclick="showSchoolYear('previous')">שנה קודמת</button>
+                            <button class="context-btn" onclick="showSchoolYear('current')">שנה נוכחית</button>
                             <button class="context-btn" onclick="showSchoolYear('next')">שנה הבאה</button>
                         </div>
                     </div>
@@ -109,8 +112,11 @@
                         <p style="color: #666;">תוכן העמוד ייטען כאן בהתאם לבחירה בתפריט</p>
                     </div>
                 </div>
+
             </div>
+                    
         </div>
+
     </div>
 
     <script>
@@ -247,12 +253,11 @@
         // Load system version from database
         async function loadSystemVersion() {
             try {
-                const response = await fetch('http://localhost:5082/api/test/system-version');
+                const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
                 if (response.ok) {
-                    const data = await response.json();
-                    document.getElementById('systemVersion').textContent = data.version || '1.0';
-                } else {
-                    document.getElementById('systemVersion').textContent = '1.0';
+                    const attributes = await response.json();
+                    const versionAttr = attributes.find(attr => attr.name === "System Version");
+                    document.getElementById('systemVersion').textContent = versionAttr ? versionAttr.value : '1.0';
                 }
             } catch (error) {
                 console.log('Could not load system version, using default');
@@ -274,119 +279,48 @@
             }
         }
 
-        // Navigate to different sections
-        function navigateTo(section) {
-            // Update active menu item
-            document.querySelectorAll('.menu-item').forEach(item => {
-                item.classList.remove('active');
-            });
-            event.target.closest('.menu-item').classList.add('active');
-
-            const pageTitle = document.getElementById('pageTitle');
-            const pageSubtitle = document.getElementById('pageSubtitle');
-            const dashboardContent = document.getElementById('dashboardContent');
-            const dynamicContent = document.getElementById('dynamicContent');
-
-            // Sections to load from file
-            const sectionFiles = {
-                tasks: 'tasks.html',
-                analytics: 'analytics.html',
-                users: 'users.html',
-                reports: 'reports.html'
-            };
-
-            if (sectionFiles[section]) {
-                pageTitle.textContent = {
-                    tasks: 'משימות',
-                    analytics: 'ניתוח נתונים',
-                    users: 'ניהול משתמשים',
-                    reports: 'דוחות'
-                }[section];
-                pageSubtitle.textContent = {
-                    tasks: 'ניהול משימות יומיות ופרויקטים',
-                    analytics: 'ניתוח מתקדם של נתוני המערכת',
-                    users: 'הוספה, עריכה ומחיקה של משתמשים במערכת',
-                    reports: 'צפייה ויצירה של דוחות מערכת'
-                }[section];
-
-                dashboardContent.style.display = 'none';
-                dynamicContent.style.display = 'block';
-
-                // Load the section HTML
-                fetch(sectionFiles[section])
-                    .then(response => response.text())
-                    .then(html => {
-                        dynamicContent.innerHTML = html;
-                    })
-                    .catch(() => {
-                        dynamicContent.innerHTML = '<div class="content-card"><p>שגיאה בטעינת התוכן.</p></div>';
-                    });
-            } else if (section === 'dashboard') {
-                pageTitle.textContent = 'עמוד ראשי';
-                pageSubtitle.textContent = 'ברוכים הבאים למערכת הניהול';
-                dashboardContent.style.display = 'block';
-                dynamicContent.style.display = 'none';
-            } else if (section === 'settings') {
-                pageTitle.textContent = 'הגדרות מערכת';
-                pageSubtitle.textContent = 'ניהול הגדרות המערכת והמשתמש';
-                dashboardContent.style.display = 'none';
-                dynamicContent.style.display = 'block';
-                dynamicContent.innerHTML = '<div class="content-card"><h2>הגדרות</h2></div>';
-            } else if (section === 'help') {
-                pageTitle.textContent = 'עזרה ותמיכה';
-                pageSubtitle.textContent = 'מדריכים ותמיכה טכנית';
-                dashboardContent.style.display = 'none';
-                dynamicContent.style.display = 'block';
-                dynamicContent.innerHTML = '<div class="content-card"><h2>עזרה ותמיכה</h2></div>';
-            } else if (section === 'systemAttributes') {
-                document.getElementById('pageTitle').textContent = 'מאפייני מערכת';
-                document.getElementById('pageSubtitle').textContent = 'רשימת מאפייני המערכת הטעונים';
-                document.getElementById('dashboardContent').style.display = 'none';
-                document.getElementById('dynamicContent').style.display = 'block';
-
-                fetch('system-attributes.html')
-                    .then(response => response.text())
-                    .then(html => {
-                        document.getElementById('dynamicContent').innerHTML = html;
-                        loadSystemAttributes();
-                    });
-            }
-        }
-
+        // Update loadSystemAttributes function
         function loadSystemAttributes() {
-            fetch('/api/systemattributes') // Adjust the API endpoint as needed
+            const container = document.getElementById('systemAttributesTable');
+            container.innerHTML = '<p style="color: #666;">טוען נתונים...</p>';
+            
+            fetch(AppConfig.getApiUrl('systemAttributes'))
                 .then(response => response.json())
                 .then(data => {
-                    const table = document.createElement('table');
-                    table.className = 'attributes-table';
-                    table.innerHTML = `
-                        <thead>
-                            <tr>
-                                <th>שם</th>
-                                <th>תיאור</th>
-                                <th>ערך</th>
-                                <th>סוג ערך</th>
-                                <th>עודכן לאחרונה</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${data.map(attr => `
+                    if (data && data.length > 0) {
+                        const table = document.createElement('table');
+                        table.className = 'attributes-table';
+                        table.innerHTML = `
+                            <thead>
                                 <tr>
-                                    <td>${attr.name}</td>
-                                    <td>${attr.description}</td>
-                                    <td>${attr.value}</td>
-                                    <td>${attr.valueType}</td>
-                                    <td>${attr.updatedAt ? new Date(attr.updatedAt).toLocaleString('he-IL') : ''}</td>
+                                    <th>שם</th>
+                                    <th>תיאור</th>
+                                    <th>ערך</th>
+                                    <th>סוג ערך</th>
+                                    <th>עודכן לאחרונה</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    `;
-                    const container = document.getElementById('systemAttributesTable');
-                    container.innerHTML = '';
-                    container.appendChild(table);
+                            </thead>
+                            <tbody>
+                                ${data.map(attr => `
+                                    <tr>
+                                        <td><strong>${attr.name || ''}</strong></td>
+                                        <td>${attr.description || ''}</td>
+                                        <td>${attr.value || ''}</td>
+                                        <td>${attr.valueType || ''}</td>
+                                        <td>${attr.updatedAt ? new Date(attr.updatedAt).toLocaleString('he-IL') : ''}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        `;
+                        container.innerHTML = '';
+                        container.appendChild(table);
+                    } else {
+                        container.innerHTML = '<div class="attributes-empty">אין מאפייני מערכת זמינים</div>';
+                    }
                 })
-                .catch(() => {
-                    document.getElementById('systemAttributesTable').innerHTML = '<p style="color:red;">שגיאה בטעינת מאפייני מערכת.</p>';
+                .catch(error => {
+                    console.error('Error loading system attributes:', error);
+                    container.innerHTML = '<p style="color:red; text-align: center;">שגיאה בטעינת מאפייני מערכת.</p>';
                 });
         }
 
@@ -508,11 +442,12 @@
             document.getElementById('dynamicContent').innerHTML = html;
 
             // Fetch system attributes for years
-            fetch('http://localhost:5082/api/systemattributes')
+            fetch(AppConfig.getApiUrl('systemAttributes'))
                 .then(response => response.json())
                 .then(attributes => {
                     const currentYearAttr = attributes.find(attr => attr.name === "Current Year");
                     const previousYearAttr = attributes.find(attr => attr.name === "Previous Year");
+                    const nextYearAttr = attributes.find(attr => attr.name === "Next Year");
 
                     let label = '';
                     if (type === 'current') {
@@ -520,34 +455,69 @@
                     } else if (type === 'previous') {
                         label = 'שנה קודמת' + (previousYearAttr ? ` (${previousYearAttr.value})` : '');
                     } else if (type === 'next') {
-                        label = 'שנה הבאה';
+                        label = 'שנה הבאה' + (nextYearAttr ? ` (${nextYearAttr.value})` : '');
                     }
                     document.getElementById('schoolYearInfo').textContent = label;
-                    document.getElementById('pageTitle').textContent = 'שנת לימודים';
-                    document.getElementById('pageSubtitle').textContent = label;
                 });
         });
 }
 
 function updateContextButtonLabels() {
-    fetch('http://localhost:5082/api/systemattributes')
+    fetch(AppConfig.getApiUrl('systemAttributes'))
         .then(response => response.json())
         .then(attributes => {
             const currentYearAttr = attributes.find(attr => attr.name === "Current Year");
             const previousYearAttr = attributes.find(attr => attr.name === "Previous Year");
-
-            document.querySelector('.context-btn[onclick*="current"]').textContent =
-                'שנה נוכחית' + (currentYearAttr ? ` (${currentYearAttr.value})` : '');
-            document.querySelector('.context-btn[onclick*="previous"]').textContent =
-                'שנה קודמת' + (previousYearAttr ? ` (${previousYearAttr.value})` : '');
-            // שנה הבאה remains unchanged
+            const nextYearAttr = attributes.find(attr => attr.name === "Next Year");
+            
+            // Update previous year button
+            const previousBtn = document.querySelector('.context-btn[onclick*="previous"]');
+            const previousLabel = 'שנה קודמת' + (previousYearAttr ? ` (${previousYearAttr.value})` : '');
+            previousBtn.textContent = previousLabel;
+            previousBtn.title = previousLabel; // Add tooltip
+            
+            // Update current year button
+            const currentBtn = document.querySelector('.context-btn[onclick*="current"]');
+            const currentLabel = 'שנה נוכחית' + (currentYearAttr ? ` (${currentYearAttr.value})` : '');
+            currentBtn.textContent = currentLabel;
+            currentBtn.title = currentLabel; // Add tooltip
+            
+            // Update next year button
+            const nextBtn = document.querySelector('.context-btn[onclick*="next"]');
+            const nextLabel = 'שנה הבאה' + (nextYearAttr ? ` (${nextYearAttr.value})` : '');
+            nextBtn.textContent = nextLabel;
+            nextBtn.title = nextLabel; // Add tooltip
+        })
+        .catch(error => {
+            console.error('Error loading system attributes for context buttons:', error);
         });
 }
 
-// Call this after DOMContentLoaded
+// Make sure this runs after menu.html is loaded
 document.addEventListener('DOMContentLoaded', function() {
-    // ...existing code...
-    updateContextButtonLabels();
+    // Load menu first
+    fetch('menu.html')
+        .then(response => response.text())
+        .then(html => {
+            // Insert menu into the page
+            document.getElementById('sideMenuContainer').innerHTML = html; // Fixed: was 'menuContainer'
+            
+            // Execute any scripts in the loaded HTML
+            const scripts = document.getElementById('sideMenuContainer').querySelectorAll('script');
+            scripts.forEach(script => {
+                const newScript = document.createElement('script');
+                newScript.textContent = script.textContent;
+                document.head.appendChild(newScript);
+            });
+            
+            // Then load other initialization
+            loadUserInfo();
+            loadSystemVersion();
+            updateContextButtonLabels();
+        })
+        .catch(err => {
+            console.error('Failed to load menu:', err);
+        });
 });
     </script>
 </body>

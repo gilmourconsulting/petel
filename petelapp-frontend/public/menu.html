@@ -1,4 +1,4 @@
-<div class="side-menu collapsed" id="sideMenu">
+<div class="side-menu" id="sideMenu">
     <div class="menu-header">
         <div class="menu-title">תפריט תפעולי</div>
         <button class="menu-toggle" id="menuToggleBtn" type="button" onclick="toggleMenu()">▶</button>
@@ -36,3 +36,90 @@
         </a>
     </div>
 </div>
+
+<script>
+// Navigate to different sections
+function navigateTo(section) {
+    console.log('navigateTo called with section:', section);
+    
+    try {
+        // Update active menu item
+        document.querySelectorAll('.menu-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        if (event && event.target) {
+            const menuItem = event.target.closest('.menu-item');
+            if (menuItem) {
+                menuItem.classList.add('active');
+            }
+        }
+
+        const dashboardContent = document.getElementById('dashboardContent');
+        const dynamicContent = document.getElementById('dynamicContent');
+
+        if (!dashboardContent || !dynamicContent) {
+            console.error('Required elements not found');
+            return;
+        }
+
+        // Sections to load from file
+        const sectionFiles = {
+            tasks: 'tasks.html',
+            analytics: 'analytics.html',
+            users: 'users.html',
+            reports: 'reports.html'
+        };
+
+        if (sectionFiles[section]) {
+            dashboardContent.style.display = 'none';
+            dynamicContent.style.display = 'block';
+
+            // Load the section HTML
+            fetch(sectionFiles[section])
+                .then(response => response.text())
+                .then(html => {
+                    dynamicContent.innerHTML = html;
+                })
+                .catch((error) => {
+                    console.error('Error loading section:', error);
+                    dynamicContent.innerHTML = '<div class="content-card"><p>שגיאה בטעינת התוכן.</p></div>';
+                });
+        } else if (section === 'dashboard') {
+            dashboardContent.style.display = 'block';
+            dynamicContent.style.display = 'none';
+        } else if (section === 'settings') {
+            dashboardContent.style.display = 'none';
+            dynamicContent.style.display = 'block';
+            dynamicContent.innerHTML = '<div class="content-card"><h2>הגדרות</h2></div>';
+        } else if (section === 'help') {
+            dashboardContent.style.display = 'none';
+            dynamicContent.style.display = 'block';
+            dynamicContent.innerHTML = '<div class="content-card"><h2>עזרה ותמיכה</h2></div>';
+        } else if (section === 'systemAttributes') {
+            dashboardContent.style.display = 'none';
+            dynamicContent.style.display = 'block';
+
+            fetch('system-attributes.html')
+                .then(response => response.text())
+                .then(html => {
+                    dynamicContent.innerHTML = html;
+                    // Make sure loadSystemAttributes function exists
+                    if (typeof loadSystemAttributes === 'function') {
+                        loadSystemAttributes();
+                    } else {
+                        console.error('loadSystemAttributes function not found');
+                    }
+                })
+                .catch((error) => {
+                    console.error('Error loading system attributes:', error);
+                });
+        }
+    } catch (error) {
+        console.error('Error in navigateTo:', error);
+    }
+}
+
+// Make navigateTo globally available
+window.navigateTo = navigateTo;
+</script>

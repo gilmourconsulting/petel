@@ -1,6 +1,70 @@
 <div class="content-card">
-    <h2 style="margin-bottom: 20px; color: #333;">מאפייני מערכת</h2>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h2 style="margin: 0; color: #333;">מאפייני מערכת</h2>
+        <button id="reloadAttributesBtn" style="background: #1D9CF3; color: #fff; border: none; border-radius: 6px; padding: 8px 18px; font-size: 16px; cursor: pointer;">
+            טען מחדש מאפייני מערכת
+        </button>
+    </div>
     <div id="systemAttributesTable">
         <p style="color: #666;">טוען נתונים...</p>
     </div>
 </div>
+<script>
+document.getElementById('reloadAttributesBtn').onclick = function() {
+    this.textContent = 'טוען...';
+    this.disabled = true;
+    
+    fetch(AppConfig.getApiUrl('systemAttributesRefresh'), { method: 'POST' })
+        .then(response => {
+            if (response.ok) {
+                loadSystemAttributes();
+            }
+        })
+        .catch(error => {
+            console.error('Error refreshing attributes:', error);
+        })
+        .finally(() => {
+            this.textContent = 'טען מחדש מאפייני מערכת';
+            this.disabled = false;
+        });
+};
+
+        function loadSystemAttributes() {
+            fetch(AppConfig.getApiUrl('systemAttributes'))
+                .then(response => response.json())
+                .then(data => {
+                    const table = document.createElement('table');
+                    table.className = 'attributes-table';
+                    table.innerHTML = `
+                        <thead>
+                            <tr>
+                                <th>שם</th>
+                                <th>תיאור</th>
+                                <th>ערך</th>
+                                <th>סוג ערך</th>
+                                <th>עודכן לאחרונה</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.map(attr => `
+                                <tr>
+                                    <td>${attr.name}</td>
+                                    <td>${attr.description}</td>
+                                    <td>${attr.value}</td>
+                                    <td>${attr.valueType}</td>
+                                    <td>${attr.updatedAt ? new Date(attr.updatedAt).toLocaleString('he-IL') : ''}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    `;
+                    const container = document.getElementById('systemAttributesTable');
+                    container.innerHTML = '';
+                    container.appendChild(table);
+                })
+                .catch(error => {
+                    console.error('Error loading system attributes:', error);
+                    document.getElementById('systemAttributesTable').innerHTML = '<p style="color:red;">שגיאה בטעינת מאפייני מערכת.</p>';
+                });
+        }
+</script>
+

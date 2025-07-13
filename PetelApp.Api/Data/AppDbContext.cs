@@ -206,7 +206,7 @@ namespace PetelApp.Api.Data
                 entity.Property(ur => ur.UpdateUser).HasColumnName("update_user");
 
                 entity.HasOne(ur => ur.User)
-                    .WithMany()
+                    .WithMany(u => u.UserRoles)
                     .HasForeignKey(ur => ur.UserId);
 
                 entity.HasOne(ur => ur.Role)

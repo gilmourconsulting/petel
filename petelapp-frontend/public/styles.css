@@ -423,6 +423,27 @@ body {
     color: #fff;
 }
 
+/* Add to your styles.css or in a <style> block in index.html */
+
+/* Target the context buttons by their order */
+.context-buttons-section .context-btn:nth-child(1) {
+    background: #C15A16;
+    color: #fff;
+    border: none;
+}
+
+.context-buttons-section .context-btn:nth-child(2) {
+    background: #008031;
+    color: #fff;
+    border: none;
+}
+
+.context-buttons-section .context-btn:nth-child(3) {
+    background: #1D9CF3;
+    color: #fff;
+    border: none;
+}
+
 /* Responsive: stack context buttons above dashboard cards on small screens */
 @media (max-width: 900px) {
     .dashboard-flex-row {
@@ -469,4 +490,55 @@ body {
     .main-container {
         height: calc(100vh - 80px);
     }
+}
+
+.attributes-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.attributes-table th {
+    background: #667eea;
+    color: white;
+    padding: 12px 15px;
+    text-align: right;
+    font-weight: 600;
+    border-bottom: 2px solid #5a6fd8;
+}
+
+.attributes-table td {
+    padding: 12px 15px;
+    text-align: right;
+    border-bottom: 1px solid #eee;
+    vertical-align: top;
+}
+
+.attributes-table tr:nth-child(even) {
+    background-color: #f8f9ff;
+}
+
+.attributes-table tr:hover {
+    background-color: #f0f4ff;
+}
+
+.attributes-table tr:last-child td {
+    border-bottom: none;
+}
+
+.attributes-table th:first-child,
+.attributes-table td:first-child {
+    border-right: none;
+}
+
+/* Empty state styling */
+.attributes-empty {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+    font-style: italic;
 }

@@ -13,10 +13,16 @@ public class SystemAttributesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    public IActionResult GetAll()
     {
-        await _service.EnsureLoadedAsync();
         var attributes = _service.GetAllAttributes();
         return Ok(attributes);
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh()
+    {
+        await _service.LoadAttributesAsync();
+        return Ok(new { success = true });
     }
 }

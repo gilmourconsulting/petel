@@ -18,17 +18,20 @@ namespace PetelApp.Api.Controllers
         private readonly TenantService _tenantService;
         private readonly ILogger<AuthController> _logger;
         private readonly UserSessionService _userSessionService;
+        private readonly SystemAttributeService _systemAttributeService; // Add service for system attributes
 
         public AuthController(
             AppDbContext context, 
             TenantService tenantService,
             ILogger<AuthController> logger,
-            UserSessionService userSessionService)
+            UserSessionService userSessionService,
+            SystemAttributeService systemAttributeService) // Inject the service
         {
             _context = context;
             _tenantService = tenantService;
             _logger = logger;
             _userSessionService = userSessionService;
+            _systemAttributeService = systemAttributeService; // Initialize the service
         }
 
         [HttpPost("login")]
@@ -74,12 +77,13 @@ namespace PetelApp.Api.Controllers
 
                 if (user == null)
                 {
-                    // Handle invalid login
-                    return Unauthorized(new LoginResponse 
-                    { 
-                        Success = false, 
-                        Message = "שם משתמש או סיסמה שגויים, או שאינך רשאי לגשת לארגון זה" 
-                    });
+                    return Unauthorized("User not found.");
+                }
+
+                // Check that the user belongs to the selected entity
+                if (user.EntityId != request.TenantId)
+                {
+                    return Unauthorized("User does not belong to the selected entity.");
                 }
 
                 _logger.LogInformation("Found user {Username} with hash: {Hash}", user.Username, user.PasswordHash);

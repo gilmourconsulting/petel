@@ -2,8 +2,8 @@ using Hangfire;
 using Hangfire.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
-using PetelApp.Api.Services;        // Add this line
-using PetelApp.Api.Middleware;      // Add this line if not already there
+using PetelApp.Api.Services;        
+using PetelApp.Api.Middleware;      
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,7 +20,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<PetelApp.Api.Session.UserSessionService>();
 builder.Services.AddScoped<TenantService>();
-builder.Services.AddScoped<SystemAttributeService>();
+builder.Services.AddSingleton<SystemAttributeService>();
 builder.Services.AddHostedService<SystemAttributeLoaderHostedService>();
 
 // Simple CORS for testing
@@ -46,10 +46,13 @@ builder.Services.AddSession(options =>
 var app = builder.Build();
 
 // Simple pipeline
+app.UseRouting();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors("AllowAll");
 app.UseSession();
+
+app.UseAuthorization();
 
 // Add tenant middleware
 app.UseMiddleware<TenantMiddleware>();

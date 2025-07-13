@@ -7,7 +7,7 @@ namespace PetelApp.Api.Controllers
     {
         protected string GetTenantId()
         {
-            return HttpContext.Items["TenantId"]?.ToString();
+            return HttpContext.Items["TenantId"]?.ToString() ?? string.Empty;
         }
 
         protected bool HasTenantContext()
