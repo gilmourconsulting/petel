@@ -1,4 +1,4 @@
-<div class="side-menu" id="sideMenu">
+<div class="side-menu collapsed" id="sideMenu">
     <div class="menu-header">
         <div class="menu-title">תפריט תפעולי</div>
         <button class="menu-toggle" id="menuToggleBtn" type="button" onclick="toggleMenu()">▶</button>
@@ -38,9 +38,17 @@
 </div>
 
 <script>
-// Navigate to different sections
-function navigateTo(section) {
-    console.log('navigateTo called with section:', section);
+// Navigation functions for browser history and button functionality
+
+
+// Main navigation function
+function navigateTo(section, fromPopstate = false) {
+    console.log('navigateTo called with section:', section, 'fromPopstate:', fromPopstate);
+    
+    // Only add to browser history if NOT called from popstate event
+    if (!fromPopstate) {
+        history.pushState({page: section}, '', `#${section}`);
+    }
     
     try {
         // Update active menu item
@@ -48,11 +56,10 @@ function navigateTo(section) {
             item.classList.remove('active');
         });
         
-        if (event && event.target) {
-            const menuItem = event.target.closest('.menu-item');
-            if (menuItem) {
-                menuItem.classList.add('active');
-            }
+        // Better active menu item selection
+        const activeMenuItem = document.querySelector(`.menu-item[onclick*="${section}"]`);
+        if (activeMenuItem) {
+            activeMenuItem.classList.add('active');
         }
 
         const dashboardContent = document.getElementById('dashboardContent');
@@ -120,6 +127,107 @@ function navigateTo(section) {
     }
 }
 
-// Make navigateTo globally available
+
+// School Year Section Function
+function showSchoolYearSection(section) {
+    console.log('showSchoolYearSection called with:', section);
+    
+    const contentDiv = document.getElementById('schoolYearSectionContent');
+    const dynamicContent = document.getElementById('dynamicContent');
+    
+    if (!contentDiv) {
+        console.error('schoolYearSectionContent element not found');
+        return;
+    }
+    
+    switch(section) {
+        case 'students':
+            // Add to browser history
+            history.pushState({page: 'students', fromSchoolYear: true}, '', '#students');
+            
+            // Load the students screen
+            if (dynamicContent) {
+                // If we're in the main layout, use dynamic content
+                document.getElementById('dashboardContent').style.display = 'none';
+                dynamicContent.style.display = 'block';
+                
+                fetch('students.html')
+                    .then(response => response.text())
+                    .then(html => {
+                        dynamicContent.innerHTML = html;
+                        
+                        // Update the students title with school year info
+                        setTimeout(() => {
+                            const studentsTitle = document.getElementById('studentsTitle');
+                            if (studentsTitle && window.currentSchoolYear) {
+                                studentsTitle.textContent = `תלמידים - ${window.currentSchoolYear.label}`;
+                            }
+                        }, 100);
+                        
+                        // Execute scripts in the loaded HTML
+                        const scripts = dynamicContent.querySelectorAll('script');
+                        scripts.forEach(script => {
+                            const newScript = document.createElement('script');
+                            newScript.textContent = script.textContent;
+                            document.head.appendChild(newScript);
+                        });
+                    })
+                    .catch(error => {
+                        console.error('Error loading students page:', error);
+                        dynamicContent.innerHTML = '<div class="content-card"><p>שגיאה בטעינת עמוד התלמידים</p></div>';
+                    });
+            } else {
+                // If we're in the school year page, show inline
+                contentDiv.innerHTML = `
+                    <div class="content-card">
+                        <h3 style="color: #C15A16;">תלמידים</h3>
+                        <p>מידע על תלמידים - <a href="#" onclick="navigateTo('students')">עבור לעמוד התלמידים המלא</a></p>
+                    </div>
+                `;
+            }
+            break;
+        case 'personnel':
+            contentDiv.innerHTML = `
+                <div class="content-card">
+                    <h3 style="color: #008031;">עובדי הוראה</h3>
+                    <p>מידע על עובדי הוראה יוצג כאן</p>
+                </div>
+            `;
+            break;
+        case 'budget':
+            contentDiv.innerHTML = `
+                <div class="content-card">
+                    <h3 style="color: #1D9CF3;">תקציב שעות הוראה</h3>
+                    <p>מידע על תקציב שעות הוראה יוצג כאן</p>
+                </div>
+            `;
+            break;
+        default:
+            contentDiv.innerHTML = `
+                <div class="content-card">
+                    <p>בחר אחת מהאפשרויות למעלה</p>
+                </div>
+            `;
+    }
+}
+
+// Toggle side menu function 
+function toggleMenu() {
+    const sideMenu = document.getElementById('sideMenu');
+    console.log('Toggling menu. Current state:', sideMenu.classList.contains('collapsed'));
+    
+    if (sideMenu.classList.contains('collapsed')) {
+        sideMenu.classList.remove('collapsed');
+        console.log('Menu expanded');
+    } else {
+        sideMenu.classList.add('collapsed');
+        console.log('Menu collapsed');
+    }
+}
+
+// Make functions globally available
+
 window.navigateTo = navigateTo;
+window.showSchoolYearSection = showSchoolYearSection;
+window.toggleMenu = toggleMenu;
 </script>

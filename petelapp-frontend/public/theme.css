@@ -1,0 +1,83 @@
+:root {
+    /* Font Theme */
+    --primary-font: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    --font-size-base: 14px;
+    --font-size-small: 12px;
+    --font-size-medium: 16px;
+    --font-size-large: 18px;
+    --font-size-xl: 24px;
+    --font-size-xxl: 28px;
+
+    /* Bar Colors (Top Bar) */
+    --bar-background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --bar-text-color: white;
+    --bar-text-opacity: 0.9;
+    --bar-border-color: rgba(255, 255, 255, 0.3);
+    --bar-hover-background: rgba(255, 255, 255, 0.2);
+
+    /* Button Colors */
+    --button-primary-color: #667eea;
+    --button-primary-hover: #5a6fd8;
+    --button-text-color: white;
+    --button-border-radius: 6px;
+    --button-padding: 8px 16px;
+    --button-transition: all 0.3s ease;
+
+    /* Table Header Color (same as button primary) */
+    --table-header-background: var(--button-primary-color);
+    --table-header-border: var(--button-primary-hover);
+    --table-header-text: white;
+
+    /* Context Button Colors (in order) */
+    --context-btn-color-1: #C15A16;
+    --context-btn-color-2: #008031;
+    --context-btn-color-3: #1D9CF3;
+    --context-btn-text: white;
+
+    /* Background Colors */
+    --main-background: #f5f7fa;
+    --card-background: white;
+    --menu-background: white;
+    --context-section-background: #f0f4fa;
+
+    /* Border and Shadow */
+    --border-radius: 8px;
+    --border-radius-large: 12px;
+    --box-shadow-light: 0 2px 8px rgba(0,0,0,0.1);
+    --box-shadow-medium: 0 2px 10px rgba(0, 0, 0, 0.05);
+    --box-shadow-strong: 0 8px 25px rgba(0, 0, 0, 0.1);
+    --border-color: #e1e5e9;
+    --border-color-light: #eee;
+
+    /* Text Colors */
+    --text-primary: #333;
+    --text-secondary: #555;
+    --text-muted: #666;
+    --text-light: #999;
+    --text-accent: var(--button-primary-color);
+
+    /* Interactive States */
+    --hover-background: #f8f9ff;
+    --hover-background-light: #f0f4ff;
+    --active-border: var(--button-primary-color);
+    --input-focus-color: var(--button-primary-color);
+    --input-focus-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+
+    /* Responsive Breakpoints */
+    --mobile-breakpoint: 768px;
+    --tablet-breakpoint: 900px;
+}
+
+/* Alternative Theme Example (uncomment to use) */
+/*
+:root {
+    --primary-font: 'Arial', sans-serif;
+    --bar-background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    --button-primary-color: #3498db;
+    --button-primary-hover: #2980b9;
+    --context-btn-color-1: #e74c3c;
+    --context-btn-color-2: #27ae60;
+    --context-btn-color-3: #f39c12;
+    --main-background: #ecf0f1;
+}
+*/

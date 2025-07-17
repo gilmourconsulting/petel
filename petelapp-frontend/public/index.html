@@ -4,8 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>מערכת ניהול - עמוד ראשי</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="petel_logo.png">
+    <link rel="shortcut icon" type="image/png" href="petel_logo.png">
+    <!-- Load theme first, then main styles -->
+    <link rel="stylesheet" href="theme.css">
     <link rel="stylesheet" href="styles.css">
     <script src="config.js"></script>
+    <script src="table-component.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -14,8 +20,10 @@
             <!-- Left Side: System Logo and Info -->
             <div class="top-bar-left">
                 <div class="system-logo-section">
-                    <div class="system-logo">
-                        <img src="petel_logo.png" alt="לוגו המערכת" />
+                    <div class="system-logo" style="cursor: pointer;" onclick="navigateTo('dashboard')" title="חזור לעמוד הראשי">
+                        <img src="petel_logo.png" alt="לוגו המערכת" style="transition: opacity 0.2s;" 
+                             onmouseover="this.style.opacity='0.8'" 
+                             onmouseout="this.style.opacity='1'" />
                     </div>
                     <div class="system-info">
                         <div class="app-title">מערכת ניהול</div>
@@ -57,6 +65,13 @@
   
                 <!-- Dashboard Content -->
                 <div id="dashboardContent">
+                    
+                    <!-- Navigation Link to Main Page -->
+                    <div class="content-card" style="margin-bottom: 20px; text-align: center;">
+                        <a href="#dashboard" onclick="navigateTo('dashboard')" style="text-decoration: none; color: #667eea; font-weight: bold; font-size: 18px;">
+                            🏠 עמוד ראשי
+                        </a>
+                    </div>
 
                     <div class="dashboard-flex-row">
 
@@ -136,6 +151,11 @@
                 loadUserInfo();
                 loadSystemVersion();
                 loadDashboardData();
+                
+                // Set initial history state for dashboard
+                if (!history.state) {
+                    history.replaceState({page: 'dashboard'}, '', '#dashboard');
+                }
             }, 100);
         });
 
@@ -431,6 +451,9 @@
         // setTestValues();
 
         function showSchoolYear(type) {
+    // Add to browser history
+    history.pushState({page: 'schoolyear', type: type}, '', '#schoolyear');
+    
     // Hide dashboard and other dynamic content
     document.getElementById('dashboardContent').style.display = 'none';
     document.getElementById('dynamicContent').style.display = 'block';
@@ -450,14 +473,49 @@
                     const nextYearAttr = attributes.find(attr => attr.name === "Next Year");
 
                     let label = '';
+                    let yearValue = '';
+                    let yearId = null;
+                    let selectedAttr = null;
+                    
                     if (type === 'current') {
+                        selectedAttr = currentYearAttr;
                         label = 'שנה נוכחית' + (currentYearAttr ? ` (${currentYearAttr.value})` : '');
+                        yearValue = currentYearAttr ? currentYearAttr.value : '';
+                        yearId = currentYearAttr ? currentYearAttr.id : null;
                     } else if (type === 'previous') {
+                        selectedAttr = previousYearAttr;
                         label = 'שנה קודמת' + (previousYearAttr ? ` (${previousYearAttr.value})` : '');
+                        yearValue = previousYearAttr ? previousYearAttr.value : '';
+                        yearId = previousYearAttr ? previousYearAttr.id : null;
                     } else if (type === 'next') {
+                        selectedAttr = nextYearAttr;
                         label = 'שנה הבאה' + (nextYearAttr ? ` (${nextYearAttr.value})` : '');
+                        yearValue = nextYearAttr ? nextYearAttr.value : '';
+                        yearId = nextYearAttr ? nextYearAttr.id : null;
                     }
-                    document.getElementById('schoolYearInfo').textContent = label;
+                    
+                    // Update the main school year title with the concatenated year info
+                    const schoolYearTitle = document.getElementById('schoolYearTitle');
+                    if (schoolYearTitle) {
+                        schoolYearTitle.textContent = `שנת לימודים - ${label}`;
+                    }
+                    
+                    // Store current school year info globally for use in other functions
+                    window.currentSchoolYear = {
+                        type: type,
+                        label: label,
+                        value: yearValue,
+                        id: yearId,
+                        fullAttribute: selectedAttr
+                    };
+                    
+                    console.log('School year data stored:', window.currentSchoolYear);
+                    
+                    // Dispatch custom event to notify other components about school year change
+                    const schoolYearEvent = new CustomEvent('schoolYearChanged', {
+                        detail: window.currentSchoolYear
+                    });
+                    window.dispatchEvent(schoolYearEvent);
                 });
         });
 }
@@ -519,6 +577,60 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Failed to load menu:', err);
         });
 });
+
+// Handle browser back/forward buttons
+window.addEventListener('popstate', function(event) {
+    console.log('Browser back/forward button pressed', event.state);
+ 
+    if (event.state) {
+        const page = event.state.page;
+        console.log('Navigating to page from history:', page);
+        
+        switch(page) {
+            case 'dashboard':
+                navigateTo('dashboard', true);
+                break;
+            case 'schoolyear':
+                if (event.state.type) {
+                    showSchoolYear(event.state.type);
+                }
+                break;
+            case 'students':
+                navigateTo('students', true);
+                break;
+            case 'tasks':
+                navigateTo('tasks', true);
+                break;
+            case 'analytics':
+                navigateTo('analytics', true);
+                break;
+            case 'users':
+                navigateTo('users', true);
+                break;
+            case 'reports':
+                navigateTo('reports', true);
+                break;
+            case 'systemAttributes':
+                navigateTo('systemAttributes', true);
+                break;
+            case 'settings':
+                navigateTo('settings', true);
+                break;
+            case 'help':
+                navigateTo('help', true);
+                break;
+            default:
+                console.log('Unknown page in history:', page);
+                navigateTo('dashboard', true);
+        }
+    } else {
+        // If no state, go to dashboard
+      //  navigateTo('dashboard');
+    }
+});
+
+// Make loadSystemAttributes globally available (since it's used by menu navigation)
+window.loadSystemAttributes = loadSystemAttributes;
     </script>
 </body>
 </html>

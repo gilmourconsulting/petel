@@ -1,0 +1,247 @@
+<div class="students-container">
+    <!-- Main content area -->
+    <div class="students-content">
+        <div class="content-card">
+            <h2 id="studentsTitle" style="margin-bottom: 20px; color: #C15A16;">תלמידים</h2>
+            
+            <!-- Students summary info -->
+            <div class="students-summary" style="margin-bottom: 30px;">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <div class="summary-icon">👥</div>
+                        <div class="summary-info">
+                            <div class="summary-value" id="totalStudents">0</div>
+                            <div class="summary-label">סה"כ תלמידים</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">✅</div>
+                        <div class="summary-info">
+                            <div class="summary-value" id="activeStudents">0</div>
+                            <div class="summary-label">תלמידים פעילים</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">📚</div>
+                        <div class="summary-info">
+                            <div class="summary-value" id="totalClasses">0</div>
+                            <div class="summary-label">כיתות</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">📊</div>
+                        <div class="summary-info">
+                            <div class="summary-value" id="averageAge">0</div>
+                            <div class="summary-label">גיל ממוצע</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Students table -->
+            <div class="students-table-section">
+                <h3 style="color: #333; margin-bottom: 15px;">רשימת תלמידים</h3>
+                <div id="studentsTableContainer">
+                    <!-- Table will be rendered here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context buttons for students actions -->
+    <div class="context-buttons-section students-context">
+        <button class="context-btn" onclick="showStudentSection('overview')" style="background: #C15A16; color: #fff;">סקירה כללית</button>
+        <button class="context-btn" onclick="showStudentSection('grades')" style="background: #008031; color: #fff;">ציונים</button>
+        <button class="context-btn" onclick="showStudentSection('attendance')" style="background: #1D9CF3; color: #fff;">נוכחות</button>
+        <button class="context-btn" onclick="showStudentSection('reports')" style="background: #9C27B0; color: #fff;">דוחות</button>
+    </div>
+</div>
+
+<script>
+// Load students data when the page loads
+function loadStudentsData() {
+    // Check if we have school year information and update the title
+    updateStudentsTitle();
+    
+    // Sample students data - replace with API call
+    const studentsData = [
+        { id: 1, name: 'יוסי כהן', class: 'כיתה א', age: 6, status: 'פעיל', gender: 'זכר', enrollmentDate: '2024-09-01' },
+        { id: 2, name: 'שרה לוי', class: 'כיתה א', age: 6, status: 'פעיל', gender: 'נקבה', enrollmentDate: '2024-09-01' },
+        { id: 3, name: 'דוד משה', class: 'כיתה ב', age: 7, status: 'פעיל', gender: 'זכר', enrollmentDate: '2024-09-01' },
+        { id: 4, name: 'מירי אברהם', class: 'כיתה ב', age: 7, status: 'לא פעיל', gender: 'נקבה', enrollmentDate: '2024-09-01' },
+        { id: 5, name: 'אבי יעקב', class: 'כיתה ג', age: 8, status: 'פעיל', gender: 'זכר', enrollmentDate: '2024-09-01' }
+    ];
+
+    // Update summary statistics
+    updateStudentsSummary(studentsData);
+
+    // Create and render the students table
+    createStudentsTable(studentsData);
+}
+
+// Update the students title with school year information
+function updateStudentsTitle() {
+    const studentsTitle = document.getElementById('studentsTitle');
+    if (studentsTitle) {
+        if (window.currentSchoolYear && window.currentSchoolYear.label) {
+            studentsTitle.textContent = `תלמידים - ${window.currentSchoolYear.label}`;
+            console.log('Updated students title with school year:', window.currentSchoolYear.label);
+        } else {
+            studentsTitle.textContent = 'תלמידים';
+            console.log('No school year information available, using default title');
+        }
+    }
+}
+
+// Update summary statistics
+function updateStudentsSummary(data) {
+    const totalStudents = data.length;
+    const activeStudents = data.filter(s => s.status === 'פעיל').length;
+    const totalClasses = [...new Set(data.map(s => s.class))].length;
+    const averageAge = (data.reduce((sum, s) => sum + s.age, 0) / data.length).toFixed(1);
+
+    document.getElementById('totalStudents').textContent = totalStudents;
+    document.getElementById('activeStudents').textContent = activeStudents;
+    document.getElementById('totalClasses').textContent = totalClasses;
+    document.getElementById('averageAge').textContent = averageAge;
+}
+
+// Create students table using the reusable table component
+function createStudentsTable(data) {
+    const columns = [
+        { key: 'id', label: 'מזהה', readOnly: true, filterAllowed: false },
+        { key: 'name', label: 'שם התלמיד', readOnly: false },
+        { key: 'class', label: 'כיתה', readOnly: false, filterAllowed: true },
+        { key: 'age', label: 'גיל', readOnly: false, filterAllowed: true },
+        { key: 'gender', label: 'מגדר', readOnly: false, filterAllowed: true },
+        { key: 'status', label: 'סטטוס', readOnly: false, filterAllowed: true },
+        { key: 'enrollmentDate', label: 'תאריך הרשמה', readOnly: true, filterAllowed: false }
+    ];
+
+    // Create table instance
+    const studentsTable = new ReusableTable('studentsTableContainer', { 
+        readOnly: false,
+        tableName: 'students'
+    });
+    studentsTable.init(data, columns);
+
+    // Set save callback
+    studentsTable.onSave = (updatedData) => {
+        console.log('Saving students data:', updatedData);
+        // Here you would typically send the data to your backend API
+        // updateStudentsAPI(updatedData);
+        updateStudentsSummary(updatedData);
+    };
+}
+
+// Handle student section navigation
+function showStudentSection(section) {
+    // Remove active state from all buttons
+    document.querySelectorAll('.students-context .context-btn').forEach(btn => {
+        btn.style.opacity = '0.7';
+    });
+    
+    // Add active state to clicked button
+    event.target.style.opacity = '1';
+    
+    // Show content based on section
+    const contentDiv = document.getElementById('studentsTableContainer');
+    
+    switch(section) {
+        case 'overview':
+            loadStudentsData(); // Reload main table
+            break;
+        case 'grades':
+            contentDiv.innerHTML = `
+                <div class="content-card">
+                    <h3 style="color: #008031;">ציונים</h3>
+                    <p>מערכת ניהול ציונים תלמידים</p>
+                    <div style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                        <p>כאן יוצגו ציוני התלמידים, ממוצעים ואנליזות הישגים</p>
+                    </div>
+                </div>
+            `;
+            break;
+        case 'attendance':
+            contentDiv.innerHTML = `
+                <div class="content-card">
+                    <h3 style="color: #1D9CF3;">נוכחות</h3>
+                    <p>מערכת מעקב נוכחות תלמידים</p>
+                    <div style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                        <p>כאן יוצגו נתוני נוכחות, היעדרויות וסטטיסטיקות</p>
+                    </div>
+                </div>
+            `;
+            break;
+        case 'reports':
+            contentDiv.innerHTML = `
+                <div class="content-card">
+                    <h3 style="color: #9C27B0;">דוחות</h3>
+                    <p>דוחות ואנליזות נתונים</p>
+                    <div style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                        <p>כאן יוצגו דוחות מתקדמים, גרפים וסטטיסטיקות</p>
+                    </div>
+                </div>
+            `;
+            break;
+    }
+}
+
+// Initialize the page when loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Debug: Check if we have school year information
+    console.log('Students page loading...');
+    console.log('Available school year data:', window.currentSchoolYear);
+    
+    loadStudentsData();
+});
+
+// Also listen for custom events when school year changes
+window.addEventListener('schoolYearChanged', function(event) {
+    console.log('School year changed event received:', event.detail);
+    updateStudentsTitle();
+});
+
+// Debug function to check school year state
+function debugSchoolYear() {
+    console.log('=== School Year Debug ===');
+    console.log('Current URL:', window.location.href);
+    console.log('window.currentSchoolYear:', window.currentSchoolYear);
+    console.log('Students title element:', document.getElementById('studentsTitle'));
+    console.log('Students title text:', document.getElementById('studentsTitle')?.textContent);
+    console.log('=== End Debug ===');
+}
+
+// Test function to simulate school year change
+function testSchoolYearChange() {
+    console.log('Testing school year change...');
+    
+    // Simulate setting school year data
+    window.currentSchoolYear = {
+        type: 'current',
+        label: 'שנה נוכחית (2024-2025)',
+        value: '2024-2025',
+        id: 1
+    };
+    
+    console.log('Set test school year:', window.currentSchoolYear);
+    
+    // Update the title
+    updateStudentsTitle();
+    
+    // Dispatch the event
+    const schoolYearEvent = new CustomEvent('schoolYearChanged', {
+        detail: window.currentSchoolYear
+    });
+    window.dispatchEvent(schoolYearEvent);
+    
+    console.log('School year change test completed');
+}
+
+// Make functions globally available
+window.loadStudentsData = loadStudentsData;
+window.showStudentSection = showStudentSection;
+window.updateStudentsTitle = updateStudentsTitle;
+window.debugSchoolYear = debugSchoolYear;
+window.testSchoolYearChange = testSchoolYearChange;
+</script>
