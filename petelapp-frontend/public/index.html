@@ -317,6 +317,7 @@
                                     <th>תיאור</th>
                                     <th>ערך</th>
                                     <th>סוג ערך</th>
+                                    <th>מזהה חיצוני</th>
                                     <th>עודכן לאחרונה</th>
                                 </tr>
                             </thead>
@@ -327,6 +328,7 @@
                                         <td>${attr.description || ''}</td>
                                         <td>${attr.value || ''}</td>
                                         <td>${attr.valueType || ''}</td>
+                                        <td>${attr.foreignId || ''}</td>
                                         <td>${attr.updatedAt ? new Date(attr.updatedAt).toLocaleString('he-IL') : ''}</td>
                                     </tr>
                                 `).join('')}
@@ -474,24 +476,24 @@
 
                     let label = '';
                     let yearValue = '';
-                    let yearId = null;
+                    let yearId = null; // This will hold the foreignId of the selected year
                     let selectedAttr = null;
                     
                     if (type === 'current') {
                         selectedAttr = currentYearAttr;
                         label = 'שנה נוכחית' + (currentYearAttr ? ` (${currentYearAttr.value})` : '');
                         yearValue = currentYearAttr ? currentYearAttr.value : '';
-                        yearId = currentYearAttr ? currentYearAttr.id : null;
+                        yearId = currentYearAttr ? currentYearAttr.foreignId : null;
                     } else if (type === 'previous') {
                         selectedAttr = previousYearAttr;
                         label = 'שנה קודמת' + (previousYearAttr ? ` (${previousYearAttr.value})` : '');
                         yearValue = previousYearAttr ? previousYearAttr.value : '';
-                        yearId = previousYearAttr ? previousYearAttr.id : null;
+                        yearId = previousYearAttr ? previousYearAttr.foreignId : null;
                     } else if (type === 'next') {
                         selectedAttr = nextYearAttr;
                         label = 'שנה הבאה' + (nextYearAttr ? ` (${nextYearAttr.value})` : '');
                         yearValue = nextYearAttr ? nextYearAttr.value : '';
-                        yearId = nextYearAttr ? nextYearAttr.id : null;
+                        yearId = nextYearAttr ? nextYearAttr.foreignId : null;
                     }
                     
                     // Update the main school year title with the concatenated year info
@@ -511,6 +513,11 @@
                     
                     console.log('School year data stored:', window.currentSchoolYear);
                     
+                    // Fetch hours budgets for this school year if we have a yearId (foreignId)
+                    if (yearId) {
+                        fetchSchoolYearHoursBudgets(yearId);
+                    }
+                    
                     // Dispatch custom event to notify other components about school year change
                     const schoolYearEvent = new CustomEvent('schoolYearChanged', {
                         detail: window.currentSchoolYear
@@ -518,6 +525,45 @@
                     window.dispatchEvent(schoolYearEvent);
                 });
         });
+}
+
+// Fetch hours budgets for selected school year
+async function fetchSchoolYearHoursBudgets(schoolYearId) {
+    try {
+        console.log('Fetching hours budgets for school year ID:', schoolYearId);
+        
+        const response = await fetch(AppConfig.getApiUrl(`hoursBudgets/schoolyear/${schoolYearId}`), {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+            }
+        });
+        
+        if (response.ok) {
+            const hoursBudgets = await response.json();
+            console.log('Hours budgets fetched successfully:', hoursBudgets);
+            
+            // Store hours budgets in global scope for access by other components
+            window.currentSchoolYearHoursBudgets = hoursBudgets;
+            
+            // Dispatch custom event to notify components about hours budget data
+            const hoursBudgetEvent = new CustomEvent('schoolYearHoursBudgetsLoaded', {
+                detail: {
+                    schoolYearId: schoolYearId,
+                    hoursBudgets: hoursBudgets
+                }
+            });
+            window.dispatchEvent(hoursBudgetEvent);
+            
+        } else {
+            console.warn('Failed to fetch hours budgets:', response.status, response.statusText);
+            window.currentSchoolYearHoursBudgets = [];
+        }
+    } catch (error) {
+        console.error('Error fetching school year hours budgets:', error);
+        window.currentSchoolYearHoursBudgets = [];
+    }
 }
 
 function updateContextButtonLabels() {

@@ -42,6 +42,7 @@ document.getElementById('reloadAttributesBtn').onclick = function() {
                                 <th>תיאור</th>
                                 <th>ערך</th>
                                 <th>סוג ערך</th>
+                                <th>מזהה חיצוני</th>
                                 <th>עודכן לאחרונה</th>
                             </tr>
                         </thead>
@@ -52,6 +53,7 @@ document.getElementById('reloadAttributesBtn').onclick = function() {
                                     <td>${attr.description}</td>
                                     <td>${attr.value}</td>
                                     <td>${attr.valueType}</td>
+                                    <td>${attr.foreignId || ''}</td>
                                     <td>${attr.updatedAt ? new Date(attr.updatedAt).toLocaleString('he-IL') : ''}</td>
                                 </tr>
                             `).join('')}

@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace PetelApp.Api.Models
 {
     public class SystemAttribute
@@ -7,6 +9,10 @@ namespace PetelApp.Api.Models
         public string Description { get; set; } = string.Empty;
         public string Value { get; set; } = string.Empty;
         public string ValueType { get; set; } = string.Empty;
+        
+        [Column("foreign_id")]
+        public int? ForeignId { get; set; }
+        
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
         public int? UpdateUser { get; set; }

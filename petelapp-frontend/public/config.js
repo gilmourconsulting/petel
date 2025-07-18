@@ -8,7 +8,8 @@ const AppConfig = {
             systemAttributes: '/api/systemattributes',
             systemAttributesRefresh: '/api/systemattributes/refresh',
             auth: '/api/auth',
-            schoolBudget: '/api/schoolbudget'
+            schoolBudget: '/api/schoolbudget',
+            hoursBudgets: '/api/hoursbudget'
         }
     },
     

@@ -1,9 +1,14 @@
-[ApiController]
-[Route("api/[controller]")]
-public class TableSecurityController : BaseController
+using Microsoft.AspNetCore.Mvc;
+using PetelApp.Api.Session;
+
+namespace PetelApp.Api.Controllers
 {
-    private readonly UserSessionService _userSessionService;
-    private readonly ILogger<TableSecurityController> _logger;
+    [ApiController]
+    [Route("api/[controller]")]
+    public class TableSecurityController : BaseController
+    {
+        private readonly UserSessionService _userSessionService;
+        private readonly ILogger<TableSecurityController> _logger;
 
     public TableSecurityController(
         UserSessionService userSessionService,
@@ -18,7 +23,13 @@ public class TableSecurityController : BaseController
     {
         try
         {
-            var userId = _userSessionService.GetUserId();
+            var userSession = _userSessionService.GetUserSession();
+            if (userSession == null)
+            {
+                return Unauthorized("User session not found");
+            }
+            
+            var userId = userSession.UserId.ToString();
             var tenantId = GetTenantId();
             
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(tenantId))
@@ -55,7 +66,13 @@ public class TableSecurityController : BaseController
     {
         try
         {
-            var userId = _userSessionService.GetUserId();
+            var userSession = _userSessionService.GetUserSession();
+            if (userSession == null)
+            {
+                return Unauthorized("User session not found");
+            }
+            
+            var userId = userSession.UserId.ToString();
             var tenantId = GetTenantId();
             
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(tenantId))
@@ -110,7 +127,13 @@ public class TableSecurityController : BaseController
     {
         try
         {
-            var userId = _userSessionService.GetUserId();
+            var userSession = _userSessionService.GetUserSession();
+            if (userSession == null)
+            {
+                return Unauthorized("User session not found");
+            }
+            
+            var userId = userSession.UserId.ToString();
             var tenantId = GetTenantId();
             
             if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(tenantId))
@@ -133,7 +156,7 @@ public class TableSecurityController : BaseController
         }
     }
 
-    private async Task<bool> ValidateColumnUpdatePermission(string userId, string tenantId, string tableName, string columnKey)
+    private Task<bool> ValidateColumnUpdatePermission(string userId, string tenantId, string tableName, string columnKey)
     {
         // Implement your permission logic here
         // This could check user roles, specific column permissions, etc.
@@ -141,67 +164,69 @@ public class TableSecurityController : BaseController
         // Example: Check if user has admin role or specific column permissions
         // You might want to check against a permissions table in your database
         
-        return true; // Placeholder - implement your logic
+        return Task.FromResult(true); // Placeholder - implement your logic
     }
 
-    private async Task<ValidationResult> ValidateUpdateData(UpdateValidationRequest request)
+    private Task<ValidationResult> ValidateUpdateData(UpdateValidationRequest request)
     {
         // Implement data validation rules
         // Check data types, business rules, constraints, etc.
         
-        return new ValidationResult { IsValid = true }; // Placeholder
+        return Task.FromResult(new ValidationResult { IsValid = true }); // Placeholder
     }
 
-    private async Task<bool> ValidateExportPermission(string userId, string tenantId, string tableName)
+    private Task<bool> ValidateExportPermission(string userId, string tenantId, string tableName)
     {
         // Implement export permission logic
-        return true; // Placeholder
+        return Task.FromResult(true); // Placeholder
     }
 }
 
 // DTOs
 public class TablePermissionRequest
 {
-    public string TableName { get; set; }
-    public List<ColumnRequest> Columns { get; set; }
+    public string TableName { get; set; } = string.Empty;
+    public List<ColumnRequest> Columns { get; set; } = new List<ColumnRequest>();
 }
 
 public class ColumnRequest
 {
-    public string Key { get; set; }
-    public string RequestedPermission { get; set; }
+    public string Key { get; set; } = string.Empty;
+    public string RequestedPermission { get; set; } = string.Empty;
 }
 
 public class ColumnPermission
 {
-    public string ColumnKey { get; set; }
+    public string ColumnKey { get; set; } = string.Empty;
     public bool CanUpdate { get; set; }
     public bool CanView { get; set; }
 }
 
 public class UpdateValidationRequest
 {
-    public string RowId { get; set; }
-    public string ColumnKey { get; set; }
-    public string OldValue { get; set; }
-    public string NewValue { get; set; }
-    public string TableName { get; set; }
-    public string SessionToken { get; set; }
+    public string RowId { get; set; } = string.Empty;
+    public string ColumnKey { get; set; } = string.Empty;
+    public string OldValue { get; set; } = string.Empty;
+    public string NewValue { get; set; } = string.Empty;
+    public string TableName { get; set; } = string.Empty;
+    public string SessionToken { get; set; } = string.Empty;
 }
 
 public class UpdateValidationResponse
 {
     public bool Success { get; set; }
-    public string Message { get; set; }
+    public string Message { get; set; } = string.Empty;
 }
 
 public class ExportValidationRequest
 {
-    public string TableName { get; set; }
+    public string TableName { get; set; } = string.Empty;
 }
 
 public class ValidationResult
 {
     public bool IsValid { get; set; }
-    public string ErrorMessage { get; set; }
+    public string ErrorMessage { get; set; } = string.Empty;
+}
+
 }
