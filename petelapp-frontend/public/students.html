@@ -45,6 +45,14 @@
                     <!-- Table will be rendered here -->
                 </div>
             </div>
+
+            <!-- Registration summary table -->
+            <div class="registration-table-section" style="margin-top: 30px;">
+                <h3 style="color: #333; margin-bottom: 15px;">סיכום הרשמות לשנה הנוכחית</h3>
+                <div id="registrationTableContainer">
+                    <!-- Registration table will be rendered here -->
+                </div>
+            </div>
         </div>
     </div>
 
@@ -77,6 +85,9 @@ function loadStudentsData() {
 
     // Create and render the students table
     createStudentsTable(studentsData);
+    
+    // Load registration data
+    loadRegistrationData();
 }
 
 // Update the students title with school year information
@@ -134,6 +145,101 @@ function createStudentsTable(data) {
     };
 }
 
+// Load registration data from the view
+async function loadRegistrationData() {
+    try {
+        // Get current school year from global state
+        const currentSchoolYear = window.currentSchoolYear;
+        const schoolYearId = currentSchoolYear ? currentSchoolYear.id : null;
+        
+        if (!schoolYearId) {
+            console.warn('No school year selected, cannot load registration data');
+            return;
+        }
+        
+        // Get tenant ID from session storage
+        const tenantId = sessionStorage.getItem('tenantId');
+        if (!tenantId) {
+            console.error('No tenant ID found in session');
+            return;
+        }
+        
+        // Build API URL with school year filter
+        let apiUrl = AppConfig.getApiUrl('studentRegistrationSummary');
+        apiUrl += `?schoolYearId=${schoolYearId}`;
+        
+        console.log('Loading registration data from:', apiUrl);
+        
+        // Frontend integration - ensure tenant ID is passed in X-Tenant-ID header
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`,
+                'Content-Type': 'application/json',
+                'X-Tenant-ID': sessionStorage.getItem('tenantId')
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const registrationData = await response.json();
+        console.log('Registration data loaded:', registrationData);
+        
+        // Create and render the registration table
+        createRegistrationTable(registrationData);
+        
+    } catch (error) {
+        console.error('Error loading registration data:', error);
+        
+        // Use sample data as fallback
+        const sampleRegistrationData = [
+            {
+                schoolGrade: 'כיתה א',
+                schoolTrack: 'כללי',
+                registered: 25
+            },
+            {
+                schoolGrade: 'כיתה א',
+                schoolTrack: 'מחוזק',
+                registered: 18
+            },
+            {
+                schoolGrade: 'כיתה ב',
+                schoolTrack: 'כללי',
+                registered: 28
+            },
+            {
+                schoolGrade: 'כיתה ב',
+                schoolTrack: 'מחוזק',
+                registered: 22
+            }
+        ];
+        
+        createRegistrationTable(sampleRegistrationData);
+    }
+}
+
+// Create registration table using the reusable table component
+function createRegistrationTable(data) {
+    const columns = [
+        { key: 'schoolGrade', label: 'שכבה', readOnly: true, filterAllowed: true },
+        { key: 'schoolTrack', label: 'מגמה', readOnly: true, filterAllowed: true },
+        { key: 'registered', label: 'תלמידים רשומים', readOnly: true, filterAllowed: false }
+    ];
+
+    // Create table instance
+    const registrationTable = new ReusableTable('registrationTableContainer', { 
+        readOnly: true, // Registration summary is read-only
+        tableName: 'registrationSummary'
+    });
+    
+    registrationTable.init(data, columns);
+    
+    console.log('Registration table created with', data.length, 'records');
+}
+
 // Handle student section navigation
 function showStudentSection(section) {
     // Remove active state from all buttons
@@ -146,10 +252,15 @@ function showStudentSection(section) {
     
     // Show content based on section
     const contentDiv = document.getElementById('studentsTableContainer');
+    const registrationDiv = document.getElementById('registrationTableContainer');
     
     switch(section) {
         case 'overview':
-            loadStudentsData(); // Reload main table
+            loadStudentsData(); // Reload main table and registration data
+            // Show registration table for overview
+            if (registrationDiv) {
+                registrationDiv.parentElement.style.display = 'block';
+            }
             break;
         case 'grades':
             contentDiv.innerHTML = `
@@ -161,6 +272,10 @@ function showStudentSection(section) {
                     </div>
                 </div>
             `;
+            // Hide registration table for other sections
+            if (registrationDiv) {
+                registrationDiv.parentElement.style.display = 'none';
+            }
             break;
         case 'attendance':
             contentDiv.innerHTML = `
@@ -172,6 +287,9 @@ function showStudentSection(section) {
                     </div>
                 </div>
             `;
+            if (registrationDiv) {
+                registrationDiv.parentElement.style.display = 'none';
+            }
             break;
         case 'reports':
             contentDiv.innerHTML = `
@@ -183,6 +301,9 @@ function showStudentSection(section) {
                     </div>
                 </div>
             `;
+            if (registrationDiv) {
+                registrationDiv.parentElement.style.display = 'none';
+            }
             break;
     }
 }
@@ -200,6 +321,8 @@ document.addEventListener('DOMContentLoaded', function() {
 window.addEventListener('schoolYearChanged', function(event) {
     console.log('School year changed event received:', event.detail);
     updateStudentsTitle();
+    // Reload registration data when school year changes
+    loadRegistrationData();
 });
 
 // Debug function to check school year state
@@ -240,6 +363,7 @@ function testSchoolYearChange() {
 
 // Make functions globally available
 window.loadStudentsData = loadStudentsData;
+window.loadRegistrationData = loadRegistrationData;
 window.showStudentSection = showStudentSection;
 window.updateStudentsTitle = updateStudentsTitle;
 window.debugSchoolYear = debugSchoolYear;

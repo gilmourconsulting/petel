@@ -9,7 +9,8 @@ const AppConfig = {
             systemAttributesRefresh: '/api/systemattributes/refresh',
             auth: '/api/auth',
             schoolBudget: '/api/schoolbudget',
-            hoursBudgets: '/api/hoursbudget'
+            hoursBudgets: '/api/hoursbudget',
+            studentRegistrationSummary: '/api/students/registration-summary'
         }
     },
     

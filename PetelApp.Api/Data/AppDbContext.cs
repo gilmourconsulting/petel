@@ -19,6 +19,8 @@ namespace PetelApp.Api.Data
         public DbSet<Role> Roles { get; set; }
         public DbSet<UserRole> UserRoles { get; set; }
         public DbSet<RolesAction> RolesActions { get; set; } // Added DbSet for RolesAction
+        public DbSet<SchoolYear> SchoolYears { get; set; } // Added DbSet for SchoolYear
+        public DbSet<StudentSchoolYearsRegistrationSummaryVw> StudentSchoolYearsRegistrationSummaryVw { get; set; } // Added DbSet for StudentSchoolYearsRegistrationSummaryVw
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -230,6 +232,37 @@ namespace PetelApp.Api.Data
                     .WithMany(r => r.RolesActions)
                     .HasForeignKey(ra => ra.RoleId);
             });
+
+            // Configure SchoolYears table
+            modelBuilder.Entity<SchoolYear>(entity =>
+            {
+                entity.ToTable("school_years", "petel_schema");
+                entity.HasKey(sy => sy.Id);
+                entity.Property(sy => sy.Id).HasColumnName("id");
+                entity.Property(sy => sy.SchoolId).HasColumnName("school_id").IsRequired();
+                entity.Property(sy => sy.YearName).HasColumnName("year_name").IsRequired().HasMaxLength(100);
+                entity.Property(sy => sy.StartDate).HasColumnName("start_date").IsRequired();
+                entity.Property(sy => sy.EndDate).HasColumnName("end_date").IsRequired();
+                entity.Property(sy => sy.IsActive).HasColumnName("is_active").HasDefaultValue(true);
+                entity.Property(sy => sy.CreatedAt).HasColumnName("created_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(sy => sy.UpdatedAt).HasColumnName("updated_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+                
+                // Indexes for performance - school as tenant
+                entity.HasIndex(sy => sy.SchoolId);
+                entity.HasIndex(sy => sy.IsActive);
+            });
+
+            // Configure StudentSchoolYearsRegistrationSummaryVw view
+            modelBuilder.Entity<StudentSchoolYearsRegistrationSummaryVw>(entity =>
+            {
+                entity.ToView("student_school_years_registration_summary_vw", "petel_schema");
+                entity.HasNoKey(); // Views don't have primary keys
+                entity.Property(s => s.SchoolId).HasColumnName("school_id");
+                entity.Property(s => s.SchoolYearId).HasColumnName("school_year_id");
+                entity.Property(s => s.SchoolGrade).HasColumnName("school_grade");
+                entity.Property(s => s.SchoolTrack).HasColumnName("school_track");
+                entity.Property(s => s.Registered).HasColumnName("registered");
+            });
         }
     }
 
@@ -334,5 +367,26 @@ namespace PetelApp.Api.Data
 
         // Navigation
         public virtual Role Role { get; set; } = null!;
+    }
+
+    public class SchoolYear
+    {
+        public int Id { get; set; }
+        public int SchoolId { get; set; } // This is the tenant ID
+        public string YearName { get; set; } = string.Empty;
+        public DateTime StartDate { get; set; }
+        public DateTime EndDate { get; set; }
+        public bool IsActive { get; set; } = true;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    }
+
+    public class StudentSchoolYearsRegistrationSummaryVw
+    {
+        public int SchoolId { get; set; } // This is the tenant ID
+        public int SchoolYearId { get; set; }
+        public string SchoolGrade { get; set; } = string.Empty;
+        public string SchoolTrack { get; set; } = string.Empty;
+        public int Registered { get; set; }
     }
 }

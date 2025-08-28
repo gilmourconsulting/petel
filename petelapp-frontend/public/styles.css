@@ -362,48 +362,137 @@ body {
     box-shadow: var(--box-shadow-medium);
     text-align: center;
     transition: var(--button-transition);
+    width: 250px;
+    min-width: 250px;
+    max-width: 250px;
+    /* Dynamic height based on screen size */
+    min-height: 250px;
+    height: calc(100vh - 280px); /* Adjust based on top bar and margins */
+    max-height: calc(100vh - 200px);
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
+.internal-card {
+    background: var(--secondary-background);
+    border: 1px solid #000000; /* Black border as requested */
+    border-radius: var(--border-radius);
+    padding: 12px;
+    font-size: 11pt;
+    font-family: inherit;
+    text-align: left; /* Changed to left alignment */
+    transition: background-color 0.2s ease;
+    cursor: pointer;
+}
+.internal-cards-container {
+    flex: 1;
+    margin-top: 16px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 4px;
+}
+
+.internal-card:hover {
+    background: var(--hover-background);
+    border-color: #000000; /* Keep black border on hover */
+}
+
+.internal-card-timestamp {
+    color: var(--text-muted);
+    font-size: 9pt;
+    margin-top: 6px;
+    text-align: right; /* Keep timestamps left aligned */
+}
+
+.internal-card-content {
+    color: var(--text-secondary);
+    font-size: 10pt;
+    line-height: 1.3;
+    text-align: right; /* Left alignment for content */
+}
+
+
 
 .dashboard-card:hover {
     transform: translateY(-5px);
     box-shadow: var(--box-shadow-strong);
 }
 
+.dashboard-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 8px; /* Reduced space between title and card border */
+    gap: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
 .dashboard-card-icon {
-    font-size: 36px;
-    margin-bottom: 12px;
-    color: var(--text-accent);
+    font-size: 16pt;
+    margin-right: 8px; /* RTL spacing */
+    flex-shrink: 0;
 }
 
 .dashboard-card-title {
-    font-size: var(--font-size-large);
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 8px;
+    font-size: 16pt;
+    margin: 0;
+    flex: 1;
+    text-align: right; /* RTL alignment */
 }
 
-.dashboard-card-value {
-    font-size: var(--font-size-xl);
-    font-weight: 700;
-    color: var(--text-accent);
+.dashboard-card-plus {
+    width: 20px;
+    height: 20px;
+    margin-left: auto; /* Push to leftmost position in RTL */
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.dashboard-card-plus:hover {
+    opacity: 1;
+    transform: scale(1.1);
 }
 
 .dashboard-flex-row {
     display: flex;
     align-items: flex-start;
     gap: 32px;
-    margin-bottom: 32px;
-    max-width: 900px;
+    margin-bottom: 15px; /* 15px from bottom as requested */
+    max-width: 1200px;
     width: 100%;
     margin-left: auto;
     margin-right: auto;
+    justify-content: space-between;
+    /* Calculate height to reach 15px from bottom */
+    height: calc(100vh - 16.67vh - 60px - 15px); /* Total height - top bar - padding - bottom margin */
+    min-height: 400px; /* Minimum height for usability */
+}
+
+/* Add dashboard cards wrapper to contain the cards */
+.dashboard-cards-wrapper {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    flex: 1;
+    min-width: 0; /* Prevent overflow */
+    align-items: flex-start; /* Align cards to top */
+
 }
 
 /* Context Buttons */
 .context-buttons-section {
     order: 2;
     width: 180px;
-    min-width: 140px;
+    min-width: 180px; /* Ensure it doesn't shrink */
+    max-width: 180px; /* Prevent it from growing */
     height: 260px;
     display: flex;
     flex-direction: column;
@@ -415,7 +504,8 @@ body {
     background: var(--context-section-background);
     border-radius: var(--border-radius-large);
     box-shadow: var(--box-shadow-light);
-    margin: 24px 12px 0 0;
+    margin: 24px 0 0 0; /* Remove right margin to align with edge */
+    flex-shrink: 0; /* Prevent shrinking */
 }
 
 .context-btn {
@@ -856,9 +946,182 @@ body {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+/* Update the existing .dashboard-cards-wrapper */
+.dashboard-cards-wrapper {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    flex: 1;
+    min-width: 0; /* Prevent overflow */
+    align-items: flex-start; /* Align cards to top */
+}
+
+
+.dashboard-card {
+    background: var(--card-background);
+    border-radius: var(--border-radius-large);
+    padding: 24px;
+    box-shadow: var(--box-shadow-medium);
+    transition: var(--button-transition);
+    width: 400px; /* Back to 250px as per previous requirements */
+    min-width: 400px;
+    max-width: 400x;
+    /* Use flex-grow to fill available height */
+    height: 100%;
+    min-height: 250px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--box-shadow-strong);
+}
+
+
+/* Modal popup styling */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    direction: rtl;
+}
+
+.modal-content {
+    background: var(--card-background);
+    border-radius: var(--border-radius-large);
+    padding: 32px;
+    box-shadow: var(--box-shadow-strong);
+    text-align: center;
+    min-width: 300px;
+    border: 1px solid var(--border-color);
+}
+
+.modal-title {
+    font-size: 18pt;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 24px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+}
+
+.modal-btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: var(--border-radius);
+    font-size: 14pt;
+    cursor: pointer;
+    transition: var(--button-transition);
+}
+
+.modal-btn-primary {
+    background: var(--primary-color);
+    color: white;
+}
+
+.modal-btn-primary:hover {
+    background: var(--primary-dark);
+}
+
+.modal-btn-secondary {
+    background: var(--secondary-background);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+.modal-btn-secondary:hover {
+    background: var(--hover-background);
+}
+
+/* Responsive updates for mobile devices */
+@media (max-width: 900px) {
+    .dashboard-flex-row {
+        flex-direction: column;
+        height: auto; /* Auto height on mobile */
+        min-height: auto;
+        margin-bottom: 15px;
+        gap: 20px;
+    }
+    
+    .dashboard-cards-wrapper {
+        order: 2;
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .dashboard-card {
+        width: 250px;
+        min-width: 250px;
+        max-width: 250px;
+        height: auto;
+        min-height: 300px;
+        max-height: 400px;
+    }
+    
+    .context-buttons-section {
+        order: 1;
+        width: 100%;
+        height: auto;
+        min-height: auto;
+        flex-direction: row;
+        justify-content: center;
+        align-items: center;
+        margin: 0 0 20px 0;
+        padding: 12px;
+    }
+    
+    .context-buttons-section .context-btn {
+        width: 30vw;
+        min-width: 80px;
+        max-width: 150px;
+        margin: 0 6px;
+    }
+}
+
+
+/* For very small screens, allow cards to be slightly smaller */
+@media (max-width: 600px) {
+    .dashboard-card {
+        width: calc(100vw - 80px); /* Full width minus padding */
+        min-width: 200px; /* Minimum viable size */
+        max-width: 250px; /* Still prefer 250px if space allows */
+    }
+    
+    .dashboard-cards-wrapper {
+        flex-direction: column;
+        align-items: center;
+    }
+}
 
 @media (max-width: 600px) {
     .summary-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 900px) {
+    .dashboard-card {
+        height: auto;
+        min-height: 200px;
+        max-height: none;
+    }
+    
+    .internal-cards-container {
+        max-height: 300px;
     }
 }

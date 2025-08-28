@@ -16,10 +16,11 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add your services
+// Add your services - register both interface and concrete class
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<PetelApp.Api.Session.UserSessionService>();
-builder.Services.AddScoped<TenantService>();
+builder.Services.AddScoped<TenantService>(); // For controllers injecting concrete class
+builder.Services.AddScoped<ITenantService, TenantService>(); // For controllers injecting interface
 builder.Services.AddSingleton<SystemAttributeService>();
 builder.Services.AddHostedService<SystemAttributeLoaderHostedService>();
 
