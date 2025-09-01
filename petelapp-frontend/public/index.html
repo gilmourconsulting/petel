@@ -559,25 +559,25 @@ async function showSchoolYear(yearId, yearType) {
     }
     
     try {
-        // Store selected year in backend session following API communication pattern
+        // Store selected year in backend session following API Communication Pattern
         await storeSelectedYearInSession(yearId, yearType);
         
-        // Get entity type from session storage following authentication & session management
+        // Get entity type from session storage following Authentication & Session Management
         const entityTypeId = parseInt(sessionStorage.getItem('entityTypeId'));
         
         console.log('Entity type check:', { entityTypeId });
         
-        // Hide dashboard content and show dynamic content following SPA pattern
-        document.getElementById('dashboardContent').style.display = 'none';
-        document.getElementById('dynamicContent').style.display = 'block';
-        
-        // Load appropriate content following Single-Page Application with Module Loading
+        // Route based on entity type following Multi-Tenant Request Flow
         if (entityTypeId === 5) {
-            console.log('Entity type 5 (multi-school network) - loading school list');
-            await loadSchoolListPage(yearId, yearType);
+            console.log('Entity type 5 (multi-school network) - navigating to school list');
+            // Update URL and load schoollist content
+            history.pushState({ section: 'schoollist', yearId, yearType }, '', '#schoollist');
+            await loadSchoolListPage();
         } else {
-            console.log(`Entity type ${entityTypeId} (single school) - loading school year management`);
-            await loadSchoolYearPage(yearId, yearType);
+            console.log(`Entity type ${entityTypeId} (single school) - navigating to school year management`);
+            // Update URL and load schoolyear content
+            history.pushState({ section: 'schoolyear', yearId, yearType }, '', '#schoolyear');
+            await loadSchoolYearPage();
         }
         
     } catch (error) {
@@ -586,17 +586,24 @@ async function showSchoolYear(yearId, yearType) {
     }
 }
 
-// Load schoollist.html content into main section
-async function loadSchoolListPage(yearId, yearType) {
+// Load schoollist.html content into main section following SPA pattern
+async function loadSchoolListPage() {
     try {
+        // Hide dashboard content and show dynamic content
+        document.getElementById('dashboardContent').style.display = 'none';
+        document.getElementById('dynamicContent').style.display = 'block';
+        
         const response = await fetch('schoollist.html');
         if (response.ok) {
             const html = await response.text();
             document.getElementById('dynamicContent').innerHTML = html;
             
-            // Re-execute scripts following common gotchas pattern
+            // Re-execute scripts following Common Gotchas pattern
             executeScriptsInContainer(document.getElementById('dynamicContent'));
+            
+            console.log('School list page loaded successfully');
         } else {
+            console.error('Failed to load schoollist.html:', response.status);
             document.getElementById('dynamicContent').innerHTML = 
                 '<div class="error-message">שגיאה בטעינת עמוד רשימת בתי הספר</div>';
         }
@@ -607,17 +614,24 @@ async function loadSchoolListPage(yearId, yearType) {
     }
 }
 
-// Load schoolyear.html content into main section
-async function loadSchoolYearPage(yearId, yearType) {
+// Load schoolyear.html content into main section following SPA pattern
+async function loadSchoolYearPage() {
     try {
+        // Hide dashboard content and show dynamic content
+        document.getElementById('dashboardContent').style.display = 'none';
+        document.getElementById('dynamicContent').style.display = 'block';
+        
         const response = await fetch('schoolyear.html');
         if (response.ok) {
             const html = await response.text();
             document.getElementById('dynamicContent').innerHTML = html;
             
-            // Re-execute scripts following common gotchas pattern
+            // Re-execute scripts following Common Gotchas pattern
             executeScriptsInContainer(document.getElementById('dynamicContent'));
+            
+            console.log('School year page loaded successfully');
         } else {
+            console.error('Failed to load schoolyear.html:', response.status);
             document.getElementById('dynamicContent').innerHTML = 
                 '<div class="error-message">שגיאה בטעינת עמוד ניהול שנת הלימודים</div>';
         }
@@ -642,19 +656,49 @@ function executeScriptsInContainer(container) {
     });
 }
 
+// Add navigation back to dashboard function
+function navigateToDashboard() {
+    // Show dashboard content and hide dynamic content
+    document.getElementById('dynamicContent').style.display = 'none';
+    document.getElementById('dashboardContent').style.display = 'block';
+    
+    // Update URL following SPA navigation pattern
+    history.pushState({ section: 'dashboard' }, '', '#dashboard');
+}
+
+// Handle browser back/forward buttons following SPA pattern
+window.addEventListener('popstate', function(event) {
+    if (event.state && event.state.section) {
+        if (event.state.section === 'dashboard') {
+            navigateToDashboard();
+        } else if (event.state.section === 'schoollist') {
+            loadSchoolListPage();
+        } else if (event.state.section === 'schoolyear') {
+            loadSchoolYearPage();
+        }
+    }
+});
+
 // Make functions globally available following Cross-Component Communication
 window.loadSchoolListPage = loadSchoolListPage;
 window.loadSchoolYearPage = loadSchoolYearPage;
 window.executeScriptsInContainer = executeScriptsInContainer;
+window.navigateToDashboard = navigateToDashboard;
         // Store selected year in backend session following API communication pattern
 async function storeSelectedYearInSession(yearId, yearType) {
     try {
         console.log('Storing selected year in session:', yearId, yearType);
         
-        const response = await fetch(AppConfig.getApiUrl('systemAttributes/selectYear'), {
+        // Fix API URL construction following API Communication Pattern
+        const apiUrl = AppConfig.getApiUrl('systemattributes/selectYear');
+        console.log('API URL:', apiUrl); // Debug the URL construction
+        
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`,
+                'X-Tenant-ID': sessionStorage.getItem('tenantId')
             },
             body: JSON.stringify({
                 yearType: yearType,
@@ -666,7 +710,7 @@ async function storeSelectedYearInSession(yearId, yearType) {
             const result = await response.json();
             console.log('Selected year stored in session:', result);
             
-            // Store in frontend session storage
+            // Store in frontend session storage following Authentication & Session Management
             sessionStorage.setItem('selectedYear', yearId.toString());
             sessionStorage.setItem('selectedYearType', yearType);
             
@@ -766,6 +810,68 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // ... existing DOMContentLoaded code ...
 });
+
+// Add to index.html script section following Single-Page Application with Module Loading
+
+// Check for stored page state on load following Frontend Architecture Patterns
+window.addEventListener('load', function() {
+    const currentPage = sessionStorage.getItem('currentPage');
+    const pageTimestamp = sessionStorage.getItem('pageTimestamp');
+    
+    // If page state exists and is recent (less than 5 minutes), restore it
+    if (currentPage && pageTimestamp) {
+        const timeDiff = Date.now() - parseInt(pageTimestamp);
+        const fiveMinutes = 5 * 60 * 1000;
+        
+        if (timeDiff < fiveMinutes && currentPage === 'schoollist') {
+            console.log('Restoring school list view from stored state');
+            // Load school list instead of showing dashboard
+            setTimeout(() => {
+                const entityTypeId = parseInt(sessionStorage.getItem('entityTypeId'));
+                if (entityTypeId === 5) {
+                    loadSchoolListPage();
+                    history.replaceState({ section: 'schoollist' }, '', '#schoollist');
+                }
+            }, 100);
+        }
+    }
+});
+
+// Listen for messages from loaded pages following Cross-Component Communication
+window.addEventListener('message', function(event) {
+    if (event.data.type === 'pageLoaded' && event.data.page === 'schoollist') {
+        // Update URL to reflect current state
+        history.replaceState({ section: 'schoollist' }, '', '#schoollist');
+    }
+});
+
+// Update existing loadSchoolListPage function
+async function loadSchoolListPage() {
+    try {
+        // Hide dashboard content and show dynamic content
+        document.getElementById('dashboardContent').style.display = 'none';
+        document.getElementById('dynamicContent').style.display = 'block';
+        
+        const response = await fetch('schoollist.html');
+        if (response.ok) {
+            const html = await response.text();
+            document.getElementById('dynamicContent').innerHTML = html;
+            
+            // Re-execute scripts following Common Gotchas pattern
+            executeScriptsInContainer(document.getElementById('dynamicContent'));
+            
+            console.log('School list page loaded successfully');
+        } else {
+            console.error('Failed to load schoollist.html:', response.status);
+            document.getElementById('dynamicContent').innerHTML = 
+                '<div class="error-message">שגיאה בטעינת עמוד רשימת בתי הספר</div>';
+        }
+    } catch (error) {
+        console.error('Error loading schoollist.html:', error);
+        document.getElementById('dynamicContent').innerHTML = 
+            '<div class="error-message">שגיאה בטעינת עמוד רשימת בתי הספר</div>';
+    }
+}
     </script>
 </body>
 </html>

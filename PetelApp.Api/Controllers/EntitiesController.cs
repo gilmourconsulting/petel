@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
+using PetelApp.Api.Session; // Add this using statement
 
 namespace PetelApp.Api.Controllers
 {
@@ -10,10 +11,12 @@ namespace PetelApp.Api.Controllers
     public class EntitiesController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly UserSessionService _userSessionService; // Add this field
 
-        public EntitiesController(AppDbContext context)
+        public EntitiesController(AppDbContext context, UserSessionService userSessionService) // Add parameter
         {
             _context = context;
+            _userSessionService = userSessionService; // Assign the service
         }
 
         /// <summary>
@@ -75,77 +78,51 @@ namespace PetelApp.Api.Controllers
         }
 
         /// <summary>
-        /// Get all schools
-        /// This endpoint provides a list of schools with additional details
+        /// Get all schools for a specific tenant following Multi-Tenant Request Flow
         /// </summary>
         [HttpGet("schools")]
-        public async Task<IActionResult> GetSchools()
+        public async Task<IActionResult> GetSchoolsForTenant([FromQuery] int? tenantId = null)
         {
             try
             {
-                // For school list page - load schools with additional details following multi-tenant request flow
+                // Get tenant ID from query parameter or session following Authentication & Session Management
+                var currentTenantId = tenantId ?? _userSessionService.GetUserSession()?.TenantId;
+                
+                if (currentTenantId == null)
+                {
+                    return BadRequest(new { message = "מזהה גוף חינוכי חסר" });
+                }
+
+                // Load entities where owner equals current tenant ID following Database Conventions
                 var schools = await _context.Entities
-                    .Where(e => e.EntityTypeId != 5) // Exclude multi-school networks
-                    .Select(e => new
-                    {
-                        id = e.Id,
-                        schoolName = e.Name,
-                        institutionSymbol = e.Symbol ,
-                        address = e.Address ?? "לא זמין",
-                        principalName = e.PrincipalName ?? "לא מוגדר",
-                        inspectorName = e.inspector_name ?? "לא מוגדר",
-                        institutionCharacterization = e.characterization ?? "לא מוגדר",
-                        contactPerson = e.contact_person ?? "לא מוגדר",
-                        educationStage = e.education_stage ?? "לא מוגדר",
-                        phone = e.Phone,
-                        email = e.Email,
-
-                        isActive = e.IsActive
-                    })
-                    .OrderBy(e => e.schoolName)
-                    .ToListAsync();
-
-                return Ok(schools);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "שגיאה בטעינת רשימת בתי הספר", error = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Get all entities
-        /// This endpoint provides a full list of entities with detailed information
-        /// </summary>
-        [HttpGet]
-        public async Task<IActionResult> GetEntities()
-        {
-            try
-            {
-                // Full entity list with details following multi-tenant request flow
-                var entities = await _context.Entities
                     .Include(e => e.EntityType)
-                    .Where(e => e.IsActive)
+                    .Where(e => e.OwnerId == currentTenantId && e.IsActive)
                     .Select(e => new
                     {
                         id = e.Id,
                         name = e.Name,
-                        entity_type_id = e.EntityTypeId,
-                        entity_type_name = e.EntityType.Name,
+                        symbol = e.Symbol,
                         address = e.Address,
-                        phone = e.Phone,
-                        email = e.Email,
-                        principal_name = e.PrincipalName,
-                        is_active = e.IsActive
+                        principalName = e.PrincipalName,
+                        inspectorName = e.InspectorName,
+                        characterization = e.Characterization,
+                        contactPerson = e.ContactPerson,
+                        educationStage = e.EducationStage,
+                        ownerId = e.OwnerId,
+                        entityTypeId = e.EntityTypeId,
+                        entityTypeName = e.EntityType.Name,
+                        isActive = e.IsActive
                     })
                     .OrderBy(e => e.name)
                     .ToListAsync();
 
-                return Ok(entities);
+                Console.WriteLine($"Loaded {schools.Count} schools from database for tenant {currentTenantId}");
+                return Ok(schools);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "שגיאה בטעינת הגופים", error = ex.Message });
+                Console.WriteLine($"Error loading schools from database: {ex.Message}");
+                return StatusCode(500, new { message = "שגיאה בטעינת רשימת בתי הספר מהמסד נתונים", error = ex.Message });
             }
         }
     }

@@ -28,7 +28,15 @@ class ReusableTable {
             ...col
         }));
         
-        // Get server-side column permissions
+        // Skip server validation for read-only tables or when no auth token
+        if (this.isReadOnly || !this.sessionToken || this.sessionToken === 'undefined') {
+            console.log('Skipping server validation for read-only table');
+            this.filteredData = [...this.data];
+            this.render();
+            return;
+        }
+        
+        // Get server-side column permissions only for editable tables
         await this.validateColumnPermissions();
         
         this.filteredData = [...this.data];
@@ -294,6 +302,82 @@ class ReusableTable {
             console.error('Export validation failed:', error);
             return false;
         }
+    }
+
+    // Add this render method to table-component.js following Hebrew/RTL Specific Patterns:
+
+    render() {
+        const container = document.getElementById(this.containerId);
+        if (!container) {
+            console.error('Container not found:', this.containerId);
+            return;
+        }
+
+        // Create table HTML following Hebrew/RTL Specific Patterns
+        const tableHTML = `
+            <div class="table-container" dir="rtl">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            ${this.columns.map(col => `
+                                <th data-column="${col.key}" ${col.sortable ? 'style="cursor: pointer;"' : ''}>
+                                    ${col.label}
+                                    ${col.sortable ? '<span class="sort-indicator"></span>' : ''}
+                                </th>
+                            `).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${this.filteredData.map(row => `
+                            <tr>
+                                ${this.columns.map(col => `
+                                    <td data-column="${col.key}">
+                                        ${col.render ? col.render(row) : (row[col.key] || '')}
+                                    </td>
+                                `).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        container.innerHTML = tableHTML;
+
+        // Add sort listeners for sortable columns
+        this.columns.forEach(col => {
+            if (col.sortable) {
+                const header = container.querySelector(`th[data-column="${col.key}"]`);
+                if (header) {
+                    header.addEventListener('click', () => this.sort(col.key));
+                }
+            }
+        });
+
+        console.log('✅ Table rendered successfully');
+    }
+
+    // Add sort method
+    sort(columnKey) {
+        if (this.sortColumn === columnKey) {
+            this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+        } else {
+            this.sortColumn = columnKey;
+            this.sortDirection = 'asc';
+        }
+
+        this.filteredData.sort((a, b) => {
+            const aVal = a[columnKey] || '';
+            const bVal = b[columnKey] || '';
+            
+            if (this.sortDirection === 'asc') {
+                return aVal.toString().localeCompare(bVal.toString(), 'he');
+            } else {
+                return bVal.toString().localeCompare(aVal.toString(), 'he');
+            }
+        });
+
+        this.render();
     }
 
     // ... (keep all other existing methods)

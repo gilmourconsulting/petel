@@ -75,17 +75,18 @@ namespace PetelApp.Api.Data
                     .HasDefaultValueSql("CURRENT_TIMESTAMP");
                 entity.Property(e => e.Symbol)
                     .HasColumnName("symbol");  
-                entity.Property(e => e.inspector_name)
+                entity.Property(e => e.InspectorName)
                     .HasColumnName("inspector_name")
                     .HasMaxLength(255);
-                entity.Property(e => e.characterization)
+                entity.Property(e => e.Characterization)
                     .HasColumnName("charactarization")
                     .HasMaxLength(255);
-
-                entity.Property(e => e.contact_person)
+                entity.Property(e => e.OwnerId)
+                    .HasColumnName("owner");
+                entity.Property(e => e.ContactPerson)
                     .HasColumnName("contact_person")
                     .HasMaxLength(255);
-                entity.Property(e => e.education_stage)
+                entity.Property(e => e.EducationStage)
                     .HasColumnName("education_stage")
                     .HasMaxLength(100);
                 // Foreign key to EntityType
@@ -300,17 +301,19 @@ namespace PetelApp.Api.Data
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         public int? Symbol { get; set; }
 
-        public string? inspector_name { get; set; } = string.Empty;
+        public string? InspectorName { get; set; } = string.Empty;
 
-        public string? characterization { get; set; }
-        public string? contact_person { get; set; }
-        public string? education_stage { get; set; } 
+        public string? Characterization { get; set; }
+        public string? ContactPerson { get; set; }
+        public string? EducationStage { get; set; }
 
-
+        public int? OwnerId { get; set; }
 
         // Navigation properties
         public virtual ICollection<User> Users { get; set; } = new List<User>();
         public virtual EntityType EntityType { get; set; } = null!;
+        
+        
     }
 
     public class User

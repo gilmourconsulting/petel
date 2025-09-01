@@ -70,6 +70,8 @@ namespace PetelApp.Api.Controllers
                 
                 UserSessionService.SetUserSession(session);
 
+                Console.WriteLine($"Selected year updated: YearId={request.YearId}, YearType={request.YearType}");
+
                 return Ok(new
                 {
                     success = true,
@@ -80,6 +82,7 @@ namespace PetelApp.Api.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"Error selecting year: {ex.Message}");
                 return StatusCode(500, new { message = "שגיאה בבחירת שנת הלימודים", error = ex.Message });
             }
         }
@@ -112,6 +115,7 @@ namespace PetelApp.Api.Controllers
         }
     }
 
+    // Add request model following Database Conventions
     public class SelectYearRequest
     {
         public string YearType { get; set; } = string.Empty;
