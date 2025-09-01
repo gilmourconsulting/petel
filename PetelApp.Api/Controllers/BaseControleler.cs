@@ -1,10 +1,13 @@
 // PetelApp.Api/Controllers/BaseController.cs
 using Microsoft.AspNetCore.Mvc;
+using PetelApp.Api.Session;
 
 namespace PetelApp.Api.Controllers
 {
-    public class BaseController : ControllerBase
+    public class BaseController(UserSessionService userSessionService) : ControllerBase
     {
+        public UserSessionService UserSessionService { get; } = userSessionService;
+
         protected string GetTenantId()
         {
             return HttpContext.Items["TenantId"]?.ToString() ?? string.Empty;

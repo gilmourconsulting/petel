@@ -946,11 +946,74 @@ body {
         grid-template-columns: repeat(2, 1fr);
     }
 }
-/* Update the existing .dashboard-cards-wrapper */
-.dashboard-cards-wrapper {
+
+/* Add these styles to styles.css for the school list interface */
+
+/* School List Styles */
+.filter-section {
+    margin-bottom: 20px;
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #e1e5e9;
+}
+
+.filter-row {
     display: flex;
-    gap: 20px;
+    gap: 15px;
+    align-items: center;
     flex-wrap: wrap;
+}
+
+.form-input, .form-select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    min-width: 200px;
+}
+
+.form-input:focus, .form-select:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.schools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.school-card {
+    background: white;
+    border: 1px solid #e1e5e9;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.school-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.school-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.school-name {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 0;
     flex: 1;
     min-width: 0; /* Prevent overflow */
     align-items: flex-start; /* Align cards to top */
@@ -978,7 +1041,6 @@ body {
     transform: translateY(-5px);
     box-shadow: var(--box-shadow-strong);
 }
-
 
 /* Modal popup styling */
 .modal-overlay {

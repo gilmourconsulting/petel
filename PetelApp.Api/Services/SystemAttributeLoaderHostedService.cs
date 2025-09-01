@@ -1,36 +1,72 @@
-using Microsoft.Extensions.Hosting;
-using System.Threading;
-using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-public class SystemAttributeLoaderHostedService : IHostedService
+namespace PetelApp.Api.Services
 {
-    private readonly IServiceScopeFactory _scopeFactory;
-
-    public SystemAttributeLoaderHostedService(IServiceScopeFactory scopeFactory)
+    /// <summary>
+    /// Background service for system attributes loading following system attributes pattern
+    /// Loads dynamic configuration at startup for multi-tenant educational SaaS
+    /// </summary>
+    public class SystemAttributeLoaderHostedService : BackgroundService
     {
-        _scopeFactory = scopeFactory;
-    }
+        private readonly IServiceProvider _serviceProvider;
+        private readonly ILogger<SystemAttributeLoaderHostedService> _logger;
 
-    public async Task StartAsync(CancellationToken cancellationToken)
-    {
-        try
+        public SystemAttributeLoaderHostedService(
+            IServiceProvider serviceProvider,
+            ILogger<SystemAttributeLoaderHostedService> logger)
         {
-            using var scope = _scopeFactory.CreateScope();
-            var service = scope.ServiceProvider.GetRequiredService<SystemAttributeService>();
-            var logger = scope.ServiceProvider.GetRequiredService<ILogger<SystemAttributeLoaderHostedService>>();
+            _serviceProvider = serviceProvider;
+            _logger = logger;
+        }
+
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            _logger.LogInformation("Starting System Attributes Loader...");
             
-            logger.LogInformation("Loading system attributes at startup...");
-            await service.LoadAttributesAsync();
-            logger.LogInformation("System attributes loaded successfully at startup.");
+            // Load immediately at startup
+            await LoadSystemAttributesAtStartup();
+
+            // Continue periodic loading
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
+                    await LoadSystemAttributes();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error in periodic system attributes loading");
+                    await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+                }
+            }
         }
-        catch (Exception ex)
+
+        private async Task LoadSystemAttributesAtStartup()
         {
-            var logger = _scopeFactory.CreateScope().ServiceProvider.GetRequiredService<ILogger<SystemAttributeLoaderHostedService>>();
-            logger.LogError(ex, "Failed to load system attributes at startup");
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var systemAttributeService = scope.ServiceProvider.GetRequiredService<SystemAttributeService>();
+                
+                var attributes = await systemAttributeService.GetAllAttributesAsync();
+                _logger.LogInformation($"Loaded {attributes.Count} system attributes at startup");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to load system attributes at startup");
+            }
+        }
+
+        private async Task LoadSystemAttributes()
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var systemAttributeService = scope.ServiceProvider.GetRequiredService<SystemAttributeService>();
+            
+            await systemAttributeService.GetAllAttributesAsync();
+            _logger.LogInformation("System attributes cache refreshed");
         }
     }
-
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }

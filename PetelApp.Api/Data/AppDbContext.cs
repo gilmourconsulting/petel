@@ -14,20 +14,24 @@ namespace PetelApp.Api.Data
         // Entity tables
         public DbSet<Entity> Entities { get; set; }
         public DbSet<User> Users { get; set; }
-        public DbSet<PetelApp.Api.Models.SystemAttribute> SystemAttributes { get; set; }
+        public DbSet<SystemAttribute> SystemAttributes { get; set; }
         public DbSet<EntityType> EntityTypes { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<UserRole> UserRoles { get; set; }
         public DbSet<RolesAction> RolesActions { get; set; } // Added DbSet for RolesAction
         public DbSet<SchoolYear> SchoolYears { get; set; } // Added DbSet for SchoolYear
         public DbSet<StudentSchoolYearsRegistrationSummaryVw> StudentSchoolYearsRegistrationSummaryVw { get; set; } // Added DbSet for StudentSchoolYearsRegistrationSummaryVw
+        public DbSet<HoursBudget> HoursBudgets { get; set; } // ADD THIS LINE
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            base.OnModelCreating(modelBuilder);
-
-            // Set default schema for all tables
+            // Configure petel_schema following multi-tenant architecture
             modelBuilder.HasDefaultSchema("petel_schema");
+            
+            // Configure table names following database conventions
+            modelBuilder.Entity<HoursBudget>().ToTable("hours_budgets"); // ADD THIS LINE
+    
+            base.OnModelCreating(modelBuilder);
 
             // Configure Entities table
             modelBuilder.Entity<Entity>(entity =>
@@ -69,7 +73,21 @@ namespace PetelApp.Api.Data
                 entity.Property(e => e.UpdatedAt)
                     .HasColumnName("updated_at")
                     .HasDefaultValueSql("CURRENT_TIMESTAMP");
+                entity.Property(e => e.Symbol)
+                    .HasColumnName("symbol");  
+                entity.Property(e => e.inspector_name)
+                    .HasColumnName("inspector_name")
+                    .HasMaxLength(255);
+                entity.Property(e => e.characterization)
+                    .HasColumnName("charactarization")
+                    .HasMaxLength(255);
 
+                entity.Property(e => e.contact_person)
+                    .HasColumnName("contact_person")
+                    .HasMaxLength(255);
+                entity.Property(e => e.education_stage)
+                    .HasColumnName("education_stage")
+                    .HasMaxLength(100);
                 // Foreign key to EntityType
                 entity.HasOne(e => e.EntityType)
                     .WithMany(et => et.Entities)
@@ -147,18 +165,19 @@ namespace PetelApp.Api.Data
             });
 
             // Configure SystemAttributes table
-            modelBuilder.Entity<PetelApp.Api.Models.SystemAttribute>(entity =>
+            modelBuilder.Entity<SystemAttribute>(entity =>
             {
                 entity.ToTable("system_attributes", "petel_schema");
                 entity.HasKey(s => s.Id);
                 entity.Property(s => s.Id).HasColumnName("id");
                 entity.Property(s => s.Name).HasColumnName("name").HasMaxLength(255); // <-- Map to "name"
-                entity.Property(s => s.Description).HasColumnName("description").HasMaxLength(500);
                 entity.Property(s => s.Value).HasColumnName("value").HasMaxLength(255);
                 entity.Property(s => s.ValueType).HasColumnName("value_type").HasMaxLength(50);
                 entity.Property(s => s.CreatedAt).HasColumnName("created_at");
                 entity.Property(s => s.UpdatedAt).HasColumnName("updated_at");
-                entity.Property(s => s.UpdateUser).HasColumnName("update_user"); // <-- Map to "update_user"
+                entity.Property(s => s.update_user).HasColumnName("update_user"); // <-- Map to "update_user"
+                entity.Property(s => s.foreign_id).HasColumnName("foreign_id");
+                entity.Property(s => s.Description).HasColumnName("description");
             });
 
             // Configure EntityTypes table
@@ -172,9 +191,7 @@ namespace PetelApp.Api.Data
                     .HasColumnName("name")
                     .IsRequired()
                     .HasMaxLength(100);
-                entity.Property(et => et.Description)
-                    .HasColumnName("description")
-                    .HasMaxLength(255);
+
                 entity.Property(et => et.CreatedAt)
                     .HasColumnName("created_at");
                 entity.Property(et => et.UpdatedAt)
@@ -281,6 +298,15 @@ namespace PetelApp.Api.Data
         public string? SchoolLogo { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public int? Symbol { get; set; }
+
+        public string? inspector_name { get; set; } = string.Empty;
+
+        public string? characterization { get; set; }
+        public string? contact_person { get; set; }
+        public string? education_stage { get; set; } 
+
+
 
         // Navigation properties
         public virtual ICollection<User> Users { get; set; } = new List<User>();
@@ -311,18 +337,20 @@ namespace PetelApp.Api.Data
     public class SystemAttribute
     {
         public int Id { get; set; }
+        public string? Name { get; set; }
         public string? Description { get; set; }
         public string? Value { get; set; }
         public string? ValueType { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public int? foreign_id { get; set; }
+        public int? update_user { get; set; }
     }
 
     public class EntityType
     {
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
-        public string? Description { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
 

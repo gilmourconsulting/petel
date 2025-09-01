@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
-using PetelApp.Api.Services;
 
 namespace PetelApp.Api.Controllers
 {
@@ -11,12 +10,10 @@ namespace PetelApp.Api.Controllers
     public class EntitiesController : ControllerBase
     {
         private readonly AppDbContext _context;
-        private readonly ILogger<EntitiesController> _logger;
 
-        public EntitiesController(AppDbContext context, ILogger<EntitiesController> logger)
+        public EntitiesController(AppDbContext context)
         {
             _context = context;
-            _logger = logger;
         }
 
         /// <summary>
@@ -24,41 +21,30 @@ namespace PetelApp.Api.Controllers
         /// This endpoint is public and doesn't require tenant context
         /// since users need to see available entities before selecting one
         /// </summary>
-        [HttpGet]
-        public async Task<IActionResult> GetEntities()
+        [HttpGet("login")]
+        public async Task<IActionResult> GetEntitiesForLogin()
         {
             try
             {
-                _logger.LogInformation("Fetching active entities for login dropdown");
-
+                // Load entities with id, name, and entity_type_id following authentication & session management
                 var entities = await _context.Entities
-                    .Where(e => e.IsActive == true)
-                    .Select(e => new EntityDto
+                    .Where(e => e.IsActive)
+                    .Select(e => new
                     {
-                        Id = e.Id,
-                        Name = e.Name,
-                        Description = e.PrincipalName ?? string.Empty,
-                        Address = e.Address ?? string.Empty,
-                        Phone = e.Phone ?? string.Empty,
-                        Email = e.Email ?? string.Empty
+                        id = e.Id,
+                        name = e.Name,
+                        entity_type_id = e.EntityTypeId
                     })
-                    .OrderBy(e => e.Name)
+                    .OrderBy(e => e.name)
                     .ToListAsync();
 
-                _logger.LogInformation("Successfully retrieved {Count} active entities", entities.Count);
-
+                Console.WriteLine($"Loaded {entities.Count} entities for login from database");
                 return Ok(entities);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving entities");
-                
-                return StatusCode(500, new ErrorResponse
-                {
-                    Success = false,
-                    Message = "שגיאה בטעינת הישויות",
-                    Details = "אנא נסה שוב או פנה למנהל המערכת"
-                });
+                Console.WriteLine($"Error loading entities: {ex.Message}");
+                return StatusCode(500, new { message = "שגיאה בטעינת רשימת הגופים", error = ex.Message });
             }
         }
 
@@ -71,135 +57,96 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
-                // This endpoint might be used in authenticated parts of the app
-                // so we can validate tenant access if needed
-                
+                // Full entity details for post-login operations
                 var entity = await _context.Entities
-                    .Include(e => e.EntityType)
-                    .Where(e => e.Id == id && e.IsActive == true)
-                    .Select(e => new EntityDetailDto
-                    {
-                        Id = e.Id,
-                        Name = e.Name,
-                        Description = e.PrincipalName ?? string.Empty,
-                        Address = e.Address ?? string.Empty,
-                        Phone = e.Phone ?? string.Empty,
-                        Email = e.Email ?? string.Empty,
-                        EntityTypeName = e.EntityType.Name,
-                        CreatedDate = e.CreatedAt,
-                        IsActive = e.IsActive,
-                        UserCount = e.Users.Count(u => u.IsActive == true)
-                    })
-                    .FirstOrDefaultAsync();
+                    .FirstOrDefaultAsync(e => e.Id == id);
 
                 if (entity == null)
                 {
-                    return NotFound(new ErrorResponse
-                    {
-                        Success = false,
-                        Message = "הישות לא נמצאה",
-                        Details = "הישות המבוקשת לא קיימת או לא פעילה"
-                    });
+                    return NotFound(new { message = "גוף לא נמצא" });
                 }
 
                 return Ok(entity);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving entity {EntityId}", id);
-                
-                return StatusCode(500, new ErrorResponse
-                {
-                    Success = false,
-                    Message = "שגיאה בטעינת פרטי הישות"
-                });
+                return StatusCode(500, new { message = "שגיאה בטעינת פרטי הגוף", error = ex.Message });
             }
         }
 
         /// <summary>
-        /// Validate if a user has access to a specific entity
-        /// Used for additional security checks
+        /// Get all schools
+        /// This endpoint provides a list of schools with additional details
         /// </summary>
-        [HttpGet("{entityId}/validate-access/{userId}")]
-        public async Task<IActionResult> ValidateUserAccess(int entityId, int userId)
+        [HttpGet("schools")]
+        public async Task<IActionResult> GetSchools()
         {
             try
             {
-                var hasAccess = await _context.Users
-                    .AnyAsync(u => u.Id == userId && 
-                                  u.EntityId == entityId && 
-                                  u.IsActive == true);
-
-                if (!hasAccess)
-                {
-                    return Ok(new ValidationResponse
+                // For school list page - load schools with additional details following multi-tenant request flow
+                var schools = await _context.Entities
+                    .Where(e => e.EntityTypeId != 5) // Exclude multi-school networks
+                    .Select(e => new
                     {
-                        HasAccess = false,
-                        Message = "המשתמש אינו רשאי לגשת לישות זו"
-                    });
-                }
+                        id = e.Id,
+                        schoolName = e.Name,
+                        institutionSymbol = e.Symbol ,
+                        address = e.Address ?? "לא זמין",
+                        principalName = e.PrincipalName ?? "לא מוגדר",
+                        inspectorName = e.inspector_name ?? "לא מוגדר",
+                        institutionCharacterization = e.characterization ?? "לא מוגדר",
+                        contactPerson = e.contact_person ?? "לא מוגדר",
+                        educationStage = e.education_stage ?? "לא מוגדר",
+                        phone = e.Phone,
+                        email = e.Email,
 
-                // Get additional user info for the response
-                var userInfo = await _context.Users
-                    .Where(u => u.Id == userId && u.EntityId == entityId)
-                    .Select(u => new
-                    {
-                        Username = u.Username,
-                        FullName = u.FirstName + " " + u.LastName,
-                        LastLogin = u.LastLogin
+                        isActive = e.IsActive
                     })
-                    .FirstOrDefaultAsync();
+                    .OrderBy(e => e.schoolName)
+                    .ToListAsync();
 
-                return Ok(new ValidationResponse
-                {
-                    HasAccess = true,
-                    Message = "גישה מאושרת",
-                    UserInfo = userInfo
-                });
+                return Ok(schools);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error validating user {UserId} access to entity {EntityId}", userId, entityId);
-                
-                return StatusCode(500, new ErrorResponse
-                {
-                    Success = false,
-                    Message = "שגיאה בבדיקת הרשאות"
-                });
+                return StatusCode(500, new { message = "שגיאה בטעינת רשימת בתי הספר", error = ex.Message });
             }
         }
-    }
 
-    // DTOs for API responses
-    public class EntityDto
-    {
-        public int Id { get; set; }
-        public string Name { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public string Address { get; set; } = string.Empty;
-        public string Phone { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-    }
+        /// <summary>
+        /// Get all entities
+        /// This endpoint provides a full list of entities with detailed information
+        /// </summary>
+        [HttpGet]
+        public async Task<IActionResult> GetEntities()
+        {
+            try
+            {
+                // Full entity list with details following multi-tenant request flow
+                var entities = await _context.Entities
+                    .Include(e => e.EntityType)
+                    .Where(e => e.IsActive)
+                    .Select(e => new
+                    {
+                        id = e.Id,
+                        name = e.Name,
+                        entity_type_id = e.EntityTypeId,
+                        entity_type_name = e.EntityType.Name,
+                        address = e.Address,
+                        phone = e.Phone,
+                        email = e.Email,
+                        principal_name = e.PrincipalName,
+                        is_active = e.IsActive
+                    })
+                    .OrderBy(e => e.name)
+                    .ToListAsync();
 
-    public class EntityDetailDto : EntityDto
-    {
-        public string EntityTypeName { get; set; } = string.Empty;
-        public DateTime CreatedDate { get; set; }
-        public bool IsActive { get; set; }
-        public int UserCount { get; set; }
-    }
-
-    public class ValidationResponse
-    {
-        public bool HasAccess { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public object? UserInfo { get; set; }
-    }
-
-    public class ErrorResponse
-    {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public string Details { get; set; } = string.Empty;
+                return Ok(entities);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "שגיאה בטעינת הגופים", error = ex.Message });
+            }
+        }
     }
 }

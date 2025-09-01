@@ -264,22 +264,6 @@
 
     <script>
         // Mock data - replace with actual API calls to your .NET backend
-        const mockEntities = [
-            { id: 1, name: 'חברת אלפא בע"מ', description: 'חברת טכנולוגיה' },
-            { id: 2, name: 'חברת בטא בע"מ', description: 'חברת יעוץ' },
-            { id: 3, name: 'חברת גמא בע"מ', description: 'חברת שיווק' },
-            { id: 4, name: 'משרד הממשלה', description: 'גוף ציבורי' },
-            { id: 5, name: 'עיריית תל אביב', description: 'רשות מקומית' }
-        ];
-
-        // Mock users data - in real system, users are validated per tenant
-        const mockUsers = [
-            { username: 'admin', password: 'admin123', entityId: 1, role: 'מנהל מערכת' },
-            { username: 'manager', password: 'manager123', entityId: 2, role: 'מנהל' },
-            { username: 'user1', password: 'user123', entityId: 3, role: 'משתמש' },
-            { username: 'gov_user', password: 'gov123', entityId: 4, role: 'עובד משרד' },
-            { username: 'city_admin', password: 'city123', entityId: 5, role: 'מנהל עירוני' }
-        ];
 
         // Elements
         const entitySelect = document.getElementById('entity');
@@ -367,7 +351,7 @@
         async function loadEntities() {
             try {
                 // Use real API endpoint
-                const apiUrl = 'http://localhost:5082/api/entities';
+                const apiUrl = 'http://localhost:5082/api/entities/login';
                 
                 console.log('Loading entities from:', apiUrl);
                 
@@ -413,21 +397,6 @@
             }
         }
         
-        // Fallback function with mock data
-        function loadMockEntities() {
-            const mockEntities = [
-                { id: 1, name: 'חברת אלפא בע"מ' },
-                { id: 2, name: 'חברת בטא בע"מ' },
-                { id: 3, name: 'חברת גמא בע"מ' }
-            ];
-            
-            mockEntities.forEach(entity => {
-                const option = document.createElement('option');
-                option.value = entity.id;
-                option.textContent = entity.name;
-                entitySelect.appendChild(option);
-            });
-        }
 
         // Handle form submission
         loginForm.addEventListener('submit', async function(e) {
@@ -495,7 +464,19 @@
                 }
 
                 const result = await response.json();
-                console.log('Login response:', result);
+                console.log('Login API response:', result); // Debug the full response
+
+                // Store session data following Authentication & Session Management
+                sessionStorage.setItem('authToken', result.token || 'mock-token');
+                sessionStorage.setItem('userFullName', result.userFullName || '');
+                sessionStorage.setItem('tenantId', result.tenantId?.toString() || '');
+                sessionStorage.setItem('tenantName', result.tenantName || '');
+                sessionStorage.setItem('entityTypeId', result.entityTypeId?.toString() || ''); // FIX: Ensure stored as string
+                sessionStorage.setItem('entityTypeName', result.entityTypeName || '');
+
+                // Debug what was stored
+                console.log('Stored entityTypeId:', sessionStorage.getItem('entityTypeId'));
+                console.log('Stored entityTypeName:', sessionStorage.getItem('entityTypeName'));
 
                 if (result.success) {
                     // Successful login
@@ -510,7 +491,8 @@
                     sessionStorage.setItem('tenantName', result.tenantName);
                     sessionStorage.setItem('userFullName', result.userFullName);
                     sessionStorage.setItem('userEmail', result.userEmail);
-                    
+                    sessionStorage.setItem('EntityTypeId', result.entityTypeId);
+
                     console.log('Stored session data:', {
                         authToken: result.token,
                         tenantId: result.tenantId,
@@ -578,68 +560,7 @@
             }
         }
 
-        // API Integration Examples for your .NET backend:
-        
-        // 1. Load entities from your database:
-        /*
-        async function loadEntities() {
-            try {
-                const response = await fetch('/api/entities', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Failed to load entities');
-                }
-                
-                const entities = await response.json();
-                
-                entities.forEach(entity => {
-                    const option = document.createElement('option');
-                    option.value = entity.id;
-                    option.textContent = entity.name;
-                    entitySelect.appendChild(option);
-                });
-            } catch (error) {
-                showError('שגיאה בטעינת הישויות');
-            }
-        }
-        */
-
-        // 2. Authenticate user against your database:
-        /*
-        async function authenticateUser(loginData) {
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(loginData)
-                });
-
-                if (!response.ok) {
-                    throw new Error('Authentication failed');
-                }
-
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Store authentication token if using JWT
-                    localStorage.setItem('authToken', result.token);
-                    // Redirect to main application
-                    window.location.href = '/dashboard';
-                } else {
-                    showError(result.message || 'שם משתמש, סיסמה או ישות שגויים');
-                }
-            } catch (error) {
-                showError('שגיאה בהתחברות. אנא נסה שוב.');
-            }
-        }
-        */
+ 
     </script>
 </body>
 </html>

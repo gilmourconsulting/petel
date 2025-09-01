@@ -1,66 +1,92 @@
-using Hangfire;
-using Hangfire.PostgreSql;
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
-using PetelApp.Api.Services;        
-using PetelApp.Api.Middleware;      
+using PetelApp.Api.Services;
+using PetelApp.Api.Session;
+using PetelApp.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add basic services
+// Add services following multi-tenant educational SaaS patterns
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Add database context
+// Add HttpContextAccessor for session management
+builder.Services.AddHttpContextAccessor();
+
+// Database context with PostgreSQL following database conventions
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// Add your services - register both interface and concrete class
-builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<PetelApp.Api.Session.UserSessionService>();
-builder.Services.AddScoped<TenantService>(); // For controllers injecting concrete class
-builder.Services.AddScoped<ITenantService, TenantService>(); // For controllers injecting interface
-builder.Services.AddSingleton<SystemAttributeService>();
+// Session services following authentication & session management patterns
+builder.Services.AddScoped<UserSessionService>();
+
+// Core services following multi-tenant request flow
+builder.Services.AddScoped<TenantService>();
+builder.Services.AddScoped<SystemAttributeService>();
+
+// Background services for system attributes loading
 builder.Services.AddHostedService<SystemAttributeLoaderHostedService>();
 
-// Simple CORS for testing
+// CORS following security patterns
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
+        policy.WithOrigins("http://localhost:3000", "http://127.0.0.1:3000")
               .AllowAnyHeader()
-              .WithExposedHeaders("X-Tenant-ID");
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
+// CRITICAL: Configure session following Authentication & Session Management
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromHours(1);
+    options.IdleTimeout = TimeSpan.FromHours(8); // 8-hour session for school day
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
+    options.Cookie.Name = "PetelSession";
+    options.Cookie.SameSite = SameSiteMode.Lax;
 });
 
 var app = builder.Build();
 
-// Simple pipeline
-app.UseRouting();
-app.UseSwagger();
-app.UseSwaggerUI();
-app.UseCors("AllowAll");
+// Configure pipeline following critical development workflows
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseCors("AllowFrontend");
+
+// Verify database connection at startup
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    try
+    {
+        await context.Database.CanConnectAsync();
+        var entityCount = await context.Entities.CountAsync();
+        var attributeCount = await context.SystemAttributes.CountAsync();
+        Console.WriteLine($"Database connected - {entityCount} entities, {attributeCount} system attributes available");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Database connection failed: {ex.Message}");
+        throw;
+    }
+}
+
+// CRITICAL: Add session middleware before tenant middleware
 app.UseSession();
 
-app.UseAuthorization();
-
-// Add tenant middleware
 app.UseMiddleware<TenantMiddleware>();
-
+app.UseHttpsRedirection();
+app.UseAuthorization();
 app.MapControllers();
 
-// Test endpoint
-app.MapGet("/test", () => "API is working with database and services!");
-
+Console.WriteLine("Petel Educational Management System API started - data will be loaded from database");
 app.Run();

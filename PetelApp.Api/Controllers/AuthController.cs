@@ -70,20 +70,29 @@ namespace PetelApp.Api.Controllers
                     });
                 }
 
-                // 1. Get user by username/email
+                // Get user with entity information including entity type
                 var user = await _context.Users
                     .Include(u => u.Entity)
+                    .ThenInclude(e => e.EntityType) // Include EntityType navigation
                     .FirstOrDefaultAsync(u => u.Username == request.Username && u.IsActive);
 
                 if (user == null)
                 {
-                    return Unauthorized("User not found.");
+                    return Unauthorized(new LoginResponse 
+                    { 
+                        Success = false, 
+                        Message = "שם משתמש או סיסמה שגויים" 
+                    });
                 }
 
                 // Check that the user belongs to the selected entity
                 if (user.EntityId != request.TenantId)
                 {
-                    return Unauthorized("User does not belong to the selected entity.");
+                    return Unauthorized(new LoginResponse 
+                    { 
+                        Success = false, 
+                        Message = "המשתמש אינו שייך לארגון הנבחר" 
+                    });
                 }
 
                 _logger.LogInformation("Found user {Username} with hash: {Hash}", user.Username, user.PasswordHash);
@@ -91,8 +100,8 @@ namespace PetelApp.Api.Controllers
                 // Verify password
                 if (!VerifyPassword(request.Password, user.PasswordHash))
                 {
-                    _logger.LogWarning("Login attempt failed: Invalid password for user {Username} in tenant {TenantId}. Input: {Password}, Hash: {Hash}", 
-                        request.Username, request.TenantId, request.Password, user.PasswordHash);
+                    _logger.LogWarning("Login attempt failed: Invalid password for user {Username} in tenant {TenantId}", 
+                        request.Username, request.TenantId);
                     
                     return Unauthorized(new LoginResponse 
                     { 
@@ -101,7 +110,7 @@ namespace PetelApp.Api.Controllers
                     });
                 }
 
-                // 1. Get user roles
+                // Get user roles
                 var roleIdsAndNames = await _context.UserRoles
                     .Where(ur => ur.UserId == user.Id)
                     .Join(_context.Roles,
@@ -113,26 +122,39 @@ namespace PetelApp.Api.Controllers
                 var roleNames = roleIdsAndNames.Select(r => r.Name).ToList();
                 var roleIds = roleIdsAndNames.Select(r => r.Id).ToList();
 
-                // 2. Get allowed actions for these roles (action_level != 0)
+                // Get allowed actions for these roles
                 var allowedActions = await _context.RolesActions
                     .Where(ra => roleIds.Contains(ra.RoleId) && ra.ActionLevel != 0)
                     .Select(ra => ra.ActionId)
                     .Distinct()
                     .ToListAsync();
 
-                // 3. Store in user session
+                // Get entity information
+                var entity = await _context.Entities
+                    .Include(e => e.EntityType) // Ensure EntityType is loaded
+                    .FirstOrDefaultAsync(e => e.Id == request.TenantId && e.IsActive);
+
+                if (entity == null)
+                {
+                    return BadRequest(new { message = "גוף חינוכי לא נמצא או לא פעיל" });
+                }
+
+                // Create session with entity type data
                 var userSession = new UserSession
                 {
                     UserId = user.Id,
                     UserFullName = $"{user.FirstName} {user.LastName}",
                     UserEmail = user.Email,
-                    TenantId = request.TenantId,
-                    TenantName = user.Entity.Name,
+                    TenantId = entity.Id,
+                    TenantName = entity.Name,
+                    EntityTypeId = entity.EntityTypeId, // This should not be null
+                    EntityTypeName = entity.EntityType?.Name ?? "לא מוגדר", // Handle null EntityType
                     Roles = roleNames,
                     LoginTime = DateTime.UtcNow,
                     AllowedActions = allowedActions
                 };
 
+                // Store session
                 _userSessionService.SetUserSession(userSession);
 
                 // Update last login
@@ -140,23 +162,28 @@ namespace PetelApp.Api.Controllers
                 user.UpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
-                // Generate authentication token (you can implement JWT here)
+                // Generate authentication token
                 var token = GenerateAuthToken(user);
 
-                _logger.LogInformation("Successful login for user {Username} in tenant {TenantId}", 
-                    request.Username, request.TenantId);
+                _logger.LogInformation("Successful login for user {Username} in tenant {TenantId} with entity type {EntityTypeId}", 
+                    request.Username, request.TenantId, user.Entity.EntityTypeId);
 
-                return Ok(new LoginResponse
+                // Return response with entity type
+                Console.WriteLine($"Entity loaded: EntityTypeId={entity.EntityTypeId}, EntityTypeName={entity.EntityType?.Name}");
+
+                var response = new
                 {
-                    Success = true,
-                    Message = "התחברות בוצעה בהצלחה",
-                    Token = token,
-                    TenantId = request.TenantId,
-                    TenantName = user.Entity.Name,
-                    UserFullName = $"{user.FirstName} {user.LastName}",
-                    UserEmail = user.Email,
-                    ExpiresAt = DateTime.UtcNow.AddHours(24)
-                });
+                    success = true,
+                    message = "התחברות בוצעה בהצלחה",
+                    userFullName = $"{user.FirstName} {user.LastName}",
+                    tenantId = entity.Id,
+                    tenantName = entity.Name,
+                    entityTypeId = entity.EntityTypeId, // Ensure this exists
+                    entityTypeName = entity.EntityType?.Name ?? "לא מוגדר"
+                };
+
+                Console.WriteLine($"Returning entityTypeId: {response.entityTypeId}");
+                return Ok(response);
             }
             catch (Exception ex)
             {
@@ -291,6 +318,8 @@ namespace PetelApp.Api.Controllers
         public string TenantName { get; set; } = string.Empty;
         public string UserFullName { get; set; } = string.Empty;
         public string UserEmail { get; set; } = string.Empty;
+        public int EntityTypeId { get; set; } // Add entity type ID
+        public string EntityTypeName { get; set; } = string.Empty; // Add entity type name
         public DateTime ExpiresAt { get; set; }
     }
 
