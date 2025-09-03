@@ -1,67 +1,77 @@
+<!-- filepath: c:\dev\PetelFullApp\petelapp-frontend\public\student.html -->
 <div class="students-container">
     <!-- Main content area -->
     <div class="students-content">
         <div class="content-card">
-            <h2 id="studentsTitle" style="margin-bottom: 20px; color: #C15A16;">תלמידים</h2>
+            <h2 id="studentTitle" style="margin-bottom: 20px; color: #C15A16;">מסמכי התלמיד</h2>
             
-            <!-- Students summary info -->
-            <div class="students-summary" style="margin-bottom: 30px;">
-                <div class="summary-grid">
-                    <div class="summary-card">
-                        <div class="summary-icon">👥</div>
-                        <div class="summary-info">
-                            <div class="summary-value" id="totalStudents">0</div>
-                            <div class="summary-label">סה"כ תלמידים</div>
-                        </div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="summary-icon">✅</div>
-                        <div class="summary-info">
-                            <div class="summary-value" id="activeStudents">0</div>
-                            <div class="summary-label">תלמידים בטיפול</div>
-                        </div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="summary-icon">📚</div>
-                        <div class="summary-info">
-                            <div class="summary-value" id="totalClasses">0</div>
-                            <div class="summary-label">כיתות</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+
 
             <!-- Students table - ReusableTable component -->
             <div class="students-table-section">
-                <h3 style="color: #333; margin-bottom: 15px;">רשימת תלמידים</h3>
+                <h3 style="color: #333; margin-bottom: 15px;">פרטי התלמיד</h3>
                 <div id="studentsTableContainer">
                     <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
                         טוען נתוני תלמידים...
                     </div>
                 </div>
             </div>
+               
+            <!-- Class Characterization Field -->
+            <div class="class-characterization-section" style="margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border-right: 4px solid #C15A16;">
+                <h3 style="color: #333; margin-bottom: 15px; font-size: 1.2em; font-weight: 600;">אפיון כיתה</h3>
+                <div class="characterization-content" style="display: flex; align-items: center; gap: 10px; direction: rtl;">
+                    <span class="characterization-number" style="
+                        background: #C15A16; 
+                        color: white; 
+                        padding: 8px 12px; 
+                        border-radius: 6px; 
+                        font-weight: bold; 
+                        font-size: 1.1em;
+                        min-width: 40px;
+                        text-align: center;
+                    ">11</span>
+                    <span class="characterization-text" style="
+                        font-size: 1.1em; 
+                        color: #333; 
+                        font-weight: 500;
+                    ">מוגבלות בשמיעה</span>
+                </div>
+            </div>
+ 
+            <div class="documents-table-section">
+                <h3 style="color: #333; margin-bottom: 15px;">רשימת מסמכים</h3>
+                <div id="documentsTableContainer">
+                    <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
+                        טוען נתוני מסמכים...
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
     <!-- Simplified context buttons -->
-    <div class="context-buttons-section students-context">
+    <!--<div class="context-buttons-section students-context">
         <button class="context-btn" onclick="refreshStudentsData()" style="background: #C15A16; color: #fff;">
             רענן נתונים
         </button>
         <button class="context-btn" onclick="window.history.back()" style="background: #6c757d; color: #fff;">
             חזרה
         </button>
-    </div>
+    </div>-->
 </div>
 
 <!-- Add CSS styling to match schoollist.html table appearance -->
 <style>
 /* Students table styling matching schoollist.html following Hebrew/RTL Specific Patterns */
-.students-table-section {
+.students-table-section,
+.documents-table-section {
     margin-top: 30px;
 }
 
-.students-table-section h3 {
+.students-table-section h3,
+.documents-table-section h3 {
     margin-bottom: 20px;
     color: #333;
     font-size: 1.3em;
@@ -115,9 +125,35 @@
     color: #666;
     font-size: 0.9em;
 }
+/* Page title and headings */
+#studentTitle {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+h2, h3, h4, h5, h6 {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Class characterization section styling */
+.class-characterization-section {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.class-characterization-section h3 {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.characterization-number {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.characterization-text {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
 
 /* Table container styling matching schoollist.html exactly */
-#studentsTableContainer .table-container {
+#studentsTableContainer .table-container,
+#documentsTableContainer .table-container {
     overflow-x: auto;
     border: 1px solid #ddd;
     border-radius: 8px;
@@ -125,7 +161,8 @@
     direction: rtl;
 }
 
-#studentsTableContainer .data-table {
+#studentsTableContainer .data-table,
+#documentsTableContainer .data-table {
     width: 100%;
     border-collapse: collapse;
     direction: rtl;
@@ -133,7 +170,8 @@
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
-#studentsTableContainer .data-table th {
+#studentsTableContainer .data-table th,
+#documentsTableContainer .data-table th {
     background-color: #f8f9fa;
     color: #333;
     font-weight: 600;
@@ -145,11 +183,13 @@
     text-align: right;
 }
 
-#studentsTableContainer .data-table th:first-child {
+#studentsTableContainer .data-table th:first-child,
+#documentsTableContainer .data-table th:first-child {
     border-right: none;
 }
 
-#studentsTableContainer .data-table td {
+#studentsTableContainer .data-table td,
+#documentsTableContainer .data-table td {
     padding: 12px;
     border-bottom: 1px solid #dee2e6;
     border-left: 1px solid #dee2e6;
@@ -157,15 +197,18 @@
     text-align: right;
 }
 
-#studentsTableContainer .data-table td:first-child {
+#studentsTableContainer .data-table td:first-child,
+#documentsTableContainer .data-table td:first-child {
     border-right: none;
 }
 
-#studentsTableContainer .data-table tr:hover {
+#studentsTableContainer .data-table tr:hover,
+#documentsTableContainer .data-table tr:hover {
     background-color: #f5f5f5;
 }
 
-#studentsTableContainer .data-table tr:nth-child(even) {
+#studentsTableContainer .data-table tr:nth-child(even),
+#documentsTableContainer .data-table tr:nth-child(even) {
     background-color: #f9f9f9;
 }
 
@@ -184,7 +227,8 @@
 }
 
 /* Status column styling */
-#studentsTableContainer .data-table .status-badge {
+#studentsTableContainer .data-table .status-badge,
+#documentsTableContainer .data-table .status-badge {
     padding: 4px 8px;
     border-radius: 12px;
     font-size: 0.85em;
@@ -192,16 +236,62 @@
     white-space: nowrap;
 }
 
-#studentsTableContainer .data-table .status-חדש {
+#studentsTableContainer .data-table .status-חדש,
+#documentsTableContainer .data-table .status-מוכן {
     background-color: #e3f2fd;
     color: #1565c0;
     border: 1px solid #bbdefb;
 }
 
-#studentsTableContainer .data-table .status-בטיפול {
+#studentsTableContainer .data-table .status-בטיפול,
+#documentsTableContainer .data-table .status-בתהליך {
     background-color: #fff3e0;
     color: #ef6c00;
     border: 1px solid #ffcc02;
+}
+
+#documentsTableContainer .data-table .status-לא-התחיל {
+    background-color: #ffebee;
+    color: #c62828;
+    border: 1px solid #ffcdd2;
+}
+
+#documentsTableContainer .data-table .status-נשלח {
+    background-color: #e8f5e8;
+    color: #2e7d32;
+    border: 1px solid #c8e6c9;
+}
+
+/* Document level styling */
+#documentsTableContainer .data-table .level-badge {
+    padding: 3px 8px;
+    border-radius: 8px;
+    font-size: 0.85em;
+    font-weight: 600;
+    background-color: #f8f9fa;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    min-width: 60px;
+    text-align: center;
+    display: inline-block;
+}
+
+#documentsTableContainer .data-table .level-אישי {
+    background-color: #e3f2fd;
+    color: #1565c0;
+    border: 1px solid #bbdefb;
+}
+
+#documentsTableContainer .data-table .level-בית-ספר {
+    background-color: #fff3e0;
+    color: #ef6c00;
+    border: 1px solid #ffcc02;
+}
+
+#documentsTableContainer .data-table .level-רשת {
+    background-color: #f3e5f5;
+    color: #7b1fa2;
+    border: 1px solid #ce93d8;
 }
 
 /* Category column styling */
@@ -220,7 +310,8 @@
 }
 
 /* Actions cell styling matching schoollist.html exactly */
-#studentsTableContainer .actions-cell {
+#studentsTableContainer .actions-cell,
+#documentsTableContainer .actions-cell {
     white-space: nowrap;
     text-align: center;
     direction: ltr;
@@ -228,7 +319,8 @@
 }
 
 /* Button styling matching schoollist.html exactly */
-#studentsTableContainer .btn {
+#studentsTableContainer .btn,
+#documentsTableContainer .btn {
     padding: 4px 8px;
     border: none;
     border-radius: 4px;
@@ -241,40 +333,48 @@
     font-weight: 500;
 }
 
-#studentsTableContainer .btn:hover {
+#studentsTableContainer .btn:hover,
+#documentsTableContainer .btn:hover {
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
-#studentsTableContainer .btn-sm {
+#studentsTableContainer .btn-sm,
+#documentsTableContainer .btn-sm {
     padding: 3px 6px;
     font-size: 10px;
 }
 
-#studentsTableContainer .btn-secondary {
+#studentsTableContainer .btn-secondary,
+#documentsTableContainer .btn-secondary {
     background-color: #6c757d;
     color: white;
 }
 
-#studentsTableContainer .btn-secondary:hover {
+#studentsTableContainer .btn-secondary:hover,
+#documentsTableContainer .btn-secondary:hover {
     background-color: #545b62;
 }
 
-#studentsTableContainer .btn-primary {
+#studentsTableContainer .btn-primary,
+#documentsTableContainer .btn-primary {
     background-color: #007bff;
     color: white;
 }
 
-#studentsTableContainer .btn-primary:hover {
+#studentsTableContainer .btn-primary:hover,
+#documentsTableContainer .btn-primary:hover {
     background-color: #0056b3;
 }
 
-#studentsTableContainer .btn-success {
+#studentsTableContainer .btn-success,
+#documentsTableContainer .btn-success {
     background-color: #28a745;
     color: white;
 }
 
-#studentsTableContainer .btn-success:hover {
+#studentsTableContainer .btn-success:hover,
+#documentsTableContainer .btn-success:hover {
     background-color: #1e7e34;
 }
 
@@ -363,12 +463,15 @@
         transform: none;
     }
     
-    #studentsTableContainer .data-table {
+    #studentsTableContainer .data-table,
+    #documentsTableContainer .data-table {
         font-size: 0.85em;
     }
     
     #studentsTableContainer .data-table th,
-    #studentsTableContainer .data-table td {
+    #studentsTableContainer .data-table td,
+    #documentsTableContainer .data-table th,
+    #documentsTableContainer .data-table td {
         padding: 8px 6px;
     }
 }
@@ -393,39 +496,7 @@ function useMockStudentsData() {
             address: 'רחוב הרצל 15, תל אביב',
             class: 'כיתה א', 
             status: 'חדש', 
-            category: 2
-        },
-        { 
-            id: '987654321', 
-            name: 'שרה לוי', 
-            address: 'רחוב בן גוריון 23, ירושלים',
-            class: 'כיתה א', 
-            status: 'בטיפול', 
             category: 3
-        },
-        { 
-            id: '456789123', 
-            name: 'דוד משה', 
-            address: 'רחוב רוטשילד 8, חיפה',
-            class: 'כיתה ב', 
-            status: 'חדש', 
-            category: 5
-        },
-        { 
-            id: '321654987', 
-            name: 'מירי אברהם', 
-            address: 'רחוב דיזנגוף 45, תל אביב',
-            class: 'כיתה ב', 
-            status: 'בטיפול', 
-            category: 7
-        },
-        { 
-            id: '789123456', 
-            name: 'אבי יעקב', 
-            address: 'רחוב יפו 12, ירושלים',
-            class: 'כיתה ג', 
-            status: 'חדש', 
-            category: 4
         }
     ];
 
@@ -434,28 +505,212 @@ function useMockStudentsData() {
     // Store data globally for Cross-Component Communication
     window.currentStudentsData = mockStudentsData;
     
-    // Update summary statistics
-    updateStudentsSummary(mockStudentsData);
 
     // Create and render the students table using ReusableTable
     createStudentsTable(mockStudentsData);
+    
+    // Load documents data
+    loadDocumentsData();
 }
 
-// Update summary statistics
-function updateStudentsSummary(data) {
-    const totalStudents = data.length;
-    const activeStudents = data.filter(s => s.status === 'בטיפול').length;
-    const totalClasses = [...new Set(data.map(s => s.class))].length;
-
-    const totalElement = document.getElementById('totalStudents');
-    const activeElement = document.getElementById('activeStudents');
-    const classesElement = document.getElementById('totalClasses');
-
-    if (totalElement) totalElement.textContent = totalStudents;
-    if (activeElement) activeElement.textContent = activeStudents;
-    if (classesElement) classesElement.textContent = totalClasses;
+// Load documents data
+function loadDocumentsData()    {
+    console.log('🔄 Loading documents data...');
     
-    console.log('✅ Summary updated:', { totalStudents, activeStudents, totalClasses });
+    const mockDocumentsData = [
+        {
+            id: '1',
+            form: 'אישור נתונים קטגוריה 3',
+            appendix: 'נספח 3',
+            documentLevel: 'אישי',
+            status: 'בתהליך',
+            lastUpdate: '2025-01-15'
+        },
+        {
+            id: '2',
+            form: 'טופס ריכוז נתוני תלמידי חוץ במוסדות החינוך לשנת הלימודים',
+            appendix: 'נספח 10',
+            documentLevel: 'רשת',
+            status: 'מוכן',
+            lastUpdate: '2025-01-20'
+        },
+        {
+            id: '3',
+            form: 'אישור שמירה במוסד חינוך',
+            appendix: 'נספח 11',
+            documentLevel: 'רשת',
+            status: 'לא התחיל',
+            lastUpdate: '2025-01-10'
+        },
+        {
+            id: '4',
+            form: 'אישור הקצאת שעות פסיכולוג במוסד חינוך',
+            appendix: 'נספח 12',
+            documentLevel: 'בית ספר',
+            status: 'בתהליך',
+            lastUpdate: '2025-01-25'
+        },
+        {
+            id: '5',
+            form: 'אישור להעסקת מתורגמן לשפת הסימנים לשנת הלימודים',
+            appendix: 'נספח 15',
+            documentLevel: 'בית ספר',
+            status: 'בתהליך',
+            lastUpdate: '2025-01-18'
+        }
+    ];
+
+    console.log('✅ Using mock documents data:', mockDocumentsData);
+    
+    // Store data globally for Cross-Component Communication
+    window.currentDocumentsData = mockDocumentsData;
+    
+    // Create and render the documents table using ReusableTable
+    createDocumentsTable(mockDocumentsData);
+}
+
+// Create documents table using ReusableTable component
+function createDocumentsTable(data) {
+    console.log('📊 Creating documents table with ReusableTable component');
+    
+    // Check if ReusableTable is already loaded
+    if (typeof ReusableTable === 'undefined') {
+        console.log('Loading ReusableTable component for documents...');
+        loadReusableTableComponentForDocuments(data);
+        return;
+    }
+    
+    initializeDocumentsTable(data);
+}
+
+// Load ReusableTable component for documents
+function loadReusableTableComponentForDocuments(data) {
+    // Check if script already exists to prevent duplicates
+    const existingScript = document.querySelector('script[src="table-component.js"]');
+    if (existingScript) {
+        console.log('table-component.js already loaded, waiting for ReusableTable...');
+        // Wait a bit for the script to execute
+        setTimeout(() => {
+            if (typeof ReusableTable !== 'undefined') {
+                initializeDocumentsTable(data);
+            } else {
+                console.error('❌ ReusableTable still not available after script load');
+                showDocumentsTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
+            }
+        }, 500);
+        return;
+    }
+
+    // Load the script
+    const script = document.createElement('script');
+    script.src = 'table-component.js';
+    script.onload = () => {
+        console.log('✅ table-component.js loaded');
+        setTimeout(() => {
+            if (typeof ReusableTable !== 'undefined') {
+                initializeDocumentsTable(data);
+            } else {
+                console.error('❌ ReusableTable not available after script load');
+                showDocumentsTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
+            }
+        }, 100);
+    };
+    script.onerror = () => {
+        console.error('❌ Failed to load table-component.js');
+        showDocumentsTableError('שגיאה בטעינת רכיב הטבלה');
+    };
+    document.head.appendChild(script);
+}
+
+// Initialize the documents ReusableTable
+function initializeDocumentsTable(data) {
+    console.log('🔧 Initializing documents ReusableTable with data:', data);
+    
+    // Define table columns for documents
+    const columns = [
+        { key: 'id', label: 'מספר', sortable: true, readOnly: true },
+        { key: 'form', label: 'טופס', sortable: true, readOnly: false },
+        { key: 'appendix', label: 'נספח', sortable: true, readOnly: false },
+        { 
+            key: 'documentLevel', 
+            label: 'רמת מסמך', 
+            sortable: true, 
+            readOnly: false,
+            render: (document) => `<span class="level-badge level-${document.documentLevel}">${document.documentLevel}</span>`
+        },
+        { 
+            key: 'status', 
+            label: 'סטטוס', 
+            sortable: true, 
+            readOnly: false,
+            render: (document) => `<span class="status-badge status-${document.status}">${document.status}</span>`
+        },
+        { key: 'lastUpdate', label: 'עדכון אחרון', sortable: true, readOnly: false },
+        {
+            key: 'actions',
+            label: 'פעולות',
+            sortable: false,
+            readOnly: true,
+            render: (document) => `
+                <div class="actions-cell">
+                    <button class="btn btn-sm btn-secondary" onclick="viewDocumentDetails('${document.id}')" title="צפייה">👁️</button>
+                    <button class="btn btn-sm btn-primary" onclick="editDocument('${document.id}')" title="עריכה">✏️</button>
+                    <button class="btn btn-sm btn-success" onclick="downloadDocument('${document.id}')" title="הורדה">📥</button>
+                </div>
+            `
+        }
+    ];
+
+    try {
+        // Create ReusableTable instance for documents
+        const documentsTable = new ReusableTable('documentsTableContainer', {
+            tableName: 'documents',
+            isReadOnly: false,
+            allowAdd: true,
+            allowEdit: true,
+            allowDelete: false
+        });
+
+        console.log('✅ Documents ReusableTable instance created');
+
+        // Initialize with data and columns
+        documentsTable.init(data, columns);
+
+        // Set save callback for when data is edited
+        documentsTable.onSave = (updatedData) => {
+            console.log('💾 Saving documents data:', updatedData);
+            window.currentDocumentsData = updatedData;
+        };
+
+        console.log('✅ Documents ReusableTable initialized successfully with', data.length, 'documents');
+
+    } catch (error) {
+        console.error('❌ Error creating documents ReusableTable:', error);
+        showDocumentsTableError('שגיאה ביצירת טבלת המסמכים');
+    }
+}
+
+// Show error message in documents table container
+function showDocumentsTableError(message) {
+    const container = document.getElementById('documentsTableContainer');
+    if (container) {
+        container.innerHTML = `
+            <div class="table-error" style="
+                padding: 20px; 
+                background: #f8d7da; 
+                color: #721c24; 
+                border: 1px solid #f5c6cb; 
+                border-radius: 8px;
+                text-align: center;
+                direction: rtl;
+            ">
+                <h4>${message}</h4>
+                <button onclick="refreshStudentsData()" class="btn btn-primary" style="margin-top: 10px;">
+                    נסה שוב
+                </button>
+            </div>
+        `;
+    }
 }
 
 // Create students table using ReusableTable component following Frontend Architecture Patterns
@@ -603,6 +858,44 @@ function showTableError(message) {
     }
 }
 
+// Document action functions
+function viewDocumentDetails(documentId) {
+    console.log('👁️ Viewing document details:', documentId);
+    
+    const document = getDocumentById(documentId);
+    if (document) {
+        const details = `
+פרטי המסמך:
+מספר: ${document.id}
+טופס: ${document.form}
+נספח: ${document.appendix}
+רמת מסמך: ${document.documentLevel}
+סטטוס: ${document.status}
+עדכון אחרון: ${document.lastUpdate}
+        `;
+        alert(details);
+    }
+}
+
+function editDocument(documentId) {
+    console.log('✏️ Editing document:', documentId);
+    alert(`עריכת מסמך ${documentId} - תכונה זו תתווסף בעתיד`);
+}
+
+function downloadDocument(documentId) {
+    console.log('📥 Downloading document:', documentId);
+    alert(`הורדת מסמך ${documentId} - תכונה זו תתווסף בעתיד`);
+}
+
+// Get document by ID from current data
+function getDocumentById(documentId) {
+    if (window.currentDocumentsData && Array.isArray(window.currentDocumentsData)) {
+        return window.currentDocumentsData.find(document => document.id === documentId);
+    }
+    console.warn('⚠️ No current documents data available');
+    return null;
+}
+
 // Student action functions following Cross-Component Communication
 function viewStudentDetails(studentId) {
     console.log('👁️ Viewing student details:', studentId);
@@ -649,12 +942,22 @@ function getStudentById(studentId) {
 function refreshStudentsData() {
     console.log('🔄 Refreshing students data...');
     
-    // Show loading state
-    const container = document.getElementById('studentsTableContainer');
-    if (container) {
-        container.innerHTML = `
+    // Show loading state for students
+    const studentsContainer = document.getElementById('studentsTableContainer');
+    if (studentsContainer) {
+        studentsContainer.innerHTML = `
             <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
                 רענון נתוני תלמידים...
+            </div>
+        `;
+    }
+    
+    // Show loading state for documents
+    const documentsContainer = document.getElementById('documentsTableContainer');
+    if (documentsContainer) {
+        documentsContainer.innerHTML = `
+            <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
+                רענון נתוני מסמכים...
             </div>
         `;
     }
@@ -684,16 +987,24 @@ if (document.readyState !== 'loading') {
 // Make functions globally available following Cross-Component Communication
 window.loadStudentsData = loadStudentsData;
 window.useMockStudentsData = useMockStudentsData;
+window.loadDocumentsData = loadDocumentsData;
 window.createStudentsTable = createStudentsTable;
+window.createDocumentsTable = createDocumentsTable;
 window.loadReusableTableComponent = loadReusableTableComponent;
+window.loadReusableTableComponentForDocuments = loadReusableTableComponentForDocuments;
 window.initializeStudentsTable = initializeStudentsTable;
-window.updateStudentsSummary = updateStudentsSummary;
+window.initializeDocumentsTable = initializeDocumentsTable;
 window.showTableError = showTableError;
+window.showDocumentsTableError = showDocumentsTableError;
 window.refreshStudentsData = refreshStudentsData;
 window.viewStudentDetails = viewStudentDetails;
 window.editStudent = editStudent;
 window.viewStudentGrades = viewStudentGrades;
+window.viewDocumentDetails = viewDocumentDetails;
+window.editDocument = editDocument;
+window.downloadDocument = downloadDocument;
 window.getStudentById = getStudentById;
+window.getDocumentById = getDocumentById;
 
 console.log('✅ Students page functions registered globally');
 </script>

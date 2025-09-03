@@ -66,6 +66,22 @@
     /* Responsive Breakpoints */
     --mobile-breakpoint: 768px;
     --tablet-breakpoint: 900px;
+
+    /* Reduced spacing variables */
+    --top-bar-height-reduced: 12vh; /* Reduced from 16.67vh */
+    --main-content-height-reduced: 88vh; /* Increased from 83.33vh */
+    --minimal-padding: 15px; /* Reduced from 30px */
+    --minimal-margin: 10px; /* Reduced from 20px */
+    --minimal-card-padding: 15px; /* Reduced from 30px */
+
+    /* Minimal top bar height */
+    --top-bar-height-minimal: 60px; /* Fixed pixel height instead of vh */
+    --main-content-height-minimal: calc(100vh - 60px); /* Remaining height */
+    
+    /* Even more reduced spacing */
+    --ultra-minimal-padding: 8px;
+    --ultra-minimal-margin: 5px;
+    --ultra-minimal-card-padding: 10px;
 }
 
 /* Alternative Theme Example (uncomment to use) */
@@ -81,3 +97,185 @@
     --main-background: #ecf0f1;
 }
 */
+
+/* Override top bar height globally */
+.top-bar {
+    height: var(--top-bar-height-minimal) !important;
+    min-height: var(--top-bar-height-minimal) !important;
+    padding: var(--ultra-minimal-padding) var(--minimal-padding) !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+/* Adjust main container height accordingly */
+.main-container {
+    height: var(--main-content-height-minimal) !important;
+    min-height: var(--main-content-height-minimal) !important;
+}
+
+/* Global minimal content padding */
+.main-content {
+    padding: var(--ultra-minimal-padding) !important;
+    height: 100%;
+    overflow-y: auto;
+}
+
+/* Global minimal card styling */
+.content-card {
+    padding: var(--ultra-minimal-card-padding) !important;
+    margin: var(--ultra-minimal-margin) !important;
+}
+
+/* Reduce dashboard flex row spacing */
+.dashboard-flex-row {
+    margin-bottom: var(--ultra-minimal-margin) !important;
+    height: calc(100vh - 60px - 20px) !important; /* Account for minimal top bar */
+    gap: var(--ultra-minimal-margin);
+}
+
+/* Global minimal table styling */
+.data-table th {
+    padding: 5px 8px !important; /* Further reduced */
+    font-size: 0.85em !important;
+    line-height: 1.1;
+}
+
+.data-table td {
+    padding: 6px 8px !important; /* Further reduced */
+    font-size: 0.85em !important;
+    line-height: 1.2;
+}
+
+/* Global minimal summary card styling */
+.summary-card {
+    padding: 10px !important; /* Further reduced */
+    border-radius: 6px !important;
+}
+
+.summary-icon {
+    font-size: 1.8em !important; /* Further reduced */
+    margin-left: 8px !important;
+}
+
+.summary-value {
+    font-size: 1.4em !important; /* Further reduced */
+    margin-bottom: 2px !important;
+}
+
+.summary-label {
+    font-size: 0.8em !important;
+}
+
+/* Global minimal button styling */
+.btn {
+    padding: 3px 6px; /* Reduced from 4px 8px */
+    font-size: 10px; /* Reduced from 11px */
+    margin: 0 1px; /* Reduced from 2px */
+    border-radius: 3px; /* Reduced from 4px */
+}
+
+.btn-sm {
+    padding: 2px 4px; /* Reduced from 3px 6px */
+    font-size: 9px; /* Reduced from 10px */
+}
+
+/* Global minimal context button styling */
+.context-btn {
+    padding: 8px 16px; /* Reduced from default */
+    font-size: 0.9em; /* Slightly smaller */
+    margin: 0 5px; /* Reduced margin */
+}
+
+/* Global minimal section titles */
+h2 {
+    margin-bottom: 15px !important; /* Reduced from 20px */
+    font-size: 1.5em; /* Reduced font size */
+    line-height: 1.2; /* Tighter line height */
+}
+
+h3 {
+    margin-bottom: 10px !important; /* Reduced from 15px */
+    font-size: 1.2em; /* Reduced font size */
+}
+
+/* Global minimal table container styling */
+.table-container {
+    border-radius: 6px; /* Reduced from 8px */
+}
+
+/* Global minimal status and category badges */
+.status-badge {
+    padding: 2px 6px; /* Reduced from 4px 8px */
+    border-radius: 8px; /* Reduced from 12px */
+    font-size: 0.8em; /* Reduced from 0.85em */
+}
+
+.category-badge {
+    padding: 2px 6px; /* Reduced from 3px 8px */
+    border-radius: 6px; /* Reduced from 10px */
+    font-size: 0.75em; /* Reduced from 0.8em */
+}
+
+/* Mobile responsiveness for minimal top bar */
+@media (max-width: 900px) {
+    .top-bar {
+        height: 50px !important; /* Even smaller on mobile */
+        padding: 5px 8px !important;
+    }
+    
+    .main-container {
+        height: calc(100vh - 50px) !important;
+    }
+    
+    .system-logo img {
+        height: 28px !important;
+    }
+    
+    .system-info .app-title {
+        font-size: 12px !important;
+    }
+    
+    .entity-logo {
+        font-size: 16px !important;
+    }
+    
+    .entity-name,
+    .entity-type,
+    .user-name,
+    .user-role {
+        font-size: 9px !important;
+    }
+    
+    .logout-btn {
+        padding: 3px 6px !important;
+        font-size: 9px !important;
+    }
+    
+    /* Hide some elements on very small screens */
+    .entity-type,
+    .user-role {
+        display: none;
+    }
+}
+
+/* Ultra-mobile (phones) */
+@media (max-width: 480px) {
+    .top-bar {
+        height: 45px !important;
+        padding: 3px 5px !important;
+    }
+    
+    .main-container {
+        height: calc(100vh - 45px) !important;
+    }
+    
+    .system-info .app-title {
+        display: none; /* Hide title on very small screens */
+    }
+    
+    .entity-info,
+    .user-section {
+        margin: 0 4px;
+    }
+}

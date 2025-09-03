@@ -1,6 +1,6 @@
 dotnet run
 
 
-cd petelapp-frontend
+cd \dev\PetelFullApp\petelapp-frontend
 
 npx serve public 

@@ -20,7 +20,7 @@
             <!-- Left Side: System Logo and Info -->
             <div class="top-bar-left">
                 <div class="system-logo-section">
-                    <div class="system-logo" style="cursor: pointer;" onclick="navigateTo('dashboard')" title="חזור לעמוד הראשי">
+                    <div class="system-logo" style="cursor: pointer;" onclick="navigateToMainDashboard()" title="חזור למסך הראשי">
                         <img src="petel_logo.png" alt="לוגו המערכת" style="transition: opacity 0.2s;" 
                              onmouseover="this.style.opacity='0.8'" 
                              onmouseout="this.style.opacity='1'" />
@@ -58,73 +58,13 @@
 
             <!-- Main Content Area -->
             <div class="main-content">
-               <!-- <div class="content-header">
-                  <h1 class="page-title" id="pageTitle">עמוד ראשי</h1>
-                   <p class="page-subtitle" id="pageSubtitle">ברוכים הבאים למערכת הניהול</p> 
-                </div>-->
-  
-                <!-- Dashboard Content -->
-                <div id="dashboardContent">
-                    
-                    <!-- Navigation Link to Main Page -->
-
-
-                    <div class="dashboard-flex-row">
-
-                        <!-- Dashboard cards -->
-                        <div class="dashboard-cards-wrapper">
-                            <div class="dashboard-card" id="alertsCard">
-                                <div class="dashboard-card-header">
-                                    <div class="dashboard-card-icon">🔔</div>
-                                    <div class="dashboard-card-title">התראות</div>
-                                    <!-- Plus icon as leftmost item -->
-                                    <img src="Plus icon.png" alt="הוספה" class="dashboard-card-plus" 
-                                        onclick="showAddModal('alertsCard')" 
-                                        title="הוספת התראה חדשה" />
-                                </div>
-                                
-                                <div class="internal-cards-container" id="alertsInternalCards">
-                                    <!-- Internal cards will be populated here -->
-                                </div>
-                            </div>
-                            
-                            <div class="dashboard-card" id="eventsCard">
-                                <div class="dashboard-card-header">
-                                    <div class="dashboard-card-icon">🗓</div>
-                                    <div class="dashboard-card-title">אירועים</div>
-                                    <!-- Plus icon as leftmost item -->
-                                    <img src="Plus icon.png" alt="הוספה" class="dashboard-card-plus" 
-                                        onclick="showAddModal('eventsCard')" 
-                                        title="הוספת אירוע חדש" />
-                                </div>
-                                
-                                <div class="internal-cards-container" id="eventsInternalCards">
-                                    <!-- Internal cards will be populated here -->
-                                </div>
-                            </div>
-                        </div>
-                        <div class="context-buttons-section">
-                            <button class="context-btn" onclick="showSchoolYear(window.previousYearId, 'previous')">שנה קודמת</button>
-                            <button class="context-btn" onclick="showSchoolYear(window.currentYearId, 'current')">שנה נוכחית</button>
-                            <button class="context-btn" onclick="showSchoolYear(window.nextYearId, 'next')">שנה הבאה</button>
-                        </div>
-                    </div>
-
-            <div class="content-card">
-                <div class="form-footer" style="text-align: center; color: #666; font-size: 12px;">
-                    פט"ל - פתרונות טכנולגים לחינוך - גרסה <span id="systemVersion">טוען...</span>
-                </div>
-</div>
-                </div>
-
-                <!-- Other page content will be loaded here -->
-                <div id="dynamicContent" style="display: none;">
+                <!-- Dynamic content will be loaded here -->
+                <div id="dynamicContent">
                     <div class="content-card">
-                        <h2 style="margin-bottom: 20px; color: #333;">תוכן דינמי</h2>
-                        <p style="color: #666;">תוכן העמוד ייטען כאן בהתאם לבחירה בתפריט</p>
+                        <h2 style="margin-bottom: 20px; color: #333;">ברוכים הבאים למערכת פט"ל</h2>
+                        <p style="color: #666;">המערכת טוענת...</p>
                     </div>
                 </div>
-
             </div>
                     
         </div>
@@ -132,466 +72,253 @@
     </div>
 
     <script>
-        // Load the menu HTML from a separate file
-        document.addEventListener('DOMContentLoaded', function() {
-            fetch('menu.html')
-                .then(response => response.text())
-                .then(html => {
-                    document.getElementById('sideMenuContainer').innerHTML = html;
-                })
-                .catch(err => {
-                    console.error('Failed to load menu:', err);
-                });
+        // Replace the DOMContentLoaded event handler in index.html following Frontend Architecture Patterns:
 
-            // Initialize page
-            setTimeout(async function() {
-                loadUserInfo();
-                loadSystemVersion();
-                loadDashboardData();
-                await updateContextButtonLabels(); // Load year values for context buttons
-                
-                // Set initial history state for dashboard
-                if (!history.state) {
-                    history.replaceState({page: 'dashboard'}, '', '#dashboard');
-                }
-            }, 100);
+document.addEventListener('DOMContentLoaded', function() {
+    fetch('menu.html')
+        .then(response => response.text())
+        .then(html => {
+            document.getElementById('sideMenuContainer').innerHTML = html;
+        })
+        .catch(err => {
+            console.error('Failed to load menu:', err);
         });
 
-        // Load user information from session storage
-        function loadUserInfo() {
-            console.log('=== loadUserInfo started ===');
-            
-            const userFullName = sessionStorage.getItem('userFullName');
-            const tenantName = sessionStorage.getItem('tenantName');
-            const entityTypeName = sessionStorage.getItem('entityTypeName');
-            const tenantId = sessionStorage.getItem('tenantId');
-            const userEmail = sessionStorage.getItem('userEmail');
-            const entityTypeId = sessionStorage.getItem('entityTypeId');
-            
-            console.log('Session storage values:');
-            console.log('userFullName:', userFullName);
-            console.log('tenantName:', tenantName);
-            console.log('entityTypeName:', entityTypeName);
-            console.log('entityTypeId:', entityTypeId);
-            console.log('tenantId:', tenantId);
-            
-            // Use fallback values
-            const finalUserName = userFullName || 'משתמש לא זוהה';
-            const finalTenantName = tenantName || 'ישות לא זוהתה';
-            const finalEntityTypeName = entityTypeName || 'מוסד חינוכי';
-            
-            // Set user and entity display
-            const userNameElement = document.getElementById('userName');
-            const entityNameElement = document.getElementById('entityName');
-            const entityTypeElement = document.getElementById('entityType');
-            const userRoleElement = document.getElementById('userRole');
-            
-            if (userNameElement) {
-                userNameElement.textContent = finalUserName;
-            }
-            
-            if (entityNameElement) {
-                entityNameElement.textContent = finalTenantName;
-            }
-            
-            if (entityTypeElement) {
-                entityTypeElement.textContent = finalEntityTypeName;
-            }
-            
-            if (userRoleElement) {
-                userRoleElement.textContent = 'משתמש מערכת';
-            }
-            
-            // Load entity logo
-            loadEntityLogo();
-            
-            console.log('=== loadUserInfo completed with entity type:', finalEntityTypeName, '===');
-        }
-
-        // Helper functions for entity type checks
-        function getCurrentEntityTypeId() {
-            return parseInt(sessionStorage.getItem('entityTypeId')) || 0;
-        }
-
-        function getCurrentEntityTypeName() {
-            return sessionStorage.getItem('entityTypeName') || 'לא ידוע';
-        }
-
-        function isMultiSchoolNetwork() {
-            return getCurrentEntityTypeId() === 5;
-        }
-
-        // Make helper functions globally available
-        window.getCurrentEntityTypeId = getCurrentEntityTypeId;
-        window.getCurrentEntityTypeName = getCurrentEntityTypeName;
-        window.isMultiSchoolNetwork = isMultiSchoolNetwork;
-
-        // Load entity type description
-        async function loadEntityTypeDescription(tenantId) {
-            try {
-                if (tenantId) {
-                    const response = await fetch(`http://localhost:5082/api/entities/${tenantId}`);
-                    if (response.ok) {
-                        const entityData = await response.json();
-                        document.getElementById('entityType').textContent = entityData.entityTypeName || 'מוסד חינוכי';
-                    } else {
-                        document.getElementById('entityType').textContent = 'מוסד חינוכי';
-                    }
-                } else {
-                    document.getElementById('entityType').textContent = 'מוסד חינוכי';
-                }
-            } catch (error) {
-                console.log('Could not load entity type, using default');
-                document.getElementById('entityType').textContent = 'מוסד חינוכי';
-            }
-        }
-
-
-
-        // Load entity logo (placeholder for now)
-        function loadEntityLogo() {
-            const tenantId = sessionStorage.getItem('tenantId');
-            if (tenantId) {
-                // You can add logic here to load entity-specific logo
-                // For now, show different icons based on entity type
-                const entityTypes = ['🏫', '🏢', '🏛️', '🏥', '🏪'];
-                const randomIcon = entityTypes[Math.floor(Math.random() * entityTypes.length)];
-                document.getElementById('entityLogo').textContent = randomIcon;
-            }
-        }
-
-        // Load system version from database
-        async function loadSystemVersion() {
-            try {
-                const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
-                if (response.ok) {
-                    const attributes = await response.json();
-                    const versionAttr = attributes.find(attr => attr.name === "System Version");
-                    document.getElementById('systemVersion').textContent = versionAttr ? versionAttr.value : '1.0';
-                }
-            } catch (error) {
-                console.log('Could not load system version, using default');
-                document.getElementById('systemVersion').textContent = '1.0';
-            }
-        }
-
-        // Toggle side menu
-        function toggleMenu() {
-            const sideMenu = document.getElementById('sideMenu');
-            console.log('Toggling menu. Current state:', sideMenu.classList.contains('collapsed'));
-            
-            if (sideMenu.classList.contains('collapsed')) {
-                sideMenu.classList.remove('collapsed');
-                console.log('Menu expanded');
-            } else {
-                sideMenu.classList.add('collapsed');
-                console.log('Menu collapsed');
-            }
-        }
-
-        // Update loadSystemAttributes function
-        function loadSystemAttributes() {
-            const container = document.getElementById('systemAttributesTable');
-            container.innerHTML = '<p style="color: #666;">טוען נתונים...</p>';
-            
-            fetch(AppConfig.getApiUrl('systemAttributes'))
-                .then(response => response.json())
-                .then(data => {
-                    if (data && data.length > 0) {
-                        const table = document.createElement('table');
-                        table.className = 'attributes-table';
-                        table.innerHTML = `
-                            <thead>
-                                <tr>
-                                    <th>שם</th>
-                                    <th>תיאור</th>
-                                    <th>ערך</th>
-                                    <th>סוג ערך</th>
-                                    <th>מזהה חיצוני</th>
-                                    <th>עודכן לאחרונה</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${data.map(attr => `
-                                    <tr>
-                                        <td><strong>${attr.name || ''}</strong></td>
-                                        <td>${attr.description || ''}</td>
-                                        <td>${attr.value || ''}</td>
-                                        <td>${attr.valueType || ''}</td>
-                                        <td>${attr.foreignId || ''}</td>
-                                        <td>${attr.updatedAt ? new Date(attr.updatedAt).toLocaleString('he-IL') : ''}</td>
-                                    </tr>
-                                `).join('')}
-                            </tbody>
-                        `;
-                        container.innerHTML = '';
-                        container.appendChild(table);
-                    } else {
-                        container.innerHTML = '<div class="attributes-empty">אין מאפייני מערכת זמינים</div>';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading system attributes:', error);
-                    container.innerHTML = '<p style="color:red; text-align: center;">שגיאה בטעינת מאפייני מערכת.</p>';
-                });
-        }
-// Mock data loading function for internal cards
-function loadDashboardCardData(cardId) {
-    const mockData = {
-        alertsCard: {
-            items: [
-                {
-                    content: "גרסה 2.1 זמינה להורדה",
-                    timestamp: "לפני 10 דקות",
-                    priority: "high"
-                },
-                {
-                    content: "גיבוי יומי מתוכנן ב-23:00",
-                    timestamp: "לפני שעה",
-                    priority: "medium"
-                },
-                {
-                    content: "משתמש חדש ממתין לאישור",
-                    timestamp: "לפני 2 שעות",
-                    priority: "low"
-                }
-            ]
-        },
-        eventsCard: {
-            items: [
-                {
-                    content: "ישיבה שבועית - חדר ישיבות A",
-                    timestamp: "מחר 09:00",
-                    priority: "high"
-                },
-                {
-                    content: "הצגת תוצאות חודש מרץ",
-                    timestamp: "יום רביעי 14:00",
-                    priority: "medium"
-                },
-                {
-                    content: "הדרכה על תכונות חדשות במערכת",
-                    timestamp: "יום חמישי 10:30",
-                    priority: "medium"
-                },
-                {
-                    content: "תחזוקה שבועית של השרתים",
-                    timestamp: "יום ראשון 08:00",
-                    priority: "low"
-                }
-            ]
-        }
-    };
-
-    const cardData = mockData[cardId];
-    if (!cardData) return;
-
-    // Get the internal cards container
-    const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
-    if (!containerElement) return;
-
-    // Clear existing content
-    containerElement.innerHTML = '';
-
-    // Create internal cards with black borders
-    cardData.items.forEach((item, index) => {
-        const internalCard = document.createElement('div');
-        internalCard.className = 'internal-card';
-        internalCard.setAttribute('data-priority', item.priority);
+    // Initialize page following Critical Development Workflows
+    setTimeout(async function() {
+        loadUserInfo();
         
-        internalCard.innerHTML = `
-            <div class="internal-card-content">${item.content}</div>
-            <div class="internal-card-timestamp">${item.timestamp}</div>
-        `;
+        // Load main dashboard by default following Frontend Architecture Patterns
+        await loadMainDashboard();
+        
+        // Set initial history state
+        if (!history.state) {
+            history.replaceState({page: 'maindashboard'}, '', '#maindashboard');
+        }
+    }, 100);
+});
 
-        // Add click handler for internal card interaction
-        internalCard.addEventListener('click', () => {
-            console.log(`Internal card clicked: ${item.title} in ${cardId}`);
-            // Dispatch custom event following cross-component communication pattern
-            const cardClickEvent = new CustomEvent('internalCardClicked', {
-                detail: {
-                    cardId: cardId,
-                    itemIndex: index,
-                    item: item
-                }
-            });
-            window.dispatchEvent(cardClickEvent);
-        });
-
-        containerElement.appendChild(internalCard);
-    });
-}
-        // Load dashboard data
-async function loadDashboardData() {
+// Add new function to load main dashboard following SPA patterns
+async function loadMainDashboard() {
     try {
-        // Load main dashboard data
-        setTimeout(() => {
-            // Load data for each dashboard card by ID
-            loadDashboardCardData('alertsCard');
-            loadDashboardCardData('eventsCard');
+        console.log('Loading main dashboard...');
+        
+        const response = await fetch('maindashboard.html');
+        if (response.ok) {
+            const html = await response.text();
+            document.getElementById('dynamicContent').innerHTML = html;
             
-            console.log('Dashboard cards data loaded successfully');
-        }, 500);
+            // Re-execute scripts following Common Gotchas pattern
+            executeScriptsInContainer(document.getElementById('dynamicContent'));
+            
+            console.log('✅ Main dashboard loaded successfully');
+        } else {
+            console.error('Failed to load maindashboard.html:', response.status);
+            document.getElementById('dynamicContent').innerHTML = 
+                '<div class="error-message">שגיאה בטעינת המסך הראשי</div>';
+        }
     } catch (error) {
-        console.error('Error loading dashboard data:', error);
+        console.error('Error loading main dashboard:', error);
+        document.getElementById('dynamicContent').innerHTML = 
+            '<div class="error-message">שגיאה בטעינת המסך הראשי</div>';
     }
 }
-// Add event listener for internal card clicks (following cross-component communication pattern)
-window.addEventListener('internalCardClicked', function(event) {
-    const { cardId, itemIndex, item } = event.detail;
-    console.log(`Internal card interaction: ${item.title} from ${cardId}`);
-    
-    // Handle different card types
-    switch(cardId) {
-        case 'alertsCard':
-            handleAlertCardClick(item);
-            break;
-        case 'eventsCard':
-            handleEventCardClick(item);
-            break;
-        default:
-            console.log('Unknown card type:', cardId);
+
+// Update navigation functions following Cross-Component Communication
+function navigateToMainDashboard() {
+    loadMainDashboard();
+    history.pushState({ section: 'maindashboard' }, '', '#maindashboard');
+}
+
+// Update browser back/forward handling following SPA pattern
+window.addEventListener('popstate', function(event) {
+    if (event.state && event.state.section) {
+        switch(event.state.section) {
+            case 'maindashboard':
+                loadMainDashboard();
+                break;
+            case 'schoollist':
+                loadSchoolListPage();
+                break;
+            case 'schoolyear':
+                loadSchoolYearPage();
+                break;
+            case 'students':
+                loadStudentsPage();
+                break;
+            default:
+                loadMainDashboard();
+        }
     }
 });
 
-// Handler functions for different card types
-function handleAlertCardClick(alertItem) {
-    console.log('Alert clicked:', alertItem.title);
-    // Add alert-specific handling here
-    // Could navigate to alerts page or show alert details
-}
-
-function handleEventCardClick(eventItem) {
-    console.log('Event clicked:', eventItem.title);
-    // Add event-specific handling here
-    // Could navigate to calendar or show event details
-}
-        // Logout function
-        function logout() {
-            if (confirm('האם אתה בטוח שברצונך להתנתק?')) {
-                // Clear session storage
-                sessionStorage.clear();
-                
-                // Redirect to login page
-                window.location.href = 'login.html';
-            }
-        }
-
-        // Prevent unauthorized access
-        function checkAuthentication() {
-            console.log('=== checkAuthentication started ===');
-            const authToken = sessionStorage.getItem('authToken');
-            console.log('Found authToken:', authToken);
-            
-            if (!authToken) {
-                console.warn('No authToken found, redirecting to login');
-                alert('לא נמצא אסימון התחברות. מעביר לעמוד ההתחברות...');
-                window.location.href = 'login.html';
-                return false;
-            }
-            
-            console.log('Authentication check passed');
-            return true;
-        }
-
-        // Check authentication on page load
-        if (checkAuthentication()) {
-            console.log('Authentication passed, continuing with page load...');
-        } else {
-            console.log('Authentication failed, should redirect to login');
-        }
-
-        // Debug function to check session storage
-        function debugSessionStorage() {
-            console.log('=== Session Storage Debug ===');
-            console.log('Current URL:', window.location.href);
-            console.log('Session Storage Contents:');
-            
-            // List all session storage items
-            for (let i = 0; i < sessionStorage.length; i++) {
-                const key = sessionStorage.key(i);
-                const value = sessionStorage.getItem(key);
-                console.log(`${key}:`, value);
-            }
-            
-            console.log('Specific items:');
-            console.log('authToken:', sessionStorage.getItem('authToken'));
-            console.log('userFullName:', sessionStorage.getItem('userFullName'));
-            console.log('tenantName:', sessionStorage.getItem('tenantName'));
-            console.log('tenantId:', sessionStorage.getItem('tenantId'));
-            console.log('userEmail:', sessionStorage.getItem('userEmail'));
-            console.log('=== End Debug ===');
-        }
-
-        // Call debug function immediately
-        debugSessionStorage();
-
-        // Force set test values if nothing in session (for debugging)
-        function setTestValues() {
-            if (!sessionStorage.getItem('userFullName')) {
-                console.log('Setting test values for debugging...');
-                sessionStorage.setItem('userFullName', 'משתמש בדיקה');
-                sessionStorage.setItem('tenantName', 'ישות בדיקה');
-                sessionStorage.setItem('tenantId', '1');
-                sessionStorage.setItem('authToken', 'test-token');
-            }
-        }
-
-        // Uncomment this line to test with dummy values
-        // setTestValues();
-
-// Remove or comment out the navigateToSchoolYear function since it's not being used:
-
-/*
-async function navigateToSchoolYear() {
-    // This function is no longer needed
-}
-*/
-
-        // Replace the existing showSchoolYear function:
-
-async function showSchoolYear(yearId, yearType) {
-    console.log('showSchoolYear called with yearId:', yearId, 'yearType:', yearType);
+// Load user information from session storage following Authentication & Session Management
+function loadUserInfo() {
+    console.log('=== loadUserInfo started ===');
     
-    if (!yearId) {
-        console.error('No year ID provided to showSchoolYear');
-        return;
+    const userFullName = sessionStorage.getItem('userFullName');
+    const tenantName = sessionStorage.getItem('tenantName');
+    const entityTypeName = sessionStorage.getItem('entityTypeName');
+    const tenantId = sessionStorage.getItem('tenantId');
+    const userEmail = sessionStorage.getItem('userEmail');
+    const entityTypeId = sessionStorage.getItem('entityTypeId');
+    
+    console.log('Session storage values:');
+    console.log('userFullName:', userFullName);
+    console.log('tenantName:', tenantName);
+    console.log('entityTypeName:', entityTypeName);
+    console.log('entityTypeId:', entityTypeId);
+    console.log('tenantId:', tenantId);
+    
+    // Use fallback values
+    const finalUserName = userFullName || 'משתמש לא זוהה';
+    const finalTenantName = tenantName || 'ישות לא זוהתה';
+    const finalEntityTypeName = entityTypeName || 'מוסד חינוכי';
+    
+    // Set user and entity display
+    const userNameElement = document.getElementById('userName');
+    const entityNameElement = document.getElementById('entityName');
+    const entityTypeElement = document.getElementById('entityType');
+    const userRoleElement = document.getElementById('userRole');
+    
+    if (userNameElement) {
+        userNameElement.textContent = finalUserName;
     }
     
-    try {
-        // Store selected year in backend session following API Communication Pattern
-        await storeSelectedYearInSession(yearId, yearType);
-        
-        // Get entity type from session storage following Authentication & Session Management
-        const entityTypeId = parseInt(sessionStorage.getItem('entityTypeId'));
-        
-        console.log('Entity type check:', { entityTypeId });
-        
-        // Route based on entity type following Multi-Tenant Request Flow
-        if (entityTypeId === 5) {
-            console.log('Entity type 5 (multi-school network) - navigating to school list');
-            // Update URL and load schoollist content
-            history.pushState({ section: 'schoollist', yearId, yearType }, '', '#schoollist');
-            await loadSchoolListPage();
-        } else {
-            console.log(`Entity type ${entityTypeId} (single school) - navigating to school year management`);
-            // Update URL and load schoolyear content
-            history.pushState({ section: 'schoolyear', yearId, yearType }, '', '#schoolyear');
-            await loadSchoolYearPage();
-        }
-        
-    } catch (error) {
-        console.error('Error in showSchoolYear:', error);
-        alert('שגיאה במעבר לניהול שנת הלימודים');
+    if (entityNameElement) {
+        entityNameElement.textContent = finalTenantName;
+    }
+    
+    if (entityTypeElement) {
+        entityTypeElement.textContent = finalEntityTypeName;
+    }
+    
+    if (userRoleElement) {
+        userRoleElement.textContent = 'משתמש מערכת';
+    }
+    
+    // Load entity logo
+    loadEntityLogo();
+    
+    console.log('=== loadUserInfo completed with entity type:', finalEntityTypeName, '===');
+}
+
+// Helper functions for entity type checks following Project-Specific Patterns
+function getCurrentEntityTypeId() {
+    return parseInt(sessionStorage.getItem('entityTypeId')) || 0;
+}
+
+function getCurrentEntityTypeName() {
+    return sessionStorage.getItem('entityTypeName') || 'לא ידוע';
+}
+
+function isMultiSchoolNetwork() {
+    return getCurrentEntityTypeId() === 5;
+}
+
+// Load entity logo following Hebrew/RTL Specific Patterns
+function loadEntityLogo() {
+    const tenantId = sessionStorage.getItem('tenantId');
+    if (tenantId) {
+        // Show different icons based on entity type
+        const entityTypes = ['🏫', '🏢', '🏛️', '🏥', '🏪'];
+        const randomIcon = entityTypes[Math.floor(Math.random() * entityTypes.length)];
+        document.getElementById('entityLogo').textContent = randomIcon;
     }
 }
 
-// Load schoollist.html content into main section following SPA pattern
+// Load system attributes following API Communication Pattern
+function loadSystemAttributes() {
+    const container = document.getElementById('systemAttributesTable');
+    if (!container) return;
+    
+    container.innerHTML = '<p style="color: #666;">טוען נתונים...</p>';
+    
+    fetch(AppConfig.getApiUrl('systemAttributes'))
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.length > 0) {
+                const table = document.createElement('table');
+                table.className = 'attributes-table';
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>שם</th>
+                            <th>תיאור</th>
+                            <th>ערך</th>
+                            <th>סוג ערך</th>
+                            <th>מזהה חיצוני</th>
+                            <th>עודכן לאחרונה</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(attr => `
+                            <tr>
+                                <td><strong>${attr.name || ''}</strong></td>
+                                <td>${attr.description || ''}</td>
+                                <td>${attr.value || ''}</td>
+                                <td>${attr.valueType || ''}</td>
+                                <td>${attr.foreignId || ''}</td>
+                                <td>${attr.updatedAt ? new Date(attr.updatedAt).toLocaleString('he-IL') : ''}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+                container.innerHTML = '';
+                container.appendChild(table);
+            } else {
+                container.innerHTML = '<div class="attributes-empty">אין מאפייני מערכת זמינים</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading system attributes:', error);
+            container.innerHTML = '<p style="color:red; text-align: center;">שגיאה בטעינת מאפייני מערכת.</p>';
+        });
+}
+
+// Toggle side menu following Frontend Architecture Patterns
+function toggleMenu() {
+    const sideMenu = document.getElementById('sideMenu');
+    if (!sideMenu) return;
+    
+    console.log('Toggling menu. Current state:', sideMenu.classList.contains('collapsed'));
+    
+    if (sideMenu.classList.contains('collapsed')) {
+        sideMenu.classList.remove('collapsed');
+        console.log('Menu expanded');
+    } else {
+        sideMenu.classList.add('collapsed');
+        console.log('Menu collapsed');
+    }
+}
+
+// Logout function following Authentication & Session Management
+function logout() {
+    // Clear session storage
+    sessionStorage.clear();
+    
+    // Redirect to login page
+    window.location.href = 'login.html';
+}
+
+// Execute scripts in dynamically loaded content following Common Gotchas
+function executeScriptsInContainer(container) {
+    const scripts = container.querySelectorAll('script');
+    scripts.forEach(script => {
+        const newScript = document.createElement('script');
+        if (script.src) {
+            newScript.src = script.src;
+        } else {
+            newScript.textContent = script.textContent;
+        }
+        script.parentNode.replaceChild(newScript, script);
+    });
+}
+
+// Load school list page following Single-Page Application with Module Loading
 async function loadSchoolListPage() {
     try {
-        // Hide dashboard content and show dynamic content
-        document.getElementById('dashboardContent').style.display = 'none';
-        document.getElementById('dynamicContent').style.display = 'block';
+        console.log('Loading school list page...');
         
         const response = await fetch('schoollist.html');
         if (response.ok) {
@@ -601,25 +328,22 @@ async function loadSchoolListPage() {
             // Re-execute scripts following Common Gotchas pattern
             executeScriptsInContainer(document.getElementById('dynamicContent'));
             
-            console.log('School list page loaded successfully');
+            // Update browser history
+            history.pushState({ section: 'schoollist' }, '', '#schoollist');
+            
+            console.log('✅ School list page loaded successfully');
         } else {
             console.error('Failed to load schoollist.html:', response.status);
-            document.getElementById('dynamicContent').innerHTML = 
-                '<div class="error-message">שגיאה בטעינת עמוד רשימת בתי הספר</div>';
         }
     } catch (error) {
-        console.error('Error loading schoollist.html:', error);
-        document.getElementById('dynamicContent').innerHTML = 
-            '<div class="error-message">שגיאה בטעינת עמוד רשימת בתי הספר</div>';
+        console.error('Error loading school list page:', error);
     }
 }
 
-// Load schoolyear.html content into main section following SPA pattern
+// Load school year page following Single-Page Application with Module Loading
 async function loadSchoolYearPage() {
     try {
-        // Hide dashboard content and show dynamic content
-        document.getElementById('dashboardContent').style.display = 'none';
-        document.getElementById('dynamicContent').style.display = 'block';
+        console.log('Loading school year page...');
         
         const response = await fetch('schoolyear.html');
         if (response.ok) {
@@ -629,230 +353,24 @@ async function loadSchoolYearPage() {
             // Re-execute scripts following Common Gotchas pattern
             executeScriptsInContainer(document.getElementById('dynamicContent'));
             
-            console.log('School year page loaded successfully');
+            // Update browser history
+            history.pushState({ section: 'schoolyear' }, '', '#schoolyear');
+            
+            console.log('✅ School year page loaded successfully');
         } else {
             console.error('Failed to load schoolyear.html:', response.status);
-            document.getElementById('dynamicContent').innerHTML = 
-                '<div class="error-message">שגיאה בטעינת עמוד ניהול שנת הלימודים</div>';
         }
     } catch (error) {
-        console.error('Error loading schoolyear.html:', error);
-        document.getElementById('dynamicContent').innerHTML = 
-            '<div class="error-message">שגיאה בטעינת עמוד ניהול שנת הלימודים</div>';
+        console.error('Error loading school year page:', error);
     }
 }
 
-// Re-execute scripts in loaded HTML following Frontend Architecture Patterns
-function executeScriptsInContainer(container) {
-    const scripts = container.querySelectorAll('script');
-    scripts.forEach(oldScript => {
-        const newScript = document.createElement('script');
-        if (oldScript.src) {
-            newScript.src = oldScript.src;
-        } else {
-            newScript.textContent = oldScript.textContent;
-        }
-        oldScript.parentNode.replaceChild(newScript, oldScript);
-    });
-}
-
-// Add navigation back to dashboard function
-function navigateToDashboard() {
-    // Show dashboard content and hide dynamic content
-    document.getElementById('dynamicContent').style.display = 'none';
-    document.getElementById('dashboardContent').style.display = 'block';
-    
-    // Update URL following SPA navigation pattern
-    history.pushState({ section: 'dashboard' }, '', '#dashboard');
-}
-
-// Handle browser back/forward buttons following SPA pattern
-window.addEventListener('popstate', function(event) {
-    if (event.state && event.state.section) {
-        if (event.state.section === 'dashboard') {
-            navigateToDashboard();
-        } else if (event.state.section === 'schoollist') {
-            loadSchoolListPage();
-        } else if (event.state.section === 'schoolyear') {
-            loadSchoolYearPage();
-        }
-    }
-});
-
-// Make functions globally available following Cross-Component Communication
-window.loadSchoolListPage = loadSchoolListPage;
-window.loadSchoolYearPage = loadSchoolYearPage;
-window.executeScriptsInContainer = executeScriptsInContainer;
-window.navigateToDashboard = navigateToDashboard;
-        // Store selected year in backend session following API communication pattern
-async function storeSelectedYearInSession(yearId, yearType) {
+// Load students page following Single-Page Application with Module Loading
+async function loadStudentsPage() {
     try {
-        console.log('Storing selected year in session:', yearId, yearType);
+        console.log('Loading students page...');
         
-        // Fix API URL construction following API Communication Pattern
-        const apiUrl = AppConfig.getApiUrl('systemattributes/selectYear');
-        console.log('API URL:', apiUrl); // Debug the URL construction
-        
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`,
-                'X-Tenant-ID': sessionStorage.getItem('tenantId')
-            },
-            body: JSON.stringify({
-                yearType: yearType,
-                yearId: yearId
-            })
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            console.log('Selected year stored in session:', result);
-            
-            // Store in frontend session storage following Authentication & Session Management
-            sessionStorage.setItem('selectedYear', yearId.toString());
-            sessionStorage.setItem('selectedYearType', yearType);
-            
-        } else {
-            console.error('Failed to store selected year:', response.status);
-        }
-    } catch (error) {
-        console.error('Error storing selected year in session:', error);
-    }
-}
-
-// Update context button labels following system attributes pattern
-async function updateContextButtonLabels() {
-    try {
-        console.log('Updating context button labels with year values...');
-        
-        // Load system attributes following API communication pattern
-        const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
-        if (!response.ok) {
-            console.warn('Could not load system attributes for context buttons');
-            return;
-        }
-        
-        const attributes = await response.json();
-        console.log('System attributes loaded:', attributes);
-        
-        // Find year attributes following system attributes pattern
-        const currentYearAttr = attributes.find(attr => attr.name === "Current Year");
-        const previousYearAttr = attributes.find(attr => attr.name === "Previous Year");
-        const nextYearAttr = attributes.find(attr => attr.name === "Next Year");
-        
-        // Store year IDs globally following Cross-Component Communication
-        if (currentYearAttr) {
-            window.currentYearId = currentYearAttr.foreignId;
-            sessionStorage.setItem('currentYearValue', currentYearAttr.value);
-            sessionStorage.setItem('currentYearId', currentYearAttr.foreignId);
-        }
-        if (previousYearAttr) {
-            window.previousYearId = previousYearAttr.foreignId;
-            sessionStorage.setItem('previousYearValue', previousYearAttr.value);
-            sessionStorage.setItem('previousYearId', previousYearAttr.foreignId);
-        }
-        if (nextYearAttr) {
-            window.nextYearId = nextYearAttr.foreignId;
-            sessionStorage.setItem('nextYearValue', nextYearAttr.value);
-            sessionStorage.setItem('nextYearId', nextYearAttr.foreignId);
-        }
-        
-        // Update context button labels with year values following Hebrew/RTL patterns
-        const contextButtons = document.querySelectorAll('.context-btn');
-        contextButtons.forEach(button => {
-            const onClick = button.getAttribute('onclick');
-            
-            if (onClick && onClick.includes("'previous'") && previousYearAttr) {
-                button.textContent = `שנה קודמת (${previousYearAttr.value})`;
-                button.setAttribute('data-year-id', previousYearAttr.foreignId?.toString() || '');
-            } else if (onClick && onClick.includes("'current'") && currentYearAttr) {
-                button.textContent = `שנה נוכחית (${currentYearAttr.value})`;
-                button.setAttribute('data-year-id', currentYearAttr.foreignId?.toString() || '');
-            } else if (onClick && onClick.includes("'next'") && nextYearAttr) {
-                button.textContent = `שנה הבאה (${nextYearAttr.value})`;
-                button.setAttribute('data-year-id', nextYearAttr.foreignId?.toString() || '');
-            }
-        });
-        
-        console.log('Context button labels updated with year values and foreign IDs');
-        
-    } catch (error) {
-        console.error('Error updating context button labels:', error);
-    }
-}
-
-// Ensure entity type is properly retrieved:
-
-document.addEventListener('DOMContentLoaded', function() {
-    const entityTypeId = sessionStorage.getItem('entityTypeId');
-    const entityTypeName = sessionStorage.getItem('entityTypeName');
-    
-    console.log('Retrieved entityTypeId:', entityTypeId); // Debug logging
-    console.log('Retrieved entityTypeName:', entityTypeName);
-    
-    if (!entityTypeId || entityTypeId === 'null') {
-        console.warn('Entity type ID is missing from session');
-        // Handle missing entity type gracefully
-    }
-});
-
-// Make functions globally available following cross-component communication
-window.showSchoolYear = showSchoolYear;
-window.storeSelectedYearInSession = storeSelectedYearInSession;
-window.updateContextButtonLabels = updateContextButtonLabels;
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Debug entity type issue
-    console.log('EntityTypeId from session:', sessionStorage.getItem('entityTypeId'));
-    console.log('EntityTypeName from session:', sessionStorage.getItem('entityTypeName'));
-    
-    // ... existing DOMContentLoaded code ...
-});
-
-// Add to index.html script section following Single-Page Application with Module Loading
-
-// Check for stored page state on load following Frontend Architecture Patterns
-window.addEventListener('load', function() {
-    const currentPage = sessionStorage.getItem('currentPage');
-    const pageTimestamp = sessionStorage.getItem('pageTimestamp');
-    
-    // If page state exists and is recent (less than 5 minutes), restore it
-    if (currentPage && pageTimestamp) {
-        const timeDiff = Date.now() - parseInt(pageTimestamp);
-        const fiveMinutes = 5 * 60 * 1000;
-        
-        if (timeDiff < fiveMinutes && currentPage === 'schoollist') {
-            console.log('Restoring school list view from stored state');
-            // Load school list instead of showing dashboard
-            setTimeout(() => {
-                const entityTypeId = parseInt(sessionStorage.getItem('entityTypeId'));
-                if (entityTypeId === 5) {
-                    loadSchoolListPage();
-                    history.replaceState({ section: 'schoollist' }, '', '#schoollist');
-                }
-            }, 100);
-        }
-    }
-});
-
-// Listen for messages from loaded pages following Cross-Component Communication
-window.addEventListener('message', function(event) {
-    if (event.data.type === 'pageLoaded' && event.data.page === 'schoollist') {
-        // Update URL to reflect current state
-        history.replaceState({ section: 'schoollist' }, '', '#schoollist');
-    }
-});
-
-// Update existing loadSchoolListPage function
-async function loadSchoolListPage() {
-    try {
-        // Hide dashboard content and show dynamic content
-        document.getElementById('dashboardContent').style.display = 'none';
-        document.getElementById('dynamicContent').style.display = 'block';
-        
-        const response = await fetch('schoollist.html');
+        const response = await fetch('students.html');
         if (response.ok) {
             const html = await response.text();
             document.getElementById('dynamicContent').innerHTML = html;
@@ -860,18 +378,58 @@ async function loadSchoolListPage() {
             // Re-execute scripts following Common Gotchas pattern
             executeScriptsInContainer(document.getElementById('dynamicContent'));
             
-            console.log('School list page loaded successfully');
+            // Update browser history
+            history.pushState({ section: 'students' }, '', '#students');
+            
+            console.log('✅ Students page loaded successfully');
         } else {
-            console.error('Failed to load schoollist.html:', response.status);
-            document.getElementById('dynamicContent').innerHTML = 
-                '<div class="error-message">שגיאה בטעינת עמוד רשימת בתי הספר</div>';
+            console.error('Failed to load students.html:', response.status);
         }
     } catch (error) {
-        console.error('Error loading schoollist.html:', error);
-        document.getElementById('dynamicContent').innerHTML = 
-            '<div class="error-message">שגיאה בטעינת עמוד רשימת בתי הספר</div>';
+        console.error('Error loading students page:', error);
     }
 }
+
+// Load school dashboard page following Single-Page Application with Module Loading
+async function loadSchoolDashboardPage() {
+    try {
+        console.log('Loading school dashboard page...');
+        
+        const response = await fetch('SchoolDashboard.html');
+        if (response.ok) {
+            const html = await response.text();
+            document.getElementById('dynamicContent').innerHTML = html;
+            
+            // Re-execute scripts following Common Gotchas pattern
+            executeScriptsInContainer(document.getElementById('dynamicContent'));
+            
+            // Update browser history
+            history.pushState({ section: 'schooldashboard' }, '', '#schooldashboard');
+            
+            console.log('✅ School dashboard page loaded successfully');
+        } else {
+            console.error('Failed to load SchoolDashboard.html:', response.status);
+        }
+    } catch (error) {
+        console.error('Error loading school dashboard page:', error);
+    }
+}
+
+// Make functions globally available following Cross-Component Communication
+window.loadMainDashboard = loadMainDashboard;
+window.navigateToMainDashboard = navigateToMainDashboard;
+window.getCurrentEntityTypeId = getCurrentEntityTypeId;
+window.getCurrentEntityTypeName = getCurrentEntityTypeName;
+window.isMultiSchoolNetwork = isMultiSchoolNetwork;
+window.loadUserInfo = loadUserInfo;
+window.loadSystemAttributes = loadSystemAttributes;
+window.toggleMenu = toggleMenu;
+window.logout = logout;
+window.executeScriptsInContainer = executeScriptsInContainer;
+window.loadSchoolListPage = loadSchoolListPage;
+window.loadSchoolYearPage = loadSchoolYearPage;
+window.loadStudentsPage = loadStudentsPage;
+window.loadSchoolDashboardPage = loadSchoolDashboardPage;
     </script>
 </body>
 </html>
