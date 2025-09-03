@@ -420,3 +420,45 @@ appsettings.*.local.json
 # Log files
 *.log
 logs/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.vspscc
+*.vssscc
+.vs/
+
+# Node modules
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# IDE files
+.vscode/settings.json
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build outputs (but NOT frontend public files)
+dist/
+build/
+
+# Allow frontend public directory
+!petelapp-frontend/public/
+!petelapp-frontend/public/**/*

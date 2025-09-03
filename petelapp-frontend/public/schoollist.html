@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>רשימת בתי ספר - מערכת ניהול פט״ל</title>
+    <link rel="stylesheet" href="theme.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Simplify HTML to work with TableComponent -->
+    <div class="content-card">
+        <div class="content-header">
+            <h1 class="page-title">רשימת בתי ספר - תשפ"ו</h1>
+        </div>
+
+        <!-- Loading indicator -->
+        <div id="schoolsLoading" class="loading-indicator" style="display: none;">
+            <p>טוען רשימת בתי ספר...</p>
+        </div>
+
+        <!-- Table container for TableComponent -->
+        <div id="schoolsTableContainer">
+            <!-- TableComponent will render here -->
+        </div>
+    </div>
+
+    <script>
+        console.log('🔍 SCRIPT SECTION LOADED - schoollist.html');
+        
+        // Global variables following Project-Specific Patterns
+        let allSchools = [];
+        let schoolsTable = null;
+
+        // Load schools data following Multi-Tenant Request Flow
+        async function loadSchoolsData() {
+            console.log('🚀 loadSchoolsData FUNCTION CALLED!');
+            
+            // Show loading indicator
+            const loadingElement = document.getElementById('schoolsLoading');
+            if (loadingElement) {
+                loadingElement.style.display = 'block';
+                console.log('✅ Loading indicator shown');
+            }
+
+            try {
+                // Get session data following Authentication & Session Management
+                const tenantId = sessionStorage.getItem('tenantId');
+                const authToken = sessionStorage.getItem('authToken');
+                
+                console.log('📋 Session Debug:', {
+                    tenantId: tenantId,
+                    authToken: authToken || 'null',
+                    hasAuthToken: !!authToken
+                });
+                
+                if (!tenantId) {
+                    console.error('❌ No tenant ID found in session');
+                    return;
+                }
+
+                // API call following API Communication Pattern with proper auth handling
+                const apiUrl = AppConfig.getApiUrl(`entities/schools?tenantId=${tenantId}`);
+                console.log('🌐 Making API call to:', apiUrl);
+                
+                // Build headers following Multi-Tenant Request Flow
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'X-Tenant-ID': tenantId
+                };
+
+                // Only add Authorization header if token exists
+                if (authToken && authToken !== 'undefined') {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+
+                console.log('📤 Request headers:', headers);
+                
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: headers
+                });
+
+                console.log('📥 Response:', response.status, response.ok);
+
+                if (response.ok) {
+                    const schools = await response.json();
+                    console.log('🏫 Schools data received:', schools.length, schools);
+                    
+                    allSchools = schools;
+                    
+                    // Use ReusableTable component following Frontend Architecture Patterns
+                    if (typeof ReusableTable !== 'undefined') {
+                        console.log('✅ Using ReusableTable component');
+                        initializeReusableTable(schools);
+                    } else {
+                        console.error('❌ ReusableTable component not available');
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.error('❌ API Error:', response.status, errorText);
+                }
+            } catch (error) {
+                console.error('💥 Exception in loadSchoolsData:', error);
+            } finally {
+                const loadingElement = document.getElementById('schoolsLoading');
+                if (loadingElement) {
+                    loadingElement.style.display = 'none';
+                    console.log('✅ Loading indicator hidden');
+                }
+            }
+        }
+
+        // Use ReusableTable following Frontend Architecture Patterns
+        function initializeReusableTable(schools) {
+            console.log('📊 Initializing ReusableTable with', schools.length, 'schools');
+            
+            // Define columns following Hebrew/RTL Specific Patterns
+            const tableColumns = [
+                { key: 'name', label: 'שם בית ספר', sortable: true },
+                { key: 'symbol', label: 'סמל מוסד', sortable: true },
+                { key: 'address', label: 'כתובת', sortable: false },
+                { key: 'principalName', label: 'שם המנהל', sortable: true },
+                { key: 'inspectorName', label: 'שם המפקח', sortable: true },
+                { key: 'characterization', label: 'אפיון המוסד', sortable: false },
+                { key: 'contactPerson', label: 'איש קשר במוסד', sortable: true },
+                { key: 'educationStage', label: 'שלב חינוך', sortable: true },
+                { 
+                    key: 'actions', 
+                    label: 'פעולות', 
+                    sortable: false,
+                    readOnly: true,
+                    render: (school) => `
+                        <div class="actions-cell">
+                            <button class="btn btn-sm btn-secondary" onclick="viewSchool(${school.id})" title="צפייה">👁️</button>
+                            <button class="btn btn-sm btn-primary" onclick="editSchool(${school.id})" title="עריכה">✏️</button>
+                            <button class="btn btn-sm btn-success" onclick="manageSchoolYear(${school.id})" title="ניהול שנת לימודים">📅</button>
+                        </div>
+                    `
+                }
+            ];
+
+            try {
+                // Create ReusableTable with correct constructor following table-component.js patterns
+                // Constructor: ReusableTable(containerId, options = {})
+                schoolsTable = new ReusableTable('schoolsTableContainer', {
+                    tableName: 'schools',
+                    isReadOnly: true
+                });
+                
+                console.log('📋 ReusableTable created successfully');
+                
+                // Initialize with data and columns following Critical Development Workflows
+                schoolsTable.init(schools, tableColumns);
+                console.log('✅ Schools table initialized successfully');
+
+            } catch (error) {
+                console.error('❌ Error creating ReusableTable:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack
+                });
+            }
+        }
+
+        // Simple table fallback when ReusableTable fails
+        function createSimpleTable(schools) {
+            console.log('📊 Creating simple fallback table');
+            
+            const container = document.getElementById('schoolsTableContainer');
+            if (!container) return;
+
+            const tableHTML = `
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>שם בית ספר</th>
+                                <th>סמל מוסד</th>
+                                <th>כתובת</th>
+                                <th>שם המנהל</th>
+                                <th>שם המפקח</th>
+                                <th>אפיון המוסד</th>
+                                <th>איש קשר במוסד</th>
+                                <th>שלב חינוך</th>
+                                <th>פעולות</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${schools.map(school => `
+                                <tr>
+                                    <td><strong>${school.name || ''}</strong></td>
+                                    <td>${school.symbol || ''}</td>
+                                    <td>${school.address || ''}</td>
+                                    <td>${school.principalName || ''}</td>
+                                    <td>${school.inspectorName || ''}</td>
+                                    <td>${school.characterization || ''}</td>
+                                    <td>${school.contactPerson || ''}</td>
+                                    <td>${school.educationStage || ''}</td>
+                                    <td class="actions-cell">
+                                        <button class="btn btn-sm btn-secondary" onclick="viewSchool(${school.id})" title="צפייה">👁️</button>
+                                        <button class="btn btn-sm btn-primary" onclick="editSchool(${school.id})" title="עריכה">✏️</button>
+                                        <button class="btn btn-sm btn-success" onclick="manageSchoolYear(${school.id})" title="ניהול שנת לימודים">📅</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = tableHTML;
+            console.log('✅ Simple table created with', schools.length, 'schools');
+        }
+
+        // School management functions following Cross-Component Communication
+        function viewSchool(schoolId) {
+            console.log('Viewing school:', schoolId);
+            const school = allSchools.find(s => s.id === schoolId);
+            
+            if (school) {
+                // Store selected school information in session following Authentication & Session Management
+                sessionStorage.setItem('selectedSchoolId', schoolId);
+                sessionStorage.setItem('selectedSchoolName', school.name);
+                
+                console.log('Selected school stored:', {
+                    id: schoolId,
+                    name: school.name
+                });
+                
+                // Navigate to school dashboard page following Single-Page Application with Module Loading
+                navigateToSchoolDashboard();
+            } else {
+                console.error('School not found with ID:', schoolId);
+            }
+        }
+
+        // Add navigation function following Project-Specific Patterns
+        async function navigateToSchoolDashboard() {
+            try {
+                // Load SchoolDashboard.html following Frontend Architecture Patterns
+                const response = await fetch('SchoolDashboard.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+                    
+                    // Re-execute scripts in loaded content following Common Gotchas
+                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+                    
+                    // Update browser history following Single-Page Application patterns
+                    history.pushState({ section: 'schooldashboard' }, '', '#schooldashboard');
+                    
+                    console.log('✅ School dashboard page loaded successfully');
+                } else {
+                    console.error('Failed to load SchoolDashboard.html:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading school dashboard page:', error);
+            }
+        }
+
+        function editSchool(schoolId) {
+            console.log('Editing school:', schoolId);
+            const school = allSchools.find(s => s.id === schoolId);
+            if (school) {
+                alert(`עריכת בית ספר: ${school.name}`);
+            }
+        }
+
+        function manageSchoolYear(schoolId) {
+            console.log('Managing school year for school:', schoolId);
+            const school = allSchools.find(s => s.id === schoolId);
+            if (school) {
+                sessionStorage.setItem('selectedSchoolId', schoolId);
+                sessionStorage.setItem('selectedSchoolName', school.name);
+                alert(`ניהול שנת לימודים עבור: ${school.name}`);
+            }
+        }
+
+        // Initialize page following Critical Development Workflows
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🏁 DOMContentLoaded event fired!');
+            loadSchoolsData();
+        });
+
+        // Also try immediate call if DOM is already ready
+        if (document.readyState !== 'loading') {
+            console.log('📄 Document already ready, calling loadSchoolsData immediately');
+            loadSchoolsData();
+        }
+
+        // Make functions globally available following Cross-Component Communication
+        window.loadSchoolsData = loadSchoolsData;
+        window.viewSchool = viewSchool;
+        window.editSchool = editSchool;
+        window.manageSchoolYear = manageSchoolYear;
+        window.navigateToSchoolDashboard = navigateToSchoolDashboard;
+
+        console.log('✅ All functions registered globally');
+    </script>
+
+    <style>
+        .content-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 20px;
+            direction: rtl;
+        }
+
+        .content-header {
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .page-title {
+            margin: 0 0 5px 0;
+            color: #333;
+            font-size: 1.8em;
+            font-weight: 600;
+        }
+
+        .page-subtitle {
+            margin: 0;
+            color: #6c757d;
+            font-size: 1em;
+        }
+
+        .loading-indicator {
+            text-align: center;
+            padding: 20px;
+            font-size: 1.1em;
+            color: #6c757d;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        /* TableComponent styling overrides for schools table */
+        .schools-table {
+            direction: rtl;
+            text-align: right;
+        }
+
+        .actions-cell {
+            white-space: nowrap;
+            text-align: center;
+        }
+
+        .btn {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            margin: 0 2px;
+            text-decoration: none;
+            display: inline-block;
+            transition: background-color 0.2s;
+        }
+
+        .btn-sm {
+            padding: 3px 6px;
+            font-size: 10px;
+        }
+
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background-color: #1e7e34;
+        }
+
+        /* Manual table styles when component not available */
+        .table-container {
+            overflow-x: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+            direction: rtl;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            direction: rtl;
+            text-align: right;
+        }
+
+        .data-table th {
+            background-color: #f8f9fa;
+            color: #333;
+            font-weight: 600;
+            padding: 15px 12px;
+            border-bottom: 2px solid #dee2e6;
+            border-left: 1px solid #dee2e6;
+            white-space: nowrap;
+            font-size: 0.95em;
+        }
+
+        .data-table th:first-child {
+            border-right: none;
+        }
+
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+            border-left: 1px solid #dee2e6;
+            vertical-align: middle;
+        }
+
+        .data-table td:first-child {
+            border-right: none;
+        }
+
+        .data-table tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .sort-indicator {
+            margin-right: 5px;
+            color: #999;
+        }
+    </style>
+</body>
+</html>

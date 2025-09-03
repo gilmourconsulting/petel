@@ -1,0 +1,407 @@
+<!-- Create new file: c:\dev\PetelFullApp\petelapp-frontend\public\maindashboard.html -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מסך ראשי - מערכת פט"ל</title>
+</head>
+<body>
+    <div class="main-dashboard-container">
+        <!-- Navigation Link to Main Page -->
+        <div class="dashboard-flex-row">
+            <!-- Dashboard cards -->
+            <div class="dashboard-cards-wrapper">
+                <div class="dashboard-card" id="alertsCard">
+                    <div class="dashboard-card-header">
+                        <div class="dashboard-card-icon">🔔</div>
+                        <div class="dashboard-card-title">התראות</div>
+                        <!-- Plus icon as leftmost item -->
+                        <img src="Plus icon.png" alt="הוספה" class="dashboard-card-plus" 
+                            onclick="showAddModal('alertsCard')" 
+                            title="הוספת התראה חדשה" />
+                    </div>
+                    
+                    <div class="internal-cards-container" id="alertsInternalCards">
+                        <!-- Internal cards will be populated here -->
+                    </div>
+                </div>
+                
+                <div class="dashboard-card" id="eventsCard">
+                    <div class="dashboard-card-header">
+                        <div class="dashboard-card-icon">🗓</div>
+                        <div class="dashboard-card-title">אירועים</div>
+                        <!-- Plus icon as leftmost item -->
+                        <img src="Plus icon.png" alt="הוספה" class="dashboard-card-plus" 
+                            onclick="showAddModal('eventsCard')" 
+                            title="הוספת אירוע חדש" />
+                    </div>
+                    
+                    <div class="internal-cards-container" id="eventsInternalCards">
+                        <!-- Internal cards will be populated here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="context-buttons-section">
+                <button class="context-btn" onclick="showSchoolYear(window.previousYearId, 'previous')">שנה קודמת</button>
+                <button class="context-btn" onclick="showSchoolYear(window.currentYearId, 'current')">שנה נוכחית</button>
+                <button class="context-btn" onclick="showSchoolYear(window.nextYearId, 'next')">שנה הבאה</button>
+            </div>
+        </div>
+
+        <div class="content-card">
+            <div class="form-footer" style="text-align: center; color: #666; font-size: 12px;">
+                פט"ל - פתרונות טכנולגים לחינוך - גרסה <span id="systemVersion">טוען...</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('🔍 Main Dashboard script loaded');
+
+        // Load dashboard card data following Project-Specific Patterns
+        function loadDashboardCardData(cardId) {
+            console.log('📊 Loading dashboard card data for:', cardId);
+            
+            const mockData = {
+                alertsCard: {
+                    items: [
+                        {
+                            content: "בית ספר מאור חיים עדכנו את מצבת התלמידים",
+                            timestamp: "לפני 10 דקות",
+                            priority: "high"
+                        },
+                        {
+                            content: "הועלה אישור אבטחה של עיריית אלעד",
+                            timestamp: "לפני שעה",
+                            priority: "medium"
+                        }
+
+                    ]
+                },
+                eventsCard: {
+                    items: [
+                        {
+                            content: "לתזכר את עיריית פתח תקוה לשלוח אישור שעות פסיכולוג",
+                            timestamp: "מחר 09:00",
+                            priority: "high"
+                        }
+                    ]
+                }
+            };
+
+            const cardData = mockData[cardId];
+            if (!cardData) {
+                console.error('❌ No data found for cardId:', cardId);
+                return;
+            }
+
+            // Get the internal cards container
+            const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
+            if (!containerElement) {
+                console.error('❌ Container not found for:', cardId.replace('Card', 'InternalCards'));
+                return;
+            }
+
+            console.log('✅ Container found, clearing and populating...');
+
+            // Clear existing content
+            containerElement.innerHTML = '';
+
+            // Create internal cards following Hebrew/RTL Specific Patterns
+            cardData.items.forEach((item, index) => {
+                const internalCard = document.createElement('div');
+                internalCard.className = 'internal-card';
+                internalCard.setAttribute('data-priority', item.priority);
+                
+                internalCard.innerHTML = `
+                    <div class="internal-card-content">${item.content}</div>
+                    <div class="internal-card-timestamp">${item.timestamp}</div>
+                `;
+
+                // Add click handler following Cross-Component Communication
+                internalCard.addEventListener('click', () => {
+                    console.log(`Internal card clicked: ${item.content} in ${cardId}`);
+                    const cardClickEvent = new CustomEvent('internalCardClicked', {
+                        detail: {
+                            cardId: cardId,
+                            itemIndex: index,
+                            item: item
+                        }
+                    });
+                    window.dispatchEvent(cardClickEvent);
+                });
+
+                containerElement.appendChild(internalCard);
+            });
+
+            console.log(`✅ ${cardData.items.length} cards loaded for ${cardId}`);
+        }
+
+        // Load system version following API Communication Pattern
+        async function loadSystemVersion() {
+            try {
+                const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
+                if (response.ok) {
+                    const attributes = await response.json();
+                    const versionAttr = attributes.find(attr => attr.name === "System Version");
+                    const versionElement = document.getElementById('systemVersion');
+                    if (versionElement) {
+                        versionElement.textContent = versionAttr ? versionAttr.value : '1.0';
+                    }
+                } 
+            } catch (error) {
+                console.log('Could not load system version, using default');
+                const versionElement = document.getElementById('systemVersion');
+                if (versionElement) {
+                    versionElement.textContent = '1.0';
+                }
+            }
+        }
+
+        // Update context button labels with year values following Project-Specific Patterns
+        async function updateContextButtonLabels() {
+            console.log('Updating context button labels with year values...');
+            
+            try {
+                // Load system attributes to get year values
+                const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
+                if (response.ok) {
+                    const attributes = await response.json();
+                    console.log('System attributes loaded:', attributes);
+                    
+                    // Find year attributes
+                    const previousYearAttr = attributes.find(attr => attr.name === "Previous Year");
+                    const currentYearAttr = attributes.find(attr => attr.name === "Current Year");
+                    const nextYearAttr = attributes.find(attr => attr.name === "Next Year");
+                    
+                    // Store year IDs and values globally following Authentication & Session Management
+                    if (previousYearAttr) {
+                        window.previousYearId = previousYearAttr.foreignId;
+                        sessionStorage.setItem('previousYearId', previousYearAttr.foreignId);
+                        sessionStorage.setItem('previousYearValue', previousYearAttr.value);
+                        
+                        // Update button text
+                        const prevButton = document.querySelector('.context-btn[onclick*="previous"]');
+                        if (prevButton) {
+                            prevButton.textContent = `שנת ${previousYearAttr.value}`;
+                        }
+                    }
+                    
+                    if (currentYearAttr) {
+                        window.currentYearId = currentYearAttr.foreignId;
+                        sessionStorage.setItem('currentYearId', currentYearAttr.foreignId);
+                        sessionStorage.setItem('currentYearValue', currentYearAttr.value);
+                        
+                        // Update button text
+                        const currentButton = document.querySelector('.context-btn[onclick*="current"]');
+                        if (currentButton) {
+                            currentButton.textContent = `שנת ${currentYearAttr.value}`;
+                        }
+                    }
+                    
+                    if (nextYearAttr) {
+                        window.nextYearId = nextYearAttr.foreignId;
+                        sessionStorage.setItem('nextYearId', nextYearAttr.foreignId);
+                        sessionStorage.setItem('nextYearValue', nextYearAttr.value);
+                        
+                        // Update button text
+                        const nextButton = document.querySelector('.context-btn[onclick*="next"]');
+                        if (nextButton) {
+                            nextButton.textContent = `שנת ${nextYearAttr.value}`;
+                        }
+                    }
+                    
+                    console.log('Context button labels updated with year values and foreign IDs');
+                } else {
+                    console.warn('Could not load system attributes for context buttons');
+                }
+            } catch (error) {
+                console.error('Error loading context button data:', error);
+            }
+        }
+
+        // Store selected year in session following Multi-Tenant Request Flow
+        async function storeSelectedYearInSession(yearId, yearType) {
+            console.log('Storing selected year in session:', yearId, yearType);
+            
+            try {
+                const tenantId = sessionStorage.getItem('tenantId');
+                const authToken = sessionStorage.getItem('authToken');
+                
+                const apiUrl = AppConfig.getApiUrl('systemattributes/selectYear');
+                console.log('POST', apiUrl);
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`,
+                        'X-Tenant-ID': tenantId
+                    },
+                    body: JSON.stringify({
+                        yearId: yearId,
+                        yearType: yearType,
+                        tenantId: tenantId
+                    })
+                });
+                
+                if (response.ok) {
+                    sessionStorage.setItem('selectedYearId', yearId);
+                    sessionStorage.setItem('selectedYearType', yearType);
+                    console.log('Selected year stored successfully');
+                } else {
+                    console.error('Failed to store selected year:', response.status);
+                }
+            } catch (error) {
+                console.error('Error storing selected year:', error);
+            }
+        }
+
+        // Show school year function following Cross-Component Communication
+        async function showSchoolYear(yearId, yearType) {
+            console.log('showSchoolYear called with yearId:', yearId, 'yearType:', yearType);
+            
+            // Store the selected year
+            await storeSelectedYearInSession(yearId, yearType);
+            
+            // Check entity type to determine navigation following Project-Specific Patterns
+            const entityTypeId = parseInt(sessionStorage.getItem('entityTypeId')) || 0;
+            console.log('Entity type check:', {entityTypeId});
+            
+            if (entityTypeId === 5) {
+                console.log('Entity type 5 (multi-school network) - navigating to school list');
+                await loadSchoolListPage();
+            } else {
+                console.log('Single school entity - navigating to school year management');
+                await loadSchoolYearPage();
+            }
+        }
+
+        // Load school list page following Single-Page Application with Module Loading
+        async function loadSchoolListPage() {
+            try {
+                console.log('Loading school list page...');
+                
+                const response = await fetch('schoollist.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+                    
+                    // Re-execute scripts following Common Gotchas pattern
+                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+                    
+                    // Update browser history
+                    history.pushState({ section: 'schoollist' }, '', '#schoollist');
+                    
+                    console.log('✅ School list page loaded successfully');
+                } else {
+                    console.error('Failed to load schoollist.html:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading school list page:', error);
+            }
+        }
+
+        // Load school year page following Single-Page Application with Module Loading
+        async function loadSchoolYearPage() {
+            try {
+                console.log('Loading school year page...');
+                
+                const response = await fetch('schoolyear.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+                    
+                    // Re-execute scripts following Common Gotchas pattern
+                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+                    
+                    // Update browser history
+                    history.pushState({ section: 'schoolyear' }, '', '#schoolyear');
+                    
+                    console.log('✅ School year page loaded successfully');
+                } else {
+                    console.error('Failed to load schoolyear.html:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading school year page:', error);
+            }
+        }
+
+        // Execute scripts in dynamically loaded content following Common Gotchas
+        function executeScriptsInContainer(container) {
+            const scripts = container.querySelectorAll('script');
+            scripts.forEach(script => {
+                const newScript = document.createElement('script');
+                if (script.src) {
+                    newScript.src = script.src;
+                } else {
+                    newScript.textContent = script.textContent;
+                }
+                script.parentNode.replaceChild(newScript, script);
+            });
+        }
+
+        // Show add modal placeholder function following Frontend Architecture Patterns
+        function showAddModal(cardType) {
+            const cardName = cardType === 'alertsCard' ? 'התראה' : 'אירוע';
+            alert(`הוספת ${cardName} חדש - תכונה זו תתווסף בעתיד`);
+        }
+
+        // Debug function to check if elements exist
+        function debugDashboardElements() {
+            console.log('🔍 Dashboard Debug:', {
+                alertsContainer: document.getElementById('alertsInternalCards'),
+                eventsContainer: document.getElementById('eventsInternalCards'),
+                systemVersionElement: document.getElementById('systemVersion'),
+                contextButtons: document.querySelectorAll('.context-btn'),
+                documentReady: document.readyState
+            });
+        }
+
+        // Initialize dashboard following Critical Development Workflows
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🏁 Main Dashboard DOMContentLoaded');
+            
+            // Load dashboard data and context buttons
+            setTimeout(async () => {
+                loadDashboardCardData('alertsCard');
+                loadDashboardCardData('eventsCard');
+                loadSystemVersion();
+                
+                // Update context button labels with actual year values
+                await updateContextButtonLabels();
+                
+                console.log('✅ Main Dashboard initialized successfully');
+            }, 100);
+        });
+
+        // Also try immediate call if DOM is already ready following Frontend Architecture Patterns
+        if (document.readyState !== 'loading') {
+            console.log('📄 Document already ready, calling initialization immediately');
+            setTimeout(async () => {
+                loadDashboardCardData('alertsCard');
+                loadDashboardCardData('eventsCard');
+                loadSystemVersion();
+                await updateContextButtonLabels();
+                console.log('✅ Main Dashboard initialized immediately');
+            }, 50);
+        }
+
+        // Make functions globally available following Cross-Component Communication
+        window.loadDashboardCardData = loadDashboardCardData;
+        window.showAddModal = showAddModal;
+        window.loadSystemVersion = loadSystemVersion;
+        window.updateContextButtonLabels = updateContextButtonLabels;
+        window.storeSelectedYearInSession = storeSelectedYearInSession;
+        window.showSchoolYear = showSchoolYear;
+        window.loadSchoolListPage = loadSchoolListPage;
+        window.loadSchoolYearPage = loadSchoolYearPage;
+        window.executeScriptsInContainer = executeScriptsInContainer;
+        window.debugDashboardElements = debugDashboardElements;
+
+        console.log('✅ Main Dashboard functions registered globally');
+    </script>
+</body>
+</html>
