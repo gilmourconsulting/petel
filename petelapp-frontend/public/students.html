@@ -1,8 +1,18 @@
 <div class="students-container">
+    <!-- Context buttons - LEFT SIDE POSITIONING -->
+    <div class="context-buttons-section students-context">
+        <button class="context-btn" onclick="refreshStudentsData()" style="background: #C15A16; color: #fff;">
+            רענן נתונים
+        </button>
+        <button class="context-btn" onclick="window.history.back()" style="background: #6c757d; color: #fff;">
+            חזרה
+        </button>
+    </div>
+
     <!-- Main content area -->
     <div class="students-content">
         <div class="content-card">
-            <h2 id="studentsTitle" style="margin-bottom: 20px; color: #C15A16;">תלמידים</h2>
+            <h2 id="studentsTitle" style="margin-bottom: 20px; color: #C15A16;">תלמידים אגרות חוץ בית ספר שמע - תשפ"ו</h2>
             
             <!-- Students summary info -->
             <div class="students-summary" style="margin-bottom: 30px;">
@@ -15,17 +25,24 @@
                         </div>
                     </div>
                     <div class="summary-card">
-                        <div class="summary-icon">✅</div>
+                        <div class="summary-icon">⚙</div>
                         <div class="summary-info">
                             <div class="summary-value" id="activeStudents">0</div>
                             <div class="summary-label">תלמידים בטיפול</div>
                         </div>
                     </div>
                     <div class="summary-card">
+                        <div class="summary-icon">✅</div>
+                        <div class="summary-info">
+                            <div class="summary-value" id="finishedStudents">0</div>
+                            <div class="summary-label">סיימו טיפול</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
                         <div class="summary-icon">📚</div>
                         <div class="summary-info">
                             <div class="summary-value" id="totalClasses">0</div>
-                            <div class="summary-label">כיתות</div>
+                            <div class="summary-label">רשויות שולחות</div>
                         </div>
                     </div>
                 </div>
@@ -42,20 +59,70 @@
             </div>
         </div>
     </div>
-
-    <!-- Simplified context buttons -->
-    <div class="context-buttons-section students-context">
-        <button class="context-btn" onclick="refreshStudentsData()" style="background: #C15A16; color: #fff;">
-            רענן נתונים
-        </button>
-        <button class="context-btn" onclick="window.history.back()" style="background: #6c757d; color: #fff;">
-            חזרה
-        </button>
-    </div>
 </div>
 
 <!-- Add CSS styling to match schoollist.html table appearance -->
 <style>
+/* Container layout - RTL flex layout following Hebrew/RTL Specific Patterns */
+.students-container {
+    display: flex;
+    gap: 20px;
+    direction: rtl;
+    min-height: calc(100vh - 100px);
+}
+
+.students-content {
+    flex: 1;
+    max-width: calc(100% - 180px); /* Account for context buttons width */
+}
+
+/* Context buttons styling - LEFT SIDE POSITIONING following Project-Specific Patterns */
+.context-buttons-section {
+    position: relative; /* Changed from fixed */
+    width: 160px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 100;
+    direction: rtl;
+}
+
+.context-btn {
+    padding: 12px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    width: 100%; /* Full width of the container */
+    text-align: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    white-space: nowrap;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.context-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Specific button colors with enhanced styling */
+.context-btn[style*="background: #C15A16"] {
+    background: linear-gradient(135deg, #C15A16 0%, #a04912 100%) !important;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.context-btn[style*="background: #6c757d"] {
+    background: linear-gradient(135deg, #6c757d 0%, #545b62 100%) !important;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
 /* Students table styling matching schoollist.html following Hebrew/RTL Specific Patterns */
 .students-table-section {
     margin-top: 30px;
@@ -204,6 +271,12 @@
     border: 1px solid #ffcc02;
 }
 
+#studentsTableContainer .data-table .status-הסתיים {
+    background-color: #f3ffe0;
+    color: #00ef34;
+    border: 1px solid #4aff02;
+}
+
 /* Category column styling */
 #studentsTableContainer .data-table .category-badge {
     padding: 3px 8px;
@@ -227,7 +300,72 @@
     padding: 8px 12px;
 }
 
-/* Button styling matching schoollist.html exactly */
+/* Action icon styling with natural colors following Frontend Architecture Patterns */
+.action-icon-natural {
+    width: 15px;
+    height: 15px;
+    vertical-align: middle;
+    /* No color filters - use natural icon colors */
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    object-fit: contain;
+}
+
+/* Button styling for natural icon buttons */
+#studentsTableContainer .btn-icon {
+    padding: 4px 6px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 0 1px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+    min-width: 26px;
+    min-height: 24px;
+    background-color: transparent; /* Transparent background to show icon colors naturally */
+    border: 1px solid #dee2e6; /* Light border for button definition */
+}
+
+#studentsTableContainer .btn-icon:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    background-color: #f8f9fa; /* Light background on hover */
+    border-color: #adb5bd;
+}
+
+#studentsTableContainer .btn-icon:hover .action-icon-natural {
+    transform: scale(1.1); /* Slight scale on hover for visual feedback */
+    opacity: 0.9;
+}
+
+#studentsTableContainer .btn-sm.btn-icon {
+    padding: 3px 5px;
+    min-width: 24px;
+    min-height: 22px;
+}
+
+#studentsTableContainer .btn-sm .action-icon-natural {
+    width: 15px;
+    height: 15px;
+}
+
+/* Remove old colored button classes for icon buttons */
+#studentsTableContainer .btn-icon.btn-secondary,
+#studentsTableContainer .btn-icon.btn-primary,
+#studentsTableContainer .btn-icon.btn-success {
+    background-color: transparent;
+    color: inherit;
+}
+
+#studentsTableContainer .btn-icon.btn-secondary:hover,
+#studentsTableContainer .btn-icon.btn-primary:hover,
+#studentsTableContainer .btn-icon.btn-success:hover {
+    background-color: #f8f9fa;
+}
+
+/* Button styling matching schoollist.html exactly for non-icon buttons */
 #studentsTableContainer .btn {
     padding: 4px 8px;
     border: none;
@@ -312,55 +450,64 @@
 /* Content card styling consistency */
 .content-card {
     background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin: 20px;
-    direction: rtl;
-}
-
-/* Context buttons styling */
-.context-buttons-section {
-    position: fixed;
-    left: 20px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 1000;
-}
-
-.context-btn {
-    padding: 12px 16px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s;
-    min-width: 120px;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.context-btn:hover {
-    transform: translateX(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
 }
 
 /* Mobile responsiveness */
 @media (max-width: 768px) {
+    .students-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .students-content {
+        max-width: 100%;
+    }
+    
+    .context-buttons-section {
+        position: relative;
+        width: 100%;
+        flex-direction: row;
+        justify-content: center;
+        flex-wrap: wrap;
+        order: -1; /* Show buttons at top on mobile */
+        top: 0;
+    }
+    
+    .context-btn {
+        width: auto;
+        min-width: 120px;
+        font-size: 12px;
+        padding: 10px 12px;
+    }
+    
     .summary-grid {
         grid-template-columns: 1fr;
     }
     
-    .context-buttons-section {
-        position: static;
-        flex-direction: row;
-        justify-content: center;
-        margin-top: 20px;
-        transform: none;
+    .action-icon-natural {
+        width: 13px;
+        height: 13px;
+    }
+    
+    #studentsTableContainer .btn-icon {
+        padding: 3px 5px;
+        min-width: 22px;
+        min-height: 20px;
+    }
+    
+    #studentsTableContainer .btn-sm.btn-icon {
+        padding: 2px 4px;
+        min-width: 20px;
+        min-height: 18px;
+    }
+    
+    #studentsTableContainer .btn-sm .action-icon-natural {
+        width: 13px;
+        height: 13px;
     }
     
     #studentsTableContainer .data-table {
@@ -372,9 +519,38 @@
         padding: 8px 6px;
     }
 }
+
+/* RTL-specific adjustments following Hebrew/RTL Specific Patterns */
+[dir="rtl"] .students-container {
+    direction: rtl;
+}
+
+[dir="rtl"] .context-buttons-section {
+    direction: rtl;
+}
+
+[dir="rtl"] .students-content {
+    direction: rtl;
+}
+
+[dir="rtl"] .action-icon-natural {
+    margin-left: 0;
+    margin-right: 0;
+}
 </style>
 
 <script>
+// Missing action functions - DEFINE BEFORE TABLE CREATION following Critical Development Workflows
+function editStudent(studentId) {
+    console.log('✏️ Editing student:', studentId);
+    alert(`עריכת תלמיד ${studentId} - תכונה זו תתווסף בעתיד`);
+}
+
+function viewStudentGrades(studentId) {
+    console.log('📊 Viewing grades for student:', studentId);
+    alert(`צפייה בציונים של תלמיד ${studentId} - תכונה זו תתווסף בעתיד`);
+}
+
 // Load students data - use mock data since API endpoints don't exist
 function loadStudentsData() {
     console.log('🔄 Loading students data...');
@@ -391,39 +567,43 @@ function useMockStudentsData() {
             id: '123456789', 
             name: 'יוסי כהן', 
             address: 'רחוב הרצל 15, תל אביב',
-            class: 'כיתה א', 
-            status: 'חדש', 
-            category: 2
+            class: 'כיתה י"א', 
+            status: 'הסתיים', 
+            category: 3, 
+            totalAmount: "15,178"
         },
         { 
             id: '987654321', 
             name: 'שרה לוי', 
             address: 'רחוב בן גוריון 23, ירושלים',
-            class: 'כיתה א', 
+            class: 'כיתה י"א', 
             status: 'בטיפול', 
-            category: 3
+            category: 3,
+            totalAmount: "15,178"
         },
         { 
             id: '456789123', 
             name: 'דוד משה', 
             address: 'רחוב רוטשילד 8, חיפה',
-            class: 'כיתה ב', 
+            class: 'כיתה י"ב', 
             status: 'חדש', 
-            category: 5
+            category: 5,
+            totalAmount: "-"
         },
         { 
             id: '321654987', 
             name: 'מירי אברהם', 
             address: 'רחוב דיזנגוף 45, תל אביב',
-            class: 'כיתה ב', 
+            class: 'כיתה י"ב', 
             status: 'בטיפול', 
-            category: 7
+            category: 7,
+            totalAmount: "17,228"
         },
         { 
             id: '789123456', 
             name: 'אבי יעקב', 
             address: 'רחוב יפו 12, ירושלים',
-            class: 'כיתה ג', 
+            class: 'כיתה י', 
             status: 'חדש', 
             category: 4
         }
@@ -445,6 +625,9 @@ function useMockStudentsData() {
 function updateStudentsSummary(data) {
     const totalStudents = data.length;
     const activeStudents = data.filter(s => s.status === 'בטיפול').length;
+    const newStudents = data.filter(s => s.status === 'חדש').length;
+    const finishedStudents = data.filter(s => s.status === 'הסתיים').length;
+
     const totalClasses = [...new Set(data.map(s => s.class))].length;
 
     const totalElement = document.getElementById('totalStudents');
@@ -454,8 +637,8 @@ function updateStudentsSummary(data) {
     if (totalElement) totalElement.textContent = totalStudents;
     if (activeElement) activeElement.textContent = activeStudents;
     if (classesElement) classesElement.textContent = totalClasses;
-    
-    console.log('✅ Summary updated:', { totalStudents, activeStudents, totalClasses });
+
+    console.log('✅ Summary updated:', { totalStudents, newStudents, activeStudents, finishedStudents, totalClasses });
 }
 
 // Create students table using ReusableTable component following Frontend Architecture Patterns
@@ -515,7 +698,7 @@ function loadReusableTableComponent(data) {
 function initializeStudentsTable(data) {
     console.log('🔧 Initializing ReusableTable with data:', data);
     
-    // Define table columns following Hebrew/RTL Specific Patterns
+    // Define table columns with PNG icons following Hebrew/RTL Specific Patterns
     const columns = [
         { key: 'id', label: 'ת"ז', sortable: true, readOnly: true },
         { key: 'name', label: 'שם', sortable: true, readOnly: false },
@@ -535,16 +718,23 @@ function initializeStudentsTable(data) {
             readOnly: false
             // Removed render function to use plain text display
         },
-        {
+         { 
+            key: 'totalAmount', 
+            label: 'סכום שנדרש', 
+            sortable: true, 
+            readOnly: false
+            // Removed render function to use plain text display
+        },       {
             key: 'actions',
             label: 'פעולות',
             sortable: false,
             readOnly: true,
             render: (student) => `
                 <div class="actions-cell">
-                    <button class="btn btn-sm btn-secondary" onclick="viewStudentDetails('${student.id}')" title="צפייה">👁️</button>
-                    <button class="btn btn-sm btn-primary" onclick="editStudent('${student.id}')" title="עריכה">✏️</button>
-                    <button class="btn btn-sm btn-success" onclick="viewStudentGrades('${student.id}')" title="ציונים">📊</button>
+                    <button class="btn btn-sm btn-icon" onclick="viewStudentDetails('${student.id}')" title="צפייה">
+                        <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
+                    </button>
+
                 </div>
             `
         }
@@ -613,28 +803,107 @@ function viewStudentDetails(studentId) {
         sessionStorage.setItem('selectedStudentId', studentId);
         sessionStorage.setItem('selectedStudentName', student.name);
         
-        const details = `
-פרטי התלמיד:
-ת"ז: ${student.id}
-שם: ${student.name}
-כתובת: ${student.address}
-כיתה: ${student.class}
-סטטוס תלמיד: ${student.status}
-קטגוריה: ${student.category}
-        `;
-        alert(details);
+        // Navigate to student.html following Single-Page Application with Module Loading
+        console.log('📄 Navigating to student details page...');
+        
+        // Check if navigateTo function is available (from main app)
+        if (typeof navigateTo === 'function') {
+            navigateTo('student');
+        } else if (typeof window.navigateTo === 'function') {
+            window.navigateTo('student');
+        } else {
+            // Fallback: Load student.html directly into main content area
+            loadStudentPageDirectly();
+        }
     }
 }
 
-function editStudent(studentId) {
-    console.log('✏️ Editing student:', studentId);
-    alert(`עריכת תלמיד ${studentId} - תכונה זו תתווסף בעתיד`);
+// Fallback function to load student.html directly following Frontend Architecture Patterns
+function loadStudentPageDirectly() {
+    console.log('📋 Loading student.html directly into main content area...');
+    
+    // Find the main content container
+    const mainContainer = document.getElementById('mainContent') || 
+                         document.querySelector('.main-content') || 
+                         document.querySelector('main') ||
+                         document.body;
+    
+    if (!mainContainer) {
+        console.error('❌ Could not find main content container');
+        return;
+    }
+    
+    // Show loading state
+    mainContainer.innerHTML = `
+        <div class="loading-spinner" style="text-align: center; padding: 40px; direction: rtl;">
+            טוען דף תלמיד...
+        </div>
+    `;
+    
+    // Fetch and load student.html following API Communication Pattern
+    fetch('student.html')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.text();
+        })
+        .then(html => {
+            console.log('✅ student.html loaded successfully');
+            
+            // Insert the HTML content
+            mainContainer.innerHTML = html;
+            
+            // Execute any scripts in the loaded content following Critical Development Workflows
+            const scripts = mainContainer.querySelectorAll('script');
+            scripts.forEach(script => {
+                const newScript = document.createElement('script');
+                if (script.src) {
+                    newScript.src = script.src;
+                } else {
+                    newScript.textContent = script.textContent;
+                }
+                document.head.appendChild(newScript);
+                script.remove();
+            });
+            
+            console.log('✅ Student page loaded and initialized');
+        })
+        .catch(error => {
+            console.error('❌ Error loading student.html:', error);
+            
+            // Show error message following Hebrew/RTL Specific Patterns
+            mainContainer.innerHTML = `
+                <div class="error-message" style="
+                    text-align: center; 
+                    padding: 40px; 
+                    direction: rtl;
+                    background: #f8d7da;
+                    color: #721c24;
+                    border: 1px solid #f5c6cb;
+                    border-radius: 8px;
+                    margin: 20px;
+                ">
+                    <h3>שגיאה בטעינת דף התלמיד</h3>
+                    <p>לא ניתן לטעון את דף פרטי התלמיד. אנא נסה שוב.</p>
+                    <button onclick="window.history.back()" class="btn btn-primary" style="
+                        margin-top: 15px;
+                        padding: 8px 16px;
+                        background-color: #007bff;
+                        color: white;
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                    ">
+                        חזרה
+                    </button>
+                </div>
+            `;
+        });
 }
 
-function viewStudentGrades(studentId) {
-    console.log('📊 Viewing grades for student:', studentId);
-    alert(`צפייה בציונים של תלמיד ${studentId} - תכונה זו תתווסף בעתיד`);
-}
+// Make the fallback function globally available following Cross-Component Communication
+window.loadStudentPageDirectly = loadStudentPageDirectly;
 
 // Get student by ID from current data following Cross-Component Communication
 function getStudentById(studentId) {

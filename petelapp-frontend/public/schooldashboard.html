@@ -9,7 +9,7 @@
     <div class="main-dashboard-container">
         <!-- School Title Section -->
         <div class="school-title-section">
-            <h1 class="school-title" id="schoolTitle">בית ספר שמע - ניהול תלמידי חוץ תשפ"ו</h1>
+            <h1 class="school-title" id="schoolTitle" style="margin-bottom: 20px; color: #C15A16;">בית ספר שמע - ניהול תלמידי חוץ תשפ"ו</h1>
         </div>
         
         <!-- Navigation Link to Main Page -->
@@ -72,43 +72,23 @@
                 alertsCard: {
                     items: [
                         {
-                            content: "גרסה 2.1 זמינה להורדה",
+                            content: "הגיע אישור שמירה ",
                             timestamp: "לפני 10 דקות",
                             priority: "high"
                         },
                         {
-                            content: "גיבוי יומי מתוכנן ב-23:00",
-                            timestamp: "לפני שעה",
+                            content: "תלמיד חדש נרשם במצבת תלמידים",
+                            timestamp: "02-09-2025 14:30",
                             priority: "medium"
-                        },
-                        {
-                            content: "משתמש חדש ממתין לאישור",
-                            timestamp: "לפני 2 שעות",
-                            priority: "low"
                         }
                     ]
                 },
                 eventsCard: {
                     items: [
                         {
-                            content: "ישיבה שבועית - חדר ישיבות A",
+                            content: "יום אחרון לרישום ליום סייעות עירוני",
                             timestamp: "מחר 09:00",
                             priority: "high"
-                        },
-                        {
-                            content: "הצגת תוצאות חודש מרץ",
-                            timestamp: "יום רביעי 14:00",
-                            priority: "medium"
-                        },
-                        {
-                            content: "הדרכה על תכונות חדשות במערכת",
-                            timestamp: "יום חמישי 10:30",
-                            priority: "medium"
-                        },
-                        {
-                            content: "תחזוקה שבועית של השרתים",
-                            timestamp: "יום ראשון 08:00",
-                            priority: "low"
                         }
                     ]
                 }
@@ -218,9 +198,11 @@
             const currentYearValue = sessionStorage.getItem('currentYearValue');
             
             // Use fallback values if session data not available
-            const schoolName = selectedSchoolName || 'בית ספר שמע - ניהול תלמידי חוץ';
-            const yearValue = currentYearValue || 'תשפ"ו';
-            
+           // const schoolName = selectedSchoolName || 'בית ספר שמע - ניהול תלמידי חוץ';
+           // const yearValue = currentYearValue || 'תשפ"ו';
+            const schoolName =  '         בית ספר שמע - ניהול תלמידי חוץ';
+            const yearValue =  'תשפ"ו';
+          
             console.log('School context:', {
                 schoolName: schoolName,
                 yearValue: yearValue

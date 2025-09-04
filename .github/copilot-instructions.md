@@ -40,10 +40,138 @@ Backend runs on `http://localhost:5082`, frontend on `http://localhost:3000`
 - Navigation via `navigateTo(section)` function with browser history support
 - School year context stored in `window.currentSchoolYear` object
 
-**Key Files**:
-- `config.js` - API endpoints and environment detection
-- `table-component.js` - Reusable data table with edit/sort/filter capabilities
-- `theme.css` + `styles.css` - CSS custom properties for theming
+**Standard Table Component**:
+- **ALL tables must use ReusableTable component** from `table-component.js`
+- Constructor: `new ReusableTable(containerId, options)`
+- Options: `{ tableName, isReadOnly, allowAdd, allowEdit, allowDelete }`
+- Columns format: `{ key, label, sortable, readOnly, render }`
+- Example implementation:
+```javascript
+const table = new ReusableTable('tableContainer', {
+    tableName: 'students',
+    isReadOnly: false,
+    allowAdd: true,
+    allowEdit: true,
+    allowDelete: false
+});
+
+const columns = [
+    { key: 'id', label: 'מספר', sortable: true, readOnly: true },
+    { key: 'name', label: 'שם', sortable: true, readOnly: false },
+    {
+        key: 'actions',
+        label: 'פעולות',
+        sortable: false,
+        readOnly: true,
+        render: (data) => `
+            <button onclick="viewItem('${data.id}')">
+                <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
+            </button>
+        `
+    }
+];
+
+table.init(data, columns);
+```
+
+**Standard Icon Set**:
+- **ALL icons must use provided PNG icon set** - NO emoji or Unicode symbols
+- Icon class: `.action-icon-natural` for 15px natural color icons
+- Standard icons:
+  - `view_icon.png` - View/preview actions (👁️ replacement)
+  - `edit_icon.png` - Edit/modify actions (✏️ replacement)  
+  - `delete_icon.png` - Delete/remove actions (🗑️ replacement)
+  - `download_icon.png` - Download actions (📥 replacement)
+  - `upload_icon.png` - Upload/copy actions (📤 replacement)
+  - `stats_icon.png` - Statistics/reports actions (📊 replacement)
+  - `Plus icon.png` - Add new item actions (➕ replacement)
+- Button styling:
+```css
+.btn-icon {
+    padding: 4px 6px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background-color: transparent;
+    cursor: pointer;
+}
+
+.action-icon-natural {
+    width: 15px;
+    height: 15px;
+    object-fit: contain;
+}
+```
+
+**Context Buttons Layout**:
+- **Context buttons must be positioned between the side menu and main content section**
+- Use fixed positioning relative to the side menu width
+- Standard layout structure:
+```html
+<div class="page-container">
+    <div class="side-menu">
+        <!-- Menu content (~260px width) -->
+    </div>
+    <div class="context-buttons-section">
+        <button class="context-btn" onclick="navigationAction()">
+            Button Text
+        </button>
+    </div>
+    <div class="main-content">
+        <!-- Main section content -->
+    </div>
+</div>
+```
+- CSS positioning example:
+```css
+.context-buttons-section {
+    position: fixed;
+    left: 280px; /* Menu width (260px) + margin (20px) */
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 1000;
+    width: 200px;
+}
+
+.content-card {
+    margin-left: 500px; /* Menu + Context buttons + margins */
+    margin-right: 20px;
+}
+```
+- **Mobile responsive**: Switch to bottom positioning when screen width < 768px
+- **Responsive breakpoints**: Adjust left positioning for tablet (240px) and large screens (300px)
+
+**Table Horizontal Scrolling**:
+- **All table containers must support horizontal scrolling for wide content**
+- Apply `overflow-x: auto` to table containers
+- Set minimum table width to trigger scrolling when needed
+- Standard table scroll implementation:
+```css
+.table-container {
+    overflow-x: auto;
+    overflow-y: visible;
+    max-width: 100%;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+}
+
+.data-table {
+    min-width: 1200px; /* Minimum width to trigger scroll */
+    white-space: nowrap;
+}
+
+.data-table th,
+.data-table td {
+    min-width: 120px; /* Minimum column width */
+    white-space: nowrap;
+}
+```
+- **Custom scrollbar styling**: Use webkit scrollbar styles for better UX
+- **Mobile adjustments**: Reduce font size and padding on mobile devices
+- **ReusableTable integration**: Ensure table component containers have scroll capability
+```
 
 ### Authentication & Session Management
 ```javascript
@@ -106,3 +234,6 @@ fetch(AppConfig.getApiUrl('systemAttributes'))
 - Tenant ID must be present in session for most API endpoints (except `/api/systemattributes`)
 - PostgreSQL connection strings in `appsettings.json` use specific database names
 - Hebrew text requires UTF-8 encoding and RTL CSS considerations
+- **All tables MUST use ReusableTable component** - no manual table HTML
+- **All icons MUST use provided PNG set** - no emoji, Unicode symbols, or custom icons
+- **Context buttons MUST be positioned to the left of main section** - use fixed/sticky positioning

@@ -17,25 +17,44 @@
                 </div>
             </div>
                
-            <!-- Class Characterization Field -->
+            <!-- Class Characterization Field - Updated to dropdown -->
             <div class="class-characterization-section" style="margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border-right: 4px solid #C15A16;">
-                <h3 style="color: #333; margin-bottom: 15px; font-size: 1.2em; font-weight: 600;">אפיון כיתה</h3>
-                <div class="characterization-content" style="display: flex; align-items: center; gap: 10px; direction: rtl;">
-                    <span class="characterization-number" style="
-                        background: #C15A16; 
-                        color: white; 
-                        padding: 8px 12px; 
-                        border-radius: 6px; 
-                        font-weight: bold; 
-                        font-size: 1.1em;
-                        min-width: 40px;
-                        text-align: center;
-                    ">11</span>
-                    <span class="characterization-text" style="
-                        font-size: 1.1em; 
+                <div class="characterization-content" style="display: flex; align-items: center; gap: 15px; direction: rtl;">
+                    <label for="characterizationSelect" style="
                         color: #333; 
+                        font-size: 1.2em; 
+                        font-weight: 600;
+                        min-width: 100px;
+                        white-space: nowrap;
+                    ">אפיון כיתה:</label>
+                    
+                    <select id="characterizationSelect" style="
+                        background: white;
+                        border: 2px solid #dee2e6;
+                        border-radius: 6px;
+                        padding: 8px 12px;
+                        font-size: 1.1em;
+                        color: #333;
                         font-weight: 500;
-                    ">מוגבלות בשמיעה</span>
+                        min-width: 200px;
+                        direction: rtl;
+                        text-align: right;
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        cursor: pointer;
+                        transition: border-color 0.2s, box-shadow 0.2s;
+                    " onchange="updateCharacterizationDisplay(this.value)" onfocus="this.style.borderColor='#C15A16'; this.style.boxShadow='0 0 0 2px rgba(193, 90, 22, 0.2)';" onblur="this.style.borderColor='#dee2e6'; this.style.boxShadow='none';">
+                        <option value="11" selected>11 - מוגבלות בשמיעה</option>
+                        <option value="12">12 - מוגבלות בראיה</option>
+                    </select>
+                    
+                    <div class="characterization-display" style="
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        margin-right: 10px;
+                    ">
+     
+                    </div>
                 </div>
             </div>
  
@@ -52,14 +71,17 @@
     </div>
 
     <!-- Simplified context buttons -->
-    <!--<div class="context-buttons-section students-context">
-        <button class="context-btn" onclick="refreshStudentsData()" style="background: #C15A16; color: #fff;">
-            רענן נתונים
+<div class="context-buttons-section students-context">
+        <button class="context-btn" onclick="navigateToStudents()" style="background: #C15A16; color: #fff;">
+            חזרה לרשימת תלמידים
         </button>
-        <button class="context-btn" onclick="window.history.back()" style="background: #6c757d; color: #fff;">
-            חזרה
+        <button class="context-btn" onclick="navigateToSchoolDashboard()" style="background: #28a745; color: #fff;">
+            חזרה לבית ספר
         </button>
-    </div>-->
+        <button class="context-btn" onclick="navigateToSchoolList()" style="background: #6c757d; color: #fff;">
+            רשימת בתי ספר
+        </button>
+    </div>
 </div>
 
 <!-- Add CSS styling to match schoollist.html table appearance -->
@@ -321,16 +343,20 @@ h2, h3, h4, h5, h6 {
 /* Button styling matching schoollist.html exactly */
 #studentsTableContainer .btn,
 #documentsTableContainer .btn {
-    padding: 4px 8px;
+    padding: 6px 10px; /* Slightly larger padding for icons */
     border: none;
     border-radius: 4px;
     cursor: pointer;
     font-size: 11px;
     margin: 0 2px;
     text-decoration: none;
-    display: inline-block;
+    display: inline-flex; /* Changed to flex for better icon alignment */
+    align-items: center;
+    justify-content: center;
     transition: background-color 0.2s, transform 0.1s;
     font-weight: 500;
+    min-width: 32px; /* Ensure minimum button size for icons */
+    min-height: 28px;
 }
 
 #studentsTableContainer .btn:hover,
@@ -339,10 +365,23 @@ h2, h3, h4, h5, h6 {
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
 
+#studentsTableContainer .btn:hover .action-icon,
+#documentsTableContainer .btn:hover .action-icon {
+    filter: brightness(0) invert(1) drop-shadow(0 0 2px rgba(255,255,255,0.8));
+}
+
 #studentsTableContainer .btn-sm,
 #documentsTableContainer .btn-sm {
-    padding: 3px 6px;
+    padding: 4px 8px;
     font-size: 10px;
+    min-width: 28px;
+    min-height: 24px;
+}
+
+#studentsTableContainer .btn-sm .action-icon,
+#documentsTableContainer .btn-sm .action-icon {
+    width: 14px;
+    height: 14px;
 }
 
 #studentsTableContainer .btn-secondary,
@@ -378,57 +417,86 @@ h2, h3, h4, h5, h6 {
     background-color: #1e7e34;
 }
 
-/* Loading and error states following Hebrew/RTL Specific Patterns */
-.loading-spinner, .table-error {
-    text-align: center;
-    padding: 40px 20px;
-    direction: rtl;
-    font-size: 1.1em;
-    color: #666;
+/* Action icon styling with natural colors following Frontend Architecture Patterns */
+.action-icon-natural {
+    width: 15px;
+    height: 15px;
+    vertical-align: middle;
+    /* No color filters - use natural icon colors */
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    object-fit: contain;
 }
 
-.table-error {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-    border-radius: 8px;
-}
-
-.table-error button {
-    margin-top: 15px;
-    padding: 8px 16px;
-    background-color: #007bff;
-    color: white;
+/* Button styling for natural icon buttons */
+#studentsTableContainer .btn-icon,
+#documentsTableContainer .btn-icon {
+    padding: 4px 6px;
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 14px;
+    margin: 0 1px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+    min-width: 26px;
+    min-height: 24px;
+    background-color: transparent; /* Transparent background to show icon colors naturally */
+    border: 1px solid #dee2e6; /* Light border for button definition */
 }
 
-.table-error button:hover {
-    background-color: #0056b3;
+#studentsTableContainer .btn-icon:hover,
+#documentsTableContainer .btn-icon:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    background-color: #f8f9fa; /* Light background on hover */
+    border-color: #adb5bd;
 }
 
-/* Content card styling consistency */
-.content-card {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin: 20px;
+#studentsTableContainer .btn-icon:hover .action-icon-natural,
+#documentsTableContainer .btn-icon:hover .action-icon-natural {
+    transform: scale(1.1); /* Slight scale on hover for visual feedback */
+    opacity: 0.9;
+}
+
+#studentsTableContainer .btn-sm.btn-icon,
+#documentsTableContainer .btn-sm.btn-icon {
+    padding: 3px 5px;
+    min-width: 24px;
+    min-height: 22px;
+}
+
+#studentsTableContainer .btn-sm .action-icon-natural,
+#documentsTableContainer .btn-sm .action-icon-natural {
+    width: 15px;
+    height: 15px;
+}
+
+/* Context buttons styling - LEFT SIDE POSITIONING following Project-Specific Patterns */
+.students-container {
+    display: flex;
+    gap: 20px;
     direction: rtl;
+    min-height: calc(100vh - 100px);
 }
 
-/* Context buttons styling */
+.students-content {
+    flex: 1;
+    max-width: calc(100% - 180px); /* Account for context buttons width */
+}
+
 .context-buttons-section {
-    position: fixed;
-    left: 20px;
-    top: 50%;
-    transform: translateY(-50%);
+    position: relative; /* Changed from fixed */
+    width: 160px;
+    flex-shrink: 0;
+    align-self: flex-start;
+    top: 20px;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    z-index: 1000;
+    z-index: 100;
+    direction: rtl;
 }
 
 .context-btn {
@@ -439,82 +507,693 @@ h2, h3, h4, h5, h6 {
     font-size: 14px;
     font-weight: 500;
     transition: all 0.2s;
-    min-width: 120px;
+    width: 100%; /* Full width of the container */
     text-align: center;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    white-space: nowrap;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
 }
 
 .context-btn:hover {
-    transform: translateX(-2px);
+    transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
-/* Mobile responsiveness */
+/* Specific button colors with enhanced styling */
+.context-btn[style*="background: #C15A16"] {
+    background: linear-gradient(135deg, #C15A16 0%, #a04912 100%) !important;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.context-btn[style*="background: #28a745"] {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.context-btn[style*="background: #6c757d"] {
+    background: linear-gradient(135deg, #6c757d 0%, #545b62 100%) !important;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+/* Mobile responsiveness for context buttons */
 @media (max-width: 768px) {
-    .summary-grid {
-        grid-template-columns: 1fr;
+    .students-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .students-content {
+        max-width: 100%;
     }
     
     .context-buttons-section {
-        position: static;
+        position: relative;
+        width: 100%;
         flex-direction: row;
         justify-content: center;
-        margin-top: 20px;
-        transform: none;
+        flex-wrap: wrap;
+        order: -1; /* Show buttons at top on mobile */
+        top: 0;
     }
     
-    #studentsTableContainer .data-table,
-    #documentsTableContainer .data-table {
-        font-size: 0.85em;
+    .context-btn {
+        width: auto;
+        min-width: 120px;
+        font-size: 12px;
+        padding: 10px 12px;
     }
     
-    #studentsTableContainer .data-table th,
-    #studentsTableContainer .data-table td,
-    #documentsTableContainer .data-table th,
-    #documentsTableContainer .data-table td {
-        padding: 8px 6px;
+    .action-icon-natural {
+        width: 13px;
+        height: 13px;
     }
+    
+    #studentsTableContainer .btn-icon,
+    #documentsTableContainer .btn-icon {
+        padding: 3px 5px;
+        min-width: 22px;
+        min-height: 20px;
+    }
+    
+    #studentsTableContainer .btn-sm.btn-icon,
+    #documentsTableContainer .btn-sm.btn-icon {
+        padding: 2px 4px;
+        min-width: 20px;
+        min-height: 18px;
+    }
+    
+    #studentsTableContainer .btn-sm .action-icon-natural,
+    #documentsTableContainer .btn-sm .action-icon-natural {
+        width: 13px;
+        height: 13px;
+    }
+}
+
+/* Remove old fixed positioning styles */
+.context-buttons-section:not(.students-context) {
+    position: static;
+    flex-direction: row;
+    justify-content: center;
+    margin-top: 20px;
+    transform: none;
+    flex-wrap: wrap;
+}
+
+/* Ensure students context stays in left sidebar */
+.context-buttons-section.students-context {
+    position: relative !important;
+    width: 160px !important;
+    flex-shrink: 0 !important;
+    align-self: flex-start !important;
+    top: 20px !important;
+    right: auto !important;
+    bottom: auto !important;
+    left: auto !important;
+    transform: none !important;
+    flex-direction: column !important;
+}
+
+/* Content card adjustments for sidebar layout */
+.content-card {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
+}
+
+/* Ensure RTL layout doesn't interfere with flex positioning */
+[dir="rtl"] .students-container {
+    direction: rtl;
+}
+
+[dir="rtl"] .context-buttons-section {
+    direction: rtl;
+}
+
+[dir="rtl"] .students-content {
+    direction: rtl;
+}
+
+/* Characterization dropdown responsive styling following Hebrew/RTL Specific Patterns */
+@media (max-width: 768px) {
+    .characterization-content {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+    }
+    
+    .characterization-content label {
+        min-width: auto !important;
+        font-size: 1.1em !important;
+    }
+    
+    .characterization-content select {
+        min-width: 100% !important;
+        margin-bottom: 10px;
+    }
+    
+    .characterization-display {
+        margin-right: 0 !important;
+        align-self: flex-start;
+    }
+}
+
+/* Enhanced dropdown styling following Frontend Architecture Patterns */
+#characterizationSelect:hover {
+    border-color: #C15A16 !important;
+    background-color: #fafafa;
+}
+
+#characterizationSelect option {
+    padding: 8px;
+    font-size: 1em;
+    direction: rtl;
+    text-align: right;
+}
+
+/* RTL-specific dropdown arrow positioning */
+#characterizationSelect {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: left 8px center;
+    background-size: 16px;
+    padding-left: 35px;
+}
+
+[dir="rtl"] #characterizationSelect {
+    background-position: right 8px center;
+    padding-left: 12px;
+    padding-right: 35px;
 }
 </style>
 
 <script>
-// Load students data - use mock data since API endpoints don't exist
-function loadStudentsData() {
-    console.log('🔄 Loading students data...');
-    
-    // Skip API calls since endpoints don't exist, go directly to mock data
-    console.log('📋 Using mock data (API endpoints not available)...');
-    useMockStudentsData();
+// Remove the duplicate style block that's causing the parsing error
+// The error is on line 317 where there's an unexpected '<' token
+
+// Document URL mapping following Project-Specific Patterns - UPDATE TO ACCESSIBLE PATHS
+const DOCUMENT_URL_MAP = {
+    '1': "./sample-documents/hotzh-3-filled-sample.pdf",
+    '2': "./sample-documents/hotzh-10-network-data.pdf", 
+    '3': "./sample-documents/hotzh-11-custody-confirmation.pdf",
+    '4': "./sample-documents/hotzh-12-psychologist-hours.pdf",
+    '5': "./sample-documents/hotzh-15-sign-language-interpreter.pdf"
+};
+
+// Close document modal function - MISSING FUNCTION following Critical Development Workflows
+function closeDocumentModal() {
+    const modal = document.querySelector('.document-access-modal');
+    if (modal) {
+        modal.remove();
+        console.log('✅ Document modal closed');
+    }
 }
 
-// Use mock students data following Project-Specific Patterns
+// Copy document URL to clipboard function following Frontend Architecture Patterns
+function copyDocumentUrl(url) {
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('הקישור הועתק ללוח');
+            closeDocumentModal();
+        }).catch(err => {
+            console.error('Failed to copy URL:', err);
+            fallbackCopyTextToClipboard(url);
+        });
+    } else {
+        fallbackCopyTextToClipboard(url);
+    }
+}
+
+// Fallback copy function for older browsers following Frontend Architecture Patterns
+function fallbackCopyTextToClipboard(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+            alert('הקישור הועתק ללוח');
+        } else {
+            alert('לא ניתן להעתיק את הקישור');
+        }
+    } catch (err) {
+        console.error('Fallback copy failed:', err);
+        alert('לא ניתן להעתיק את הקישור');
+    }
+    
+    document.body.removeChild(textArea);
+    closeDocumentModal();
+}
+
+// Show document access options following Hebrew/RTL Specific Patterns
+function showDocumentAccessOptions(documentData, documentUrl) {
+    const optionsHtml = `
+        <div class="document-access-modal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            direction: rtl;
+        ">
+            <div style="
+                background: white;
+                padding: 30px;
+                border-radius: 12px;
+                max-width: 500px;
+                text-align: center;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            ">
+                <h3 style="color: #333; margin-bottom: 20px;">גישה למסמך</h3>
+                <p style="margin-bottom: 20px; color: #666;">
+                    לא ניתן לפתוח את המסמך "${documentData.form}" בחלון חדש.
+                    <br>אנא בחר באפשרות הבאה:
+                </p>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button onclick="window.open('${documentUrl}', '_self')" style="
+                        background: #f8f9fa;
+                        color: #333;
+                        border: 1px solid #dee2e6;
+                        padding: 12px 20px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                        transition: all 0.2s;
+                    " onmouseover="this.style.backgroundColor='#e9ecef'" onmouseout="this.style.backgroundColor='#f8f9fa'">
+                        <img src="view_icon.png" alt="פתח" style="width: 15px; height: 15px;">
+                        פתח בחלון זה
+                    </button>
+                    <button onclick="copyDocumentUrl('${documentUrl}')" style="
+                        background: #f8f9fa;
+                        color: #333;
+                        border: 1px solid #dee2e6;
+                        padding: 12px 20px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                        transition: all 0.2s;
+                    " onmouseover="this.style.backgroundColor='#e9ecef'" onmouseout="this.style.backgroundColor='#f8f9fa'">
+                        <img src="upload_icon.png" alt="העתק" style="width: 15px; height: 15px;">
+                        העתק קישור
+                    </button>
+                    <button onclick="closeDocumentModal()" style="
+                        background: #f8f9fa;
+                        color: #333;
+                        border: 1px solid #dee2e6;
+                        padding: 12px 20px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        transition: all 0.2s;
+                    " onmouseover="this.style.backgroundColor='#e9ecef'" onmouseout="this.style.backgroundColor='#f8f9fa'">
+                        ✕ סגור
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to page using global document object
+    document.body.insertAdjacentHTML('beforeend', optionsHtml);
+}
+
+// Utility functions - DEFINE FIRST following Critical Development Workflows
+function getStudentById(studentId) {
+    if (window.currentStudentsData && Array.isArray(window.currentStudentsData)) {
+        return window.currentStudentsData.find(student => student.id === studentId);
+    }
+    console.warn('⚠️ No current students data available');
+    return null;
+}
+
+function getDocumentById(documentId) {
+    if (window.currentDocumentsData && Array.isArray(window.currentDocumentsData)) {
+        return window.currentDocumentsData.find(document => document.id === documentId);
+    }
+    console.warn('⚠️ No current documents data available');
+    return null;
+}
+
+// Enhanced document viewing function with better error handling following Frontend Architecture Patterns
+function viewDocumentDetails(documentId) {
+    console.log('👁️ Viewing document details:', documentId);
+    
+    const documentData = getDocumentById(documentId);
+    if (documentData) {
+        // Store in session following Authentication & Session Management
+        sessionStorage.setItem('selectedDocumentId', documentId);
+        sessionStorage.setItem('selectedDocumentForm', documentData.form);
+        
+        // Get document URL from mapping following Project-Specific Patterns
+        const documentUrl = DOCUMENT_URL_MAP[documentId];
+        
+        if (!documentUrl) {
+            console.error('❌ No URL mapped for document:', documentId);
+            alert(`לא נמצא קישור למסמך "${documentData.form}". אנא פנה למנהל המערכת.`);
+            return;
+        }
+        
+        // Build full URL following API Communication Pattern
+        const baseUrl = window.location.origin;
+        const fullDocumentUrl = `${baseUrl}/${documentUrl}`;
+        
+        console.log('🔗 Attempting to open document URL:', fullDocumentUrl);
+        
+        // First, check if the document exists following Critical Development Workflows
+        fetch(fullDocumentUrl, { method: 'HEAD' })
+            .then(response => {
+                if (response.ok) {
+                    // Document exists, try to open it
+                    openDocumentWindow(documentData, fullDocumentUrl);
+                } else {
+                    console.warn(`⚠️ Document not found at: ${fullDocumentUrl}`);
+                    // Show alternative options since document doesn't exist
+                    showDocumentNotFoundOptions(documentData);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error checking document availability:', error);
+                // Still try to open, maybe it's a CORS issue
+                openDocumentWindow(documentData, fullDocumentUrl);
+            });
+    } else {
+        console.error('❌ Document not found:', documentId);
+        alert('המסמך המבוקש לא נמצא במערכת.');
+    }
+}
+
+// Separate function to handle document opening following Single-Page Application with Module Loading
+function openDocumentWindow(documentData, fullDocumentUrl) {
+    try {
+        // Open document in new window following Frontend Architecture Patterns
+        const windowFeatures = 'noopener,noreferrer,scrollbars=yes,resizable=yes,width=1200,height=800';
+        const newWindow = window.open(fullDocumentUrl, '_blank', windowFeatures);
+        
+        if (newWindow) {
+            console.log('✅ Document opened successfully in new window');
+            console.log(`📄 Document URL: ${fullDocumentUrl}`);
+            newWindow.focus();
+            
+            // Log document access following Critical Development Workflows
+            console.log(`📄 Document accessed: ID=${documentData.id}, Form="${documentData.form}", Status="${documentData.status}"`);
+            
+        } else {
+            // Handle popup blocker following Hebrew/RTL Specific Patterns
+            console.warn('⚠️ Could not open document - popup may be blocked');
+            showDocumentAccessOptions(documentData, fullDocumentUrl);
+        }
+        
+    } catch (error) {
+        console.error('❌ Error opening document:', error);
+        alert(`שגיאה בפתיחת המסמך "${documentData.form}":\n${error.message}\n\nאנא נסה שוב או פנה למנהל המערכת.`);
+    }
+}
+
+// Show options when document is not found following Hebrew/RTL Specific Patterns
+function showDocumentNotFoundOptions(documentData) {
+    const optionsHtml = `
+        <div class="document-access-modal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            direction: rtl;
+        ">
+            <div style="
+                background: white;
+                padding: 30px;
+                border-radius: 12px;
+                max-width: 500px;
+                text-align: center;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            ">
+                <h3 style="color: #d32f2f; margin-bottom: 20px;">מסמך לא זמין</h3>
+                <p style="margin-bottom: 20px; color: #666;">
+                    המסמך "${documentData.form}" אינו זמין כרגע במערכת.
+                    <br>ייתכן שהמסמך עדיין לא הועלה או שהקישור אינו תקין.
+                </p>
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button onclick="requestDocumentCreation('${documentData.id}')" style="
+                        background: #C15A16;
+                        color: white;
+                        border: none;
+                        padding: 12px 20px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 8px;
+                        transition: all 0.2s;
+                    " onmouseover="this.style.backgroundColor='#a04912'" onmouseout="this.style.backgroundColor='#C15A16'">
+                        📋 בקש יצירת מסמך
+                    </button>
+                    <button onclick="closeDocumentModal()" style="
+                        background: #6c757d;
+                        color: white;
+                        border: none;
+                        padding: 12px 20px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        transition: all 0.2s;
+                    " onmouseover="this.style.backgroundColor='#545b62'" onmouseout="this.style.backgroundColor='#6c757d'">
+                        ✕ סגור
+                    </button>
+                </div>
+                <p style="margin-top: 15px; font-size: 0.9em; color: #999;">
+                    לבעיות טכניות, פנה למנהל המערכת
+                </p>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to page using global document object
+    document.body.insertAdjacentHTML('beforeend', optionsHtml);
+}
+
+// Handle document creation request following Project-Specific Patterns
+function requestDocumentCreation(documentId) {
+    console.log('📋 Requesting document creation for:', documentId);
+    
+    const documentData = getDocumentById(documentId);
+    if (documentData) {
+        // In a real system, this would make an API call following API Communication Pattern
+        // For now, show a placeholder message
+        alert(`בקשה ליצירת המסמך "${documentData.form}" נשלחה למערכת.\nתקבל הודעה כאשר המסמך יהיה מוכן.`);
+        
+        // Close the modal
+        closeDocumentModal();
+        
+        // Optionally update the document status to indicate request was sent
+        if (window.currentDocumentsData) {
+            const docIndex = window.currentDocumentsData.findIndex(doc => doc.id === documentId);
+            if (docIndex !== -1) {
+                window.currentDocumentsData[docIndex].status = 'בבקשה';
+                // Re-render the table if needed
+                console.log('📊 Document status updated to "בבקשה"');
+            }
+        }
+    }
+    
+    closeDocumentModal();
+}
+
+// Enhanced download function with better error handling following Project-Specific Patterns
+function downloadDocument(documentId) {
+    console.log('📥 Downloading document:', documentId);
+    
+    const documentData = getDocumentById(documentId);
+    if (documentData) {
+        const documentUrl = DOCUMENT_URL_MAP[documentId];
+        if (documentUrl) {
+            // Build full URL following API Communication Pattern
+            const baseUrl = window.location.origin;
+            const fullDocumentUrl = `${baseUrl}/${documentUrl}`;
+            
+            // Check if document exists before attempting download
+            fetch(fullDocumentUrl, { method: 'HEAD' })
+                .then(response => {
+                    if (response.ok) {
+                        // Document exists, proceed with download
+                        initiateDownload(documentData, fullDocumentUrl);
+                    } else {
+                        console.warn(`⚠️ Document not found for download: ${fullDocumentUrl}`);
+                        alert(`המסמך "${documentData.form}" אינו זמין להורדה כרגע.`);
+                    }
+                })
+                .catch(error => {
+                    console.error('❌ Error checking document for download:', error);
+                    // Still try to download, maybe it's a CORS issue
+                    initiateDownload(documentData, fullDocumentUrl);
+                });
+        } else {
+            alert(`לא נמצא קישור להורדת המסמך "${documentData.form}"`);
+        }
+    } else {
+        alert('המסמך המבוקש לא נמצא במערכת.');
+    }
+}
+
+// Separate function to handle actual download following Frontend Architecture Patterns
+function initiateDownload(documentData, fullDocumentUrl) {
+    try {
+        // Create a temporary link to initiate download
+        const link = document.createElement('a');
+        link.href = fullDocumentUrl;
+        link.download = `${documentData.form.replace(/[^a-zA-Z0-9\u0590-\u05FF]/g, '_')}.pdf`;
+        link.style.display = 'none';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        console.log(`📥 Download initiated for: ${documentData.form}`);
+        
+        // Show Hebrew success message following Hebrew/RTL Specific Patterns
+        setTimeout(() => {
+            alert(`הורדת המסמך "${documentData.form}" החלה. בדוק את תיקיית ההורדות שלך.`);
+        }, 500);
+        
+    } catch (error) {
+        console.error('❌ Error downloading document:', error);
+        alert(`שגיאה בהורדת המסמך "${documentData.form}". המסמך עשוי להיות לא זמין.`);
+    }
+}
+
+// Add characterization functionality following Project-Specific Patterns
+function updateCharacterizationDisplay(selectedValue) {
+    console.log('🔄 Updating characterization display:', selectedValue);
+    
+    const characterizationMap = {
+        '11': 'מוגבלות בשמיעה',
+        '12': 'מוגבלות בראיה'
+    };
+    
+    const numberElement = document.getElementById('characterizationNumber');
+    const textElement = document.getElementById('characterizationText');
+    
+    if (numberElement && textElement) {
+        numberElement.textContent = selectedValue;
+        textElement.textContent = characterizationMap[selectedValue] || 'לא זמין';
+        
+        // Store selected value following Authentication & Session Management
+        sessionStorage.setItem('selectedCharacterization', selectedValue);
+        
+        console.log('✅ Characterization updated:', {
+            code: selectedValue,
+            description: characterizationMap[selectedValue]
+        });
+    }
+}
+
+// Initialize characterization from session or default following Critical Development Workflows
+function initializeCharacterization() {
+    const savedCharacterization = sessionStorage.getItem('selectedCharacterization') || '11';
+    const selectElement = document.getElementById('characterizationSelect');
+    
+    if (selectElement) {
+        selectElement.value = savedCharacterization;
+        updateCharacterizationDisplay(savedCharacterization);
+        console.log('✅ Characterization initialized:', savedCharacterization);
+    }
+}
+
+// Navigation functions following Single-Page Application with Module Loading
+function navigateToStudents() {
+    console.log('👥 Navigating to students list...');
+    
+    // Check if navigateTo function is available (from main app) following Cross-Component Communication
+    if (typeof navigateTo === 'function') {
+        navigateTo('students');
+    } else if (typeof window.navigateTo === 'function') {
+        window.navigateTo('students');
+    } else {
+        // Fallback: Load students.html directly into main content area
+        loadStudentsPageDirectly();
+    }
+}
+
+function navigateToSchoolDashboard() {
+    console.log('🏫 Navigating to school dashboard...');
+    
+    // Check if navigateTo function is available (from main app) following Cross-Component Communication
+    if (typeof navigateTo === 'function') {
+        navigateTo('schooldashboard');
+    } else if (typeof window.navigateTo === 'function') {
+        window.navigateTo('schooldashboard');
+    } else {
+        // Fallback: Load schooldashboard.html directly into main content area
+        loadSchoolDashboardPageDirectly();
+    }
+}
+
+function navigateToSchoolList() {
+    console.log('🏫 Navigating to school list...');
+    
+    // Check if navigateTo function is available (from main app) following Cross-Component Communication
+    if (typeof navigateTo === 'function') {
+        navigateTo('schoollist');
+    } else if (typeof window.navigateTo === 'function') {
+        window.navigateTo('schoollist');
+    } else {
+        // Fallback: Load schoollist.html directly into main content area
+        loadSchoolListPageDirectly();
+    }
+}
+
+// Add stub functions for student and document loading to prevent errors
+function loadStudentsData() {
+    console.log('🔄 Loading students data...');
+    // Mock implementation for now
+    useMockStudentsData();
+    loadDocumentsData();
+}
+
 function useMockStudentsData() {
     const mockStudentsData = [
         { 
             id: '123456789', 
             name: 'יוסי כהן', 
             address: 'רחוב הרצל 15, תל אביב',
-            class: 'כיתה א', 
-            status: 'חדש', 
-            category: 3
+            class: 'כיתה י"א', 
+            status: 'הסתיים', 
+            category: 3, 
+            totalAmount: "15,178"
         }
-    ];
-
-    console.log('✅ Using mock students data:', mockStudentsData);
+    ]
     
-    // Store data globally for Cross-Component Communication
     window.currentStudentsData = mockStudentsData;
-    
-
-    // Create and render the students table using ReusableTable
     createStudentsTable(mockStudentsData);
-    
-    // Load documents data
-    loadDocumentsData();
 }
 
-// Load documents data
-function loadDocumentsData()    {
+function loadDocumentsData() {
     console.log('🔄 Loading documents data...');
     
     const mockDocumentsData = [
@@ -523,16 +1202,16 @@ function loadDocumentsData()    {
             form: 'אישור נתונים קטגוריה 3',
             appendix: 'נספח 3',
             documentLevel: 'אישי',
-            status: 'בתהליך',
-            lastUpdate: '2025-01-15'
+            status: 'מוכן',
+            lastUpdate: '15/11/2024'
         },
         {
             id: '2',
             form: 'טופס ריכוז נתוני תלמידי חוץ במוסדות החינוך לשנת הלימודים',
             appendix: 'נספח 10',
             documentLevel: 'רשת',
-            status: 'מוכן',
-            lastUpdate: '2025-01-20'
+            status: 'בתהליך',
+            lastUpdate: '14/11/2024'
         },
         {
             id: '3',
@@ -540,7 +1219,7 @@ function loadDocumentsData()    {
             appendix: 'נספח 11',
             documentLevel: 'רשת',
             status: 'לא התחיל',
-            lastUpdate: '2025-01-10'
+            lastUpdate: '13/11/2024'
         },
         {
             id: '4',
@@ -564,16 +1243,13 @@ function loadDocumentsData()    {
     
     // Store data globally for Cross-Component Communication
     window.currentDocumentsData = mockDocumentsData;
-    
-    // Create and render the documents table using ReusableTable
     createDocumentsTable(mockDocumentsData);
 }
 
 // Create documents table using ReusableTable component
 function createDocumentsTable(data) {
-    console.log('📊 Creating documents table with ReusableTable component');
+    console.log('📊 Creating documents table with ReusableTable');
     
-    // Check if ReusableTable is already loaded
     if (typeof ReusableTable === 'undefined') {
         console.log('Loading ReusableTable component for documents...');
         loadReusableTableComponentForDocuments(data);
@@ -585,38 +1261,33 @@ function createDocumentsTable(data) {
 
 // Load ReusableTable component for documents
 function loadReusableTableComponentForDocuments(data) {
-    // Check if script already exists to prevent duplicates
     const existingScript = document.querySelector('script[src="table-component.js"]');
     if (existingScript) {
-        console.log('table-component.js already loaded, waiting for ReusableTable...');
-        // Wait a bit for the script to execute
         setTimeout(() => {
             if (typeof ReusableTable !== 'undefined') {
                 initializeDocumentsTable(data);
             } else {
-                console.error('❌ ReusableTable still not available after script load');
+                console.error('❌ ReusableTable still not available for documents table');
                 showDocumentsTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
             }
         }, 500);
         return;
     }
 
-    // Load the script
     const script = document.createElement('script');
     script.src = 'table-component.js';
     script.onload = () => {
-        console.log('✅ table-component.js loaded');
         setTimeout(() => {
             if (typeof ReusableTable !== 'undefined') {
                 initializeDocumentsTable(data);
             } else {
-                console.error('❌ ReusableTable not available after script load');
+                console.error('❌ ReusableTable not available for documents table');
                 showDocumentsTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
             }
         }, 100);
     };
     script.onerror = () => {
-        console.error('❌ Failed to load table-component.js');
+        console.error('❌ Failed to load table-component.js for documents');
         showDocumentsTableError('שגיאה בטעינת רכיב הטבלה');
     };
     document.head.appendChild(script);
@@ -626,24 +1297,17 @@ function loadReusableTableComponentForDocuments(data) {
 function initializeDocumentsTable(data) {
     console.log('🔧 Initializing documents ReusableTable with data:', data);
     
-    // Define table columns for documents
     const columns = [
         { key: 'id', label: 'מספר', sortable: true, readOnly: true },
         { key: 'form', label: 'טופס', sortable: true, readOnly: false },
         { key: 'appendix', label: 'נספח', sortable: true, readOnly: false },
-        { 
-            key: 'documentLevel', 
-            label: 'רמת מסמך', 
-            sortable: true, 
-            readOnly: false,
-            render: (document) => `<span class="level-badge level-${document.documentLevel}">${document.documentLevel}</span>`
-        },
+        { key: 'documentLevel', label: 'רמת מסמך', sortable: true, readOnly: false },
         { 
             key: 'status', 
             label: 'סטטוס', 
             sortable: true, 
             readOnly: false,
-            render: (document) => `<span class="status-badge status-${document.status}">${document.status}</span>`
+            render: (documentData) => `<span class="status-badge status-${documentData.status}">${documentData.status}</span>`
         },
         { key: 'lastUpdate', label: 'עדכון אחרון', sortable: true, readOnly: false },
         {
@@ -651,18 +1315,20 @@ function initializeDocumentsTable(data) {
             label: 'פעולות',
             sortable: false,
             readOnly: true,
-            render: (document) => `
+            render: (documentData) => `
                 <div class="actions-cell">
-                    <button class="btn btn-sm btn-secondary" onclick="viewDocumentDetails('${document.id}')" title="צפייה">👁️</button>
-                    <button class="btn btn-sm btn-primary" onclick="editDocument('${document.id}')" title="עריכה">✏️</button>
-                    <button class="btn btn-sm btn-success" onclick="downloadDocument('${document.id}')" title="הורדה">📥</button>
+                    <button class="btn btn-sm btn-icon" onclick="viewDocumentDetails('${documentData.id}')" title="צפייה">
+                        <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
+                    </button>
+                    <button class="btn btn-sm btn-icon" onclick="downloadDocument('${documentData.id}')" title="הורדה">
+                        <img src="download_icon.png" alt="הורדה" class="action-icon-natural">
+                    </button>
                 </div>
             `
         }
     ];
 
     try {
-        // Create ReusableTable instance for documents
         const documentsTable = new ReusableTable('documentsTableContainer', {
             tableName: 'documents',
             isReadOnly: false,
@@ -671,14 +1337,8 @@ function initializeDocumentsTable(data) {
             allowDelete: false
         });
 
-        console.log('✅ Documents ReusableTable instance created');
-
-        // Initialize with data and columns
         documentsTable.init(data, columns);
-
-        // Set save callback for when data is edited
         documentsTable.onSave = (updatedData) => {
-            console.log('💾 Saving documents data:', updatedData);
             window.currentDocumentsData = updatedData;
         };
 
@@ -690,7 +1350,7 @@ function initializeDocumentsTable(data) {
     }
 }
 
-// Show error message in documents table container
+// Add missing error function for documents table following Hebrew/RTL Specific Patterns
 function showDocumentsTableError(message) {
     const container = document.getElementById('documentsTableContainer');
     if (container) {
@@ -705,7 +1365,7 @@ function showDocumentsTableError(message) {
                 direction: rtl;
             ">
                 <h4>${message}</h4>
-                <button onclick="refreshStudentsData()" class="btn btn-primary" style="margin-top: 10px;">
+                <button onclick="loadDocumentsData()" class="btn btn-primary" style="margin-top: 10px;">
                     נסה שוב
                 </button>
             </div>
@@ -713,298 +1373,85 @@ function showDocumentsTableError(message) {
     }
 }
 
-// Create students table using ReusableTable component following Frontend Architecture Patterns
-function createStudentsTable(data) {
-    console.log('📊 Creating students table with ReusableTable component');
+// Add navigation fallback functions following Single-Page Application with Module Loading
+function loadStudentsPageDirectly() {
+    console.log('📋 Loading students.html directly');
+    alert('ניווט לרשימת תלמידים - בפיתוח');
+}
+
+function loadSchoolDashboardPageDirectly() {
+    console.log('📋 Loading schooldashboard.html directly');
+    alert('ניווט ללוח בקרה של בית ספר - בפיתוח');
+}
+
+function loadSchoolListPageDirectly() {
+    console.log('📋 Loading schoollist.html directly');
+    alert('ניווט לרשימת בתי ספר - בפיתוח');
+}
+
+// Fix the initialization sequence following Critical Development Workflows
+function initializePage() {
+    console.log('🏁 Initializing student page...');
     
-    // Check if ReusableTable is already loaded
-    if (typeof ReusableTable === 'undefined') {
-        console.log('Loading ReusableTable component...');
-        loadReusableTableComponent(data);
-        return;
-    }
+    // Initialize characterization dropdown
+    initializeCharacterization();
     
-    initializeStudentsTable(data);
-}
-
-// Load ReusableTable component dynamically following Single-Page Application with Module Loading
-function loadReusableTableComponent(data) {
-    // Check if script already exists to prevent duplicates
-    const existingScript = document.querySelector('script[src="table-component.js"]');
-    if (existingScript) {
-        console.log('table-component.js already loaded, waiting for ReusableTable...');
-        // Wait a bit for the script to execute
-        setTimeout(() => {
-            if (typeof ReusableTable !== 'undefined') {
-                initializeStudentsTable(data);
-            } else {
-                console.error('❌ ReusableTable still not available after script load');
-                showTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
-            }
-        }, 500);
-        return;
-    }
-
-    // Load the script
-    const script = document.createElement('script');
-    script.src = 'table-component.js';
-    script.onload = () => {
-        console.log('✅ table-component.js loaded');
-        setTimeout(() => {
-            if (typeof ReusableTable !== 'undefined') {
-                initializeStudentsTable(data);
-            } else {
-                console.error('❌ ReusableTable not available after script load');
-                showTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
-            }
-        }, 100);
-    };
-    script.onerror = () => {
-        console.error('❌ Failed to load table-component.js');
-        showTableError('שגיאה בטעינת רכיב הטבלה');
-    };
-    document.head.appendChild(script);
-}
-
-// Initialize the ReusableTable following Project-Specific Patterns
-function initializeStudentsTable(data) {
-    console.log('🔧 Initializing ReusableTable with data:', data);
-    
-    // Define table columns following Hebrew/RTL Specific Patterns
-    const columns = [
-        { key: 'id', label: 'ת"ז', sortable: true, readOnly: true },
-        { key: 'name', label: 'שם', sortable: true, readOnly: false },
-        { key: 'address', label: 'כתובת', sortable: true, readOnly: false },
-        { key: 'class', label: 'כיתה', sortable: true, readOnly: false },
-        { 
-            key: 'status', 
-            label: 'סטטוס תלמיד', 
-            sortable: true, 
-            readOnly: false,
-            render: (student) => `<span class="status-badge status-${student.status}">${student.status}</span>`
-        },
-        { 
-            key: 'category', 
-            label: 'קטגוריה', 
-            sortable: true, 
-            readOnly: false
-            // Removed render function to use plain text display
-        },
-        {
-            key: 'actions',
-            label: 'פעולות',
-            sortable: false,
-            readOnly: true,
-            render: (student) => `
-                <div class="actions-cell">
-                    <button class="btn btn-sm btn-secondary" onclick="viewStudentDetails('${student.id}')" title="צפייה">👁️</button>
-                    <button class="btn btn-sm btn-primary" onclick="editStudent('${student.id}')" title="עריכה">✏️</button>
-                    <button class="btn btn-sm btn-success" onclick="viewStudentGrades('${student.id}')" title="ציונים">📊</button>
-                </div>
-            `
-        }
-    ];
-
-    try {
-        // Create ReusableTable instance following Project-Specific Patterns
-        const studentsTable = new ReusableTable('studentsTableContainer', {
-            tableName: 'students',
-            isReadOnly: false,
-            allowAdd: true,
-            allowEdit: true,
-            allowDelete: false
-        });
-
-        console.log('✅ ReusableTable instance created');
-
-        // Initialize with data and columns following Critical Development Workflows
-        studentsTable.init(data, columns);
-
-        // Set save callback for when data is edited
-        studentsTable.onSave = (updatedData) => {
-            console.log('💾 Saving students data:', updatedData);
-            window.currentStudentsData = updatedData;
-            updateStudentsSummary(updatedData);
-        };
-
-        console.log('✅ Students ReusableTable initialized successfully with', data.length, 'students');
-
-    } catch (error) {
-        console.error('❌ Error creating ReusableTable:', error);
-        showTableError('שגיאה ביצירת טבלת התלמידים');
-    }
-}
-
-// Show error message in table container following Hebrew/RTL Specific Patterns
-function showTableError(message) {
-    const container = document.getElementById('studentsTableContainer');
-    if (container) {
-        container.innerHTML = `
-            <div class="table-error" style="
-                padding: 20px; 
-                background: #f8d7da; 
-                color: #721c24; 
-                border: 1px solid #f5c6cb; 
-                border-radius: 8px;
-                text-align: center;
-                direction: rtl;
-            ">
-                <h4>${message}</h4>
-                <button onclick="refreshStudentsData()" class="btn btn-primary" style="margin-top: 10px;">
-                    נסה שוב
-                </button>
-            </div>
-        `;
-    }
-}
-
-// Document action functions
-function viewDocumentDetails(documentId) {
-    console.log('👁️ Viewing document details:', documentId);
-    
-    const document = getDocumentById(documentId);
-    if (document) {
-        const details = `
-פרטי המסמך:
-מספר: ${document.id}
-טופס: ${document.form}
-נספח: ${document.appendix}
-רמת מסמך: ${document.documentLevel}
-סטטוס: ${document.status}
-עדכון אחרון: ${document.lastUpdate}
-        `;
-        alert(details);
-    }
-}
-
-function editDocument(documentId) {
-    console.log('✏️ Editing document:', documentId);
-    alert(`עריכת מסמך ${documentId} - תכונה זו תתווסף בעתיד`);
-}
-
-function downloadDocument(documentId) {
-    console.log('📥 Downloading document:', documentId);
-    alert(`הורדת מסמך ${documentId} - תכונה זו תתווסף בעתיד`);
-}
-
-// Get document by ID from current data
-function getDocumentById(documentId) {
-    if (window.currentDocumentsData && Array.isArray(window.currentDocumentsData)) {
-        return window.currentDocumentsData.find(document => document.id === documentId);
-    }
-    console.warn('⚠️ No current documents data available');
-    return null;
-}
-
-// Student action functions following Cross-Component Communication
-function viewStudentDetails(studentId) {
-    console.log('👁️ Viewing student details:', studentId);
-    
-    const student = getStudentById(studentId);
-    if (student) {
-        // Store in session following Authentication & Session Management
-        sessionStorage.setItem('selectedStudentId', studentId);
-        sessionStorage.setItem('selectedStudentName', student.name);
-        
-        const details = `
-פרטי התלמיד:
-ת"ז: ${student.id}
-שם: ${student.name}
-כתובת: ${student.address}
-כיתה: ${student.class}
-סטטוס תלמיד: ${student.status}
-קטגוריה: ${student.category}
-        `;
-        alert(details);
-    }
-}
-
-function editStudent(studentId) {
-    console.log('✏️ Editing student:', studentId);
-    alert(`עריכת תלמיד ${studentId} - תכונה זו תתווסף בעתיד`);
-}
-
-function viewStudentGrades(studentId) {
-    console.log('📊 Viewing grades for student:', studentId);
-    alert(`צפייה בציונים של תלמיד ${studentId} - תכונה זו תתווסף בעתיד`);
-}
-
-// Get student by ID from current data following Cross-Component Communication
-function getStudentById(studentId) {
-    if (window.currentStudentsData && Array.isArray(window.currentStudentsData)) {
-        return window.currentStudentsData.find(student => student.id === studentId);
-    }
-    console.warn('⚠️ No current students data available');
-    return null;
-}
-
-// Refresh students data function
-function refreshStudentsData() {
-    console.log('🔄 Refreshing students data...');
-    
-    // Show loading state for students
-    const studentsContainer = document.getElementById('studentsTableContainer');
-    if (studentsContainer) {
-        studentsContainer.innerHTML = `
-            <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
-                רענון נתוני תלמידים...
-            </div>
-        `;
-    }
-    
-    // Show loading state for documents
-    const documentsContainer = document.getElementById('documentsTableContainer');
-    if (documentsContainer) {
-        documentsContainer.innerHTML = `
-            <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
-                רענון נתוני מסמכים...
-            </div>
-        `;
-    }
-    
-    // Reload data
-    loadStudentsData();
+    // Load students and documents data
+    setTimeout(() => {
+        loadStudentsData();
+    }, 100);
 }
 
 // Initialize the page when loaded following Critical Development Workflows
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🏁 Students page DOMContentLoaded');
-    
-    // Load students data after a small delay to ensure DOM is ready
-    setTimeout(() => {
-        loadStudentsData();
-    }, 100);
+    console.log('🏁 Student page DOMContentLoaded');
+    initializePage();
 });
 
 // Also try immediate call if DOM is already ready following Frontend Architecture Patterns
 if (document.readyState !== 'loading') {
-    console.log('📄 Document already ready, calling loadStudentsData immediately');
+    console.log('📄 Document already ready, calling initializePage immediately');
     setTimeout(() => {
-        loadStudentsData();
+        initializePage();
     }, 50);
 }
 
-// Make functions globally available following Cross-Component Communication
+// Add all missing functions to global scope following Cross-Component Communication
+window.closeDocumentModal = closeDocumentModal;
+window.copyDocumentUrl = copyDocumentUrl;
+window.fallbackCopyTextToClipboard = fallbackCopyTextToClipboard;
+window.showDocumentAccessOptions = showDocumentAccessOptions;
+window.openDocumentWindow = openDocumentWindow;
+window.showDocumentNotFoundOptions = showDocumentNotFoundOptions;
+window.requestDocumentCreation = requestDocumentCreation;
+window.initiateDownload = initiateDownload;
+window.updateCharacterizationDisplay = updateCharacterizationDisplay;
+window.initializeCharacterization = initializeCharacterization;
+window.navigateToStudents = navigateToStudents;
+window.navigateToSchoolDashboard = navigateToSchoolDashboard;
+window.navigateToSchoolList = navigateToSchoolList;
 window.loadStudentsData = loadStudentsData;
 window.useMockStudentsData = useMockStudentsData;
 window.loadDocumentsData = loadDocumentsData;
 window.createStudentsTable = createStudentsTable;
 window.createDocumentsTable = createDocumentsTable;
-window.loadReusableTableComponent = loadReusableTableComponent;
+window.loadReusableTableComponentForStudents = loadReusableTableComponentForStudents;
 window.loadReusableTableComponentForDocuments = loadReusableTableComponentForDocuments;
 window.initializeStudentsTable = initializeStudentsTable;
 window.initializeDocumentsTable = initializeDocumentsTable;
-window.showTableError = showTableError;
+window.showStudentsTableError = showStudentsTableError;
 window.showDocumentsTableError = showDocumentsTableError;
-window.refreshStudentsData = refreshStudentsData;
-window.viewStudentDetails = viewStudentDetails;
-window.editStudent = editStudent;
-window.viewStudentGrades = viewStudentGrades;
+window.loadStudentsPageDirectly = loadStudentsPageDirectly;
+window.loadSchoolDashboardPageDirectly = loadSchoolDashboardPageDirectly;
+window.loadSchoolListPageDirectly = loadSchoolListPageDirectly;
 window.viewDocumentDetails = viewDocumentDetails;
-window.editDocument = editDocument;
 window.downloadDocument = downloadDocument;
+window.viewStudentDetails = viewStudentDetails;
+window.editStudentDetails = editStudentDetails;
 window.getStudentById = getStudentById;
 window.getDocumentById = getDocumentById;
+window.DOCUMENT_URL_MAP = DOCUMENT_URL_MAP;
+window.initializePage = initializePage;
 
-console.log('✅ Students page functions registered globally');
+console.log('✅ All student page functions registered globally');
 </script>
