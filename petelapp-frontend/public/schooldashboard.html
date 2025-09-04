@@ -49,7 +49,7 @@
             
             <div class="context-buttons-section">
                 <button class="context-btn" onclick="navigateToStudents()">תלמידים</button>
-                <button class="context-btn" >פרטי בית ספר</button>
+                <button class="context-btn" onclick="navigateToSchoolDetails()">פרטי בית ספר</button>
                 <button class="context-btn" >מסמכים בית ספריים</button>
             </div>
         </div>
@@ -168,6 +168,66 @@
             }
         }
 
+        // Add navigation function for school details following Project-Specific Patterns
+        async function navigateToSchoolDetails() {
+            console.log('🏫 Navigating to school details...');
+            
+            try {
+                // Store selected school information in session following Authentication & Session Management
+                const selectedSchoolName = sessionStorage.getItem('selectedSchoolName') || 'בית ספר שמע';
+                const selectedSchoolId = sessionStorage.getItem('selectedSchoolId') || '1';
+                
+                // Ensure school context is stored
+                sessionStorage.setItem('selectedSchoolName', selectedSchoolName);
+                sessionStorage.setItem('selectedSchoolId', selectedSchoolId);
+                sessionStorage.setItem('navigationSource', 'schooldashboard');
+                
+                console.log('School details navigation context:', {
+                    schoolName: selectedSchoolName,
+                    schoolId: selectedSchoolId
+                });
+                
+                // Check if navigateTo function is available from main app following Cross-Component Communication
+                if (typeof navigateTo === 'function') {
+                    navigateTo('schooldetails');
+                } else if (typeof window.navigateTo === 'function') {
+                    window.navigateTo('schooldetails');
+                } else {
+                    // Fallback: Load school details page directly following Frontend Architecture Patterns
+                    const response = await fetch('schooldetails.html');
+                    if (response.ok) {
+                        const html = await response.text();
+                        
+                        // Find the main content container following Project-Specific Patterns
+                        const mainContainer = document.getElementById('dynamicContent') || 
+                                             document.getElementById('mainContent') || 
+                                             document.querySelector('.main-content') || 
+                                             document.body;
+                        
+                        if (mainContainer) {
+                            mainContainer.innerHTML = html;
+                            
+                            // Re-execute scripts in loaded content following Common Gotchas
+                            executeScriptsInContainer(mainContainer);
+                            
+                            // Update browser history following Single-Page Application patterns
+                            history.pushState({ section: 'schooldetails' }, '', '#schooldetails');
+                            
+                            console.log('✅ School details page loaded successfully');
+                        } else {
+                            console.error('❌ Could not find main content container');
+                        }
+                    } else {
+                        console.error('❌ Failed to load schooldetails.html:', response.status);
+                        alert('שגיאה בטעינת פרטי בית הספר');
+                    }
+                }
+            } catch (error) {
+                console.error('💥 Error loading school details page:', error);
+                alert('שגיאה בטעינת פרטי בית הספר');
+            }
+        }
+
         // Load system version following API Communication Pattern
         async function loadSystemVersion() {
             try {
@@ -283,6 +343,8 @@
         window.loadDashboardCardData = loadDashboardCardData;
         window.showAddModal = showAddModal;
         window.loadSystemVersion = loadSystemVersion;
+        window.navigateToStudents = navigateToStudents;
+        window.navigateToSchoolDetails = navigateToSchoolDetails;
         window.updateContextButtonLabels = updateContextButtonLabels;
         window.storeSelectedYearInSession = storeSelectedYearInSession;
         window.showSchoolYear = showSchoolYear;

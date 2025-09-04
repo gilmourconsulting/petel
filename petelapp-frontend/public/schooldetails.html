@@ -1,0 +1,1071 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>פרטי בית ספר - מערכת ניהול פט״ל</title>
+    <link rel="stylesheet" href="theme.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Context buttons positioned between menu and main content following Context Buttons Layout -->
+    <div class="context-buttons-section">
+        <button class="context-btn context-btn-primary" onclick="navigateBackToSchoolDashboard()" title="חזרה ללוח הבקרה של בית הספר">
+            חזרה ללוח הבקרה של בית הספר
+        </button>
+        
+        <button class="context-btn context-btn-secondary" onclick="navigateBackToDashboard()" title="חזרה ללוח הבקרה הראשי">
+            חזרה ללוח הבקרה הראשי
+        </button>
+    </div>
+
+    <!-- Main content positioned after menu and context buttons -->
+    <div class="content-card">
+        <div class="content-header">
+            <h1 class="page-title">פרטי בית ספר</h1>
+            <p class="page-subtitle" id="schoolNameSubtitle">פרטים מפורטים של בית הספר</p>
+        </div>
+
+        <!-- School Characterization Card -->
+        <div class="detail-card">
+            <div class="detail-card-header">
+                <h2 class="detail-card-title">אפיון בית ספר</h2>
+            </div>
+            <div class="detail-card-content" id="schoolCharacterizationContent">
+                <!-- Content will be populated here -->
+            </div>
+        </div>
+
+        <!-- School Services Card -->
+        <div class="detail-card">
+            <div class="detail-card-header">
+                <h2 class="detail-card-title">שירותי בית ספר</h2>
+            </div>
+            <div class="detail-card-content" id="schoolServicesContent">
+                <!-- Content will be populated here -->
+            </div>
+        </div>
+
+        <!-- Additional Education Table Card -->
+        <div class="detail-card">
+            <div class="detail-card-header">
+                <h2 class="detail-card-title">תל"ן</h2>
+            </div>
+            <div class="detail-card-content" id="additionalEducationContent">
+                <!-- Table will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('🔍 SCRIPT SECTION LOADED - schooldetails.html');
+        
+        // Global variables following Project-Specific Patterns
+        let selectedSchoolId = null;
+        let selectedSchoolName = null;
+
+        // Initialize page following Critical Development Workflows
+        async function initializeSchoolDetails() {
+            console.log('🚀 initializeSchoolDetails FUNCTION CALLED!');
+            
+            try {
+                // Get selected school from session following Authentication & Session Management
+                selectedSchoolId = sessionStorage.getItem('selectedSchoolId');
+                selectedSchoolName = sessionStorage.getItem('selectedSchoolName');
+                
+                console.log('📋 School Details Debug:', {
+                    schoolId: selectedSchoolId,
+                    schoolName: selectedSchoolName
+                });
+                
+                if (!selectedSchoolId || !selectedSchoolName) {
+                    console.error('❌ No school selected');
+                    showError('לא נבחר בית ספר');
+                    return;
+                }
+
+                // Update page subtitle with school name
+                const subtitleElement = document.getElementById('schoolNameSubtitle');
+                if (subtitleElement) {
+                    subtitleElement.textContent = `פרטים מפורטים של ${selectedSchoolName}`;
+                }
+
+                // Load school details data
+                await loadSchoolDetailsData();
+                
+            } catch (error) {
+                console.error('💥 Exception in initializeSchoolDetails:', error);
+                showError('שגיאה בטעינת פרטי בית הספר');
+            }
+        }
+
+        // Load school details data following Multi-Tenant Request Flow
+        async function loadSchoolDetailsData() {
+            console.log('🏫 Loading school details data for school:', selectedSchoolId);
+            
+            try {
+                // Get session data following Authentication & Session Management
+                const tenantId = sessionStorage.getItem('tenantId');
+                const authToken = sessionStorage.getItem('authToken');
+                
+                if (!tenantId) {
+                    console.error('❌ No tenant ID found in session');
+                    return;
+                }
+
+                // Load school characterization data
+                await loadSchoolCharacterization();
+                
+                // Load school services data
+                await loadSchoolServices();
+                
+                // Load additional education table data
+                await loadAdditionalEducationTable();
+                
+            } catch (error) {
+                console.error('💥 Exception in loadSchoolDetailsData:', error);
+                showError('שגיאה בטעינת נתוני בית הספר');
+            }
+        }
+
+        // Load school characterization following API Communication Pattern
+        async function loadSchoolCharacterization() {
+            console.log('📊 Loading school characterization...');
+            
+            const container = document.getElementById('schoolCharacterizationContent');
+            if (!container) return;
+            
+            try {
+                // Get session data following Authentication & Session Management
+                const tenantId = sessionStorage.getItem('tenantId');
+                const authToken = sessionStorage.getItem('authToken');
+                
+                if (!tenantId) {
+                    console.error('❌ No tenant ID found in session');
+                    // Use mock data when no tenant ID
+                    const mockData = generateSchoolCharacterizationMockData();
+                    displaySchoolCharacterization(mockData);
+                    return;
+                }
+
+                // API call following API Communication Pattern
+                const apiUrl = AppConfig.getApiUrl(`entities/schoolcharacterization?schoolId=${selectedSchoolId}&tenantId=${tenantId}`);
+                console.log('🌐 Making API call to:', apiUrl);
+                
+                // Build headers following Multi-Tenant Request Flow
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'X-Tenant-ID': tenantId
+                };
+
+                // Only add Authorization header if token exists
+                if (authToken && authToken !== 'undefined') {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+
+                console.log('📤 Request headers:', headers);
+                
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: headers
+                });
+
+                console.log('📥 Response:', response.status, response.ok);
+
+                if (response.ok) {
+                    const characterizationData = await response.json();
+                    console.log('🏫 School characterization data received:', characterizationData);
+                    
+                    displaySchoolCharacterization(characterizationData);
+                } else {
+                    const errorText = await response.text();
+                    console.error('❌ API Error:', response.status, errorText);
+                    // Fallback to mock data on API error
+                    console.log('🔄 Falling back to mock data');
+                    const mockData = generateSchoolCharacterizationMockData();
+                    displaySchoolCharacterization(mockData);
+                }
+            } catch (error) {
+                console.error('💥 Exception in loadSchoolCharacterization:', error);
+                // Fallback to mock data on exception
+                console.log('🔄 Falling back to mock data due to exception');
+                const mockData = generateSchoolCharacterizationMockData();
+                displaySchoolCharacterization(mockData);
+            }
+        }
+
+        // Generate mock data for school characterization following Project-Specific Patterns
+        function generateSchoolCharacterizationMockData() {
+            console.log('📊 Generating mock school characterization data');
+            
+            const mockData = {
+                schoolName: selectedSchoolName || 'בית ספר שמע',
+                schoolType: 'תיכון דתי',
+                educationLevel: 'חטיבת ביניים ותיכון',
+                sector: 'דתי',
+                supervision: 'ממלכתי דתי',
+                location: 'ירושלים',
+                address: 'רח\' הנביאים 123, ירושלים',
+                establishmentYear: '1985',
+                studentCount: '450',
+                classCount: '18',
+                staffCount: '35',
+                principalName: 'רבקה כהן',
+                contactPhone: '02-5555555',
+                contactEmail: 'office@shema.edu.il',
+                specialPrograms: ['תכנית מצוינות במתמטיקה', 'חינוך לערכים', 'פרויקט חברתי'],
+                facilities: ['מעבדת מחשבים', 'ספרייה', 'חדר כושר', 'אולם ספורט'],
+                languages: ['עברית', 'אנגלית', 'ערבית'],
+                lastUpdate: new Date().toLocaleDateString('he-IL')
+            };
+            
+            console.log('✅ Mock school characterization data generated:', mockData);
+            return mockData;
+        }
+
+        // Display school characterization following Hebrew/RTL Specific Patterns
+        function displaySchoolCharacterization(data) {
+            console.log('🏫 Displaying school characterization');
+            
+            const container = document.getElementById('schoolCharacterizationContent');
+            if (!container) return;
+
+            const characterizationHTML = `
+ף
+
+            container.innerHTML = characterizationHTML;
+            console.log('✅ School characterization displayed successfully');
+        }
+
+        // Load school services following API Communication Pattern
+        async function loadSchoolServices() {
+            console.log('🏢 Loading school services...');
+            
+            const container = document.getElementById('schoolServicesContent');
+            if (container) {
+                container.innerHTML = '<p>טוען שירותי בית ספר...</p>';
+                // API call will be implemented here
+            }
+        }
+
+        // Load additional education table following Standard Table Component
+        async function loadAdditionalEducationTable() {
+            console.log('📋 Loading additional education table...');
+            
+            const container = document.getElementById('additionalEducationContent');
+            if (!container) return;
+            
+            try {
+                // Get session data following Authentication & Session Management
+                const tenantId = sessionStorage.getItem('tenantId');
+                const authToken = sessionStorage.getItem('authToken');
+                
+                if (!tenantId) {
+                    console.error('❌ No tenant ID found in session');
+                    // Use mock data when no tenant ID
+                    const mockData = generateAdditionalEducationMockData();
+                    initializeAdditionalEducationTable(mockData);
+                    return;
+                }
+
+                // API call following API Communication Pattern
+                const apiUrl = AppConfig.getApiUrl(`entities/additionaleducation?schoolId=${selectedSchoolId}&tenantId=${tenantId}`);
+                console.log('🌐 Making API call to:', apiUrl);
+                
+                // Build headers following Multi-Tenant Request Flow
+                const headers = {
+                    'Content-Type': 'application/json',
+                    'X-Tenant-ID': tenantId
+                };
+
+                // Only add Authorization header if token exists
+                if (authToken && authToken !== 'undefined') {
+                    headers['Authorization'] = `Bearer ${authToken}`;
+                }
+
+                console.log('📤 Request headers:', headers);
+                
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: headers
+                });
+
+                console.log('📥 Response:', response.status, response.ok);
+
+                if (response.ok) {
+                    const additionalEducationData = await response.json();
+                    console.log('📚 Additional education data received:', additionalEducationData.length, additionalEducationData);
+                    
+                    initializeAdditionalEducationTable(additionalEducationData);
+                } else {
+                    const errorText = await response.text();
+                    console.error('❌ API Error:', response.status, errorText);
+                    // Fallback to mock data on API error
+                    console.log('🔄 Falling back to mock data');
+                    const mockData = generateAdditionalEducationMockData();
+                    initializeAdditionalEducationTable(mockData);
+                }
+            } catch (error) {
+                console.error('💥 Exception in loadAdditionalEducationTable:', error);
+                // Fallback to mock data on exception
+                console.log('🔄 Falling back to mock data due to exception');
+                const mockData = generateAdditionalEducationMockData();
+                initializeAdditionalEducationTable(mockData);
+            }
+        }
+
+        // Generate mock data for additional education table following Project-Specific Patterns
+        function generateAdditionalEducationMockData() {
+            console.log('📊 Generating mock additional education data');
+            
+            const mockData = [
+                {
+                    id: 1,
+                    subject: 'עיצוב אופנה ותפירה (א)',
+                    grade: 'י"א',
+                    level: 'בסיסית',
+                    exactHours: '5',
+                    priceList: '158 ₪ לתלמיד',
+                    lastUpdateDate: new Date().toLocaleDateString('he-IL')
+                },
+                {
+                    id: 2,
+                    subject: 'עיצוב אופנה ותפירה (א)',
+                    grade: 'י',
+                    level: 'בסיסית',
+                    exactHours: '8',
+                    priceList: '158 ₪ לתלמיד',
+                    lastUpdateDate: new Date().toLocaleDateString('he-IL')
+                    },
+                {
+                    id: 3,
+                    subject: 'נגרות (ב)',
+                    grade: 'י"א',
+                    level: 'בסיסית',
+                    exactHours: '8',
+                    priceList: '225 ₪ לתלמיד',
+                    lastUpdateDate: new Date().toLocaleDateString('he-IL')
+              },
+                {
+                    id: 4,
+                    subject: 'נגרות (ב)',
+                    grade: 'י',
+                    level: 'בינונית',
+                    exactHours: '8',
+                    priceList: '356 ₪ לתלמיד',
+                    lastUpdateDate: new Date().toLocaleDateString('he-IL')
+              }
+            ];
+            
+            console.log('✅ Mock additional education data generated:', mockData);
+            return mockData;
+        }
+
+        // Initialize additional education table following Standard Table Component
+        function initializeAdditionalEducationTable(data) {
+            console.log('📊 Initializing additional education table with', data.length, 'records');
+            
+            // Use ReusableTable component following Standard Table Component
+            if (typeof ReusableTable !== 'undefined') {
+                console.log('✅ Using ReusableTable component');
+                initializeAdditionalEducationReusableTable(data);
+            } else {
+                console.error('❌ ReusableTable component not available, using fallback');
+                createAdditionalEducationSimpleTable(data);
+            }
+        }
+
+        // Use ReusableTable following Standard Table Component
+        function initializeAdditionalEducationReusableTable(data) {
+            console.log('📊 Initializing ReusableTable for additional education with', data.length, 'records');
+            
+            // Define columns following Hebrew/RTL Specific Patterns
+            const tableColumns = [
+                { key: 'subject', label: 'מקצוע', sortable: true },
+                { key: 'grade', label: 'כיתה', sortable: true },
+                { key: 'level', label: 'רמה', sortable: true },
+                { key: 'exactHours', label: 'מספר השעות מדויק', sortable: true },
+                { key: 'priceList', label: 'מחירון', sortable: true },
+                { key: 'lastUpdateDate', label: 'תאריך עדכון אחרון', sortable: true }
+            ];
+
+            try {
+                // Create ReusableTable with correct constructor following Standard Table Component
+                const additionalEducationTable = new ReusableTable('additionalEducationContent', {
+                    tableName: 'additionalEducation',
+                    isReadOnly: true
+                });
+                
+                console.log('📋 ReusableTable created successfully for additional education');
+                
+                // Initialize with data and columns following Critical Development Workflows
+                additionalEducationTable.init(data, tableColumns);
+                console.log('✅ Additional education table initialized successfully');
+
+            } catch (error) {
+                console.error('❌ Error creating ReusableTable for additional education:', error);
+                console.error('Error details:', {
+                    message: error.message,
+                    stack: error.stack
+                });
+                // Fallback to simple table
+                createAdditionalEducationSimpleTable(data);
+            }
+        }
+
+        // Simple table fallback when ReusableTable fails
+        function createAdditionalEducationSimpleTable(data) {
+            console.log('📊 Creating simple fallback table for additional education');
+                
+            const container = document.getElementById('additionalEducationContent');
+            if (!container) return;
+
+            const tableHTML = `
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>מקצוע</th>
+                                <th>כיתה</th>
+                                <th>רמה</th>
+                                <th>מספר השעות מדויק</th>
+                                <th>מחירון</th>
+                                <th>תאריך עדכון אחרון</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.map(item => `
+                                <tr>
+                                    <td><strong>${item.subject || ''}</strong></td>
+                                    <td>${item.grade || ''}</td>
+                                    <td>${item.level || ''}</td>
+                                    <td class="hours-cell">${item.exactHours || '0'}</td>
+                                    <td>${item.priceList || ''}</td>
+                                    <td class="date-cell">${item.lastUpdateDate || ''}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = tableHTML;
+            console.log('✅ Simple additional education table created with', data.length, 'records');
+        }
+
+        // Context button navigation functions following Single-Page Application with Module Loading
+        function navigateBackToSchoolDashboard() {
+            console.log('🏫 Navigating back to school dashboard...');
+            
+            // Store navigation context following Authentication & Session Management
+            sessionStorage.setItem('navigationSource', 'schooldetails');
+            sessionStorage.setItem('navigationTimestamp', new Date().toISOString());
+            
+            // Check if navigateTo function is available from main app following Cross-Component Communication
+            if (typeof navigateTo === 'function') {
+                navigateTo('schooldashboard');
+            } else if (typeof window.navigateTo === 'function') {
+                window.navigateTo('schooldashboard');
+            } else {
+                // Fallback: Load school dashboard page directly following Frontend Architecture Patterns
+                loadPageDirectly('schooldashboard.html', 'schooldashboard', 'לוח הבקרה של בית הספר');
+            }
+        }
+
+        function navigateBackToDashboard() {
+            console.log('📊 Navigating back to main dashboard...');
+            
+            // Store navigation context following Authentication & Session Management
+            sessionStorage.setItem('navigationSource', 'schooldetails');
+            sessionStorage.setItem('returnToDashboard', 'true');
+            
+            // Check if navigateTo function is available from main app following Cross-Component Communication
+            if (typeof navigateTo === 'function') {
+                navigateTo('dashboard');
+            } else if (typeof window.navigateTo === 'function') {
+                window.navigateTo('dashboard');
+            } else {
+                // Fallback: Load dashboard page directly following Frontend Architecture Patterns
+                loadPageDirectly('dashboard.html', 'dashboard', 'לוח הבקרה הראשי');
+            }
+        }
+
+        // Generic page loading function following Frontend Architecture Patterns
+        function loadPageDirectly(filename, section, displayName) {
+            console.log(`🔄 Loading ${filename} page directly...`);
+            
+            // Find the main content container following Project-Specific Patterns
+            const mainContainer = document.getElementById('dynamicContent') || 
+                                 document.getElementById('mainContent') || 
+                                 document.querySelector('.main-content') || 
+                                 document.querySelector('main') ||
+                                 document.body;
+            
+            if (!mainContainer) {
+                console.error('❌ Could not find main content container');
+                return;
+            }
+            
+            // Show loading state following Hebrew/RTL Specific Patterns
+            mainContainer.innerHTML = `
+                <div class="loading-spinner" style="text-align: center; padding: 40px; direction: rtl;">
+                    <div style="font-size: 1.2em; margin-bottom: 15px;">טוען ${displayName}...</div>
+                    <div style="color: #6c757d;">אנא המתן...</div>
+                </div>
+            `;
+            
+            // Fetch and load page following API Communication Pattern
+            fetch(filename)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(html => {
+                    console.log(`✅ ${filename} page loaded successfully`);
+                    mainContainer.innerHTML = html;
+                    
+                    // Execute scripts safely following Critical Development Workflows
+                    executeScriptsInContainer(mainContainer);
+                    
+                    // Update browser history following Single-Page Application patterns
+                    history.pushState({ section: section }, '', `#${section}`);
+                    
+                    console.log(`✅ ${displayName} page loaded and initialized`);
+                })
+                .catch(error => {
+                    console.error(`❌ Error loading ${filename} page:`, error);
+                    showNavigationError(mainContainer, `שגיאה בטעינת ${displayName}`);
+                });
+        }
+
+        // Utility functions following Critical Development Workflows
+        function executeScriptsInContainer(container) {
+            try {
+                const scripts = container.querySelectorAll('script');
+                scripts.forEach(script => {
+                    if (script.textContent && script.textContent.trim()) {
+                        try {
+                            const newScript = document.createElement('script');
+                            
+                            if (script.src) {
+                                newScript.src = script.src;
+                            } else {
+                                newScript.textContent = script.textContent;
+                            }
+                            
+                            document.head.appendChild(newScript);
+                            script.remove();
+                            
+                        } catch (scriptError) {
+                            console.warn('⚠️ Error executing script:', scriptError);
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error('❌ Error in executeScriptsInContainer:', error);
+            }
+        }
+
+        function showNavigationError(container, message) {
+            container.innerHTML = `
+                <div class="error-message" style="
+                    text-align: center; 
+                    padding: 40px; 
+                    direction: rtl;
+                    background: #f8d7da;
+                    color: #721c24;
+                    border: 1px solid #f5c6cb;
+                    border-radius: 8px;
+                    margin: 20px;
+                ">
+                    <h3 style="margin-bottom: 15px;">${message}</h3>
+                    <p style="margin-bottom: 20px;">לא ניתן לטעון את הדף המבוקש. אנא נסה שוב.</p>
+                    <button onclick="window.history.back()" style="
+                        background: #007bff;
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 14px;
+                        margin-left: 10px;
+                    ">
+                        חזרה
+                    </button>
+                    <button onclick="window.location.reload()" style="
+                        background: #28a745;
+                        color: white;
+                        border: none;
+                        padding: 8px 16px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    ">
+                        רענן דף
+                    </button>
+                </div>
+            `;
+        }
+
+        function showError(message) {
+            const contentCard = document.querySelector('.content-card');
+            if (contentCard) {
+                contentCard.innerHTML = `
+                    <div class="error-message" style="
+                        text-align: center; 
+                        padding: 40px; 
+                        direction: rtl;
+                        background: #f8d7da;
+                        color: #721c24;
+                        border: 1px solid #f5c6cb;
+                        border-radius: 8px;
+                        margin: 20px;
+                    ">
+                        <h3 style="margin-bottom: 15px;">${message}</h3>
+                        <p style="margin-bottom: 20px;">אנא נסה שוב מאוחר יותר.</p>
+                        <button onclick="navigateBackToSchoolDashboard()" style="
+                            background: #007bff;
+                            color: white;
+                            border: none;
+                            padding: 8px 16px;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-size: 14px;
+                        ">
+                            חזרה ללוח הבקרה
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // Initialize page following Critical Development Workflows
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🏁 DOMContentLoaded event fired!');
+            initializeSchoolDetails();
+        });
+
+        // Also try immediate call if DOM is already ready
+        if (document.readyState !== 'loading') {
+            console.log('📄 Document already ready, calling initializeSchoolDetails immediately');
+            initializeSchoolDetails();
+        }
+
+        // Make functions globally available following Cross-Component Communication
+        window.initializeSchoolDetails = initializeSchoolDetails;
+        window.loadSchoolDetailsData = loadSchoolDetailsData;
+        window.loadSchoolCharacterization = loadSchoolCharacterization;
+        window.loadSchoolServices = loadSchoolServices;
+        window.loadAdditionalEducationTable = loadAdditionalEducationTable;
+        window.generateAdditionalEducationMockData = generateAdditionalEducationMockData;
+        window.initializeAdditionalEducationTable = initializeAdditionalEducationTable;
+        window.initializeAdditionalEducationReusableTable = initializeAdditionalEducationReusableTable;
+        window.createAdditionalEducationSimpleTable = createAdditionalEducationSimpleTable;
+        window.navigateBackToSchoolDashboard = navigateBackToSchoolDashboard;
+        window.navigateBackToDashboard = navigateBackToDashboard;
+        window.loadPageDirectly = loadPageDirectly;
+        window.executeScriptsInContainer = executeScriptsInContainer;
+        window.showNavigationError = showNavigationError;
+        window.showError = showError;
+
+        console.log('✅ School details functions registered globally');
+    </script>
+
+    <style>
+        /* Context buttons positioned between menu and main content following Context Buttons Layout */
+        .context-buttons-section {
+            position: fixed;
+            left: 180px; /* Menu width (260px) + margin (20px) */
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 1000;
+            width: 180px;
+        }
+
+        /* Main content positioned after menu and context buttons following Context Buttons Layout */
+        .content-card {
+            margin-left: 380px; /* Menu (280px) + Context buttons (180px) + margins (20px) */
+            margin-right: 20px;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            direction: rtl;
+            max-width: calc(100vw - 520px);
+        }
+
+        .content-header {
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .page-title {
+            margin: 0 0 5px 0;
+            color: #333;
+            font-size: 1.8em;
+            font-weight: 600;
+        }
+
+        .page-subtitle {
+            margin: 0;
+            color: #6c757d;
+            font-size: 1em;
+        }
+
+        /* Detail cards styling */
+        .detail-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .detail-card-header {
+            background: #e9ecef;
+            padding: 15px 20px;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .detail-card-title {
+            margin: 0;
+            color: #333;
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+
+        /* Enhanced detail card content for table containers following Table Horizontal Scrolling */
+        .detail-card-content {
+            padding: 20px;
+            background: white;
+            min-height: 100px;
+            color: #6c757d;
+            direction: rtl;
+            overflow-x: auto; /* Enable horizontal scroll for card content */
+        }
+
+        /* Table container with horizontal scrolling following Table Horizontal Scrolling */
+        .table-container {
+            overflow-x: auto;
+            overflow-y: visible;
+            max-width: 100%;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: white;
+            direction: rtl;
+            margin-top: 10px;
+        }
+
+        /* Ensure table triggers horizontal scroll following Table Horizontal Scrolling */
+        .data-table {
+            width: 100%;
+            min-width: 1200px; /* Force horizontal scroll for wide content */
+            border-collapse: collapse;
+            direction: rtl;
+            text-align: right;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .data-table th {
+            background-color: #f8f9fa;
+            color: #333;
+            font-weight: 600;
+            padding: 15px 12px;
+            border-bottom: 2px solid #dee2e6;
+            border-left: 1px solid #dee2e6;
+            white-space: nowrap;
+            font-size: 0.95em;
+            text-align: right;
+            min-width: 120px; /* Minimum column width */
+        }
+
+        .data-table th:first-child {
+            border-right: none;
+        }
+
+        .data-table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+            border-left: 1px solid #dee2e6;
+            vertical-align: middle;
+            text-align: right;
+            white-space: nowrap;
+            min-width: 120px; /* Minimum column width */
+        }
+
+        .data-table td:first-child {
+            border-right: none;
+        }
+
+        .data-table tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .data-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        /* Enhanced horizontal scrollbar styling following Table Horizontal Scrolling */
+        .table-container::-webkit-scrollbar {
+            height: 10px;
+        }
+
+        .table-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 5px;
+            margin: 0 10px;
+        }
+
+        .table-container::-webkit-scrollbar-thumb {
+            background: linear-gradient(45deg, #C15A16, #a04912);
+            border-radius: 5px;
+            box-shadow: inset 0 0 2px rgba(0,0,0,0.2);
+        }
+
+        .table-container::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(45deg, #a04912, #8a3d0f);
+        }
+
+        /* Firefox scrollbar styling */
+        .table-container {
+            scrollbar-width: thin;
+            scrollbar-color: #C15A16 #f1f1f1;
+        }
+
+        /* Specific column styling for better data presentation */
+        .hours-cell {
+            text-align: center;
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+
+        .date-cell {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+
+        /* Context button styling following Standard Icon Set */
+        .context-btn {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            white-space: nowrap;
+            direction: rtl;
+            text-align: center;
+            font-weight: 500;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-decoration: none;
+            width: 100%;
+        }
+
+        .context-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
+        }
+
+        .context-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        }
+
+        /* Primary context button (orange) */
+        .context-btn-primary {
+            background: #C15A16;
+            color: white;
+        }
+
+        .context-btn-primary:hover {
+            background: #a04912;
+        }
+
+        /* Secondary context button (green) */
+        .context-btn-secondary {
+            background: #28a745;
+            color: white;
+        }
+
+        .context-btn-secondary:hover {
+            background: #1e7e34;
+        }
+
+        /* Loading animation following Frontend Architecture Patterns */
+        .loading-spinner {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+
+        /* Mobile responsive adjustments following Context Buttons Layout */
+        @media (max-width: 768px) {
+            .context-buttons-section {
+                position: fixed;
+                bottom: 20px;
+                left: 50%;
+                top: auto;
+                transform: translateX(-50%);
+                flex-direction: row;
+                gap: 8px;
+                width: auto;
+            }
+            
+            .context-btn {
+                min-width: auto;
+                padding: 6px 10px;
+                font-size: 11px;
+            }
+            
+            .content-card {
+                margin-left: 20px;
+                margin-right: 20px;
+                margin-bottom: 80px;
+                max-width: none;
+            }
+            
+            .detail-card-header {
+                padding: 12px 15px;
+            }
+            
+            .detail-card-title {
+                font-size: 1.1em;
+            }
+            
+            .detail-card-content {
+                padding: 15px 10px;
+            }
+            
+            /* Mobile table adjustments */
+            .table-container {
+                font-size: 0.85em;
+            }
+            
+            .data-table {
+                min-width: 900px; /* Reduced for mobile */
+            }
+            
+            .data-table th,
+            .data-table td {
+                min-width: 100px;
+                padding: 8px 6px;
+            }
+        }
+
+        /* Tablet responsive adjustments following Context Buttons Layout */
+        @media (max-width: 1024px) and (min-width: 769px) {
+            .context-buttons-section {
+                left: 240px;
+                width: 160px;
+            }
+            
+            .content-card {
+                margin-left: 420px; /* Menu (240px) + Context (160px) + margins (20px) */
+                max-width: calc(100vw - 460px);
+            }
+            
+            .context-btn {
+                font-size: 11px;
+                padding: 7px 10px;
+            }
+            
+            .data-table {
+                min-width: 1000px;
+            }
+            
+            .data-table th,
+            .data-table td {
+                min-width: 110px;
+                padding: 10px 8px;
+            }
+        }
+
+        /* Large screen adjustments following Context Buttons Layout */
+        @media (min-width: 1400px) {
+            .context-buttons-section {
+                left: 300px;
+                width: 200px;
+            }
+            
+            .content-card {
+                margin-left: 520px; /* Menu (300px) + Context (200px) + margins (20px) */
+                max-width: calc(100vw - 560px);
+            }
+            
+            .context-btn {
+                font-size: 13px;
+                padding: 9px 14px;
+            }
+            
+            .data-table {
+                min-width: 1300px;
+            }
+            
+            .data-table th,
+            .data-table td {
+                min-width: 140px;
+                padding: 15px 12px;
+            }
+        }
+
+        /* Error message styling following Hebrew/RTL Specific Patterns */
+        .error-message {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            direction: rtl;
+            text-align: center;
+            padding: 30px;
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .error-message h3 {
+            font-size: 1.3em;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .error-message p {
+            font-size: 1em;
+            line-height: 1.4;
+            margin-bottom: 20px;
+        }
+
+        .error-message button {
+            font-family: inherit;
+            transition: all 0.2s;
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 0 5px;
+        }
+
+        .error-message button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            background: #0056b3;
+        }
+    </style>
+</body>
+</html>
