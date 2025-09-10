@@ -1,5 +1,8 @@
 // PetelApp.Api/Data/AppDbContext.cs
 using Microsoft.EntityFrameworkCore;
+using PetelApp.Api.Models; // ADD THIS if referencing model DTOs
+using System.ComponentModel.DataAnnotations; // ADD THIS for data annotations
+using System.ComponentModel.DataAnnotations.Schema; // ADD THIS for table mapping
 using System.Security.Cryptography;
 using System.Text;
 
@@ -11,17 +14,17 @@ namespace PetelApp.Api.Data
         {
         }
 
-        // Entity tables
+        // DbSets
         public DbSet<Entity> Entities { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<SystemAttribute> SystemAttributes { get; set; }
         public DbSet<EntityType> EntityTypes { get; set; }
         public DbSet<Role> Roles { get; set; }
         public DbSet<UserRole> UserRoles { get; set; }
-        public DbSet<RolesAction> RolesActions { get; set; } // Added DbSet for RolesAction
-        public DbSet<SchoolYear> SchoolYears { get; set; } // Added DbSet for SchoolYear
-        public DbSet<StudentSchoolYearsRegistrationSummaryVw> StudentSchoolYearsRegistrationSummaryVw { get; set; } // Added DbSet for StudentSchoolYearsRegistrationSummaryVw
-        public DbSet<HoursBudget> HoursBudgets { get; set; } // ADD THIS LINE
+        public DbSet<RolesAction> RolesActions { get; set; }
+        public DbSet<SchoolYear> SchoolYears { get; set; }
+        public DbSet<StudentSchoolYearsRegistrationSummaryVw> StudentSchoolYearsRegistrationSummaryVw { get; set; }
+        public DbSet<HoursBudget> HoursBudgets { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -29,7 +32,7 @@ namespace PetelApp.Api.Data
             modelBuilder.HasDefaultSchema("petel_schema");
             
             // Configure table names following database conventions
-            modelBuilder.Entity<HoursBudget>().ToTable("hours_budgets"); // ADD THIS LINE
+            modelBuilder.Entity<HoursBudget>().ToTable("hours_budgets");
     
             base.OnModelCreating(modelBuilder);
 
@@ -165,20 +168,26 @@ namespace PetelApp.Api.Data
                 entity.HasIndex(u => u.Email);
             });
 
-            // Configure SystemAttributes table
+            // Configure SystemAttributes table following database conventions
             modelBuilder.Entity<SystemAttribute>(entity =>
             {
                 entity.ToTable("system_attributes", "petel_schema");
                 entity.HasKey(s => s.Id);
+                
+                // Map actual database columns
                 entity.Property(s => s.Id).HasColumnName("id");
-                entity.Property(s => s.Name).HasColumnName("name").HasMaxLength(255); // <-- Map to "name"
-                entity.Property(s => s.Value).HasColumnName("value").HasMaxLength(255);
+                entity.Property(s => s.Name).HasColumnName("name").HasMaxLength(255);
+                entity.Property(s => s.Value).HasColumnName("value");
                 entity.Property(s => s.ValueType).HasColumnName("value_type").HasMaxLength(50);
+                entity.Property(s => s.Description).HasColumnName("description");
                 entity.Property(s => s.CreatedAt).HasColumnName("created_at");
                 entity.Property(s => s.UpdatedAt).HasColumnName("updated_at");
-                entity.Property(s => s.update_user).HasColumnName("update_user"); // <-- Map to "update_user"
-                entity.Property(s => s.foreign_id).HasColumnName("foreign_id");
-                entity.Property(s => s.Description).HasColumnName("description");
+                entity.Property(s => s.UpdateUser).HasColumnName("update_user");
+                entity.Property(s => s.ForeignId).HasColumnName("foreign_id");
+                
+                // Indexes for performance
+                entity.HasIndex(s => s.Name);
+                entity.HasIndex(s => s.ForeignId);
             });
 
             // Configure EntityTypes table
@@ -337,19 +346,6 @@ namespace PetelApp.Api.Data
         public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     }
 
-    public class SystemAttribute
-    {
-        public int Id { get; set; }
-        public string? Name { get; set; }
-        public string? Description { get; set; }
-        public string? Value { get; set; }
-        public string? ValueType { get; set; }
-        public DateTime? CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
-        public int? foreign_id { get; set; }
-        public int? update_user { get; set; }
-    }
-
     public class EntityType
     {
         public int Id { get; set; }
@@ -370,7 +366,7 @@ namespace PetelApp.Api.Data
 
         // Navigation
         public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
-        public virtual ICollection<RolesAction> RolesActions { get; set; } = new List<RolesAction>(); // Added navigation property for RolesActions
+        public virtual ICollection<RolesAction> RolesActions { get; set; } = new List<RolesAction>();
     }
 
     public class UserRole

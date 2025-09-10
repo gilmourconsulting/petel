@@ -12,100 +12,110 @@ namespace PetelApp.Api.Controllers
     [Route("api/[controller]")]
     public class TableSecurityController : BaseController
     {
+        private readonly UserSessionService _userSessionService;
         private readonly ILogger<TableSecurityController> _logger;
 
-        public TableSecurityController(
-            UserSessionService userSessionService,
-            ILogger<TableSecurityController> logger) : base(userSessionService)
+        // Fix constructor - BaseController doesn't take parameters
+        public TableSecurityController(UserSessionService userSessionService, ILogger<TableSecurityController> logger)
         {
+            _userSessionService = userSessionService;
             _logger = logger;
         }
 
-        [HttpGet("permissions")]
-        public IActionResult GetTablePermissions()
+        [HttpGet("canRead/{tableName}")]
+        public IActionResult CanRead(string tableName)
         {
             try
             {
-                // Use inherited UserSessionService from BaseController
-                var session = UserSessionService.GetUserSession();
-                if (session == null)
+                var sessionId = GetSessionId();
+                if (string.IsNullOrEmpty(sessionId))
                 {
-                    return Unauthorized(new { message = "חסרה הרשאה - אנא התחבר מחדש" });
+                    return Unauthorized(new { message = "No valid session found" });
                 }
 
-                // Get table permissions logic here
-                var permissions = GetUserTablePermissions(session.UserId);
+                var session = _userSessionService.GetUserSession(sessionId);
+                if (session == null)
+                {
+                    return Unauthorized(new { message = "Invalid session" });
+                }
+
+                // Fix: Use session.UserId (string) instead of converting to int
+                var canRead = CheckTablePermission(session.UserId, tableName, "read");
                 
-                return Ok(permissions);
+                return Ok(new { success = true, canRead = canRead });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting table permissions for user");
-                return StatusCode(500, new { message = "שגיאה בטעינת הרשאות הטבלה" });
+                _logger.LogError(ex, "Error checking read permission for table {TableName}", tableName);
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
-        [HttpPost("validate")]
-        public IActionResult ValidateTableAccess([FromBody] TableAccessRequest request)
+        [HttpGet("canWrite/{tableName}")]
+        public IActionResult CanWrite(string tableName)
         {
             try
             {
-                // Use inherited UserSessionService from BaseController
-                var session = UserSessionService.GetUserSession();
-                if (session == null)
+                var sessionId = GetSessionId();
+                if (string.IsNullOrEmpty(sessionId))
                 {
-                    return Unauthorized(new { message = "חסרה הרשאה - אנא התחבר מחדש" });
+                    return Unauthorized(new { message = "No valid session found" });
                 }
 
-                // Validate table access logic
-                var hasAccess = ValidateUserTableAccess(session.UserId, request.TableName, request.Action);
+                var session = _userSessionService.GetUserSession(sessionId);
+                if (session == null)
+                {
+                    return Unauthorized(new { message = "Invalid session" });
+                }
+
+                // Fix: Use session.UserId (string) instead of converting to int
+                var canWrite = CheckTablePermission(session.UserId, tableName, "write");
                 
-                return Ok(new { hasAccess });
+                return Ok(new { success = true, canWrite = canWrite });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error validating table access");
-                return StatusCode(500, new { message = "שגיאה בבדיקת הרשאות הטבלה" });
+                _logger.LogError(ex, "Error checking write permission for table {TableName}", tableName);
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
 
-        private object GetUserTablePermissions(int userId)
-        {
-            // Implement table permissions logic following security patterns
-            return new { /* permissions data */ };
-        }
-
-        private bool ValidateUserTableAccess(int userId, string tableName, string action)
-        {
-            // Implement access validation following security patterns
-            return true; // Placeholder
-        }
-
-        [HttpGet("roles")]
+        [HttpGet("userRoles")]
         public IActionResult GetUserRoles()
         {
             try
             {
-                // Use inherited UserSessionService from BaseController
-                var session = UserSessionService.GetUserSession();
-                if (session == null)
+                var sessionId = GetSessionId();
+                if (string.IsNullOrEmpty(sessionId))
                 {
-                    return Unauthorized(new { message = "חסרה הרשאה - אנא התחבר מחדש" });
+                    return Unauthorized(new { message = "No valid session found" });
                 }
 
-                return Ok(session.Roles);
+                var session = _userSessionService.GetUserSession(sessionId);
+                if (session == null)
+                {
+                    return Unauthorized(new { message = "Invalid session" });
+                }
+
+                // Fix: Use session.Roles directly
+                var roles = session.Roles;
+                
+                return Ok(new { success = true, roles = roles });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting user roles");
-                return StatusCode(500, new { message = "שגיאה בטעינת תפקידי המשתמש" });
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
-    }
 
-    public class TableAccessRequest
-    {
-        public string TableName { get; set; } = string.Empty;
-        public string Action { get; set; } = string.Empty; // read, write, delete
+        // Fix: Change parameter type from int to string
+        private bool CheckTablePermission(string userId, string tableName, string permission)
+        {
+            // Implement actual permission checking logic here
+            // For now, return true for basic tables
+            var allowedTables = new[] { "students", "schools", "systemattributes", "hours_budget" };
+            return allowedTables.Contains(tableName.ToLower());
+        }
     }
 }

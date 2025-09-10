@@ -2,11 +2,11 @@
 
 ## Architecture Overview
 
-**Multi-Tenant Educational SaaS**: .NET 9 Web API backend + Vanilla JavaScript RTL frontend for Hebrew schools/educational institutions.
+**Educational Management System**: .NET 9 Web API backend + Vanilla JavaScript RTL frontend for Hebrew schools/educational institutions.
 
 - **Backend**: ASP.NET Core Web API (`PetelApp.Api/`) with PostgreSQL + Entity Framework Core
 - **Frontend**: Vanilla HTML/CSS/JS SPA (`petelapp-frontend/public/`) with Hebrew RTL support
-- **Database**: PostgreSQL with `petel_schema` namespace, multi-tenant architecture
+- **Database**: PostgreSQL with `petel_schema` namespace
 - **Background Jobs**: Hangfire for system attribute loading and scheduled tasks
 
 ## Critical Development Workflows
@@ -26,11 +26,11 @@ Backend runs on `http://localhost:5082`, frontend on `http://localhost:3000`
 
 ## Project-Specific Patterns
 
-### Multi-Tenant Request Flow
-1. **TenantMiddleware** (`Middleware/TenantMiddleware.cs`) extracts tenant ID from headers/session
-2. **UserSessionService** maintains session state with tenant context
-3. All controllers inherit from `BaseController` which enforces tenant isolation
-4. Database queries automatically scoped by tenant ID
+### Entity-Based Request Flow
+1. **UserSessionService** maintains full session state on the server
+2. All controllers inherit from `BaseController` which provides session access methods
+3. Database queries are scoped by user's EntityId
+4. Session data is stored in memory with the UserSessionService
 
 ### Frontend Architecture Patterns
 
@@ -38,7 +38,7 @@ Backend runs on `http://localhost:5082`, frontend on `http://localhost:3000`
 - `index.html` is the shell, loads sections dynamically via `fetch('section.html')`
 - `menu.html` loaded into `#sideMenuContainer` on page load
 - Navigation via `navigateTo(section)` function with browser history support
-- School year context stored in `window.currentSchoolYear` object
+- School year context retrieved from backend session data
 
 **Standard Table Component**:
 - **ALL tables must use ReusableTable component** from `table-component.js`
@@ -174,16 +174,51 @@ table.init(data, columns);
 ```
 
 ### Authentication & Session Management
-```javascript
-// Frontend session storage pattern
-sessionStorage.setItem('authToken', token);
-sessionStorage.setItem('userFullName', user.fullName);
-sessionStorage.setItem('tenantId', tenant.id);
 
-// Backend session service usage
-public AuthController(UserSessionService userSessionService) {
-    var session = userSessionService.GetUserSession();
+#### Backend Session Storage (Primary)
+```csharp
+// UserSession class structure
+public class UserSession
+{
+    public string SessionId { get; set; } = string.Empty;
+    public string UserId { get; set; } = string.Empty;
+    public string UserFullName { get; set; } = string.Empty;
+    public string EntityId { get; set; } = string.Empty;  // User's Entity ID preserved throughout session
+    public string EntityName { get; set; } = string.Empty;
+    public string EntityTypeId { get; set; } = string.Empty;
+    // Other properties...
 }
+
+// Session service usage in controllers
+public class MyController : BaseController 
+{
+    private readonly UserSessionService _userSessionService;
+    
+    public MyController(UserSessionService userSessionService) 
+    {
+        _userSessionService = userSessionService;
+    }
+    
+    public IActionResult MyEndpoint()
+    {
+        var session = GetCurrentSession(); // From BaseController
+        var entityId = session?.EntityId;
+        // Use entityId for data access
+    }
+}
+```
+
+#### Frontend Session Token Only
+```javascript
+// Frontend stores only the auth token, not full session data
+sessionStorage.setItem('authToken', token);
+
+// API calls include auth token in header
+fetch(AppConfig.getApiUrl('endpoint'), {
+    headers: {
+        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+    }
+})
 ```
 
 ### System Attributes Pattern
@@ -195,7 +230,6 @@ Dynamic configuration via `SystemAttributes` table loaded at startup:
 
 ### Database Conventions
 - All tables in `petel_schema` namespace
-- Tenant ID isolation enforced at service layer
 - Entity Framework conventions: `PascalCase` properties → `snake_case` columns
 - Audit fields: `created_at`, `updated_at` with triggers
 

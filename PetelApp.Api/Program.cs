@@ -3,6 +3,8 @@ using PetelApp.Api.Data;
 using PetelApp.Api.Services;
 using PetelApp.Api.Session;
 using PetelApp.Api.Middleware;
+using Hangfire;
+using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,7 +21,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Session services following authentication & session management patterns
-builder.Services.AddScoped<UserSessionService>();
+builder.Services.AddSingleton<UserSessionService>();
+builder.Services.AddScoped<SystemAttributeService>();
 
 // Core services following multi-tenant request flow
 builder.Services.AddScoped<TenantService>();
@@ -50,6 +53,17 @@ builder.Services.AddSession(options =>
     options.Cookie.Name = "PetelSession";
     options.Cookie.SameSite = SameSiteMode.Lax;
 });
+
+// Configure Hangfire with PostgreSQL storage
+builder.Services.AddHangfire(config =>
+    config.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddHangfireServer(options => {
+    options.WorkerCount = 1;
+});
+
+// Register auth and user role services
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<UserRoleService>();
 
 var app = builder.Build();
 
@@ -83,10 +97,30 @@ using (var scope = app.Services.CreateScope())
 // CRITICAL: Add session middleware before tenant middleware
 app.UseSession();
 
-app.UseMiddleware<TenantMiddleware>();
+// Remove tenant middleware from pipeline
+
+// Existing middleware registrations, but remove TenantMiddleware
+app.UseRouting();
+app.UseCors(builder => builder
+    .WithOrigins("http://localhost:3000")
+    .AllowAnyMethod()
+    .AllowAnyHeader()
+    .AllowCredentials());
+
+// app.UseMiddleware<TenantMiddleware>(); -- Remove this line or comment it out
+
+app.UseEndpoints(endpoints =>
+{
+    endpoints.MapControllers();
+});
+
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+
+// Configure Hangfire dashboard and server
+app.UseHangfireDashboard();
+app.UseHangfireServer();
 
 Console.WriteLine("Petel Educational Management System API started - data will be loaded from database");
 app.Run();

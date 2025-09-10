@@ -4,34 +4,35 @@ using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
 using PetelApp.Api.Services;
 using PetelApp.Api.Session;
-using System.Security.Cryptography;
-using System.Text;
-using Newtonsoft.Json;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace PetelApp.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AuthController : ControllerBase
+    public class AuthController : BaseController
     {
         private readonly AppDbContext _context;
-        private readonly TenantService _tenantService;
-        private readonly ILogger<AuthController> _logger;
         private readonly UserSessionService _userSessionService;
-        private readonly SystemAttributeService _systemAttributeService; // Add service for system attributes
+        private readonly IAuthService _authService;
+        private readonly UserRoleService _userRoleService;
+        private readonly ILogger<AuthController> _logger;
 
         public AuthController(
-            AppDbContext context, 
-            TenantService tenantService,
-            ILogger<AuthController> logger,
-            UserSessionService userSessionService,
-            SystemAttributeService systemAttributeService) // Inject the service
+            AppDbContext context,
+            UserSessionService userSessionService, 
+            IAuthService authService,
+            UserRoleService userRoleService,
+            ILogger<AuthController> logger)
         {
             _context = context;
-            _tenantService = tenantService;
-            _logger = logger;
             _userSessionService = userSessionService;
-            _systemAttributeService = systemAttributeService; // Initialize the service
+            _authService = authService;
+            _userRoleService = userRoleService;
+            _logger = logger;
         }
 
         [HttpPost("login")]
@@ -39,292 +40,146 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
-                // Validate input
-                if (string.IsNullOrEmpty(request.Username) || 
-                    string.IsNullOrEmpty(request.Password) || 
-                    request.TenantId <= 0)
+                if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
                 {
-                    return BadRequest(new LoginResponse 
-                    { 
-                        Success = false, 
-                        Message = "נתונים חסרים או לא תקינים" 
-                    });
+                    return BadRequest(new { success = false, message = "Username and password are required" });
                 }
 
-                // Get tenant context from middleware
-                var contextTenantId = _tenantService.GetCurrentTenantId();
-                
-                _logger.LogInformation("Login attempt - Request TenantId: {RequestTenantId}, Context TenantId: {ContextTenantId}", 
-                    request.TenantId, contextTenantId);
-                
-                // Verify tenant context matches request
-                if (string.IsNullOrEmpty(contextTenantId) || contextTenantId != request.TenantId.ToString())
-                {
-                    _logger.LogWarning("Tenant context mismatch. Context: '{ContextTenant}', Request: '{RequestTenant}'", 
-                        contextTenantId ?? "null", request.TenantId);
-                    
-                    return BadRequest(new LoginResponse 
-                    { 
-                        Success = false, 
-                        Message = "שגיאה בזיהוי הארגון" 
-                    });
-                }
-
-                // Get user with entity information including entity type
+                // Find user by username first
                 var user = await _context.Users
-                    .Include(u => u.Entity)
-                    .ThenInclude(e => e.EntityType) // Include EntityType navigation
-                    .FirstOrDefaultAsync(u => u.Username == request.Username && u.IsActive);
-
+                    .FirstOrDefaultAsync(u => u.Username == request.Username);
+                        
                 if (user == null)
                 {
-                    return Unauthorized(new LoginResponse 
-                    { 
-                        Success = false, 
-                        Message = "שם משתמש או סיסמה שגויים" 
-                    });
+                    _logger.LogWarning("Login failed: User {Username} not found", request.Username);
+                    return Unauthorized(new { success = false, message = "שם משתמש או סיסמה שגויים" });
                 }
 
-                // Check that the user belongs to the selected entity
-                if (user.EntityId != request.TenantId)
+                // Validate password (use proper password hashing in production)
+                bool passwordValid = await _authService.VerifyPasswordAsync(user, request.Password);
+                if (!passwordValid)
                 {
-                    return Unauthorized(new LoginResponse 
-                    { 
-                        Success = false, 
-                        Message = "המשתמש אינו שייך לארגון הנבחר" 
-                    });
+                    _logger.LogWarning("Login failed: Invalid password for user {Username}", request.Username);
+                    return Unauthorized(new { success = false, message = "שם משתמש או סיסמה שגויים" });
                 }
-
-                _logger.LogInformation("Found user {Username} with hash: {Hash}", user.Username, user.PasswordHash);
-
-                // Verify password
-                if (!VerifyPassword(request.Password, user.PasswordHash))
+                
+                // Check if user belongs to the selected entity
+                if (user.EntityId != request.EntityId)
                 {
-                    _logger.LogWarning("Login attempt failed: Invalid password for user {Username} in tenant {TenantId}", 
-                        request.Username, request.TenantId);
-                    
-                    return Unauthorized(new LoginResponse 
-                    { 
-                        Success = false, 
-                        Message = "שם משתמש או סיסמה שגויים, או שאינך רשאי לגשת לארגון זה" 
-                    });
+                    _logger.LogWarning("Login failed: User {Username} does not belong to entity {EntityId}", 
+                        request.Username, request.EntityId);
+                    return Unauthorized(new { success = false, message = "המשתמש אינו משויך לארגון זה" });
                 }
-
-                // Get user roles
-                var roleIdsAndNames = await _context.UserRoles
-                    .Where(ur => ur.UserId == user.Id)
-                    .Join(_context.Roles,
-                          ur => ur.RoleId,
-                          r => r.Id,
-                          (ur, r) => new { r.Id, r.Name })
-                    .ToListAsync();
-
-                var roleNames = roleIdsAndNames.Select(r => r.Name).ToList();
-                var roleIds = roleIdsAndNames.Select(r => r.Id).ToList();
-
-                // Get allowed actions for these roles
-                var allowedActions = await _context.RolesActions
-                    .Where(ra => roleIds.Contains(ra.RoleId) && ra.ActionLevel != 0)
-                    .Select(ra => ra.ActionId)
-                    .Distinct()
-                    .ToListAsync();
 
                 // Get entity information
                 var entity = await _context.Entities
-                    .Include(e => e.EntityType) // Ensure EntityType is loaded
-                    .FirstOrDefaultAsync(e => e.Id == request.TenantId && e.IsActive);
-
+                    .Include(e => e.EntityType)
+                    .FirstOrDefaultAsync(e => e.Id == user.EntityId);
+                    
                 if (entity == null)
                 {
-                    return BadRequest(new { message = "גוף חינוכי לא נמצא או לא פעיל" });
+                    _logger.LogWarning("Login failed: Entity {EntityId} not found", user.EntityId);
+                    return NotFound(new { success = false, message = "הארגון לא נמצא במערכת" });
                 }
 
-                // Create session with entity type data
-                var userSession = new UserSession
+                // Generate session
+                var sessionId = Guid.NewGuid().ToString();
+                var session = new UserSession
                 {
-                    UserId = user.Id,
-                    UserFullName = $"{user.FirstName} {user.LastName}",
-                    UserEmail = user.Email,
-                    TenantId = entity.Id,
-                    TenantName = entity.Name,
-                    EntityTypeId = entity.EntityTypeId, // This should not be null
-                    EntityTypeName = entity.EntityType?.Name ?? "לא מוגדר", // Handle null EntityType
-                    Roles = roleNames,
-                    LoginTime = DateTime.UtcNow,
-                    AllowedActions = allowedActions
+                    SessionId = sessionId,
+                    UserId = user.Id.ToString(),
+                    UserFullName = $"{user.FirstName} {user.LastName}".Trim(),
+                    EntityId = user.EntityId.ToString(), // Using EntityId instead of TenantId
+                    EntityName = entity.Name,
+                    EntityTypeId = entity.EntityTypeId.ToString(),
+                    CreatedAt = DateTime.UtcNow,
+                    LastAccessedAt = DateTime.UtcNow,
+                    Roles = await _userRoleService.GetUserRolesAsync(user.Id)
                 };
 
                 // Store session
-                _userSessionService.SetUserSession(userSession);
+                _userSessionService.SetUserSession(session);
 
-                // Update last login
-                user.LastLogin = DateTime.UtcNow;
-                user.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
+                _logger.LogInformation("User {Username} logged in successfully for entity {EntityId}", 
+                    request.Username, request.EntityId);
 
-                // Generate authentication token
-                var token = GenerateAuthToken(user);
-
-                _logger.LogInformation("Successful login for user {Username} in tenant {TenantId} with entity type {EntityTypeId}", 
-                    request.Username, request.TenantId, user.Entity.EntityTypeId);
-
-                // Return response with entity type
-                Console.WriteLine($"Entity loaded: EntityTypeId={entity.EntityTypeId}, EntityTypeName={entity.EntityType?.Name}");
-
-                var response = new
+                // Return successful login response
+                return Ok(new
                 {
                     success = true,
-                    message = "התחברות בוצעה בהצלחה",
-                    userFullName = $"{user.FirstName} {user.LastName}",
-                    tenantId = entity.Id,
-                    tenantName = entity.Name,
-                    entityTypeId = entity.EntityTypeId, // Ensure this exists
-                    entityTypeName = entity.EntityType?.Name ?? "לא מוגדר"
-                };
-
-                Console.WriteLine($"Returning entityTypeId: {response.entityTypeId}");
-                return Ok(response);
+                    token = sessionId,
+                    userId = user.Id.ToString(),
+                    userFullName = $"{user.FirstName} {user.LastName}".Trim(),
+                    entityId = user.EntityId.ToString(),
+                    entityName = entity.Name,
+                    entityTypeId = entity.EntityTypeId.ToString(),
+                    entityTypeName = entity.EntityType?.Name ?? string.Empty,
+                    roles = session.Roles ?? new List<string>(),
+                    message = "התחברות בוצעה בהצלחה"
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error during login attempt for user {Username} in tenant {TenantId}", 
-                    request.Username, request.TenantId);
-                
-                return StatusCode(500, new LoginResponse 
-                { 
-                    Success = false, 
-                    Message = "שגיאה פנימית במערכת" 
+                _logger.LogError(ex, "Login error for user {Username}", request.Username);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בהתחברות: " + ex.Message
                 });
             }
         }
 
         [HttpPost("logout")]
-        public IActionResult Logout() // Remove async/await since no async operations
+        public IActionResult Logout()
         {
-            // Implement logout logic (invalidate token, update database, etc.)
             try
             {
-                // You can add token blacklisting logic here
-                
-                _logger.LogInformation("User logged out successfully");
-                
+                var sessionId = GetSessionId();
+                if (!string.IsNullOrEmpty(sessionId))
+                {
+                    _userSessionService.InvalidateSession(sessionId);
+                    _logger.LogInformation("User logged out, session {SessionId} invalidated", sessionId);
+                }
+
                 return Ok(new { success = true, message = "התנתקות בוצעה בהצלחה" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error during logout");
-                return StatusCode(500, new { success = false, message = "שגיאה במהלך ההתנתקות" });
-            }
-        }
-
-        [HttpPost("validate-token")]
-        public IActionResult ValidateToken([FromBody] TokenValidationRequest request) // Remove async/await
-        {
-            try
-            {
-                // Implement token validation logic
-                var isValid = ValidateAuthToken(request.Token);
-                
-                if (!isValid)
-                {
-                    return Unauthorized(new { success = false, message = "Token לא תקין" });
-                }
-
-                return Ok(new { success = true, message = "Token תקין" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error during token validation");
-                return StatusCode(500, new { success = false, message = "שגיאה בבדיקת Token" });
-            }
-        }
-
-        private bool VerifyPassword(string password, string hash)
-        {
-            try
-            {
-                // Try BCrypt first (recommended)
-             //   if (hash.StartsWith("$2") || hash.StartsWith("$2a") || hash.StartsWith("$2b") || hash.StartsWith("$2y"))
-             //   {
-             //       return BCrypt.Net.BCrypt.Verify(password, hash);
-            //    }
-                
-                // Fall back to SHA256
-                var hashedInput = HashPassword(password);
-                return hashedInput == hash;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error verifying password");
-                return false;
-            }
-        }
-
-        private string HashPassword(string password)
-        {
-            // Simple SHA256 hashing (use BCrypt in production)
-            using (var sha256 = SHA256.Create())
-            {
-                var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-                return Convert.ToBase64String(hashedBytes);
-            }
-        }
-
-        private string GenerateAuthToken(dynamic user)
-        {
-            // Simple token generation (implement JWT in production)
-            var tokenData = $"{user.Id}:{user.EntityId}:{DateTime.UtcNow.Ticks}";
-            var tokenBytes = Encoding.UTF8.GetBytes(tokenData);
-            return Convert.ToBase64String(tokenBytes);
-        }
-
-        private bool ValidateAuthToken(string token)
-        {
-            try
-            {
-                var tokenBytes = Convert.FromBase64String(token);
-                var tokenData = Encoding.UTF8.GetString(tokenBytes);
-                var parts = tokenData.Split(':');
-                
-                if (parts.Length != 3) return false;
-                
-                var timestamp = long.Parse(parts[2]);
-                var tokenDate = new DateTime(timestamp);
-                
-                // Check if token is less than 24 hours old
-                return DateTime.UtcNow.Subtract(tokenDate).TotalHours < 24;
-            }
-            catch
-            {
-                return false;
+                return StatusCode(500, new { message = "שגיאת שרת פנימית" });
             }
         }
     }
 
-    // Request/Response Models
     public class LoginRequest
     {
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
-        public int TenantId { get; set; }
+        public int EntityId { get; set; }
     }
+}
 
-    public class LoginResponse
+// PetelApp.Api/Services/IAuthService.cs
+namespace PetelApp.Api.Services
+{
+    /// <summary>
+    /// Authentication service interface following the Entity-Based Request Flow pattern
+    /// </summary>
+    public interface IAuthService
     {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
-        public string Token { get; set; } = string.Empty;
-        public int TenantId { get; set; }
-        public string TenantName { get; set; } = string.Empty;
-        public string UserFullName { get; set; } = string.Empty;
-        public string UserEmail { get; set; } = string.Empty;
-        public int EntityTypeId { get; set; } // Add entity type ID
-        public string EntityTypeName { get; set; } = string.Empty; // Add entity type name
-        public DateTime ExpiresAt { get; set; }
-    }
-
-    public class TokenValidationRequest
-    {
-        public string Token { get; set; } = string.Empty;
+        /// <summary>
+        /// Verifies a user's password
+        /// </summary>
+        /// <param name="user">The user entity</param>
+        /// <param name="password">The password to verify</param>
+        /// <returns>True if password is valid, false otherwise</returns>
+        Task<bool> VerifyPasswordAsync(User user, string password);
+        
+        /// <summary>
+        /// Creates a hash of the provided password
+        /// </summary>
+        /// <param name="password">Password to hash</param>
+        /// <returns>Hashed password</returns>
+        Task<string> HashPasswordAsync(string password);
     }
 }

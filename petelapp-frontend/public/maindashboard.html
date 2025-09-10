@@ -222,59 +222,62 @@
             }
         }
 
-        // Store selected year in session following Multi-Tenant Request Flow
+        // Store selected year in session following Authentication & Session Management
         async function storeSelectedYearInSession(yearId, yearType) {
             console.log('Storing selected year in session:', yearId, yearType);
             
             try {
-                const tenantId = sessionStorage.getItem('tenantId');
-                const authToken = sessionStorage.getItem('authToken');
+                // Store year selection on server-side session
+                await SessionManager.updateSessionData('selectedYearId', yearId);
+                await SessionManager.updateSessionData('selectedYearType', yearType);
                 
-                const apiUrl = AppConfig.getApiUrl('systemattributes/selectYear');
-                console.log('POST', apiUrl);
+                // Get year value from session data
+                const sessionData = await SessionManager.getSessionData();
+                let yearValue = '';
+                if (yearType === 'previous') {
+                    yearValue = sessionData.previousYearValue || '';
+                } else if (yearType === 'current') {
+                    yearValue = sessionData.currentYearValue || '';
+                } else if (yearType === 'next') {
+                    yearValue = sessionData.nextYearValue || '';
+                }
                 
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`,
-                        'X-Tenant-ID': tenantId
-                    },
-                    body: JSON.stringify({
-                        yearId: yearId,
-                        yearType: yearType,
-                        tenantId: tenantId
-                    })
+                await SessionManager.updateSessionData('selectedYearValue', yearValue);
+                
+                console.log('Selected year stored in server session:', {
+                    yearId: yearId,
+                    yearType: yearType,
+                    yearValue: yearValue
                 });
                 
-                if (response.ok) {
-                    sessionStorage.setItem('selectedYearId', yearId);
-                    sessionStorage.setItem('selectedYearType', yearType);
-                    console.log('Selected year stored successfully');
-                } else {
-                    console.error('Failed to store selected year:', response.status);
-                }
             } catch (error) {
                 console.error('Error storing selected year:', error);
+                throw error;
             }
         }
 
         // Show school year function following Cross-Component Communication
         async function showSchoolYear(yearId, yearType) {
-            console.log('showSchoolYear called with yearId:', yearId, 'yearType:', yearType);
+            console.log('🗓️ showSchoolYear called with yearId:', yearId, 'yearType:', yearType);
             
-            // Store the selected year
+            // Validate inputs
+            if (!yearId || !yearType) {
+                console.error('❌ Invalid year parameters:', { yearId, yearType });
+                return;
+            }
+            
+            // Store the selected year (this will not fail the navigation)
             await storeSelectedYearInSession(yearId, yearType);
             
             // Check entity type to determine navigation following Project-Specific Patterns
             const entityTypeId = parseInt(sessionStorage.getItem('entityTypeId')) || 0;
-            console.log('Entity type check:', {entityTypeId});
+            console.log('📋 Entity type check:', { entityTypeId });
             
             if (entityTypeId === 5) {
-                console.log('Entity type 5 (multi-school network) - navigating to school list');
+                console.log('🏫 Entity type 5 (multi-school network) - navigating to school list');
                 await loadSchoolListPage();
             } else {
-                console.log('Single school entity - navigating to school year management');
+                console.log('🏫 Single school entity - navigating to school year management');
                 await loadSchoolYearPage();
             }
         }
@@ -282,50 +285,76 @@
         // Load school list page following Single-Page Application with Module Loading
         async function loadSchoolListPage() {
             try {
-                console.log('Loading school list page...');
+                console.log('🔄 Loading school list page...');
                 
                 const response = await fetch('schoollist.html');
                 if (response.ok) {
                     const html = await response.text();
-                    document.getElementById('dynamicContent').innerHTML = html;
                     
-                    // Re-execute scripts following Common Gotchas pattern
-                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+                    // Find the main content container following Project-Specific Patterns
+                    const mainContainer = document.getElementById('dynamicContent') || 
+                                         document.getElementById('mainContent') || 
+                                         document.querySelector('.main-content') || 
+                                         document.body;
                     
-                    // Update browser history
-                    history.pushState({ section: 'schoollist' }, '', '#schoollist');
-                    
-                    console.log('✅ School list page loaded successfully');
+                    if (mainContainer) {
+                        mainContainer.innerHTML = html;
+                        
+                        // Re-execute scripts following Common Gotchas pattern
+                        executeScriptsInContainer(mainContainer);
+                        
+                        // Update browser history following Single-Page Application patterns
+                        history.pushState({ section: 'schoollist' }, '', '#schoollist');
+                        
+                        console.log('✅ School list page loaded successfully');
+                    } else {
+                        console.error('❌ Could not find main content container');
+                    }
                 } else {
-                    console.error('Failed to load schoollist.html:', response.status);
+                    console.error('❌ Failed to load schoollist.html:', response.status);
+                    alert('שגיאה בטעינת רשימת בתי הספר');
                 }
             } catch (error) {
-                console.error('Error loading school list page:', error);
+                console.error('💥 Error loading school list page:', error);
+                alert('שגיאה בטעינת רשימת בתי הספר');
             }
         }
 
         // Load school year page following Single-Page Application with Module Loading
         async function loadSchoolYearPage() {
             try {
-                console.log('Loading school year page...');
+                console.log('🔄 Loading school year page...');
                 
                 const response = await fetch('schoolyear.html');
                 if (response.ok) {
                     const html = await response.text();
-                    document.getElementById('dynamicContent').innerHTML = html;
                     
-                    // Re-execute scripts following Common Gotchas pattern
-                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+                    // Find the main content container following Project-Specific Patterns
+                    const mainContainer = document.getElementById('dynamicContent') || 
+                                         document.getElementById('mainContent') || 
+                                         document.querySelector('.main-content') || 
+                                         document.body;
                     
-                    // Update browser history
-                    history.pushState({ section: 'schoolyear' }, '', '#schoolyear');
-                    
-                    console.log('✅ School year page loaded successfully');
+                    if (mainContainer) {
+                        mainContainer.innerHTML = html;
+                        
+                        // Re-execute scripts following Common Gotchas pattern
+                        executeScriptsInContainer(mainContainer);
+                        
+                        // Update browser history following Single-Page Application patterns
+                        history.pushState({ section: 'schoolyear' }, '', '#schoolyear');
+                        
+                        console.log('✅ School year page loaded successfully');
+                    } else {
+                        console.error('❌ Could not find main content container');
+                    }
                 } else {
-                    console.error('Failed to load schoolyear.html:', response.status);
+                    console.error('❌ Failed to load schoolyear.html:', response.status);
+                    alert('שגיאה בטעינת ניהול שנת לימודים');
                 }
             } catch (error) {
-                console.error('Error loading school year page:', error);
+                console.error('💥 Error loading school year page:', error);
+                alert('שגיאה בטעינת ניהול שנת לימודים');
             }
         }
 

@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
 using PetelApp.Api.Models.DTOs;
 using PetelApp.Api.Services;
+using PetelApp.Api.Session;
+using PetelApp.Api.Models;
 
 namespace PetelApp.Api.Controllers
 {

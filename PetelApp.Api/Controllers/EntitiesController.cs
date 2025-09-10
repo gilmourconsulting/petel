@@ -1,35 +1,40 @@
 // PetelApp.Api/Controllers/EntitiesController.cs
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using PetelApp.Api.Data;
-using PetelApp.Api.Session; // Add this using statement
+using PetelApp.Api.Session;
+using PetelApp.Api.Models;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace PetelApp.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class EntitiesController : ControllerBase
+    public class EntitiesController : ControllerBase // Changed from BaseController since we're dropping tenant requirements
     {
         private readonly AppDbContext _context;
-        private readonly UserSessionService _userSessionService; // Add this field
+        private readonly ILogger<EntitiesController> _logger;
 
-        public EntitiesController(AppDbContext context, UserSessionService userSessionService) // Add parameter
+        public EntitiesController(
+            AppDbContext context,
+            ILogger<EntitiesController> logger)
         {
             _context = context;
-            _userSessionService = userSessionService; // Assign the service
+            _logger = logger;
         }
 
         /// <summary>
         /// Get all active entities for the login dropdown
-        /// This endpoint is public and doesn't require tenant context
-        /// since users need to see available entities before selecting one
         /// </summary>
         [HttpGet("login")]
         public async Task<IActionResult> GetEntitiesForLogin()
         {
             try
             {
-                // Load entities with id, name, and entity_type_id following authentication & session management
+                // Load entities with id, name, and entity_type_id
                 var entities = await _context.Entities
                     .Where(e => e.IsActive)
                     .Select(e => new
@@ -41,26 +46,24 @@ namespace PetelApp.Api.Controllers
                     .OrderBy(e => e.name)
                     .ToListAsync();
 
-                Console.WriteLine($"Loaded {entities.Count} entities for login from database");
+                _logger.LogInformation("Loaded {Count} entities for login from database", entities.Count);
                 return Ok(entities);
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error loading entities: {ex.Message}");
+                _logger.LogError(ex, "Error loading entities for login");
                 return StatusCode(500, new { message = "שגיאה בטעינת רשימת הגופים", error = ex.Message });
             }
         }
 
         /// <summary>
         /// Get a specific entity by ID
-        /// Requires tenant context for security
         /// </summary>
         [HttpGet("{id}")]
         public async Task<IActionResult> GetEntity(int id)
         {
             try
             {
-                // Full entity details for post-login operations
                 var entity = await _context.Entities
                     .FirstOrDefaultAsync(e => e.Id == id);
 
@@ -73,30 +76,31 @@ namespace PetelApp.Api.Controllers
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error loading entity with ID {EntityId}", id);
                 return StatusCode(500, new { message = "שגיאה בטעינת פרטי הגוף", error = ex.Message });
             }
         }
 
         /// <summary>
-        /// Get all schools for a specific tenant following Multi-Tenant Request Flow
+        /// Get all schools
         /// </summary>
         [HttpGet("schools")]
-        public async Task<IActionResult> GetSchoolsForTenant([FromQuery] int? tenantId = null)
+        public async Task<IActionResult> GetSchools()
         {
             try
             {
-                // Get tenant ID from query parameter or session following Authentication & Session Management
-                var currentTenantId = tenantId ?? _userSessionService.GetUserSession()?.TenantId;
-                
-                if (currentTenantId == null)
-                {
-                    return BadRequest(new { message = "מזהה גוף חינוכי חסר" });
-                }
+                _logger.LogInformation("Loading all schools");
 
-                // Load entities where owner equals current tenant ID following Database Conventions
-                var schools = await _context.Entities
+                // Load schools with eager loading for EntityType
+                var schoolsQuery = _context.Entities
                     .Include(e => e.EntityType)
-                    .Where(e => e.OwnerId == currentTenantId && e.IsActive)
+                    .AsNoTracking() // For better performance in read-only scenarios
+                    .Where(e => e.IsActive);
+
+                _logger.LogDebug("Executing schools query");
+
+                // Execute query and project to anonymous type
+                var schools = await schoolsQuery
                     .Select(e => new
                     {
                         id = e.Id,
@@ -108,7 +112,7 @@ namespace PetelApp.Api.Controllers
                         characterization = e.Characterization,
                         contactPerson = e.ContactPerson,
                         educationStage = e.EducationStage,
-                        ownerId = e.OwnerId,
+                        ownerId = e.OwnerId, // Kept for backward compatibility
                         entityTypeId = e.EntityTypeId,
                         entityTypeName = e.EntityType.Name,
                         isActive = e.IsActive
@@ -116,13 +120,24 @@ namespace PetelApp.Api.Controllers
                     .OrderBy(e => e.name)
                     .ToListAsync();
 
-                Console.WriteLine($"Loaded {schools.Count} schools from database for tenant {currentTenantId}");
+                _logger.LogInformation("Loaded {Count} schools", schools.Count);
                 return Ok(schools);
+            }
+            catch (DbUpdateException dbEx)
+            {
+                _logger.LogError(dbEx, "Database error loading schools");
+                return StatusCode(500, new { 
+                    message = "שגיאה בטעינת רשימת בתי הספר - בעיה בבסיס הנתונים", 
+                    error = dbEx.InnerException?.Message ?? dbEx.Message 
+                });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error loading schools from database: {ex.Message}");
-                return StatusCode(500, new { message = "שגיאה בטעינת רשימת בתי הספר מהמסד נתונים", error = ex.Message });
+                _logger.LogError(ex, "Error loading schools");
+                return StatusCode(500, new { 
+                    message = "שגיאה בטעינת רשימת בתי הספר", 
+                    error = ex.Message 
+                });
             }
         }
     }

@@ -1,6 +1,8 @@
 // PetelApp.Api/Services/TenantService.cs
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
+using PetelApp.Api.Session;
+using Microsoft.Extensions.Logging;
 
 namespace PetelApp.Api.Services
 {

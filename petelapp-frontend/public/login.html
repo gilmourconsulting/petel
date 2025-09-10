@@ -278,6 +278,17 @@
             loadSystemVersion();
         });
 
+        // Set entity context for API calls
+        function setEntityContext(entityId) {
+            // Parse to ensure it's a clean integer string
+            const cleanEntityId = parseInt(entityId).toString();
+            
+            // Store entity ID for subsequent API calls
+            sessionStorage.setItem('selectedEntityId', cleanEntityId);
+            
+            console.log('Entity context set:', cleanEntityId);
+        }
+
         // Handle entity selection
         entitySelect.addEventListener('change', function() {
             const selectedEntityId = this.value;
@@ -308,8 +319,8 @@
                 loginButton.disabled = false;
                 loginButton.textContent = 'התחבר';
                 
-                // Set tenant context for API calls (use parsed integer)
-                setTenantContext(entityIdString);
+                // Set entity context for API calls (use parsed integer)
+                setEntityContext(entityIdString);
                 
                 // Focus on username field
                 setTimeout(() => {
@@ -332,20 +343,6 @@
                 loginButton.textContent = 'בחר ישות תחילה';
             }
         });
-
-        // Set tenant context for API calls
-        function setTenantContext(tenantId) {
-            // Parse to ensure it's a clean integer string
-            const cleanTenantId = parseInt(tenantId).toString();
-            
-            // Store tenant ID for subsequent API calls
-            sessionStorage.setItem('selectedTenant', cleanTenantId);
-            
-            console.log('Tenant context set:', cleanTenantId);
-            
-            // You might want to validate tenant access here
-            // validateTenantAccess(cleanTenantId);
-        }
 
         // Load entities from database
         async function loadEntities() {
@@ -422,12 +419,12 @@
                 document.getElementById('step2').classList.remove('active');
                 document.getElementById('step3').classList.add('active');
                 
-                // Multi-tenant login data
+                // Login data with entity ID
                 const entityIdInt = parseInt(entityId);
                 const loginData = {
                     username: username,
                     password: password,
-                    tenantId: entityIdInt // Send as integer
+                    entityId: entityIdInt // Send entity ID as integer
                 };
 
                 console.log('Login attempt:', { 
@@ -438,17 +435,15 @@
                     loginData 
                 });
 
-                // Set tenant context in headers (Entity-First approach)
+                // API call headers (no tenant reference)
                 const headers = {
-                    'Content-Type': 'application/json',
-                    'X-Tenant-ID': entityIdInt.toString() // Send as clean string without padding
+                    'Content-Type': 'application/json'
                 };
 
                 console.log('Request headers:', headers);
-                console.log('Entity ID being sent in header:', entityIdInt.toString());
 
-                // Replace with actual API call to your .NET backend
-                const response = await fetch('http://localhost:5082/api/auth/login', { // Updated to port 5082
+                // API call to .NET backend
+                const response = await fetch('http://localhost:5082/api/auth/login', {
                     method: 'POST',
                     headers: headers,
                     body: JSON.stringify(loginData)
@@ -464,19 +459,20 @@
                 }
 
                 const result = await response.json();
-                console.log('Login API response:', result); // Debug the full response
+                console.log('Login API response:', result);
 
                 // Store session data following Authentication & Session Management
                 sessionStorage.setItem('authToken', result.token || 'mock-token');
                 sessionStorage.setItem('userFullName', result.userFullName || '');
-                sessionStorage.setItem('tenantId', result.tenantId?.toString() || '');
-                sessionStorage.setItem('tenantName', result.tenantName || '');
-                sessionStorage.setItem('entityTypeId', result.entityTypeId?.toString() || ''); // FIX: Ensure stored as string
+                sessionStorage.setItem('userId', result.userId || '');
+                sessionStorage.setItem('entityId', result.entityId?.toString() || '');
+                sessionStorage.setItem('entityName', result.entityName || '');
+                sessionStorage.setItem('entityTypeId', result.entityTypeId?.toString() || '');
                 sessionStorage.setItem('entityTypeName', result.entityTypeName || '');
 
                 // Debug what was stored
+                console.log('Stored entityId:', sessionStorage.getItem('entityId'));
                 console.log('Stored entityTypeId:', sessionStorage.getItem('entityTypeId'));
-                console.log('Stored entityTypeName:', sessionStorage.getItem('entityTypeName'));
 
                 if (result.success) {
                     // Successful login
@@ -485,26 +481,18 @@
                     loginButton.innerHTML = 'התחברות בוצעה בהצלחה!';
                     loginButton.style.background = 'linear-gradient(135deg, #48bb78 0%, #38a169 100%)';
                     
-                    // Store tenant-specific session data
-                    sessionStorage.setItem('authToken', result.token);
-                    sessionStorage.setItem('tenantId', result.tenantId.toString());
-                    sessionStorage.setItem('tenantName', result.tenantName);
-                    sessionStorage.setItem('userFullName', result.userFullName);
-                    sessionStorage.setItem('userEmail', result.userEmail);
-                    sessionStorage.setItem('EntityTypeId', result.entityTypeId);
-
                     console.log('Stored session data:', {
                         authToken: result.token,
-                        tenantId: result.tenantId,
-                        tenantName: result.tenantName,
+                        entityId: result.entityId,
+                        entityName: result.entityName,
                         userFullName: result.userFullName,
                         userEmail: result.userEmail
                     });
                     
-                    // Redirect to tenant-specific dashboard
+                    // Redirect to dashboard
                     setTimeout(() => {
                         console.log('Redirecting to main page...');
-                        window.location.href = 'index.html'; // Redirect to main application
+                        window.location.href = 'index.html';
                     }, 1000);
                 } else {
                     // Reset step on failure

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using PetelApp.Api.Services;
 
 namespace PetelApp.Api.Services
 {
@@ -51,7 +52,7 @@ namespace PetelApp.Api.Services
                 using var scope = _serviceProvider.CreateScope();
                 var systemAttributeService = scope.ServiceProvider.GetRequiredService<SystemAttributeService>();
                 
-                var attributes = await systemAttributeService.GetAllAttributesAsync();
+                var attributes = await systemAttributeService.GetAllAttributesListAsync();
                 _logger.LogInformation($"Loaded {attributes.Count} system attributes at startup");
             }
             catch (Exception ex)

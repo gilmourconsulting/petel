@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Microsoft.EntityFrameworkCore; // Add this for Precision attribute
 
 namespace PetelApp.Api.Data
 {
@@ -14,37 +15,39 @@ namespace PetelApp.Api.Data
         [Column("id")]
         public int Id { get; set; }
 
+        [Column("title")]
+        [StringLength(255)]
+        public string Title { get; set; } = string.Empty;
+
+        [Column("description")]
+        public string? Description { get; set; }
+
+        [Column("category_id")]
+        public int? CategoryId { get; set; }
+
         [Column("school_id")]
-        public int SchoolId { get; set; } // Tenant ID
+        public int? SchoolId { get; set; }
 
-        [Column("school_year_id")]
-        public int SchoolYearId { get; set; }
+        [Column("budgeted_hours")]
+        [Precision(10, 2)]
+        public decimal BudgetedHours { get; set; }
 
-        [Column("budget_name")]
-        [Required]
-        [MaxLength(255)]
-        public string BudgetName { get; set; } = string.Empty;
+        [Column("actual_hours")]
+        [Precision(10, 2)]
+        public decimal ActualHours { get; set; }
 
-        [Column("allocated_hours")]
-        [Required]
-        public decimal AllocatedHours { get; set; }
+        [Column("status")]
+        [StringLength(50)]
+        public string? Status { get; set; }
 
-        [Column("used_hours")]
-        public decimal UsedHours { get; set; } = 0;
-
-        [Column("remaining_hours")]
-        public decimal RemainingHours => AllocatedHours - UsedHours;
-
-        [Column("is_active")]
-        public bool IsActive { get; set; } = true;
+        [Column("tenant_id")]
+        [StringLength(100)]
+        public string? Tenant { get; set; }
 
         [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime? CreatedAt { get; set; }
 
         [Column("updated_at")]
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
-        // Navigation properties
-        public virtual SchoolYear SchoolYear { get; set; } = null!;
+        public DateTime? UpdatedAt { get; set; }
     }
 }
