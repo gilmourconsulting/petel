@@ -41,6 +41,43 @@ namespace PetelApp.Api.Session
             return sessionId;
         }
 
+        public void CreateUserSession(UserSession userSession)
+        {
+            if (userSession == null)
+            {
+                _logger.LogWarning("Attempt to create session with null UserSession object");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(userSession.SessionId))
+            {
+                userSession.SessionId = Guid.NewGuid().ToString();
+            }
+
+            // Set creation and access timestamps
+            userSession.CreatedAt = DateTime.UtcNow;
+            userSession.LastAccessedAt = DateTime.UtcNow;
+
+            // Add the session to the concurrent dictionary
+            _sessions.TryAdd(userSession.SessionId, userSession);
+            
+            _logger.LogInformation("User session created for user {UserId} with session {SessionId} in entity {EntityId}", 
+                userSession.UserId, userSession.SessionId, userSession.EntityId);
+        }
+
+        // Also add an overload method for convenience
+        public void CreateUserSession(string sessionId, UserSession userSession)
+        {
+            if (string.IsNullOrEmpty(sessionId))
+            {
+                _logger.LogWarning("Attempt to create session with null or empty sessionId");
+                return;
+            }
+
+            userSession.SessionId = sessionId;
+            CreateUserSession(userSession);
+        }
+
         public UserSession? GetUserSession(string sessionId)
         {
             if (string.IsNullOrEmpty(sessionId))

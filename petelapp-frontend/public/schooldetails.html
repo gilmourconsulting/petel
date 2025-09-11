@@ -137,25 +137,24 @@
             
             try {
                 // Get session data following Authentication & Session Management
-                const tenantId = sessionStorage.getItem('tenantId');
+                const entityId = sessionStorage.getItem('entityId');
                 const authToken = sessionStorage.getItem('authToken');
                 
-                if (!tenantId) {
-                    console.error('❌ No tenant ID found in session');
-                    // Use mock data when no tenant ID
+                if (!entityId) {
+                    console.error('❌ No entity ID found in session');
+                    // Use mock data when no entity ID
                     const mockData = generateSchoolCharacterizationMockData();
                     displaySchoolCharacterization(mockData);
                     return;
                 }
 
-                // API call following API Communication Pattern
-                const apiUrl = AppConfig.getApiUrl(`entities/schoolcharacterization?schoolId=${selectedSchoolId}&tenantId=${tenantId}`);
+                // API call following API Communication Pattern with Entity-Based Request Flow
+                const apiUrl = AppConfig.getApiUrl(`entities/schoolcharacterization?schoolId=${selectedSchoolId}&entityId=${entityId}`);
                 console.log('🌐 Making API call to:', apiUrl);
                 
-                // Build headers following Multi-Tenant Request Flow
+                // Build headers following Entity-Based Request Flow
                 const headers = {
-                    'Content-Type': 'application/json',
-                    'X-Tenant-ID': tenantId
+                    'Content-Type': 'application/json'
                 };
 
                 // Only add Authorization header if token exists
@@ -257,25 +256,24 @@
             
             try {
                 // Get session data following Authentication & Session Management
-                const tenantId = sessionStorage.getItem('tenantId');
+                const entityId = sessionStorage.getItem('entityId');
                 const authToken = sessionStorage.getItem('authToken');
                 
-                if (!tenantId) {
-                    console.error('❌ No tenant ID found in session');
-                    // Use mock data when no tenant ID
+                if (!entityId) {
+                    console.error('❌ No entity ID found in session');
+                    // Use mock data when no entity ID
                     const mockData = generateAdditionalEducationMockData();
                     initializeAdditionalEducationTable(mockData);
                     return;
                 }
 
-                // API call following API Communication Pattern
-                const apiUrl = AppConfig.getApiUrl(`entities/additionaleducation?schoolId=${selectedSchoolId}&tenantId=${tenantId}`);
+                // API call following API Communication Pattern with Entity-Based Request Flow
+                const apiUrl = AppConfig.getApiUrl(`entities/additionaleducation?schoolId=${selectedSchoolId}&entityId=${entityId}`);
                 console.log('🌐 Making API call to:', apiUrl);
                 
-                // Build headers following Multi-Tenant Request Flow
+                // Build headers following Entity-Based Request Flow
                 const headers = {
-                    'Content-Type': 'application/json',
-                    'X-Tenant-ID': tenantId
+                    'Content-Type': 'application/json'
                 };
 
                 // Only add Authorization header if token exists

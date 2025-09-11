@@ -258,14 +258,14 @@ fetch(AppConfig.getApiUrl('systemAttributes'))
 ## Security Patterns
 
 - **Frontend**: Session storage for auth tokens, automatic logout on token expiry
-- **Backend**: Session-based auth with tenant validation middleware
+- **Backend**: Session-based auth with entity validation middleware
 - **CORS**: Development allows localhost, production requires explicit domain configuration
 - **SQL**: Entity Framework prevents injection, parameterized queries only
 
 ## Common Gotchas
 
 - Frontend scripts in loaded HTML must be re-executed manually via DOM manipulation
-- Tenant ID must be present in session for most API endpoints (except `/api/systemattributes`)
+- Entity ID must be present in session for most API endpoints (except `/api/systemattributes`)
 - PostgreSQL connection strings in `appsettings.json` use specific database names
 - Hebrew text requires UTF-8 encoding and RTL CSS considerations
 - **All tables MUST use ReusableTable component** - no manual table HTML

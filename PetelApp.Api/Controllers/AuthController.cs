@@ -47,25 +47,17 @@ namespace PetelApp.Api.Controllers
 
                 // Find user by username first
                 var user = await _context.Users
+                    .Include(u => u.Entity) // Include entity details
                     .FirstOrDefaultAsync(u => u.Username == request.Username);
-                        
+                    
                 if (user == null)
                 {
                     _logger.LogWarning("Login failed: User {Username} not found", request.Username);
                     return Unauthorized(new { success = false, message = "שם משתמש או סיסמה שגויים" });
                 }
 
-                // TEMPORARY DEBUG CODE - DO NOT USE IN PRODUCTION
-                // Log the password hashes for comparison
-                _logger.LogWarning("DEBUG - Authentication comparison:");
-                _logger.LogWarning("DEBUG - Received password hash: {ReceivedHash}", request.Password);
-                _logger.LogWarning("DEBUG - Stored password hash: {StoredHash}", user.PasswordHash);
-
                 // Validate password
                 bool passwordValid = await _authService.VerifyPasswordAsync(user, request.Password);
-                
-                // Log the result of password verification
-                _logger.LogWarning("DEBUG - Password verification result: {Result}", passwordValid);
 
                 if (!passwordValid)
                 {
@@ -73,15 +65,15 @@ namespace PetelApp.Api.Controllers
                     return Unauthorized(new { success = false, message = "שם משתמש או סיסמה שגויים" });
                 }
                 
-                // Check if user belongs to the selected entity
+                // Validate entity ID matches
                 if (user.EntityId != request.EntityId)
                 {
-                    _logger.LogWarning("Login failed: User {Username} does not belong to entity {EntityId}", 
-                        request.Username, request.EntityId);
-                    return Unauthorized(new { success = false, message = "המשתמש אינו משויך לארגון זה" });
+                    _logger.LogWarning("Login failed: Entity mismatch for user {Username}. Expected: {ExpectedEntity}, Got: {ActualEntity}", 
+                        request.Username, user.EntityId, request.EntityId);
+                    return Unauthorized(new { success = false, message = "המשתמש אינו שייך לישות שנבחרה" });
                 }
-
-                // Get entity information
+                
+                // Get entity details including entity type
                 var entity = await _context.Entities
                     .Include(e => e.EntityType)
                     .FirstOrDefaultAsync(e => e.Id == user.EntityId);
@@ -89,53 +81,79 @@ namespace PetelApp.Api.Controllers
                 if (entity == null)
                 {
                     _logger.LogWarning("Login failed: Entity {EntityId} not found", user.EntityId);
-                    return NotFound(new { success = false, message = "הארגון לא נמצא במערכת" });
+                    return Unauthorized(new { success = false, message = "ישות לא נמצאה" });
                 }
 
-                // Generate session
+                // Update user's last login time
+                user.LastLogin = DateTime.UtcNow;
+                await _context.SaveChangesAsync();
+
+                // Create session following Entity-Based Request Flow
                 var sessionId = Guid.NewGuid().ToString();
-                var session = new UserSession
+                var userSession = new UserSession
                 {
                     SessionId = sessionId,
                     UserId = user.Id.ToString(),
+                    Username = user.Username,
                     UserFullName = $"{user.FirstName} {user.LastName}".Trim(),
-                    EntityId = user.EntityId.ToString(), // Using EntityId instead of TenantId
+                    FirstName = user.FirstName ?? string.Empty,
+                    LastName = user.LastName ?? string.Empty,
+                    Email = user.Email ?? string.Empty,
+                    Phone = user.Phone ?? string.Empty,
+                    EntityId = user.EntityId.ToString(),
                     EntityName = entity.Name,
                     EntityTypeId = entity.EntityTypeId.ToString(),
+                    EntityTypeName = entity.EntityType?.Name ?? "Unknown", // Fixed: TypeName -> Name
+                    LastLogin = user.LastLogin ?? DateTime.UtcNow,
                     CreatedAt = DateTime.UtcNow,
-                    LastAccessedAt = DateTime.UtcNow,
-                    Roles = await _userRoleService.GetUserRolesAsync(user.Id)
+                    IsActive = true
                 };
 
-                // Store session
-                _userSessionService.SetUserSession(session);
+                // Store session using UserSessionService following Authentication & Session Management
+                _userSessionService.CreateUserSession(userSession); // Use correct method to add session
 
-                _logger.LogInformation("User {Username} logged in successfully for entity {EntityId}", 
-                    request.Username, request.EntityId);
+                // Get user roles
+                var userRoles = await _userRoleService.GetUserRolesAsync(user.Id);
+                userSession.Roles = userRoles.ToList();
 
-                // Return successful login response
+                _logger.LogInformation("User {Username} logged in successfully with session {SessionId}", 
+                    request.Username, sessionId);
+
+                // Return comprehensive login response
                 return Ok(new
                 {
                     success = true,
-                    token = sessionId,
-                    userId = user.Id.ToString(),
-                    userFullName = $"{user.FirstName} {user.LastName}".Trim(),
-                    entityId = user.EntityId.ToString(),
-                    entityName = entity.Name,
-                    entityTypeId = entity.EntityTypeId.ToString(),
-                    entityTypeName = entity.EntityType?.Name ?? string.Empty,
-                    roles = session.Roles ?? new List<string>(),
-                    message = "התחברות בוצעה בהצלחה"
+                    message = "התחברות בוצעה בהצלחה",
+                    token = sessionId, // Session ID serves as token
+                    user = new
+                    {
+                        id = user.Id,
+                        username = user.Username,
+                        firstName = user.FirstName,
+                        lastName = user.LastName,
+                        fullName = userSession.UserFullName,
+                        email = user.Email,
+                        phone = user.Phone,
+                        lastLogin = user.LastLogin
+                    },
+                    entity = new
+                    {
+                        id = entity.Id,
+                        name = entity.Name,
+                        entityTypeId = entity.EntityTypeId,
+                        entityTypeName = entity.EntityType?.Name // Fixed: TypeName -> Name
+                    },
+                    session = new
+                    {
+                        sessionId = sessionId,
+                        createdAt = userSession.CreatedAt
+                    }
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Login error for user {Username}", request.Username);
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = "שגיאה בהתחברות: " + ex.Message
-                });
+                _logger.LogError(ex, "Error during login for user {Username}", request.Username);
+                return StatusCode(500, new { success = false, message = "שגיאה פנימית במערכת" });
             }
         }
 

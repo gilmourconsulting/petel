@@ -44,7 +44,7 @@
         let allSchools = [];
         let schoolsTable = null;
 
-        // Load schools data following Multi-Tenant Request Flow
+        // Load schools data following Entity-Based Request Flow
         async function loadSchoolsData() {
             console.log('🚀 loadSchoolsData FUNCTION CALLED!');
             
@@ -57,28 +57,27 @@
 
             try {
                 // Get session data following Authentication & Session Management
-                const tenantId = sessionStorage.getItem('tenantId');
+                const entityId = sessionStorage.getItem('entityId');
                 const authToken = sessionStorage.getItem('authToken');
                 
                 console.log('📋 Session Debug:', {
-                    tenantId: tenantId,
+                    entityId: entityId,
                     authToken: authToken || 'null',
                     hasAuthToken: !!authToken
                 });
                 
-                if (!tenantId) {
-                    console.error('❌ No tenant ID found in session');
+                if (!entityId) {
+                    console.error('❌ No entity ID found in session');
                     return;
                 }
 
-                // API call following API Communication Pattern with proper auth handling
-                const apiUrl = AppConfig.getApiUrl(`entities/schools?tenantId=${tenantId}`);
+                // API call following API Communication Pattern with Entity-Based Request Flow
+                const apiUrl = AppConfig.getApiUrl(`entities/schools?entityId=${entityId}`);
                 console.log('🌐 Making API call to:', apiUrl);
                 
-                // Build headers following Multi-Tenant Request Flow
+                // Build headers following Entity-Based Request Flow
                 const headers = {
-                    'Content-Type': 'application/json',
-                    'X-Tenant-ID': tenantId
+                    'Content-Type': 'application/json'
                 };
 
                 // Only add Authorization header if token exists

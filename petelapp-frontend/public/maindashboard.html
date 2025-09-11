@@ -168,48 +168,85 @@
                 // Load system attributes to get year values
                 const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
                 if (response.ok) {
-                    const attributes = await response.json();
-                    console.log('System attributes loaded:', attributes);
+                    const result = await response.json();
+                    console.log('System attributes response:', result);
+                    
+                    // Extract attributes array based on API response structure
+                    let attributesArray = [];
+                    
+                    // Handle different possible response formats
+                    if (result && result.success) {
+                        if (Array.isArray(result.data)) {
+                            attributesArray = result.data;
+                        } else if (result.data && typeof result.data === 'object') {
+                            // Convert object values to array
+                            attributesArray = Object.values(result.data);
+                        }
+                    } else if (Array.isArray(result)) {
+                        attributesArray = result;
+                    }
+                    
+                    console.log('Processed attributes array:', attributesArray);
                     
                     // Find year attributes
-                    const previousYearAttr = attributes.find(attr => attr.name === "Previous Year");
-                    const currentYearAttr = attributes.find(attr => attr.name === "Current Year");
-                    const nextYearAttr = attributes.find(attr => attr.name === "Next Year");
+                    const previousYearAttr = attributesArray.find(attr => 
+                        (attr.name === "Previous Year") || 
+                        (attr.attributeName === "Previous Year")
+                    );
+                    
+                    const currentYearAttr = attributesArray.find(attr => 
+                        (attr.name === "Current Year") || 
+                        (attr.attributeName === "Current Year")
+                    );
+                    
+                    const nextYearAttr = attributesArray.find(attr => 
+                        (attr.name === "Next Year") || 
+                        (attr.attributeName === "Next Year")
+                    );
                     
                     // Store year IDs and values globally following Authentication & Session Management
                     if (previousYearAttr) {
-                        window.previousYearId = previousYearAttr.foreignId;
-                        sessionStorage.setItem('previousYearId', previousYearAttr.foreignId);
-                        sessionStorage.setItem('previousYearValue', previousYearAttr.value);
+                        const foreignId = previousYearAttr.foreignId || previousYearAttr.ForeignId;
+                        const value = previousYearAttr.value || previousYearAttr.Value;
+                        
+                        window.previousYearId = foreignId;
+                        sessionStorage.setItem('previousYearId', foreignId);
+                        sessionStorage.setItem('previousYearValue', value);
                         
                         // Update button text
                         const prevButton = document.querySelector('.context-btn[onclick*="previous"]');
                         if (prevButton) {
-                            prevButton.textContent = `שנת ${previousYearAttr.value}`;
+                            prevButton.textContent = `${value}`;
                         }
                     }
                     
                     if (currentYearAttr) {
-                        window.currentYearId = currentYearAttr.foreignId;
-                        sessionStorage.setItem('currentYearId', currentYearAttr.foreignId);
-                        sessionStorage.setItem('currentYearValue', currentYearAttr.value);
+                        const foreignId = currentYearAttr.foreignId || currentYearAttr.ForeignId;
+                        const value = currentYearAttr.value || currentYearAttr.Value;
+                        
+                        window.currentYearId = foreignId;
+                        sessionStorage.setItem('currentYearId', foreignId);
+                        sessionStorage.setItem('currentYearValue', value);
                         
                         // Update button text
                         const currentButton = document.querySelector('.context-btn[onclick*="current"]');
                         if (currentButton) {
-                            currentButton.textContent = `שנת ${currentYearAttr.value}`;
+                            currentButton.textContent = `${value}`;
                         }
                     }
                     
                     if (nextYearAttr) {
-                        window.nextYearId = nextYearAttr.foreignId;
-                        sessionStorage.setItem('nextYearId', nextYearAttr.foreignId);
-                        sessionStorage.setItem('nextYearValue', nextYearAttr.value);
+                        const foreignId = nextYearAttr.foreignId || nextYearAttr.ForeignId;
+                        const value = nextYearAttr.value || nextYearAttr.Value;
+                        
+                        window.nextYearId = foreignId;
+                        sessionStorage.setItem('nextYearId', foreignId);
+                        sessionStorage.setItem('nextYearValue', value);
                         
                         // Update button text
                         const nextButton = document.querySelector('.context-btn[onclick*="next"]');
                         if (nextButton) {
-                            nextButton.textContent = `שנת ${nextYearAttr.value}`;
+                            nextButton.textContent = `${value}`;
                         }
                     }
                     
@@ -222,27 +259,60 @@
             }
         }
 
-        // Store selected year in session following Authentication & Session Management
+        // Update the storeSelectedYearInSession function to use direct API calls
         async function storeSelectedYearInSession(yearId, yearType) {
             console.log('Storing selected year in session:', yearId, yearType);
             
             try {
-                // Store year selection on server-side session
-                await SessionManager.updateSessionData('selectedYearId', yearId);
-                await SessionManager.updateSessionData('selectedYearType', yearType);
+                // Store year selection on server-side session following API Communication Pattern
+                const updateRequests = [
+                    {
+                        key: 'selectedYearId',
+                        value: yearId.toString()
+                    },
+                    {
+                        key: 'selectedYearType', 
+                        value: yearType
+                    }
+                ];
                 
-                // Get year value from session data
-                const sessionData = await SessionManager.getSessionData();
+                // Get year value from stored session data
                 let yearValue = '';
                 if (yearType === 'previous') {
-                    yearValue = sessionData.previousYearValue || '';
+                    yearValue = sessionStorage.getItem('previousYearValue') || '';
                 } else if (yearType === 'current') {
-                    yearValue = sessionData.currentYearValue || '';
+                    yearValue = sessionStorage.getItem('currentYearValue') || '';
                 } else if (yearType === 'next') {
-                    yearValue = sessionData.nextYearValue || '';
+                    yearValue = sessionStorage.getItem('nextYearValue') || '';
                 }
                 
-                await SessionManager.updateSessionData('selectedYearValue', yearValue);
+                if (yearValue) {
+                    updateRequests.push({
+                        key: 'selectedYearValue',
+                        value: yearValue
+                    });
+                }
+                
+                // Update each session data key using SessionController
+                for (const request of updateRequests) {
+                    const response = await fetch(AppConfig.getApiUrl('session/data'), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                        },
+                        body: JSON.stringify(request)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Failed to update session data for ${request.key}: ${response.status}`);
+                    }
+                }
+                
+                // Store locally for immediate access following Authentication & Session Management
+                sessionStorage.setItem('selectedYearId', yearId.toString());
+                sessionStorage.setItem('selectedYearType', yearType);
+                sessionStorage.setItem('selectedYearValue', yearValue);
                 
                 console.log('Selected year stored in server session:', {
                     yearId: yearId,
@@ -250,13 +320,24 @@
                     yearValue: yearValue
                 });
                 
+                // Dispatch school year changed event following Cross-Component Communication
+                const yearChangedEvent = new CustomEvent('schoolYearChanged', {
+                    detail: {
+                        yearId: yearId,
+                        yearType: yearType,
+                        yearValue: yearValue
+                    }
+                });
+                window.dispatchEvent(yearChangedEvent);
+                
             } catch (error) {
                 console.error('Error storing selected year:', error);
-                throw error;
+                // Don't throw error - allow navigation to continue even if session storage fails
+                console.warn('Continuing with navigation despite session storage error');
             }
         }
 
-        // Show school year function following Cross-Component Communication
+        // Update the showSchoolYear function to handle session storage errors gracefully
         async function showSchoolYear(yearId, yearType) {
             console.log('🗓️ showSchoolYear called with yearId:', yearId, 'yearType:', yearType);
             
@@ -266,8 +347,12 @@
                 return;
             }
             
-            // Store the selected year (this will not fail the navigation)
-            await storeSelectedYearInSession(yearId, yearType);
+            try {
+                // Store the selected year (this will not fail the navigation)
+                await storeSelectedYearInSession(yearId, yearType);
+            } catch (error) {
+                console.warn('⚠️ Session storage failed, continuing with navigation:', error.message);
+            }
             
             // Check entity type to determine navigation following Project-Specific Patterns
             const entityTypeId = parseInt(sessionStorage.getItem('entityTypeId')) || 0;

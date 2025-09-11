@@ -85,19 +85,39 @@ namespace PetelApp.Api.Controllers
         /// Get all schools
         /// </summary>
         [HttpGet("schools")]
-        public async Task<IActionResult> GetSchools()
+        public async Task<IActionResult> GetSchools([FromQuery] int? entityId = null)
         {
             try
             {
-                _logger.LogInformation("Loading all schools");
+                // Get current session following Authentication & Session Management
+                var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+                if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
+                {
+                    _logger.LogWarning("No valid authorization header found");
+                    return Unauthorized(new { success = false, message = "Authentication required" });
+                }
 
-                // Load schools with eager loading for EntityType
+                var sessionToken = authHeader.Substring("Bearer ".Length).Trim();
+                
+                // For now, use the entityId from query parameter if provided
+                // In a full implementation, you would validate the session token and get the user's entity ID
+                var filterEntityId = entityId;
+                
+                if (!filterEntityId.HasValue)
+                {
+                    _logger.LogWarning("No entity ID provided for schools filter");
+                    return BadRequest(new { success = false, message = "Entity ID is required" });
+                }
+
+                _logger.LogInformation("Loading schools for entity ID: {EntityId}", filterEntityId);
+
+                // Query schools where OwnerId equals the user's entity ID following Entity-Based Request Flow
                 var schoolsQuery = _context.Entities
                     .Include(e => e.EntityType)
-                    .AsNoTracking() // For better performance in read-only scenarios
-                    .Where(e => e.IsActive);
+                    .AsNoTracking()
+                    .Where(e => e.IsActive && e.OwnerId == filterEntityId.Value); // Filter by owner entity ID
 
-                _logger.LogDebug("Executing schools query");
+                _logger.LogDebug("Executing filtered schools query for owner: {OwnerId}", filterEntityId);
 
                 // Execute query and project to anonymous type
                 var schools = await schoolsQuery
@@ -112,21 +132,22 @@ namespace PetelApp.Api.Controllers
                         characterization = e.Characterization,
                         contactPerson = e.ContactPerson,
                         educationStage = e.EducationStage,
-                        ownerId = e.OwnerId, // Kept for backward compatibility
+                        ownerId = e.OwnerId,
                         entityTypeId = e.EntityTypeId,
-                        entityTypeName = e.EntityType.Name,
+                        entityTypeName = e.EntityType != null ? e.EntityType.Name : "Unknown",
                         isActive = e.IsActive
                     })
                     .OrderBy(e => e.name)
                     .ToListAsync();
 
-                _logger.LogInformation("Loaded {Count} schools", schools.Count);
+                _logger.LogInformation("Loaded {Count} schools for owner entity {EntityId}", schools.Count, filterEntityId);
                 return Ok(schools);
             }
             catch (DbUpdateException dbEx)
             {
                 _logger.LogError(dbEx, "Database error loading schools");
                 return StatusCode(500, new { 
+                    success = false,
                     message = "שגיאה בטעינת רשימת בתי הספר - בעיה בבסיס הנתונים", 
                     error = dbEx.InnerException?.Message ?? dbEx.Message 
                 });
@@ -135,6 +156,7 @@ namespace PetelApp.Api.Controllers
             {
                 _logger.LogError(ex, "Error loading schools");
                 return StatusCode(500, new { 
+                    success = false,
                     message = "שגיאה בטעינת רשימת בתי הספר", 
                     error = ex.Message 
                 });
