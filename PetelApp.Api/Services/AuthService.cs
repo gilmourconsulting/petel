@@ -1,9 +1,9 @@
-using Microsoft.Extensions.Logging;
-using PetelApp.Api.Data;
 using System;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using PetelApp.Api.Data;
 
 namespace PetelApp.Api.Services
 {
@@ -31,16 +31,11 @@ namespace PetelApp.Api.Services
 
             try
             {
-                // In a real system, use a proper password hashing library like BCrypt
-                // This is a simplified implementation for demo purposes
-                string hashedInput = await HashPasswordAsync(password);
+                // Hash the provided password with Base64 encoding
+                string hashedPassword = await HashPasswordAsync(password);
                 
-                // Store passwords should be hashed in the database
-                // For now, we're comparing with the stored password directly
-                // In production, replace this with proper password verification
-                bool passwordMatches = user.PasswordHash == hashedInput || user.PasswordHash == password;
-                
-                return passwordMatches;
+                // Compare with the stored hash
+                return string.Equals(user.PasswordHash, hashedPassword, StringComparison.OrdinalIgnoreCase);
             }
             catch (Exception ex)
             {
@@ -56,21 +51,26 @@ namespace PetelApp.Api.Services
         {
             if (string.IsNullOrEmpty(password))
             {
-                return string.Empty;
+                throw new ArgumentNullException(nameof(password));
             }
 
-            try
+            // Move CPU-intensive hashing to a background thread
+            return await Task.Run(() => HashPasswordBase64(password));
+        }
+
+        private string HashPasswordBase64(string password)
+        {
+            // Use SHA-256 hash algorithm
+            using (var sha256 = SHA256.Create())
             {
-                // In a real system, use a proper password hashing library like BCrypt
-                // This is a simplified implementation for demo purposes
-                using var sha256 = SHA256.Create();
-                var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-                return Convert.ToBase64String(hashedBytes);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error hashing password");
-                throw;
+                // Convert the password string to a byte array
+                var bytes = Encoding.UTF8.GetBytes(password);
+                
+                // Compute the hash
+                var hashBytes = sha256.ComputeHash(bytes);
+                
+                // Convert the hash to a Base64 string
+                return Convert.ToBase64String(hashBytes);
             }
         }
     }

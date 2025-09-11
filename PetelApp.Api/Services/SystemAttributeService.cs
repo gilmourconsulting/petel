@@ -1,88 +1,76 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using PetelApp.Api.Data;
 using PetelApp.Api.Models;
 using PetelApp.Api.Session;
-using System.Text.Json;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace PetelApp.Api.Services
 {
     public class SystemAttributeService
     {
-        private readonly AppDbContext _context;
+        private readonly IServiceProvider _serviceProvider;
         private readonly UserSessionService _userSessionService;
         private readonly ILogger<SystemAttributeService> _logger;
-        private static readonly Dictionary<string, SystemAttributeDto> _systemAttributes = new();
-        private static readonly Dictionary<string, SystemAttributeDto> _systemAttributesByForeignId = new();
+        private readonly Dictionary<string, SystemAttributeDto> _systemAttributes = new Dictionary<string, SystemAttributeDto>();
         private static DateTime _lastLoaded = DateTime.MinValue;
 
-        public SystemAttributeService(AppDbContext context, UserSessionService userSessionService, ILogger<SystemAttributeService> logger)
+        public SystemAttributeService(
+            IServiceProvider serviceProvider, 
+            UserSessionService userSessionService, 
+            ILogger<SystemAttributeService> logger)
         {
-            _context = context;
+            _serviceProvider = serviceProvider;
             _userSessionService = userSessionService;
             _logger = logger;
         }
 
-        // Method for HostedService - returns list of DTOs
         public async Task<List<SystemAttributeDto>> GetAllAttributesListAsync()
         {
             try
             {
                 _logger.LogInformation("Loading all system attributes from database...");
 
-                var attributes = await _context.SystemAttributes
+                // Create a scope to resolve the DbContext
+                using var scope = _serviceProvider.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                var attributes = await context.SystemAttributes
                     .AsNoTracking()
                     .ToListAsync();
+
+                if (attributes == null || attributes.Count == 0)
+                {
+                    _logger.LogError("No system attributes found in the database. There are supposed to be 4 records.");
+                    return new List<SystemAttributeDto>();
+                }
+
+                _logger.LogInformation("Found {Count} attributes in database", attributes.Count);
 
                 var attributeDtos = attributes.Select(attr => new SystemAttributeDto
                 {
                     Id = attr.Id,
-                    AttributeName = attr.AttributeName,
-                    AttributeValue = attr.AttributeValue,
-                    AttributeType = attr.AttributeType,
-                    DefaultValue = attr.DefaultValue,
-                    AllowedValues = attr.AllowedValues,
+                    Name = attr.Name,
+                    Value = attr.Value,
+                    ValueType = attr.ValueType,
                     Description = attr.Description ?? string.Empty,
-                    Category = attr.Category,
-                    IsRequired = attr.IsRequired,
-                    IsActive = attr.IsActive,
-                    SortOrder = attr.SortOrder,
-                    ForeignId = attr.ForeignId?.ToString() ?? string.Empty,
-                   // Tenant = attr.Tenant,
-                    CreatedBy = attr.CreatedBy,
-                    CreatedAt = attr.CreatedAt ?? DateTime.MinValue,
-                    UpdatedBy = attr.UpdatedBy,
-                    UpdatedAt = attr.UpdatedAt ?? DateTime.MinValue
+                    UpdateUser = attr.UpdateUser ?? string.Empty,
+                    ForeignId = attr.ForeignId,
+                    CreatedAt = attr.CreatedAt,
+                    UpdatedAt = attr.UpdatedAt
                 }).ToList();
 
-                _logger.LogInformation("Loaded {Count} system attributes", attributeDtos.Count);
+                _logger.LogInformation("Successfully converted {Count} database attributes to DTOs", attributeDtos.Count);
                 return attributeDtos;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading all system attributes");
+                _logger.LogError(ex, "Error loading system attributes from database");
                 throw;
-            }
-        }
-
-        // Method for simple access - returns dictionary
-        public async Task<Dictionary<string, string>> GetAllAttributesDictionaryAsync()
-        {
-            try
-            {
-                var attributes = await _context.SystemAttributes
-                    .Where(a => !string.IsNullOrEmpty(a.Name))
-                    .ToDictionaryAsync(a => a.Name!, a => a.Value ?? string.Empty);
-
-                return attributes;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving all system attributes");
-                return new Dictionary<string, string>();
             }
         }
 
@@ -90,119 +78,199 @@ namespace PetelApp.Api.Services
         {
             try
             {
+                _logger.LogInformation("Loading system attributes into memory cache");
+                
                 var attributes = await GetAllAttributesListAsync();
-
                 _systemAttributes.Clear();
-                _systemAttributesByForeignId.Clear();
+
+                if (attributes.Count == 0)
+                {
+                    _logger.LogError("Failed to load any system attributes into memory. The system attributes table should contain 4 records.");
+                    return;
+                }
 
                 foreach (var dto in attributes)
                 {
-                    if (!string.IsNullOrEmpty(dto.AttributeName))
+                    if (!string.IsNullOrEmpty(dto.Name))
                     {
-                        _systemAttributes[dto.AttributeName] = dto;
-                    }
-
-                    if (!string.IsNullOrEmpty(dto.ForeignId))
-                    {
-                        _systemAttributesByForeignId[dto.ForeignId] = dto;
+                        _systemAttributes[dto.Name] = dto;
+                        _logger.LogDebug("Added attribute: {Name}={Value}", dto.Name, dto.Value);
                     }
                 }
 
                 _lastLoaded = DateTime.UtcNow;
-                _logger.LogInformation("Loaded {Count} system attributes into memory", attributes.Count);
+                _logger.LogInformation("Successfully loaded {Count} system attributes into memory cache", _systemAttributes.Count);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error loading system attributes");
+                _logger.LogError(ex, "Error loading system attributes into memory");
                 throw;
-            }
-        }
-
-        public async Task<Dictionary<string, SystemAttributeDto>> GetSystemAttributesForSessionAsync(string sessionId)
-        {
-            var session = _userSessionService.GetUserSession(sessionId);
-            if (session == null)
-            {
-                return new Dictionary<string, SystemAttributeDto>();
-            }
-
-            // Update session with current system attributes
-            session.SystemAttributes = _systemAttributes.ToDictionary(kvp => kvp.Key, kvp => (object)kvp.Value);
-            session.SystemAttributeForeignIds = _systemAttributesByForeignId.ToDictionary(kvp => kvp.Key, kvp => (object)kvp.Value);
-            session.SystemAttributesLastLoaded = _lastLoaded;
-
-            return _systemAttributes;
-        }
-
-        public async Task<SystemAttributeDto?> GetSystemAttributeAsync(string sessionId, string attributeName)
-        {
-            var session = _userSessionService.GetUserSession(sessionId);
-            if (session == null)
-            {
-                return null;
-            }
-
-            if (_lastLoaded == DateTime.MinValue || DateTime.UtcNow - _lastLoaded > TimeSpan.FromHours(1))
-            {
-                await LoadSystemAttributesAsync();
-            }
-
-            return _systemAttributes.TryGetValue(attributeName, out var attribute) ? attribute : null;
-        }
-
-        public Task UpdateSelectedYearAsync(string sessionId, string yearId, string yearType)
-        {
-            var session = _userSessionService.GetUserSession(sessionId);
-            if (session == null)
-            {
-                return Task.CompletedTask;
-            }
-
-            // Update session selected year
-            session.SelectedYear = new { id = yearId, type = yearType };
-            session.SelectedYearId = yearId;
-            session.SelectedYearType = yearType;
-            
-            return Task.CompletedTask;
-        }
-
-        // Simple attribute retrieval by name
-        public async Task<string> GetAttributeValueAsync(string attributeName)
-        {
-            try
-            {
-                var attribute = await _context.SystemAttributes
-                    .FirstOrDefaultAsync(a => a.Name == attributeName);
-
-                return attribute?.Value ?? string.Empty;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving system attribute: {AttributeName}", attributeName);
-                return string.Empty;
             }
         }
 
         public Dictionary<string, SystemAttributeDto> GetSystemAttributes()
         {
-            return _systemAttributes;
+            if (_systemAttributes.Count == 0)
+            {
+                _logger.LogWarning("No system attributes loaded in memory. The LoadSystemAttributesAsync method must be called first.");
+                
+                // Force a sync load if empty
+                try
+                {
+                    LoadSystemAttributesAsync().GetAwaiter().GetResult();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to load system attributes on-demand");
+                }
+                
+                if (_systemAttributes.Count == 0)
+                {
+                    _logger.LogError("Still could not load system attributes. The system will operate with empty attributes.");
+                }
+            }
+
+            return new Dictionary<string, SystemAttributeDto>(_systemAttributes);
         }
 
-        public Dictionary<string, SystemAttributeDto> GetSystemAttributesByForeignId()
+        public async Task<bool> UpdateSelectedYearAsync(string sessionId, string yearId, string yearType)
         {
-            return _systemAttributesByForeignId;
+            try
+            {
+                if (_userSessionService == null || string.IsNullOrEmpty(sessionId))
+                {
+                    _logger.LogWarning("Cannot update selected year: invalid session or service");
+                    return false;
+                }
+
+                // These are actual async operations, so use await
+                await _userSessionService.UpdateSessionDataAsync(sessionId, "selectedYearId", yearId);
+                await _userSessionService.UpdateSessionDataAsync(sessionId, "selectedYearType", yearType);
+
+                // Get additional year data if needed
+                if (!string.IsNullOrEmpty(yearId))
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    
+                    try
+                    {
+                        // Fetch year data without assuming property names
+                        var yearData = await context.SchoolYears
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(y => y.Id.ToString() == yearId);
+                            
+                        if (yearData != null)
+                        {
+                            // Use reflection to get the most appropriate property for display
+                            // This avoids hard-coding property names that might not exist
+                            var yearDisplayValue = GetYearDisplayValue(yearData);
+                            await _userSessionService.UpdateSessionDataAsync(sessionId, "selectedYearName", yearDisplayValue);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to load school year data for year ID {YearId}", yearId);
+                        // Continue without year data - don't fail the whole operation
+                    }
+                }
+
+                _logger.LogInformation("Updated selected year for session {SessionId}: YearId={YearId}, YearType={YearType}",
+                    sessionId, yearId, yearType);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating selected year for session {SessionId}", sessionId);
+                return false;
+            }
         }
 
-        // Add the missing GetAllAttributesAsync method to SystemAttributeService
-
-        public async Task<List<SystemAttributeDto>> GetAllAttributesAsync()
+        // Helper method to get the best display value from a SchoolYear object
+        private string GetYearDisplayValue(object yearData)
         {
-            // Bridge the method call to the existing implementation
-            return await GetAllAttributesListAsync();
+            // Try common property names that might exist on the SchoolYear entity
+            // in order of preference
+            var possibleProperties = new[]
+            {
+                "DisplayName",
+                "Name", 
+                "SchoolYearName",
+                "YearName",
+                "Title",
+                "YearValue",
+                "Value",
+                "Description"
+            };
+            
+            var type = yearData.GetType();
+            
+            foreach (var propName in possibleProperties)
+            {
+                var prop = type.GetProperty(propName);
+                if (prop != null)
+                {
+                    var value = prop.GetValue(yearData)?.ToString();
+                    if (!string.IsNullOrEmpty(value))
+                    {
+                        return value;
+                    }
+                }
+            }
+            
+            // Fall back to using the ID as string if no suitable property is found
+            var idProp = type.GetProperty("Id");
+            if (idProp != null)
+            {
+                return idProp.GetValue(yearData)?.ToString() ?? "Unknown";
+            }
+            
+            return "Unknown";
         }
-        public DateTime GetLastLoaded()
+
+        public async Task<Dictionary<string, object>> GetSystemAttributesForSessionAsync(string sessionId)
         {
-            return _lastLoaded;
+            try
+            {
+                var attributes = GetSystemAttributes();
+                var result = new Dictionary<string, object>();
+
+                foreach (var attr in attributes.Values)
+                {
+                    var key = attr.Name;
+                    var value = attr.Value;
+                    result[key] = value;
+                }
+
+                if (_userSessionService != null && !string.IsNullOrEmpty(sessionId))
+                {
+                    var session = _userSessionService.GetUserSession(sessionId);
+                    if (session != null)
+                    {
+                        // Store the entire attributes collection in session
+                        session.SystemAttributes = result;
+                        session.SystemAttributesLastLoaded = DateTime.UtcNow;
+                        
+                        // Individual key/value pairs can be stored as strings if needed
+                        foreach (var kvp in result)
+                        {
+                            await _userSessionService.UpdateSessionDataAsync(sessionId, 
+                                $"attr_{kvp.Key}", kvp.Value.ToString());
+                        }
+                        
+                        // Store the last loaded timestamp as a formatted string
+                        await _userSessionService.UpdateSessionDataAsync(sessionId,
+                            "systemAttributesLastLoadedTime", DateTime.UtcNow.ToString("o"));
+                    }
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting system attributes for session");
+                return new Dictionary<string, object>();
+            }
         }
     }
 }

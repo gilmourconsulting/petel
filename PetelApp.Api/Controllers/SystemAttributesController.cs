@@ -1,12 +1,16 @@
 using Microsoft.AspNetCore.Mvc;
 using PetelApp.Api.Services;
 using PetelApp.Api.Session;
+using PetelApp.Api.Models;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace PetelApp.Api.Controllers
 {
     /// <summary>
     /// Controller for system attributes management following entity-based request flow
-    /// Inherits from BaseController for session access methods
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -27,27 +31,41 @@ namespace PetelApp.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetSystemAttributes()
+        public IActionResult GetSystemAttributes()
         {
             try
             {
                 _logger.LogInformation("GetSystemAttributes endpoint called");
 
-                var sessionId = GetSessionId();
-                if (string.IsNullOrEmpty(sessionId))
+                // Get all system attributes with null check
+                var attributes = _systemAttributeService.GetSystemAttributes();
+                
+                // Log warning if no attributes found
+                if (attributes == null || attributes.Count == 0)
                 {
-                    // Allow access to system attributes without session for initial load
-                    var attributes = _systemAttributeService.GetSystemAttributes();
-                    return Ok(new { success = true, data = attributes });
+                    _logger.LogError("No system attributes found in the database. The system attributes table should contain 4 records.");
+                    return Ok(new { success = true, data = new Dictionary<string, SystemAttributeDto>() });
                 }
-
-                var systemAttributes = await _systemAttributeService.GetSystemAttributesForSessionAsync(sessionId);
-                return Ok(new { success = true, data = systemAttributes });
+                
+                _logger.LogInformation("Returning {Count} system attributes from database", attributes.Count);
+                
+                // Check if version attribute exists
+                if (attributes.TryGetValue("version", out var versionAttr) && versionAttr != null)
+                {
+                    _logger.LogInformation("Version attribute: {Version}", versionAttr.Value);
+                }
+                else
+                {
+                    _logger.LogWarning("No version attribute found in database");
+                }
+                
+                // Return in expected format with success flag and data property
+                return Ok(new { success = true, data = attributes });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting system attributes");
-                return StatusCode(500, new { message = "Internal server error" });
+                return StatusCode(500, new { success = false, message = "Internal server error", error = ex.Message });
             }
         }
 
@@ -98,13 +116,13 @@ namespace PetelApp.Api.Controllers
 
                 var sessionData = _userSessionService.GetAllSessionData(sessionId);
                 
-                // Return entity ID from session following the entity-based request flow
+                // Return entity ID from session following entity-based request flow
                 return Ok(new { 
                     success = true, 
                     systemAttributes = session.SystemAttributes,
                     systemAttributesLastLoaded = session.SystemAttributesLastLoaded,
                     selectedYear = session.SelectedYear,
-                    entityId = session.EntityId // Return EntityId instead of TenantId
+                    entityId = session.EntityId
                 });
             }
             catch (Exception ex)

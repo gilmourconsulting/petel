@@ -4,6 +4,7 @@ using PetelApp.Api.Services;
 using PetelApp.Api.Session;
 using PetelApp.Api.Middleware;
 using Hangfire;
+using Hangfire.Dashboard;
 using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,7 +23,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // Session services following authentication & session management patterns
 builder.Services.AddSingleton<UserSessionService>();
-builder.Services.AddScoped<SystemAttributeService>();
+builder.Services.AddSingleton<SystemAttributeService>();
 
 // Core services following multi-tenant request flow
 builder.Services.AddScoped<TenantService>();
@@ -55,10 +56,20 @@ builder.Services.AddSession(options =>
 });
 
 // Configure Hangfire with PostgreSQL storage
-builder.Services.AddHangfire(config =>
-    config.UsePostgreSqlStorage(builder.Configuration.GetConnectionString("DefaultConnection")));
-builder.Services.AddHangfireServer(options => {
-    options.WorkerCount = 1;
+builder.Services.AddHangfire(config => 
+{
+    config.SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
+          .UseSimpleAssemblyNameTypeSerializer()
+          .UseRecommendedSerializerSettings()
+          .UsePostgreSqlStorage(options =>
+          {
+              options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"));
+          });
+});
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = Environment.ProcessorCount * 2;
+    options.Queues = new[] { "default", "system" };
 });
 
 // Register auth and user role services
@@ -99,24 +110,16 @@ app.UseSession();
 
 // Remove tenant middleware from pipeline
 
-// Existing middleware registrations, but remove TenantMiddleware
-app.UseRouting();
-app.UseCors(builder => builder
-    .WithOrigins("http://localhost:3000")
-    .AllowAnyMethod()
-    .AllowAnyHeader()
-    .AllowCredentials());
-
-// app.UseMiddleware<TenantMiddleware>(); -- Remove this line or comment it out
-
-app.UseEndpoints(endpoints =>
-{
-    endpoints.MapControllers();
-});
-
-app.UseHttpsRedirection();
+// Update middleware configuration
+app.UseAuthentication();
 app.UseAuthorization();
+
+// Use top-level route registrations
 app.MapControllers();
+app.MapHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAuthorizationFilter() }
+});
 
 // Configure Hangfire dashboard and server
 app.UseHangfireDashboard();

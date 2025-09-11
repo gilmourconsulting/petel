@@ -7,7 +7,7 @@ namespace PetelApp.Api.Services
 {
     /// <summary>
     /// Background service for system attributes loading following system attributes pattern
-    /// Loads dynamic configuration at startup for multi-tenant educational SaaS
+    /// Loads dynamic configuration at startup for educational institutions
     /// </summary>
     public class SystemAttributeLoaderHostedService : BackgroundService
     {
@@ -52,8 +52,18 @@ namespace PetelApp.Api.Services
                 using var scope = _serviceProvider.CreateScope();
                 var systemAttributeService = scope.ServiceProvider.GetRequiredService<SystemAttributeService>();
                 
-                var attributes = await systemAttributeService.GetAllAttributesListAsync();
-                _logger.LogInformation($"Loaded {attributes.Count} system attributes at startup");
+                await systemAttributeService.LoadSystemAttributesAsync();
+                
+                // Check if attributes were loaded successfully
+                var attributes = systemAttributeService.GetSystemAttributes();
+                if (attributes.Count == 0)
+                {
+                    _logger.LogError("No system attributes were loaded at startup. Please ensure attributes exist in the database.");
+                }
+                else
+                {
+                    _logger.LogInformation("Loaded {Count} system attributes at startup", attributes.Count);
+                }
             }
             catch (Exception ex)
             {
@@ -63,11 +73,28 @@ namespace PetelApp.Api.Services
 
         private async Task LoadSystemAttributes()
         {
-            using var scope = _serviceProvider.CreateScope();
-            var systemAttributeService = scope.ServiceProvider.GetRequiredService<SystemAttributeService>();
-            
-            await systemAttributeService.GetAllAttributesAsync();
-            _logger.LogInformation("System attributes cache refreshed");
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var systemAttributeService = scope.ServiceProvider.GetRequiredService<SystemAttributeService>();
+                
+                await systemAttributeService.LoadSystemAttributesAsync();
+                
+                // Check if attributes were loaded successfully
+                var attributes = systemAttributeService.GetSystemAttributes();
+                if (attributes.Count == 0)
+                {
+                    _logger.LogError("No system attributes were loaded during refresh. Please ensure attributes exist in the database.");
+                }
+                else
+                {
+                    _logger.LogInformation("System attributes cache refreshed with {Count} attributes", attributes.Count);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to refresh system attributes");
+            }
         }
     }
 }

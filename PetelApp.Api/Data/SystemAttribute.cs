@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -13,68 +14,29 @@ namespace PetelApp.Api.Data
         [Key]
         [Column("id")]
         public int Id { get; set; }
-
+        
         [Column("name")]
-        [MaxLength(255)]
-        public string? Name { get; set; }
-
+        public string Name { get; set; } = string.Empty;
+        
         [Column("value")]
-        public string? Value { get; set; }
-
+        public string Value { get; set; } = string.Empty;
+        
         [Column("value_type")]
-        [MaxLength(100)]
-        public string? ValueType { get; set; }
-
+        public string ValueType { get; set; } = string.Empty;
+        
         [Column("description")]
         public string? Description { get; set; }
-
+        
+        [Column("update_user")]
+        public string? UpdateUser { get; set; }
+        
+        [Column("foreign_id")]
+        public int? ForeignId { get; set; }  // Changed from string to int?
+        
         [Column("created_at")]
         public DateTime? CreatedAt { get; set; }
-
+        
         [Column("updated_at")]
         public DateTime? UpdatedAt { get; set; }
-
-        [Column("foreign_id")]
-        public int? ForeignId { get; set; }
-
-        [Column("update_user")]
-        public int? UpdateUser { get; set; }
-
-        // [Column("tenant_id")]
-        //public string? Tenant { get; set; }
-
-        // Compatibility properties for service layer - NOT mapped to database
-        [NotMapped]
-        public string AttributeName => Name ?? string.Empty;
-
-        [NotMapped]
-        public string AttributeValue => Value ?? string.Empty;
-
-        [NotMapped]
-        public string AttributeType => ValueType ?? string.Empty;
-
-        [NotMapped]
-        public string DefaultValue { get; set; } = string.Empty;
-
-        [NotMapped]
-        public string AllowedValues { get; set; } = string.Empty;
-
-        [NotMapped]
-        public string Category { get; set; } = string.Empty;
-
-        [NotMapped]
-        public bool IsRequired { get; set; } = false;
-
-        [NotMapped]
-        public bool IsActive { get; set; } = true;
-
-        [NotMapped]
-        public int SortOrder { get; set; } = 0;
-
-        [NotMapped]
-        public string CreatedBy { get; set; } = string.Empty;
-
-        [NotMapped]
-        public string UpdatedBy => UpdateUser?.ToString() ?? string.Empty;
     }
 }

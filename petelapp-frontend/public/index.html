@@ -157,22 +157,22 @@ function loadUserInfo() {
     console.log('=== loadUserInfo started ===');
     
     const userFullName = sessionStorage.getItem('userFullName');
-    const tenantName = sessionStorage.getItem('tenantName');
+    const entityName = sessionStorage.getItem('entityName'); // Changed from tenantName
     const entityTypeName = sessionStorage.getItem('entityTypeName');
-    const tenantId = sessionStorage.getItem('tenantId');
+    const entityId = sessionStorage.getItem('entityId'); // Changed from tenantId
     const userEmail = sessionStorage.getItem('userEmail');
     const entityTypeId = sessionStorage.getItem('entityTypeId');
     
     console.log('Session storage values:');
     console.log('userFullName:', userFullName);
-    console.log('tenantName:', tenantName);
+    console.log('entityName:', entityName); // Changed from tenantName
     console.log('entityTypeName:', entityTypeName);
     console.log('entityTypeId:', entityTypeId);
-    console.log('tenantId:', tenantId);
+    console.log('entityId:', entityId); // Changed from tenantId
     
     // Use fallback values
     const finalUserName = userFullName || 'משתמש לא זוהה';
-    const finalTenantName = tenantName || 'ישות לא זוהתה';
+    const finalEntityName = entityName || 'ישות לא זוהתה'; // Changed from tenantName
     const finalEntityTypeName = entityTypeName || 'מוסד חינוכי';
     
     // Set user and entity display
@@ -186,7 +186,7 @@ function loadUserInfo() {
     }
     
     if (entityNameElement) {
-        entityNameElement.textContent = finalTenantName;
+        entityNameElement.textContent = finalEntityName; // Changed from finalTenantName
     }
     
     if (entityTypeElement) {
@@ -218,8 +218,8 @@ function isMultiSchoolNetwork() {
 
 // Load entity logo following Hebrew/RTL Specific Patterns
 function loadEntityLogo() {
-    const tenantId = sessionStorage.getItem('tenantId');
-    if (tenantId) {
+    const entityId = sessionStorage.getItem('entityId'); // Changed from tenantId
+    if (entityId) {
         // Show different icons based on entity type
         const entityTypes = ['🏫', '🏢', '🏛️', '🏥', '🏪'];
         const randomIcon = entityTypes[Math.floor(Math.random() * entityTypes.length)];

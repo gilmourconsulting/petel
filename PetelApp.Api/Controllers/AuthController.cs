@@ -55,8 +55,18 @@ namespace PetelApp.Api.Controllers
                     return Unauthorized(new { success = false, message = "שם משתמש או סיסמה שגויים" });
                 }
 
-                // Validate password (use proper password hashing in production)
+                // TEMPORARY DEBUG CODE - DO NOT USE IN PRODUCTION
+                // Log the password hashes for comparison
+                _logger.LogWarning("DEBUG - Authentication comparison:");
+                _logger.LogWarning("DEBUG - Received password hash: {ReceivedHash}", request.Password);
+                _logger.LogWarning("DEBUG - Stored password hash: {StoredHash}", user.PasswordHash);
+
+                // Validate password
                 bool passwordValid = await _authService.VerifyPasswordAsync(user, request.Password);
+                
+                // Log the result of password verification
+                _logger.LogWarning("DEBUG - Password verification result: {Result}", passwordValid);
+
                 if (!passwordValid)
                 {
                     _logger.LogWarning("Login failed: Invalid password for user {Username}", request.Username);
