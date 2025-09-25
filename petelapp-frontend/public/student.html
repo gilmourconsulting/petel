@@ -1379,10 +1379,61 @@ function loadStudentsPageDirectly() {
     alert('ניווט לרשימת תלמידים - בפיתוח');
 }
 
+// Enhanced fallback function to load schooldashboard.html following Single-Page Application with Module Loading
 function loadSchoolDashboardPageDirectly() {
-    console.log('📋 Loading schooldashboard.html directly');
-    alert('ניווט ללוח בקרה של בית ספר - בפיתוח');
+    console.log('📋 Loading schooldashboard.html directly...');
+    
+    // Find the main content container following Project-Specific Patterns
+    const mainContainer = document.getElementById('dynamicContent') || 
+                         document.getElementById('mainContent') || 
+                         document.querySelector('.main-content') || 
+                         document.querySelector('main') ||
+                         document.body;
+    
+    if (!mainContainer) {
+        console.error('❌ Could not find main content container');
+        return;
+    }
+    
+    // Show loading state following Hebrew/RTL Specific Patterns
+    mainContainer.innerHTML = `
+        <div class="loading-spinner" style="text-align: center; padding: 40px; direction: rtl;">
+            <div style="font-size: 1.2em; margin-bottom: 15px;">טוען לוח בקרה של בית ספר...</div>
+            <div style="color: #6c757d;">אנא המתן...</div>
+        </div>
+    `;
+    
+    // Fetch and load schooldashboard.html following API Communication Pattern
+    fetch('schooldashboard.html')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.text();
+        })
+        .then(html => {
+            console.log('✅ schooldashboard.html loaded successfully');
+            
+            // Insert the HTML content
+            mainContainer.innerHTML = html;
+            
+            // Execute any scripts in the loaded content following Critical Development Workflows
+            executeScriptsInContainer(mainContainer);
+            
+            // Update browser history and URL following Single-Page Application patterns
+            history.pushState({ section: 'schooldashboard' }, 'לוח בקרה של בית ספר - מערכת ניהול פט״ל', '#schooldashboard');
+            
+            // Update document title to reflect the current page
+            document.title = 'לוח בקרה של בית ספר - מערכת ניהול פט״ל';
+            
+            console.log('✅ School dashboard page loaded, history updated, and URL tag set to #schooldashboard');
+        })
+        .catch(error => {
+            console.error('❌ Error loading schooldashboard.html:', error);
+            showNavigationError(mainContainer, 'שגיאה בטעינת לוח הבקרה של בית הספר');
+        });
 }
+
 
 function loadSchoolListPageDirectly() {
     console.log('📋 Loading schoollist.html directly');
