@@ -551,74 +551,101 @@ function viewStudentGrades(studentId) {
     alert(`צפייה בציונים של תלמיד ${studentId} - תכונה זו תתווסף בעתיד`);
 }
 
-// Load students data - use mock data since API endpoints don't exist
+// Updated loadStudentsData function with better error handling
 function loadStudentsData() {
     console.log('🔄 Loading students data...');
     
-    // Skip API calls since endpoints don't exist, go directly to mock data
-    console.log('📋 Using mock data (API endpoints not available)...');
-    useMockStudentsData();
+    try {
+        // Clear any existing content and show loading
+        const container = document.getElementById('studentsTableContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
+                    טוען נתוני תלמידים...
+                </div>
+            `;
+        }
+        
+        // Skip API calls since endpoints don't exist, go directly to mock data
+        console.log('📋 Using mock data (API endpoints not available)...');
+        
+        // Add a small delay to show loading state
+        setTimeout(() => {
+            useMockStudentsData();
+        }, 300);
+        
+    } catch (error) {
+        console.error('❌ Error in loadStudentsData:', error);
+        showTableError('שגיאה בטעינת נתוני התלמידים');
+    }
 }
 
-// Use mock students data following Project-Specific Patterns
+// Updated useMockStudentsData with better error handling
 function useMockStudentsData() {
-    const mockStudentsData = [
-        { 
-            id: '123456789', 
-            name: 'יוסי כהן', 
-            address: 'רחוב הרצל 15, תל אביב',
-            class: 'כיתה י"א', 
-            status: 'הסתיים', 
-            category: 3, 
-            totalAmount: "15,178"
-        },
-        { 
-            id: '987654321', 
-            name: 'שרה לוי', 
-            address: 'רחוב בן גוריון 23, ירושלים',
-            class: 'כיתה י"א', 
-            status: 'בטיפול', 
-            category: 3,
-            totalAmount: "15,178"
-        },
-        { 
-            id: '456789123', 
-            name: 'דוד משה', 
-            address: 'רחוב רוטשילד 8, חיפה',
-            class: 'כיתה י"ב', 
-            status: 'חדש', 
-            category: 5,
-            totalAmount: "-"
-        },
-        { 
-            id: '321654987', 
-            name: 'מירי אברהם', 
-            address: 'רחוב דיזנגוף 45, תל אביב',
-            class: 'כיתה י"ב', 
-            status: 'בטיפול', 
-            category: 7,
-            totalAmount: "17,228"
-        },
-        { 
-            id: '789123456', 
-            name: 'אבי יעקב', 
-            address: 'רחוב יפו 12, ירושלים',
-            class: 'כיתה י', 
-            status: 'חדש', 
-            category: 4
-        }
-    ];
+    try {
+        const mockStudentsData = [
+            { 
+                id: '123456789', 
+                name: 'יוסי כהן', 
+                address: 'רחוב הרצל 15, תל אביב',
+                class: 'כיתה י"א', 
+                status: 'הסתיים', 
+                category: 3, 
+                totalAmount: "15,178"
+            },
+            { 
+                id: '987654321', 
+                name: 'שרה לוי', 
+                address: 'רחוב בן גוריון 23, ירושלים',
+                class: 'כיתה י"א', 
+                status: 'בטיפול', 
+                category: 3,
+                totalAmount: "15,178"
+            },
+            { 
+                id: '456789123', 
+                name: 'דוד משה', 
+                address: 'רחוב רוטשילד 8, חיפה',
+                class: 'כיתה י"ב', 
+                status: 'חדש', 
+                category: 5,
+                totalAmount: "-"
+            },
+            { 
+                id: '321654987', 
+                name: 'מירי אברהם', 
+                address: 'רחוב דיזנגוף 45, תל אביב',
+                class: 'כיתה י"ב', 
+                status: 'בטיפול', 
+                category: 7,
+                totalAmount: "17,228"
+            },
+            { 
+                id: '789123456', 
+                name: 'אבי יעקב', 
+                address: 'רחוב יפו 12, ירושלים',
+                class: 'כיתה י', 
+                status: 'חדש', 
+                category: 4,
+                totalAmount: "-"
+            }
+        ];
 
-    console.log('✅ Using mock students data:', mockStudentsData);
-    
-    // Store data globally for Cross-Component Communication
-    window.currentStudentsData = mockStudentsData;
-    
-    // Update summary statistics
-    updateStudentsSummary(mockStudentsData);
+        console.log('✅ Mock students data loaded:', mockStudentsData.length, 'students');
+        
+        // Store data globally for Cross-Component Communication
+        window.currentStudentsData = mockStudentsData;
+        
+        // Update summary statistics
+        updateStudentsSummary(mockStudentsData);
 
-    // Create and render the students table using ReusableTable
-    createStudentsTable(mockStudentsData);
+        // Create and render the students table using ReusableTable
+        createStudentsTable(mockStudentsData);
+        
+    } catch (error) {
+        console.error('❌ Error in useMockStudentsData:', error);
+        showTableError('שגיאה בטעינת נתוני התלמידים');
+    }
 }
 
 // Update summary statistics
@@ -808,22 +835,23 @@ function viewStudentDetails(studentId) {
         
         // Check if navigateTo function is available (from main app)
         if (typeof navigateTo === 'function') {
-            navigateTo('student');
+            navigateTo('student'); // This should update the URL tag correctly
         } else if (typeof window.navigateTo === 'function') {
-            window.navigateTo('student');
+            window.navigateTo('student'); // This should update the URL tag correctly
         } else {
-            // Fallback: Load student.html directly into main content area
-            loadStudentPageDirectly();
+            // Enhanced fallback: Load student.html directly with proper URL update
+            loadStudentPageWithHistoryUpdate();
         }
     }
 }
 
-// Fallback function to load student.html directly following Frontend Architecture Patterns
-function loadStudentPageDirectly() {
-    console.log('📋 Loading student.html directly into main content area...');
+// Enhanced fallback function that updates browser history following Single-Page Application with Module Loading
+function loadStudentPageWithHistoryUpdate() {
+    console.log('📋 Loading student.html with proper history management...');
     
-    // Find the main content container
-    const mainContainer = document.getElementById('mainContent') || 
+    // Find the main content container following Project-Specific Patterns
+    const mainContainer = document.getElementById('dynamicContent') || 
+                         document.getElementById('mainContent') || 
                          document.querySelector('.main-content') || 
                          document.querySelector('main') ||
                          document.body;
@@ -833,10 +861,11 @@ function loadStudentPageDirectly() {
         return;
     }
     
-    // Show loading state
+    // Show loading state following Hebrew/RTL Specific Patterns
     mainContainer.innerHTML = `
         <div class="loading-spinner" style="text-align: center; padding: 40px; direction: rtl;">
-            טוען דף תלמיד...
+            <div style="font-size: 1.2em; margin-bottom: 15px;">טוען דף תלמיד...</div>
+            <div style="color: #6c757d;">אנא המתן...</div>
         </div>
     `;
     
@@ -855,114 +884,142 @@ function loadStudentPageDirectly() {
             mainContainer.innerHTML = html;
             
             // Execute any scripts in the loaded content following Critical Development Workflows
-            const scripts = mainContainer.querySelectorAll('script');
-            scripts.forEach(script => {
-                const newScript = document.createElement('script');
-                if (script.src) {
-                    newScript.src = script.src;
-                } else {
-                    newScript.textContent = script.textContent;
-                }
-                document.head.appendChild(newScript);
-                script.remove();
-            });
+            executeScriptsInContainer(mainContainer);
             
-            console.log('✅ Student page loaded and initialized');
+            // Update browser history and URL - this is the key fix
+            history.pushState({ section: 'student' }, 'פרטי תלמיד - מערכת ניהול פט״ל', '#student');
+            
+            // Update document title to reflect the current page
+            document.title = 'פרטי תלמיד - מערכת ניהול פט״ל';
+            
+            console.log('✅ Student page loaded, history updated, and URL tag set to #student');
         })
         .catch(error => {
             console.error('❌ Error loading student.html:', error);
-            
-            // Show error message following Hebrew/RTL Specific Patterns
-            mainContainer.innerHTML = `
-                <div class="error-message" style="
-                    text-align: center; 
-                    padding: 40px; 
-                    direction: rtl;
-                    background: #f8d7da;
-                    color: #721c24;
-                    border: 1px solid #f5c6cb;
-                    border-radius: 8px;
-                    margin: 20px;
-                ">
-                    <h3>שגיאה בטעינת דף התלמיד</h3>
-                    <p>לא ניתן לטעון את דף פרטי התלמיד. אנא נסה שוב.</p>
-                    <button onclick="window.history.back()" class="btn btn-primary" style="
-                        margin-top: 15px;
-                        padding: 8px 16px;
-                        background-color: #007bff;
-                        color: white;
-                        border: none;
-                        border-radius: 4px;
-                        cursor: pointer;
-                    ">
-                        חזרה
-                    </button>
-                </div>
-            `;
+            showNavigationError(mainContainer, 'שגיאה בטעינת דף התלמיד');
         });
 }
 
-// Make the fallback function globally available following Cross-Component Communication
-window.loadStudentPageDirectly = loadStudentPageDirectly;
-
-// Get student by ID from current data following Cross-Component Communication
-function getStudentById(studentId) {
-    if (window.currentStudentsData && Array.isArray(window.currentStudentsData)) {
-        return window.currentStudentsData.find(student => student.id === studentId);
+// Utility function to execute scripts in dynamically loaded content following Critical Development Workflows
+function executeScriptsInContainer(container) {
+    try {
+        const scripts = container.querySelectorAll('script');
+        scripts.forEach(script => {
+            if (script.textContent && script.textContent.trim()) {
+                try {
+                    const newScript = document.createElement('script');
+                    
+                    if (script.src) {
+                        newScript.src = script.src;
+                    } else {
+                        newScript.textContent = script.textContent;
+                    }
+                    
+                    document.head.appendChild(newScript);
+                    script.remove();
+                    
+                } catch (scriptError) {
+                    console.warn('⚠️ Error executing script:', scriptError);
+                }
+            }
+        });
+    } catch (error) {
+        console.error('❌ Error in executeScriptsInContainer:', error);
     }
-    console.warn('⚠️ No current students data available');
-    return null;
 }
 
-// Refresh students data function
+// Add proper initialization at the end of the script section in students.html
+// Initialize page following Critical Development Workflows
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🏁 Students page DOMContentLoaded event fired!');
+    loadStudentsData();
+});
+
+// Also try immediate call if DOM is already ready
+if (document.readyState !== 'loading') {
+    console.log('📄 Document already ready, calling loadStudentsData immediately');
+    loadStudentsData();
+}
+
+// Add refresh function following Cross-Component Communication
 function refreshStudentsData() {
     console.log('🔄 Refreshing students data...');
-    
-    // Show loading state
     const container = document.getElementById('studentsTableContainer');
     if (container) {
         container.innerHTML = `
             <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
-                רענון נתוני תלמידים...
+                טוען נתוני תלמידים...
             </div>
         `;
     }
     
-    // Reload data
+    // Reload the data
     loadStudentsData();
 }
 
-// Initialize the page when loaded following Critical Development Workflows
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🏁 Students page DOMContentLoaded');
-    
-    // Load students data after a small delay to ensure DOM is ready
-    setTimeout(() => {
-        loadStudentsData();
-    }, 100);
-});
+// Helper function to get student by ID following Project-Specific Patterns
+function getStudentById(studentId) {
+    if (window.currentStudentsData) {
+        return window.currentStudentsData.find(student => student.id === studentId);
+    }
+    return null;
+}
 
-// Also try immediate call if DOM is already ready following Frontend Architecture Patterns
-if (document.readyState !== 'loading') {
-    console.log('📄 Document already ready, calling loadStudentsData immediately');
-    setTimeout(() => {
-        loadStudentsData();
-    }, 50);
+// Enhanced error display function following Hebrew/RTL Specific Patterns
+function showNavigationError(container, message) {
+    container.innerHTML = `
+        <div class="error-message" style="
+            text-align: center; 
+            padding: 40px; 
+            direction: rtl;
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            border-radius: 8px;
+            margin: 20px;
+        ">
+            <h3 style="margin-bottom: 15px;">${message}</h3>
+            <p style="margin-bottom: 20px;">לא ניתן לטעון את הדף המבוקש. אנא נסה שוב.</p>
+            <button onclick="window.history.back()" style="
+                background: #007bff;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+                margin-left: 10px;
+            ">
+                חזרה
+            </button>
+            <button onclick="refreshStudentsData()" style="
+                background: #28a745;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+            ">
+                רענן נתונים
+            </button>
+        </div>
+    `;
 }
 
 // Make functions globally available following Cross-Component Communication
 window.loadStudentsData = loadStudentsData;
-window.useMockStudentsData = useMockStudentsData;
-window.createStudentsTable = createStudentsTable;
-window.loadReusableTableComponent = loadReusableTableComponent;
-window.initializeStudentsTable = initializeStudentsTable;
-window.updateStudentsSummary = updateStudentsSummary;
-window.showTableError = showTableError;
 window.refreshStudentsData = refreshStudentsData;
+window.getStudentById = getStudentById;
 window.viewStudentDetails = viewStudentDetails;
 window.editStudent = editStudent;
 window.viewStudentGrades = viewStudentGrades;
-window.getStudentById = getStudentById;
+window.createStudentsTable = createStudentsTable;
+window.useMockStudentsData = useMockStudentsData;
+window.updateStudentsSummary = updateStudentsSummary;
+window.initializeStudentsTable = initializeStudentsTable;
+window.loadReusableTableComponent = loadReusableTableComponent;
+window.showTableError = showTableError;
 
 console.log('✅ Students page functions registered globally');
 </script>
