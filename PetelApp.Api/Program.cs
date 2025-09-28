@@ -23,9 +23,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // Session services following authentication & session management patterns
 builder.Services.AddSingleton<UserSessionService>();
-builder.Services.AddSingleton<SystemAttributeService>();
-
-
+builder.Services.AddSingleton<SystemAttributeCache>();
 builder.Services.AddScoped<SystemAttributeService>();
 
 // Background services for system attributes loading

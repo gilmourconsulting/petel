@@ -9,7 +9,7 @@ namespace PetelApp.Api.Services
     /// Background service for system attributes loading following system attributes pattern
     /// Loads dynamic configuration at startup for educational institutions
     /// </summary>
-    public class SystemAttributeLoaderHostedService : BackgroundService
+    public class SystemAttributeLoaderHostedService : IHostedService
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<SystemAttributeLoaderHostedService> _logger;
@@ -22,79 +22,14 @@ namespace PetelApp.Api.Services
             _logger = logger;
         }
 
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        public async Task StartAsync(CancellationToken cancellationToken)
         {
-            _logger.LogInformation("Starting System Attributes Loader...");
-            
-            // Load immediately at startup
-            await LoadSystemAttributesAtStartup();
-
-            // Continue periodic loading
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                try
-                {
-                    await Task.Delay(TimeSpan.FromMinutes(30), stoppingToken);
-                    await LoadSystemAttributes();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error in periodic system attributes loading");
-                    await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
-                }
-            }
+            using var scope = _serviceProvider.CreateScope();
+            var attributeService = scope.ServiceProvider.GetRequiredService<SystemAttributeService>();
+            await attributeService.LoadAttributesAsync();
+            _logger.LogInformation("System attributes loaded at startup.");
         }
 
-        private async Task LoadSystemAttributesAtStartup()
-        {
-            try
-            {
-                using var scope = _serviceProvider.CreateScope();
-                var systemAttributeService = scope.ServiceProvider.GetRequiredService<SystemAttributeService>();
-                
-                await systemAttributeService.LoadSystemAttributesAsync();
-                
-                // Check if attributes were loaded successfully
-                var attributes = await systemAttributeService.GetAllAttributesListAsync();
-                if (attributes.Count == 0)
-                {
-                    _logger.LogError("No system attributes were loaded at startup. Please ensure attributes exist in the database.");
-                }
-                else
-                {
-                    _logger.LogInformation("Loaded {Count} system attributes at startup", attributes.Count);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to load system attributes at startup");
-            }
-        }
-
-        private async Task LoadSystemAttributes()
-        {
-            try
-            {
-                using var scope = _serviceProvider.CreateScope();
-                var systemAttributeService = scope.ServiceProvider.GetRequiredService<SystemAttributeService>();
-                
-                await systemAttributeService.LoadSystemAttributesAsync();
-                
-                // Check if attributes were loaded successfully
-                var attributes = await systemAttributeService.GetAllAttributesListAsync();
-                if (attributes.Count == 0)
-                {
-                    _logger.LogError("No system attributes were loaded during refresh. Please ensure attributes exist in the database.");
-                }
-                else
-                {
-                    _logger.LogInformation("System attributes cache refreshed with {Count} attributes", attributes.Count);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to refresh system attributes");
-            }
-        }
+        public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

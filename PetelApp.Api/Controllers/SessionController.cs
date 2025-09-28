@@ -159,6 +159,17 @@ namespace PetelApp.Api.Controllers
                 entityTypeName = session.EntityTypeName
             });
         }
+
+        [HttpGet("all")]
+        public IActionResult GetAllSessions()
+        {
+            // Optionally restrict to admin users:
+            // var session = GetCurrentSession();
+            // if (session == null || !session.Roles.Contains(1)) return Forbid();
+
+            var sessions = _userSessionService.GetAllActiveSessions();
+            return Ok(new { success = true, sessions });
+        }
     }
 
     public class UpdateSessionDataRequest

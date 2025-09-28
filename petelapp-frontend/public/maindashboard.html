@@ -60,83 +60,69 @@
     <script>
         console.log('🔍 Main Dashboard script loaded');
 
-        // Load dashboard card data following Project-Specific Patterns
-        function loadDashboardCardData(cardId) {
+        // Load dashboard card data from backend API
+        async function loadDashboardCardData(cardId) {
             console.log('📊 Loading dashboard card data for:', cardId);
-            
-            const mockData = {
-                alertsCard: {
-                    items: [
-                        {
-                            content: "בית ספר מאור חיים עדכנו את מצבת התלמידים",
-                            timestamp: "לפני 10 דקות",
-                            priority: "high"
-                        },
-                        {
-                            content: "הועלה אישור אבטחה של עיריית אלעד",
-                            timestamp: "לפני שעה",
-                            priority: "medium"
-                        }
 
-                    ]
-                },
-                eventsCard: {
-                    items: [
-                        {
-                            content: "לתזכר את עיריית פתח תקוה לשלוח אישור שעות פסיכולוג",
-                            timestamp: "מחר 09:00",
-                            priority: "high"
-                        }
-                    ]
+            let endpoint = '';
+            if (cardId === 'alertsCard') {
+                endpoint = AppConfig.getApiUrl('alerts');
+            } else if (cardId === 'eventsCard') {
+                endpoint = AppConfig.getApiUrl('events');
+            } else {
+                console.error('❌ Unknown cardId:', cardId);
+                return;
+            }
+
+            try {
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error(`Failed to load data for ${cardId}: ${response.status}`);
                 }
-            };
+                const cardData = await response.json();
 
-            const cardData = mockData[cardId];
-            if (!cardData) {
-                console.error('❌ No data found for cardId:', cardId);
-                return;
-            }
+                const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
+                if (!containerElement) {
+                    console.error('❌ Container not found for:', cardId.replace('Card', 'InternalCards'));
+                    return;
+                }
 
-            // Get the internal cards container
-            const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
-            if (!containerElement) {
-                console.error('❌ Container not found for:', cardId.replace('Card', 'InternalCards'));
-                return;
-            }
+                containerElement.innerHTML = '';
 
-            console.log('✅ Container found, clearing and populating...');
+                // Expecting cardData.items to be an array of items
+                (cardData.items || []).forEach((item, index) => {
+                    const internalCard = document.createElement('div');
+                    internalCard.className = 'internal-card';
+                    internalCard.setAttribute('data-priority', item.priority);
 
-            // Clear existing content
-            containerElement.innerHTML = '';
+                    internalCard.innerHTML = `
+                        <div class="internal-card-content">${item.content}</div>
+                        <div class="internal-card-timestamp">${item.timestamp}</div>
+                    `;
 
-            // Create internal cards following Hebrew/RTL Specific Patterns
-            cardData.items.forEach((item, index) => {
-                const internalCard = document.createElement('div');
-                internalCard.className = 'internal-card';
-                internalCard.setAttribute('data-priority', item.priority);
-                
-                internalCard.innerHTML = `
-                    <div class="internal-card-content">${item.content}</div>
-                    <div class="internal-card-timestamp">${item.timestamp}</div>
-                `;
-
-                // Add click handler following Cross-Component Communication
-                internalCard.addEventListener('click', () => {
-                    console.log(`Internal card clicked: ${item.content} in ${cardId}`);
-                    const cardClickEvent = new CustomEvent('internalCardClicked', {
-                        detail: {
-                            cardId: cardId,
-                            itemIndex: index,
-                            item: item
-                        }
+                    internalCard.addEventListener('click', () => {
+                        console.log(`Internal card clicked: ${item.content} in ${cardId}`);
+                        const cardClickEvent = new CustomEvent('internalCardClicked', {
+                            detail: {
+                                cardId: cardId,
+                                itemIndex: index,
+                                item: item
+                            }
+                        });
+                        window.dispatchEvent(cardClickEvent);
                     });
-                    window.dispatchEvent(cardClickEvent);
+
+                    containerElement.appendChild(internalCard);
                 });
 
-                containerElement.appendChild(internalCard);
-            });
-
-            console.log(`✅ ${cardData.items.length} cards loaded for ${cardId}`);
+                console.log(`✅ ${(cardData.items || []).length} cards loaded for ${cardId}`);
+            } catch (error) {
+                console.error(`❌ Error loading data for ${cardId}:`, error);
+            }
         }
 
         // Load system version following API Communication Pattern
@@ -163,97 +149,51 @@
         // Update context button labels with year values following Project-Specific Patterns
         async function updateContextButtonLabels() {
             console.log('Updating context button labels with year values...');
-            
             try {
-                // Load system attributes to get year values
                 const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
-                if (response.ok) {
-                    const result = await response.json();
-                    console.log('System attributes response:', result);
-                    
-                    // Extract attributes array based on API response structure
-                    let attributesArray = [];
-                    
-                    // Handle different possible response formats
-                    if (result && result.success) {
-                        if (Array.isArray(result.data)) {
-                            attributesArray = result.data;
-                        } else if (result.data && typeof result.data === 'object') {
-                            // Convert object values to array
-                            attributesArray = Object.values(result.data);
-                        }
-                    } else if (Array.isArray(result)) {
-                        attributesArray = result;
-                    }
-                    
-                    console.log('Processed attributes array:', attributesArray);
-                    
-                    // Find year attributes
-                    const previousYearAttr = attributesArray.find(attr => 
-                        (attr.name === "Previous Year") || 
-                        (attr.attributeName === "Previous Year")
-                    );
-                    
-                    const currentYearAttr = attributesArray.find(attr => 
-                        (attr.name === "Current Year") || 
-                        (attr.attributeName === "Current Year")
-                    );
-                    
-                    const nextYearAttr = attributesArray.find(attr => 
-                        (attr.name === "Next Year") || 
-                        (attr.attributeName === "Next Year")
-                    );
-                    
-                    // Store year IDs and values globally following Authentication & Session Management
-                    if (previousYearAttr) {
-                        const foreignId = previousYearAttr.foreignId || previousYearAttr.ForeignId;
-                        const value = previousYearAttr.value || previousYearAttr.Value;
-                        
-                        window.previousYearId = foreignId;
-                        sessionStorage.setItem('previousYearId', foreignId);
-                        sessionStorage.setItem('previousYearValue', value);
-                        
-                        // Update button text
-                        const prevButton = document.querySelector('.context-btn[onclick*="previous"]');
-                        if (prevButton) {
-                            prevButton.textContent = `${value}`;
-                        }
-                    }
-                    
-                    if (currentYearAttr) {
-                        const foreignId = currentYearAttr.foreignId || currentYearAttr.ForeignId;
-                        const value = currentYearAttr.value || currentYearAttr.Value;
-                        
-                        window.currentYearId = foreignId;
-                        sessionStorage.setItem('currentYearId', foreignId);
-                        sessionStorage.setItem('currentYearValue', value);
-                        
-                        // Update button text
-                        const currentButton = document.querySelector('.context-btn[onclick*="current"]');
-                        if (currentButton) {
-                            currentButton.textContent = `${value}`;
-                        }
-                    }
-                    
-                    if (nextYearAttr) {
-                        const foreignId = nextYearAttr.foreignId || nextYearAttr.ForeignId;
-                        const value = nextYearAttr.value || nextYearAttr.Value;
-                        
-                        window.nextYearId = foreignId;
-                        sessionStorage.setItem('nextYearId', foreignId);
-                        sessionStorage.setItem('nextYearValue', value);
-                        
-                        // Update button text
-                        const nextButton = document.querySelector('.context-btn[onclick*="next"]');
-                        if (nextButton) {
-                            nextButton.textContent = `${value}`;
-                        }
-                    }
-                    
-                    console.log('Context button labels updated with year values and foreign IDs');
-                } else {
-                    console.warn('Could not load system attributes for context buttons');
+                if (!response.ok) {
+                    throw new Error('Failed to load system attributes');
                 }
+                const attributes = await response.json();
+                // Expecting attributes to be an array
+                if (!Array.isArray(attributes)) {
+                    console.error('System attributes response is not an array:', attributes);
+                    return;
+                }
+
+                // Find year attributes by name
+                const previousYearAttr = attributes.find(attr => attr.name === "Previous Year");
+                const currentYearAttr  = attributes.find(attr => attr.name === "Current Year");
+                const nextYearAttr     = attributes.find(attr => attr.name === "Next Year");
+
+                // Update previous year button
+                if (previousYearAttr) {
+                    window.previousYearId = previousYearAttr.foreignId;
+                    sessionStorage.setItem('previousYearId', previousYearAttr.foreignId);
+                    sessionStorage.setItem('previousYearValue', previousYearAttr.value);
+                    const prevButton = document.querySelector('.context-btn[onclick*="previous"]');
+                    if (prevButton) prevButton.textContent = previousYearAttr.value;
+                }
+
+                // Update current year button
+                if (currentYearAttr) {
+                    window.currentYearId = currentYearAttr.foreignId;
+                    sessionStorage.setItem('currentYearId', currentYearAttr.foreignId);
+                    sessionStorage.setItem('currentYearValue', currentYearAttr.value);
+                    const currentButton = document.querySelector('.context-btn[onclick*="current"]');
+                    if (currentButton) currentButton.textContent = currentYearAttr.value;
+                }
+
+                // Update next year button
+                if (nextYearAttr) {
+                    window.nextYearId = nextYearAttr.foreignId;
+                    sessionStorage.setItem('nextYearId', nextYearAttr.foreignId);
+                    sessionStorage.setItem('nextYearValue', nextYearAttr.value);
+                    const nextButton = document.querySelector('.context-btn[onclick*="next"]');
+                    if (nextButton) nextButton.textContent = nextYearAttr.value;
+                }
+
+                console.log('Context button labels updated with year values and foreign IDs');
             } catch (error) {
                 console.error('Error loading context button data:', error);
             }

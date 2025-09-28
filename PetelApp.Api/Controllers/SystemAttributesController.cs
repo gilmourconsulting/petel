@@ -36,31 +36,17 @@ namespace PetelApp.Api.Controllers
             {
                 _logger.LogInformation("GetSystemAttributes endpoint called");
 
-                // Get all system attributes with null check
                 var attributes = await _systemAttributeService.GetAllAttributesListAsync();
-                
-                // Log warning if no attributes found
+
                 if (attributes == null || attributes.Count == 0)
                 {
                     _logger.LogError("No system attributes found in the database. The system attributes table should contain 4 records.");
-                    return Ok(new { success = true, data = new Dictionary<string, SystemAttributeDto>() });
+                    return Ok(new List<SystemAttributeDto>()); // Return empty array
                 }
-                
+
                 _logger.LogInformation("Returning {Count} system attributes from database", attributes.Count);
-                
-                // Check if version attribute exists
-                var versionAttr = attributes.FirstOrDefault(a => a.Description == "version");
-                if (versionAttr != null)
-                {
-                    _logger.LogInformation("Version attribute: {Version}", versionAttr.Value);
-                }
-                else
-                {
-                    _logger.LogWarning("No version attribute found in database");
-                }
-                
-                // Return in expected format with success flag and data property
-                return Ok(new { success = true, data = attributes });
+
+                return Ok(attributes); // <-- Return array directly
             }
             catch (Exception ex)
             {
@@ -130,6 +116,13 @@ namespace PetelApp.Api.Controllers
                 _logger.LogError(ex, "Error getting user session");
                 return StatusCode(500, new { message = "Internal server error" });
             }
+        }
+
+        [HttpPost("refresh")]
+        public async Task<IActionResult> RefreshSystemAttributes()
+        {
+            await _systemAttributeService.LoadAttributesAsync();
+            return Ok(new { success = true });
         }
     }
 

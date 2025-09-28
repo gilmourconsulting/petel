@@ -38,10 +38,11 @@ document.getElementById('reloadAttributesBtn').onclick = function() {
                     table.innerHTML = `
                         <thead>
                             <tr>
-                                <th>שם</th>
+                                <th>מזהה</th>
                                 <th>תיאור</th>
                                 <th>ערך</th>
                                 <th>סוג ערך</th>
+                                <th>שם</th>
                                 <th>מזהה חיצוני</th>
                                 <th>עודכן לאחרונה</th>
                             </tr>
@@ -49,10 +50,11 @@ document.getElementById('reloadAttributesBtn').onclick = function() {
                         <tbody>
                             ${data.map(attr => `
                                 <tr>
-                                    <td>${attr.name}</td>
+                                    <td>${attr.id}</td>
                                     <td>${attr.description}</td>
                                     <td>${attr.value}</td>
                                     <td>${attr.valueType}</td>
+                                    <td>${attr.name}</td>
                                     <td>${attr.foreignId || ''}</td>
                                     <td>${attr.updatedAt ? new Date(attr.updatedAt).toLocaleString('he-IL') : ''}</td>
                                 </tr>
