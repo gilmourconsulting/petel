@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
+using Microsoft.EntityFrameworkCore;
+using PetelApp.Api.Data; // Add missing using for AppDbContext
+using PetelApp.Api.Models;
 using PetelApp.Api.Session;
 
 namespace PetelApp.Api.Controllers
@@ -12,110 +14,55 @@ namespace PetelApp.Api.Controllers
     [Route("api/[controller]")]
     public class TableSecurityController : BaseController
     {
-        private readonly UserSessionService _userSessionService;
-        private readonly ILogger<TableSecurityController> _logger;
+        private readonly AppDbContext _context;
 
-        // Fix constructor - BaseController doesn't take parameters
-        public TableSecurityController(UserSessionService userSessionService, ILogger<TableSecurityController> logger)
+        // Remove duplicate _userSessionService and _logger - inherited from BaseController
+
+        public TableSecurityController(
+            UserSessionService userSessionService,
+            ILogger<TableSecurityController> logger,
+            AppDbContext context)
+            : base(userSessionService, logger)
         {
-            _userSessionService = userSessionService;
-            _logger = logger;
+            _context = context;
         }
 
-        [HttpGet("canRead/{tableName}")]
-        public IActionResult CanRead(string tableName)
+        [HttpGet("permissions/{tableName}")]
+        public async Task<IActionResult> GetTablePermissions(string tableName)
         {
             try
             {
-                var sessionId = GetSessionId();
-                if (string.IsNullOrEmpty(sessionId))
-                {
-                    return Unauthorized(new { message = "No valid session found" });
-                }
-
-                var session = _userSessionService.GetUserSession(sessionId);
+                var session = GetCurrentSession();
                 if (session == null)
                 {
-                    return Unauthorized(new { message = "Invalid session" });
+                    return Unauthorized(new { success = false, message = "לא נמצא מושב פעיל" });
                 }
 
-                // Fix: Use session.UserId (string) instead of converting to int
-                var canRead = CheckTablePermission(session.UserId, tableName, "read");
-                
-                return Ok(new { success = true, canRead = canRead });
+                // Example table security logic following Entity-Based Request Flow
+                var hasPermission = await CheckTablePermissionAsync(tableName, session.EntityId, session.UserId);
+
+                _logger.LogInformation("Table permission check for {TableName} by user {UserId}: {HasPermission}",
+                    tableName, session.UserId, hasPermission);
+
+                return Ok(new
+                {
+                    success = true,
+                    tableName = tableName,
+                    hasPermission = hasPermission
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error checking read permission for table {TableName}", tableName);
-                return StatusCode(500, new { message = "Internal server error" });
+                _logger.LogError(ex, "Error checking table permissions for {TableName}", tableName);
+                return StatusCode(500, new { success = false, message = "שגיאה בבדיקת הרשאות" });
             }
         }
 
-        [HttpGet("canWrite/{tableName}")]
-        public IActionResult CanWrite(string tableName)
+        private async Task<bool> CheckTablePermissionAsync(string tableName, string entityId, string userId)
         {
-            try
-            {
-                var sessionId = GetSessionId();
-                if (string.IsNullOrEmpty(sessionId))
-                {
-                    return Unauthorized(new { message = "No valid session found" });
-                }
-
-                var session = _userSessionService.GetUserSession(sessionId);
-                if (session == null)
-                {
-                    return Unauthorized(new { message = "Invalid session" });
-                }
-
-                // Fix: Use session.UserId (string) instead of converting to int
-                var canWrite = CheckTablePermission(session.UserId, tableName, "write");
-                
-                return Ok(new { success = true, canWrite = canWrite });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error checking write permission for table {TableName}", tableName);
-                return StatusCode(500, new { message = "Internal server error" });
-            }
-        }
-
-        [HttpGet("userRoles")]
-        public IActionResult GetUserRoles()
-        {
-            try
-            {
-                var sessionId = GetSessionId();
-                if (string.IsNullOrEmpty(sessionId))
-                {
-                    return Unauthorized(new { message = "No valid session found" });
-                }
-
-                var session = _userSessionService.GetUserSession(sessionId);
-                if (session == null)
-                {
-                    return Unauthorized(new { message = "Invalid session" });
-                }
-
-                // Fix: Use session.Roles directly
-                var roles = session.Roles;
-                
-                return Ok(new { success = true, roles = roles });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting user roles");
-                return StatusCode(500, new { message = "Internal server error" });
-            }
-        }
-
-        // Fix: Change parameter type from int to string
-        private bool CheckTablePermission(string userId, string tableName, string permission)
-        {
-            // Implement actual permission checking logic here
-            // For now, return true for basic tables
-            var allowedTables = new[] { "students", "schools", "systemattributes", "hours_budget" };
-            return allowedTables.Contains(tableName.ToLower());
+            // Implement table-level security logic following Security Patterns
+            // This is a placeholder - implement based on your security requirements
+            return await Task.FromResult(true);
         }
     }
 }

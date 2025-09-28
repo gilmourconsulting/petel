@@ -54,7 +54,6 @@ namespace PetelApp.Api.Services
                 var attributeDtos = attributes.Select(attr => new SystemAttributeDto
                 {
                     Id = attr.Id,
-                    Name = attr.Name,
                     Value = attr.Value,
                     ValueType = attr.ValueType,
                     Description = attr.Description ?? string.Empty,
@@ -91,10 +90,10 @@ namespace PetelApp.Api.Services
 
                 foreach (var dto in attributes)
                 {
-                    if (!string.IsNullOrEmpty(dto.Name))
+                    if (!string.IsNullOrEmpty(dto.Description))
                     {
-                        _systemAttributes[dto.Name] = dto;
-                        _logger.LogDebug("Added attribute: {Name}={Value}", dto.Name, dto.Value);
+                        _systemAttributes[dto.Description] = dto;
+                        _logger.LogDebug("Added attribute: {Description}={Value}", dto.Description, dto.Value);
                     }
                 }
 
@@ -133,100 +132,6 @@ namespace PetelApp.Api.Services
             return new Dictionary<string, SystemAttributeDto>(_systemAttributes);
         }
 
-        public async Task<bool> UpdateSelectedYearAsync(string sessionId, string yearId, string yearType)
-        {
-            try
-            {
-                if (_userSessionService == null || string.IsNullOrEmpty(sessionId))
-                {
-                    _logger.LogWarning("Cannot update selected year: invalid session or service");
-                    return false;
-                }
-
-                // These are actual async operations, so use await
-                await _userSessionService.UpdateSessionDataAsync(sessionId, "selectedYearId", yearId);
-                await _userSessionService.UpdateSessionDataAsync(sessionId, "selectedYearType", yearType);
-
-                // Get additional year data if needed
-                if (!string.IsNullOrEmpty(yearId))
-                {
-                    using var scope = _serviceProvider.CreateScope();
-                    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-                    
-                    try
-                    {
-                        // Fetch year data without assuming property names
-                        var yearData = await context.SchoolYears
-                            .AsNoTracking()
-                            .FirstOrDefaultAsync(y => y.Id.ToString() == yearId);
-                            
-                        if (yearData != null)
-                        {
-                            // Use reflection to get the most appropriate property for display
-                            // This avoids hard-coding property names that might not exist
-                            var yearDisplayValue = GetYearDisplayValue(yearData);
-                            await _userSessionService.UpdateSessionDataAsync(sessionId, "selectedYearName", yearDisplayValue);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to load school year data for year ID {YearId}", yearId);
-                        // Continue without year data - don't fail the whole operation
-                    }
-                }
-
-                _logger.LogInformation("Updated selected year for session {SessionId}: YearId={YearId}, YearType={YearType}",
-                    sessionId, yearId, yearType);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error updating selected year for session {SessionId}", sessionId);
-                return false;
-            }
-        }
-
-        // Helper method to get the best display value from a SchoolYear object
-        private string GetYearDisplayValue(object yearData)
-        {
-            // Try common property names that might exist on the SchoolYear entity
-            // in order of preference
-            var possibleProperties = new[]
-            {
-                "DisplayName",
-                "Name", 
-                "SchoolYearName",
-                "YearName",
-                "Title",
-                "YearValue",
-                "Value",
-                "Description"
-            };
-            
-            var type = yearData.GetType();
-            
-            foreach (var propName in possibleProperties)
-            {
-                var prop = type.GetProperty(propName);
-                if (prop != null)
-                {
-                    var value = prop.GetValue(yearData)?.ToString();
-                    if (!string.IsNullOrEmpty(value))
-                    {
-                        return value;
-                    }
-                }
-            }
-            
-            // Fall back to using the ID as string if no suitable property is found
-            var idProp = type.GetProperty("Id");
-            if (idProp != null)
-            {
-                return idProp.GetValue(yearData)?.ToString() ?? "Unknown";
-            }
-            
-            return "Unknown";
-        }
 
         public async Task<Dictionary<string, object>> GetSystemAttributesForSessionAsync(string sessionId)
         {
@@ -237,7 +142,7 @@ namespace PetelApp.Api.Services
 
                 foreach (var attr in attributes.Values)
                 {
-                    var key = attr.Name;
+                    var key = attr.Description;
                     var value = attr.Value;
                     result[key] = value;
                 }

@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace PetelApp.Api.Controllers
 {
@@ -17,28 +18,26 @@ namespace PetelApp.Api.Controllers
     public class SystemAttributesController : BaseController
     {
         private readonly SystemAttributeService _systemAttributeService;
-        private readonly UserSessionService _userSessionService;
-        private readonly ILogger<SystemAttributesController> _logger;
 
         public SystemAttributesController(
-            SystemAttributeService systemAttributeService, 
             UserSessionService userSessionService,
-            ILogger<SystemAttributesController> logger)
+            ILogger<SystemAttributesController> logger,
+            SystemAttributeService systemAttributeService)
+            : base(userSessionService, logger)
         {
             _systemAttributeService = systemAttributeService;
-            _userSessionService = userSessionService;
-            _logger = logger;
+ 
         }
 
         [HttpGet]
-        public IActionResult GetSystemAttributes()
+        public async Task<IActionResult> GetSystemAttributes()
         {
             try
             {
                 _logger.LogInformation("GetSystemAttributes endpoint called");
 
                 // Get all system attributes with null check
-                var attributes = _systemAttributeService.GetSystemAttributes();
+                var attributes = await _systemAttributeService.GetAllAttributesListAsync();
                 
                 // Log warning if no attributes found
                 if (attributes == null || attributes.Count == 0)
@@ -50,7 +49,8 @@ namespace PetelApp.Api.Controllers
                 _logger.LogInformation("Returning {Count} system attributes from database", attributes.Count);
                 
                 // Check if version attribute exists
-                if (attributes.TryGetValue("version", out var versionAttr) && versionAttr != null)
+                var versionAttr = attributes.FirstOrDefault(a => a.Description == "version");
+                if (versionAttr != null)
                 {
                     _logger.LogInformation("Version attribute: {Version}", versionAttr.Value);
                 }
@@ -69,7 +69,7 @@ namespace PetelApp.Api.Controllers
             }
         }
 
-        [HttpPost("selectYear")]
+   /*     [HttpPost("selectYear")]
         public async Task<IActionResult> SelectYear([FromBody] SelectYearRequest request)
         {
             try
@@ -95,7 +95,7 @@ namespace PetelApp.Api.Controllers
                 _logger.LogError(ex, "Error selecting year");
                 return StatusCode(500, new { message = "Internal server error" });
             }
-        }
+        }*/
 
         [HttpGet("userSession")]
         public IActionResult GetUserSession()

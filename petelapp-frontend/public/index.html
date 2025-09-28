@@ -72,7 +72,7 @@
     </div>
 
     <script>
-        // Replace the DOMContentLoaded event handler in index.html following Frontend Architecture Patterns:
+        // Replace the menu loading section in the DOMContentLoaded event handler
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 Application starting...');
@@ -84,7 +84,125 @@ document.addEventListener('DOMContentLoaded', function() {
     
     console.log('✅ Authentication passed, loading application...');
     
-    // Load menu following Single-Page Application with Module Loading
+    // Define navigateTo function globally BEFORE loading menu following Cross-Component Communication
+    window.navigateTo = function(section, fromPopstate = false) {
+        console.log('navigateTo called with section:', section, 'fromPopstate:', fromPopstate);
+        
+        // Only add to browser history if NOT called from popstate event
+        if (!fromPopstate) {
+            history.pushState({page: section}, '', `#${section}`);
+        }
+        
+        try {
+            // Update active menu item
+            document.querySelectorAll('.menu-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Better active menu item selection
+            const activeMenuItem = document.querySelector(`.menu-item[onclick*="${section}"]`);
+            if (activeMenuItem) {
+                activeMenuItem.classList.add('active');
+            }
+
+            const dynamicContent = document.getElementById('dynamicContent');
+            if (!dynamicContent) {
+                console.error('Required dynamicContent element not found');
+                return;
+            }
+
+            // Handle special sections following Single-Page Application with Module Loading
+            if (section === 'sessions') {
+                // Load sessions.html for active users
+                fetch('sessions.html')
+                    .then(response => response.text())
+                    .then(html => {
+                        dynamicContent.innerHTML = html;
+                        // Re-execute scripts following Common Gotchas
+                        executeScriptsInContainer(dynamicContent);
+                    })
+                    .catch((error) => {
+                        console.error('Error loading sessions:', error);
+                        dynamicContent.innerHTML = '<div class="content-card"><p>שגיאה בטעינת משתמשים פעילים.</p></div>';
+                    });
+                return;
+            }
+
+            // Sections to load from file following Standard Table Component
+            const sectionFiles = {
+                tasks: 'tasks.html',
+                analytics: 'analytics.html',
+                users: 'users.html',
+                reports: 'reports.html',
+                systemAttributes: 'system-attributes.html'
+            };
+
+            if (sectionFiles[section]) {
+                dynamicContent.style.display = 'block';
+
+                // Load the section HTML
+                fetch(sectionFiles[section])
+                    .then(response => response.text())
+                    .then(html => {
+                        dynamicContent.innerHTML = html;
+                        // Re-execute scripts following Common Gotchas
+                        executeScriptsInContainer(dynamicContent);
+                        
+                        // Special handling for system attributes
+                        if (section === 'systemAttributes') {
+                            // Make sure loadSystemAttributes function exists
+                            setTimeout(() => {
+                                if (typeof loadSystemAttributes === 'function') {
+                                    loadSystemAttributes();
+                                } else {
+                                    console.error('loadSystemAttributes function not found');
+                                }
+                            }, 100);
+                        }
+                    })
+                    .catch((error) => {
+                        console.error('Error loading section:', error);
+                        dynamicContent.innerHTML = '<div class="content-card"><p>שגיאה בטעינת התוכן.</p></div>';
+                    });
+            } else if (section === 'dashboard') {
+                loadMainDashboard();
+            } else if (section === 'settings') {
+                dynamicContent.style.display = 'block';
+                dynamicContent.innerHTML = '<div class="content-card"><h2>הגדרות</h2></div>';
+            } else if (section === 'help') {
+                dynamicContent.style.display = 'block';
+                dynamicContent.innerHTML = '<div class="content-card"><h2>עזרה ותמיכה</h2></div>';
+            } else {
+                // Default to main dashboard
+                loadMainDashboard();
+            }
+        } catch (error) {
+            console.error('Error in navigateTo:', error);
+        }
+    };
+
+    // Also define other menu functions globally following Cross-Component Communication
+    window.showSchoolYearSection = function(section) {
+        console.log('showSchoolYearSection called with:', section);
+        // Implementation here...
+    };
+
+    window.toggleMenu = function() {
+        const sideMenu = document.getElementById('sideMenu');
+        if (!sideMenu) return;
+        
+        console.log('Toggling menu. Current state:', sideMenu.classList.contains('collapsed'));
+        
+        if (sideMenu.classList.contains('collapsed')) {
+            sideMenu.classList.remove('collapsed');
+            console.log('Menu expanded');
+        } else {
+            sideMenu.classList.add('collapsed');
+            console.log('Menu collapsed');
+        }
+    };
+    
+    // Load menu AFTER defining navigation functions
     fetch('menu.html')
         .then(response => {
             if (!response.ok) {
@@ -97,6 +215,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (menuContainer) {
                 menuContainer.innerHTML = html;
                 console.log('✅ Menu loaded successfully');
+                
+                // Re-execute menu scripts following Common Gotchas
+                executeScriptsInContainer(menuContainer);
             } else {
                 console.error('❌ Menu container not found');
             }

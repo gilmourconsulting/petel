@@ -46,7 +46,7 @@ namespace PetelApp.Api.Services
 
             // Check if user has admin role
             var roles = session.Roles;
-            return roles != null && roles.Contains("Admin");
+            return roles != null && roles.Contains(1);
         }
     }
 }

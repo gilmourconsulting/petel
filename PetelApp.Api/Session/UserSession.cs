@@ -35,7 +35,7 @@ namespace PetelApp.Api.Session
         public DateTime LastActivity { get; set; } = DateTime.UtcNow;
         public bool IsActive { get; set; } = true;
         public Dictionary<string, string> AdditionalData { get; set; } = new();
-        public List<string> Roles { get; set; } = new();
+        public List<int> Roles { get; set; } = new();
         
         // Support properties for system attributes
         public Dictionary<string, object> SystemAttributes { get; set; } = new();

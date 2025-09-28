@@ -55,7 +55,7 @@ namespace PetelApp.Api.Services
                 await systemAttributeService.LoadSystemAttributesAsync();
                 
                 // Check if attributes were loaded successfully
-                var attributes = systemAttributeService.GetSystemAttributes();
+                var attributes = await systemAttributeService.GetAllAttributesListAsync();
                 if (attributes.Count == 0)
                 {
                     _logger.LogError("No system attributes were loaded at startup. Please ensure attributes exist in the database.");
@@ -81,7 +81,7 @@ namespace PetelApp.Api.Services
                 await systemAttributeService.LoadSystemAttributesAsync();
                 
                 // Check if attributes were loaded successfully
-                var attributes = systemAttributeService.GetSystemAttributes();
+                var attributes = await systemAttributeService.GetAllAttributesListAsync();
                 if (attributes.Count == 0)
                 {
                     _logger.LogError("No system attributes were loaded during refresh. Please ensure attributes exist in the database.");

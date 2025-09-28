@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore; // Add this for Precision attribute
 
 namespace PetelApp.Api.Data
 {
@@ -8,46 +7,42 @@ namespace PetelApp.Api.Data
     /// Hours budget entity following database conventions
     /// Maps to petel_schema.hours_budgets table with multi-tenant architecture
     /// </summary>
-    [Table("hours_budgets", Schema = "petel_schema")]
+    [Table("hours_budget", Schema = "petel_schema")]
     public class HoursBudget
     {
         [Key]
         [Column("id")]
         public int Id { get; set; }
 
-        [Column("title")]
-        [StringLength(255)]
-        public string Title { get; set; } = string.Empty;
+        [Required]
+        [Column("entity_id")]
+        public string EntityId { get; set; } = string.Empty; // Required for Entity-Based Request Flow
 
-        [Column("description")]
-        public string? Description { get; set; }
+        [Column("school_year")]
+        public string? SchoolYear { get; set; }
 
-        [Column("category_id")]
-        public int? CategoryId { get; set; }
+        [Column("budget_type")]
+        public string? BudgetType { get; set; }
 
-        [Column("school_id")]
-        public int? SchoolId { get; set; }
+        [Column("allocated_hours")]
+        public decimal AllocatedHours { get; set; }
 
-        [Column("budgeted_hours")]
-        [Precision(10, 2)]
-        public decimal BudgetedHours { get; set; }
+        [Column("used_hours")]
+        public decimal UsedHours { get; set; }
 
-        [Column("actual_hours")]
-        [Precision(10, 2)]
-        public decimal ActualHours { get; set; }
+        [Column("remaining_hours")]
+        public decimal RemainingHours { get; set; }
 
-        [Column("status")]
-        [StringLength(50)]
-        public string? Status { get; set; }
+        [Column("department")]
+        public string? Department { get; set; }
 
-        [Column("tenant_id")]
-        [StringLength(100)]
-        public string? Tenant { get; set; }
+        [Column("notes")]
+        public string? Notes { get; set; }
 
         [Column("created_at")]
-        public DateTime? CreatedAt { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("updated_at")]
-        public DateTime? UpdatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 }

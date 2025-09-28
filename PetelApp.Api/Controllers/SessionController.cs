@@ -7,12 +7,15 @@ namespace PetelApp.Api.Controllers
     [Route("api/[controller]")]
     public class SessionController : BaseController
     {
-        private readonly UserSessionService _userSessionService;
+        //private readonly UserSessionService _userSessionService;
         private readonly ILogger<SessionController> _logger;
 
-        public SessionController(UserSessionService userSessionService, ILogger<SessionController> logger)
+        public SessionController(
+            UserSessionService userSessionService,
+            ILogger<BaseController> baseLogger,
+            ILogger<SessionController> logger)
+            : base(userSessionService, baseLogger)
         {
-            _userSessionService = userSessionService;
             _logger = logger;
         }
 

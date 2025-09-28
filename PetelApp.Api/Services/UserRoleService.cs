@@ -27,14 +27,14 @@ namespace PetelApp.Api.Services
         /// </summary>
         /// <param name="userId">The user ID</param>
         /// <returns>List of role names</returns>
-        public async Task<List<string>> GetUserRolesAsync(int userId)
+        public async Task<List<int>> GetUserRolesAsync(int userId)
         {
             try
             {
                 var userRoles = await _context.UserRoles
                     .Include(ur => ur.Role)
                     .Where(ur => ur.UserId == userId)
-                    .Select(ur => ur.Role.Name)
+                    .Select(ur => ur.Role.Id)
                     .ToListAsync();
 
                 _logger.LogInformation("Retrieved {Count} roles for user {UserId}", userRoles.Count, userId);
@@ -43,7 +43,7 @@ namespace PetelApp.Api.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving roles for user {UserId}", userId);
-                return new List<string>();
+                return new List<int>();
             }
         }
 

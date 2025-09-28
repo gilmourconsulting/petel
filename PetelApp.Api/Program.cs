@@ -9,7 +9,7 @@ using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services following multi-tenant educational SaaS patterns
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -25,8 +25,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddSingleton<UserSessionService>();
 builder.Services.AddSingleton<SystemAttributeService>();
 
-// Core services following multi-tenant request flow
-builder.Services.AddScoped<TenantService>();
+
 builder.Services.AddScoped<SystemAttributeService>();
 
 // Background services for system attributes loading
@@ -74,7 +73,9 @@ builder.Services.AddHangfireServer(options =>
 
 // Register auth and user role services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddSingleton<UserSessionService>();
 builder.Services.AddScoped<UserRoleService>();
+builder.Services.AddHangfireServer();
 
 var app = builder.Build();
 
@@ -105,10 +106,10 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// CRITICAL: Add session middleware before tenant middleware
+
 app.UseSession();
 
-// Remove tenant middleware from pipeline
+
 
 // Update middleware configuration
 app.UseAuthentication();
@@ -123,7 +124,7 @@ app.MapHangfireDashboard("/hangfire", new DashboardOptions
 
 // Configure Hangfire dashboard and server
 app.UseHangfireDashboard();
-app.UseHangfireServer();
+
 
 Console.WriteLine("Petel Educational Management System API started - data will be loaded from database");
 app.Run();

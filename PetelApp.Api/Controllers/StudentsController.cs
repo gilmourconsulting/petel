@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using PetelApp.Api.Data;
 using PetelApp.Api.Models.DTOs;
 using PetelApp.Api.Services;
@@ -10,19 +11,19 @@ namespace PetelApp.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class StudentsController : ControllerBase
+    public class StudentsController : BaseController
     {
         private readonly AppDbContext _context;
-        private readonly ITenantService _tenantService;
         private readonly ILogger<StudentsController> _logger;
 
         public StudentsController(
             AppDbContext context,
-            ITenantService tenantService,
+            UserSessionService userSessionService,
+            ILogger<BaseController> baseLogger,
             ILogger<StudentsController> logger)
+            : base(userSessionService, baseLogger)
         {
             _context = context;
-            _tenantService = tenantService;
             _logger = logger;
         }
 
@@ -31,35 +32,19 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
-                // Multi-tenant pattern: get school ID (tenant) from TenantMiddleware context
-                var tenantIdString = _tenantService.GetCurrentTenantId();
-                if (string.IsNullOrEmpty(tenantIdString) || !int.TryParse(tenantIdString, out int schoolId))
+                // Get EntityId from session (Entity-Based Request Flow)
+                var session = GetCurrentSession();
+                if (session == null || string.IsNullOrEmpty(session.EntityId) || !int.TryParse(session.EntityId, out int schoolId))
                 {
-                    return Unauthorized("No valid school context found");
-                }
-
-                // Validate school exists and is active
-                if (!await _tenantService.TenantExistsAsync(schoolId))
-                {
-                    return Unauthorized("Invalid school");
+                    return Unauthorized(new { message = "No valid session found" });
                 }
 
                 if (!schoolYearId.HasValue)
                 {
-                    return BadRequest("School year ID is required");
+                    return BadRequest(new { message = "Missing schoolYearId" });
                 }
 
-                // Validate that the school year belongs to this school (tenant)
-                var schoolYear = await _context.SchoolYears
-                    .Where(sy => sy.Id == schoolYearId.Value && sy.SchoolId == schoolId)
-                    .FirstOrDefaultAsync();
-
-                if (schoolYear == null)
-                {
-                    return NotFound("School year not found for this school");
-                }
-
-                // Query the view with school (tenant) filtering
+                // Query registration summary scoped by EntityId (schoolId)
                 var registrationSummary = await _context.StudentSchoolYearsRegistrationSummaryVw
                     .Where(s => s.SchoolId == schoolId && s.SchoolYearId == schoolYearId.Value)
                     .Select(s => new StudentRegistrationSummaryDto
@@ -72,18 +57,12 @@ namespace PetelApp.Api.Controllers
                     .ThenBy(s => s.SchoolTrack)
                     .ToListAsync();
 
-                // Log with school context following coding guide patterns
-                _logger.LogInformation("Registration summary requested for school {SchoolId}, school year {SchoolYearId}, returned {Count} records", 
-                    schoolId, schoolYearId, registrationSummary.Count);
-
                 return Ok(registrationSummary);
             }
             catch (Exception ex)
             {
-                var schoolId = _tenantService.GetCurrentTenantId();
-                _logger.LogError(ex, "Error getting registration summary for school {SchoolId}, school year {SchoolYearId}", 
-                    schoolId, schoolYearId);
-                return StatusCode(500, "An error occurred while retrieving registration summary");
+                _logger.LogError(ex, "Error retrieving registration summary");
+                return StatusCode(500, new { message = "Internal server error" });
             }
         }
     }

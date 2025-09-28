@@ -20,25 +20,70 @@ namespace PetelApp.Api.Session
             _cleanupTimer = new Timer(CleanupExpiredSessions, null, TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(30));
         }
 
-        public string CreateSession(string userId, string userFullName, string entityId, string entityTypeId = "")
+        // Add method to create session with complete data
+
+        public string CreateSessionWithFullData(
+            string userId, 
+            string username,
+            string userFullName, 
+            string entityId, 
+            string entityName,
+            string entityTypeId, 
+            string entityTypeName,
+            DateTime? lastLogin = null)
         {
+            // Check for existing active sessions for this user/entity combination
+            var existingSessions = GetAllActiveSessions()
+                .Where(s => s.UserId == userId && s.EntityId == entityId)
+                .ToList();
+            
+            // Invalidate existing sessions to prevent duplicates
+            foreach (var existingSession in existingSessions)
+            {
+                InvalidateSession(existingSession.SessionId);
+                _logger.LogInformation("Invalidated duplicate session {SessionId} for user {UserId}", 
+                    existingSession.SessionId, userId);
+            }
+
+            // Create new session with ALL required data following Authentication & Session Management
             var sessionId = Guid.NewGuid().ToString();
             var session = new UserSession
             {
                 SessionId = sessionId,
                 UserId = userId,
-                UserFullName = userFullName,
-                EntityId = entityId, // Changed from TenantId to EntityId
+                Username = username, // Restored
+                UserFullName = userFullName, // Fixed: Use concatenated name from login
+                EntityId = entityId,
+                EntityName = entityName, // Restored
                 EntityTypeId = entityTypeId,
-                CreatedAt = DateTime.UtcNow,
+                EntityTypeName = entityTypeName, // Restored
+                CreatedAt = DateTime.UtcNow, // Restored
                 LastAccessedAt = DateTime.UtcNow,
-                Roles = new List<string> { "user", "viewer" } // Default roles
+                LastLogin = lastLogin, // Restored
+                Roles = new List<int> { 1, 2 }, // Assuming 1=user, 2=viewer
+                AdditionalData = new Dictionary<string, string>()
             };
 
             _sessions.TryAdd(sessionId, session);
-            _logger.LogInformation("Session created for user {UserId} with session {SessionId}", userId, sessionId);
+            _logger.LogInformation("Complete session created for user {UserId} ({Username}) with session {SessionId}", 
+                userId, username, sessionId);
             
             return sessionId;
+        }
+
+        // Keep the simple CreateSession method for backward compatibility
+        public string CreateSession(string userId, string userFullName, string entityId, string entityTypeId = "")
+        {
+            // Call the full method with minimal data
+            return CreateSessionWithFullData(
+                userId: userId,
+                username: "", // Will need to be populated from User table if needed
+                userFullName: userFullName,
+                entityId: entityId,
+                entityName: "",
+                entityTypeId: entityTypeId,
+                entityTypeName: ""
+            );
         }
 
         public void CreateUserSession(UserSession userSession)
@@ -85,9 +130,19 @@ namespace PetelApp.Api.Session
 
             if (_sessions.TryGetValue(sessionId, out var session))
             {
-                // Update last accessed time
-                session.LastAccessedAt = DateTime.UtcNow;
-                return session;
+                // Check if session is still valid
+                if (IsSessionValid(sessionId))
+                {
+                    // Update last accessed time
+                    session.LastAccessedAt = DateTime.UtcNow;
+                    return session;
+                }
+                else
+                {
+                    // Remove invalid session
+                    _sessions.TryRemove(sessionId, out _);
+                    return null;
+                }
             }
 
             return null;
@@ -262,6 +317,72 @@ namespace PetelApp.Api.Session
         public void Dispose()
         {
             _cleanupTimer?.Dispose();
+        }
+
+        /// <summary>
+        /// Get all active sessions for debugging purposes following Security Patterns
+        /// Only accessible in development environment
+        /// </summary>
+        /// <returns>Collection of active sessions</returns>
+        public IEnumerable<UserSession> GetAllActiveSessions()
+        {
+            try
+            {
+                return _sessions.Values.Where(s => IsSessionValid(s.SessionId));
+            }
+            catch (Exception)
+            {
+                return new List<UserSession>();
+            }
+        }
+
+        /// <summary>
+        /// Get session count statistics following Entity-Based Request Flow
+        /// </summary>
+        /// <returns>Session statistics object</returns>
+        public object GetSessionStatistics()
+        {
+            try
+            {
+                var allSessions = _sessions.Values.ToList();
+                var activeSessions = allSessions.Where(s => IsSessionValid(s.SessionId)).ToList();
+                
+                return new
+                {
+                    totalSessions = allSessions.Count,
+                    activeSessions = activeSessions.Count,
+                    expiredSessions = allSessions.Count - activeSessions.Count,
+                    sessionsByEntity = activeSessions.GroupBy(s => s.EntityId)
+                        .ToDictionary(g => g.Key, g => new { 
+                            count = g.Count(), 
+                            entityName = g.FirstOrDefault()?.EntityName ?? "Unknown"
+                        }),
+                    oldestActiveSession = activeSessions.OrderBy(s => s.CreatedAt).FirstOrDefault()?.CreatedAt,
+                    newestActiveSession = activeSessions.OrderByDescending(s => s.CreatedAt).FirstOrDefault()?.CreatedAt,
+                    mostRecentActivity = activeSessions.OrderByDescending(s => s.LastAccessedAt).FirstOrDefault()?.LastAccessedAt
+                };
+            }
+            catch (Exception)
+            {
+                return new { error = "Could not retrieve session statistics" };
+            }
+        }
+
+        /// <summary>
+        /// Update session activity timestamp following Authentication & Session Management
+        /// </summary>
+        /// <param name="sessionId">Session ID to update</param>
+        /// <returns>True if session was found and updated</returns>
+        public bool UpdateSessionActivity(string sessionId)
+        {
+            var session = GetUserSession(sessionId);
+            if (session != null)
+            {
+                session.LastAccessedAt = DateTime.UtcNow;
+                SetUserSession(session);
+                return true;
+            }
+            return false;
         }
     }
 }

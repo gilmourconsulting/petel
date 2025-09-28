@@ -13,10 +13,7 @@ namespace PetelApp.Api.Models
         /// </summary>
         public int Id { get; set; }
         
-        /// <summary>
-        /// The name of the attribute
-        /// </summary>
-        public string Name { get; set; } = string.Empty;
+     
         
         /// <summary>
         /// The value of the attribute
