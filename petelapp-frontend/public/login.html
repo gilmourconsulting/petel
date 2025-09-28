@@ -425,7 +425,7 @@
         
 
         // Update the login form submission handler to send plain password
-        loginForm.addEventListener('submit', async function(e) {
+       /* loginForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
             const username = document.getElementById('username').value;
@@ -526,7 +526,7 @@
                 loginButton.disabled = false;
                 loginButton.innerHTML = 'התחבר';
             }
-        });
+        });*/
 
         // Enhance the error display function for better visibility
         function showError(message) {
@@ -727,6 +727,31 @@
                         sessionStorage.setItem('sessionId', data.session.sessionId);
                         sessionStorage.setItem('sessionCreatedAt', data.session.createdAt);
                     }
+                    
+                    // New code block start: Fetch and store additional session info
+                    try {
+                        const sessionResponse = await fetch(AppConfig.getApiUrl('session/current'), {
+                            headers: {
+                                'Authorization': `Bearer ${data.token}`
+                            }
+                        });
+                        if (sessionResponse.ok) {
+                            const sessionData = await sessionResponse.json();
+                            // Store all required session info for index.html
+                            sessionStorage.setItem('userId', sessionData.userId);
+                            sessionStorage.setItem('userFullName', sessionData.userFullName || '');
+                            sessionStorage.setItem('entityId', sessionData.entityId);
+                            sessionStorage.setItem('entityName', sessionData.entityName || '');
+                            sessionStorage.setItem('entityTypeId', sessionData.entityTypeId || '');
+                            sessionStorage.setItem('entityTypeName', sessionData.entityTypeName || '');
+                        } else {
+                            throw new Error('שגיאה באימות ההתחברות');
+                        }
+                    } catch (err) {
+                        showError('שגיאה באימות ההתחברות');
+                        return;
+                    }
+                    // New code block end
                     
                     console.log('Login successful, user data stored, redirecting to dashboard');
                     window.location.href = 'index.html';

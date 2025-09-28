@@ -142,6 +142,23 @@ namespace PetelApp.Api.Controllers
                 return StatusCode(500, new { message = "Internal server error" });
             }
         }
+
+        [HttpGet("current")]
+        public IActionResult GetCurrentSessionInfo()
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized();
+
+            return Ok(new {
+                userId = session.UserId,
+                userFullName = session.UserFullName,
+                entityId = session.EntityId,
+                entityName = session.EntityName,
+                entityTypeId = session.EntityTypeId,
+                entityTypeName = session.EntityTypeName
+            });
+        }
     }
 
     public class UpdateSessionDataRequest
