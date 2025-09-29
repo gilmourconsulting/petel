@@ -89,7 +89,6 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
-                // Get current session following Authentication & Session Management
                 var authHeader = Request.Headers["Authorization"].FirstOrDefault();
                 if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
                 {
@@ -98,11 +97,8 @@ namespace PetelApp.Api.Controllers
                 }
 
                 var sessionToken = authHeader.Substring("Bearer ".Length).Trim();
-                
-                // For now, use the entityId from query parameter if provided
-                // In a full implementation, you would validate the session token and get the user's entity ID
                 var filterEntityId = entityId;
-                
+
                 if (!filterEntityId.HasValue)
                 {
                     _logger.LogWarning("No entity ID provided for schools filter");
@@ -111,33 +107,31 @@ namespace PetelApp.Api.Controllers
 
                 _logger.LogInformation("Loading schools for entity ID: {EntityId}", filterEntityId);
 
-                // Query schools where OwnerId equals the user's entity ID following Entity-Based Request Flow
                 var schoolsQuery = _context.Entities
                     .Include(e => e.EntityType)
                     .AsNoTracking()
-                    .Where(e => e.IsActive && e.OwnerId == filterEntityId.Value); // Filter by owner entity ID
+                    .Where(e => e.IsActive && e.OwnerId == filterEntityId.Value);
 
                 _logger.LogDebug("Executing filtered schools query for owner: {OwnerId}", filterEntityId);
 
-                // Execute query and project to anonymous type
                 var schools = await schoolsQuery
-                    .Select(e => new
+                    .Select(e => new SchoolDto
                     {
-                        id = e.Id,
-                        name = e.Name,
-                        symbol = e.Symbol,
-                        address = e.Address,
-                        principalName = e.PrincipalName,
-                        inspectorName = e.InspectorName,
-                        characterization = e.Characterization,
-                        contactPerson = e.ContactPerson,
-                        educationStage = e.EducationStage,
-                        ownerId = e.OwnerId,
-                        entityTypeId = e.EntityTypeId,
-                        entityTypeName = e.EntityType != null ? e.EntityType.Name : "Unknown",
-                        isActive = e.IsActive
+                        Id = e.Id,
+                        Name = e.Name,
+                        Symbol = e.Symbol,
+                        Address = e.Address,
+                        PrincipalName = e.PrincipalName,
+                        InspectorName = e.InspectorName,
+                        Characterization = e.Characterization,
+                        ContactPerson = e.ContactPerson,
+                        EducationStage = e.EducationStage,
+                        OwnerId = e.OwnerId,
+                        EntityTypeId = e.EntityTypeId,
+                        EntityTypeName = e.EntityType != null ? e.EntityType.Name : "Unknown",
+                        IsActive = e.IsActive
                     })
-                    .OrderBy(e => e.name)
+                    .OrderBy(e => e.Name)
                     .ToListAsync();
 
                 _logger.LogInformation("Loaded {Count} schools for owner entity {EntityId}", schools.Count, filterEntityId);
@@ -146,19 +140,21 @@ namespace PetelApp.Api.Controllers
             catch (DbUpdateException dbEx)
             {
                 _logger.LogError(dbEx, "Database error loading schools");
-                return StatusCode(500, new { 
+                return StatusCode(500, new
+                {
                     success = false,
-                    message = "שגיאה בטעינת רשימת בתי הספר - בעיה בבסיס הנתונים", 
-                    error = dbEx.InnerException?.Message ?? dbEx.Message 
+                    message = "שגיאה בטעינת רשימת בתי הספר - בעיה בבסיס הנתונים",
+                    error = dbEx.InnerException?.Message ?? dbEx.Message
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error loading schools");
-                return StatusCode(500, new { 
+                return StatusCode(500, new
+                {
                     success = false,
-                    message = "שגיאה בטעינת רשימת בתי הספר", 
-                    error = ex.Message 
+                    message = "שגיאה בטעינת רשימת בתי הספר",
+                    error = ex.Message
                 });
             }
         }
