@@ -22,7 +22,7 @@
     <!-- Main content positioned after menu and context buttons -->
     <div class="content-card">
         <div class="content-header">
-            <h1 class="page-title">רשימת בתי ספר - תשפ"ו</h1>
+            <h1 class="page-title">רשימת בתי ספר</h1>
             <p class="page-subtitle">ניהול ומעקב אחר בתי הספר במערכת</p>
         </div>
 
@@ -56,40 +56,29 @@
             }
 
             try {
-                // Get session data following Authentication & Session Management
-                const entityId = sessionStorage.getItem('entityId');
+                // Get auth token following Authentication & Session Management
                 const authToken = sessionStorage.getItem('authToken');
                 
                 console.log('📋 Session Debug:', {
-                    entityId: entityId,
                     authToken: authToken || 'null',
                     hasAuthToken: !!authToken
                 });
                 
-                if (!entityId) {
-                    console.error('❌ No entity ID found in session');
+                if (!authToken || authToken === 'undefined') {
+                    console.error('❌ No valid auth token found in session');
                     return;
                 }
 
-                // API call following API Communication Pattern with Entity-Based Request Flow
-                const apiUrl = AppConfig.getApiUrl(`entities/schools?entityId=${entityId}`);
+                // API call following API Communication Pattern - no entityId parameter needed
+                const apiUrl = AppConfig.getApiUrl('entities/schools'); // Removed entityId parameter
                 console.log('🌐 Making API call to:', apiUrl);
-                
-                // Build headers following Entity-Based Request Flow
-                const headers = {
-                    'Content-Type': 'application/json'
-                };
-
-                // Only add Authorization header if token exists
-                if (authToken && authToken !== 'undefined') {
-                    headers['Authorization'] = `Bearer ${authToken}`;
-                }
-
-                console.log('📤 Request headers:', headers);
                 
                 const response = await fetch(apiUrl, {
                     method: 'GET',
-                    headers: headers
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}` // Backend uses session from token
+                    }
                 });
 
                 console.log('📥 Response:', response.status, response.ok);
@@ -123,6 +112,48 @@
             }
         }
 
+        // Add this function after the loadSchoolsData function
+function updatePageTitleWithYear() {
+    console.log('🏷️ Updating page title with selected year...');
+    
+    try {
+        // Get selected year from session storage following Authentication & Session Management
+        const selectedYearValue = sessionStorage.getItem('selectedYearValue') || 
+                                 sessionStorage.getItem('currentYearValue') || 
+                                 sessionStorage.getItem('nextYearValue') || 
+                                 sessionStorage.getItem('previousYearValue');
+        
+        console.log('📅 Selected year value:', selectedYearValue);
+        
+        const pageTitleElement = document.getElementById('pageTitle');
+        if (pageTitleElement && selectedYearValue) {
+            // Update title with year following Hebrew/RTL Specific Patterns
+            pageTitleElement.textContent = `רשימת בתי ספר - שנת לימודים ${selectedYearValue}`;
+            console.log('✅ Page title updated with year:', selectedYearValue);
+        } else {
+            console.log('⚠️ Could not update page title - missing element or year value');
+        }
+    } catch (error) {
+        console.error('❌ Error updating page title with year:', error);
+    }
+}
+
+// Update the DOMContentLoaded event handler to include title update
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🏁 DOMContentLoaded event fired!');
+    updatePageTitleWithYear(); // Add this line
+    loadSchoolsData();
+});
+
+// Also update the immediate call section
+if (document.readyState !== 'loading') {
+    console.log('📄 Document already ready, calling functions immediately');
+    updatePageTitleWithYear(); // Add this line
+    loadSchoolsData();
+}
+
+// Make the function globally available following Cross-Component Communication
+window.updatePageTitleWithYear = updatePageTitleWithYear;
         // Use ReusableTable following Standard Table Component
         function initializeReusableTable(schools) {
             console.log('📊 Initializing ReusableTable with', schools.length, 'schools');
@@ -182,61 +213,7 @@
             }
         }
 
-        // Simple table fallback when ReusableTable fails - following Standard Icon Set
-        function createSimpleTable(schools) {
-            console.log('📊 Creating simple fallback table');
-                
-            const container = document.getElementById('schoolsTableContainer');
-            if (!container) return;
 
-            const tableHTML = `
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>שם בית ספר</th>
-                                <th>סמל מוסד</th>
-                                <th>כתובת</th>
-                                <th>שם המנהל</th>
-                                <th>שם המפקח</th>
-                                <th>אפיון המוסד</th>
-                                <th>איש קשר במוסד</th>
-                                <th>שלב חינוך</th>
-                                <th>פעולות</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${schools.map(school => `
-                                <tr>
-                                    <td><strong>${school.name || ''}</strong></td>
-                                    <td>${school.symbol || ''}</td>
-                                    <td>${school.address || ''}</td>
-                                    <td>${school.principalName || ''}</td>
-                                    <td>${school.inspectorName || ''}</td>
-                                    <td>${school.characterization || ''}</td>
-                                    <td>${school.contactPerson || ''}</td>
-                                    <td>${school.educationStage || ''}</td>
-                                    <td class="actions-cell">
-                                        <button class="btn btn-sm btn-icon" onclick="viewSchool(${school.id})" title="צפייה">
-                                            <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
-                                        </button>
-                                        <button class="btn btn-sm btn-icon" onclick="editSchool(${school.id})" title="עריכה">
-                                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
-                                        </button>
-                                        <button class="btn btn-sm btn-icon" onclick="manageSchoolYear(${school.id})" title="ניהול שנת לימודים">
-                                            <img src="stats_icon.png" alt="ניהול שנת לימודים" class="action-icon-natural">
-                                        </button>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
-            container.innerHTML = tableHTML;
-            console.log('✅ Simple table created with', schools.length, 'schools');
-        }
 
         // School management functions following Cross-Component Communication
         function viewSchool(schoolId) {
