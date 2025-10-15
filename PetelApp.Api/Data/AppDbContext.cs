@@ -22,6 +22,9 @@ namespace PetelApp.Api.Data
         // Views
         public DbSet<StudentSchoolYearsRegistrationSummaryVw> StudentSchoolYearsRegistrationSummaryVw { get; set; }
 
+        // DbSets following Entity-Based Request Flow
+        public DbSet<SchoolStudent> SchoolStudents { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

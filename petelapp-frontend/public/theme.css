@@ -363,3 +363,19 @@ h3 {
     direction: ltr;
     text-align: left;
 }
+
+/* Add this CSS to hide the ID column while keeping it in the DOM following Standard Table Component */
+.data-table th:first-child,
+.data-table td:first-child {
+    display: none !important;
+    width: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+}
+
+/* Ensure hidden column doesn't affect table layout following Table Horizontal Scrolling */
+.data-table tr > :first-child {
+    position: absolute;
+    left: -9999px;
+    visibility: hidden;
+}

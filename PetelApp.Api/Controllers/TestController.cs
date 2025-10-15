@@ -12,7 +12,7 @@ namespace PetelApp.Api.Controllers
     public class TestController : BaseController
     {
         private readonly AppDbContext _context;
-        private readonly ILogger<TestController> _logger;
+        private new readonly ILogger<TestController> _logger;
 
         public TestController(
             AppDbContext context,

@@ -9,7 +9,7 @@
     <div class="main-dashboard-container">
         <!-- School Title Section -->
         <div class="school-title-section">
-            <h1 class="school-title" id="schoolTitle" style="margin-bottom: 20px; color: #C15A16;">בית ספר שמע - ניהול תלמידי חוץ תשפ"ו</h1>
+            <h1 class="school-title" id="schoolTitle" style="margin-bottom: 20px; color: #C15A16;">ניהול תלמידי חוץ</h1>
         </div>
         
         <!-- Navigation Link to Main Page -->
@@ -174,13 +174,13 @@
             
             try {
                 // Store selected school information in session following Authentication & Session Management
-                const selectedSchoolName = sessionStorage.getItem('selectedSchoolName') || 'בית ספר שמע';
-                const selectedSchoolId = sessionStorage.getItem('selectedSchoolId') || '1';
+               // const selectedSchoolName = sessionStorage.getItem('selectedSchoolName') || 'בית ספר '
+             //   const selectedSchoolId = sessionStorage.getItem('selectedSchoolId') || '0';
                 
                 // Ensure school context is stored
-                sessionStorage.setItem('selectedSchoolName', selectedSchoolName);
-                sessionStorage.setItem('selectedSchoolId', selectedSchoolId);
-                sessionStorage.setItem('navigationSource', 'schooldashboard');
+             //   sessionStorage.setItem('selectedSchoolName', selectedSchoolName);
+              //  sessionStorage.setItem('selectedSchoolId', selectedSchoolId);
+             //   sessionStorage.setItem('navigationSource', 'schooldashboard');
                 
                 console.log('School details navigation context:', {
                     schoolName: selectedSchoolName,
@@ -249,32 +249,63 @@
             }
         }
 
-        // Load school title dynamically following Authentication & Session Management
+        // Update the loadSchoolTitle function in schooldashboard.html
         function loadSchoolTitle() {
-            console.log('📋 Loading school title...');
+            console.log('📋 Loading school title from session...');
             
-            // Get selected school from session storage
-            const selectedSchoolName = sessionStorage.getItem('selectedSchoolName');
-            const currentYearValue = sessionStorage.getItem('currentYearValue');
-            
-            // Use fallback values if session data not available
-           // const schoolName = selectedSchoolName || 'בית ספר שמע - ניהול תלמידי חוץ';
-           // const yearValue = currentYearValue || 'תשפ"ו';
-            const schoolName =  '         בית ספר שמע - ניהול תלמידי חוץ';
-            const yearValue =  'תשפ"ו';
-          
-            console.log('School context:', {
-                schoolName: schoolName,
-                yearValue: yearValue
-            });
-            
-            // Update title element
-            const titleElement = document.getElementById('schoolTitle');
-            if (titleElement) {
-                titleElement.textContent = `${schoolName} - ${yearValue}`;
-                console.log('✅ School title updated:', titleElement.textContent);
-            } else {
-                console.error('❌ School title element not found');
+            try {
+                // Debug session storage first
+                console.log('🔍 Session storage contents:', {
+                    selectedSchoolId: sessionStorage.getItem('selectedSchoolId'),
+                    selectedSchoolName: sessionStorage.getItem('selectedSchoolName'),
+                 //   allKeys: Object.keys(sessionStorage)
+                });
+                
+                // Get selected school from session storage following Authentication & Session Management
+                let selectedSchoolName = sessionStorage.getItem('selectedSchoolName');
+                const selectedSchoolId = sessionStorage.getItem('selectedSchoolId');
+                const currentYearValue =   sessionStorage.getItem('selectedYearValue') ;
+                
+                // If no school name but we have an ID, try to get it from URL or other sources
+                if (!selectedSchoolName && selectedSchoolId) {
+                    console.log('⚠️ Missing school name');
+                    
+
+                }
+                
+                // Use session data or fallback
+                const schoolName = selectedSchoolName || 'בית ספר נבחר';
+                const yearValue = currentYearValue;
+                
+                console.log('🏫 School context resolved:', {
+                    schoolName: schoolName,
+                    yearValue: yearValue,
+                    schoolId: selectedSchoolId,
+                    isFromSession: !!selectedSchoolName
+                });
+                
+                // Update title element
+                const titleElement = document.getElementById('schoolTitle');
+                if (titleElement) {
+                    titleElement.textContent = `${schoolName} - ${yearValue}`;
+                    console.log('✅ School title updated:', titleElement.textContent);
+                } else {
+                    console.warn('⚠️ School title element not found');
+                }
+                
+
+                // Store confirmation that title was loaded
+           //     sessionStorage.setItem('schoolTitleLoaded', 'true');
+            //    sessionStorage.setItem('schoolTitleTimestamp', new Date().toISOString());
+                
+            } catch (error) {
+                console.error('❌ Error loading school title:', error);
+                
+                // Fallback title
+                const titleElement = document.getElementById('schoolTitle');
+                if (titleElement) {
+                    titleElement.textContent = 'שגיאה';
+                }
             }
         }
 
@@ -321,8 +352,13 @@
                 loadSchoolTitle(); // Load school name and year
                 loadDashboardCardData('alertsCard');
                 loadDashboardCardData('eventsCard');
-                loadSystemVersion();
+               // loadSystemVersion();
                 
+                console.log('🔍 Session storage contents after title set:', {
+                    selectedSchoolId: sessionStorage.getItem('selectedSchoolId'),
+                    selectedSchoolName: sessionStorage.getItem('selectedSchoolName'),
+                 //   allKeys: Object.keys(sessionStorage)
+                });
                 console.log('✅ School Dashboard initialized successfully');
             }, 100);
         });
@@ -334,7 +370,12 @@
                 loadSchoolTitle(); // Load school name and year
                 loadDashboardCardData('alertsCard');
                 loadDashboardCardData('eventsCard');
-                loadSystemVersion();
+                //loadSystemVersion();
+                                console.log('🔍 Session storage contents after title set 2:', {
+                    selectedSchoolId: sessionStorage.getItem('selectedSchoolId'),
+                    selectedSchoolName: sessionStorage.getItem('selectedSchoolName'),
+                 //   allKeys: Object.keys(sessionStorage)
+                });
                 console.log('✅ School Dashboard initialized immediately');
             }, 50);
         }

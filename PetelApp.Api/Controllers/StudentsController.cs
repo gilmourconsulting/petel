@@ -1,11 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+
 using PetelApp.Api.Data;
-using PetelApp.Api.Models.DTOs;
-using PetelApp.Api.Services;
+
 using PetelApp.Api.Session;
-using PetelApp.Api.Models;
+
+
+
 
 namespace PetelApp.Api.Controllers
 {
@@ -14,55 +15,73 @@ namespace PetelApp.Api.Controllers
     public class StudentsController : BaseController
     {
         private readonly AppDbContext _context;
-        private readonly ILogger<StudentsController> _logger;
 
         public StudentsController(
             AppDbContext context,
             UserSessionService userSessionService,
-            ILogger<BaseController> baseLogger,
-            ILogger<StudentsController> logger)
-            : base(userSessionService, baseLogger)
+            ILogger<BaseController> logger)
+            : base(userSessionService, logger)
         {
             _context = context;
-            _logger = logger;
         }
 
-        [HttpGet("registration-summary")]
-        public async Task<ActionResult<IEnumerable<StudentRegistrationSummaryDto>>> GetRegistrationSummary([FromQuery] int? schoolYearId = null)
+        [HttpGet]
+        public async Task<IActionResult> GetStudents()
         {
             try
             {
-                // Get EntityId from session (Entity-Based Request Flow)
                 var session = GetCurrentSession();
-                if (session == null || string.IsNullOrEmpty(session.EntityId) || !int.TryParse(session.EntityId, out int schoolId))
+                if (session == null)
                 {
-                    return Unauthorized(new { message = "No valid session found" });
+                    _logger.LogWarning("No valid session found for students request");
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
                 }
 
-                if (!schoolYearId.HasValue)
+                if (!int.TryParse(session.EntityId, out int sessionEntityId))
                 {
-                    return BadRequest(new { message = "Missing schoolYearId" });
+                    _logger.LogError("Invalid EntityId in session: '{EntityId}'", session.EntityId);
+                    return BadRequest(new { success = false, message = "מזהה ישות לא תקין בסשן" });
                 }
 
-                // Query registration summary scoped by EntityId (schoolId)
-                var registrationSummary = await _context.StudentSchoolYearsRegistrationSummaryVw
-                    .Where(s => s.SchoolId == schoolId && s.SchoolYearId == schoolYearId.Value)
-                    .Select(s => new StudentRegistrationSummaryDto
+                _logger.LogInformation("Loading students for entity {EntityId}", sessionEntityId);
+
+                // Query students filtered by school_year_id = 4 and is_last_version = true
+                // Following Entity-Based Request Flow
+                var students = await _context.Set<SchoolStudent>()
+                    .AsNoTracking()
+                    .Where(s => s.SchoolYearId == 4 && s.IsLastVersion == true)
+                    .Select(s => new
                     {
-                        SchoolGrade = s.SchoolGrade,
-                        SchoolTrack = s.SchoolTrack,
-                        Registered = s.Registered
+                        Id = s.Id,
+                        IdNumber = s.IdNumber,
+                        ClassId = s.ClassId,
+                      //  StartDate = s.StartDate,
+                      //  EndDate = s.EndDate,
+                        FirstName = s.FirstName,
+                        LastName = s.LastName,
+                        Gender = s.Gender,
+                        Street = s.Street,
+                        HouseNumber = s.HouseNumber,
+                        City = s.City,
+                        PostCode = s.PostCode,
+                       // SendingCouncil = s.SendingCouncil,
+                        DisabilityCategory = s.DisabilityCategory
                     })
-                    .OrderBy(s => s.SchoolGrade)
-                    .ThenBy(s => s.SchoolTrack)
                     .ToListAsync();
 
-                return Ok(registrationSummary);
+                _logger.LogInformation("Loaded {Count} students", students.Count);
+                
+                return Ok(new { success = true, data = students });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving registration summary");
-                return StatusCode(500, new { message = "Internal server error" });
+                _logger.LogError(ex, "Error loading students");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בטעינת נתוני תלמידים",
+                    error = ex.Message
+                });
             }
         }
     }

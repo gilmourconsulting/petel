@@ -38,6 +38,35 @@
     </div>
 
     <script>
+        // Add this at the top of your script section for debugging
+console.log('🚀 schoollist.html script loaded');
+
+// Log when allSchools is populated
+let _allSchools = [];
+Object.defineProperty(window, 'allSchools', {
+    get() { return _allSchools; },
+    set(value) {
+        console.log('📚 allSchools updated:', {
+            count: value?.length,
+            firstItem: value?.[0],
+            schoolIds: value?.map(s => s.id)
+        });
+        _allSchools = value;
+    }
+});
+
+// Add click event listener to debug button clicks
+document.addEventListener('click', function(e) {
+    if (e.target.matches('.btn-icon') || e.target.closest('.btn-icon')) {
+        const button = e.target.closest('.btn-icon') || e.target;
+        console.log('🖱️ View button clicked:', {
+            schoolId: button.dataset.schoolId,
+            schoolName: button.dataset.schoolName,
+            onclick: button.getAttribute('onclick')
+        });
+    }
+});
+
         console.log('🔍 SCRIPT SECTION LOADED - schoollist.html');
         
         // Global variables following Project-Specific Patterns
@@ -95,7 +124,7 @@
                         initializeReusableTable(schools);
                     } else {
                         console.error('❌ ReusableTable component not available, using fallback');
-                        createSimpleTable(schools);
+                    //    createSimpleTable(schools);
                     }
                 } else {
                     const errorText = await response.text();
@@ -158,8 +187,18 @@ window.updatePageTitleWithYear = updatePageTitleWithYear;
         function initializeReusableTable(schools) {
             console.log('📊 Initializing ReusableTable with', schools.length, 'schools');
             
+            // Store schools globally for access in viewSchool following Cross-Component Communication
+            window.allSchools = schools;
+            
             // Define columns following Hebrew/RTL Specific Patterns with Standard Icon Set
             const tableColumns = [
+                { 
+                    key: 'id', 
+                    label: 'מזהה', 
+                    sortable: true, 
+                    hidden: true, // Hide from display but keep in data
+                    readOnly: true 
+                },
                 { key: 'name', label: 'שם בית ספר', sortable: true },
                 { key: 'symbol', label: 'סמל מוסד', sortable: true },
                 { key: 'address', label: 'כתובת', sortable: false },
@@ -173,19 +212,29 @@ window.updatePageTitleWithYear = updatePageTitleWithYear;
                     label: 'פעולות', 
                     sortable: false,
                     readOnly: true,
-                    render: (school) => `
-                        <div class="actions-cell">
-                            <button class="btn btn-sm btn-icon" onclick="viewSchool(${school.id})" title="צפייה">
-                                <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
-                            </button>
-                            <button class="btn btn-sm btn-icon" onclick="editSchool(${school.id})" title="עריכה">
-                                <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
-                            </button>
-                            <button class="btn btn-sm btn-icon" onclick="manageSchoolYear(${school.id})" title="ניהול שנת לימודים">
-                                <img src="stats_icon.png" alt="ניהול שנת לימודים" class="action-icon-natural">
-                            </button>
-                        </div>
-                    `
+                    render: (school) => {
+                        // Ensure we have the school data following Entity-Based Request Flow
+                        const schoolId = school.id;
+                        const schoolName = (school.name || '').replace(/'/g, "\\'"); // Escape single quotes
+                        
+                        console.log('🔧 Rendering actions for school:', { 
+                            id: schoolId, 
+                            name: school.name 
+                        });
+                        
+                        // Pass both ID and name to viewSchool, escape quotes for HTML attribute
+                        return `
+                            <div class="actions-cell">
+                                <button class="btn btn-sm btn-icon" 
+                                        onclick="window.viewSchool(${schoolId}, '${schoolName}')" 
+                                        title="צפייה" 
+                                        data-school-id="${schoolId}"
+                                        data-school-name="${schoolName}">
+                                    <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
+                                </button>
+                            </div>
+                        `;
+                    }
                 }
             ];
 
@@ -200,7 +249,7 @@ window.updatePageTitleWithYear = updatePageTitleWithYear;
                 
                 // Initialize with data and columns following Critical Development Workflows
                 schoolsTable.init(schools, tableColumns);
-                console.log('✅ Schools table initialized successfully');
+                console.log('✅ Schools table initialized successfully with hidden ID column');
 
             } catch (error) {
                 console.error('❌ Error creating ReusableTable:', error);
@@ -208,32 +257,78 @@ window.updatePageTitleWithYear = updatePageTitleWithYear;
                     message: error.message,
                     stack: error.stack
                 });
-                // Fallback to simple table
-                createSimpleTable(schools);
             }
         }
-
+        
 
 
         // School management functions following Cross-Component Communication
-        function viewSchool(schoolId) {
-            console.log('Viewing school:', schoolId);
-            const school = allSchools.find(s => s.id === schoolId);
+        function viewSchool(schoolId, schoolName) {
+            console.log('🔍 Viewing school:', { 
+                id: schoolId, 
+                name: schoolName,
+                idType: typeof schoolId 
+            });
             
-            if (school) {
-                // Store selected school information in session following Authentication & Session Management
-                sessionStorage.setItem('selectedSchoolId', schoolId);
-                sessionStorage.setItem('selectedSchoolName', school.name);
+            try {
+                // If name is not provided, look it up from allSchools array
+                let finalSchoolName = schoolName;
                 
-                console.log('Selected school stored:', {
-                    id: schoolId,
-                    name: school.name
+                if (!finalSchoolName) {
+                    const school = allSchools.find(s => s.id === schoolId || String(s.id) === String(schoolId));
+                    if (school) {
+                        finalSchoolName = school.name;
+                        console.log('🔍 School name retrieved from allSchools array:', finalSchoolName);
+                    } else {
+                        console.error('❌ School not found with ID:', schoolId);
+                        alert('בית הספר המבוקש לא נמצא במערכת');
+                        return;
+                    }
+                }
+                
+                console.log('📝 Storing school data in session:', {
+                    selectedSchoolId: schoolId,
+                    selectedSchoolName: finalSchoolName
                 });
                 
-                // Navigate to school dashboard page following Single-Page Application with Module Loading
-                navigateToSchoolDashboard();
-            } else {
-                console.error('School not found with ID:', schoolId);
+                // Clear any existing school session data following Authentication & Session Management
+                sessionStorage.removeItem('selectedSchoolId');
+                sessionStorage.removeItem('selectedSchoolName');
+                
+                // Store selected school information with string conversion
+                const schoolIdStr = String(schoolId);
+                
+                sessionStorage.setItem('selectedSchoolId', schoolIdStr);
+                sessionStorage.setItem('selectedSchoolName', finalSchoolName);
+                sessionStorage.setItem('navigationSource', 'schoollist');
+                sessionStorage.setItem('schoolSelectionTimestamp', new Date().toISOString());
+                
+                // Verify storage immediately following Critical Development Workflows
+                const verifyId = sessionStorage.getItem('selectedSchoolId');
+                const verifyName = sessionStorage.getItem('selectedSchoolName');
+                
+                console.log('✅ Session storage verification:', {
+                    stored: { id: verifyId, name: verifyName },
+                    expected: { id: schoolIdStr, name: finalSchoolName },
+                    matches: verifyId === schoolIdStr && verifyName === finalSchoolName
+                });
+                
+                if (verifyId === schoolIdStr && verifyName === finalSchoolName) {
+                    console.log('✅ Session storage verified successfully, navigating...');
+                    
+                    // Small delay to ensure session storage persistence
+                    setTimeout(() => {
+                        console.log('🚀 Navigating to school dashboard...');
+                        navigateToSchoolDashboard();
+                    }, 50);
+                } else {
+                    console.error('❌ Session storage verification failed');
+                    alert('שגיאה בשמירת נתוני בית הספר במערכת');
+                }
+                
+            } catch (error) {
+                console.error('💥 Error in viewSchool function:', error);
+                alert('שגיאה בבחירת בית הספר');
             }
         }
 

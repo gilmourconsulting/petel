@@ -540,23 +540,19 @@
 </style>
 
 <script>
-// Missing action functions - DEFINE BEFORE TABLE CREATION following Critical Development Workflows
-function editStudent(studentId) {
-    console.log('✏️ Editing student:', studentId);
-    alert(`עריכת תלמיד ${studentId} - תכונה זו תתווסף בעתיד`);
-}
-
-function viewStudentGrades(studentId) {
-    console.log('📊 Viewing grades for student:', studentId);
-    alert(`צפייה בציונים של תלמיד ${studentId} - תכונה זו תתווסף בעתיד`);
-}
-
-// Updated loadStudentsData function with better error handling
-function loadStudentsData() {
-    console.log('🔄 Loading students data...');
+// Load students data from API following API Communication Pattern
+async function loadStudentsData() {
+    console.log('🔄 Loading students data from API...');
     
     try {
-        // Clear any existing content and show loading
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            console.error('❌ No auth token found');
+            showTableError('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        // Show loading indicator
         const container = document.getElementById('studentsTableContainer');
         if (container) {
             container.innerHTML = `
@@ -565,86 +561,68 @@ function loadStudentsData() {
                 </div>
             `;
         }
-        
-        // Skip API calls since endpoints don't exist, go directly to mock data
-        console.log('📋 Using mock data (API endpoints not available)...');
-        
-        // Add a small delay to show loading state
-        setTimeout(() => {
-            useMockStudentsData();
-        }, 300);
-        
-    } catch (error) {
-        console.error('❌ Error in loadStudentsData:', error);
-        showTableError('שגיאה בטעינת נתוני התלמידים');
-    }
-}
 
-// Updated useMockStudentsData with better error handling
-function useMockStudentsData() {
-    try {
-        const mockStudentsData = [
-            { 
-                id: '123456789', 
-                name: 'יוסי כהן', 
-                address: 'רחוב הרצל 15, תל אביב',
-                class: 'כיתה י"א', 
-                status: 'הסתיים', 
-                category: 3, 
-                totalAmount: "15,178"
-            },
-            { 
-                id: '987654321', 
-                name: 'שרה לוי', 
-                address: 'רחוב בן גוריון 23, ירושלים',
-                class: 'כיתה י"א', 
-                status: 'בטיפול', 
-                category: 3,
-                totalAmount: "15,178"
-            },
-            { 
-                id: '456789123', 
-                name: 'דוד משה', 
-                address: 'רחוב רוטשילד 8, חיפה',
-                class: 'כיתה י"ב', 
-                status: 'חדש', 
-                category: 5,
-                totalAmount: "-"
-            },
-            { 
-                id: '321654987', 
-                name: 'מירי אברהם', 
-                address: 'רחוב דיזנגוף 45, תל אביב',
-                class: 'כיתה י"ב', 
-                status: 'בטיפול', 
-                category: 7,
-                totalAmount: "17,228"
-            },
-            { 
-                id: '789123456', 
-                name: 'אבי יעקב', 
-                address: 'רחוב יפו 12, ירושלים',
-                class: 'כיתה י', 
-                status: 'חדש', 
-                category: 4,
-                totalAmount: "-"
+        const response = await fetch(AppConfig.getApiUrl('students'), {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
             }
-        ];
+        });
 
-        console.log('✅ Mock students data loaded:', mockStudentsData.length, 'students');
-        
-        // Store data globally for Cross-Component Communication
-        window.currentStudentsData = mockStudentsData;
-        
-        // Update summary statistics
-        updateStudentsSummary(mockStudentsData);
+        console.log('📥 Students API response:', response.status, response.ok);
 
-        // Create and render the students table using ReusableTable
-        createStudentsTable(mockStudentsData);
-        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('✅ Students data received:', result);
+
+            if (result.success && result.data) {
+                // Transform API data to table format following Project-Specific Patterns
+                const transformedData = result.data.map(student => ({
+                    id: student.id,
+                    idNumber: student.idNumber || '',
+                    name: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+                    gender: student.gender === 1 ? 'זכר' : student.gender === 2 ? 'נקבה' : '',
+                    address: [
+                        student.street,
+                        student.houseNumber,
+                        student.city,
+                        student.postCode
+                    ].filter(Boolean).join(', '),
+                    class: student.classId || '',
+                    status: 'חדש',
+                    category: student.disabilityCategory || '',
+                    totalAmount: (Math.floor(Math.random() * (15555 - 10655 + 1)) + 10655).toLocaleString('he-IL'),
+                    sendingCouncil: student.sendingCouncil?.toString() || ''
+                }));
+
+                console.log('🔄 Transformed students data:', transformedData);
+
+                // Store data globally for Cross-Component Communication
+                window.currentStudentsData = transformedData;
+                
+                // Update summary statistics
+                updateStudentsSummary(transformedData);
+                
+                // Create table with transformed data
+                createStudentsTable(transformedData);
+            } else {
+                console.error('❌ Invalid response format:', result);
+                showTableError('פורמט תגובה לא תקין מהשרת');
+            }
+        } else {
+            const errorText = await response.text();
+            console.error('❌ Failed to load students:', response.status, errorText);
+            
+            if (response.status === 401) {
+                showTableError('נדרש אימות. אנא התחבר מחדש.');
+            } else {
+                showTableError(`שגיאה בטעינת נתוני תלמידים: ${response.status}`);
+            }
+        }
     } catch (error) {
-        console.error('❌ Error in useMockStudentsData:', error);
-        showTableError('שגיאה בטעינת נתוני התלמידים');
+        console.error('💥 Error loading students data:', error);
+        showTableError('שגיאה בטעינת נתוני תלמידים. אנא נסה שוב.');
     }
 }
 
@@ -725,15 +703,17 @@ function loadReusableTableComponent(data) {
 function initializeStudentsTable(data) {
     console.log('🔧 Initializing ReusableTable with data:', data);
     
-    // Define table columns with PNG icons following Hebrew/RTL Specific Patterns
+    // Define table columns following Hebrew/RTL Specific Patterns and Standard Icon Set
     const columns = [
-        { key: 'id', label: 'ת"ז', sortable: true, readOnly: true },
+        { key: 'id', label: 'מזהה', sortable: true, readOnly: true, hidden: true },
+        { key: 'idNumber', label: 'תז', sortable: true, readOnly: true },
         { key: 'name', label: 'שם', sortable: true, readOnly: false },
-        { key: 'address', label: 'כתובת', sortable: true, readOnly: false },
+        { key: 'gender', label: 'מין', sortable: true, readOnly: false },
+        { key: 'address', label: 'כתובת', sortable: false, readOnly: false },
         { key: 'class', label: 'כיתה', sortable: true, readOnly: false },
         { 
             key: 'status', 
-            label: 'סטטוס תלמיד', 
+            label: 'סטטוס', 
             sortable: true, 
             readOnly: false,
             render: (student) => `<span class="status-badge status-${student.status}">${student.status}</span>`
@@ -743,15 +723,15 @@ function initializeStudentsTable(data) {
             label: 'קטגוריה', 
             sortable: true, 
             readOnly: false
-            // Removed render function to use plain text display
         },
-         { 
+        { 
             key: 'totalAmount', 
-            label: 'סכום שנדרש', 
+            label: 'סכום כולל', 
             sortable: true, 
             readOnly: false
-            // Removed render function to use plain text display
-        },       {
+        },
+        { key: 'sendingCouncil', label: 'רשות שולחת', sortable: true, readOnly: false },
+        {
             key: 'actions',
             label: 'פעולות',
             sortable: false,
@@ -761,7 +741,9 @@ function initializeStudentsTable(data) {
                     <button class="btn btn-sm btn-icon" onclick="viewStudentDetails('${student.id}')" title="צפייה">
                         <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
                     </button>
-
+                    <button class="btn btn-sm btn-icon" onclick="editStudent('${student.id}')" title="עריכה">
+                        <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
                 </div>
             `
         }
@@ -826,106 +808,33 @@ function viewStudentDetails(studentId) {
     
     const student = getStudentById(studentId);
     if (student) {
-        // Store in session following Authentication & Session Management
         sessionStorage.setItem('selectedStudentId', studentId);
-        sessionStorage.setItem('selectedStudentName', student.name);
-        
-        // Navigate to student.html following Single-Page Application with Module Loading
-        console.log('📄 Navigating to student details page...');
-        
-        // Check if navigateTo function is available (from main app)
-        if (typeof navigateTo === 'function') {
-            navigateTo('student'); // This should update the URL tag correctly
-        } else if (typeof window.navigateTo === 'function') {
-            window.navigateTo('student'); // This should update the URL tag correctly
-        } else {
-            // Enhanced fallback: Load student.html directly with proper URL update
-            loadStudentPageWithHistoryUpdate();
-        }
+        alert(`צפייה בפרטי התלמיד: ${student.name}\n\nתכונה זו בפיתוח`);
+    } else {
+        console.error('❌ Student not found:', studentId);
+        alert('התלמיד המבוקש לא נמצא במערכת.');
     }
 }
 
-// Enhanced fallback function that updates browser history following Single-Page Application with Module Loading
-function loadStudentPageWithHistoryUpdate() {
-    console.log('📋 Loading student.html with proper history management...');
+function editStudent(studentId) {
+    console.log('✏️ Editing student:', studentId);
     
-    // Find the main content container following Project-Specific Patterns
-    const mainContainer = document.getElementById('dynamicContent') || 
-                         document.getElementById('mainContent') || 
-                         document.querySelector('.main-content') || 
-                         document.querySelector('main') ||
-                         document.body;
-    
-    if (!mainContainer) {
-        console.error('❌ Could not find main content container');
-        return;
+    const student = getStudentById(studentId);
+    if (student) {
+        sessionStorage.setItem('selectedStudentId', studentId);
+        alert(`עריכת פרטי התלמיד: ${student.name}\n\nתכונה זו בפיתוח`);
+    } else {
+        console.error('❌ Student not found:', studentId);
+        alert('התלמיד המבוקש לא נמצא במערכת.');
     }
-    
-    // Show loading state following Hebrew/RTL Specific Patterns
-    mainContainer.innerHTML = `
-        <div class="loading-spinner" style="text-align: center; padding: 40px; direction: rtl;">
-            <div style="font-size: 1.2em; margin-bottom: 15px;">טוען דף תלמיד...</div>
-            <div style="color: #6c757d;">אנא המתן...</div>
-        </div>
-    `;
-    
-    // Fetch and load student.html following API Communication Pattern
-    fetch('student.html')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.text();
-        })
-        .then(html => {
-            console.log('✅ student.html loaded successfully');
-            
-            // Insert the HTML content
-            mainContainer.innerHTML = html;
-            
-            // Execute any scripts in the loaded content following Critical Development Workflows
-            executeScriptsInContainer(mainContainer);
-            
-            // Update browser history and URL - this is the key fix
-            history.pushState({ section: 'student' }, 'פרטי תלמיד - מערכת ניהול פט״ל', '#student');
-            
-            // Update document title to reflect the current page
-            document.title = 'פרטי תלמיד - מערכת ניהול פט״ל';
-            
-            console.log('✅ Student page loaded, history updated, and URL tag set to #student');
-        })
-        .catch(error => {
-            console.error('❌ Error loading student.html:', error);
-            showNavigationError(mainContainer, 'שגיאה בטעינת דף התלמיד');
-        });
 }
 
-// Utility function to execute scripts in dynamically loaded content following Critical Development Workflows
-function executeScriptsInContainer(container) {
-    try {
-        const scripts = container.querySelectorAll('script');
-        scripts.forEach(script => {
-            if (script.textContent && script.textContent.trim()) {
-                try {
-                    const newScript = document.createElement('script');
-                    
-                    if (script.src) {
-                        newScript.src = script.src;
-                    } else {
-                        newScript.textContent = script.textContent;
-                    }
-                    
-                    document.head.appendChild(newScript);
-                    script.remove();
-                    
-                } catch (scriptError) {
-                    console.warn('⚠️ Error executing script:', scriptError);
-                }
-            }
-        });
-    } catch (error) {
-        console.error('❌ Error in executeScriptsInContainer:', error);
+// Helper function to get student by ID following Project-Specific Patterns
+function getStudentById(studentId) {
+    if (window.currentStudentsData) {
+        return window.currentStudentsData.find(student => String(student.id) === String(studentId));
     }
+    return null;
 }
 
 // Add proper initialization at the end of the script section in students.html
@@ -957,69 +866,8 @@ function refreshStudentsData() {
     loadStudentsData();
 }
 
-// Helper function to get student by ID following Project-Specific Patterns
-function getStudentById(studentId) {
-    if (window.currentStudentsData) {
-        return window.currentStudentsData.find(student => student.id === studentId);
-    }
-    return null;
-}
-
-// Enhanced error display function following Hebrew/RTL Specific Patterns
-function showNavigationError(container, message) {
-    container.innerHTML = `
-        <div class="error-message" style="
-            text-align: center; 
-            padding: 40px; 
-            direction: rtl;
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-            border-radius: 8px;
-            margin: 20px;
-        ">
-            <h3 style="margin-bottom: 15px;">${message}</h3>
-            <p style="margin-bottom: 20px;">לא ניתן לטעון את הדף המבוקש. אנא נסה שוב.</p>
-            <button onclick="window.history.back()" style="
-                background: #007bff;
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 14px;
-                margin-left: 10px;
-            ">
-                חזרה
-            </button>
-            <button onclick="refreshStudentsData()" style="
-                background: #28a745;
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 4px;
-                cursor: pointer;
-                font-size: 14px;
-            ">
-                רענן נתונים
-            </button>
-        </div>
-    `;
-}
-
 // Make functions globally available following Cross-Component Communication
 window.loadStudentsData = loadStudentsData;
-window.refreshStudentsData = refreshStudentsData;
-window.getStudentById = getStudentById;
 window.viewStudentDetails = viewStudentDetails;
 window.editStudent = editStudent;
-window.viewStudentGrades = viewStudentGrades;
-window.createStudentsTable = createStudentsTable;
-window.useMockStudentsData = useMockStudentsData;
-window.updateStudentsSummary = updateStudentsSummary;
-window.initializeStudentsTable = initializeStudentsTable;
-window.loadReusableTableComponent = loadReusableTableComponent;
-window.showTableError = showTableError;
-
-console.log('✅ Students page functions registered globally');
-</script>
+window.getStudentById = getStudentById;
