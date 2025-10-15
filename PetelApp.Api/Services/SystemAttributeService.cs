@@ -34,6 +34,7 @@ namespace PetelApp.Api.Services
                     Description = a.Description,
                     Value = a.Value,
                     ValueType = a.ValueType,
+                    Name = a.Name,
                     ForeignId = a.ForeignId,
                     UpdatedAt = a.UpdatedAt
                 })

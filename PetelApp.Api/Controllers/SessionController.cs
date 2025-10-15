@@ -8,7 +8,7 @@ namespace PetelApp.Api.Controllers
     public class SessionController : BaseController
     {
         //private readonly UserSessionService _userSessionService;
-        private readonly ILogger<SessionController> _logger;
+       // private readonly ILogger<SessionController> _logger;
 
         public SessionController(
             UserSessionService userSessionService,
@@ -16,7 +16,7 @@ namespace PetelApp.Api.Controllers
             ILogger<SessionController> logger)
             : base(userSessionService, baseLogger)
         {
-            _logger = logger;
+           // _logger = logger;
         }
 
         [HttpGet("data")]
@@ -169,6 +169,33 @@ namespace PetelApp.Api.Controllers
 
             var sessions = _userSessionService.GetAllActiveSessions();
             return Ok(new { success = true, sessions });
+        }
+
+        [HttpGet("debug")]
+        public IActionResult GetSessionDebug()
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "No active session found" });
+                }
+
+                // Return current session data in same format as GetAllSessions() following Authentication & Session Management
+                return Ok(new { 
+                    success = true, 
+                    session = session  // Return the complete session object generically
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving session debug data");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "שגיאה פנימית בשרת" 
+                });
+            }
         }
     }
 

@@ -12,6 +12,8 @@
     <link rel="stylesheet" href="styles.css">
     <script src="config.js"></script>
     <script src="table-component.js"></script>
+    <!-- Add this script tag to your index.html -->
+    <script src="debug.js"></script>
 </head>
 <body>
     <div class="app-container">
@@ -30,7 +32,13 @@
                     </div>
                 </div>
             </div>
-            
+                <!-- Debug button in center -->
+            <div class="top-bar-center">
+                <button id="debugSessionBtn" class="debug-btn" onclick="showSessionDebug()" 
+                style="display: none;" title="הצג נתוני סשן">
+            🔍 Debug Session
+             </button>
+    </div>
             <!-- Right Side: Entity Info and Current User -->
             <div class="top-bar-right">
                 <div class="entity-section">
@@ -794,6 +802,8 @@ function toggleMenu() {
     }
 }
 
+
+
 // Make functions globally available following Cross-Component Communication
 window.loadMainDashboard = loadMainDashboard;
 window.navigateToMainDashboard = navigateToMainDashboard;
@@ -814,5 +824,22 @@ window.makeAuthenticatedApiCall = makeAuthenticatedApiCall;
 
 console.log('✅ All global functions registered successfully');
     </script>
+
+    <!-- Debug Modal -->
+<div id="debugModal" class="debug-modal">
+    <div class="debug-modal-content">
+        <div class="debug-modal-header">
+            <h3>נתוני סשן נוכחי</h3>
+            <span class="debug-modal-close" onclick="closeSessionDebug()">&times;</span>
+        </div>
+        <div id="debugJsonContainer" class="debug-json-container">
+            טוען נתוני סשן...
+        </div>
+        <div style="margin-top: 15px; text-align: center;">
+            <button onclick="refreshSessionDebug()" class="btn-secondary">רענן נתונים</button>
+            <button onclick="closeSessionDebug()" class="btn-secondary" style="margin-right: 10px;">סגור</button>
+        </div>
+    </div>
+</div>
 </body>
 </html>

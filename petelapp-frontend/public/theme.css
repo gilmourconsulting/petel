@@ -108,6 +108,15 @@
     justify-content: space-between;
 }
 
+/* Centered content in top bar */
+.top-bar-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+}
+
 /* Adjust main container height accordingly */
 .main-container {
     height: var(--main-content-height-minimal) !important;
@@ -278,4 +287,79 @@ h3 {
     .user-section {
         margin: 0 4px;
     }
+}
+
+/* Debug button styles */
+.debug-btn {
+    padding: 6px 12px;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    color: #495057;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.debug-btn:hover {
+    background-color: #e9ecef;
+    border-color: #adb5bd;
+}
+
+/* Debug modal styles */
+.debug-modal {
+    display: none;
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    direction: ltr; /* Force LTR for JSON display */
+}
+
+.debug-modal-content {
+    background-color: white;
+    margin: 5% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    border-radius: 8px;
+    width: 80%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.debug-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.debug-modal-close {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.debug-modal-close:hover {
+    color: black;
+}
+
+.debug-json-container {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    direction: ltr;
+    text-align: left;
 }

@@ -43,6 +43,8 @@ namespace PetelApp.Api.Data
             modelBuilder.Entity<Entity>(entity =>
             {
                 entity.ToTable("entities", "petel_schema");
+                entity.Property(e => e.OwnerId).HasColumnName("owner"); // Add this line
+
                 entity.HasOne(e => e.EntityType)
                       .WithMany(et => et.Entities)
                       .HasForeignKey(e => e.EntityTypeId)
