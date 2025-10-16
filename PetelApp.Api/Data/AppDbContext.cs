@@ -1,36 +1,36 @@
 // PetelApp.Api/Data/AppDbContext.cs
 using Microsoft.EntityFrameworkCore;
-using System.Security.Cryptography;
-using System.Text;
+using PetelApp.Api.Data;
 
 namespace PetelApp.Api.Data
 {
     public class AppDbContext : DbContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
-        {
-        }
+        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        // Entity tables
-        public DbSet<Entity> Entities { get; set; }
-        public DbSet<User> Users { get; set; }
+        // DbSets following Authentication & Session Management
         public DbSet<SystemAttribute> SystemAttributes { get; set; }
+        public DbSet<HoursBudget> HoursBudgets { get; set; }
+        public DbSet<User> Users { get; set; }
+        public DbSet<Entity> Entities { get; set; }
         public DbSet<EntityType> EntityTypes { get; set; }
-        public DbSet<Role> Roles { get; set; }
         public DbSet<UserRole> UserRoles { get; set; }
-        public DbSet<RolesAction> RolesActions { get; set; } // Added DbSet for RolesAction
-        public DbSet<SchoolYear> SchoolYears { get; set; } // Added DbSet for SchoolYear
-        public DbSet<StudentSchoolYearsRegistrationSummaryVw> StudentSchoolYearsRegistrationSummaryVw { get; set; } // Added DbSet for StudentSchoolYearsRegistrationSummaryVw
-        public DbSet<HoursBudget> HoursBudgets { get; set; } // ADD THIS LINE
+        public DbSet<Role> Roles { get; set; }
+        public DbSet<SchoolYear> SchoolYears { get; set; }
+        public DbSet<RolesAction> RolesActions { get; set; }
+
+        // Views
+        public DbSet<StudentSchoolYearsRegistrationSummaryVw> StudentSchoolYearsRegistrationSummaryVw { get; set; }
+
+        // DbSets following Entity-Based Request Flow
+        public DbSet<SchoolStudent> SchoolStudents { get; set; }
+
+        // NEW DbSets for Council and SchoolClass
+        public DbSet<Council> Councils { get; set; }
+        public DbSet<SchoolClass> SchoolClasses { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Configure petel_schema following multi-tenant architecture
-            modelBuilder.HasDefaultSchema("petel_schema");
-            
-            // Configure table names following database conventions
-            modelBuilder.Entity<HoursBudget>().ToTable("hours_budgets"); // ADD THIS LINE
-    
             base.OnModelCreating(modelBuilder);
 
             // Configure Entities table
@@ -280,6 +280,35 @@ namespace PetelApp.Api.Data
                 entity.Property(s => s.SchoolGrade).HasColumnName("school_grade");
                 entity.Property(s => s.SchoolTrack).HasColumnName("school_track");
                 entity.Property(s => s.Registered).HasColumnName("registered");
+            });
+
+            // Council entity configuration following Database Conventions
+            modelBuilder.Entity<Council>(entity =>
+            {
+                entity.ToTable("councils", "petel_schema");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.CouncilCode).IsRequired();
+                entity.Property(e => e.CouncilType).HasMaxLength(25);
+                entity.Property(e => e.CouncilShortName).HasMaxLength(25);
+                entity.Property(e => e.CouncilLongName).HasMaxLength(50);
+                entity.Property(e => e.CouncilDistrict).HasMaxLength(25);
+                
+                // Ignore computed properties (not in database)
+                entity.Ignore(e => e.Name);
+                entity.Ignore(e => e.ShortName);
+            });
+
+            // SchoolClass entity configuration following Database Conventions
+            modelBuilder.Entity<SchoolClass>(entity =>
+            {
+                entity.ToTable("school_classes", "petel_schema");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.SchoolYear).IsRequired();
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(6);
+                entity.Property(e => e.Level).IsRequired().HasMaxLength(3);
+                entity.Property(e => e.ClassNumber).IsRequired().HasMaxLength(3);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+                entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
             });
         }
     }

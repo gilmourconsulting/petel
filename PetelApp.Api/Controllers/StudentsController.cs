@@ -1,87 +1,88 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
-using PetelApp.Api.Models.DTOs;
-using PetelApp.Api.Services;
+using PetelApp.Api.Session;
 
 namespace PetelApp.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class StudentsController : ControllerBase
+    public class StudentsController : BaseController
     {
         private readonly AppDbContext _context;
-        private readonly ITenantService _tenantService;
-        private readonly ILogger<StudentsController> _logger;
 
         public StudentsController(
             AppDbContext context,
-            ITenantService tenantService,
-            ILogger<StudentsController> logger)
+            UserSessionService userSessionService,
+            ILogger<BaseController> logger)
+            : base(userSessionService, logger)
         {
             _context = context;
-            _tenantService = tenantService;
-            _logger = logger;
         }
 
-        [HttpGet("registration-summary")]
-        public async Task<ActionResult<IEnumerable<StudentRegistrationSummaryDto>>> GetRegistrationSummary([FromQuery] int? schoolYearId = null)
+        [HttpGet]
+        public async Task<IActionResult> GetStudents()
         {
             try
             {
-                // Multi-tenant pattern: get school ID (tenant) from TenantMiddleware context
-                var tenantIdString = _tenantService.GetCurrentTenantId();
-                if (string.IsNullOrEmpty(tenantIdString) || !int.TryParse(tenantIdString, out int schoolId))
+                var session = GetCurrentSession();
+                if (session == null)
                 {
-                    return Unauthorized("No valid school context found");
+                    _logger.LogWarning("No valid session found for students request");
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
                 }
 
-                // Validate school exists and is active
-                if (!await _tenantService.TenantExistsAsync(schoolId))
-                {
-                    return Unauthorized("Invalid school");
-                }
+                int sessionEntityId = session.TenantId;
 
-                if (!schoolYearId.HasValue)
-                {
-                    return BadRequest("School year ID is required");
-                }
+                _logger.LogInformation("Loading students for entity {EntityId}", sessionEntityId);
 
-                // Validate that the school year belongs to this school (tenant)
-                var schoolYear = await _context.SchoolYears
-                    .Where(sy => sy.Id == schoolYearId.Value && sy.SchoolId == schoolId)
-                    .FirstOrDefaultAsync();
-
-                if (schoolYear == null)
-                {
-                    return NotFound("School year not found for this school");
-                }
-
-                // Query the view with school (tenant) filtering
-                var registrationSummary = await _context.StudentSchoolYearsRegistrationSummaryVw
-                    .Where(s => s.SchoolId == schoolId && s.SchoolYearId == schoolYearId.Value)
-                    .Select(s => new StudentRegistrationSummaryDto
+                // Query students with enriched council and class names
+                // Following Entity-Based Request Flow from coding guidelines
+                var students = await _context.SchoolStudents
+                    .AsNoTracking()
+                    .Where(s => s.SchoolYearId == 4 && s.IsLastVersion == true)
+                    .Select(s => new
                     {
-                        SchoolGrade = s.SchoolGrade,
-                        SchoolTrack = s.SchoolTrack,
-                        Registered = s.Registered
+                        Id = s.Id,
+                        IdNumber = s.IdNumber,
+                        ClassId = s.ClassId,
+                        FirstName = s.FirstName,
+                        LastName = s.LastName,
+                        Gender = s.Gender,
+                        Street = s.Street,
+                        HouseNumber = s.HouseNumber,
+                        City = s.City,
+                        PostCode = s.PostCode,
+                        SendingCouncil = s.SendingCouncil,
+                        DisabilityCategory = s.DisabilityCategory,
+
+                        // LEFT JOIN with Councils - uses council_short_name, falls back to council_long_name
+                        CouncilShortName = _context.Councils
+                            .Where(c => c.Id == s.SendingCouncil)
+                            .Select(c => c.CouncilShortName ?? c.CouncilLongName)
+                            .FirstOrDefault(),
+
+                        // LEFT JOIN with SchoolClasses - uses name column
+                        ClassName = _context.SchoolClasses
+                            .Where(sc => sc.Id == s.ClassId)
+                            .Select(sc => sc.Name)
+                            .FirstOrDefault()
                     })
-                    .OrderBy(s => s.SchoolGrade)
-                    .ThenBy(s => s.SchoolTrack)
                     .ToListAsync();
 
-                // Log with school context following coding guide patterns
-                _logger.LogInformation("Registration summary requested for school {SchoolId}, school year {SchoolYearId}, returned {Count} records", 
-                    schoolId, schoolYearId, registrationSummary.Count);
-
-                return Ok(registrationSummary);
+                _logger.LogInformation("Loaded {Count} students with enriched data", students.Count);
+                
+                return Ok(new { success = true, data = students });
             }
             catch (Exception ex)
             {
-                var schoolId = _tenantService.GetCurrentTenantId();
-                _logger.LogError(ex, "Error getting registration summary for school {SchoolId}, school year {SchoolYearId}", 
-                    schoolId, schoolYearId);
-                return StatusCode(500, "An error occurred while retrieving registration summary");
+                _logger.LogError(ex, "Error loading students");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בטעינת נתוני תלמידים",
+                    error = ex.Message
+                });
             }
         }
     }
