@@ -1,36 +1,36 @@
 // PetelApp.Api/Data/AppDbContext.cs
 using Microsoft.EntityFrameworkCore;
-using System.Security.Cryptography;
-using System.Text;
+using PetelApp.Api.Data;
 
 namespace PetelApp.Api.Data
 {
     public class AppDbContext : DbContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
-        {
-        }
+        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        // Entity tables
-        public DbSet<Entity> Entities { get; set; }
-        public DbSet<User> Users { get; set; }
+        // DbSets following Authentication & Session Management
         public DbSet<SystemAttribute> SystemAttributes { get; set; }
+        public DbSet<HoursBudget> HoursBudgets { get; set; }
+        public DbSet<User> Users { get; set; }
+        public DbSet<Entity> Entities { get; set; }
         public DbSet<EntityType> EntityTypes { get; set; }
-        public DbSet<Role> Roles { get; set; }
         public DbSet<UserRole> UserRoles { get; set; }
-        public DbSet<RolesAction> RolesActions { get; set; } // Added DbSet for RolesAction
-        public DbSet<SchoolYear> SchoolYears { get; set; } // Added DbSet for SchoolYear
-        public DbSet<StudentSchoolYearsRegistrationSummaryVw> StudentSchoolYearsRegistrationSummaryVw { get; set; } // Added DbSet for StudentSchoolYearsRegistrationSummaryVw
-        public DbSet<HoursBudget> HoursBudgets { get; set; } // ADD THIS LINE
+        public DbSet<Role> Roles { get; set; }
+        public DbSet<SchoolYear> SchoolYears { get; set; }
+        public DbSet<RolesAction> RolesActions { get; set; }
+
+        // Views
+        public DbSet<StudentSchoolYearsRegistrationSummaryVw> StudentSchoolYearsRegistrationSummaryVw { get; set; }
+
+        // DbSets following Entity-Based Request Flow
+        public DbSet<SchoolStudent> SchoolStudents { get; set; }
+
+        // NEW DbSets for Council and SchoolClass
+        public DbSet<Council> Councils { get; set; }
+        public DbSet<SchoolClass> SchoolClasses { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // Configure petel_schema following multi-tenant architecture
-            modelBuilder.HasDefaultSchema("petel_schema");
-            
-            // Configure table names following database conventions
-            modelBuilder.Entity<HoursBudget>().ToTable("hours_budgets"); // ADD THIS LINE
-    
             base.OnModelCreating(modelBuilder);
 
             // Configure Entities table
