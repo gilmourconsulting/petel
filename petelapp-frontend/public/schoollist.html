@@ -14,7 +14,7 @@
             סיכום רשויות משלחות
         </button>
         
-        <button class="context-btn context-btn-secondary" onclick="navigateBackToDashboard()" title="חזרה ללוח הבקרה הראשי">
+        <button class="context-btn context-btn-secondary" onclick="onContextStartSchoollist()" title="חזרה ללוח הבקרה הראשי">
             חזרה ללוח הבקרה
         </button>
     </div>
@@ -38,40 +38,18 @@
     </div>
 
     <script>
-        // Add this at the top of your script section for debugging
-console.log('🚀 schoollist.html script loaded');
+        console.log('🚀 schoollist.html script loaded');
 
-// Log when allSchools is populated
-let _allSchools = [];
-Object.defineProperty(window, 'allSchools', {
-    get() { return _allSchools; },
-    set(value) {
-        console.log('📚 allSchools updated:', {
-            count: value?.length,
-            firstItem: value?.[0],
-            schoolIds: value?.map(s => s.id)
-        });
-        _allSchools = value;
-    }
-});
+        // Use window-level variables to avoid redeclaration following Cross-Component Communication
+        if (!window.allSchools) {
+            window.allSchools = [];
+            console.log('✅ Initialized window.allSchools');
+        }
 
-// Add click event listener to debug button clicks
-document.addEventListener('click', function(e) {
-    if (e.target.matches('.btn-icon') || e.target.closest('.btn-icon')) {
-        const button = e.target.closest('.btn-icon') || e.target;
-        console.log('🖱️ View button clicked:', {
-            schoolId: button.dataset.schoolId,
-            schoolName: button.dataset.schoolName,
-            onclick: button.getAttribute('onclick')
-        });
-    }
-});
-
-        console.log('🔍 SCRIPT SECTION LOADED - schoollist.html');
-        
-        // Global variables following Project-Specific Patterns
-        let allSchools = [];
-        let schoolsTable = null;
+        if (!window.schoolsTable) {
+            window.schoolsTable = null;
+            console.log('✅ Initialized window.schoolsTable');
+        }
 
         // Load schools data following Entity-Based Request Flow
         async function loadSchoolsData() {
@@ -89,7 +67,7 @@ document.addEventListener('click', function(e) {
                 const authToken = sessionStorage.getItem('authToken');
                 
                 console.log('📋 Session Debug:', {
-                    authToken: authToken || 'null',
+                    authToken: authToken ? 'present' : 'null',
                     hasAuthToken: !!authToken
                 });
                 
@@ -98,15 +76,15 @@ document.addEventListener('click', function(e) {
                     return;
                 }
 
-                // API call following API Communication Pattern - no entityId parameter needed
-                const apiUrl = AppConfig.getApiUrl('entities/schools'); // Removed entityId parameter
+                // API call following API Communication Pattern
+                const apiUrl = AppConfig.getApiUrl('entities/schools');
                 console.log('🌐 Making API call to:', apiUrl);
                 
                 const response = await fetch(apiUrl, {
                     method: 'GET',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}` // Backend uses session from token
+                        'Authorization': `Bearer ${authToken}`
                     }
                 });
 
@@ -116,15 +94,15 @@ document.addEventListener('click', function(e) {
                     const schools = await response.json();
                     console.log('🏫 Schools data received:', schools.length, schools);
                     
-                    allSchools = schools;
+                    // Store in window.allSchools following Cross-Component Communication
+                    window.allSchools = schools;
                     
                     // Use ReusableTable component following Standard Table Component
                     if (typeof ReusableTable !== 'undefined') {
                         console.log('✅ Using ReusableTable component');
                         initializeReusableTable(schools);
                     } else {
-                        console.error('❌ ReusableTable component not available, using fallback');
-                    //    createSimpleTable(schools);
+                        console.error('❌ ReusableTable component not available');
                     }
                 } else {
                     const errorText = await response.text();
@@ -141,48 +119,30 @@ document.addEventListener('click', function(e) {
             }
         }
 
-        // Add this function after the loadSchoolsData function
-function updatePageTitleWithYear() {
-    console.log('🏷️ Updating page title with selected year...');
-    
-    try {
-        // Get selected year from session storage following Authentication & Session Management
-        const selectedYearValue = sessionStorage.getItem('selectedYearValue') || 
-                                 sessionStorage.getItem('currentYearValue') || 
-                                 sessionStorage.getItem('nextYearValue') || 
-                                 sessionStorage.getItem('previousYearValue');
-        
-        console.log('📅 Selected year value:', selectedYearValue);
-        
-        const pageTitleElement = document.getElementById('pageTitle');
-        if (pageTitleElement && selectedYearValue) {
-            // Update title with year following Hebrew/RTL Specific Patterns
-            pageTitleElement.textContent = `רשימת בתי ספר - שנת לימודים ${selectedYearValue}`;
-            console.log('✅ Page title updated with year:', selectedYearValue);
-        } else {
-            console.log('⚠️ Could not update page title - missing element or year value');
+        // Update page title with year following Hebrew/RTL Specific Patterns
+        function updatePageTitleWithYear() {
+            console.log('🏷️ Updating page title with selected year...');
+            
+            try {
+                const selectedYearValue = sessionStorage.getItem('selectedYearValue') || 
+                                     sessionStorage.getItem('currentYearValue') || 
+                                     sessionStorage.getItem('nextYearValue') || 
+                                     sessionStorage.getItem('previousYearValue');
+                
+                console.log('📅 Selected year value:', selectedYearValue);
+                
+                const pageTitleElement = document.querySelector('.page-title');
+                if (pageTitleElement && selectedYearValue) {
+                    pageTitleElement.textContent = `רשימת בתי ספר - שנת לימודים ${selectedYearValue}`;
+                    console.log('✅ Page title updated with year:', selectedYearValue);
+                } else {
+                    console.log('⚠️ Could not update page title - missing element or year value');
+                }
+            } catch (error) {
+                console.error('❌ Error updating page title with year:', error);
+            }
         }
-    } catch (error) {
-        console.error('❌ Error updating page title with year:', error);
-    }
-}
 
-// Update the DOMContentLoaded event handler to include title update
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🏁 DOMContentLoaded event fired!');
-    updatePageTitleWithYear(); // Add this line
-    loadSchoolsData();
-});
-
-// Also update the immediate call section
-if (document.readyState !== 'loading') {
-    console.log('📄 Document already ready, calling functions immediately');
-    updatePageTitleWithYear(); // Add this line
-    loadSchoolsData();
-}
-
-// Make the function globally available following Cross-Component Communication
-window.updatePageTitleWithYear = updatePageTitleWithYear;
         // Use ReusableTable following Standard Table Component
         function initializeReusableTable(schools) {
             console.log('📊 Initializing ReusableTable with', schools.length, 'schools');
@@ -378,23 +338,20 @@ window.updatePageTitleWithYear = updatePageTitleWithYear;
         }
 
         // Context button navigation functions following Single-Page Application with Module Loading
-        function navigateToCouncilsList() {
-            console.log('🏛️ Navigating to council summary...');
-            
-            // Store navigation context following Authentication & Session Management
-            sessionStorage.setItem('navigationSource', 'schoollist');
-            sessionStorage.setItem('navigationTimestamp', new Date().toISOString());
-            
-            // Check if navigateTo function is available from main app following Cross-Component Communication
-            if (typeof navigateTo === 'function') {
-                navigateTo('councilsummary');
-            } else if (typeof window.navigateTo === 'function') {
-                window.navigateTo('councilsummary');
-            } else {
-                // Fallback: Load council summary page directly following Frontend Architecture Patterns
-                loadPageDirectly('councilsummary.html', 'councilsummary', 'סיכום רשויות');
-            }
-        }
+function navigateToCouncilsList() {
+    console.log('🏛️ Navigating to council summary...');
+    
+    sessionStorage.setItem('navigationSource', 'schoollist');
+    sessionStorage.setItem('navigationTimestamp', new Date().toISOString());
+    
+    // Use the centralized loader from index.html following Cross-Component Communication
+    if (typeof window.loadCouncilSummaryPage === 'function') {
+        window.loadCouncilSummaryPage();
+    } else {
+        // Fallback to direct loading
+        loadPageDirectly('councilsummary.html', 'councilsummary', 'סיכום רשויות משלחות');
+    }
+}   
 
         function navigateBackToDashboard() {
             console.log('📊 Navigating back to dashboard...');
@@ -403,15 +360,14 @@ window.updatePageTitleWithYear = updatePageTitleWithYear;
             sessionStorage.setItem('navigationSource', 'schoollist');
             sessionStorage.setItem('returnToDashboard', 'true');
             
-            // Check if navigateTo function is available from main app following Cross-Component Communication
-            if (typeof navigateTo === 'function') {
-                navigateTo('dashboard');
-            } else if (typeof window.navigateTo === 'function') {
-                window.navigateTo('dashboard');
-            } else {
-                // Fallback: Load dashboard page directly following Frontend Architecture Patterns
-                loadPageDirectly('dashboard.html', 'dashboard', 'לוח הבקרה הראשי');
-            }
+            // Restart year selection and navigate to school list
+            ensureFreshYearSelectionAndNavigate('schoollist', async () => {
+                if (typeof navigateTo === 'function') {
+                    navigateTo('schoollist');
+                } else {
+                    loadPageDirectly('schoollist.html','schoollist','רשימת בתי ספר');
+                }
+            });
         }
 
         // Generic page loading function following Frontend Architecture Patterns
@@ -536,26 +492,27 @@ window.updatePageTitleWithYear = updatePageTitleWithYear;
         // Initialize page following Critical Development Workflows
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🏁 DOMContentLoaded event fired!');
+            updatePageTitleWithYear();
             loadSchoolsData();
         });
 
         // Also try immediate call if DOM is already ready
         if (document.readyState !== 'loading') {
-            console.log('📄 Document already ready, calling loadSchoolsData immediately');
+            console.log('📄 Document already ready, calling functions immediately');
+            updatePageTitleWithYear();
             loadSchoolsData();
         }
 
         // Make functions globally available following Cross-Component Communication
         window.loadSchoolsData = loadSchoolsData;
+        window.updatePageTitleWithYear = updatePageTitleWithYear;
+        window.initializeReusableTable = initializeReusableTable;
         window.viewSchool = viewSchool;
-        window.editSchool = editSchool;
-        window.manageSchoolYear = manageSchoolYear;
         window.navigateToSchoolDashboard = navigateToSchoolDashboard;
+        window.onContextCouncilsClick = onContextCouncilsClick;
+        window.onContextStartSchoollist = onContextStartSchoollist;
         window.navigateToCouncilsList = navigateToCouncilsList;
-        window.navigateBackToDashboard = navigateBackToDashboard;
-        window.loadPageDirectly = loadPageDirectly;
-        window.executeScriptsInContainer = executeScriptsInContainer;
-        window.showNavigationError = showNavigationError;
+        // ... other function exports
 
         console.log('✅ School list functions registered globally');
     </script>

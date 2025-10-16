@@ -1,12 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-
 using PetelApp.Api.Data;
-
 using PetelApp.Api.Session;
-
-
-
 
 namespace PetelApp.Api.Controllers
 {
@@ -45,9 +40,9 @@ namespace PetelApp.Api.Controllers
 
                 _logger.LogInformation("Loading students for entity {EntityId}", sessionEntityId);
 
-                // Query students filtered by school_year_id = 4 and is_last_version = true
-                // Following Entity-Based Request Flow
-                var students = await _context.Set<SchoolStudent>()
+                // Query students with enriched council and class names
+                // Following Entity-Based Request Flow from coding guidelines
+                var students = await _context.SchoolStudents
                     .AsNoTracking()
                     .Where(s => s.SchoolYearId == 4 && s.IsLastVersion == true)
                     .Select(s => new
@@ -55,8 +50,6 @@ namespace PetelApp.Api.Controllers
                         Id = s.Id,
                         IdNumber = s.IdNumber,
                         ClassId = s.ClassId,
-                      //  StartDate = s.StartDate,
-                      //  EndDate = s.EndDate,
                         FirstName = s.FirstName,
                         LastName = s.LastName,
                         Gender = s.Gender,
@@ -65,11 +58,23 @@ namespace PetelApp.Api.Controllers
                         City = s.City,
                         PostCode = s.PostCode,
                         SendingCouncil = s.SendingCouncil,
-                        DisabilityCategory = s.DisabilityCategory
+                        DisabilityCategory = s.DisabilityCategory,
+
+                        // LEFT JOIN with Councils - uses council_short_name, falls back to council_long_name
+                        CouncilShortName = _context.Councils
+                            .Where(c => c.Id == s.SendingCouncil)
+                            .Select(c => c.CouncilShortName ?? c.CouncilLongName)
+                            .FirstOrDefault(),
+
+                        // LEFT JOIN with SchoolClasses - uses name column
+                        ClassName = _context.SchoolClasses
+                            .Where(sc => sc.Id == s.ClassId)
+                            .Select(sc => sc.Name)
+                            .FirstOrDefault()
                     })
                     .ToListAsync();
 
-                _logger.LogInformation("Loaded {Count} students", students.Count);
+                _logger.LogInformation("Loaded {Count} students with enriched data", students.Count);
                 
                 return Ok(new { success = true, data = students });
             }

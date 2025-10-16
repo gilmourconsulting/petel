@@ -1111,44 +1111,125 @@ function initializeCharacterization() {
 
 // Navigation functions following Single-Page Application with Module Loading
 function navigateToStudents() {
-    console.log('👥 Navigating to students list...');
+    console.log('👥 Navigating back to students list (closing student.html)...');
     
-    // Check if navigateTo function is available (from main app) following Cross-Component Communication
-    if (typeof navigateTo === 'function') {
-        navigateTo('students');
-    } else if (typeof window.navigateTo === 'function') {
-        window.navigateTo('students');
-    } else {
-        // Fallback: Load students.html directly into main content area
-        loadStudentsPageDirectly();
+    try {
+        // Clear student selection from session following Authentication & Session Management
+        sessionStorage.removeItem('selectedStudentId');
+        sessionStorage.removeItem('selectedStudentData');
+        console.log('✅ Student selection cleared from session');
+        
+        // Get the dynamic content container
+        const dynamicContent = document.getElementById('dynamicContent') || 
+                              document.getElementById('mainContent') || 
+                              document.querySelector('.main-content');
+        
+        if (!dynamicContent) {
+            console.error('❌ Could not find content container');
+            window.history.back();
+            return;
+        }
+        
+        // Load students.html back into the container following Single-Page Application with Module Loading
+        console.log('🔄 Loading students.html back into view...');
+        
+        fetch('students.html')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(html => {
+                // Replace content with students.html
+                dynamicContent.innerHTML = html;
+                
+                // Re-execute scripts following Common Gotchas
+                const scripts = dynamicContent.querySelectorAll('script');
+                scripts.forEach(oldScript => {
+                    const newScript = document.createElement('script');
+                    
+                    // Copy attributes
+                    Array.from(oldScript.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    
+                    // Copy content
+                    newScript.textContent = oldScript.textContent;
+                    
+                    // Replace old script with new one to trigger execution
+                    oldScript.parentNode.replaceChild(newScript, oldScript);
+                });
+                
+                // Update browser history following Single-Page Application patterns
+                history.pushState({ section: 'students' }, 'רשימת תלמידים', '#students');
+                
+                console.log('✅ Navigated back to students list successfully');
+            })
+            .catch(error => {
+                console.error('💥 Error loading students.html:', error);
+                // Fallback: use browser history
+                window.history.back();
+            });
+        
+    } catch (error) {
+        console.error('💥 Error navigating back to students:', error);
+        // Fallback to history.back
+        window.history.back();
     }
 }
 
 function navigateToSchoolDashboard() {
-    console.log('🏫 Navigating to school dashboard...');
+    console.log('🏫 Navigating back to school dashboard (closing student.html)...');
     
-    // Check if navigateTo function is available (from main app) following Cross-Component Communication
-    if (typeof navigateTo === 'function') {
-        navigateTo('schooldashboard');
-    } else if (typeof window.navigateTo === 'function') {
-        window.navigateTo('schooldashboard');
-    } else {
-        // Fallback: Load schooldashboard.html directly into main content area
-        loadSchoolDashboardPageDirectly();
+    try {
+        // Clear student selection from session following Authentication & Session Management
+        sessionStorage.removeItem('selectedStudentId');
+        sessionStorage.removeItem('selectedStudentData');
+        console.log('✅ Student selection cleared from session');
+        
+        // Navigate to school dashboard
+        if (typeof window.navigateTo === 'function') {
+            window.navigateTo('schooldashboard');
+        } else if (typeof navigateTo === 'function') {
+            navigateTo('schooldashboard');
+        } else {
+            console.warn('⚠️ navigateTo function not available, using history.back');
+            window.history.back();
+        }
+        
+        console.log('✅ Navigated back to school dashboard');
+        
+    } catch (error) {
+        console.error('💥 Error navigating to school dashboard:', error);
+        window.history.back();
     }
 }
 
 function navigateToSchoolList() {
-    console.log('🏫 Navigating to school list...');
+    console.log('🏫 Navigating to school list (closing student.html)...');
     
-    // Check if navigateTo function is available (from main app) following Cross-Component Communication
-    if (typeof navigateTo === 'function') {
-        navigateTo('schoollist');
-    } else if (typeof window.navigateTo === 'function') {
-        window.navigateTo('schoollist');
-    } else {
-        // Fallback: Load schoollist.html directly into main content area
-        loadSchoolListPageDirectly();
+    try {
+        // Clear student selection from session following Authentication & Session Management
+        sessionStorage.removeItem('selectedStudentId');
+        sessionStorage.removeItem('selectedStudentData');
+        console.log('✅ Student selection cleared from session');
+        
+        // Navigate to school list
+        if (typeof window.navigateTo === 'function') {
+            window.navigateTo('schoollist');
+        } else if (typeof navigateTo === 'function') {
+            navigateTo('schoollist');
+        } else {
+            console.warn('⚠️ navigateTo function not available, using history.back');
+            window.history.back();
+        }
+        
+        console.log('✅ Navigated to school list');
+        
+    } catch (error) {
+        console.error('💥 Error navigating to school list:', error);
+        window.history.back();
     }
 }
 

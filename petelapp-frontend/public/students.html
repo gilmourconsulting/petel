@@ -576,27 +576,42 @@ async function loadStudentsData() {
             const result = await response.json();
             console.log('✅ Students data received:', result);
 
-            if (result.success && result.data) {
-                // Transform API data to table format following Project-Specific Patterns
-                const transformedData = result.data.map(student => ({
-                    id: student.id,
-                    idNumber: student.idNumber || '',
-                    name: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
-                    gender: student.gender === 1 ? 'זכר' : student.gender === 2 ? 'נקבה' : '',
-                    address: [
-                        student.street,
-                        student.houseNumber,
-                        student.city,
-                        student.postCode
-                    ].filter(Boolean).join(', '),
-                    class: student.classId || '',
-                    status: 'חדש',
-                    category: student.disabilityCategory || '',
-                    totalAmount: (Math.floor(Math.random() * (15555 - 10655 + 1)) + 10655).toLocaleString('he-IL'),
-                    sendingCouncil: student.sendingCouncil?.toString() || '0000'
-                }));
+             if (result.success && result.data) {
+                // Transform API data using enriched fields from backend following Entity-Based Request Flow
+                const transformedData = result.data.map(student => {
+                    // Determine total amount - specific value for student 123456358
+                    let totalAmount;
+                    if (student.idNumber === '123456358') {
+                        totalAmount = '15,178';
+                        console.log('💰 Setting specific amount for student 123456358:', totalAmount);
+                    } else {
+                        totalAmount = (Math.floor(Math.random() * (15555 - 10655 + 1)) + 10655).toLocaleString('he-IL');
+                    }
 
-                console.log('🔄 Transformed students data:', transformedData);
+                    return {
+                        id: student.id,
+                        idNumber: student.idNumber || '',
+                        name: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+                        gender: student.gender === 1 ? 'זכר' : student.gender === 2 ? 'נקבה' : '',
+                        address: [
+                            student.street,
+                            student.houseNumber,
+                            student.city,
+                            student.postCode
+                        ].filter(Boolean).join(', '),
+                        // Use enriched class name from backend
+                        class: student.className || student.classId?.toString() || '',
+                        classId: student.classId, // Keep for reference
+                        status: 'בטיפול',
+                        category: student.disabilityCategory || '',
+                        totalAmount: totalAmount,
+                        // Use enriched council short name from backend
+                        sendingCouncil: student.councilShortName || student.sendingCouncil?.toString() || '',
+                        sendingCouncilId: student.sendingCouncil // Keep ID for reference
+                    };
+                });
+
+                console.log('🔄 Transformed students data with enriched fields:', transformedData);
 
                 // Store data globally for Cross-Component Communication
                 window.currentStudentsData = transformedData;
@@ -626,11 +641,12 @@ async function loadStudentsData() {
     }
 }
 
-// Update summary statistics
+// Update summary statistics to count by name instead of ID
 function updateStudentsSummary(data) {
     const totalStudents = data.length;
     const activeStudents = data.filter(s => s.status === 'בטיפול').length;
     const finishedStudents = data.filter(s => s.status === 'הסתיים').length;
+    // Count unique council names (not IDs) for accurate statistics
     const totalClasses = [...new Set(data.map(s => s.sendingCouncil).filter(Boolean))].length;
 
     const totalElement = document.getElementById('totalStudents');

@@ -456,7 +456,7 @@
         let allCouncils = [];
         let councilsTable = null;
 
-        // Load councils data following Multi-Tenant Request Flow
+        // Load councils data following Entity-Based Request Flow
         async function loadCouncilsData() {
             console.log('🚀 loadCouncilsData FUNCTION CALLED!');
             
@@ -468,19 +468,17 @@
             }
 
             try {
-                // Get session data following Authentication & Session Management
-                const tenantId = sessionStorage.getItem('tenantId');
+                // Get auth token following Authentication & Session Management
                 const authToken = sessionStorage.getItem('authToken');
                 
                 console.log('📋 Session Debug:', {
-                    tenantId: tenantId,
-                    authToken: authToken || 'null',
+                    authToken: authToken ? 'present' : 'null',
                     hasAuthToken: !!authToken
                 });
                 
-                if (!tenantId) {
-                    console.error('❌ No tenant ID found in session');
-                    // Use mock data when no tenant ID
+                if (!authToken || authToken === 'undefined') {
+                    console.error('❌ No valid auth token found in session');
+                    // Use mock data when no auth token
                     const mockCouncils = generateMockData();
                     allCouncils = mockCouncils;
                     initializeTableWithData(mockCouncils);
@@ -488,38 +486,44 @@
                 }
 
                 // API call following API Communication Pattern
-                const apiUrl = AppConfig.getApiUrl(`entities/councilsummary?tenantId=${tenantId}`);
+                const apiUrl = AppConfig.getApiUrl('entities/councils');
                 console.log('🌐 Making API call to:', apiUrl);
-                
-                // Build headers following Multi-Tenant Request Flow
-                const headers = {
-                    'Content-Type': 'application/json',
-                    'X-Tenant-ID': tenantId
-                };
-
-                // Only add Authorization header if token exists
-                if (authToken && authToken !== 'undefined') {
-                    headers['Authorization'] = `Bearer ${authToken}`;
-                }
-
-                console.log('📤 Request headers:', headers);
                 
                 const response = await fetch(apiUrl, {
                     method: 'GET',
-                    headers: headers
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
                 });
 
                 console.log('📥 Response:', response.status, response.ok);
 
                 if (response.ok) {
-                    const councils = await response.json();
-                    console.log('🏛️ Councils data received:', councils.length, councils);
+                    const result = await response.json();
+                    console.log('📦 Raw API response:', result);
                     
-                    allCouncils = councils;
-                    initializeTableWithData(councils);
+                    // Handle different response formats following API Communication Pattern
+                    const councils = result.data || result.councils || result || [];
+                    console.log('🏛️ Councils data extracted:', councils);
+                    console.log('🔍 First council structure:', councils[0]);
+                    
+                    // Transform councils data to summary format
+                    const councilsSummary = transformCouncilsToSummary(councils);
+                    console.log('📊 Transformed councils summary:', councilsSummary);
+                    
+                    allCouncils = councilsSummary;
+                    initializeTableWithData(councilsSummary);
                 } else {
                     const errorText = await response.text();
                     console.error('❌ API Error:', response.status, errorText);
+                    
+                    if (response.status === 401) {
+                        console.error('❌ Authentication failed - redirecting to login');
+                        // Optionally redirect to login
+                        // window.location.href = 'login.html';
+                    }
+                    
                     // Fallback to mock data on API error
                     console.log('🔄 Falling back to mock data');
                     const mockCouncils = generateMockData();
@@ -542,6 +546,24 @@
             }
         }
 
+        // Transform councils data to summary format following Entity-Based Request Flow
+        function transformCouncilsToSummary(councils) {
+            console.log('🔄 Transforming councils to summary format');
+            
+            // For now, create summary with basic council info
+            // This will be enhanced when we have actual student-council relationships
+            return councils.map(council => ({
+                id: council.id,
+                council: council.councilShortName || council.councilLongName || council.name || 'לא ידוע',
+                councilShortName: council.councilShortName,
+                councilLongName: council.councilLongName,
+                numberOfStudents: 0, // To be calculated from students data
+                status: 'ממתין',
+                totalRequested: '-',
+                lastUpdate: council.updatedAt ? new Date(council.updatedAt).toLocaleDateString('he-IL') : '-'
+            }));
+        }
+
         // Generate mock data following Project-Specific Patterns
         function generateMockData() {
             console.log('📊 Generating mock council data');
@@ -549,7 +571,8 @@
             const mockData = [
                 {
                     id: 1,
-                    council: 'תל אביב',
+
+                    councilShortName: '-תל-אביב-יפו',
                     numberOfStudents: 2,
                     status: 'נשלחו טפסים',
                     totalRequested: '32,406 ₪',
@@ -557,19 +580,20 @@
                 },
                 {
                     id: 2,
-                    council: 'ירושלים',
+
+                    councilShortName: 'הוד השרון',
                     numberOfStudents: 2,
                     status: 'מוכן לשליחה',
                     totalRequested: '15,178 ₪',
-                    lastUpdate: new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('he-IL') // Yesterday
+                    lastUpdate: new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('he-IL')
                 },
                 {
                     id: 3,
-                    council: 'חיפה',
+                    councilShortName: 'הרצליה',
                     numberOfStudents: 1,
                     status: 'ממתין',
                     totalRequested: '-',
-                    lastUpdate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('he-IL') // Week ago
+                    lastUpdate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('he-IL')
                 }
             ];
             
@@ -581,27 +605,73 @@
         function initializeTableWithData(councils) {
             console.log('📊 Initializing table with', councils.length, 'councils');
             
+            if (councils.length === 0) {
+                console.log('⚠️ No councils data available, creating empty table');
+                createEmptyTable();
+                return;
+            }
+            
             // Use ReusableTable component following Standard Table Component
             if (typeof ReusableTable !== 'undefined') {
                 console.log('✅ Using ReusableTable component');
                 initializeReusableTable(councils);
             } else {
-                console.error('❌ ReusableTable component not available, using fallback');
-                createSimpleTable(councils);
+                console.error('❌ ReusableTable component not available');
+                // Show loading message instead of fallback following Standard Table Component
+                const container = document.getElementById('councilsTableContainer');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="loading-indicator">
+                            <p>רכיב הטבלה לא זמין. אנא טען מחדש את הדף.</p>
+                        </div>
+                    `;
+                }
             }
         }
 
         // Use ReusableTable following Standard Table Component
         function initializeReusableTable(councils) {
             console.log('📊 Initializing ReusableTable with', councils.length, 'councils');
+            console.log('📋 Sample council data:', councils[0]);
             
             // Define columns following Hebrew/RTL Specific Patterns with Standard Icon Set
             const tableColumns = [
-                { key: 'council', label: 'רשות', sortable: true },
-                { key: 'numberOfStudents', label: 'מספר תלמידים', sortable: true },
-                { key: 'status', label: 'סטטוס', sortable: true },
-                { key: 'totalRequested', label: 'סה"כ נדרש', sortable: true },
-                { key: 'lastUpdate', label: 'עדכון אחרון', sortable: true },
+                { 
+                    key: 'councilShortName', 
+                    label: 'רשות שולחת', 
+                    sortable: true,
+                    readOnly: false,
+                    render: (council) => council.councilShortName || '123456'
+                },
+                { 
+                    key: 'numberOfStudents', 
+                    label: 'מספר תלמידים', 
+                    sortable: true,
+                    readOnly: false
+                },
+                { 
+                    key: 'status', 
+                    label: 'סטטוס', 
+                    sortable: true,
+                    readOnly: false,
+                    render: (council) => {
+                        const status = council.status || 'לא ידוע';
+                        const statusClass = status.replace(/\s+/g, '-').toLowerCase();
+                        return `<span class="status-badge status-${statusClass}">${status}</span>`;
+                    }
+                },
+                { 
+                    key: 'totalRequested', 
+                    label: 'סה"כ נדרש', 
+                    sortable: true,
+                    readOnly: false
+                },
+                { 
+                    key: 'lastUpdate', 
+                    label: 'עדכון אחרון', 
+                    sortable: true,
+                    readOnly: false
+                },
                 { 
                     key: 'actions', 
                     label: 'פעולות', 
@@ -621,7 +691,10 @@
                 // Create ReusableTable with correct constructor following Standard Table Component
                 councilsTable = new ReusableTable('councilsTableContainer', {
                     tableName: 'councils',
-                    isReadOnly: true
+                    isReadOnly: true,
+                    allowAdd: false,
+                    allowEdit: false,
+                    allowDelete: false
                 });
                 
                 console.log('📋 ReusableTable created successfully');
@@ -636,63 +709,25 @@
                     message: error.message,
                     stack: error.stack
                 });
-                // Fallback to simple table
-                createSimpleTable(councils);
+                
+                // Show loading message on error instead of fallback following Standard Table Component
+                const container = document.getElementById('councilsTableContainer');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="loading-indicator">
+                            <p>שגיאה בטעינת טבלת הרשויות. אנא טען מחדש את הדף.</p>
+                        </div>
+                    `;
+                }
             }
         }
 
         // Simple table fallback when ReusableTable fails
-        function createSimpleTable(councils) {
-            console.log('📊 Creating simple fallback table');
-                
-            const container = document.getElementById('councilsTableContainer');
-            if (!container) return;
-
-            const tableHTML = `
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>רשות</th>
-                                <th>מספר תלמידים</th>
-                                <th>Status</th>
-                                <th>סה"כ נדרש</th>
-                                <th>Last update</th>
-                                <th>פעולות</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${councils.map(council => `
-                                <tr>
-                                    <td><strong>${council.council || ''}</strong></td>
-                                    <td>${council.numberOfStudents || '0'}</td>
-                                    <td>
-                                        <span class="status-badge status-${council.status ? council.status.replace(/\s+/g, '-').toLowerCase() : 'unknown'}">
-                                            ${council.status || 'Unknown'}
-                                        </span>
-                                    </td>
-                                    <td>${council.totalRequested || '-'}</td>
-                                    <td>${council.lastUpdate || '-'}</td>
-                                    <td class="actions-cell">
-                                        <button class="btn btn-sm btn-icon" onclick="viewCouncil(${council.id})" title="צפייה ברשות">
-                                            <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
-                                        </button>
-                                    </td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
-            container.innerHTML = tableHTML;
-            console.log('✅ Simple table created with', councils.length, 'councils');
-        }
-
+ 
         // Create empty table when no data available
         function createEmptyTable() {
             console.log('📊 Creating empty table');
-                
+            
             const container = document.getElementById('councilsTableContainer');
             if (!container) return;
 
@@ -701,11 +736,11 @@
                     <table class="data-table">
                         <thead>
                             <tr>
-                                <th>רשות</th>
+                                <th>רשות שולחת</th>
                                 <th>מספר תלמידים</th>
-                                <th>Status</th>
+                                <th>סטטוס</th>
                                 <th>סה"כ נדרש</th>
-                                <th>Last update</th>
+                                <th>עדכון אחרון</th>
                                 <th>פעולות</th>
                             </tr>
                         </thead>
@@ -713,8 +748,8 @@
                             <tr>
                                 <td colspan="6" style="text-align: center; padding: 40px; color: #6c757d;">
                                     אין נתוני רשויות זמינים
-                                </td>
-                            </tr>
+                            </td>
+                        </tr>
                         </tbody>
                     </table>
                 </div>
@@ -754,11 +789,9 @@
             sessionStorage.setItem('navigationSource', 'councilsummary');
             sessionStorage.setItem('navigationTimestamp', new Date().toISOString());
             
-            // Check if navigateTo function is available from main app following Cross-Component Communication
-            if (typeof navigateTo === 'function') {
-                navigateTo('schoollist');
-            } else if (typeof window.navigateTo === 'function') {
-                window.navigateTo('schoollist');
+            // Check if loadSchoolListPage function is available following Cross-Component Communication
+            if (typeof window.loadSchoolListPage === 'function') {
+                window.loadSchoolListPage();
             } else {
                 // Fallback: Load schools list page directly following Frontend Architecture Patterns
                 loadPageDirectly('schoollist.html', 'schoollist', 'רשימת בתי ספר');
@@ -772,14 +805,14 @@
             sessionStorage.setItem('navigationSource', 'councilsummary');
             sessionStorage.setItem('returnToDashboard', 'true');
             
-            // Check if navigateTo function is available from main app following Cross-Component Communication
-            if (typeof navigateTo === 'function') {
-                navigateTo('dashboard');
-            } else if (typeof window.navigateTo === 'function') {
-                window.navigateTo('dashboard');
+            // Check if loadMainDashboard function is available following Cross-Component Communication
+            if (typeof window.loadMainDashboard === 'function') {
+                window.loadMainDashboard();
+            } else if (typeof window.navigateToMainDashboard === 'function') {
+                window.navigateToMainDashboard();
             } else {
                 // Fallback: Load dashboard page directly following Frontend Architecture Patterns
-                loadPageDirectly('dashboard.html', 'dashboard', 'לוח הבקרה הראשי');
+                loadPageDirectly('maindashboard.html', 'maindashboard', 'לוח הבקרה הראשי');
             }
         }
 
@@ -788,11 +821,12 @@
             console.log(`🔄 Loading ${filename} page directly...`);
             
             // Find the main content container following Project-Specific Patterns
-            const mainContainer =  document.getElementById('mainContent') || 
+            const mainContainer = document.getElementById('dynamicContent') ||
+                                 document.getElementById('mainContent') || 
                                  document.querySelector('.main-content') || 
                                  document.querySelector('main') ||
                                  document.body;
-        
+    
             if (!mainContainer) {
                 console.error('❌ Could not find main content container');
                 return;
@@ -862,41 +896,11 @@
 
         function showNavigationError(container, message) {
             container.innerHTML = `
-                <div class="error-message" style="
-                    text-align: center; 
-                    padding: 40px; 
-                    direction: rtl;
-                    background: #f8d7da;
-                    color: #721c24;
-                    border: 1px solid #f5c6cb;
-                    border-radius: 8px;
-                    margin: 20px;
-                ">
-                    <h3 style="margin-bottom: 15px;">${message}</h3>
-                    <p style="margin-bottom: 20px;">לא ניתן לטעון את הדף המבוקש. אנא נסה שוב.</p>
-                    <button onclick="window.history.back()" style="
-                        background: #007bff;
-                        color: white;
-                        border: none;
-                        padding: 8px 16px;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        font-size: 14px;
-                        margin-left: 10px;
-                    ">
-                        חזרה
-                    </button>
-                    <button onclick="window.location.reload()" style="
-                        background: #28a745;
-                        color: white;
-                        border: none;
-                        padding: 8px 16px;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        font-size: 14px;
-                    ">
-                        רענן דף
-                    </button>
+                <div class="error-message">
+                    <h3>${message}</h3>
+                    <p>לא ניתן לטעון את הדף המבוקש. אנא נסה שוב.</p>
+                    <button onclick="window.history.back()">חזרה</button>
+                    <button onclick="window.location.reload()">רענן דף</button>
                 </div>
             `;
         }
