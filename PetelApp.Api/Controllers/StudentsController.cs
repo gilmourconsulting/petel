@@ -64,7 +64,7 @@ namespace PetelApp.Api.Controllers
                         HouseNumber = s.HouseNumber,
                         City = s.City,
                         PostCode = s.PostCode,
-                       // SendingCouncil = s.SendingCouncil,
+                        SendingCouncil = s.SendingCouncil,
                         DisabilityCategory = s.DisabilityCategory
                     })
                     .ToListAsync();

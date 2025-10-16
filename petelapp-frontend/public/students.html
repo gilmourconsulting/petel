@@ -593,7 +593,7 @@ async function loadStudentsData() {
                     status: 'חדש',
                     category: student.disabilityCategory || '',
                     totalAmount: (Math.floor(Math.random() * (15555 - 10655 + 1)) + 10655).toLocaleString('he-IL'),
-                    sendingCouncil: student.sendingCouncil?.toString() || ''
+                    sendingCouncil: student.sendingCouncil?.toString() || '0000'
                 }));
 
                 console.log('🔄 Transformed students data:', transformedData);
@@ -630,20 +630,20 @@ async function loadStudentsData() {
 function updateStudentsSummary(data) {
     const totalStudents = data.length;
     const activeStudents = data.filter(s => s.status === 'בטיפול').length;
-    const newStudents = data.filter(s => s.status === 'חדש').length;
     const finishedStudents = data.filter(s => s.status === 'הסתיים').length;
-
-    const totalClasses = [...new Set(data.map(s => s.class))].length;
+    const totalClasses = [...new Set(data.map(s => s.sendingCouncil).filter(Boolean))].length;
 
     const totalElement = document.getElementById('totalStudents');
     const activeElement = document.getElementById('activeStudents');
+    const finishedElement = document.getElementById('finishedStudents');
     const classesElement = document.getElementById('totalClasses');
 
     if (totalElement) totalElement.textContent = totalStudents;
     if (activeElement) activeElement.textContent = activeStudents;
+    if (finishedElement) finishedElement.textContent = finishedStudents;
     if (classesElement) classesElement.textContent = totalClasses;
 
-    console.log('✅ Summary updated:', { totalStudents, newStudents, activeStudents, finishedStudents, totalClasses });
+    console.log('✅ Summary updated:', { totalStudents, activeStudents, finishedStudents, totalClasses });
 }
 
 // Create students table using ReusableTable component following Frontend Architecture Patterns
@@ -741,9 +741,6 @@ function initializeStudentsTable(data) {
                     <button class="btn btn-sm btn-icon" onclick="viewStudentDetails('${student.id}')" title="צפייה">
                         <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
                     </button>
-                    <button class="btn btn-sm btn-icon" onclick="editStudent('${student.id}')" title="עריכה">
-                        <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
-                    </button>
                 </div>
             `
         }
@@ -802,31 +799,10 @@ function showTableError(message) {
     }
 }
 
-// Student action functions following Cross-Component Communication
-function viewStudentDetails(studentId) {
-    console.log('👁️ Viewing student details:', studentId);
-    
-    const student = getStudentById(studentId);
-    if (student) {
-        sessionStorage.setItem('selectedStudentId', studentId);
-        alert(`צפייה בפרטי התלמיד: ${student.name}\n\nתכונה זו בפיתוח`);
-    } else {
-        console.error('❌ Student not found:', studentId);
-        alert('התלמיד המבוקש לא נמצא במערכת.');
-    }
-}
-
-function editStudent(studentId) {
-    console.log('✏️ Editing student:', studentId);
-    
-    const student = getStudentById(studentId);
-    if (student) {
-        sessionStorage.setItem('selectedStudentId', studentId);
-        alert(`עריכת פרטי התלמיד: ${student.name}\n\nתכונה זו בפיתוח`);
-    } else {
-        console.error('❌ Student not found:', studentId);
-        alert('התלמיד המבוקש לא נמצא במערכת.');
-    }
+// Refresh students data
+function refreshStudentsData() {
+    console.log('🔄 Refreshing students data...');
+    loadStudentsData();
 }
 
 // Helper function to get student by ID following Project-Specific Patterns
@@ -837,37 +813,142 @@ function getStudentById(studentId) {
     return null;
 }
 
-// Add proper initialization at the end of the script section in students.html
-// Initialize page following Critical Development Workflows
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🏁 Students page DOMContentLoaded event fired!');
-    loadStudentsData();
-});
-
-// Also try immediate call if DOM is already ready
-if (document.readyState !== 'loading') {
-    console.log('📄 Document already ready, calling loadStudentsData immediately');
-    loadStudentsData();
+// Student action function following Cross-Component Communication
+function viewStudentDetails(studentId) {
+    console.log('👁️ Viewing student details:', studentId);
+    
+    const student = getStudentById(studentId);
+    if (student) {
+        console.log('✅ Student found:', student);
+        
+        // Store complete student data in session following Authentication & Session Management
+        sessionStorage.setItem('selectedStudentId', studentId);
+        sessionStorage.setItem('selectedStudentData', JSON.stringify(student));
+        
+        console.log('📝 Session storage updated with complete student data:', {
+            selectedStudentId: sessionStorage.getItem('selectedStudentId'),
+            selectedStudentData: student
+        });
+        
+        // Navigate to student.html following Single-Page Application with Module Loading
+        navigateToStudentDetails();
+    } else {
+        console.error('❌ Student not found:', studentId);
+        alert('התלמיד המבוקש לא נמצא במערכת.');
+    }
 }
 
-// Add refresh function following Cross-Component Communication
-function refreshStudentsData() {
-    console.log('🔄 Refreshing students data...');
-    const container = document.getElementById('studentsTableContainer');
-    if (container) {
-        container.innerHTML = `
-            <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
-                טוען נתוני תלמידים...
-            </div>
-        `;
+// Navigate to student.html page following Frontend Architecture Patterns
+async function navigateToStudentDetails() {
+    try {
+        // Verify session data exists before navigation
+        const selectedStudentId = sessionStorage.getItem('selectedStudentId');
+        const selectedStudentDataStr = sessionStorage.getItem('selectedStudentData');
+        
+        if (!selectedStudentId || !selectedStudentDataStr) {
+            console.error('❌ Missing student data in session storage before navigation');
+            alert('נתוני התלמיד חסרים. אנא בחר תלמיד שוב.');
+            return;
+        }
+
+        const selectedStudentData = JSON.parse(selectedStudentDataStr);
+        
+        console.log('🚀 Navigating to student details with complete data:', {
+            studentId: selectedStudentId,
+            studentData: selectedStudentData
+        });
+        
+        // Load student.html directly following Single-Page Application with Module Loading
+        console.log('🔄 Loading student.html directly...');
+        const response = await fetch('student.html');
+        
+        if (!response.ok) {
+            console.error('❌ Failed to load student.html:', response.status);
+            alert('שגיאה בטעינת פרטי התלמיד');
+            return;
+        }
+        
+        const html = await response.text();
+        
+        // Find the main content container following Project-Specific Patterns
+        const dynamicContent = document.getElementById('dynamicContent') || 
+                              document.getElementById('mainContent') || 
+                              document.querySelector('.main-content');
+        
+        if (!dynamicContent) {
+            console.error('❌ Could not find main content container');
+            alert('שגיאה בטעינת פרטי התלמיד - לא נמצא מיכל תוכן');
+            return;
+        }
+        
+        // Replace content
+        dynamicContent.innerHTML = html;
+        
+        // Re-execute scripts following Common Gotchas
+        const scripts = dynamicContent.querySelectorAll('script');
+        scripts.forEach(oldScript => {
+            const newScript = document.createElement('script');
+            
+            // Copy attributes
+            Array.from(oldScript.attributes).forEach(attr => {
+                newScript.setAttribute(attr.name, attr.value);
+            });
+            
+            // Copy content
+            newScript.textContent = oldScript.textContent;
+            
+            // Replace old script with new one to trigger execution
+            oldScript.parentNode.replaceChild(newScript, oldScript);
+        });
+        
+        console.log('✅ Scripts re-executed in loaded content');
+        
+        // Update browser history following Single-Page Application patterns
+        history.pushState({ 
+            section: 'studentdetails',
+            studentId: selectedStudentId,
+            studentName: selectedStudentData.name
+        }, `${selectedStudentData.name} - פרטי תלמיד`, `#studentdetails?studentId=${selectedStudentId}`);
+        
+        console.log('✅ Student details page loaded successfully:', {
+            studentId: selectedStudentId,
+            studentName: selectedStudentData.name,
+            url: window.location.href
+        });
+        
+        // Dispatch custom event with complete student data following Cross-Component Communication
+        window.dispatchEvent(new CustomEvent('studentSelected', {
+            detail: {
+                studentId: selectedStudentId,
+                studentData: selectedStudentData,
+                source: 'students'
+            }
+        }));
+        
+    } catch (error) {
+        console.error('💥 Error loading student details page:', error);
+        alert('שגיאה בטעינת פרטי התלמיד');
     }
-    
-    // Reload the data
-    loadStudentsData();
 }
 
 // Make functions globally available following Cross-Component Communication
 window.loadStudentsData = loadStudentsData;
 window.viewStudentDetails = viewStudentDetails;
-window.editStudent = editStudent;
 window.getStudentById = getStudentById;
+window.navigateToStudentDetails = navigateToStudentDetails;
+window.refreshStudentsData = refreshStudentsData;
+
+// Initialize on page load following Critical Development Workflows
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('📋 Students page loaded, initializing...');
+    loadStudentsData();
+});
+
+// If DOMContentLoaded already fired, load immediately
+if (document.readyState === 'loading') {
+    console.log('⏳ Document still loading, waiting for DOMContentLoaded...');
+} else {
+    console.log('✅ Document already loaded, initializing immediately...');
+    loadStudentsData();
+}
+</script>

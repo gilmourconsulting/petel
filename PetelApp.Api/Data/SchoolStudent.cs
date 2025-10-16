@@ -44,7 +44,7 @@ namespace PetelApp.Api.Data
         public string? PostCode { get; set; }
 
         [Column("sending_council")]
-        public string? SendingCouncil { get; set; }
+        public int? SendingCouncil { get; set; }
 
         [Column("disability_category")]
         public int? DisabilityCategory { get; set; }
