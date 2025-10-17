@@ -1,4 +1,5 @@
-using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using System.Collections.Concurrent;
 using System.Text.Json;
 
 namespace PetelApp.Api.Session
@@ -8,31 +9,380 @@ namespace PetelApp.Api.Session
     /// </summary>
     public class UserSessionService
     {
-        private const string SessionKey = "UserSession";
-        private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly ConcurrentDictionary<string, UserSession> _sessions = new();
+        private readonly ILogger<UserSessionService> _logger;
+        private readonly Timer _cleanupTimer;
 
-        public UserSessionService(IHttpContextAccessor httpContextAccessor)
+        public UserSessionService(ILogger<UserSessionService> logger)
         {
-            _httpContextAccessor = httpContextAccessor;
+            _logger = logger;
+            // Cleanup expired sessions every 30 minutes
+            _cleanupTimer = new Timer(CleanupExpiredSessions, null, TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(30));
         }
 
-        public void SetUserSession(UserSession session)
+        // Add method to create session with complete data
+
+        public string CreateSessionWithFullData(
+            string userId, 
+            string username,
+            string userFullName, 
+            string entityId, 
+            string entityName,
+            string entityTypeId, 
+            string entityTypeName,
+            DateTime? lastLogin = null)
         {
-            var json = JsonSerializer.Serialize(session);
-            _httpContextAccessor.HttpContext?.Session.SetString(SessionKey, json);
+            // Check for existing active sessions for this user/entity combination
+            var existingSessions = GetAllActiveSessions()
+                .Where(s => s.UserId == userId && s.EntityId == entityId)
+                .ToList();
+            
+            // Invalidate existing sessions to prevent duplicates
+            foreach (var existingSession in existingSessions)
+            {
+                InvalidateSession(existingSession.SessionId);
+                _logger.LogInformation("Invalidated duplicate session {SessionId} for user {UserId}", 
+                    existingSession.SessionId, userId);
+            }
+
+            // Create new session with ALL required data following Authentication & Session Management
+            var sessionId = Guid.NewGuid().ToString();
+            var session = new UserSession
+            {
+                SessionId = sessionId,
+                UserId = userId,
+                Username = username, // Restored
+                UserFullName = userFullName, // Fixed: Use concatenated name from login
+                EntityId = entityId,
+                EntityName = entityName, // Restored
+                EntityTypeId = entityTypeId,
+                EntityTypeName = entityTypeName, // Restored
+                CreatedAt = DateTime.UtcNow, // Restored
+                LastAccessedAt = DateTime.UtcNow,
+                LastLogin = lastLogin, // Restored
+                Roles = new List<int> { 1, 2 }, // Assuming 1=user, 2=viewer
+                AdditionalData = new Dictionary<string, string>()
+            };
+
+            _sessions.TryAdd(sessionId, session);
+            _logger.LogInformation("Complete session created for user {UserId} ({Username}) with session {SessionId}", 
+                userId, username, sessionId);
+            
+            return sessionId;
+        }
+
+        // Keep the simple CreateSession method for backward compatibility
+        public string CreateSession(string userId, string userFullName, string entityId, string entityTypeId = "")
+        {
+            // Call the full method with minimal data
+            return CreateSessionWithFullData(
+                userId: userId,
+                username: "", // Will need to be populated from User table if needed
+                userFullName: userFullName,
+                entityId: entityId,
+                entityName: "",
+                entityTypeId: entityTypeId,
+                entityTypeName: ""
+            );
+        }
+
+        public void CreateUserSession(UserSession userSession)
+        {
+            if (userSession == null)
+            {
+                _logger.LogWarning("Attempt to create session with null UserSession object");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(userSession.SessionId))
+            {
+                userSession.SessionId = Guid.NewGuid().ToString();
+            }
+
+            // Set creation and access timestamps
+            userSession.CreatedAt = DateTime.UtcNow;
+            userSession.LastAccessedAt = DateTime.UtcNow;
+
+            // Add the session to the concurrent dictionary
+            _sessions.TryAdd(userSession.SessionId, userSession);
+            
+            _logger.LogInformation("User session created for user {UserId} with session {SessionId} in entity {EntityId}", 
+                userSession.UserId, userSession.SessionId, userSession.EntityId);
+        }
+
+        // Also add an overload method for convenience
+        public void CreateUserSession(string sessionId, UserSession userSession)
+        {
+            if (string.IsNullOrEmpty(sessionId))
+            {
+                _logger.LogWarning("Attempt to create session with null or empty sessionId");
+                return;
+            }
+
+            userSession.SessionId = sessionId;
+            CreateUserSession(userSession);
+        }
+
+        public UserSession? GetUserSession(string sessionId)
+        {
+            if (string.IsNullOrEmpty(sessionId))
+                return null;
+
+            if (_sessions.TryGetValue(sessionId, out var session))
+            {
+                // Check if session is still valid
+                if (IsSessionValid(sessionId))
+                {
+                    // Update last accessed time
+                    session.LastAccessedAt = DateTime.UtcNow;
+                    return session;
+                }
+                else
+                {
+                    // Remove invalid session
+                    _sessions.TryRemove(sessionId, out _);
+                    return null;
+                }
+            }
+
+            return null;
         }
 
         public UserSession? GetUserSession()
         {
-            var json = _httpContextAccessor.HttpContext?.Session.GetString(SessionKey);
-            if (string.IsNullOrEmpty(json))
-                return null;
-            return JsonSerializer.Deserialize<UserSession>(json);
+            // This should not be called directly - use GetUserSession(sessionId)
+            // Return null or throw exception for invalid usage
+            _logger.LogWarning("GetUserSession() called without session ID - this should not happen");
+            return null;
         }
 
-        public void ClearUserSession()
+        public void SetUserSession(UserSession session)
         {
-            _httpContextAccessor.HttpContext?.Session.Remove(SessionKey);
+            if (!string.IsNullOrEmpty(session.SessionId))
+            {
+                _sessions.AddOrUpdate(session.SessionId, session, (key, oldValue) => session);
+                _logger.LogDebug("Session updated for session {SessionId}", session.SessionId);
+            }
+        }
+
+        public bool UpdateSessionData(string sessionId, string key, string value)
+        {
+            if (_sessions.TryGetValue(sessionId, out var session))
+            {
+                switch (key.ToLower())
+                {
+                    case "selectedschoolid":
+                        session.SelectedSchoolId = value;
+                        break;
+                    case "selectedschoolname":
+                        session.SelectedSchoolName = value;
+                        break;
+                    case "selectedyearid":
+                        session.SelectedYearId = value;
+                        break;
+                    case "selectedyeartype":
+                        session.SelectedYearType = value;
+                        break;
+                    case "selectedyearvalue":
+                        session.SelectedYearValue = value;
+                        break;
+                    default:
+                        session.AdditionalData[key] = value;
+                        break;
+                }
+                
+                session.LastAccessedAt = DateTime.UtcNow;
+                _logger.LogDebug("Session data updated for session {SessionId}: {Key}={Value}", sessionId, key, value);
+                return true;
+            }
+
+            return false;
+        }
+
+        public Task<bool> UpdateSessionDataAsync(string sessionId, string key, string value)
+        {
+            return Task.FromResult(UpdateSessionData(sessionId, key, value));
+        }
+
+        public string? GetSessionData(string sessionId, string key)
+        {
+            if (_sessions.TryGetValue(sessionId, out var session))
+            {
+                session.LastAccessedAt = DateTime.UtcNow;
+                
+                return key.ToLower() switch
+                {
+                    "userid" => session.UserId,
+                    "userfullname" => session.UserFullName,
+                    "entityid" => session.EntityId, // Changed from tenantid to entityid
+                    "entitytypeid" => session.EntityTypeId,
+                    "selectedschoolid" => session.SelectedSchoolId,
+                    "selectedschoolname" => session.SelectedSchoolName,
+                    "selectedyearid" => session.SelectedYearId,
+                    "selectedyeartype" => session.SelectedYearType,
+                    "selectedyearvalue" => session.SelectedYearValue,
+                    _ => session.AdditionalData.TryGetValue(key, out var value) ? value : null
+                };
+            }
+
+            return null;
+        }
+
+        public Dictionary<string, string> GetAllSessionData(string sessionId)
+        {
+            if (_sessions.TryGetValue(sessionId, out var session))
+            {
+                session.LastAccessedAt = DateTime.UtcNow;
+                
+                var data = new Dictionary<string, string>
+                {
+                    ["userId"] = session.UserId,
+                    ["userFullName"] = session.UserFullName,
+                    ["entityId"] = session.EntityId, // Changed from tenantId to entityId
+                    ["entityTypeId"] = session.EntityTypeId,
+                    ["selectedSchoolId"] = session.SelectedSchoolId,
+                    ["selectedSchoolName"] = session.SelectedSchoolName,
+                    ["selectedYearId"] = session.SelectedYearId,
+                    ["selectedYearType"] = session.SelectedYearType,
+                    ["selectedYearValue"] = session.SelectedYearValue
+                };
+
+                // Add additional data
+                foreach (var kvp in session.AdditionalData)
+                {
+                    data[kvp.Key] = kvp.Value;
+                }
+
+                return data;
+            }
+
+            return new Dictionary<string, string>();
+        }
+
+        public void InvalidateSession(string sessionId)
+        {
+            if (string.IsNullOrEmpty(sessionId))
+            {
+                _logger.LogWarning("Attempt to invalidate session with null or empty sessionId");
+                return;
+            }
+
+            if (_sessions.TryRemove(sessionId, out var removedSession))
+            {
+                _logger.LogInformation("Session {SessionId} invalidated for user {UserId}, entity {EntityId}", 
+                    sessionId, removedSession.UserId, removedSession.EntityId);
+            }
+            else
+            {
+                _logger.LogWarning("Session {SessionId} not found during invalidation attempt", sessionId);
+            }
+        }
+
+        public bool IsSessionValid(string sessionId)
+        {
+            if (_sessions.TryGetValue(sessionId, out var session))
+            {
+                // Check if session is expired (24 hours)
+                if (DateTime.UtcNow - session.LastAccessedAt > TimeSpan.FromHours(24))
+                {
+                    _sessions.TryRemove(sessionId, out _);
+                    _logger.LogInformation("Session expired for session {SessionId}", sessionId);
+                    return false;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private void CleanupExpiredSessions(object? state)
+        {
+            var expiredSessions = _sessions
+                .Where(kvp => DateTime.UtcNow - kvp.Value.LastAccessedAt > TimeSpan.FromHours(24))
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            foreach (var sessionId in expiredSessions)
+            {
+                _sessions.TryRemove(sessionId, out _);
+            }
+
+            if (expiredSessions.Count > 0)
+            {
+                _logger.LogInformation("Cleaned up {Count} expired sessions", expiredSessions.Count);
+            }
+        }
+
+        public void Dispose()
+        {
+            _cleanupTimer?.Dispose();
+        }
+
+        /// <summary>
+        /// Get all active sessions for debugging purposes following Security Patterns
+        /// Only accessible in development environment
+        /// </summary>
+        /// <returns>Collection of active sessions</returns>
+        public IEnumerable<UserSession> GetAllActiveSessions()
+        {
+            try
+            {
+                return _sessions.Values.Where(s => IsSessionValid(s.SessionId));
+            }
+            catch (Exception)
+            {
+                return new List<UserSession>();
+            }
+        }
+
+        /// <summary>
+        /// Get session count statistics following Entity-Based Request Flow
+        /// </summary>
+        /// <returns>Session statistics object</returns>
+        public object GetSessionStatistics()
+        {
+            try
+            {
+                var allSessions = _sessions.Values.ToList();
+                var activeSessions = allSessions.Where(s => IsSessionValid(s.SessionId)).ToList();
+                
+                return new
+                {
+                    totalSessions = allSessions.Count,
+                    activeSessions = activeSessions.Count,
+                    expiredSessions = allSessions.Count - activeSessions.Count,
+                    sessionsByEntity = activeSessions.GroupBy(s => s.EntityId)
+                        .ToDictionary(g => g.Key, g => new { 
+                            count = g.Count(), 
+                            entityName = g.FirstOrDefault()?.EntityName ?? "Unknown"
+                        }),
+                    oldestActiveSession = activeSessions.OrderBy(s => s.CreatedAt).FirstOrDefault()?.CreatedAt,
+                    newestActiveSession = activeSessions.OrderByDescending(s => s.CreatedAt).FirstOrDefault()?.CreatedAt,
+                    mostRecentActivity = activeSessions.OrderByDescending(s => s.LastAccessedAt).FirstOrDefault()?.LastAccessedAt
+                };
+            }
+            catch (Exception)
+            {
+                return new { error = "Could not retrieve session statistics" };
+            }
+        }
+
+        /// <summary>
+        /// Update session activity timestamp following Authentication & Session Management
+        /// </summary>
+        /// <param name="sessionId">Session ID to update</param>
+        /// <returns>True if session was found and updated</returns>
+        public bool UpdateSessionActivity(string sessionId)
+        {
+            var session = GetUserSession(sessionId);
+            if (session != null)
+            {
+                session.LastAccessedAt = DateTime.UtcNow;
+                SetUserSession(session);
+                return true;
+            }
+            return false;
         }
     }
 }

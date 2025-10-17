@@ -137,25 +137,24 @@
             
             try {
                 // Get session data following Authentication & Session Management
-                const tenantId = sessionStorage.getItem('tenantId');
+                const entityId = sessionStorage.getItem('entityId');
                 const authToken = sessionStorage.getItem('authToken');
                 
-                if (!tenantId) {
-                    console.error('❌ No tenant ID found in session');
-                    // Use mock data when no tenant ID
+                if (!entityId) {
+                    console.error('❌ No entity ID found in session');
+                    // Use mock data when no entity ID
                     const mockData = generateSchoolCharacterizationMockData();
                     displaySchoolCharacterization(mockData);
                     return;
                 }
 
-                // API call following API Communication Pattern
-                const apiUrl = AppConfig.getApiUrl(`entities/schoolcharacterization?schoolId=${selectedSchoolId}&tenantId=${tenantId}`);
+                // API call following API Communication Pattern with Entity-Based Request Flow
+                const apiUrl = AppConfig.getApiUrl(`entities/schoolcharacterization?schoolId=${selectedSchoolId}&entityId=${entityId}`);
                 console.log('🌐 Making API call to:', apiUrl);
                 
-                // Build headers following Multi-Tenant Request Flow
+                // Build headers following Entity-Based Request Flow
                 const headers = {
-                    'Content-Type': 'application/json',
-                    'X-Tenant-ID': tenantId
+                    'Content-Type': 'application/json'
                 };
 
                 // Only add Authorization header if token exists
@@ -231,7 +230,62 @@
             if (!container) return;
 
             const characterizationHTML = `
-ף
+                <div class="characterization-grid" style="
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+                    gap: 20px;
+                    direction: rtl;
+                    text-align: right;
+                ">
+                    <div class="info-section">
+                        <h4 style="color: #C15A16; margin-bottom: 10px;">פרטי בית הספר</h4>
+                        <p><strong>שם בית הספר:</strong> ${data.schoolName}</p>
+                        <p><strong>סוג בית הספר:</strong> ${data.schoolType}</p>
+                        <p><strong>רמת חינוך:</strong> ${data.educationLevel}</p>
+                        <p><strong>מגזר:</strong> ${data.sector}</p>
+                        <p><strong>פיקוח:</strong> ${data.supervision}</p>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4 style="color: #C15A16; margin-bottom: 10px;">מיקום ויצירת קשר</h4>
+                        <p><strong>מיקום:</strong> ${data.location}</p>
+                        <p><strong>כתובת:</strong> ${data.address}</p>
+                        <p><strong>טלפון:</strong> ${data.contactPhone}</p>
+                        <p><strong>אימייל:</strong> ${data.contactEmail}</p>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4 style="color: #C15A16; margin-bottom: 10px;">נתונים סטטיסטיים</h4>
+                        <p><strong>שנת הקמה:</strong> ${data.establishmentYear}</p>
+                        <p><strong>מספר תלמידים:</strong> ${data.studentCount}</p>
+                        <p><strong>מספר כיתות:</strong> ${data.classCount}</p>
+                        <p><strong>מספר צוות:</strong> ${data.staffCount}</p>
+                        <p><strong>מנהל/ת:</strong> ${data.principalName}</p>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4 style="color: #C15A16; margin-bottom: 10px;">תכניות מיוחדות</h4>
+                        <ul style="margin: 0; padding-right: 20px;">
+                            ${data.specialPrograms.map(program => `<li>${program}</li>`).join('')}
+                        </ul>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4 style="color: #C15A16; margin-bottom: 10px;">מתקנים</h4>
+                        <ul style="margin: 0; padding-right: 20px;">
+                            ${data.facilities.map(facility => `<li>${facility}</li>`).join('')}
+                        </ul>
+                    </div>
+                    
+                    <div class="info-section">
+                        <h4 style="color: #C15A16; margin-bottom: 10px;">שפות הוראה</h4>
+                        <p>${data.languages.join(', ')}</p>
+                        <p style="font-size: 0.9em; color: #6c757d; margin-top: 15px;">
+                            <strong>עודכן לאחרונה:</strong> ${data.lastUpdate}
+                        </p>
+                    </div>
+                </div>
+            `;
 
             container.innerHTML = characterizationHTML;
             console.log('✅ School characterization displayed successfully');
@@ -250,71 +304,49 @@
 
         // Load additional education table following Standard Table Component
         async function loadAdditionalEducationTable() {
-            console.log('📋 Loading additional education table...');
+            console.log('📋 ========== LOADING ADDITIONAL EDUCATION TABLE ==========');
             
             const container = document.getElementById('additionalEducationContent');
-            if (!container) return;
+            if (!container) {
+                console.error('❌ additionalEducationContent container not found in DOM');
+                console.log('Available containers:', document.querySelectorAll('[id*="Content"]'));
+                return;
+            }
+            
+            console.log('✅ Container found:', container);
+            
+            // Show loading state
+            container.innerHTML = `
+                <div style="text-align: center; padding: 20px; direction: rtl; background: white; border: 1px solid #dee2e6; border-radius: 8px;">
+                    <div style="font-size: 1.1em; margin-bottom: 10px;">טוען נתוני תל"ן...</div>
+                    <div style="color: #6c757d;">אנא המתן...</div>
+                </div>
+            `;
             
             try {
-                // Get session data following Authentication & Session Management
-                const tenantId = sessionStorage.getItem('tenantId');
-                const authToken = sessionStorage.getItem('authToken');
+                console.log('📊 Generating mock data...');
+                const mockData = generateAdditionalEducationMockData();
+                console.log('📊 Mock data generated successfully:', mockData);
                 
-                if (!tenantId) {
-                    console.error('❌ No tenant ID found in session');
-                    // Use mock data when no tenant ID
-                    const mockData = generateAdditionalEducationMockData();
-                    initializeAdditionalEducationTable(mockData);
+                if (!mockData || !Array.isArray(mockData) || mockData.length === 0) {
+                    console.error('❌ Invalid mock data generated');
+                    showNoDataMessage();
                     return;
                 }
-
-                // API call following API Communication Pattern
-                const apiUrl = AppConfig.getApiUrl(`entities/additionaleducation?schoolId=${selectedSchoolId}&tenantId=${tenantId}`);
-                console.log('🌐 Making API call to:', apiUrl);
                 
-                // Build headers following Multi-Tenant Request Flow
-                const headers = {
-                    'Content-Type': 'application/json',
-                    'X-Tenant-ID': tenantId
-                };
-
-                // Only add Authorization header if token exists
-                if (authToken && authToken !== 'undefined') {
-                    headers['Authorization'] = `Bearer ${authToken}`;
-                }
-
-                console.log('📤 Request headers:', headers);
-                
-                const response = await fetch(apiUrl, {
-                    method: 'GET',
-                    headers: headers
-                });
-
-                console.log('📥 Response:', response.status, response.ok);
-
-                if (response.ok) {
-                    const additionalEducationData = await response.json();
-                    console.log('📚 Additional education data received:', additionalEducationData.length, additionalEducationData);
-                    
-                    initializeAdditionalEducationTable(additionalEducationData);
-                } else {
-                    const errorText = await response.text();
-                    console.error('❌ API Error:', response.status, errorText);
-                    // Fallback to mock data on API error
-                    console.log('🔄 Falling back to mock data');
-                    const mockData = generateAdditionalEducationMockData();
+                // Add delay to show loading state
+                setTimeout(() => {
+                    console.log('🔧 Initializing table with mock data...');
                     initializeAdditionalEducationTable(mockData);
-                }
+                }, 300);
+
             } catch (error) {
                 console.error('💥 Exception in loadAdditionalEducationTable:', error);
-                // Fallback to mock data on exception
-                console.log('🔄 Falling back to mock data due to exception');
-                const mockData = generateAdditionalEducationMockData();
-                initializeAdditionalEducationTable(mockData);
+                showNoDataMessage();
             }
         }
 
-        // Generate mock data for additional education table following Project-Specific Patterns
+        // Fix the generateAdditionalEducationMockData function - it's being called but may have issues
         function generateAdditionalEducationMockData() {
             console.log('📊 Generating mock additional education data');
             
@@ -336,7 +368,7 @@
                     exactHours: '8',
                     priceList: '158 ₪ לתלמיד',
                     lastUpdateDate: new Date().toLocaleDateString('he-IL')
-                    },
+                },
                 {
                     id: 3,
                     subject: 'נגרות (ב)',
@@ -345,7 +377,7 @@
                     exactHours: '8',
                     priceList: '225 ₪ לתלמיד',
                     lastUpdateDate: new Date().toLocaleDateString('he-IL')
-              },
+                },
                 {
                     id: 4,
                     subject: 'נגרות (ב)',
@@ -354,103 +386,252 @@
                     exactHours: '8',
                     priceList: '356 ₪ לתלמיד',
                     lastUpdateDate: new Date().toLocaleDateString('he-IL')
-              }
+                }
             ];
             
             console.log('✅ Mock additional education data generated:', mockData);
             return mockData;
         }
 
-        // Initialize additional education table following Standard Table Component
+        // Completely rewrite the initializeAdditionalEducationTable function for better reliability
         function initializeAdditionalEducationTable(data) {
-            console.log('📊 Initializing additional education table with', data.length, 'records');
+            console.log('📊 Initializing additional education table with', data?.length || 0, 'records');
             
-            // Use ReusableTable component following Standard Table Component
-            if (typeof ReusableTable !== 'undefined') {
-                console.log('✅ Using ReusableTable component');
-                initializeAdditionalEducationReusableTable(data);
-            } else {
-                console.error('❌ ReusableTable component not available, using fallback');
-                createAdditionalEducationSimpleTable(data);
+            if (!data || !Array.isArray(data) || data.length === 0) {
+                console.warn('⚠️ No data provided for additional education table');
+                showNoDataMessage();
+                return;
+            }
+            
+            const container = document.getElementById('additionalEducationContent');
+            if (!container) {
+                console.error('❌ Container additionalEducationContent not found');
+                return;
+            }
+            
+            // Always use simple table first, then try ReusableTable as enhancement
+            console.log('📋 Creating simple table first for reliability');
+            createAdditionalEducationSimpleTable(data);
+            
+            // Then try to enhance with ReusableTable if available
+            setTimeout(() => {
+                if (typeof ReusableTable !== 'undefined') {
+                    console.log('✅ ReusableTable available, enhancing table');
+                    enhanceWithReusableTable(data);
+                } else {
+                    console.log('📦 ReusableTable not available, attempting to load');
+                    loadReusableTableAndEnhance(data);
+                }
+            }, 100);
+        }
+
+        // Enhanced simple table that works reliably
+        function createAdditionalEducationSimpleTable(data) {
+            console.log('📊 Creating reliable simple table for additional education with', data.length, 'records');
+            
+            const container = document.getElementById('additionalEducationContent');
+            if (!container) {
+                console.error('❌ Container not found');
+                return;
+            }
+            
+            // Clear any existing content
+            container.innerHTML = '';
+            
+            // Create table with horizontal scrolling following Table Horizontal Scrolling
+            const tableHTML = `
+                <div class="table-container" style="overflow-x: auto; max-width: 100%; border: 1px solid #dee2e6; border-radius: 8px; background: white; margin-top: 10px;">
+                    <table class="data-table" style="width: 100%; min-width: 1200px; border-collapse: collapse; direction: rtl; text-align: right;">
+                        <thead>
+                            <tr style="background-color: #f8f9fa;">
+                                <th style="padding: 15px 12px; border-bottom: 2px solid #dee2e6; border-left: 1px solid #dee2e6; min-width: 200px; font-weight: 600; color: #333;">מקצוע</th>
+                                <th style="padding: 15px 12px; border-bottom: 2px solid #dee2e6; border-left: 1px solid #dee2e6; min-width: 100px; font-weight: 600; color: #333;">כיתה</th>
+                                <th style="padding: 15px 12px; border-bottom: 2px solid #dee2e6; border-left: 1px solid #dee2e6; min-width: 120px; font-weight: 600; color: #333;">רמה</th>
+                                <th style="padding: 15px 12px; border-bottom: 2px solid #dee2e6; border-left: 1px solid #dee2e6; min-width: 150px; font-weight: 600; color: #333;">מספר השעות מדויק</th>
+                                <th style="padding: 15px 12px; border-bottom: 2px solid #dee2e6; border-left: 1px solid #dee2e6; min-width: 150px; font-weight: 600; color: #333;">מחירון</th>
+                                <th style="padding: 15px 12px; border-bottom: 2px solid #dee2e6; min-width: 180px; font-weight: 600; color: #333;">תאריך עדכון אחרון</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.map((item, index) => `
+                                <tr style="background-color: ${index % 2 === 0 ? '#f9f9f9' : 'white'};" onmouseover="this.style.backgroundColor='#f5f5f5'" onmouseout="this.style.backgroundColor='${index % 2 === 0 ? '#f9f9f9' : 'white'}'">
+                                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; border-left: 1px solid #dee2e6; font-weight: 600; color: #333;" title="${item.subject || ''}">
+                                        ${item.subject || ''}
+                                    </td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; border-left: 1px solid #dee2e6; text-align: center; font-weight: 500;">
+                                        ${item.grade || ''}
+                                    </td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; border-left: 1px solid #dee2e6; color: #6c757d;">
+                                        ${item.level || ''}
+                                    </td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; border-left: 1px solid #dee2e6; text-align: center; font-weight: 600; font-family: 'Courier New', monospace; color: #C15A16;">
+                                        ${item.exactHours || '0'}
+                                    </td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; border-left: 1px solid #dee2e6; font-weight: 600; color: #28a745;">
+                                        ${item.priceList || ''}
+                                    </td>
+                                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; font-size: 0.9em; color: #6c757d;">
+                                        ${item.lastUpdateDate || ''}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div style="text-align: left; margin-top: 10px; color: #6c757d; font-size: 0.9em; direction: rtl;">
+                    <p>סה"כ ${data.length} רשומות תל"ן</p>
+                </div>
+            `;
+
+            container.innerHTML = tableHTML;
+            console.log('✅ Simple additional education table created successfully with', data.length, 'records');
+        }
+
+        // Function to show no data message
+        function showNoDataMessage() {
+            const container = document.getElementById('additionalEducationContent');
+            if (container) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #6c757d; direction: rtl; background: white; border: 1px solid #dee2e6; border-radius: 8px;">
+                        <h4 style="margin-bottom: 15px; color: #333;">אין נתוני תל"ן</h4>
+                        <p>לא נמצאו נתוני תל"ן עבור בית ספר זה.</p>
+                        <button onclick="loadAdditionalEducationTable()" style="
+                            background: #C15A16;
+                            color: white;
+                            border: none;
+                            padding: 8px 16px;
+                            border-radius: 4px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            margin-top: 15px;
+                        ">
+                            נסה שוב
+                        </button>
+                    </div>
+                `;
             }
         }
 
-        // Use ReusableTable following Standard Table Component
-        function initializeAdditionalEducationReusableTable(data) {
-            console.log('📊 Initializing ReusableTable for additional education with', data.length, 'records');
+        // Function to load ReusableTable and enhance existing table
+        function loadReusableTableAndEnhance(data) {
+            console.log('📦 Loading ReusableTable component to enhance table...');
             
-            // Define columns following Hebrew/RTL Specific Patterns
+            // Check if script already exists
+            const existingScript = document.querySelector('script[src="table-component.js"]');
+            if (existingScript) {
+                console.log('📋 table-component.js already loaded, waiting...');
+                setTimeout(() => {
+                    if (typeof ReusableTable !== 'undefined') {
+                        enhanceWithReusableTable(data);
+                    } else {
+                        console.log('⚠️ ReusableTable still not available, keeping simple table');
+                    }
+                }, 1000);
+                return;
+            }
+
+            // Load the table component script
+            const script = document.createElement('script');
+            script.src = 'table-component.js';
+            script.onload = () => {
+                console.log('✅ table-component.js loaded successfully');
+                setTimeout(() => {
+                    if (typeof ReusableTable !== 'undefined') {
+                        enhanceWithReusableTable(data);
+                    } else {
+                        console.log('⚠️ ReusableTable not available after load, keeping simple table');
+                    }
+                }, 500);
+            };
+            script.onerror = () => {
+                console.log('⚠️ Failed to load table-component.js, keeping simple table');
+            };
+            
+            document.head.appendChild(script);
+        }
+
+        // Function to enhance existing table with ReusableTable
+        function enhanceWithReusableTable(data) {
+            console.log('🔧 Enhancing table with ReusableTable component');
+            
+            const container = document.getElementById('additionalEducationContent');
+            if (!container) return;
+            
+            // Clear existing content
+            container.innerHTML = '';
+            
+            // Define columns following Hebrew/RTL Specific Patterns and Standard Table Component
             const tableColumns = [
-                { key: 'subject', label: 'מקצוע', sortable: true },
-                { key: 'grade', label: 'כיתה', sortable: true },
-                { key: 'level', label: 'רמה', sortable: true },
-                { key: 'exactHours', label: 'מספר השעות מדויק', sortable: true },
-                { key: 'priceList', label: 'מחירון', sortable: true },
-                { key: 'lastUpdateDate', label: 'תאריך עדכון אחרון', sortable: true }
+                { 
+                    key: 'subject', 
+                    label: 'מקצוע', 
+                    sortable: true, 
+                    readOnly: true,
+                    render: (item) => {
+                        const subject = item.subject || '';
+                        return subject.length > 30 ? 
+                            `<span title="${subject}">${subject.substring(0, 30)}...</span>` : 
+                            subject;
+                    }
+                },
+                { 
+                    key: 'grade', 
+                    label: 'כיתה', 
+                    sortable: true, 
+                    readOnly: true 
+                },
+                { 
+                    key: 'level', 
+                    label: 'רמה', 
+                    sortable: true, 
+                    readOnly: true 
+                },
+                { 
+                    key: 'exactHours', 
+                    label: 'מספר השעות מדויק', 
+                    sortable: true, 
+                    readOnly: true,
+                    render: (item) => `<span class="hours-cell">${item.exactHours || '0'}</span>`
+                },
+                { 
+                    key: 'priceList', 
+                    label: 'מחירון', 
+                    sortable: true, 
+                    readOnly: true,
+                    render: (item) => `<span style="font-weight: 600; color: #28a745;">${item.priceList || ''}</span>`
+                },
+                { 
+                    key: 'lastUpdateDate', 
+                    label: 'תאריך עדכון אחרון', 
+                    sortable: true, 
+                    readOnly: true,
+                    render: (item) => `<span class="date-cell">${item.lastUpdateDate || ''}</span>`
+                }
             ];
 
             try {
                 // Create ReusableTable with correct constructor following Standard Table Component
                 const additionalEducationTable = new ReusableTable('additionalEducationContent', {
                     tableName: 'additionalEducation',
-                    isReadOnly: true
+                    isReadOnly: true,
+                    allowAdd: false,
+                    allowEdit: false,
+                    allowDelete: false
                 });
                 
                 console.log('📋 ReusableTable created successfully for additional education');
                 
                 // Initialize with data and columns following Critical Development Workflows
                 additionalEducationTable.init(data, tableColumns);
-                console.log('✅ Additional education table initialized successfully');
+                
+                console.log('✅ Additional education ReusableTable enhanced successfully');
 
             } catch (error) {
-                console.error('❌ Error creating ReusableTable for additional education:', error);
-                console.error('Error details:', {
-                    message: error.message,
-                    stack: error.stack
-                });
-                // Fallback to simple table
+                console.error('❌ Error enhancing with ReusableTable:', error);
+                // Fall back to simple table if ReusableTable fails
                 createAdditionalEducationSimpleTable(data);
             }
-        }
-
-        // Simple table fallback when ReusableTable fails
-        function createAdditionalEducationSimpleTable(data) {
-            console.log('📊 Creating simple fallback table for additional education');
-                
-            const container = document.getElementById('additionalEducationContent');
-            if (!container) return;
-
-            const tableHTML = `
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>מקצוע</th>
-                                <th>כיתה</th>
-                                <th>רמה</th>
-                                <th>מספר השעות מדויק</th>
-                                <th>מחירון</th>
-                                <th>תאריך עדכון אחרון</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${data.map(item => `
-                                <tr>
-                                    <td><strong>${item.subject || ''}</strong></td>
-                                    <td>${item.grade || ''}</td>
-                                    <td>${item.level || ''}</td>
-                                    <td class="hours-cell">${item.exactHours || '0'}</td>
-                                    <td>${item.priceList || ''}</td>
-                                    <td class="date-cell">${item.lastUpdateDate || ''}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
-            container.innerHTML = tableHTML;
-            console.log('✅ Simple additional education table created with', data.length, 'records');
         }
 
         // Context button navigation functions following Single-Page Application with Module Loading

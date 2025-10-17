@@ -7,44 +7,42 @@ namespace PetelApp.Api.Data
     /// Hours budget entity following database conventions
     /// Maps to petel_schema.hours_budgets table with multi-tenant architecture
     /// </summary>
-    [Table("hours_budgets", Schema = "petel_schema")]
+    [Table("hours_budget", Schema = "petel_schema")]
     public class HoursBudget
     {
         [Key]
         [Column("id")]
         public int Id { get; set; }
 
-        [Column("school_id")]
-        public int SchoolId { get; set; } // Tenant ID
-
-        [Column("school_year_id")]
-        public int SchoolYearId { get; set; }
-
-        [Column("budget_name")]
         [Required]
-        [MaxLength(255)]
-        public string BudgetName { get; set; } = string.Empty;
+        [Column("entity_id")]
+        public string EntityId { get; set; } = string.Empty; // Required for Entity-Based Request Flow
+
+        [Column("school_year")]
+        public string? SchoolYear { get; set; }
+
+        [Column("budget_type")]
+        public string? BudgetType { get; set; }
 
         [Column("allocated_hours")]
-        [Required]
         public decimal AllocatedHours { get; set; }
 
         [Column("used_hours")]
-        public decimal UsedHours { get; set; } = 0;
+        public decimal UsedHours { get; set; }
 
         [Column("remaining_hours")]
-        public decimal RemainingHours => AllocatedHours - UsedHours;
+        public decimal RemainingHours { get; set; }
 
-        [Column("is_active")]
-        public bool IsActive { get; set; } = true;
+        [Column("department")]
+        public string? Department { get; set; }
+
+        [Column("notes")]
+        public string? Notes { get; set; }
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("updated_at")]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
-        // Navigation properties
-        public virtual SchoolYear SchoolYear { get; set; } = null!;
     }
 }

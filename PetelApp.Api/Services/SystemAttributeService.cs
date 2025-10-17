@@ -1,154 +1,51 @@
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using PetelApp.Api.Data;
 using PetelApp.Api.Models;
 using PetelApp.Api.Session;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace PetelApp.Api.Services
 {
-    /// <summary>
-    /// Service for managing system attributes following system attributes pattern
-    /// Implements caching and session integration for multi-tenant educational SaaS
-    /// </summary>
     public class SystemAttributeService
     {
         private readonly AppDbContext _context;
-        private readonly UserSessionService _userSessionService;
-        private static readonly Dictionary<string, SystemAttributeDto> _cachedAttributes = new();
-        private static DateTime _lastCacheUpdate = DateTime.MinValue;
-        private static readonly TimeSpan _cacheTimeout = TimeSpan.FromMinutes(5);
+        private readonly ILogger<SystemAttributeService> _logger;
+        private readonly SystemAttributeCache _cache;
 
-        public SystemAttributeService(AppDbContext context, UserSessionService userSessionService)
+        public SystemAttributeService(AppDbContext context, ILogger<SystemAttributeService> logger, SystemAttributeCache cache)
         {
             _context = context;
-            _userSessionService = userSessionService;
+            _logger = logger;
+            _cache = cache;
         }
 
-        public async Task<List<SystemAttributeDto>> GetAllAttributesAsync()
+        // Called by loader at startup
+        public async Task LoadAttributesAsync()
         {
-            // Always refresh cache if empty or expired following system attributes pattern
-            if (_cachedAttributes.Count == 0 || DateTime.UtcNow - _lastCacheUpdate > _cacheTimeout)
-            {
-                await RefreshCacheAsync();
-            }
-
-            var attributes = _cachedAttributes.Values.ToList();
-            
-            // Update session with system attributes following authentication & session management
-            await UpdateSessionWithSystemAttributesAsync(attributes);
-            
-            return attributes;
-        }
-
-        public async Task<SystemAttributeDto?> GetAttributeAsync(string name)
-        {
-            if (_cachedAttributes.Count == 0 || DateTime.UtcNow - _lastCacheUpdate > _cacheTimeout)
-            {
-                await RefreshCacheAsync();
-            }
-
-            _cachedAttributes.TryGetValue(name, out var attribute);
-            return attribute;
-        }
-
-        private async Task RefreshCacheAsync()
-        {
-            try
-            {
-                // Load all system attributes from petel_schema following database conventions
-                var dbAttributes = await _context.SystemAttributes.ToListAsync();
-
-                _cachedAttributes.Clear();
-                
-                foreach (var dbAttr in dbAttributes)
+            _cache.Attributes = await _context.SystemAttributes
+                .Select(a => new SystemAttributeDto
                 {
-                    var dtoAttr = new SystemAttributeDto
-                    {
-                        Id = dbAttr.Id,
-                        Name = dbAttr.Name,
-                        Value = dbAttr.Value ?? string.Empty,
-                        ForeignId = dbAttr.foreign_id,
-                        Description = dbAttr.Description,
-                        CreatedAt = (DateTime)dbAttr.CreatedAt,
-                        UpdatedAt = (DateTime)dbAttr.UpdatedAt
-                    };
-                    
-                    _cachedAttributes[dbAttr.Name] = dtoAttr;
-                }
-
-                _lastCacheUpdate = DateTime.UtcNow;
-                Console.WriteLine($"System attributes cache refreshed with {dbAttributes.Count} items from database");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error refreshing system attributes cache: {ex.Message}");
-                throw;
-            }
+                    Id = a.Id,
+                    Description = a.Description,
+                    Value = a.Value,
+                    ValueType = a.ValueType,
+                    Name = a.Name,
+                    ForeignId = a.ForeignId,
+                    UpdatedAt = a.UpdatedAt
+                })
+                .ToListAsync();
+            _logger.LogInformation("System attributes loaded into memory: {Count}", _cache.Attributes.Count);
         }
 
-        private async Task UpdateSessionWithSystemAttributesAsync(List<SystemAttributeDto> attributes)
+        public Task<List<SystemAttributeDto>> GetAllAttributesListAsync()
         {
-            try
-            {
-                var session = _userSessionService.GetUserSession();
-                if (session != null)
-                {
-                    session.SystemAttributes.Clear();
-                    session.SystemAttributeForeignIds.Clear();
-                    
-                    foreach (var attr in attributes)
-                    {
-                        session.SystemAttributes[attr.Name] = attr.Value ?? string.Empty;
-                        session.SystemAttributeForeignIds[attr.Name] = attr.ForeignId;
-                    }
-                    
-                    session.SystemAttributesLastLoaded = DateTime.UtcNow;
-                    _userSessionService.SetUserSession(session);
-                }
-            }
-            catch (Exception)
-            {
-                // Session update is optional, don't break the main flow
-            }
-            
-            await Task.CompletedTask;
-        }
-
-        public async Task SetSelectedYearInSessionAsync(string yearType, int? foreignId, string yearValue)
-        {
-            try
-            {
-                var session = _userSessionService.GetUserSession();
-                if (session != null)
-                {
-                    // Store selected year following authentication & session management patterns
-                    session.SelectedYear = foreignId;
-                    session.SelectedYearType = yearType;
-                    session.SelectedYearValue = yearValue;
-                    
-                    _userSessionService.SetUserSession(session);
-                }
-            }
-            catch (Exception)
-            {
-                // Session update failure should not break functionality
-            }
-            
-            await Task.CompletedTask;
-        }
-
-        public async Task<string?> GetAttributeValueAsync(string name)
-        {
-            var attribute = await GetAttributeAsync(name);
-            return attribute?.Value;
-        }
-
-        public async Task<int?> GetAttributeForeignIdAsync(string name)
-        {
-            var attribute = await GetAttributeAsync(name);
-            return attribute?.ForeignId;
+            // Return cached attributes from the singleton cache
+            return Task.FromResult(_cache.Attributes);
         }
     }
 }

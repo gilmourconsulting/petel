@@ -27,17 +27,25 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
-                // Use existing UserSessionService method
-                var session = _userSessionService.GetUserSession();
-                
-                if (session == null)
+                var authHeader = Request.Headers["Authorization"].FirstOrDefault();
+                if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith("Bearer "))
                 {
-                    _logger.LogWarning("No active session found");
+                    _logger.LogWarning("Missing or invalid authorization header");
                     return null;
                 }
 
-                _logger.LogDebug("Session retrieved for user {UserId} in tenant {TenantId}", 
-                    session.UserId, session.TenantId);
+                var token = authHeader.Substring("Bearer ".Length).Trim();
+                // Use existing UserSessionService method
+                var session = _userSessionService.GetUserSession(token);
+                
+                if (session == null)
+                {
+                    _logger.LogWarning("No active session found for token");
+                    return null;
+                }
+
+                _logger.LogDebug("Session retrieved for user {UserId} in entity {EntityId}", 
+                    session.UserId, session.EntityId);
                 
                 return session;
             }
@@ -51,16 +59,16 @@ namespace PetelApp.Api.Controllers
         /// <summary>
         /// Get current entity ID from session following Entity-Based Request Flow
         /// </summary>
-        protected int? GetCurrentEntityId()
+        protected string? GetCurrentEntityId()
         {
             var session = GetCurrentSession();
-            return session?.TenantId;
+            return session?.EntityId;
         }
 
         /// <summary>
         /// Get current user ID from session following Entity-Based Request Flow
         /// </summary>
-        protected int? GetCurrentUserId()
+        protected string? GetCurrentUserId()
         {
             var session = GetCurrentSession();
             return session?.UserId;

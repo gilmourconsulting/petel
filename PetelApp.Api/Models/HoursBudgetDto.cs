@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations; // ADD THIS if using validation attributes
+using System.Text.Json.Serialization; // ADD THIS if using JSON attributes
+
 namespace PetelApp.Api.Models
 {
     /// <summary>

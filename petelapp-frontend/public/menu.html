@@ -5,7 +5,6 @@
     </div>
     
     <div class="menu-items">
-        <div class="menu-section-title">ניהול יומי</div>
         <a href="#dashboard" class="menu-item active" onclick="navigateTo('dashboard')">
             <span class="menu-item-text">עמוד ראשי</span>
         </a>
@@ -16,7 +15,6 @@
             <span class="menu-item-text">משימות</span>
         </a>
         
-        <div class="menu-section-title">דוחות ונתונים</div>
         <a href="#reports" class="menu-item" onclick="navigateTo('reports')">
             <span class="menu-item-text">דוחות</span>
         </a>
@@ -24,7 +22,6 @@
             <span class="menu-item-text">ניתוח נתונים</span>
         </a>
         
-        <div class="menu-section-title">הגדרות</div>
         <a href="#settings" class="menu-item" onclick="navigateTo('settings')">
             <span class="menu-item-text">הגדרות מערכת</span>
         </a>
@@ -34,200 +31,10 @@
         <a href="#system-attributes" class="menu-item" onclick="navigateTo('systemAttributes')">
             <span class="menu-item-text">מאפייני מערכת</span>
         </a>
+        
+        <!-- Add sessions menu item following Hebrew/RTL Specific Patterns -->
+        <a href="#sessions" class="menu-item" onclick="navigateTo('sessions')">
+            <span class="menu-item-text">משתמשים פעילים</span>
+        </a>
     </div>
 </div>
-
-<script>
-// Navigation functions for browser history and button functionality
-
-
-// Main navigation function
-function navigateTo(section, fromPopstate = false) {
-    console.log('navigateTo called with section:', section, 'fromPopstate:', fromPopstate);
-    
-    // Only add to browser history if NOT called from popstate event
-    if (!fromPopstate) {
-        history.pushState({page: section}, '', `#${section}`);
-    }
-    
-    try {
-        // Update active menu item
-        document.querySelectorAll('.menu-item').forEach(item => {
-            item.classList.remove('active');
-        });
-        
-        // Better active menu item selection
-        const activeMenuItem = document.querySelector(`.menu-item[onclick*="${section}"]`);
-        if (activeMenuItem) {
-            activeMenuItem.classList.add('active');
-        }
-
-        const dashboardContent = document.getElementById('dashboardContent');
-        const dynamicContent = document.getElementById('dynamicContent');
-
-        if (!dashboardContent || !dynamicContent) {
-            console.error('Required elements not found');
-            return;
-        }
-
-        // Sections to load from file
-        const sectionFiles = {
-            tasks: 'tasks.html',
-            analytics: 'analytics.html',
-            users: 'users.html',
-            reports: 'reports.html'
-        };
-
-        if (sectionFiles[section]) {
-            dashboardContent.style.display = 'none';
-            dynamicContent.style.display = 'block';
-
-            // Load the section HTML
-            fetch(sectionFiles[section])
-                .then(response => response.text())
-                .then(html => {
-                    dynamicContent.innerHTML = html;
-                })
-                .catch((error) => {
-                    console.error('Error loading section:', error);
-                    dynamicContent.innerHTML = '<div class="content-card"><p>שגיאה בטעינת התוכן.</p></div>';
-                });
-        } else if (section === 'dashboard') {
-            dashboardContent.style.display = 'block';
-            dynamicContent.style.display = 'none';
-        } else if (section === 'settings') {
-            dashboardContent.style.display = 'none';
-            dynamicContent.style.display = 'block';
-            dynamicContent.innerHTML = '<div class="content-card"><h2>הגדרות</h2></div>';
-        } else if (section === 'help') {
-            dashboardContent.style.display = 'none';
-            dynamicContent.style.display = 'block';
-            dynamicContent.innerHTML = '<div class="content-card"><h2>עזרה ותמיכה</h2></div>';
-        } else if (section === 'systemAttributes') {
-            dashboardContent.style.display = 'none';
-            dynamicContent.style.display = 'block';
-
-            fetch('system-attributes.html')
-                .then(response => response.text())
-                .then(html => {
-                    dynamicContent.innerHTML = html;
-                    // Make sure loadSystemAttributes function exists
-                    if (typeof loadSystemAttributes === 'function') {
-                        loadSystemAttributes();
-                    } else {
-                        console.error('loadSystemAttributes function not found');
-                    }
-                })
-                .catch((error) => {
-                    console.error('Error loading system attributes:', error);
-                });
-        }
-    } catch (error) {
-        console.error('Error in navigateTo:', error);
-    }
-}
-
-
-// School Year Section Function
-function showSchoolYearSection(section) {
-    console.log('showSchoolYearSection called with:', section);
-    
-    const contentDiv = document.getElementById('schoolYearSectionContent');
-    const dynamicContent = document.getElementById('dynamicContent');
-    
-    if (!contentDiv) {
-        console.error('schoolYearSectionContent element not found');
-        return;
-    }
-    
-    switch(section) {
-        case 'students':
-            // Add to browser history
-            history.pushState({page: 'students', fromSchoolYear: true}, '', '#students');
-            
-            // Load the students screen
-            if (dynamicContent) {
-                // If we're in the main layout, use dynamic content
-                document.getElementById('dashboardContent').style.display = 'none';
-                dynamicContent.style.display = 'block';
-                
-                fetch('students.html')
-                    .then(response => response.text())
-                    .then(html => {
-                        dynamicContent.innerHTML = html;
-                        
-                        // Update the students title with school year info
-                        setTimeout(() => {
-                            const studentsTitle = document.getElementById('studentsTitle');
-                            if (studentsTitle && window.currentSchoolYear) {
-                                studentsTitle.textContent = `תלמידים - ${window.currentSchoolYear.label}`;
-                            }
-                        }, 100);
-                        
-                        // Execute scripts in the loaded HTML
-                        const scripts = dynamicContent.querySelectorAll('script');
-                        scripts.forEach(script => {
-                            const newScript = document.createElement('script');
-                            newScript.textContent = script.textContent;
-                            document.head.appendChild(newScript);
-                        });
-                    })
-                    .catch(error => {
-                        console.error('Error loading students page:', error);
-                        dynamicContent.innerHTML = '<div class="content-card"><p>שגיאה בטעינת עמוד התלמידים</p></div>';
-                    });
-            } else {
-                // If we're in the school year page, show inline
-                contentDiv.innerHTML = `
-                    <div class="content-card">
-                        <h3 style="color: #C15A16;">תלמידים</h3>
-                        <p>מידע על תלמידים - <a href="#" onclick="navigateTo('students')">עבור לעמוד התלמידים המלא</a></p>
-                    </div>
-                `;
-            }
-            break;
-        case 'personnel':
-            contentDiv.innerHTML = `
-                <div class="content-card">
-                    <h3 style="color: #008031;">עובדי הוראה</h3>
-                    <p>מידע על עובדי הוראה יוצג כאן</p>
-                </div>
-            `;
-            break;
-        case 'budget':
-            contentDiv.innerHTML = `
-                <div class="content-card">
-                    <h3 style="color: #1D9CF3;">תקציב שעות הוראה</h3>
-                    <p>מידע על תקציב שעות הוראה יוצג כאן</p>
-                </div>
-            `;
-            break;
-        default:
-            contentDiv.innerHTML = `
-                <div class="content-card">
-                    <p>בחר אחת מהאפשרויות למעלה</p>
-                </div>
-            `;
-    }
-}
-
-// Toggle side menu function 
-function toggleMenu() {
-    const sideMenu = document.getElementById('sideMenu');
-    console.log('Toggling menu. Current state:', sideMenu.classList.contains('collapsed'));
-    
-    if (sideMenu.classList.contains('collapsed')) {
-        sideMenu.classList.remove('collapsed');
-        console.log('Menu expanded');
-    } else {
-        sideMenu.classList.add('collapsed');
-        console.log('Menu collapsed');
-    }
-}
-
-// Make functions globally available
-
-window.navigateTo = navigateTo;
-window.showSchoolYearSection = showSchoolYearSection;
-window.toggleMenu = toggleMenu;
-</script>

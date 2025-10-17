@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>משתמשים פעילים - Petel</title>
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+    <div class="page-container">
+        <div class="side-menu">
+            <!-- Menu placeholder - roughly 260px width -->
+        </div>
+        
+        <div class="context-buttons-section">
+            <button class="context-btn" onclick="refreshSessions()">
+                <img src="view_icon.png" alt="רענון" class="action-icon-natural">
+                רענון נתונים
+            </button>
+        </div>
+
+        <div class="main-content">
+            <div class="content-card">
+                <div class="page-header">
+                    <h1>משתמשים פעילים</h1>
+                    <p class="page-description">צפייה בכלל המשתמשים המחוברים כרגע למערכת - פורמט JSON</p>
+                </div>
+
+                <div class="sessions-info">
+                    <div class="info-header">
+                        <h2>נתוני המשתמשים</h2>
+                        <span id="sessionsCount" class="count-badge">0 משתמשים</span>
+                    </div>
+                    
+                    <div id="sessionsContainer" class="sessions-container">
+                        <!-- Sessions JSON will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script>
+        // Initialize page following Frontend Architecture Patterns
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                // Load initial data
+                await loadSessionsData();
+                
+            } catch (error) {
+                console.error('Error initializing sessions page:', error);
+                showError('שגיאה בטעינת הדף');
+            }
+        });
+
+        async function loadSessionsData() {
+            try {
+                showLoading(true);
+                
+                // Get sessions data following API Communication Pattern
+                const response = await fetch(AppConfig.getApiUrl('session/all'), {
+                    headers: {
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                console.log('API Response:', result);
+                
+                if (result.success) {
+                    const sessions = result.sessions || [];
+                    
+                    // Display sessions as JSON
+                    displaySessionsJSON(sessions);
+                    
+                    // Update count
+                    document.getElementById('sessionsCount').textContent = 
+                        `${sessions.length} משתמשים`;
+                    
+                } else {
+                    throw new Error(result.message || 'שגיאה בטעינת נתוני המשתמשים');
+                }
+                
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                showError('שגיאה בטעינת נתוני המשתמשים: ' + error.message);
+                
+                // Show empty state
+                document.getElementById('sessionsCount').textContent = '0 משתמשים';
+                document.getElementById('sessionsContainer').innerHTML = 
+                    '<div class="error-message">לא ניתן לטעון נתוני משתמשים</div>';
+                
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displaySessionsJSON(sessions) {
+            const container = document.getElementById('sessionsContainer');
+            
+            if (sessions.length === 0) {
+                container.innerHTML = '<div class="no-sessions">אין משתמשים פעילים כרגע</div>';
+                return;
+            }
+
+            // Create JSON display for each session following Hebrew/RTL Specific Patterns
+            let html = '';
+            sessions.forEach((session, index) => {
+                html += `
+                    <div class="session-item">
+                        <div class="session-header">
+                            <h3>משתמש #${index + 1}</h3>
+                            <span class="session-id">${session.sessionId || 'לא מוגדר'}</span>
+                        </div>
+                        <div class="session-json">
+                            <pre><code>${JSON.stringify(session, null, 2)}</code></pre>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        async function refreshSessions() {
+            await loadSessionsData();
+            showSuccess('נתוני המשתמשים עודכנו');
+        }
+
+        function showLoading(show) {
+            const container = document.getElementById('sessionsContainer');
+            if (show) {
+                container.innerHTML = '<div class="loading-message">טוען נתונים...</div>';
+            }
+        }
+
+        function showError(message) {
+            console.error(message);
+            alert(message);
+        }
+
+        function showSuccess(message) {
+            console.log(message);
+        }
+    </script>
+
+    <style>
+        .page-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Side menu placeholder following Context Buttons Layout pattern */
+        .side-menu {
+            width: 260px;
+            background: var(--sidebar-bg, #2c3e50);
+            min-height: 100vh;
+            flex-shrink: 0;
+        }
+
+        /* Context Buttons Layout following coding instructions */
+        .context-buttons-section {
+            width: 200px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            align-items: flex-start;
+            justify-content: flex-start;
+            flex-shrink: 0;
+            padding-top: 50px; /* Space from top */
+        }
+
+        .context-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            transition: background-color 0.2s;
+            width: 100%;
+            justify-content: flex-start;
+        }
+
+        .context-btn:hover {
+            background: var(--primary-color-dark);
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            min-width: 0; /* Prevent flex item from growing beyond container */
+        }
+
+        .content-card {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 2rem;
+            width: 100%;
+        }
+
+        .page-header {
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .page-header h1 {
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .page-description {
+            color: var(--text-muted);
+            font-size: 1rem;
+        }
+
+        .sessions-info {
+            margin-top: 2rem;
+        }
+
+        .info-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .info-header h2 {
+            color: var(--text-primary);
+            margin: 0;
+        }
+
+        .count-badge {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .sessions-container {
+            max-height: 70vh;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .session-item {
+            border-bottom: 1px solid var(--border-light);
+            margin-bottom: 1rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .session-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .session-header {
+            background: var(--primary-color);
+            color: white;
+            padding: 0.75rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .session-header h3 {
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .session-id {
+            font-family: monospace;
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
+
+        .session-json {
+            padding: 1rem;
+            background: white;
+        }
+
+        .session-json pre {
+            margin: 0;
+            background: #f1f3f4;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-family: 'Courier New', Consolas, monospace;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            direction: ltr;
+            text-align: left;
+        }
+
+        .session-json code {
+            color: #2d3748;
+        }
+
+        .loading-message {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        .error-message {
+            text-align: center;
+            padding: 2rem;
+            color: #e74c3c;
+            font-size: 1rem;
+        }
+
+        .no-sessions {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 1rem;
+            font-style: italic;
+        }
+
+        /* Mobile responsive following coding instructions */
+        @media (max-width: 768px) {
+            .page-container {
+                flex-direction: column;
+            }
+            
+            .side-menu {
+                width: 100%;
+                height: auto;
+                min-height: auto;
+            }
+            
+            .context-buttons-section {
+                width: 100%;
+                flex-direction: row;
+                justify-content: center;
+                padding: 10px;
+            }
+
+            .context-btn {
+                width: auto;
+            }
+
+            .main-content {
+                padding: 10px;
+            }
+
+            .content-card {
+                padding: 1rem;
+            }
+
+            .session-json pre {
+                font-size: 0.75rem;
+            }
+
+            .info-header {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+
+        /* Standard Icon Set following coding instructions */
+        .action-icon-natural {
+            width: 15px;
+            height: 15px;
+            object-fit: contain;
+        }
+
+        /* Custom scrollbar for JSON container */
+        .sessions-container::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .sessions-container::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .sessions-container::-webkit-scrollbar-thumb {
+            background: var(--primary-color);
+            border-radius: 4px;
+        }
+
+        .sessions-container::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-color-dark);
+        }
+    </style>
+</body>
+</html>

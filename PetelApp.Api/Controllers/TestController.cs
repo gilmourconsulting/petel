@@ -3,32 +3,35 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
 using PetelApp.Api.Services;
-using System.Security.Cryptography;
-using System.Text;
+using PetelApp.Api.Session;
 
 namespace PetelApp.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class TestController : ControllerBase
+    public class TestController : BaseController
     {
         private readonly AppDbContext _context;
-        private readonly TenantService _tenantService;
-        private readonly ILogger<TestController> _logger;
+        private new readonly ILogger<TestController> _logger;
 
-        public TestController(AppDbContext context, TenantService tenantService, ILogger<TestController> logger)
+        public TestController(
+            AppDbContext context,
+            UserSessionService userSessionService,
+            ILogger<BaseController> baseLogger,
+            ILogger<TestController> logger)
+            : base(userSessionService, baseLogger)
         {
             _context = context;
-            _tenantService = tenantService;
             _logger = logger;
         }
 
         [HttpGet]
         public IActionResult Get()
         {
-            return Ok(new { 
-                message = "API is working!", 
-                timestamp = DateTime.Now 
+            return Ok(new
+            {
+                message = "API is working!",
+                timestamp = DateTime.Now
             });
         }
 
@@ -38,17 +41,19 @@ namespace PetelApp.Api.Controllers
             try
             {
                 var entityCount = await _context.Entities.CountAsync();
-                return Ok(new { 
-                    message = "Database connected!", 
+                return Ok(new
+                {
+                    message = "Database connected!",
                     entityCount = entityCount,
-                    timestamp = DateTime.Now 
+                    timestamp = DateTime.Now
                 });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { 
-                    message = "Database error", 
-                    error = ex.Message 
+                return StatusCode(500, new
+                {
+                    message = "Database error",
+                    error = ex.Message
                 });
             }
         }
@@ -59,7 +64,7 @@ namespace PetelApp.Api.Controllers
             try
             {
                 _logger.LogInformation("Getting system version from database");
-                
+
                 var versionAttribute = await _context.SystemAttributes
                     .Where(s => s.Id == 1)
                     .FirstOrDefaultAsync();
@@ -67,7 +72,8 @@ namespace PetelApp.Api.Controllers
                 if (versionAttribute == null)
                 {
                     _logger.LogWarning("No system attribute found with id = 1");
-                    return Ok(new { 
+                    return Ok(new
+                    {
                         version = "1.0",
                         timestamp = DateTime.UtcNow,
                         source = "default",
@@ -78,7 +84,8 @@ namespace PetelApp.Api.Controllers
                 var version = versionAttribute.Value ?? "1.0";
                 _logger.LogInformation("System version retrieved: {Version}", version);
 
-                return Ok(new { 
+                return Ok(new
+                {
                     version = version,
                     timestamp = DateTime.UtcNow,
                     source = "database",
@@ -89,7 +96,8 @@ namespace PetelApp.Api.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting system version");
-                return StatusCode(500, new { 
+                return StatusCode(500, new
+                {
                     version = "1.0",
                     timestamp = DateTime.UtcNow,
                     source = "fallback",
@@ -104,17 +112,19 @@ namespace PetelApp.Api.Controllers
             try
             {
                 _logger.LogInformation("Debug system version query");
-                
+
                 // Check if SystemAttributes table exists and has data
                 var allAttributes = await _context.SystemAttributes.ToListAsync();
-                
+
                 var systemAttribute = await _context.SystemAttributes
                     .Where(s => s.Id == 1)
                     .FirstOrDefaultAsync();
 
-                return Ok(new { 
+                return Ok(new
+                {
                     found = systemAttribute != null,
-                    systemAttribute = systemAttribute != null ? new {
+                    systemAttribute = systemAttribute != null ? new
+                    {
                         systemAttribute.Id,
                         systemAttribute.Description,
                         systemAttribute.Value,
@@ -123,7 +133,8 @@ namespace PetelApp.Api.Controllers
                         systemAttribute.UpdatedAt
                     } : null,
                     allAttributesCount = allAttributes.Count,
-                    allAttributes = allAttributes.Select(a => new {
+                    allAttributes = allAttributes.Select(a => new
+                    {
                         a.Id,
                         a.Description,
                         a.Value,
@@ -137,65 +148,44 @@ namespace PetelApp.Api.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in debug system version");
-                return StatusCode(500, new { 
-                    error = ex.Message, 
-                    stackTrace = ex.StackTrace 
-                });
-            }
-        }
-
-        [HttpPost("test-tenant-context")]
-        public IActionResult TestTenantContext([FromBody] object data)
-        {
-            try
-            {
-                var contextTenantId = HttpContext.Items["TenantId"]?.ToString();
-                var tenantServiceId = _tenantService.GetCurrentTenantId();
-                var headers = Request.Headers.ToDictionary(h => h.Key, h => h.Value.ToString());
-                
-                return Ok(new {
-                    contextTenantId = contextTenantId,
-                    tenantServiceId = tenantServiceId,
-                    xTenantIdHeader = Request.Headers.ContainsKey("X-Tenant-ID") ? Request.Headers["X-Tenant-ID"].ToString() : "Not found",
-                    allHeaders = headers
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error in test tenant context");
-                return StatusCode(500, new { error = ex.Message });
-            }
-        }
-
-        [HttpPost("test-password")]
-        public IActionResult TestPassword([FromBody] TestPasswordRequest request)
-        {
-            try
-            {
-                var computedHash = HashPassword(request.Password);
-                var isMatch = request.StoredHash == computedHash;
-                
-                bool isBCryptMatch = false;
-                try
+                return StatusCode(500, new
                 {
-                //    isBCryptMatch = BCrypt.Net.BCrypt.Verify(request.Password, request.StoredHash);
-                }
-                catch { }
-                
-                return Ok(new {
-                    password = request.Password,
-                    storedHash = request.StoredHash,
-                    computedSHA256Hash = computedHash,
-                    sha256Match = isMatch,
-                    bcryptMatch = isBCryptMatch,
-                    hashMethod = isMatch ? "SHA256" : (isBCryptMatch ? "BCrypt" : "Unknown")
+                    error = ex.Message,
+                    stackTrace = ex.StackTrace
                 });
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { error = ex.Message });
-            }
         }
+
+
+        /*  [HttpPost("test-password")]
+          public IActionResult TestPassword([FromBody] TestPasswordRequest request)
+          {
+              try
+              {
+                  var computedHash = HashPassword(request.Password);
+                  var isMatch = request.StoredHash == computedHash;
+
+                  bool isBCryptMatch = false;
+                  try
+                  {
+                  //    isBCryptMatch = BCrypt.Net.BCrypt.Verify(request.Password, request.StoredHash);
+                  }
+                  catch { }
+
+                  return Ok(new {
+                      password = request.Password,
+                      storedHash = request.StoredHash,
+                      computedSHA256Hash = computedHash,
+                      sha256Match = isMatch,
+                      bcryptMatch = isBCryptMatch,
+                      hashMethod = isMatch ? "SHA256" : (isBCryptMatch ? "BCrypt" : "Unknown")
+                  });
+              }
+              catch (Exception ex)
+              {
+                  return StatusCode(500, new { error = ex.Message });
+              }
+          }*/
 
         [HttpGet("check-user/{username}/{entityId}")]
         public async Task<IActionResult> CheckUser(string username, int entityId)
@@ -205,7 +195,8 @@ namespace PetelApp.Api.Controllers
                 var user = await _context.Users
                     .Include(u => u.Entity)
                     .Where(u => u.Username == username && u.EntityId == entityId)
-                    .Select(u => new {
+                    .Select(u => new
+                    {
                         u.Id,
                         u.Username,
                         u.EntityId,
@@ -215,7 +206,7 @@ namespace PetelApp.Api.Controllers
                         PasswordHashLength = u.PasswordHash.Length
                     })
                     .FirstOrDefaultAsync();
-                    
+
                 return Ok(user);
             }
             catch (Exception ex)
@@ -237,19 +228,20 @@ namespace PetelApp.Api.Controllers
             return Ok(entities);
         }
 
-        private string HashPassword(string password)
-        {
-            using (var sha256 = SHA256.Create())
-            {
-                var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-                return Convert.ToBase64String(hashedBytes);
-            }
-        }
-    }
+        /*   private string HashPassword(string password)
+           {
+               using (var sha256 = SHA256.Create())
+               {
+                   var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
+                   return Convert.ToBase64String(hashedBytes);
+               }
+           }
+       }*/
 
-    public class TestPasswordRequest
-    {
-        public string Password { get; set; } = string.Empty;
-        public string StoredHash { get; set; } = string.Empty;
+        public class TestPasswordRequest
+        {
+            public string Password { get; set; } = string.Empty;
+            public string StoredHash { get; set; } = string.Empty;
+        }
     }
 }

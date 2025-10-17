@@ -1,22 +1,44 @@
 const AppConfig = {
-    // API base URL following Critical Development Workflows
-    getApiUrl: function(endpoint) {
-        const baseUrl = 'http://localhost:5082/api';
-        
-        // Handle endpoint with or without leading slash following Frontend Architecture Patterns
-        const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-        
-        return `${baseUrl}/${cleanEndpoint}`;
+    apiBaseUrl: 'http://localhost:5082/api',
+    
+    getApiUrl(endpoint) {
+        return `${this.apiBaseUrl}/${endpoint}`;
     },
-
-    // Environment detection following Project-Specific Patterns
-    isProduction: function() {
-        return window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    
+    getDefaultFetchOptions() {
+        const authToken = sessionStorage.getItem('authToken');
+        
+        return {
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': authToken ? `Bearer ${authToken}` : ''
+            }
+        };
     },
-
-    // Get appropriate base URL based on environment
-    getBaseUrl: function() {
-        return this.isProduction() ? 'https://your-production-domain.com/api' : 'http://localhost:5082/api';
+    
+    async fetchWithAuth(url, options = {}) {
+        const defaultOptions = this.getDefaultFetchOptions();
+        const mergedOptions = { ...defaultOptions, ...options };
+        
+        if (options.body && typeof options.body === 'object') {
+            mergedOptions.body = JSON.stringify(options.body);
+        }
+        
+        try {
+            const response = await fetch(url, mergedOptions);
+            
+            if (response.status === 401) {
+                // Handle unauthorized - clear session and redirect to login
+                sessionStorage.clear();
+                window.location.href = 'login.html';
+                throw new Error('Unauthorized');
+            }
+            
+            return response;
+        } catch (error) {
+            console.error('API Error:', error);
+            throw error;
+        }
     }
 };
 

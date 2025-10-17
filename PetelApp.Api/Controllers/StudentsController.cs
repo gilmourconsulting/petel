@@ -32,7 +32,11 @@ namespace PetelApp.Api.Controllers
                     return Unauthorized(new { success = false, message = "נדרש אימות" });
                 }
 
-                int sessionEntityId = session.TenantId;
+                if (!int.TryParse(session.EntityId, out int sessionEntityId))
+                {
+                    _logger.LogError("Invalid EntityId in session: '{EntityId}'", session.EntityId);
+                    return BadRequest(new { success = false, message = "מזהה ישות לא תקין בסשן" });
+                }
 
                 _logger.LogInformation("Loading students for entity {EntityId}", sessionEntityId);
 

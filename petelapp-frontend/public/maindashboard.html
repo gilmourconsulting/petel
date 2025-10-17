@@ -60,83 +60,69 @@
     <script>
         console.log('🔍 Main Dashboard script loaded');
 
-        // Load dashboard card data following Project-Specific Patterns
-        function loadDashboardCardData(cardId) {
+        // Load dashboard card data from backend API
+        async function loadDashboardCardData(cardId) {
             console.log('📊 Loading dashboard card data for:', cardId);
-            
-            const mockData = {
-                alertsCard: {
-                    items: [
-                        {
-                            content: "בית ספר מאור חיים עדכנו את מצבת התלמידים",
-                            timestamp: "לפני 10 דקות",
-                            priority: "high"
-                        },
-                        {
-                            content: "הועלה אישור אבטחה של עיריית אלעד",
-                            timestamp: "לפני שעה",
-                            priority: "medium"
-                        }
 
-                    ]
-                },
-                eventsCard: {
-                    items: [
-                        {
-                            content: "לתזכר את עיריית פתח תקוה לשלוח אישור שעות פסיכולוג",
-                            timestamp: "מחר 09:00",
-                            priority: "high"
-                        }
-                    ]
+            let endpoint = '';
+            if (cardId === 'alertsCard') {
+                endpoint = AppConfig.getApiUrl('alerts');
+            } else if (cardId === 'eventsCard') {
+                endpoint = AppConfig.getApiUrl('events');
+            } else {
+                console.error('❌ Unknown cardId:', cardId);
+                return;
+            }
+
+            try {
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    }
+                });
+                if (!response.ok) {
+                    throw new Error(`Failed to load data for ${cardId}: ${response.status}`);
                 }
-            };
+                const cardData = await response.json();
 
-            const cardData = mockData[cardId];
-            if (!cardData) {
-                console.error('❌ No data found for cardId:', cardId);
-                return;
-            }
+                const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
+                if (!containerElement) {
+                    console.error('❌ Container not found for:', cardId.replace('Card', 'InternalCards'));
+                    return;
+                }
 
-            // Get the internal cards container
-            const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
-            if (!containerElement) {
-                console.error('❌ Container not found for:', cardId.replace('Card', 'InternalCards'));
-                return;
-            }
+                containerElement.innerHTML = '';
 
-            console.log('✅ Container found, clearing and populating...');
+                // Expecting cardData.items to be an array of items
+                (cardData.items || []).forEach((item, index) => {
+                    const internalCard = document.createElement('div');
+                    internalCard.className = 'internal-card';
+                    internalCard.setAttribute('data-priority', item.priority);
 
-            // Clear existing content
-            containerElement.innerHTML = '';
+                    internalCard.innerHTML = `
+                        <div class="internal-card-content">${item.content}</div>
+                        <div class="internal-card-timestamp">${item.timestamp}</div>
+                    `;
 
-            // Create internal cards following Hebrew/RTL Specific Patterns
-            cardData.items.forEach((item, index) => {
-                const internalCard = document.createElement('div');
-                internalCard.className = 'internal-card';
-                internalCard.setAttribute('data-priority', item.priority);
-                
-                internalCard.innerHTML = `
-                    <div class="internal-card-content">${item.content}</div>
-                    <div class="internal-card-timestamp">${item.timestamp}</div>
-                `;
-
-                // Add click handler following Cross-Component Communication
-                internalCard.addEventListener('click', () => {
-                    console.log(`Internal card clicked: ${item.content} in ${cardId}`);
-                    const cardClickEvent = new CustomEvent('internalCardClicked', {
-                        detail: {
-                            cardId: cardId,
-                            itemIndex: index,
-                            item: item
-                        }
+                    internalCard.addEventListener('click', () => {
+                        console.log(`Internal card clicked: ${item.content} in ${cardId}`);
+                        const cardClickEvent = new CustomEvent('internalCardClicked', {
+                            detail: {
+                                cardId: cardId,
+                                itemIndex: index,
+                                item: item
+                            }
+                        });
+                        window.dispatchEvent(cardClickEvent);
                     });
-                    window.dispatchEvent(cardClickEvent);
+
+                    containerElement.appendChild(internalCard);
                 });
 
-                containerElement.appendChild(internalCard);
-            });
-
-            console.log(`✅ ${cardData.items.length} cards loaded for ${cardId}`);
+                console.log(`✅ ${(cardData.items || []).length} cards loaded for ${cardId}`);
+            } catch (error) {
+                console.error(`❌ Error loading data for ${cardId}:`, error);
+            }
         }
 
         // Load system version following API Communication Pattern
@@ -163,118 +149,160 @@
         // Update context button labels with year values following Project-Specific Patterns
         async function updateContextButtonLabels() {
             console.log('Updating context button labels with year values...');
-            
             try {
-                // Load system attributes to get year values
                 const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
-                if (response.ok) {
-                    const attributes = await response.json();
-                    console.log('System attributes loaded:', attributes);
-                    
-                    // Find year attributes
-                    const previousYearAttr = attributes.find(attr => attr.name === "Previous Year");
-                    const currentYearAttr = attributes.find(attr => attr.name === "Current Year");
-                    const nextYearAttr = attributes.find(attr => attr.name === "Next Year");
-                    
-                    // Store year IDs and values globally following Authentication & Session Management
-                    if (previousYearAttr) {
-                        window.previousYearId = previousYearAttr.foreignId;
-                        sessionStorage.setItem('previousYearId', previousYearAttr.foreignId);
-                        sessionStorage.setItem('previousYearValue', previousYearAttr.value);
-                        
-                        // Update button text
-                        const prevButton = document.querySelector('.context-btn[onclick*="previous"]');
-                        if (prevButton) {
-                            prevButton.textContent = `שנת ${previousYearAttr.value}`;
-                        }
-                    }
-                    
-                    if (currentYearAttr) {
-                        window.currentYearId = currentYearAttr.foreignId;
-                        sessionStorage.setItem('currentYearId', currentYearAttr.foreignId);
-                        sessionStorage.setItem('currentYearValue', currentYearAttr.value);
-                        
-                        // Update button text
-                        const currentButton = document.querySelector('.context-btn[onclick*="current"]');
-                        if (currentButton) {
-                            currentButton.textContent = `שנת ${currentYearAttr.value}`;
-                        }
-                    }
-                    
-                    if (nextYearAttr) {
-                        window.nextYearId = nextYearAttr.foreignId;
-                        sessionStorage.setItem('nextYearId', nextYearAttr.foreignId);
-                        sessionStorage.setItem('nextYearValue', nextYearAttr.value);
-                        
-                        // Update button text
-                        const nextButton = document.querySelector('.context-btn[onclick*="next"]');
-                        if (nextButton) {
-                            nextButton.textContent = `שנת ${nextYearAttr.value}`;
-                        }
-                    }
-                    
-                    console.log('Context button labels updated with year values and foreign IDs');
-                } else {
-                    console.warn('Could not load system attributes for context buttons');
+                if (!response.ok) {
+                    throw new Error('Failed to load system attributes');
                 }
+                const attributes = await response.json();
+                // Expecting attributes to be an array
+                if (!Array.isArray(attributes)) {
+                    console.error('System attributes response is not an array:', attributes);
+                    return;
+                }
+
+                // Find year attributes by name
+                const previousYearAttr = attributes.find(attr => attr.name === "Previous Year");
+                const currentYearAttr  = attributes.find(attr => attr.name === "Current Year");
+                const nextYearAttr     = attributes.find(attr => attr.name === "Next Year");
+
+                // Update previous year button
+                if (previousYearAttr) {
+                    window.previousYearId = previousYearAttr.foreignId;
+                    sessionStorage.setItem('previousYearId', previousYearAttr.foreignId);
+                    sessionStorage.setItem('previousYearValue', previousYearAttr.value);
+                    const prevButton = document.querySelector('.context-btn[onclick*="previous"]');
+                    if (prevButton) prevButton.textContent = previousYearAttr.value;
+                }
+
+                // Update current year button
+                if (currentYearAttr) {
+                    window.currentYearId = currentYearAttr.foreignId;
+                    sessionStorage.setItem('currentYearId', currentYearAttr.foreignId);
+                    sessionStorage.setItem('currentYearValue', currentYearAttr.value);
+                    const currentButton = document.querySelector('.context-btn[onclick*="current"]');
+                    if (currentButton) currentButton.textContent = currentYearAttr.value;
+                }
+
+                // Update next year button
+                if (nextYearAttr) {
+                    window.nextYearId = nextYearAttr.foreignId;
+                    sessionStorage.setItem('nextYearId', nextYearAttr.foreignId);
+                    sessionStorage.setItem('nextYearValue', nextYearAttr.value);
+                    const nextButton = document.querySelector('.context-btn[onclick*="next"]');
+                    if (nextButton) nextButton.textContent = nextYearAttr.value;
+                }
+
+                console.log('Context button labels updated with year values and foreign IDs');
             } catch (error) {
                 console.error('Error loading context button data:', error);
             }
         }
 
-        // Store selected year in session following Multi-Tenant Request Flow
+        // Update the storeSelectedYearInSession function to use direct API calls
         async function storeSelectedYearInSession(yearId, yearType) {
             console.log('Storing selected year in session:', yearId, yearType);
             
             try {
-                const tenantId = sessionStorage.getItem('tenantId');
-                const authToken = sessionStorage.getItem('authToken');
-                
-                const apiUrl = AppConfig.getApiUrl('systemattributes/selectYear');
-                console.log('POST', apiUrl);
-                
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`,
-                        'X-Tenant-ID': tenantId
+                // Store year selection on server-side session following API Communication Pattern
+                const updateRequests = [
+                    {
+                        key: 'selectedYearId',
+                        value: yearId.toString()
                     },
-                    body: JSON.stringify({
-                        yearId: yearId,
-                        yearType: yearType,
-                        tenantId: tenantId
-                    })
+                    {
+                        key: 'selectedYearType', 
+                        value: yearType
+                    }
+                ];
+                
+                // Get year value from stored session data
+                let yearValue = '';
+                if (yearType === 'previous') {
+                    yearValue = sessionStorage.getItem('previousYearValue') || '';
+                } else if (yearType === 'current') {
+                    yearValue = sessionStorage.getItem('currentYearValue') || '';
+                } else if (yearType === 'next') {
+                    yearValue = sessionStorage.getItem('nextYearValue') || '';
+                }
+                
+                if (yearValue) {
+                    updateRequests.push({
+                        key: 'selectedYearValue',
+                        value: yearValue
+                    });
+                }
+                
+                // Update each session data key using SessionController
+                for (const request of updateRequests) {
+                    const response = await fetch(AppConfig.getApiUrl('session/data'), {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                        },
+                        body: JSON.stringify(request)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`Failed to update session data for ${request.key}: ${response.status}`);
+                    }
+                }
+                
+                // Store locally for immediate access following Authentication & Session Management
+                sessionStorage.setItem('selectedYearId', yearId.toString());
+                sessionStorage.setItem('selectedYearType', yearType);
+                sessionStorage.setItem('selectedYearValue', yearValue);
+                
+                console.log('Selected year stored in server session:', {
+                    yearId: yearId,
+                    yearType: yearType,
+                    yearValue: yearValue
                 });
                 
-                if (response.ok) {
-                    sessionStorage.setItem('selectedYearId', yearId);
-                    sessionStorage.setItem('selectedYearType', yearType);
-                    console.log('Selected year stored successfully');
-                } else {
-                    console.error('Failed to store selected year:', response.status);
-                }
+                // Dispatch school year changed event following Cross-Component Communication
+                const yearChangedEvent = new CustomEvent('schoolYearChanged', {
+                    detail: {
+                        yearId: yearId,
+                        yearType: yearType,
+                        yearValue: yearValue
+                    }
+                });
+                window.dispatchEvent(yearChangedEvent);
+                
             } catch (error) {
                 console.error('Error storing selected year:', error);
+                // Don't throw error - allow navigation to continue even if session storage fails
+                console.warn('Continuing with navigation despite session storage error');
             }
         }
 
-        // Show school year function following Cross-Component Communication
+        // Update the showSchoolYear function to handle session storage errors gracefully
         async function showSchoolYear(yearId, yearType) {
-            console.log('showSchoolYear called with yearId:', yearId, 'yearType:', yearType);
+            console.log('🗓️ showSchoolYear called with yearId:', yearId, 'yearType:', yearType);
             
-            // Store the selected year
-            await storeSelectedYearInSession(yearId, yearType);
+            // Validate inputs
+            if (!yearId || !yearType) {
+                console.error('❌ Invalid year parameters:', { yearId, yearType });
+                return;
+            }
+            
+            try {
+                // Store the selected year (this will not fail the navigation)
+                await storeSelectedYearInSession(yearId, yearType);
+            } catch (error) {
+                console.warn('⚠️ Session storage failed, continuing with navigation:', error.message);
+            }
             
             // Check entity type to determine navigation following Project-Specific Patterns
             const entityTypeId = parseInt(sessionStorage.getItem('entityTypeId')) || 0;
-            console.log('Entity type check:', {entityTypeId});
+            console.log('📋 Entity type check:', { entityTypeId });
             
             if (entityTypeId === 5) {
-                console.log('Entity type 5 (multi-school network) - navigating to school list');
+                console.log('🏫 Entity type 5 (multi-school network) - navigating to school list');
                 await loadSchoolListPage();
             } else {
-                console.log('Single school entity - navigating to school year management');
+                console.log('🏫 Single school entity - navigating to school year management');
                 await loadSchoolYearPage();
             }
         }
@@ -282,50 +310,76 @@
         // Load school list page following Single-Page Application with Module Loading
         async function loadSchoolListPage() {
             try {
-                console.log('Loading school list page...');
+                console.log('🔄 Loading school list page...');
                 
                 const response = await fetch('schoollist.html');
                 if (response.ok) {
                     const html = await response.text();
-                    document.getElementById('dynamicContent').innerHTML = html;
                     
-                    // Re-execute scripts following Common Gotchas pattern
-                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+                    // Find the main content container following Project-Specific Patterns
+                    const mainContainer = document.getElementById('dynamicContent') || 
+                                         document.getElementById('mainContent') || 
+                                         document.querySelector('.main-content') || 
+                                         document.body;
                     
-                    // Update browser history
-                    history.pushState({ section: 'schoollist' }, '', '#schoollist');
-                    
-                    console.log('✅ School list page loaded successfully');
+                    if (mainContainer) {
+                        mainContainer.innerHTML = html;
+                        
+                        // Re-execute scripts following Common Gotchas pattern
+                        executeScriptsInContainer(mainContainer);
+                        
+                        // Update browser history following Single-Page Application patterns
+                        history.pushState({ section: 'schoollist' }, '', '#schoollist');
+                        
+                        console.log('✅ School list page loaded successfully');
+                    } else {
+                        console.error('❌ Could not find main content container');
+                    }
                 } else {
-                    console.error('Failed to load schoollist.html:', response.status);
+                    console.error('❌ Failed to load schoollist.html:', response.status);
+                    alert('שגיאה בטעינת רשימת בתי הספר');
                 }
             } catch (error) {
-                console.error('Error loading school list page:', error);
+                console.error('💥 Error loading school list page:', error);
+                alert('שגיאה בטעינת רשימת בתי הספר');
             }
         }
 
         // Load school year page following Single-Page Application with Module Loading
         async function loadSchoolYearPage() {
             try {
-                console.log('Loading school year page...');
+                console.log('🔄 Loading school year page...');
                 
                 const response = await fetch('schoolyear.html');
                 if (response.ok) {
                     const html = await response.text();
-                    document.getElementById('dynamicContent').innerHTML = html;
                     
-                    // Re-execute scripts following Common Gotchas pattern
-                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+                    // Find the main content container following Project-Specific Patterns
+                    const mainContainer = document.getElementById('dynamicContent') || 
+                                         document.getElementById('mainContent') || 
+                                         document.querySelector('.main-content') || 
+                                         document.body;
                     
-                    // Update browser history
-                    history.pushState({ section: 'schoolyear' }, '', '#schoolyear');
-                    
-                    console.log('✅ School year page loaded successfully');
+                    if (mainContainer) {
+                        mainContainer.innerHTML = html;
+                        
+                        // Re-execute scripts following Common Gotchas pattern
+                        executeScriptsInContainer(mainContainer);
+                        
+                        // Update browser history following Single-Page Application patterns
+                        history.pushState({ section: 'schoolyear' }, '', '#schoolyear');
+                        
+                        console.log('✅ School year page loaded successfully');
+                    } else {
+                        console.error('❌ Could not find main content container');
+                    }
                 } else {
-                    console.error('Failed to load schoolyear.html:', response.status);
+                    console.error('❌ Failed to load schoolyear.html:', response.status);
+                    alert('שגיאה בטעינת ניהול שנת לימודים');
                 }
             } catch (error) {
-                console.error('Error loading school year page:', error);
+                console.error('💥 Error loading school year page:', error);
+                alert('שגיאה בטעינת ניהול שנת לימודים');
             }
         }
 

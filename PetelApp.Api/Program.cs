@@ -3,10 +3,13 @@ using PetelApp.Api.Data;
 using PetelApp.Api.Services;
 using PetelApp.Api.Session;
 using PetelApp.Api.Middleware;
+using Hangfire;
+using Hangfire.Dashboard;
+using Hangfire.PostgreSql;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services following multi-tenant educational SaaS patterns
+
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -19,10 +22,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Session services following authentication & session management patterns
-builder.Services.AddScoped<UserSessionService>();
-
-// Core services following multi-tenant request flow
-builder.Services.AddScoped<TenantService>();
+builder.Services.AddSingleton<UserSessionService>();
+builder.Services.AddSingleton<SystemAttributeCache>();
 builder.Services.AddScoped<SystemAttributeService>();
 
 // Background services for system attributes loading
@@ -50,6 +51,29 @@ builder.Services.AddSession(options =>
     options.Cookie.Name = "PetelSession";
     options.Cookie.SameSite = SameSiteMode.Lax;
 });
+
+// Configure Hangfire with PostgreSQL storage
+builder.Services.AddHangfire(config => 
+{
+    config.SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
+          .UseSimpleAssemblyNameTypeSerializer()
+          .UseRecommendedSerializerSettings()
+          .UsePostgreSqlStorage(options =>
+          {
+              options.UseNpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection"));
+          });
+});
+builder.Services.AddHangfireServer(options =>
+{
+    options.WorkerCount = Environment.ProcessorCount * 2;
+    options.Queues = new[] { "default", "system" };
+});
+
+// Register auth and user role services
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddSingleton<UserSessionService>();
+builder.Services.AddScoped<UserRoleService>();
+builder.Services.AddHangfireServer();
 
 var app = builder.Build();
 
@@ -80,13 +104,25 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-// CRITICAL: Add session middleware before tenant middleware
+
 app.UseSession();
 
-app.UseMiddleware<TenantMiddleware>();
-app.UseHttpsRedirection();
+
+
+// Update middleware configuration
+app.UseAuthentication();
 app.UseAuthorization();
+
+// Use top-level route registrations
 app.MapControllers();
+app.MapHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAuthorizationFilter() }
+});
+
+// Configure Hangfire dashboard and server
+app.UseHangfireDashboard();
+
 
 Console.WriteLine("Petel Educational Management System API started - data will be loaded from database");
 app.Run();

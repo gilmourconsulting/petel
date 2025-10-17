@@ -1,15 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
-using PetelApp.Api.Models;
-using PetelApp.Api.Session;
+using PetelApp.Api.Session; // Add this using for UserSessionService and UserSession
 
 namespace PetelApp.Api.Controllers
 {
-    /// <summary>
-    /// Hours budget management following multi-tenant request flow
-    /// Inherits from BaseController for tenant isolation
-    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class HoursBudgetController : BaseController
@@ -17,8 +12,10 @@ namespace PetelApp.Api.Controllers
         private readonly AppDbContext _context;
 
         public HoursBudgetController(
-            AppDbContext context,
-            UserSessionService userSessionService) : base(userSessionService)
+            UserSessionService userSessionService,
+            ILogger<HoursBudgetController> logger,
+            AppDbContext context)
+            : base(userSessionService, logger)
         {
             _context = context;
         }
@@ -28,204 +25,112 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
-                // Validate tenant access following multi-tenant request flow
-                ValidateTenantAccess();
-                var tenantId = GetTenantId();
-
-                if (string.IsNullOrEmpty(tenantId))
+                var session = GetCurrentSession();
+                if (session == null)
                 {
-                    return BadRequest(new { message = "חסר זיהוי גוף - אנא התחבר מחדש" });
+                    return Unauthorized(new { message = "לא נמצא מושב פעיל" });
                 }
 
-                if (!int.TryParse(tenantId, out int tenantIdInt))
-                {
-                    return BadRequest(new { message = "זיהוי גוף לא תקין" });
-                }
-
-                // Query database entity following database conventions
-                var dbBudgets = await _context.HoursBudgets
-                    .Where(hb => hb.SchoolId == tenantIdInt && hb.IsActive)
-                    .Include(hb => hb.SchoolYear)
-                    .OrderBy(hb => hb.BudgetName)
+                // Entity-Based Request Flow - scope by user's EntityId
+                var hoursBudgets = await _context.HoursBudgets
+                    .Where(hb => hb.EntityId == session.EntityId)
+                    .OrderBy(hb => hb.SchoolYear)
+                    .ThenBy(hb => hb.BudgetType)
+                    .Select(hb => new
+                    {
+                        id = hb.Id,
+                        entityId = hb.EntityId,
+                        schoolYear = hb.SchoolYear,
+                        budgetType = hb.BudgetType,
+                        allocatedHours = hb.AllocatedHours,
+                        usedHours = hb.UsedHours,
+                        remainingHours = hb.RemainingHours,
+                        department = hb.Department,
+                        notes = hb.Notes,
+                        createdAt = hb.CreatedAt,
+                        updatedAt = hb.UpdatedAt
+                    })
                     .ToListAsync();
 
-                // Convert to DTOs following project-specific patterns
-                var budgetDtos = dbBudgets.Select(db => new HoursBudgetDto
-                {
-                    Id = db.Id,
-                    SchoolId = db.SchoolId,
-                    SchoolYearId = db.SchoolYearId,
-                    BudgetName = db.BudgetName,
-                    AllocatedHours = db.AllocatedHours,
-                    UsedHours = db.UsedHours,
-                    RemainingHours = db.RemainingHours,
-                    IsActive = db.IsActive,
-                    CreatedAt = db.CreatedAt,
-                    UpdatedAt = db.UpdatedAt,
-                    SchoolYearName = db.SchoolYear?.YearName ?? "לא מוגדר"
-                }).ToList();
+                _logger.LogInformation("Retrieved {Count} hours budgets for entity {EntityId}", 
+                    hoursBudgets.Count, session.EntityId);
 
-                return Ok(budgetDtos);
+                return Ok(new
+                {
+                    success = true,
+                    data = hoursBudgets,
+                    totalCount = hoursBudgets.Count,
+                    entityId = session.EntityId,
+                    timestamp = DateTime.UtcNow
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "שגיאה בטעינת תקציבי השעות", error = ex.Message });
-            }
-        }
-
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetHoursBudget(int id)
-        {
-            try
-            {
-                ValidateTenantAccess();
-                var tenantId = GetTenantId();
-
-                if (!int.TryParse(tenantId, out int tenantIdInt))
-                {
-                    return BadRequest(new { message = "זיהוי גוף לא תקין" });
-                }
-
-                // Query database entity
-                var dbBudget = await _context.HoursBudgets
-                    .Include(hb => hb.SchoolYear)
-                    .FirstOrDefaultAsync(hb => hb.Id == id && hb.SchoolId == tenantIdInt);
-
-                if (dbBudget == null)
-                {
-                    return NotFound(new { message = "תקציב שעות לא נמצא" });
-                }
-
-                // Convert to DTO
-                var budgetDto = new HoursBudgetDto
-                {
-                    Id = dbBudget.Id,
-                    SchoolId = dbBudget.SchoolId,
-                    SchoolYearId = dbBudget.SchoolYearId,
-                    BudgetName = dbBudget.BudgetName,
-                    AllocatedHours = dbBudget.AllocatedHours,
-                    UsedHours = dbBudget.UsedHours,
-                    RemainingHours = dbBudget.RemainingHours,
-                    IsActive = dbBudget.IsActive,
-                    CreatedAt = dbBudget.CreatedAt,
-                    UpdatedAt = dbBudget.UpdatedAt,
-                    SchoolYearName = dbBudget.SchoolYear?.YearName ?? "לא מוגדר"
-                };
-
-                return Ok(budgetDto);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "שגיאה בטעינת תקציב השעות", error = ex.Message });
+                _logger.LogError(ex, "Error retrieving hours budgets");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "שגיאה פנימית בשרת" 
+                });
             }
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateHoursBudget([FromBody] CreateHoursBudgetRequest request)
+        public async Task<IActionResult> CreateHoursBudget([FromBody] HoursBudgetRequest request)
         {
             try
             {
-                ValidateTenantAccess();
-                var tenantId = GetTenantId();
-
-                if (string.IsNullOrEmpty(tenantId))
+                var session = GetCurrentSession();
+                if (session == null)
                 {
-                    return BadRequest(new { message = "חסר זיהוי גוף - אנא התחבר מחדש" });
+                    return Unauthorized(new { message = "לא נמצא מושב פעיל" });
                 }
 
-                if (!int.TryParse(tenantId, out int tenantIdInt))
+                var hoursBudget = new HoursBudget
                 {
-                    return BadRequest(new { message = "זיהוי גוף לא תקין" });
-                }
-
-                // Create database entity following database conventions
-                var dbBudget = new Data.HoursBudget
-                {
-                    SchoolId = tenantIdInt,
-                    SchoolYearId = request.SchoolYearId,
-                    BudgetName = request.BudgetName,
+                    EntityId = session.EntityId, // Set from session
+                    SchoolYear = request.SchoolYear,
+                    BudgetType = request.BudgetType,
                     AllocatedHours = request.AllocatedHours,
-                    UsedHours = 0,
-                    IsActive = true,
+                    UsedHours = request.UsedHours ?? 0,
+                    RemainingHours = request.AllocatedHours - (request.UsedHours ?? 0),
+                    Department = request.Department,
+                    Notes = request.Notes,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
 
-                _context.HoursBudgets.Add(dbBudget);
+                _context.HoursBudgets.Add(hoursBudget);
                 await _context.SaveChangesAsync();
 
-                // Convert to DTO for response
-                var budgetDto = new HoursBudgetDto
-                {
-                    Id = dbBudget.Id,
-                    SchoolId = dbBudget.SchoolId,
-                    SchoolYearId = dbBudget.SchoolYearId,
-                    BudgetName = dbBudget.BudgetName,
-                    AllocatedHours = dbBudget.AllocatedHours,
-                    UsedHours = dbBudget.UsedHours,
-                    RemainingHours = dbBudget.RemainingHours,
-                    IsActive = dbBudget.IsActive,
-                    CreatedAt = dbBudget.CreatedAt,
-                    UpdatedAt = dbBudget.UpdatedAt
-                };
+                _logger.LogInformation("Hours budget created with ID {Id} for entity {EntityId}", 
+                    hoursBudget.Id, session.EntityId);
 
-                return CreatedAtAction(nameof(GetHoursBudget), new { id = budgetDto.Id }, budgetDto);
+                return CreatedAtAction(nameof(GetHoursBudgets), new { id = hoursBudget.Id }, new
+                {
+                    success = true,
+                    message = "תקציב שעות נוצר בהצלחה",
+                    data = hoursBudget,
+                    timestamp = DateTime.UtcNow
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "שגיאה ביצירת תקציב השעות", error = ex.Message });
-            }
-        }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateHoursBudget(int id, [FromBody] UpdateHoursBudgetRequest request)
-        {
-            try
-            {
-                ValidateTenantAccess();
-                var tenantId = GetTenantId();
-
-                if (!int.TryParse(tenantId, out int tenantIdInt))
-                {
-                    return BadRequest(new { message = "זיהוי גוף לא תקין" });
-                }
-
-                // Find existing database entity
-                var dbBudget = await _context.HoursBudgets
-                    .FirstOrDefaultAsync(hb => hb.Id == id && hb.SchoolId == tenantIdInt);
-
-                if (dbBudget == null)
-                {
-                    return NotFound(new { message = "תקציב שעות לא נמצא" });
-                }
-
-                // Update entity following database conventions
-                dbBudget.BudgetName = request.BudgetName;
-                dbBudget.AllocatedHours = request.AllocatedHours;
-                dbBudget.UpdatedAt = DateTime.UtcNow;
-
-                await _context.SaveChangesAsync();
-
-                return Ok(new { message = "תקציב השעות עודכן בהצלחה" });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "שגיאה בעדכון תקציב השעות", error = ex.Message });
+                _logger.LogError(ex, "Error creating hours budget");
+                return StatusCode(500, new { 
+                    success = false, 
+                    message = "שגיאה ביצירת תקציב שעות" 
+                });
             }
         }
     }
 
-    // Request DTOs following project-specific patterns
-    public class CreateHoursBudgetRequest
+    public class HoursBudgetRequest
     {
-        public int SchoolYearId { get; set; }
-        public string BudgetName { get; set; } = string.Empty;
+        public string? SchoolYear { get; set; }
+        public string? BudgetType { get; set; }
         public decimal AllocatedHours { get; set; }
-    }
-
-    public class UpdateHoursBudgetRequest
-    {
-        public string BudgetName { get; set; } = string.Empty;
-        public decimal AllocatedHours { get; set; }
+        public decimal? UsedHours { get; set; }
+        public string? Department { get; set; }
+        public string? Notes { get; set; }
     }
 }

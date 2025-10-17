@@ -1,12 +1,17 @@
 using Microsoft.AspNetCore.Mvc;
 using PetelApp.Api.Services;
 using PetelApp.Api.Session;
+using PetelApp.Api.Models;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace PetelApp.Api.Controllers
 {
     /// <summary>
-    /// Controller for system attributes management following multi-tenant patterns
-    /// Inherits from BaseController for tenant isolation
+    /// Controller for system attributes management following entity-based request flow
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -15,10 +20,13 @@ namespace PetelApp.Api.Controllers
         private readonly SystemAttributeService _systemAttributeService;
 
         public SystemAttributesController(
-            SystemAttributeService systemAttributeService,
-            UserSessionService userSessionService) : base(userSessionService)
+            UserSessionService userSessionService,
+            ILogger<SystemAttributesController> logger,
+            SystemAttributeService systemAttributeService)
+            : base(userSessionService, logger)
         {
             _systemAttributeService = systemAttributeService;
+ 
         }
 
         [HttpGet]
@@ -26,99 +34,101 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
-                var attributes = await _systemAttributeService.GetAllAttributesAsync();
-                return Ok(attributes);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "שגיאה בטעינת מאפייני המערכת", error = ex.Message });
-            }
-        }
+                _logger.LogInformation("GetSystemAttributes endpoint called");
 
-        [HttpGet("{name}")]
-        public async Task<IActionResult> GetSystemAttribute(string name)
-        {
-            try
-            {
-                var attribute = await _systemAttributeService.GetAttributeAsync(name);
-                if (attribute == null)
+                var attributes = await _systemAttributeService.GetAllAttributesListAsync();
+
+                if (attributes == null || attributes.Count == 0)
                 {
-                    return NotFound(new { message = $"מאפיין '{name}' לא נמצא" });
+                    _logger.LogError("No system attributes found in the database. The system attributes table should contain 4 records.");
+                    return Ok(new List<SystemAttributeDto>()); // Return empty array
                 }
-                return Ok(attribute);
+
+                _logger.LogInformation("Returning {Count} system attributes from database", attributes.Count);
+
+                return Ok(attributes); // <-- Return array directly
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "שגיאה בטעינת מאפיין המערכת", error = ex.Message });
+                _logger.LogError(ex, "Error getting system attributes");
+                return StatusCode(500, new { success = false, message = "Internal server error", error = ex.Message });
             }
         }
 
-        [HttpPost("selectYear")]
+   /*     [HttpPost("selectYear")]
         public async Task<IActionResult> SelectYear([FromBody] SelectYearRequest request)
         {
             try
             {
-                var session = UserSessionService.GetUserSession();
-                if (session == null)
+                var sessionId = GetSessionId();
+                if (string.IsNullOrEmpty(sessionId))
                 {
-                    return Unauthorized(new { message = "לא נמצא מידע על המשתמש בסשן" });
+                    return Unauthorized(new { message = "No valid session found" });
                 }
 
-                // Set selected year in session following Authentication & Session Management
-                session.SelectedYear = request.YearId;
-                session.SelectedYearType = request.YearType;
-                
-                UserSessionService.SetUserSession(session);
-
-                Console.WriteLine($"Selected year updated: YearId={request.YearId}, YearType={request.YearType}");
-
-                return Ok(new
+                var session = _userSessionService.GetUserSession(sessionId);
+                if (session == null)
                 {
-                    success = true,
-                    message = "שנת הלימודים נבחרה בהצלחה",
-                    selectedYear = request.YearId,
-                    yearType = request.YearType
-                });
+                    return Unauthorized(new { message = "Invalid session" });
+                }
+
+                await _systemAttributeService.UpdateSelectedYearAsync(sessionId, request.YearId, request.YearType);
+
+                return Ok(new { success = true, message = "Year selection updated" });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error selecting year: {ex.Message}");
-                return StatusCode(500, new { message = "שגיאה בבחירת שנת הלימודים", error = ex.Message });
+                _logger.LogError(ex, "Error selecting year");
+                return StatusCode(500, new { message = "Internal server error" });
             }
-        }
+        }*/
 
-        [HttpGet("session/info")]
-        public IActionResult GetSessionInfo()
+        [HttpGet("userSession")]
+        public IActionResult GetUserSession()
         {
             try
             {
-                var session = UserSessionService.GetUserSession();
-                if (session == null)
+                var sessionId = GetSessionId();
+                if (string.IsNullOrEmpty(sessionId))
                 {
-                    return Unauthorized(new { message = "לא נמצא מידע על המשתמש בסשן" });
+                    return Unauthorized(new { message = "No valid session found" });
                 }
 
-                return Ok(new
+                var session = _userSessionService.GetUserSession(sessionId);
+                if (session == null)
                 {
+                    return Unauthorized(new { message = "Invalid session" });
+                }
+
+                var sessionData = _userSessionService.GetAllSessionData(sessionId);
+                
+                // Return entity ID from session following entity-based request flow
+                return Ok(new { 
+                    success = true, 
                     systemAttributes = session.SystemAttributes,
                     systemAttributesLastLoaded = session.SystemAttributesLastLoaded,
                     selectedYear = session.SelectedYear,
-                    selectedYearType = session.SelectedYearType,
-                    selectedYearValue = session.SelectedYearValue,
-                    tenantId = GetTenantId()
+                    entityId = session.EntityId
                 });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "שגיאה בטעינת מידע הסשן", error = ex.Message });
+                _logger.LogError(ex, "Error getting user session");
+                return StatusCode(500, new { message = "Internal server error" });
             }
+        }
+
+        [HttpPost("refresh")]
+        public async Task<IActionResult> RefreshSystemAttributes()
+        {
+            await _systemAttributeService.LoadAttributesAsync();
+            return Ok(new { success = true });
         }
     }
 
-    // Add request model following Database Conventions
     public class SelectYearRequest
     {
+        public string YearId { get; set; } = string.Empty;
         public string YearType { get; set; } = string.Empty;
-        public int YearId { get; set; }
     }
 }

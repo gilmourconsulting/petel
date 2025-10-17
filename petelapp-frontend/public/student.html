@@ -696,7 +696,7 @@ h2, h3, h4, h5, h6 {
 
 // Document URL mapping following Project-Specific Patterns - UPDATE TO ACCESSIBLE PATHS
 const DOCUMENT_URL_MAP = {
-    '1': "./sample-documents/hotzh-3-filled-sample.pdf",
+    '1': "./sample-documents/hotzh-3%20filled%20sample.pdf",
     '2': "./sample-documents/hotzh-10-network-data.pdf", 
     '3': "./sample-documents/hotzh-11-custody-confirmation.pdf",
     '4': "./sample-documents/hotzh-12-psychologist-hours.pdf",
@@ -854,74 +854,58 @@ function getDocumentById(documentId) {
     return null;
 }
 
-// Enhanced document viewing function with better error handling following Frontend Architecture Patterns
+// Enhanced document viewing function - with delayed popup check following Frontend Architecture Patterns
 function viewDocumentDetails(documentId) {
     console.log('👁️ Viewing document details:', documentId);
     
     const documentData = getDocumentById(documentId);
-    if (documentData) {
-        // Store in session following Authentication & Session Management
-        sessionStorage.setItem('selectedDocumentId', documentId);
-        sessionStorage.setItem('selectedDocumentForm', documentData.form);
-        
-        // Get document URL from mapping following Project-Specific Patterns
-        const documentUrl = DOCUMENT_URL_MAP[documentId];
-        
-        if (!documentUrl) {
-            console.error('❌ No URL mapped for document:', documentId);
-            alert(`לא נמצא קישור למסמך "${documentData.form}". אנא פנה למנהל המערכת.`);
-            return;
-        }
-        
-        // Build full URL following API Communication Pattern
-        const baseUrl = window.location.origin;
-        const fullDocumentUrl = `${baseUrl}/${documentUrl}`;
-        
-        console.log('🔗 Attempting to open document URL:', fullDocumentUrl);
-        
-        // First, check if the document exists following Critical Development Workflows
-        fetch(fullDocumentUrl, { method: 'HEAD' })
-            .then(response => {
-                if (response.ok) {
-                    // Document exists, try to open it
-                    openDocumentWindow(documentData, fullDocumentUrl);
-                } else {
-                    console.warn(`⚠️ Document not found at: ${fullDocumentUrl}`);
-                    // Show alternative options since document doesn't exist
-                    showDocumentNotFoundOptions(documentData);
-                }
-            })
-            .catch(error => {
-                console.error('❌ Error checking document availability:', error);
-                // Still try to open, maybe it's a CORS issue
-                openDocumentWindow(documentData, fullDocumentUrl);
-            });
-    } else {
+    if (!documentData) {
         console.error('❌ Document not found:', documentId);
         alert('המסמך המבוקש לא נמצא במערכת.');
+        return;
     }
-}
-
-// Separate function to handle document opening following Single-Page Application with Module Loading
-function openDocumentWindow(documentData, fullDocumentUrl) {
+    
+    // Store in session following Authentication & Session Management
+    sessionStorage.setItem('selectedDocumentId', documentId);
+    sessionStorage.setItem('selectedDocumentForm', documentData.form);
+    
+    // Get document URL from mapping following Project-Specific Patterns
+    const documentUrl = DOCUMENT_URL_MAP[documentId];
+    
+    if (!documentUrl) {
+        console.error('❌ No URL mapped for document:', documentId);
+        showDocumentNotFoundOptions(documentData);
+        return;
+    }
+    
+    // Build full URL following API Communication Pattern
+    const baseUrl = window.location.origin;
+    const fullDocumentUrl = `${baseUrl}/${documentUrl}`;
+    
+    console.log('🔗 Attempting to open document URL:', fullDocumentUrl);
+    
     try {
         // Open document in new window following Frontend Architecture Patterns
         const windowFeatures = 'noopener,noreferrer,scrollbars=yes,resizable=yes,width=1200,height=800';
         const newWindow = window.open(fullDocumentUrl, '_blank', windowFeatures);
         
-        if (newWindow) {
-            console.log('✅ Document opened successfully in new window');
-            console.log(`📄 Document URL: ${fullDocumentUrl}`);
-            newWindow.focus();
-            
-            // Log document access following Critical Development Workflows
-            console.log(`📄 Document accessed: ID=${documentData.id}, Form="${documentData.form}", Status="${documentData.status}"`);
-            
-        } else {
-            // Handle popup blocker following Hebrew/RTL Specific Patterns
-            console.warn('⚠️ Could not open document - popup may be blocked');
-            showDocumentAccessOptions(documentData, fullDocumentUrl);
-        }
+        // Give browser time to process the window.open request
+        setTimeout(() => {
+            // Check if window was blocked after a short delay
+            if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+                // Popup was blocked
+                console.warn('⚠️ Could not open document - popup blocked');
+                showDocumentAccessOptions(documentData, fullDocumentUrl);
+            } else {
+                // Window opened successfully
+                console.log('✅ Document opened successfully in new window');
+                console.log(`📄 Document URL: ${fullDocumentUrl}`);
+                newWindow.focus();
+                
+                // Log document access following Critical Development Workflows
+                console.log(`📄 Document accessed: ID=${documentData.id}, Form="${documentData.form}", Status="${documentData.status}"`);
+            }
+        }, 250); // Wait 250ms to check if popup was blocked
         
     } catch (error) {
         console.error('❌ Error opening document:', error);
@@ -929,7 +913,7 @@ function openDocumentWindow(documentData, fullDocumentUrl) {
     }
 }
 
-// Show options when document is not found following Hebrew/RTL Specific Patterns
+// Show document not found options following Hebrew/RTL Specific Patterns
 function showDocumentNotFoundOptions(documentData) {
     const optionsHtml = `
         <div class="document-access-modal" style="
@@ -1127,131 +1111,413 @@ function initializeCharacterization() {
 
 // Navigation functions following Single-Page Application with Module Loading
 function navigateToStudents() {
-    console.log('👥 Navigating to students list...');
+    console.log('👥 Navigating back to students list (closing student.html)...');
     
-    // Check if navigateTo function is available (from main app) following Cross-Component Communication
-    if (typeof navigateTo === 'function') {
-        navigateTo('students');
-    } else if (typeof window.navigateTo === 'function') {
-        window.navigateTo('students');
-    } else {
-        // Fallback: Load students.html directly into main content area
-        loadStudentsPageDirectly();
+    try {
+        // Clear student selection from session following Authentication & Session Management
+        sessionStorage.removeItem('selectedStudentId');
+        sessionStorage.removeItem('selectedStudentData');
+        console.log('✅ Student selection cleared from session');
+        
+        // Get the dynamic content container
+        const dynamicContent = document.getElementById('dynamicContent') || 
+                              document.getElementById('mainContent') || 
+                              document.querySelector('.main-content');
+        
+        if (!dynamicContent) {
+            console.error('❌ Could not find content container');
+            window.history.back();
+            return;
+        }
+        
+        // Load students.html back into the container following Single-Page Application with Module Loading
+        console.log('🔄 Loading students.html back into view...');
+        
+        fetch('students.html')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(html => {
+                // Replace content with students.html
+                dynamicContent.innerHTML = html;
+                
+                // Re-execute scripts following Common Gotchas
+                const scripts = dynamicContent.querySelectorAll('script');
+                scripts.forEach(oldScript => {
+                    const newScript = document.createElement('script');
+                    
+                    // Copy attributes
+                    Array.from(oldScript.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    
+                    // Copy content
+                    newScript.textContent = oldScript.textContent;
+                    
+                    // Replace old script with new one to trigger execution
+                    oldScript.parentNode.replaceChild(newScript, oldScript);
+                });
+                
+                // Update browser history following Single-Page Application patterns
+                history.pushState({ section: 'students' }, 'רשימת תלמידים', '#students');
+                
+                console.log('✅ Navigated back to students list successfully');
+            })
+            .catch(error => {
+                console.error('💥 Error loading students.html:', error);
+                // Fallback: use browser history
+                window.history.back();
+            });
+        
+    } catch (error) {
+        console.error('💥 Error navigating back to students:', error);
+        // Fallback to history.back
+        window.history.back();
     }
 }
 
 function navigateToSchoolDashboard() {
-    console.log('🏫 Navigating to school dashboard...');
+    console.log('🏫 Navigating back to school dashboard (closing student.html)...');
     
-    // Check if navigateTo function is available (from main app) following Cross-Component Communication
-    if (typeof navigateTo === 'function') {
-        navigateTo('schooldashboard');
-    } else if (typeof window.navigateTo === 'function') {
-        window.navigateTo('schooldashboard');
-    } else {
-        // Fallback: Load schooldashboard.html directly into main content area
-        loadSchoolDashboardPageDirectly();
+    try {
+        // Clear student selection from session following Authentication & Session Management
+        sessionStorage.removeItem('selectedStudentId');
+        sessionStorage.removeItem('selectedStudentData');
+        console.log('✅ Student selection cleared from session');
+        
+        // Navigate to school dashboard
+        if (typeof window.navigateTo === 'function') {
+            window.navigateTo('schooldashboard');
+        } else if (typeof navigateTo === 'function') {
+            navigateTo('schooldashboard');
+        } else {
+            console.warn('⚠️ navigateTo function not available, using history.back');
+            window.history.back();
+        }
+        
+        console.log('✅ Navigated back to school dashboard');
+        
+    } catch (error) {
+        console.error('💥 Error navigating to school dashboard:', error);
+        window.history.back();
     }
 }
 
 function navigateToSchoolList() {
-    console.log('🏫 Navigating to school list...');
+    console.log('🏫 Navigating to school list (closing student.html)...');
     
-    // Check if navigateTo function is available (from main app) following Cross-Component Communication
-    if (typeof navigateTo === 'function') {
-        navigateTo('schoollist');
-    } else if (typeof window.navigateTo === 'function') {
-        window.navigateTo('schoollist');
-    } else {
-        // Fallback: Load schoollist.html directly into main content area
-        loadSchoolListPageDirectly();
+    try {
+        // Clear student selection from session following Authentication & Session Management
+        sessionStorage.removeItem('selectedStudentId');
+        sessionStorage.removeItem('selectedStudentData');
+        console.log('✅ Student selection cleared from session');
+        
+        // Navigate to school list
+        if (typeof window.navigateTo === 'function') {
+            window.navigateTo('schoollist');
+        } else if (typeof navigateTo === 'function') {
+            navigateTo('schoollist');
+        } else {
+            console.warn('⚠️ navigateTo function not available, using history.back');
+            window.history.back();
+        }
+        
+        console.log('✅ Navigated to school list');
+        
+    } catch (error) {
+        console.error('💥 Error navigating to school list:', error);
+        window.history.back();
     }
 }
 
 // Add stub functions for student and document loading to prevent errors
 function loadStudentsData() {
-    console.log('🔄 Loading students data...');
-    // Mock implementation for now
-    useMockStudentsData();
-    loadDocumentsData();
+    console.log('🔄 Loading student data (redirecting to loadStudentData)...');
+    loadStudentData();
 }
 
-function useMockStudentsData() {
-    const mockStudentsData = [
-        { 
-            id: '123456789', 
-            name: 'יוסי כהן', 
-            address: 'רחוב הרצל 15, תל אביב',
-            class: 'כיתה י"א', 
-            status: 'הסתיים', 
-            category: 3, 
-            totalAmount: "15,178"
+
+// Load selected student data from session storage following Authentication & Session Management
+async function loadStudentData() {
+    console.log('🔄 Loading selected student data from session...');
+    
+    try {
+        // Get selected student data from session
+        const selectedStudentId = sessionStorage.getItem('selectedStudentId');
+        const selectedStudentDataStr = sessionStorage.getItem('selectedStudentData');
+        
+        console.log('📋 Session storage check:', {
+            hasStudentId: !!selectedStudentId,
+            hasStudentData: !!selectedStudentDataStr,
+            studentId: selectedStudentId
+        });
+        
+        if (!selectedStudentId || !selectedStudentDataStr) {
+            console.error('❌ No selected student data in session');
+            showStudentsTableError('לא נבחר תלמיד. אנא חזור לרשימת התלמידים.');
+            return;
         }
-    ]
-    
-    window.currentStudentsData = mockStudentsData;
-    createStudentsTable(mockStudentsData);
-}
 
-function loadDocumentsData() {
-    console.log('🔄 Loading documents data...');
-    
-    const mockDocumentsData = [
-        {
-            id: '1',
-            form: 'אישור נתונים קטגוריה 3',
-            appendix: 'נספח 3',
-            documentLevel: 'אישי',
-            status: 'מוכן',
-            lastUpdate: '15/11/2024'
-        },
-        {
-            id: '2',
-            form: 'טופס ריכוז נתוני תלמידי חוץ במוסדות החינוך לשנת הלימודים',
-            appendix: 'נספח 10',
-            documentLevel: 'רשת',
-            status: 'בתהליך',
-            lastUpdate: '14/11/2024'
-        },
-        {
-            id: '3',
-            form: 'אישור שמירה במוסד חינוך',
-            appendix: 'נספח 11',
-            documentLevel: 'רשת',
-            status: 'לא התחיל',
-            lastUpdate: '13/11/2024'
-        },
-        {
-            id: '4',
-            form: 'אישור הקצאת שעות פסיכולוג במוסד חינוך',
-            appendix: 'נספח 12',
-            documentLevel: 'בית ספר',
-            status: 'בתהליך',
-            lastUpdate: '2025-01-25'
-        },
-        {
-            id: '5',
-            form: 'אישור להעסקת מתורגמן לשפת הסימנים לשנת הלימודים',
-            appendix: 'נספח 15',
-            documentLevel: 'בית ספר',
-            status: 'בתהליך',
-            lastUpdate: '2025-01-18'
+        // Parse student data from session
+        const selectedStudent = JSON.parse(selectedStudentDataStr);
+        
+        console.log('✅ Selected student data loaded from session:', selectedStudent);
+
+        // Show loading indicator
+        const container = document.getElementById('studentsTableContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
+                    טוען נתוני תלמיד...
+                </div>
+            `;
         }
-    ];
 
-    console.log('✅ Using mock documents data:', mockDocumentsData);
-    
-    // Store data globally for Cross-Component Communication
-    window.currentDocumentsData = mockDocumentsData;
-    createDocumentsTable(mockDocumentsData);
+        // Store data globally for Cross-Component Communication (single student in array)
+        window.currentStudentsData = [selectedStudent];
+        
+        console.log('📦 Student data stored in window.currentStudentsData:', window.currentStudentsData);
+        
+        // Update page title with student name following Hebrew/RTL Specific Patterns
+        const titleElement = document.getElementById('studentTitle');
+        if (titleElement) {
+            titleElement.textContent = `מסמכי התלמיד - ${selectedStudent.name}`;
+            console.log('✅ Page title updated:', titleElement.textContent);
+        }
+        
+        // Create table with single student data - EXACT SAME structure as students.html
+        console.log('🔄 Calling createStudentsTable with data:', [selectedStudent]);
+        createStudentsTable([selectedStudent]);
+        
+    } catch (error) {
+        console.error('💥 Error loading student data:', error);
+        showStudentsTableError('שגיאה בטעינת נתוני התלמיד. אנא נסה שוב.');
+    }
 }
 
-// Create documents table using ReusableTable component
-function createDocumentsTable(data) {
-    console.log('📊 Creating documents table with ReusableTable');
+// Create students table using ReusableTable component - EXACT SAME as students.html
+function createStudentsTable(data) {
+    console.log('📊 Creating student table with ReusableTable component');
+    console.log('📊 Data to display:', data);
+    console.log('📊 ReusableTable defined?', typeof ReusableTable !== 'undefined');
     
     if (typeof ReusableTable === 'undefined') {
-        console.log('Loading ReusableTable component for documents...');
+        console.log('⏳ ReusableTable not loaded, attempting to load table-component.js...');
+        loadReusableTableComponentForStudents(data);
+        return;
+    }
+    
+    console.log('✅ ReusableTable is available, initializing table...');
+    initializeStudentsTable(data);
+}
+
+// Load ReusableTable component dynamically following Single-Page Application with Module Loading
+function loadReusableTableComponentForStudents(data) {
+    console.log('🔄 Loading table-component.js...');
+    
+    const existingScript = document.querySelector('script[src="table-component.js"]');
+    if (existingScript) {
+        console.log('✅ table-component.js script tag exists, waiting for ReusableTable...');
+        
+        // Wait up to 5 seconds for ReusableTable to become available
+        let attempts = 0;
+        const maxAttempts = 50; // 50 * 100ms = 5 seconds
+        
+        const checkInterval = setInterval(() => {
+            attempts++;
+            console.log(`⏳ Checking for ReusableTable (attempt ${attempts}/${maxAttempts})...`);
+            
+            if (typeof ReusableTable !== 'undefined') {
+                console.log('✅ ReusableTable is now available!');
+                clearInterval(checkInterval);
+                initializeStudentsTable(data);
+            } else if (attempts >= maxAttempts) {
+                console.error('❌ ReusableTable not available after 5 seconds');
+                clearInterval(checkInterval);
+                showStudentsTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
+            }
+        }, 100);
+        
+        return;
+    }
+
+    console.log('📥 Loading table-component.js script...');
+    const script = document.createElement('script');
+    script.src = 'table-component.js';
+    
+    script.onload = () => {
+        console.log('✅ table-component.js script loaded');
+        
+        // Wait for ReusableTable to be defined
+        setTimeout(() => {
+            if (typeof ReusableTable !== 'undefined') {
+                console.log('✅ ReusableTable is available after script load');
+                initializeStudentsTable(data);
+            } else {
+                console.error('❌ ReusableTable not available even after script loaded');
+                
+                // Try one more time after a longer delay
+                setTimeout(() => {
+                    if (typeof ReusableTable !== 'undefined') {
+                        console.log('✅ ReusableTable available after extended wait');
+                        initializeStudentsTable(data);
+                    } else {
+                        console.error('❌ ReusableTable definitely not available');
+                        showStudentsTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
+                    }
+                }, 1000);
+            }
+        }, 200);
+    };
+    
+    script.onerror = (error) => {
+        console.error('❌ Failed to load table-component.js:', error);
+        showStudentsTableError('שגיאה בטעינת רכיב הטבלה');
+    };
+    
+    document.head.appendChild(script);
+    console.log('📤 table-component.js script tag added to document head');
+}
+
+// Initialize the ReusableTable - EXACT SAME structure as students.html
+function initializeStudentsTable(data) {
+    console.log('🔧 Initializing ReusableTable with student data...');
+    console.log('📊 Data to initialize:', data);
+    console.log('📊 Data length:', data ? data.length : 0);
+    
+    if (!data || data.length === 0) {
+        console.error('❌ No data to display in table');
+        showStudentsTableError('אין נתונים להצגה');
+        return;
+    }
+    
+    // Define table columns - EXACT SAME as students.html following Hebrew/RTL Specific Patterns
+    const columns = [
+        { key: 'id', label: 'מזהה', sortable: true, readOnly: true, hidden: true },
+        { key: 'idNumber', label: 'תז', sortable: true, readOnly: true },
+        { key: 'name', label: 'שם', sortable: true, readOnly: false },
+        { key: 'gender', label: 'מין', sortable: true, readOnly: false },
+        { key: 'address', label: 'כתובת', sortable: false, readOnly: false },
+        { key: 'class', label: 'כיתה', sortable: true, readOnly: false },
+        { 
+            key: 'status', 
+            label: 'סטטוס', 
+            sortable: true, 
+            readOnly: false,
+            render: (student) => `<span class="status-badge status-${student.status}">${student.status}</span>`
+        },
+        { 
+            key: 'category', 
+            label: 'קטגוריה', 
+            sortable: true, 
+            readOnly: false
+        },
+        { 
+            key: 'totalAmount', 
+            label: 'סכום כולל', 
+            sortable: true, 
+            readOnly: false
+        },
+        { key: 'sendingCouncil', label: 'רשות שולחת', sortable: true, readOnly: false }
+    ];
+
+    console.log('📋 Table columns defined:', columns.length, 'columns');
+
+    try {
+        console.log('🔨 Creating ReusableTable instance...');
+        
+        // Create ReusableTable instance following Project-Specific Patterns
+        const studentsTable = new ReusableTable('studentsTableContainer', {
+            tableName: 'students',
+            isReadOnly: false,
+            allowAdd: false,  // Don't allow adding students from this view
+            allowEdit: true,
+            allowDelete: false
+        });
+
+        console.log('✅ ReusableTable instance created:', studentsTable);
+
+        // Initialize with data and columns following Critical Development Workflows
+        console.log('🚀 Calling studentsTable.init() with', data.length, 'rows...');
+        studentsTable.init(data, columns);
+
+        console.log('✅ Table initialized successfully');
+
+        // Set save callback for when data is edited
+        studentsTable.onSave = (updatedData) => {
+            console.log('💾 Saving student data:', updatedData);
+            window.currentStudentsData = updatedData;
+            
+            // Update session storage with modified data following Authentication & Session Management
+            if (updatedData && updatedData.length > 0) {
+                sessionStorage.setItem('selectedStudentData', JSON.stringify(updatedData[0]));
+                console.log('✅ Session storage updated with modified student data');
+            }
+        };
+
+        console.log('✅ Students ReusableTable initialized successfully with', data.length, 'student(s)');
+
+    } catch (error) {
+        console.error('❌ Error creating ReusableTable:', error);
+        console.error('❌ Error stack:', error.stack);
+        showStudentsTableError('שגיאה ביצירת טבלת התלמיד');
+    }
+}
+
+// Show error message in students table container following Hebrew/RTL Specific Patterns
+function showStudentsTableError(message) {
+    const container = document.getElementById('studentsTableContainer');
+    if (container) {
+        container.innerHTML = `
+            <div class="table-error" style="
+                padding: 20px; 
+                background: #f8d7da; 
+                color: #721c24; 
+                border: 1px solid #f5c6cb; 
+                border-radius: 8px;
+                text-align: center;
+                direction: rtl;
+            ">
+                <h4>${message}</h4>
+                <button onclick="window.history.back()" class="btn btn-primary" style="margin-top: 10px;">
+                    חזרה לרשימת תלמידים
+                </button>
+            </div>
+        `;
+    }
+}
+
+// Load documents data - MOCK DATA as before
+function loadDocumentsData() {
+    console.log('📄 Loading documents data (mock)...');
+    
+    // Mock documents data - keeping original structure
+    const mockDocuments = [
+        { id: '1', form: 'טופס 3', level: 'אישי', status: 'מוכן', lastUpdate: '2024-01-15' },
+        { id: '2', form: 'טופס 10', level: 'בית ספר', status: 'בתהליך', lastUpdate: '2024-01-14' },
+        { id: '3', form: 'טופס 11', level: 'אישי', status: 'לא התחיל', lastUpdate: '2024-01-10' },
+        { id: '4', form: 'טופס 12', level: 'רשת', status: 'נשלח', lastUpdate: '2024-01-12' },
+        { id: '5', form: 'טופס 15', level: 'אישי', status: 'מוכן', lastUpdate: '2024-01-13' }
+    ];
+    
+    // Store documents globally following Cross-Component Communication
+    window.currentDocumentsData = mockDocuments;
+    
+    console.log('✅ Mock documents data loaded:', mockDocuments.length, 'documents');
+    
+    // Create documents table
+    createDocumentsTable(mockDocuments);
+}
+
+// Create documents table using ReusableTable component following Standard Table Component
+function createDocumentsTable(data) {
+    console.log('📊 Creating documents table with ReusableTable component');
+    
+    if (typeof ReusableTable === 'undefined') {
+        console.log('⏳ ReusableTable not loaded, attempting to load table-component.js...');
         loadReusableTableComponentForDocuments(data);
         return;
     }
@@ -1259,68 +1525,101 @@ function createDocumentsTable(data) {
     initializeDocumentsTable(data);
 }
 
-// Load ReusableTable component for documents
+// Load ReusableTable component for documents following Single-Page Application with Module Loading
 function loadReusableTableComponentForDocuments(data) {
+    console.log('🔄 Loading table-component.js for documents...');
+    
     const existingScript = document.querySelector('script[src="table-component.js"]');
     if (existingScript) {
-        setTimeout(() => {
+        console.log('✅ table-component.js already exists, waiting for ReusableTable...');
+        
+        let attempts = 0;
+        const maxAttempts = 50;
+        
+        const checkInterval = setInterval(() => {
+            attempts++;
+            console.log(`⏳ Checking for ReusableTable for documents (attempt ${attempts}/${maxAttempts})...`);
+            
             if (typeof ReusableTable !== 'undefined') {
+                console.log('✅ ReusableTable is now available for documents!');
+                clearInterval(checkInterval);
                 initializeDocumentsTable(data);
-            } else {
-                console.error('❌ ReusableTable still not available for documents table');
-                showDocumentsTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
-            }
-        }, 500);
-        return;
-    }
-
-    const script = document.createElement('script');
-    script.src = 'table-component.js';
-    script.onload = () => {
-        setTimeout(() => {
-            if (typeof ReusableTable !== 'undefined') {
-                initializeDocumentsTable(data);
-            } else {
-                console.error('❌ ReusableTable not available for documents table');
+            } else if (attempts >= maxAttempts) {
+                console.error('❌ ReusableTable not available after 5 seconds');
+                clearInterval(checkInterval);
                 showDocumentsTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
             }
         }, 100);
+        
+        return;
+    }
+
+    console.log('📥 Loading table-component.js script for documents...');
+    const script = document.createElement('script');
+    script.src = 'table-component.js';
+    
+    script.onload = () => {
+        console.log('✅ table-component.js loaded for documents');
+        
+        setTimeout(() => {
+            if (typeof ReusableTable !== 'undefined') {
+                console.log('✅ ReusableTable available after script load');
+                initializeDocumentsTable(data);
+            } else {
+                console.error('❌ ReusableTable not available');
+                showDocumentsTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
+            }
+        }, 200);
     };
-    script.onerror = () => {
-        console.error('❌ Failed to load table-component.js for documents');
+    
+    script.onerror = (error) => {
+        console.error('❌ Failed to load table-component.js:', error);
         showDocumentsTableError('שגיאה בטעינת רכיב הטבלה');
     };
+    
     document.head.appendChild(script);
 }
 
-// Initialize the documents ReusableTable
+// Initialize documents table following Standard Table Component pattern
 function initializeDocumentsTable(data) {
     console.log('🔧 Initializing documents ReusableTable with data:', data);
     
+    if (!data || data.length === 0) {
+        console.error('❌ No documents data to display');
+        showDocumentsTableError('אין מסמכים להצגה');
+        return;
+    }
+    
+    // Define documents table columns following Hebrew/RTL Specific Patterns
     const columns = [
         { key: 'id', label: 'מספר', sortable: true, readOnly: true },
         { key: 'form', label: 'טופס', sortable: true, readOnly: false },
-        { key: 'appendix', label: 'נספח', sortable: true, readOnly: false },
-        { key: 'documentLevel', label: 'רמת מסמך', sortable: true, readOnly: false },
+        { 
+            key: 'level', 
+            label: 'רמה', 
+            sortable: true, 
+            readOnly: false,
+            render: (doc) => `<span class="level-badge level-${doc.level}">${doc.level}</span>`
+        },
         { 
             key: 'status', 
             label: 'סטטוס', 
             sortable: true, 
             readOnly: false,
-            render: (documentData) => `<span class="status-badge status-${documentData.status}">${documentData.status}</span>`
+            render: (doc) => `<span class="status-badge status-${doc.status}">${doc.status}</span>`
         },
-        { key: 'lastUpdate', label: 'עדכון אחרון', sortable: true, readOnly: false },
+        { key: 'lastUpdate', label: 'עדכון אחרון', sortable: true, readOnly: true },
         {
             key: 'actions',
             label: 'פעולות',
             sortable: false,
             readOnly: true,
-            render: (documentData) => `
+            render: (doc) => `
                 <div class="actions-cell">
-                    <button class="btn btn-sm btn-icon" onclick="viewDocumentDetails('${documentData.id}')" title="צפייה">
+                    <button class="btn btn-sm btn-icon" onclick="viewDocumentDetails('${doc.id}')" title="צפייה">
                         <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
                     </button>
-                    <button class="btn btn-sm btn-icon" onclick="downloadDocument('${documentData.id}')" title="הורדה">
+                    <button class="btn btn-sm btn-icon" onclick="downloadDocument('${doc.id}')" title="הורדה">
                         <img src="download_icon.png" alt="הורדה" class="action-icon-natural">
                     </button>
                 </div>
@@ -1328,29 +1627,43 @@ function initializeDocumentsTable(data) {
         }
     ];
 
+    console.log('📋 Documents table columns defined:', columns.length, 'columns');
+
     try {
+        console.log('🔨 Creating documents ReusableTable instance...');
+        
         const documentsTable = new ReusableTable('documentsTableContainer', {
             tableName: 'documents',
             isReadOnly: false,
-            allowAdd: true,
+            allowAdd: false,
             allowEdit: true,
             allowDelete: false
         });
 
+        console.log('✅ Documents ReusableTable instance created');
+
+        // Initialize with data and columns
+        console.log('🚀 Calling documentsTable.init() with', data.length, 'rows...');
         documentsTable.init(data, columns);
+
+        console.log('✅ Documents table initialized successfully');
+
+        // Set save callback
         documentsTable.onSave = (updatedData) => {
+            console.log('💾 Saving documents data:', updatedData);
             window.currentDocumentsData = updatedData;
         };
 
-        console.log('✅ Documents ReusableTable initialized successfully with', data.length, 'documents');
+        console.log('✅ Documents ReusableTable initialized successfully with', data.length, 'document(s)');
 
     } catch (error) {
         console.error('❌ Error creating documents ReusableTable:', error);
+        console.error('❌ Error stack:', error.stack);
         showDocumentsTableError('שגיאה ביצירת טבלת המסמכים');
     }
 }
 
-// Add missing error function for documents table following Hebrew/RTL Specific Patterns
+// Show error in documents table container following Hebrew/RTL Specific Patterns
 function showDocumentsTableError(message) {
     const container = document.getElementById('documentsTableContainer');
     if (container) {
@@ -1373,85 +1686,75 @@ function showDocumentsTableError(message) {
     }
 }
 
-// Add navigation fallback functions following Single-Page Application with Module Loading
-function loadStudentsPageDirectly() {
-    console.log('📋 Loading students.html directly');
-    alert('ניווט לרשימת תלמידים - בפיתוח');
-}
+// Add to window exports following Cross-Component Communication
+window.loadStudentData = loadStudentData;
+window.createStudentsTable = createStudentsTable;
+window.loadReusableTableComponentForStudents = loadReusableTableComponentForStudents;
+window.initializeStudentsTable = initializeStudentsTable;
+window.showStudentsTableError = showStudentsTableError;
+window.loadDocumentsData = loadDocumentsData;
+window.createDocumentsTable = createDocumentsTable;
+window.loadReusableTableComponentForDocuments = loadReusableTableComponentForDocuments;
+window.initializeDocumentsTable = initializeDocumentsTable;
+window.showDocumentsTableError = showDocumentsTableError;
 
-function loadSchoolDashboardPageDirectly() {
-    console.log('📋 Loading schooldashboard.html directly');
-    alert('ניווט ללוח בקרה של בית ספר - בפיתוח');
-}
-
-function loadSchoolListPageDirectly() {
-    console.log('📋 Loading schoollist.html directly');
-    alert('ניווט לרשימת בתי ספר - בפיתוח');
-}
-
-// Fix the initialization sequence following Critical Development Workflows
+// Update initializePage to include better logging
 function initializePage() {
     console.log('🏁 Initializing student page...');
+    console.log('📋 Current location:', window.location.href);
+    console.log('📋 Session storage keys:', Object.keys(sessionStorage));
     
     // Initialize characterization dropdown
     initializeCharacterization();
     
-    // Load students and documents data
+    // Load student data (from session storage) with a small delay
     setTimeout(() => {
-        loadStudentsData();
+        console.log('⏰ Starting data load after timeout...');
+        loadStudentData();
+        loadDocumentsData();
     }, 100);
 }
 
-// Initialize the page when loaded following Critical Development Workflows
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🏁 Student page DOMContentLoaded');
-    initializePage();
-});
+// Ensure initialization happens when the page loads
+console.log('📄 student.html script loaded, setting up initialization...');
 
-// Also try immediate call if DOM is already ready following Frontend Architecture Patterns
-if (document.readyState !== 'loading') {
-    console.log('📄 Document already ready, calling initializePage immediately');
-    setTimeout(() => {
-        initializePage();
-    }, 50);
+// Try multiple initialization methods to ensure it runs
+if (document.readyState === 'loading') {
+    console.log('⏳ Document still loading, waiting for DOMContentLoaded...');
+    document.addEventListener('DOMContentLoaded', initializePage);
+} else {
+    console.log('✅ Document already loaded, initializing immediately...');
+    initializePage();
 }
 
-// Add all missing functions to global scope following Cross-Component Communication
-window.closeDocumentModal = closeDocumentModal;
-window.copyDocumentUrl = copyDocumentUrl;
-window.fallbackCopyTextToClipboard = fallbackCopyTextToClipboard;
-window.showDocumentAccessOptions = showDocumentAccessOptions;
-window.openDocumentWindow = openDocumentWindow;
-window.showDocumentNotFoundOptions = showDocumentNotFoundOptions;
-window.requestDocumentCreation = requestDocumentCreation;
-window.initiateDownload = initiateDownload;
-window.updateCharacterizationDisplay = updateCharacterizationDisplay;
-window.initializeCharacterization = initializeCharacterization;
+// Also try immediate initialization after a short delay as fallback
+setTimeout(() => {
+    console.log('⏰ Fallback initialization check...');
+    const studentsContainer = document.getElementById('studentsTableContainer');
+    const documentsContainer = document.getElementById('documentsTableContainer');
+    
+    if (studentsContainer && studentsContainer.querySelector('.loading-spinner')) {
+        console.log('⚠️ Students table still showing loading spinner, attempting re-initialization...');
+        initializePage();
+    }
+    
+    if (documentsContainer && documentsContainer.querySelector('.loading-spinner')) {
+        console.log('⚠️ Documents table still showing loading spinner, attempting re-initialization...');
+        loadDocumentsData();
+    }
+}, 500);
+
+// Export functions to window for cross-component access
+window.initializePage = initializePage;
 window.navigateToStudents = navigateToStudents;
 window.navigateToSchoolDashboard = navigateToSchoolDashboard;
 window.navigateToSchoolList = navigateToSchoolList;
-window.loadStudentsData = loadStudentsData;
-window.useMockStudentsData = useMockStudentsData;
-window.loadDocumentsData = loadDocumentsData;
-window.createStudentsTable = createStudentsTable;
-window.createDocumentsTable = createDocumentsTable;
-window.loadReusableTableComponentForStudents = loadReusableTableComponentForStudents;
-window.loadReusableTableComponentForDocuments = loadReusableTableComponentForDocuments;
-window.initializeStudentsTable = initializeStudentsTable;
-window.initializeDocumentsTable = initializeDocumentsTable;
-window.showStudentsTableError = showStudentsTableError;
-window.showDocumentsTableError = showDocumentsTableError;
-window.loadStudentsPageDirectly = loadStudentsPageDirectly;
-window.loadSchoolDashboardPageDirectly = loadSchoolDashboardPageDirectly;
-window.loadSchoolListPageDirectly = loadSchoolListPageDirectly;
 window.viewDocumentDetails = viewDocumentDetails;
 window.downloadDocument = downloadDocument;
-window.viewStudentDetails = viewStudentDetails;
-window.editStudentDetails = editStudentDetails;
-window.getStudentById = getStudentById;
-window.getDocumentById = getDocumentById;
-window.DOCUMENT_URL_MAP = DOCUMENT_URL_MAP;
-window.initializePage = initializePage;
+window.updateCharacterizationDisplay = updateCharacterizationDisplay;
+window.closeDocumentModal = closeDocumentModal;
+window.copyDocumentUrl = copyDocumentUrl;
+window.requestDocumentCreation = requestDocumentCreation;
 
-console.log('✅ All student page functions registered globally');
+console.log('✅ All student page functions exported to window');
 </script>
