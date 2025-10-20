@@ -3,10 +3,9 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using PetelApp.Api.Data;
-using PetelApp.Api.Models;
 using PetelApp.Api.DTOs;
 using PetelApp.Api.Models.DTOs;
-using PetelApp.Api.Session; // Add this using for UserSession
+using PetelApp.Api.Session;
 using BCrypt.Net;
 
 namespace PetelApp.Api.Services
@@ -14,174 +13,26 @@ namespace PetelApp.Api.Services
     /// <summary>
     /// Authentication service implementation following Authentication & Session Management pattern
     /// </summary>
-
-
     public class AuthService : IAuthService
     {
         private readonly AppDbContext _context;
+        private readonly UserSessionService _sessionService;
         private readonly ILogger<AuthService> _logger;
-        private readonly UserSessionService _userSessionService; // Add UserSessionService
 
-        public AuthService(AppDbContext context, ILogger<AuthService> logger, UserSessionService userSessionService)
+        public AuthService(
+            AppDbContext context,
+            UserSessionService sessionService,
+            ILogger<AuthService> logger)
         {
             _context = context;
+            _sessionService = sessionService;
             _logger = logger;
-            _userSessionService = userSessionService; // Initialize UserSessionService
         }
 
         /// <summary>
-        /// Authenticate user and create session following Authentication & Session Management
+        /// Login user and create session following Authentication & Session Management
+        /// Implements Frontend Token-Only Storage pattern
         /// </summary>
-        public async Task<UserSession?> AuthenticateAsync(string username, string password, string? entityId = null)
-        {
-            try
-            {
-                // Query your User entity from database
-                var user = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
-
-                if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
-                {
-                    return null;
-                }
-
-                // Get user's entity (school/organization)
-                var entity = await _context.Entities
-                    .FirstOrDefaultAsync(e => e.Id.ToString() == (entityId ?? user.EntityId.ToString()));
-
-                if (entity == null)
-                {
-                    return null;
-                }
-
-                // Get user roles
-                var roles = await GetUserRolesAsync(user.Id.ToString(), entity.Id.ToString());
-
-                // Create session following Entity-Based Request Flow
-                var session = new UserSession
-                {
-                    SessionId = Guid.NewGuid().ToString(),
-                    UserId = user.Id.ToString(),
-                    UserFullName = user.FullName,
-                    EntityId = entity.Id.ToString(),
-                    EntityName = entity.Name,
-                    EntityTypeId = entity.EntityTypeId.ToString(),
-                    Roles = roles,
-                    CreatedAt = DateTime.UtcNow,
-                    LastAccessedAt = DateTime.UtcNow
-                };
-
-                _logger.LogInformation("User {UserId} authenticated successfully for entity {EntityId}",
-                   user.Id.ToString(), entity.Id.ToString());
-
-                return session;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Authentication error for username {Username}", username);
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Get user details by user ID
-        /// </summary>
-        public async Task<UserDto?> GetUserAsync(string userId)
-        {
-            try
-            {
-                var user = await _context.Users
-                    .Include(u => u.Entity)
-                    .FirstOrDefaultAsync(u => u.Id.ToString() == userId);
-
-                if (user == null) return null;
-
-                return new UserDto
-                {
-                    UserId = user.Id.ToString(),
-                    UserFullName = user.FullName,
-                    Username = user.Username,
-                    Email = user.Email,
-                    EntityId = user.EntityId.ToString(),
-                    EntityName = user.Entity?.Name ?? string.Empty,
-                    IsActive = user.IsActive,
-                    CreatedAt = user.CreatedAt,
-                    LastLoginAt = user.LastLogin ?? DateTime.Now,
-                };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving user {UserId}", userId);
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Validate user credentials
-        /// </summary>
-        public async Task<bool> ValidateUserCredentialsAsync(string username, string password)
-        {
-            try
-            {
-                var user = await _context.Users
-                    .FirstOrDefaultAsync(u => u.Username == username && u.IsActive);
-
-                return user != null && BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating credentials for username {Username}", username);
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// Get user roles for authorization
-        /// </summary>
-        public async Task<List<int>> GetUserRolesAsync(string userId, string entityId)
-        {
-            try
-            {
-                var roles = await _context.UserRoles
-                    .Where(ur => ur.UserId.ToString() == userId && ur.IsActive)
-                    .Select(ur => ur.RoleId)
-                    .ToListAsync();
-
-                return roles;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving roles for user {UserId} in entity {EntityId}", userId, entityId);
-                return new List<int>();
-            }
-        }
-
-        public async Task<bool> VerifyPasswordAsync(User user, string password)
-        {
-            if (user == null || string.IsNullOrEmpty(password))
-                return false;
-
-            return await Task.Run(() => BCrypt.Net.BCrypt.Verify(password, user.PasswordHash));
-        }
-
-        public async Task<string> HashPasswordAsync(string password)
-        {
-            return await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(password, 12));
-        }
-
-        public async Task<User?> ValidateUserAsync(string username, string password, int entityId)
-        {
-            var user = await _context.Users
-                .Include(u => u.Entity)
-                .ThenInclude(e => e.EntityType)
-                .FirstOrDefaultAsync(u => u.Username == username && u.EntityId == entityId);
-
-            if (user == null || !await VerifyPasswordAsync(user, password))
-                return null;
-
-            return user;
-        }
-
         public async Task<LoginResponseDto> LoginAsync(LoginRequestDto loginRequest)
         {
             // Validate request
@@ -196,14 +47,15 @@ namespace PetelApp.Api.Services
 
             try
             {
-                // Check if the user exists and is active
+                // Get user with entity relationship (Entity-Based Request Flow)
                 var user = await _context.Users
                     .Include(u => u.Entity)
-                    .ThenInclude(e => e!.EntityType)
+                        .ThenInclude(e => e!.EntityType)
                     .FirstOrDefaultAsync(u => u.Username == loginRequest.Username && u.IsActive);
 
                 if (user == null)
                 {
+                    _logger.LogWarning("Login failed: User {Username} not found or inactive", loginRequest.Username);
                     return new LoginResponseDto
                     {
                         Success = false,
@@ -211,9 +63,10 @@ namespace PetelApp.Api.Services
                     };
                 }
 
-                // Verify the password
+                // Verify password using BCrypt (Security Patterns)
                 if (!BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.PasswordHash))
                 {
+                    _logger.LogWarning("Login failed: Invalid password for user {Username}", loginRequest.Username);
                     return new LoginResponseDto
                     {
                         Success = false,
@@ -224,7 +77,8 @@ namespace PetelApp.Api.Services
                 // Validate entity ID matches (Entity-Based Request Flow)
                 if (user.EntityId != loginRequest.EntityId)
                 {
-                    _logger.LogWarning("Login failed: Entity mismatch for user {Username}", loginRequest.Username);
+                    _logger.LogWarning("Login failed: Entity mismatch for user {Username}. Expected {EntityId}, got {RequestEntityId}",
+                        loginRequest.Username, user.EntityId, loginRequest.EntityId);
                     return new LoginResponseDto
                     {
                         Success = false,
@@ -236,7 +90,7 @@ namespace PetelApp.Api.Services
                 var userEntity = user.Entity;
                 if (userEntity == null)
                 {
-                    _logger.LogWarning("Login failed: Entity {EntityId} not found for user {Username}",
+                    _logger.LogError("Login failed: Entity {EntityId} not found for user {Username}",
                         user.EntityId, loginRequest.Username);
                     return new LoginResponseDto
                     {
@@ -245,15 +99,16 @@ namespace PetelApp.Api.Services
                     };
                 }
 
-                // Update user's last login time
+                // Update last login timestamp
                 user.LastLogin = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
                 // Create UserFullName from FirstName + LastName
                 var userFullName = $"{user.FirstName} {user.LastName}".Trim();
 
-                // Create session using existing UserSessionService following Entity-Based Request Flow
-                var sessionId = _userSessionService.CreateSessionWithFullData(
+                // ✅ FIX: Use _sessionService (not _userSessionService)
+                // Create session following Entity-Based Request Flow
+                var sessionId = _sessionService.CreateSessionWithFullData(
                     userId: user.Id.ToString(),
                     username: user.Username,
                     userFullName: userFullName,
@@ -264,16 +119,33 @@ namespace PetelApp.Api.Services
                     lastLogin: user.LastLogin
                 );
 
-                // Get created session for response
-                var session = _userSessionService.GetUserSession(sessionId);
+                _logger.LogInformation("User {Username} (ID: {UserId}) logged in successfully to entity {EntityId}",
+                    loginRequest.Username, user.Id, user.EntityId);
 
-                _logger.LogInformation("User {Username} logged in successfully", loginRequest.Username);
-
+                // Return token only (Frontend Token-Only Storage pattern)
                 return new LoginResponseDto
                 {
                     Success = true,
                     Message = "התחברות הצליחה",
-                    Token = sessionId // Frontend Session Token Only pattern
+                    Token = sessionId, // Frontend stores ONLY this token
+                    User = new UserDto
+                    {
+                        Id = user.Id,
+                        Username = user.Username,
+                        FirstName = user.FirstName,
+                        LastName = user.LastName,
+                        FullName = userFullName,
+                        Email = user.Email,
+                        Phone = user.Phone,
+                        LastLogin = user.LastLogin
+                    },
+                    Entity = new EntityDto
+                    {
+                        Id = userEntity.Id,
+                        Name = userEntity.Name,
+                        EntityTypeId = userEntity.EntityTypeId,
+                        EntityTypeName = userEntity.EntityType?.Name ?? ""
+                    }
                 };
             }
             catch (Exception ex)
@@ -285,6 +157,41 @@ namespace PetelApp.Api.Services
                     Message = "שגיאה במהלך ההתחברות"
                 };
             }
+        }
+
+        /// <summary>
+        /// Verify user password following Security Patterns
+        /// </summary>
+        public async Task<bool> VerifyPasswordAsync(User user, string password)
+        {
+            if (user == null || string.IsNullOrEmpty(password))
+                return false;
+
+            return await Task.Run(() => BCrypt.Net.BCrypt.Verify(password, user.PasswordHash));
+        }
+
+        /// <summary>
+        /// Hash password for storage following Security Patterns
+        /// </summary>
+        public async Task<string> HashPasswordAsync(string password)
+        {
+            return await Task.Run(() => BCrypt.Net.BCrypt.HashPassword(password, 12));
+        }
+
+        /// <summary>
+        /// Validate user credentials following Authentication & Session Management
+        /// </summary>
+        public async Task<User?> ValidateUserAsync(string username, string password, int entityId)
+        {
+            var user = await _context.Users
+                .Include(u => u.Entity)
+                    .ThenInclude(e => e.EntityType)
+                .FirstOrDefaultAsync(u => u.Username == username && u.EntityId == entityId && u.IsActive);
+
+            if (user == null || !await VerifyPasswordAsync(user, password))
+                return null;
+
+            return user;
         }
     }
 }

@@ -165,99 +165,76 @@ namespace PetelApp.Api.Session
             }
         }
 
-        public bool UpdateSessionData(string sessionId, string key, string value)
-        {
-            if (_sessions.TryGetValue(sessionId, out var session))
-            {
-                switch (key.ToLower())
-                {
-                    case "selectedschoolid":
-                        session.SelectedSchoolId = value;
-                        break;
-                    case "selectedschoolname":
-                        session.SelectedSchoolName = value;
-                        break;
-                    case "selectedyearid":
-                        session.SelectedYearId = value;
-                        break;
-                    case "selectedyeartype":
-                        session.SelectedYearType = value;
-                        break;
-                    case "selectedyearvalue":
-                        session.SelectedYearValue = value;
-                        break;
-                    default:
-                        session.AdditionalData[key] = value;
-                        break;
-                }
-                
-                session.LastAccessedAt = DateTime.UtcNow;
-                _logger.LogDebug("Session data updated for session {SessionId}: {Key}={Value}", sessionId, key, value);
-                return true;
-            }
 
-            return false;
-        }
+public bool UpdateSessionData(string sessionId, string key, string value)
+{
+    if (_sessions.TryGetValue(sessionId, out var session))
+    {
+        session.SetProperty(key, value);
+        session.LastAccessedAt = DateTime.UtcNow;
+        _logger.LogDebug("Session property updated for session {SessionId}: {Key}={Value}", sessionId, key, value);
+        return true;
+    }
+
+    return false;
+}
 
         public Task<bool> UpdateSessionDataAsync(string sessionId, string key, string value)
         {
             return Task.FromResult(UpdateSessionData(sessionId, key, value));
         }
 
-        public string? GetSessionData(string sessionId, string key)
+public string? GetSessionData(string sessionId, string key)
+{
+    if (_sessions.TryGetValue(sessionId, out var session))
+    {
+        session.LastAccessedAt = DateTime.UtcNow;
+        
+        // Check identity properties first
+        return key.ToLower() switch
         {
-            if (_sessions.TryGetValue(sessionId, out var session))
-            {
-                session.LastAccessedAt = DateTime.UtcNow;
-                
-                return key.ToLower() switch
-                {
-                    "userid" => session.UserId,
-                    "userfullname" => session.UserFullName,
-                    "entityid" => session.EntityId, // Changed from tenantid to entityid
-                    "entitytypeid" => session.EntityTypeId,
-                    "selectedschoolid" => session.SelectedSchoolId,
-                    "selectedschoolname" => session.SelectedSchoolName,
-                    "selectedyearid" => session.SelectedYearId,
-                    "selectedyeartype" => session.SelectedYearType,
-                    "selectedyearvalue" => session.SelectedYearValue,
-                    _ => session.AdditionalData.TryGetValue(key, out var value) ? value : null
-                };
-            }
+            "userid" => session.UserId,
+            "userfullname" => session.UserFullName,
+            "entityid" => session.EntityId,
+            "entitytypeid" => session.EntityTypeId,
+            "username" => session.Username,
+            "entityname" => session.EntityName,
+            _ => session.GetProperty(key) // Use generic storage for everything else
+        };
+    }
 
-            return null;
+    return null;
+}
+
+ // Replace GetAllSessionData method (around line 240)
+public Dictionary<string, string> GetAllSessionData(string sessionId)
+{
+    if (_sessions.TryGetValue(sessionId, out var session))
+    {
+        session.LastAccessedAt = DateTime.UtcNow;
+        
+        // Start with identity data
+        var data = new Dictionary<string, string>
+        {
+            ["userId"] = session.UserId,
+            ["userFullName"] = session.UserFullName,
+            ["entityId"] = session.EntityId,
+            ["entityTypeId"] = session.EntityTypeId,
+            ["username"] = session.Username,
+            ["entityName"] = session.EntityName
+        };
+
+        // Add all generic properties
+        foreach (var kvp in session.GetAllProperties())
+        {
+            data[kvp.Key] = kvp.Value;
         }
 
-        public Dictionary<string, string> GetAllSessionData(string sessionId)
-        {
-            if (_sessions.TryGetValue(sessionId, out var session))
-            {
-                session.LastAccessedAt = DateTime.UtcNow;
-                
-                var data = new Dictionary<string, string>
-                {
-                    ["userId"] = session.UserId,
-                    ["userFullName"] = session.UserFullName,
-                    ["entityId"] = session.EntityId, // Changed from tenantId to entityId
-                    ["entityTypeId"] = session.EntityTypeId,
-                    ["selectedSchoolId"] = session.SelectedSchoolId,
-                    ["selectedSchoolName"] = session.SelectedSchoolName,
-                    ["selectedYearId"] = session.SelectedYearId,
-                    ["selectedYearType"] = session.SelectedYearType,
-                    ["selectedYearValue"] = session.SelectedYearValue
-                };
+        return data;
+    }
 
-                // Add additional data
-                foreach (var kvp in session.AdditionalData)
-                {
-                    data[kvp.Key] = kvp.Value;
-                }
-
-                return data;
-            }
-
-            return new Dictionary<string, string>();
-        }
+    return new Dictionary<string, string>();
+}
 
         public void InvalidateSession(string sessionId)
         {

@@ -57,71 +57,96 @@
 </div>
 
 <script>
-function showSchoolYearSection(section) {
-    const contentDiv = document.getElementById('schoolYearSectionContent');
-    const dynamicContent = document.getElementById('dynamicContent');
-    
-    switch(section) {
-        case 'students':
-            // Load the students screen
-            if (dynamicContent) {
-                // If we're in the main layout, use dynamic content
-                document.getElementById('dashboardContent').style.display = 'none';
-                dynamicContent.style.display = 'block';
-                
-                fetch('students.html')
-                    .then(response => response.text())
-                    .then(html => {
-                        dynamicContent.innerHTML = html;
-                        // Execute scripts in the loaded HTML
-                        const scripts = dynamicContent.querySelectorAll('script');
-                        scripts.forEach(script => {
-                            const newScript = document.createElement('script');
-                            newScript.textContent = script.textContent;
-                            document.head.appendChild(newScript);
-                        });
-                    })
-                    .catch(error => {
-                        console.error('Error loading students page:', error);
-                        dynamicContent.innerHTML = '<div class="content-card"><p>שגיאה בטעינת עמוד התלמידים</p></div>';
-                    });
-            } else {
-                // If we're in the school year page, show inline
-                contentDiv.innerHTML = `
-                    <div class="content-card">
-                        <h3 style="color: #C15A16;">תלמידים</h3>
-                        <p>מידע על תלמידים - <a href="#" onclick="navigateTo('students')">עבור לעמוד התלמידים המלא</a></p>
-                    </div>
-                `;
+    let schoolYears = [];
+
+    async function loadSchoolYears() {
+        try {
+            const response = await fetch(AppConfig.getApiUrl('utils/schoolyears'), {
+                headers: {
+                    'Authorization': `Bearer ${sessionManager.getToken()}`
+                }
+            });
+
+            if (response.ok) {
+                schoolYears = await response.json();
+                displaySchoolYears(schoolYears);
+                await loadCurrentSchoolYear();
             }
-            break;
-        case 'personnel':
-            contentDiv.innerHTML = `
-                <div class="content-card">
-                    <h3 style="color: #008031;">עובדי הוראה</h3>
-                    <p>מידע על עובדי הוראה יוצג כאן</p>
-                </div>
-            `;
-            break;
-        case 'budget':
-            contentDiv.innerHTML = `
-                <div class="content-card">
-                    <h3 style="color: #1D9CF3;">תקציב שעות הוראה</h3>
-                    <p>מידע על תקציב שעות הוראה יוצג כאן</p>
-                </div>
-            `;
-            break;
+        } catch (error) {
+            console.error('Error loading school years:', error);
+            alert('שגיאה בטעינת שנות לימוד');
+        }
     }
-}
 
-// Function to update the title with school year info
-function updateSchoolYearTitle(yearInfo) {
-    const titleElement = document.getElementById('schoolYearTitle');
-    if (titleElement && yearInfo) {
-        titleElement.textContent = `שנת לימודים - ${yearInfo}`;
+    async function loadCurrentSchoolYear() {
+        try {
+            const response = await fetch(AppConfig.getApiUrl('session'), {
+                headers: {
+                    'Authorization': `Bearer ${sessionManager.getToken()}`
+                }
+            });
+
+            if (response.ok) {
+                const session = await response.json();
+                const currentYearId = session.currentSchoolYearId;
+                
+                if (currentYearId) {
+                    const yearCards = document.querySelectorAll('.year-card');
+                    yearCards.forEach(card => {
+                        if (card.dataset.yearId === currentYearId) {
+                            card.classList.add('selected');
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error loading current school year:', error);
+        }
     }
-}
 
-// Make the function globally available
-window.updateSchoolYearTitle = updateSchoolYearTitle;
+    async function selectSchoolYear(yearId) {
+        try {
+            const response = await fetch(AppConfig.getApiUrl('session/property'), {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${sessionManager.getToken()}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    key: 'CurrentSchoolYearId',
+                    value: yearId
+                })
+            });
+
+            if (response.ok) {
+                document.querySelectorAll('.year-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                document.querySelector(`[data-year-id="${yearId}"]`)?.classList.add('selected');
+
+                window.dispatchEvent(new CustomEvent('schoolYearChanged', {
+                    detail: { schoolYearId: yearId }
+                }));
+
+                alert('שנת הלימוד עודכנה בהצלחה');
+            } else {
+                alert('שגיאה בעדכון שנת הלימוד');
+            }
+        } catch (error) {
+            console.error('Error setting school year:', error);
+            alert('שגיאה בעדכון שנת הלימוד');
+        }
+    }
+
+    function displaySchoolYears(years) {
+        const container = document.getElementById('schoolYearsContainer');
+        container.innerHTML = years.map(year => `
+            <div class="year-card" data-year-id="${year.id}" onclick="selectSchoolYear('${year.id}')">
+                <div class="year-name">${year.name}</div>
+                <div class="year-dates">${new Date(year.startDate).toLocaleDateString('he-IL')} - ${new Date(year.endDate).toLocaleDateString('he-IL')}</div>
+            </div>
+        `).join('');
+    }
+
+    loadSchoolYears();
 </script>

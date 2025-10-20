@@ -1,8 +1,5 @@
-
-
 // Show debug button only in development
 window.addEventListener('DOMContentLoaded', function() {
-    // Show debug button only when logged in and in development
     const authToken = sessionStorage.getItem('authToken');
     if (authToken && window.location.hostname === 'localhost') {
         const debugBtn = document.getElementById('debugSessionBtn');
@@ -12,7 +9,6 @@ window.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// Show session debug modal
 async function showSessionDebug() {
     const modal = document.getElementById('debugModal');
     const jsonContainer = document.getElementById('debugJsonContainer');
@@ -25,7 +21,6 @@ async function showSessionDebug() {
     await loadSessionDebugData();
 }
 
-// Load session data from backend
 async function loadSessionDebugData() {
     try {
         const authToken = sessionStorage.getItem('authToken');
@@ -34,35 +29,57 @@ async function loadSessionDebugData() {
             return;
         }
 
-        const response = await fetch(AppConfig.getApiUrl('session/debug'), {
-            method: 'GET',
+        // Fetch session info
+        const sessionResponse = await fetch(AppConfig.getApiUrl('session'), {
             headers: {
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${authToken}`
             }
         });
 
-        if (response.ok) {
-            const sessionData = await response.json();
+        if (!sessionResponse.ok) {
+            const errorText = await sessionResponse.text();
             document.getElementById('debugJsonContainer').textContent = 
-                JSON.stringify(sessionData, null, 2);
-        } else {
-            const errorText = await response.text();
-            document.getElementById('debugJsonContainer').textContent = 
-                `שגיאה ${response.status}: ${errorText}`;
+                `שגיאה ${sessionResponse.status}: ${errorText}`;
+            return;
         }
+
+        const sessionInfo = await sessionResponse.json();
+
+        // Fetch all properties
+        const propertiesResponse = await fetch(AppConfig.getApiUrl('session/properties'), {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        let allProperties = {};
+        if (propertiesResponse.ok) {
+            allProperties = await propertiesResponse.json();
+        }
+
+        // Combine all data
+        const debugData = {
+            sessionInfo: sessionInfo,
+            allProperties: allProperties,
+            frontendStorage: {
+                authToken: authToken ? `${authToken.substring(0, 20)}...` : null,
+                note: "Only auth token should be stored in frontend"
+            }
+        };
+
+        document.getElementById('debugJsonContainer').textContent = 
+            JSON.stringify(debugData, null, 2);
+
     } catch (error) {
         document.getElementById('debugJsonContainer').textContent = 
             `שגיאה בטעינת נתוני סשן: ${error.message}`;
     }
 }
 
-// Refresh session data
 function refreshSessionDebug() {
     loadSessionDebugData();
 }
 
-// Close debug modal
 function closeSessionDebug() {
     const modal = document.getElementById('debugModal');
     if (modal) {
@@ -70,7 +87,6 @@ function closeSessionDebug() {
     }
 }
 
-// Close modal when clicking outside
 window.onclick = function(event) {
     const modal = document.getElementById('debugModal');
     if (event.target === modal) {
@@ -78,7 +94,6 @@ window.onclick = function(event) {
     }
 }
 
-// Make functions globally available
 window.showSessionDebug = showSessionDebug;
 window.closeSessionDebug = closeSessionDebug;
 window.refreshSessionDebug = refreshSessionDebug;

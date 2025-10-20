@@ -7,8 +7,7 @@ using PetelApp.Api.Session;
 namespace PetelApp.Api.Controllers
 {
     /// <summary>
-    /// Table security management following multi-tenant request flow
-    /// Inherits from BaseController for tenant isolation
+
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]

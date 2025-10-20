@@ -1,8 +1,22 @@
 const AppConfig = {
-    apiBaseUrl: 'http://localhost:5082/api',
+    // API base URL - configure per environment
+    baseUrl: window.location.hostname === 'localhost' 
+        ? 'http://localhost:5082' 
+        : 'https://your-production-api.com',
     
+    /**
+     * Get full API URL for endpoint
+     * @param {string} endpoint - API endpoint path
+     * @returns {string} Full API URL
+     * 
+     * IMPORTANT:
+     * - systemAttributes endpoint: NO authentication needed (global config)
+     * - All other endpoints: Require Authorization header with auth token
+     */
     getApiUrl(endpoint) {
-        return `${this.apiBaseUrl}/${endpoint}`;
+        // Remove leading slash if present
+        const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+        return `${this.baseUrl}/api/${cleanEndpoint}`;
     },
     
     getDefaultFetchOptions() {
@@ -42,5 +56,5 @@ const AppConfig = {
     }
 };
 
-// Make globally available following Cross-Component Communication
+// Make globally accessible
 window.AppConfig = AppConfig;

@@ -1,5 +1,5 @@
 using PetelApp.Api.Data;
-using PetelApp.Api.Models.DTOs;
+using PetelApp.Api.DTOs;
 
 namespace PetelApp.Api.Services
 {
@@ -8,6 +8,12 @@ namespace PetelApp.Api.Services
     /// </summary>
     public interface IAuthService
     {
+        /// <summary>
+        /// Login user and create session following Frontend Token-Only Storage pattern
+        /// Returns token that frontend stores in sessionStorage
+        /// </summary>
+        Task<LoginResponseDto> LoginAsync(LoginRequestDto loginRequest);
+        
         /// <summary>
         /// Verify user password following Security Patterns
         /// </summary>
@@ -22,10 +28,16 @@ namespace PetelApp.Api.Services
         /// Validate user credentials following Authentication & Session Management
         /// </summary>
         Task<User?> ValidateUserAsync(string username, string password, int entityId);
-
-        /// <summary>
-        /// Login user and create session
-        /// </summary>
-        Task<LoginResponseDto> LoginAsync(LoginRequestDto loginRequest);
     }
+
+    public class AuthResult
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public User User { get; set; } = null!;
+        public Entity Entity { get; set; } = null!;
+        public string SessionId { get; set; } = string.Empty;
+    }
+
+
 }

@@ -231,94 +231,45 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Load user information following Authentication & Session Management
-function loadUserInfo() {
-    console.log('Loading user information...');
-    
+// Replace loadUserInfo function (around line 230)
+
+async function loadUserInfo() {
     try {
-        // Get user data from session storage following Frontend Session Token Only pattern
-        const userId = sessionStorage.getItem('userId');
-        const userFullName = sessionStorage.getItem('userFullName');
-        const entityId = sessionStorage.getItem('entityId');
-        const entityName = sessionStorage.getItem('entityName');
-        const entityTypeId = sessionStorage.getItem('entityTypeId');
-        const entityTypeName = sessionStorage.getItem('entityTypeName');
-        
-        console.log('Session data:', {
-            userId,
-            userFullName,
-            entityId,
-            entityName,
-            entityTypeId,
-            entityTypeName
+        const response = await fetch(AppConfig.getApiUrl('session'), {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+            }
         });
         
-        // Update user display following Hebrew/RTL Specific Patterns
-        const userNameElement = document.getElementById('userName');
-        const userRoleElement = document.getElementById('userRole');
-        const entityNameElement = document.getElementById('entityName');
-        const entityTypeElement = document.getElementById('entityType');
-        const entityLogoElement = document.getElementById('entityLogo');
-        
-        if (userNameElement && userFullName) {
-            userNameElement.textContent = userFullName;
-        }
-        
-        if (userRoleElement) {
-            userRoleElement.textContent = 'משתמש מערכת';
-        }
-        
-        if (entityNameElement && entityName) {
-            entityNameElement.textContent = entityName;
-        }
-        
-        if (entityTypeElement && entityTypeName) {
-            entityTypeElement.textContent = entityTypeName;
-        }
-        
-        // Set entity logo based on entity type following Standard Icon Set
-        if (entityLogoElement && entityTypeId) {
-            switch (entityTypeId) {
-                case '1': // School
-                    entityLogoElement.innerHTML = '🏫';
-                    break;
-                case '2': // Network
-                    entityLogoElement.innerHTML = '🏢';
-                    break;
-                case '3': // Ministry
-                    entityLogoElement.innerHTML = '🏛️';
-                    break;
-                default:
-                    entityLogoElement.innerHTML = '🏢';
+        if (response.ok) {
+            const session = await response.json();
+            const userNameElement = document.getElementById('userName');
+            const entityNameElement = document.getElementById('entityName');
+            
+            if (userNameElement) {
+                userNameElement.textContent = session.userFullName || '';
+            }
+            if (entityNameElement) {
+                entityNameElement.textContent = session.entityName || '';
             }
         }
-        
-        console.log('✅ User info loaded successfully');
-        
     } catch (error) {
-        console.error('❌ Error loading user info:', error);
+        console.error('Error loading user info:', error);
     }
 }
 
 // Get current entity type ID following Entity-Based Request Flow
-function getCurrentEntityTypeId() {
-    const entityTypeId = sessionStorage.getItem('entityTypeId');
-    console.log('Current entity type ID:', entityTypeId);
-    return entityTypeId;
+async function getCurrentEntityTypeId() {
+    const session = await sessionManager.getSessionInfo();
+    return session?.entityTypeId;
 }
 
-// Get current entity type name following Entity-Based Request Flow
-function getCurrentEntityTypeName() {
-    const entityTypeName = sessionStorage.getItem('entityTypeName');
-    console.log('Current entity type name:', entityTypeName);
-    return entityTypeName;
-}
+
 
 // Check if current entity is a multi-school network following Entity-Based Request Flow
-function isMultiSchoolNetwork() {
-    const entityTypeId = getCurrentEntityTypeId();
-    const isNetwork = entityTypeId === '2'; // Assuming 2 is the network type ID
-    console.log('Is multi-school network:', isNetwork);
-    return isNetwork;
+async function isMultiSchoolNetwork() {
+    const entityTypeId = await getCurrentEntityTypeId();
+    return entityTypeId === '2';
 }
 
 // Enhanced loadMainDashboard with better error handling
@@ -624,36 +575,32 @@ function executeScriptsInContainer(container) {
 }
 
 // Enhanced authentication check with better logging
+// Replace checkAuthentication function (around line 428)
+
 function checkAuthentication() {
     const authToken = sessionStorage.getItem('authToken');
-    const userId = sessionStorage.getItem('userId');
-    const entityId = sessionStorage.getItem('entityId');
     
     console.log('🔐 Authentication check:', {
         hasAuthToken: !!authToken,
-        hasUserId: !!userId,
-        hasEntityId: !!entityId,
         tokenLength: authToken ? authToken.length : 0
     });
     
-    if (!authToken || !userId || !entityId) {
-        console.log('❌ Authentication failed: Missing required session data');
+    // Only check for auth token - all other data is backend-only
+    if (!authToken) {
+        console.log('❌ Authentication failed: Missing auth token');
         
-        // Show brief message before redirect
         const dynamicContent = document.getElementById('dynamicContent');
         if (dynamicContent) {
             dynamicContent.innerHTML = `
                 <div class="content-card" style="text-align: center; padding: 40px; direction: rtl;">
                     <h2 style="margin-bottom: 20px; color: #e74c3c;">אין הרשאה</h2>
-                    <p style="color: #666;">מפנה לדף התחבות...</p>
+                    <p style="color: #666;">מפנה לדף התחברות...</p>
                 </div>
             `;
         }
         
-        // Clear any partial session data following Security Patterns
         sessionStorage.clear();
         
-        // Redirect to login with error message
         setTimeout(() => {
             const loginUrl = new URL('login.html', window.location.href);
             loginUrl.searchParams.set('error', 'session_expired');

@@ -424,109 +424,7 @@
         }
         
 
-        // Update the login form submission handler to send plain password
-       /* loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value; // Use plain password
-            const entityId = document.getElementById('entity').value;
-            
-            if (!username || !password || !entityId) {
-                showError('אנא מלא את כל השדות');
-                return;
-            }
-
-            // Show loading state
-            loginButton.disabled = true;
-            loginButton.innerHTML = 'מתחבר... <span class="loading"></span>';
-            hideError();
-
-            try {
-                // Update step indicator
-                document.getElementById('step2').classList.add('completed');
-                document.getElementById('step2').classList.remove('active');
-                document.getElementById('step3').classList.add('active');
-                
-                // Send plain password to backend for server-side hashing
-                const loginData = {
-                    username: username.trim(),
-                    password: password,  // Send plain password instead of hashing it client-side
-                    entityId: parseInt(entityId)
-                };
-
-                console.log('Login attempt with entity ID type:', typeof loginData.entityId);
-
-                // Send login request following the API Communication Pattern
-                const response = await fetch(AppConfig.getApiUrl('auth/login'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(loginData)
-                });
-
-                const data = await response.json();
-                console.log('Login response:', data);
-                
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        throw new Error('שם משתמש או סיסמה שגויים');
-                    } else if (response.status === 400) {
-                        throw new Error(data.message || 'נתונים שגויים בטופס');
-                    } else {
-                        throw new Error(data.message || 'שגיאה בהתחברות');
-                    }
-                }
-                
-                if (data.success && data.token) {
-                    // Store authentication token following Security Patterns
-                    sessionStorage.setItem('authToken', data.token);
-                    
-                    // Store comprehensive user details following Authentication & Session Management
-                    if (data.user) {
-                        sessionStorage.setItem('userId', data.user.id.toString());
-                        sessionStorage.setItem('username', data.user.username);
-                        sessionStorage.setItem('userFirstName', data.user.firstName || '');
-                        sessionStorage.setItem('userLastName', data.user.lastName || '');
-                        sessionStorage.setItem('userFullName', data.user.fullName || '');
-                        sessionStorage.setItem('userEmail', data.user.email || '');
-                        sessionStorage.setItem('userPhone', data.user.phone || '');
-                        sessionStorage.setItem('userLastLogin', data.user.lastLogin || '');
-                    }
-                    
-                    // Store entity information following Entity-Based Request Flow
-                    if (data.entity) {
-                        sessionStorage.setItem('entityId', data.entity.id.toString());
-                        sessionStorage.setItem('entityName', data.entity.name);
-                        sessionStorage.setItem('entityTypeId', data.entity.entityTypeId.toString());
-                        sessionStorage.setItem('entityTypeName', data.entity.entityTypeName);
-                    }
-                    
-                    // Store session information
-                    if (data.session) {
-                        sessionStorage.setItem('sessionId', data.session.sessionId);
-                        sessionStorage.setItem('sessionCreatedAt', data.session.createdAt);
-                    }
-                    
-                    console.log('Login successful, user data stored, redirecting to dashboard');
-                    window.location.href = 'index.html';
-                } else {
-                    throw new Error(data.message || 'שגיאה בהתחברות');
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                document.getElementById('step3').classList.remove('active');
-                document.getElementById('step2').classList.add('active');
-                showError(error.message || 'שם משתמש או סיסמה שגויים. אנא נסה שוב.');
-                
-                document.getElementById('password').focus();
-                document.getElementById('password').select();
-            } finally {
-                loginButton.disabled = false;
-                loginButton.innerHTML = 'התחבר';
-            }
-        });*/
+   
 
         // Enhance the error display function for better visibility
         function showError(message) {
@@ -619,158 +517,80 @@
             }
         }
 
-        // Add authentication check function following Security Patterns
-        function checkAuthentication() {
-            const authToken = sessionStorage.getItem('authToken');
-            const userId = sessionStorage.getItem('userId');
-            const entityId = sessionStorage.getItem('entityId');
-            
-            if (!authToken || !userId || !entityId) {
-                console.log('Authentication failed: Missing required session data');
-                
-                // Clear any partial session data
-                sessionStorage.clear();
-                
-                // Redirect to login with error message
-                const loginUrl = new URL('login.html', window.location.href);
-                loginUrl.searchParams.set('error', 'session_expired');
-                window.location.href = loginUrl.toString();
-                
-                return false;
-            }
-            
-            console.log('Authentication check passed');
-            return true;
-        }
-
+        
+  
         // Also update the login form submission to store complete user data
-        loginForm.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const entityId = document.getElementById('entity').value;
-            
-            if (!username || !password || !entityId) {
-                showError('אנא מלא את כל השדות');
-                return;
-            }
+      // Line 647-720: REPLACE with this:
+loginForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const entityId = document.getElementById('entity').value;
+    
+    if (!username || !password || !entityId) {
+        showError('אנא מלא את כל השדות');
+        return;
+    }
 
-            // Show loading state
-            loginButton.disabled = true;
-            loginButton.innerHTML = 'מתחבר... <span class="loading"></span>';
-            hideError();
+    loginButton.disabled = true;
+    loginButton.innerHTML = 'מתחבר... <span class="loading"></span>';
+    hideError();
 
-            try {
-                // Update step indicator
-                document.getElementById('step2').classList.add('completed');
-                document.getElementById('step2').classList.remove('active');
-                document.getElementById('step3').classList.add('active');
-                
-                // Send plain password to backend for server-side hashing
-                const loginData = {
-                    username: username.trim(),
-                    password: password,
-                    entityId: parseInt(entityId)
-                };
+    try {
+        document.getElementById('step2').classList.add('completed');
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('step3').classList.add('active');
+        
+        const loginData = {
+            username: username.trim(),
+            password: password,
+            entityId: parseInt(entityId)
+        };
 
-                console.log('Login attempt with entity ID type:', typeof loginData.entityId);
-
-                // Send login request following the API Communication Pattern
-                const response = await fetch(AppConfig.getApiUrl('auth/login'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(loginData)
-                });
-
-                const data = await response.json();
-                console.log('Login response:', data);
-                
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        throw new Error('שם משתמש או סיסמה שגויים');
-                    } else if (response.status === 400) {
-                        throw new Error(data.message || 'נתונים שגויים בטופס');
-                    } else {
-                        throw new Error(data.message || 'שגיאה בהתחברות');
-                    }
-                }
-                
-                if (data.success && data.token) {
-                    // Store authentication token following Security Patterns
-                    sessionStorage.setItem('authToken', data.token);
-                    
-                    // Store comprehensive user details following Authentication & Session Management
-                    if (data.user) {
-                        sessionStorage.setItem('userId', data.user.id.toString());
-                        sessionStorage.setItem('username', data.user.username);
-                        sessionStorage.setItem('userFirstName', data.user.firstName || '');
-                        sessionStorage.setItem('userLastName', data.user.lastName || '');
-                        sessionStorage.setItem('userFullName', data.user.fullName || '');
-                        sessionStorage.setItem('userEmail', data.user.email || '');
-                        sessionStorage.setItem('userPhone', data.user.phone || '');
-                        sessionStorage.setItem('userLastLogin', data.user.lastLogin || '');
-                    }
-                    
-                    // Store entity information following Entity-Based Request Flow
-                    if (data.entity) {
-                        sessionStorage.setItem('entityId', data.entity.id.toString());
-                        sessionStorage.setItem('entityName', data.entity.name);
-                        sessionStorage.setItem('entityTypeId', data.entity.entityTypeId.toString());
-                        sessionStorage.setItem('entityTypeName', data.entity.entityTypeName);
-                    }
-                    
-                    // Store session information
-                    if (data.session) {
-                        sessionStorage.setItem('sessionId', data.session.sessionId);
-                        sessionStorage.setItem('sessionCreatedAt', data.session.createdAt);
-                    }
-                    
-                    // New code block start: Fetch and store additional session info
-                    try {
-                        const sessionResponse = await fetch(AppConfig.getApiUrl('session/current'), {
-                            headers: {
-                                'Authorization': `Bearer ${data.token}`
-                            }
-                        });
-                        if (sessionResponse.ok) {
-                            const sessionData = await sessionResponse.json();
-                            // Store all required session info for index.html
-                            sessionStorage.setItem('userId', sessionData.userId);
-                            sessionStorage.setItem('userFullName', sessionData.userFullName || '');
-                            sessionStorage.setItem('entityId', sessionData.entityId);
-                            sessionStorage.setItem('entityName', sessionData.entityName || '');
-                            sessionStorage.setItem('entityTypeId', sessionData.entityTypeId || '');
-                            sessionStorage.setItem('entityTypeName', sessionData.entityTypeName || '');
-                        } else {
-                            throw new Error('שגיאה באימות ההתחברות');
-                        }
-                    } catch (err) {
-                        showError('שגיאה באימות ההתחברות');
-                        return;
-                    }
-                    // New code block end
-                    
-                    console.log('Login successful, user data stored, redirecting to dashboard');
-                    window.location.href = 'index.html';
-                } else {
-                    throw new Error(data.message || 'שגיאה בהתחברות');
-                }
-            } catch (error) {
-                console.error('Login error:', error);
-                document.getElementById('step3').classList.remove('active');
-                document.getElementById('step2').classList.add('active');
-                showError(error.message || 'שם משתמש או סיסמה שגויים. אנא נסה שוב.');
-                
-                document.getElementById('password').focus();
-                document.getElementById('password').select();
-            } finally {
-                loginButton.disabled = false;
-                loginButton.innerHTML = 'התחבר';
-            }
+        const response = await fetch(AppConfig.getApiUrl('auth/login'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(loginData)
         });
+
+        const data = await response.json();
+        console.log('Login response:', data);
+        
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new Error('שם משתמש או סיסמה שגויים');
+            } else if (response.status === 400) {
+                throw new Error(data.message || 'נתונים שגויים בטופס');
+            } else {
+                throw new Error(data.message || 'שגיאה בהתחברות');
+            }
+        }
+        
+        if (data.success && data.token) {
+            // ✅ Store ONLY auth token (Frontend Token-Only Storage pattern)
+            sessionStorage.setItem('authToken', data.token);
+            
+            console.log('Login successful, token stored, redirecting to dashboard');
+            window.location.href = 'index.html';
+        } else {
+            throw new Error(data.message || 'שגיאה בהתחברות');
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        document.getElementById('step3').classList.remove('active');
+        document.getElementById('step2').classList.add('active');
+        showError(error.message || 'שם משתמש או סיסמה שגויים. אנא נסה שוב.');
+        
+        document.getElementById('password').focus();
+        document.getElementById('password').select();
+    } finally {
+        loginButton.disabled = false;
+        loginButton.innerHTML = 'התחבר';
+    }
+});
     </script>
 </body>
 </html>

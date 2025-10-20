@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PetelApp.Api.Session;
 
@@ -7,199 +8,132 @@ namespace PetelApp.Api.Controllers
     [Route("api/[controller]")]
     public class SessionController : BaseController
     {
-        //private readonly UserSessionService _userSessionService;
-       // private readonly ILogger<SessionController> _logger;
+        private readonly UserSessionService _sessionService;
+
 
         public SessionController(
-            UserSessionService userSessionService,
-            ILogger<BaseController> baseLogger,
+            UserSessionService sessionService,
             ILogger<SessionController> logger)
-            : base(userSessionService, baseLogger)
+                : base(sessionService, logger)
         {
-           // _logger = logger;
+            _sessionService = sessionService;
+    
         }
 
-        [HttpGet("data")]
-        public IActionResult GetSessionData([FromQuery] string? key = null)
-        {
-            try
-            {
-                var sessionId = GetSessionId();
-                if (string.IsNullOrEmpty(sessionId))
-                {
-                    return Unauthorized(new { message = "No valid session found" });
-                }
-
-                if (!_userSessionService.IsSessionValid(sessionId))
-                {
-                    return Unauthorized(new { message = "Session expired" });
-                }
-
-                if (string.IsNullOrEmpty(key))
-                {
-                    // Return all session data
-                    var allData = _userSessionService.GetAllSessionData(sessionId);
-                    return Ok(new { success = true, data = allData });
-                }
-                else
-                {
-                    // Return specific key
-                    var value = _userSessionService.GetSessionData(sessionId, key);
-                    return Ok(new { success = true, key = key, value = value });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting session data");
-                return StatusCode(500, new { message = "Internal server error" });
-            }
-        }
-
-        [HttpPost("data")]
-        public IActionResult UpdateSessionData([FromBody] UpdateSessionDataRequest request)
-        {
-            try
-            {
-                var sessionId = GetSessionId();
-                if (string.IsNullOrEmpty(sessionId))
-                {
-                    return Unauthorized(new { message = "No valid session found" });
-                }
-
-                if (!_userSessionService.IsSessionValid(sessionId))
-                {
-                    return Unauthorized(new { message = "Session expired" });
-                }
-
-                var success = _userSessionService.UpdateSessionData(sessionId, request.Key, request.Value);
-                if (success)
-                {
-                    return Ok(new { success = true, message = "Session data updated" });
-                }
-                else
-                {
-                    return BadRequest(new { message = "Failed to update session data" });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error updating session data");
-                return StatusCode(500, new { message = "Internal server error" });
-            }
-        }
-
-        [HttpPost("invalidate")]
-        public IActionResult InvalidateSession()
-        {
-            try
-            {
-                var sessionId = GetSessionId();
-                if (string.IsNullOrEmpty(sessionId))
-                {
-                    return BadRequest(new { message = "No session to invalidate" });
-                }
-
-                _userSessionService.InvalidateSession(sessionId);
-                return Ok(new { success = true, message = "Session invalidated" });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error invalidating session");
-                return StatusCode(500, new { message = "Internal server error" });
-            }
-        }
-
-        [HttpGet("validate")]
-        public IActionResult ValidateSession()
-        {
-            try
-            {
-                var sessionId = GetSessionId();
-                if (string.IsNullOrEmpty(sessionId))
-                {
-                    return Unauthorized(new { valid = false, message = "No session token provided" });
-                }
-
-                var isValid = _userSessionService.IsSessionValid(sessionId);
-                if (isValid)
-                {
-                    var session = _userSessionService.GetUserSession(sessionId);
-                    return Ok(new { 
-                        valid = true, 
-                        userId = session?.UserId,
-                        userFullName = session?.UserFullName,
-                        lastAccessed = session?.LastAccessedAt
-                    });
-                }
-                else
-                {
-                    return Unauthorized(new { valid = false, message = "Session expired or invalid" });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error validating session");
-                return StatusCode(500, new { message = "Internal server error" });
-            }
-        }
-
-        [HttpGet("current")]
-        public IActionResult GetCurrentSessionInfo()
+        /// <summary>
+        /// Get current user session info (identity + properties)
+        /// </summary>
+        [HttpGet]
+        public IActionResult GetSession()
         {
             var session = GetCurrentSession();
+            
             if (session == null)
-                return Unauthorized();
+            {
+                return Unauthorized(new { message = "Session not found" });
+            }
 
-            return Ok(new {
+            return Ok(new
+            {
+                // Identity data
                 userId = session.UserId,
+                username = session.Username,
                 userFullName = session.UserFullName,
                 entityId = session.EntityId,
                 entityName = session.EntityName,
                 entityTypeId = session.EntityTypeId,
-                entityTypeName = session.EntityTypeName
+                entityTypeName = session.EntityTypeName,
+                
+                // Session metadata
+                sessionId = session.SessionId,
+                createdAt = session.CreatedAt,
+                lastAccessedAt = session.LastAccessedAt,
+                
+                // All session properties
+                properties = session.GetAllProperties()
             });
         }
 
-        [HttpGet("all")]
-        public IActionResult GetAllSessions()
+        /// <summary>
+        /// Set a session property (generic storage for mutable session data)
+        /// </summary>
+        [HttpPost("property")]
+        public IActionResult SetSessionProperty([FromBody] SessionPropertyRequest request)
         {
-            // Optionally restrict to admin users:
-            // var session = GetCurrentSession();
-            // if (session == null || !session.Roles.Contains(1)) return Forbid();
+            var session = GetCurrentSession();
+            
+            if (session == null)
+            {
+                return Unauthorized(new { message = "Session not found" });
+            }
 
-            var sessions = _userSessionService.GetAllActiveSessions();
-            return Ok(new { success = true, sessions });
+            session.SetProperty(request.Key, request.Value);
+
+            _logger.LogDebug("Session property set: {Key}={Value} for session {SessionId}", 
+                request.Key, request.Value, session.SessionId);
+
+            return Ok(new { success = true, key = request.Key, value = request.Value });
         }
 
-        [HttpGet("debug")]
-        public IActionResult GetSessionDebug()
+        /// <summary>
+        /// Get a specific session property
+        /// </summary>
+        [HttpGet("property/{key}")]
+        public IActionResult GetSessionProperty(string key)
         {
-            try
+            var session = GetCurrentSession();
+            
+            if (session == null)
             {
-                var session = GetCurrentSession();
-                if (session == null)
-                {
-                    return Unauthorized(new { success = false, message = "No active session found" });
-                }
+                return Unauthorized(new { message = "Session not found" });
+            }
 
-                // Return current session data in same format as GetAllSessions() following Authentication & Session Management
-                return Ok(new { 
-                    success = true, 
-                    session = session  // Return the complete session object generically
-                });
-            }
-            catch (Exception ex)
+            var value = session.GetProperty(key);
+
+            if (value == null)
             {
-                _logger.LogError(ex, "Error retrieving session debug data");
-                return StatusCode(500, new { 
-                    success = false, 
-                    message = "שגיאה פנימית בשרת" 
-                });
+                return NotFound(new { message = $"Property '{key}' not found" });
             }
+
+            return Ok(new { key = key, value = value });
+        }
+
+        /// <summary>
+        /// Get all session properties
+        /// </summary>
+        [HttpGet("properties")]
+        public IActionResult GetAllSessionProperties()
+        {
+            var session = GetCurrentSession();
+            
+            if (session == null)
+            {
+                return Unauthorized(new { message = "Session not found" });
+            }
+
+            return Ok(session.GetAllProperties());
+        }
+
+        /// <summary>
+        /// Delete a session property
+        /// </summary>
+        [HttpDelete("property/{key}")]
+        public IActionResult DeleteSessionProperty(string key)
+        {
+            var session = GetCurrentSession();
+            
+            if (session == null)
+            {
+                return Unauthorized(new { message = "Session not found" });
+            }
+
+            session.RemoveProperty(key);
+
+            return Ok(new { success = true, message = $"Property '{key}' removed" });
         }
     }
 
-    public class UpdateSessionDataRequest
+    public class SessionPropertyRequest
     {
         public string Key { get; set; } = string.Empty;
         public string Value { get; set; } = string.Empty;
