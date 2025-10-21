@@ -1,15 +1,16 @@
 <!-- filepath: c:\dev\PetelFullApp\petelapp-frontend\public\student.html -->
+
+<link rel="stylesheet" href="student.css">
 <div class="students-container">
     <!-- Main content area -->
     <div class="students-content">
         <div class="content-card">
-            <h2 id="studentTitle" style="margin-bottom: 20px; color: #C15A16;">מסמכי התלמיד</h2>
-            
+            <h2 id="studentTitle" class="page-title">מסמכי התלמיד</h2>           
 
 
             <!-- Students table - ReusableTable component -->
             <div class="students-table-section">
-                <h3 style="color: #333; margin-bottom: 15px;">פרטי התלמיד</h3>
+                <h3 class="section-title">פרטי התלמיד</h3>
                 <div id="studentsTableContainer">
                     <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
                         טוען נתוני תלמידים...
@@ -18,48 +19,19 @@
             </div>
                
             <!-- Class Characterization Field - Updated to dropdown -->
-            <div class="class-characterization-section" style="margin: 30px 0; padding: 20px; background: #f8f9fa; border-radius: 8px; border-right: 4px solid #C15A16;">
-                <div class="characterization-content" style="display: flex; align-items: center; gap: 15px; direction: rtl;">
-                    <label for="characterizationSelect" style="
-                        color: #333; 
-                        font-size: 1.2em; 
-                        font-weight: 600;
-                        min-width: 100px;
-                        white-space: nowrap;
-                    ">אפיון כיתה:</label>
-                    
-                    <select id="characterizationSelect" style="
-                        background: white;
-                        border: 2px solid #dee2e6;
-                        border-radius: 6px;
-                        padding: 8px 12px;
-                        font-size: 1.1em;
-                        color: #333;
-                        font-weight: 500;
-                        min-width: 200px;
-                        direction: rtl;
-                        text-align: right;
-                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-                        cursor: pointer;
-                        transition: border-color 0.2s, box-shadow 0.2s;
-                    " onchange="updateCharacterizationDisplay(this.value)" onfocus="this.style.borderColor='#C15A16'; this.style.boxShadow='0 0 0 2px rgba(193, 90, 22, 0.2)';" onblur="this.style.borderColor='#dee2e6'; this.style.boxShadow='none';">
+              <div class="class-characterization-section">
+                <div class="characterization-content">
+                    <label for="characterizationSelect">אפיון כיתה:</label>
+                    <select id="characterizationSelect" onchange="updateCharacterizationDisplay(this.value)">
                         <option value="11" selected>11 - מוגבלות בשמיעה</option>
                         <option value="12">12 - מוגבלות בראיה</option>
                     </select>
-                    
-                    <div class="characterization-display" style="
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                        margin-right: 10px;
-                    ">
-     
-                    </div>
+                    <div class="characterization-display"></div>
                 </div>
             </div>
  
             <div class="documents-table-section">
-                <h3 style="color: #333; margin-bottom: 15px;">רשימת מסמכים</h3>
+                <h3 class="section-title">רשימת מסמכים</h3>
                 <div id="documentsTableContainer">
                     <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
                         טוען נתוני מסמכים...
@@ -71,624 +43,20 @@
     </div>
 
     <!-- Simplified context buttons -->
-<div class="context-buttons-section students-context">
-        <button class="context-btn" onclick="navigateToStudents()" style="background: #C15A16; color: #fff;">
+    <div class="context-buttons-section students-context">
+        <button class="context-btn" onclick="navigateToStudents()">
             חזרה לרשימת תלמידים
         </button>
-        <button class="context-btn" onclick="navigateToSchoolDashboard()" style="background: #28a745; color: #fff;">
+        <button class="context-btn" onclick="navigateToSchoolDashboard()">
             חזרה לבית ספר
         </button>
-        <button class="context-btn" onclick="navigateToSchoolList()" style="background: #6c757d; color: #fff;">
+        <button class="context-btn" onclick="navigateToSchoolList()">
             רשימת בתי ספר
         </button>
     </div>
 </div>
 
-<!-- Add CSS styling to match schoollist.html table appearance -->
-<style>
-/* Students table styling matching schoollist.html following Hebrew/RTL Specific Patterns */
-.students-table-section,
-.documents-table-section {
-    margin-top: 30px;
-}
 
-.students-table-section h3,
-.documents-table-section h3 {
-    margin-bottom: 20px;
-    color: #333;
-    font-size: 1.3em;
-    font-weight: 600;
-}
-
-/* Summary cards styling matching schoollist.html */
-.students-summary {
-    margin-bottom: 30px;
-}
-
-.summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    direction: rtl;
-}
-
-.summary-card {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-radius: 12px;
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    transition: transform 0.2s;
-}
-
-.summary-card:hover {
-    transform: translateY(-2px);
-}
-
-.summary-icon {
-    font-size: 2.5em;
-    margin-left: 15px;
-}
-
-.summary-info {
-    flex: 1;
-    text-align: right;
-}
-
-.summary-value {
-    font-size: 2em;
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 5px;
-}
-
-.summary-label {
-    color: #666;
-    font-size: 0.9em;
-}
-/* Page title and headings */
-#studentTitle {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-h2, h3, h4, h5, h6 {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-/* Class characterization section styling */
-.class-characterization-section {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.class-characterization-section h3 {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.characterization-number {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.characterization-text {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-/* Table container styling matching schoollist.html exactly */
-#studentsTableContainer .table-container,
-#documentsTableContainer .table-container {
-    overflow-x: auto;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background: white;
-    direction: rtl;
-}
-
-#studentsTableContainer .data-table,
-#documentsTableContainer .data-table {
-    width: 100%;
-    border-collapse: collapse;
-    direction: rtl;
-    text-align: right;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-#studentsTableContainer .data-table th,
-#documentsTableContainer .data-table th {
-    background-color: #f8f9fa;
-    color: #333;
-    font-weight: 600;
-    padding: 15px 12px;
-    border-bottom: 2px solid #dee2e6;
-    border-left: 1px solid #dee2e6;
-    white-space: nowrap;
-    font-size: 0.95em;
-    text-align: right;
-}
-
-#studentsTableContainer .data-table th:first-child,
-#documentsTableContainer .data-table th:first-child {
-    border-right: none;
-}
-
-#studentsTableContainer .data-table td,
-#documentsTableContainer .data-table td {
-    padding: 12px;
-    border-bottom: 1px solid #dee2e6;
-    border-left: 1px solid #dee2e6;
-    vertical-align: middle;
-    text-align: right;
-}
-
-#studentsTableContainer .data-table td:first-child,
-#documentsTableContainer .data-table td:first-child {
-    border-right: none;
-}
-
-#studentsTableContainer .data-table tr:hover,
-#documentsTableContainer .data-table tr:hover {
-    background-color: #f5f5f5;
-}
-
-#studentsTableContainer .data-table tr:nth-child(even),
-#documentsTableContainer .data-table tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
-
-/* ID column styling */
-#studentsTableContainer .data-table td:first-child {
-    background-color: #f8f9fa;
-    font-weight: 500;
-    direction: ltr;
-    text-align: center;
-}
-
-/* Name column styling */
-#studentsTableContainer .data-table td:nth-child(2) {
-    font-weight: 600;
-    color: #2c3e50;
-}
-
-/* Status column styling */
-#studentsTableContainer .data-table .status-badge,
-#documentsTableContainer .data-table .status-badge {
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.85em;
-    font-weight: 500;
-    white-space: nowrap;
-}
-
-#studentsTableContainer .data-table .status-חדש,
-#documentsTableContainer .data-table .status-מוכן {
-    background-color: #e3f2fd;
-    color: #1565c0;
-    border: 1px solid #bbdefb;
-}
-
-#studentsTableContainer .data-table .status-בטיפול,
-#documentsTableContainer .data-table .status-בתהליך {
-    background-color: #fff3e0;
-    color: #ef6c00;
-    border: 1px solid #ffcc02;
-}
-
-#documentsTableContainer .data-table .status-לא-התחיל {
-    background-color: #ffebee;
-    color: #c62828;
-    border: 1px solid #ffcdd2;
-}
-
-#documentsTableContainer .data-table .status-נשלח {
-    background-color: #e8f5e8;
-    color: #2e7d32;
-    border: 1px solid #c8e6c9;
-}
-
-/* Document level styling */
-#documentsTableContainer .data-table .level-badge {
-    padding: 3px 8px;
-    border-radius: 8px;
-    font-size: 0.85em;
-    font-weight: 600;
-    background-color: #f8f9fa;
-    color: #495057;
-    border: 1px solid #dee2e6;
-    min-width: 60px;
-    text-align: center;
-    display: inline-block;
-}
-
-#documentsTableContainer .data-table .level-אישי {
-    background-color: #e3f2fd;
-    color: #1565c0;
-    border: 1px solid #bbdefb;
-}
-
-#documentsTableContainer .data-table .level-בית-ספר {
-    background-color: #fff3e0;
-    color: #ef6c00;
-    border: 1px solid #ffcc02;
-}
-
-#documentsTableContainer .data-table .level-רשת {
-    background-color: #f3e5f5;
-    color: #7b1fa2;
-    border: 1px solid #ce93d8;
-}
-
-/* Category column styling */
-#studentsTableContainer .data-table .category-badge {
-    padding: 3px 8px;
-    border-radius: 8px;
-    font-size: 0.85em;
-    font-weight: 600;
-    background-color: #f8f9fa;
-    color: #495057;
-    border: 1px solid #dee2e6;
-    font-family: 'Courier New', monospace;
-    min-width: 30px;
-    text-align: center;
-    display: inline-block;
-}
-
-/* Actions cell styling matching schoollist.html exactly */
-#studentsTableContainer .actions-cell,
-#documentsTableContainer .actions-cell {
-    white-space: nowrap;
-    text-align: center;
-    direction: ltr;
-    padding: 8px 12px;
-}
-
-/* Button styling matching schoollist.html exactly */
-#studentsTableContainer .btn,
-#documentsTableContainer .btn {
-    padding: 6px 10px; /* Slightly larger padding for icons */
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 11px;
-    margin: 0 2px;
-    text-decoration: none;
-    display: inline-flex; /* Changed to flex for better icon alignment */
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s, transform 0.1s;
-    font-weight: 500;
-    min-width: 32px; /* Ensure minimum button size for icons */
-    min-height: 28px;
-}
-
-#studentsTableContainer .btn:hover,
-#documentsTableContainer .btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
-#studentsTableContainer .btn:hover .action-icon,
-#documentsTableContainer .btn:hover .action-icon {
-    filter: brightness(0) invert(1) drop-shadow(0 0 2px rgba(255,255,255,0.8));
-}
-
-#studentsTableContainer .btn-sm,
-#documentsTableContainer .btn-sm {
-    padding: 4px 8px;
-    font-size: 10px;
-    min-width: 28px;
-    min-height: 24px;
-}
-
-#studentsTableContainer .btn-sm .action-icon,
-#documentsTableContainer .btn-sm .action-icon {
-    width: 14px;
-    height: 14px;
-}
-
-#studentsTableContainer .btn-secondary,
-#documentsTableContainer .btn-secondary {
-    background-color: #6c757d;
-    color: white;
-}
-
-#studentsTableContainer .btn-secondary:hover,
-#documentsTableContainer .btn-secondary:hover {
-    background-color: #545b62;
-}
-
-#studentsTableContainer .btn-primary,
-#documentsTableContainer .btn-primary {
-    background-color: #007bff;
-    color: white;
-}
-
-#studentsTableContainer .btn-primary:hover,
-#documentsTableContainer .btn-primary:hover {
-    background-color: #0056b3;
-}
-
-#studentsTableContainer .btn-success,
-#documentsTableContainer .btn-success {
-    background-color: #28a745;
-    color: white;
-}
-
-#studentsTableContainer .btn-success:hover,
-#documentsTableContainer .btn-success:hover {
-    background-color: #1e7e34;
-}
-
-/* Action icon styling with natural colors following Frontend Architecture Patterns */
-.action-icon-natural {
-    width: 15px;
-    height: 15px;
-    vertical-align: middle;
-    /* No color filters - use natural icon colors */
-    transition: transform 0.2s ease, opacity 0.2s ease;
-    object-fit: contain;
-}
-
-/* Button styling for natural icon buttons */
-#studentsTableContainer .btn-icon,
-#documentsTableContainer .btn-icon {
-    padding: 4px 6px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin: 0 1px;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
-    min-width: 26px;
-    min-height: 24px;
-    background-color: transparent; /* Transparent background to show icon colors naturally */
-    border: 1px solid #dee2e6; /* Light border for button definition */
-}
-
-#studentsTableContainer .btn-icon:hover,
-#documentsTableContainer .btn-icon:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-    background-color: #f8f9fa; /* Light background on hover */
-    border-color: #adb5bd;
-}
-
-#studentsTableContainer .btn-icon:hover .action-icon-natural,
-#documentsTableContainer .btn-icon:hover .action-icon-natural {
-    transform: scale(1.1); /* Slight scale on hover for visual feedback */
-    opacity: 0.9;
-}
-
-#studentsTableContainer .btn-sm.btn-icon,
-#documentsTableContainer .btn-sm.btn-icon {
-    padding: 3px 5px;
-    min-width: 24px;
-    min-height: 22px;
-}
-
-#studentsTableContainer .btn-sm .action-icon-natural,
-#documentsTableContainer .btn-sm .action-icon-natural {
-    width: 15px;
-    height: 15px;
-}
-
-/* Context buttons styling - LEFT SIDE POSITIONING following Project-Specific Patterns */
-.students-container {
-    display: flex;
-    gap: 20px;
-    direction: rtl;
-    min-height: calc(100vh - 100px);
-}
-
-.students-content {
-    flex: 1;
-    max-width: calc(100% - 180px); /* Account for context buttons width */
-}
-
-.context-buttons-section {
-    position: relative; /* Changed from fixed */
-    width: 160px;
-    flex-shrink: 0;
-    align-self: flex-start;
-    top: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 100;
-    direction: rtl;
-}
-
-.context-btn {
-    padding: 12px 16px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s;
-    width: 100%; /* Full width of the container */
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    white-space: nowrap;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-}
-
-.context-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-}
-
-/* Specific button colors with enhanced styling */
-.context-btn[style*="background: #C15A16"] {
-    background: linear-gradient(135deg, #C15A16 0%, #a04912 100%) !important;
-    border: 1px solid rgba(255,255,255,0.3);
-}
-
-.context-btn[style*="background: #28a745"] {
-    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%) !important;
-    border: 1px solid rgba(255,255,255,0.3);
-}
-
-.context-btn[style*="background: #6c757d"] {
-    background: linear-gradient(135deg, #6c757d 0%, #545b62 100%) !important;
-    border: 1px solid rgba(255,255,255,0.3);
-}
-
-/* Mobile responsiveness for context buttons */
-@media (max-width: 768px) {
-    .students-container {
-        flex-direction: column;
-        gap: 15px;
-    }
-    
-    .students-content {
-        max-width: 100%;
-    }
-    
-    .context-buttons-section {
-        position: relative;
-        width: 100%;
-        flex-direction: row;
-        justify-content: center;
-        flex-wrap: wrap;
-        order: -1; /* Show buttons at top on mobile */
-        top: 0;
-    }
-    
-    .context-btn {
-        width: auto;
-        min-width: 120px;
-        font-size: 12px;
-        padding: 10px 12px;
-    }
-    
-    .action-icon-natural {
-        width: 13px;
-        height: 13px;
-    }
-    
-    #studentsTableContainer .btn-icon,
-    #documentsTableContainer .btn-icon {
-        padding: 3px 5px;
-        min-width: 22px;
-        min-height: 20px;
-    }
-    
-    #studentsTableContainer .btn-sm.btn-icon,
-    #documentsTableContainer .btn-sm.btn-icon {
-        padding: 2px 4px;
-        min-width: 20px;
-        min-height: 18px;
-    }
-    
-    #studentsTableContainer .btn-sm .action-icon-natural,
-    #documentsTableContainer .btn-sm .action-icon-natural {
-        width: 13px;
-        height: 13px;
-    }
-}
-
-/* Remove old fixed positioning styles */
-.context-buttons-section:not(.students-context) {
-    position: static;
-    flex-direction: row;
-    justify-content: center;
-    margin-top: 20px;
-    transform: none;
-    flex-wrap: wrap;
-}
-
-/* Ensure students context stays in left sidebar */
-.context-buttons-section.students-context {
-    position: relative !important;
-    width: 160px !important;
-    flex-shrink: 0 !important;
-    align-self: flex-start !important;
-    top: 20px !important;
-    right: auto !important;
-    bottom: auto !important;
-    left: auto !important;
-    transform: none !important;
-    flex-direction: column !important;
-}
-
-/* Content card adjustments for sidebar layout */
-.content-card {
-    background: white;
-    border-radius: 12px;
-    padding: 30px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    border: 1px solid #e9ecef;
-}
-
-/* Ensure RTL layout doesn't interfere with flex positioning */
-[dir="rtl"] .students-container {
-    direction: rtl;
-}
-
-[dir="rtl"] .context-buttons-section {
-    direction: rtl;
-}
-
-[dir="rtl"] .students-content {
-    direction: rtl;
-}
-
-/* Characterization dropdown responsive styling following Hebrew/RTL Specific Patterns */
-@media (max-width: 768px) {
-    .characterization-content {
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: 10px !important;
-    }
-    
-    .characterization-content label {
-        min-width: auto !important;
-        font-size: 1.1em !important;
-    }
-    
-    .characterization-content select {
-        min-width: 100% !important;
-        margin-bottom: 10px;
-    }
-    
-    .characterization-display {
-        margin-right: 0 !important;
-        align-self: flex-start;
-    }
-}
-
-/* Enhanced dropdown styling following Frontend Architecture Patterns */
-#characterizationSelect:hover {
-    border-color: #C15A16 !important;
-    background-color: #fafafa;
-}
-
-#characterizationSelect option {
-    padding: 8px;
-    font-size: 1em;
-    direction: rtl;
-    text-align: right;
-}
-
-/* RTL-specific dropdown arrow positioning */
-#characterizationSelect {
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: left 8px center;
-    background-size: 16px;
-    padding-left: 35px;
-}
-
-[dir="rtl"] #characterizationSelect {
-    background-position: right 8px center;
-    padding-left: 12px;
-    padding-right: 35px;
-}
-</style>
 
 <script>
 // Remove the duplicate style block that's causing the parsing error
@@ -855,61 +223,47 @@ function getDocumentById(documentId) {
 }
 
 // Enhanced document viewing function - with delayed popup check following Frontend Architecture Patterns
-function viewDocumentDetails(documentId) {
+async function viewDocumentDetails(documentId) {
     console.log('👁️ Viewing document details:', documentId);
     
     const documentData = getDocumentById(documentId);
     if (!documentData) {
-        console.error('❌ Document not found:', documentId);
         alert('המסמך המבוקש לא נמצא במערכת.');
         return;
     }
     
-    // Store in session following Authentication & Session Management
-    sessionStorage.setItem('selectedDocumentId', documentId);
-    sessionStorage.setItem('selectedDocumentForm', documentData.form);
-    
-    // Get document URL from mapping following Project-Specific Patterns
-    const documentUrl = DOCUMENT_URL_MAP[documentId];
-    
-    if (!documentUrl) {
-        console.error('❌ No URL mapped for document:', documentId);
-        showDocumentNotFoundOptions(documentData);
-        return;
-    }
-    
-    // Build full URL following API Communication Pattern
-    const baseUrl = window.location.origin;
-    const fullDocumentUrl = `${baseUrl}/${documentUrl}`;
-    
-    console.log('🔗 Attempting to open document URL:', fullDocumentUrl);
-    
     try {
-        // Open document in new window following Frontend Architecture Patterns
+        // ✅ Store in backend session via SessionState
+        await window.SessionState.setProperty('SelectedDocumentId', documentId);
+        await window.SessionState.setProperty('SelectedDocumentForm', documentData.form);
+        
+        console.log('✅ Document selection stored in backend session');
+        
+        const documentUrl = DOCUMENT_URL_MAP[documentId];
+        
+        if (!documentUrl) {
+            showDocumentNotFoundOptions(documentData);
+            return;
+        }
+        
+        const baseUrl = window.location.origin;
+        const fullDocumentUrl = `${baseUrl}/${documentUrl}`;
+        
         const windowFeatures = 'noopener,noreferrer,scrollbars=yes,resizable=yes,width=1200,height=800';
         const newWindow = window.open(fullDocumentUrl, '_blank', windowFeatures);
         
-        // Give browser time to process the window.open request
         setTimeout(() => {
-            // Check if window was blocked after a short delay
             if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
-                // Popup was blocked
-                console.warn('⚠️ Could not open document - popup blocked');
                 showDocumentAccessOptions(documentData, fullDocumentUrl);
             } else {
-                // Window opened successfully
-                console.log('✅ Document opened successfully in new window');
-                console.log(`📄 Document URL: ${fullDocumentUrl}`);
                 newWindow.focus();
-                
-                // Log document access following Critical Development Workflows
-                console.log(`📄 Document accessed: ID=${documentData.id}, Form="${documentData.form}", Status="${documentData.status}"`);
+                console.log('✅ Document opened:', fullDocumentUrl);
             }
-        }, 250); // Wait 250ms to check if popup was blocked
+        }, 250);
         
     } catch (error) {
-        console.error('❌ Error opening document:', error);
-        alert(`שגיאה בפתיחת המסמך "${documentData.form}":\n${error.message}\n\nאנא נסה שוב או פנה למנהל המערכת.`);
+        console.error('❌ Error viewing document:', error);
+        alert(`שגיאה בפתיחת המסמך "${documentData.form}"`);
     }
 }
 
@@ -1072,8 +426,8 @@ function initiateDownload(documentData, fullDocumentUrl) {
 }
 
 // Add characterization functionality following Project-Specific Patterns
-function updateCharacterizationDisplay(selectedValue) {
-    console.log('🔄 Updating characterization display:', selectedValue);
+async function updateCharacterizationDisplay(selectedValue) {
+    console.log('🔄 Updating characterization:', selectedValue);
     
     const characterizationMap = {
         '11': 'מוגבלות בשמיעה',
@@ -1087,118 +441,94 @@ function updateCharacterizationDisplay(selectedValue) {
         numberElement.textContent = selectedValue;
         textElement.textContent = characterizationMap[selectedValue] || 'לא זמין';
         
-        // Store selected value following Authentication & Session Management
-        sessionStorage.setItem('selectedCharacterization', selectedValue);
+        // ✅ Store in backend session via SessionState
+        await window.SessionState.setProperty('SelectedCharacterization', selectedValue);
         
-        console.log('✅ Characterization updated:', {
-            code: selectedValue,
-            description: characterizationMap[selectedValue]
-        });
+        console.log('✅ Characterization updated and stored in backend session');
     }
 }
 
+
 // Initialize characterization from session or default following Critical Development Workflows
-function initializeCharacterization() {
-    const savedCharacterization = sessionStorage.getItem('selectedCharacterization') || '11';
-    const selectElement = document.getElementById('characterizationSelect');
-    
-    if (selectElement) {
-        selectElement.value = savedCharacterization;
-        updateCharacterizationDisplay(savedCharacterization);
-        console.log('✅ Characterization initialized:', savedCharacterization);
+async function initializeCharacterization() {
+    try {
+        // ✅ Get from backend session via SessionState
+        const savedCharacterization = await window.SessionState.getProperty('SelectedCharacterization') || '11';
+        const selectElement = document.getElementById('characterizationSelect');
+        
+        if (selectElement) {
+            selectElement.value = savedCharacterization;
+            updateCharacterizationDisplay(savedCharacterization);
+            console.log('✅ Characterization initialized from backend session:', savedCharacterization);
+        }
+    } catch (error) {
+        console.error('❌ Error initializing characterization:', error);
+        const selectElement = document.getElementById('characterizationSelect');
+        if (selectElement) {
+            selectElement.value = '11';
+            updateCharacterizationDisplay('11');
+        }
     }
 }
 
 // Navigation functions following Single-Page Application with Module Loading
-function navigateToStudents() {
-    console.log('👥 Navigating back to students list (closing student.html)...');
+async function navigateToStudents() {
+    console.log('👥 Navigating back to students list...');
     
     try {
-        // Clear student selection from session following Authentication & Session Management
-        sessionStorage.removeItem('selectedStudentId');
-        sessionStorage.removeItem('selectedStudentData');
-        console.log('✅ Student selection cleared from session');
+        // ✅ Clear from backend session via SessionState
+        await window.SessionState.setProperty('SelectedStudentId', null);
+        await window.SessionState.setProperty('SelectedStudentData', null);
+        console.log('✅ Student selection cleared from backend session');
         
-        // Get the dynamic content container
         const dynamicContent = document.getElementById('dynamicContent') || 
                               document.getElementById('mainContent') || 
                               document.querySelector('.main-content');
         
         if (!dynamicContent) {
-            console.error('❌ Could not find content container');
             window.history.back();
             return;
         }
         
-        // Load students.html back into the container following Single-Page Application with Module Loading
-        console.log('🔄 Loading students.html back into view...');
+        const response = await fetch('students.html');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
-        fetch('students.html')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.text();
-            })
-            .then(html => {
-                // Replace content with students.html
-                dynamicContent.innerHTML = html;
-                
-                // Re-execute scripts following Common Gotchas
-                const scripts = dynamicContent.querySelectorAll('script');
-                scripts.forEach(oldScript => {
-                    const newScript = document.createElement('script');
-                    
-                    // Copy attributes
-                    Array.from(oldScript.attributes).forEach(attr => {
-                        newScript.setAttribute(attr.name, attr.value);
-                    });
-                    
-                    // Copy content
-                    newScript.textContent = oldScript.textContent;
-                    
-                    // Replace old script with new one to trigger execution
-                    oldScript.parentNode.replaceChild(newScript, oldScript);
-                });
-                
-                // Update browser history following Single-Page Application patterns
-                history.pushState({ section: 'students' }, 'רשימת תלמידים', '#students');
-                
-                console.log('✅ Navigated back to students list successfully');
-            })
-            .catch(error => {
-                console.error('💥 Error loading students.html:', error);
-                // Fallback: use browser history
-                window.history.back();
+        const html = await response.text();
+        dynamicContent.innerHTML = html;
+        
+        const scripts = dynamicContent.querySelectorAll('script');
+        scripts.forEach(oldScript => {
+            const newScript = document.createElement('script');
+            Array.from(oldScript.attributes).forEach(attr => {
+                newScript.setAttribute(attr.name, attr.value);
             });
+            newScript.textContent = oldScript.textContent;
+            oldScript.parentNode.replaceChild(newScript, oldScript);
+        });
+        
+        history.pushState({ section: 'students' }, 'רשימת תלמידים', '#students');
+        console.log('✅ Navigated back to students list');
         
     } catch (error) {
-        console.error('💥 Error navigating back to students:', error);
-        // Fallback to history.back
+        console.error('💥 Error navigating to students:', error);
         window.history.back();
     }
 }
 
-function navigateToSchoolDashboard() {
-    console.log('🏫 Navigating back to school dashboard (closing student.html)...');
+
+async function navigateToSchoolDashboard() {
+    console.log('🏫 Navigating to school dashboard...');
     
     try {
-        // Clear student selection from session following Authentication & Session Management
-        sessionStorage.removeItem('selectedStudentId');
-        sessionStorage.removeItem('selectedStudentData');
-        console.log('✅ Student selection cleared from session');
+        // ✅ Clear student selection from backend session
+        await window.SessionState.setProperty('SelectedStudentId', null);
+        await window.SessionState.setProperty('SelectedStudentData', null);
         
-        // Navigate to school dashboard
         if (typeof window.navigateTo === 'function') {
             window.navigateTo('schooldashboard');
-        } else if (typeof navigateTo === 'function') {
-            navigateTo('schooldashboard');
         } else {
-            console.warn('⚠️ navigateTo function not available, using history.back');
             window.history.back();
         }
-        
-        console.log('✅ Navigated back to school dashboard');
         
     } catch (error) {
         console.error('💥 Error navigating to school dashboard:', error);
@@ -1206,26 +536,19 @@ function navigateToSchoolDashboard() {
     }
 }
 
-function navigateToSchoolList() {
-    console.log('🏫 Navigating to school list (closing student.html)...');
+async function navigateToSchoolList() {
+    console.log('🏫 Navigating to school list...');
     
     try {
-        // Clear student selection from session following Authentication & Session Management
-        sessionStorage.removeItem('selectedStudentId');
-        sessionStorage.removeItem('selectedStudentData');
-        console.log('✅ Student selection cleared from session');
+        // ✅ Clear student selection from backend session
+        await window.SessionState.setProperty('SelectedStudentId', null);
+        await window.SessionState.setProperty('SelectedStudentData', null);
         
-        // Navigate to school list
         if (typeof window.navigateTo === 'function') {
             window.navigateTo('schoollist');
-        } else if (typeof navigateTo === 'function') {
-            navigateTo('schoollist');
         } else {
-            console.warn('⚠️ navigateTo function not available, using history.back');
             window.history.back();
         }
-        
-        console.log('✅ Navigated to school list');
         
     } catch (error) {
         console.error('💥 Error navigating to school list:', error);
@@ -1241,55 +564,43 @@ function loadStudentsData() {
 
 
 // Load selected student data from session storage following Authentication & Session Management
+
 async function loadStudentData() {
-    console.log('🔄 Loading selected student data from session...');
+    console.log('🔄 Loading selected student data from SessionState...');
     
     try {
-        // Get selected student data from session
-        const selectedStudentId = sessionStorage.getItem('selectedStudentId');
-        const selectedStudentDataStr = sessionStorage.getItem('selectedStudentData');
+        // ✅ Get from backend session via SessionState
+        const selectedStudentId = await window.SessionState.getProperty('SelectedStudentId');
+        const selectedStudentDataStr = await window.SessionState.getProperty('SelectedStudentData');
         
-        console.log('📋 Session storage check:', {
+        console.log('📋 Session check:', {
             hasStudentId: !!selectedStudentId,
             hasStudentData: !!selectedStudentDataStr,
             studentId: selectedStudentId
         });
         
         if (!selectedStudentId || !selectedStudentDataStr) {
-            console.error('❌ No selected student data in session');
+            console.error('❌ No selected student data in backend session');
             showStudentsTableError('לא נבחר תלמיד. אנא חזור לרשימת התלמידים.');
             return;
         }
 
-        // Parse student data from session
         const selectedStudent = JSON.parse(selectedStudentDataStr);
         
-        console.log('✅ Selected student data loaded from session:', selectedStudent);
+        console.log('✅ Selected student data loaded from backend session:', selectedStudent);
 
-        // Show loading indicator
         const container = document.getElementById('studentsTableContainer');
         if (container) {
-            container.innerHTML = `
-                <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
-                    טוען נתוני תלמיד...
-                </div>
-            `;
+            container.innerHTML = `<div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">טוען נתוני תלמיד...</div>`;
         }
 
-        // Store data globally for Cross-Component Communication (single student in array)
         window.currentStudentsData = [selectedStudent];
         
-        console.log('📦 Student data stored in window.currentStudentsData:', window.currentStudentsData);
-        
-        // Update page title with student name following Hebrew/RTL Specific Patterns
         const titleElement = document.getElementById('studentTitle');
         if (titleElement) {
             titleElement.textContent = `מסמכי התלמיד - ${selectedStudent.name}`;
-            console.log('✅ Page title updated:', titleElement.textContent);
         }
         
-        // Create table with single student data - EXACT SAME structure as students.html
-        console.log('🔄 Calling createStudentsTable with data:', [selectedStudent]);
         createStudentsTable([selectedStudent]);
         
     } catch (error) {
@@ -1447,16 +758,16 @@ function initializeStudentsTable(data) {
         console.log('✅ Table initialized successfully');
 
         // Set save callback for when data is edited
-        studentsTable.onSave = (updatedData) => {
-            console.log('💾 Saving student data:', updatedData);
-            window.currentStudentsData = updatedData;
-            
-            // Update session storage with modified data following Authentication & Session Management
-            if (updatedData && updatedData.length > 0) {
-                sessionStorage.setItem('selectedStudentData', JSON.stringify(updatedData[0]));
-                console.log('✅ Session storage updated with modified student data');
-            }
-        };
+studentsTable.onSave = async (updatedData) => {
+    console.log('💾 Saving student data');
+    window.currentStudentsData = updatedData;
+    
+    // ✅ Update backend session via SessionState
+    if (updatedData && updatedData.length > 0) {
+        await window.SessionState.setProperty('SelectedStudentData', JSON.stringify(updatedData[0]));
+        console.log('✅ Backend session updated with modified student data');
+    }
+};
 
         console.log('✅ Students ReusableTable initialized successfully with', data.length, 'student(s)');
 

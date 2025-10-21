@@ -1,10 +1,10 @@
 <div class="students-container">
     <!-- Context buttons - LEFT SIDE POSITIONING -->
     <div class="context-buttons-section students-context">
-        <button class="context-btn" onclick="refreshStudentsData()" style="background: #C15A16; color: #fff;">
+        <button class="context-btn" onclick="refreshStudentsData()">
             רענן נתונים
         </button>
-        <button class="context-btn" onclick="window.history.back()" style="background: #6c757d; color: #fff;">
+        <button class="context-btn" onclick="window.history.back()">
             חזרה
         </button>
     </div>
@@ -12,10 +12,10 @@
     <!-- Main content area -->
     <div class="students-content">
         <div class="content-card">
-            <h2 id="studentsTitle" style="margin-bottom: 20px; color: #C15A16;">תלמידים אגרות חוץ בית ספר שמע - תשפ"ו</h2>
+            <h2 id="studentsTitle" class="page-title">תלמידים</h2>
             
             <!-- Students summary info -->
-            <div class="students-summary" style="margin-bottom: 30px;">
+            <div class="students-summary">
                 <div class="summary-grid">
                     <div class="summary-card">
                         <div class="summary-icon">👥</div>
@@ -50,494 +50,16 @@
 
             <!-- Students table - ReusableTable component -->
             <div class="students-table-section">
-                <h3 style="color: #333; margin-bottom: 15px;">רשימת תלמידים</h3>
+                <h3>רשימת תלמידים</h3>
                 <div id="studentsTableContainer">
-                    <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
+                    <div class="loading-spinner">
                         טוען נתוני תלמידים...
                     </div>
                 </div>
             </div>
         </div>
     </div>
-
-
-<!-- Add CSS styling to match schoollist.html table appearance -->
-<style>
-/* Container layout - RTL flex layout following Hebrew/RTL Specific Patterns */
-.students-container {
-    display: flex;
-    gap: 20px;
-    direction: rtl;
-    min-height: calc(100vh - 100px);
-}
-
-.students-content {
-    flex: 1;
-    max-width: calc(100% - 180px); /* Account for context buttons width */
-}
-
-/* Context buttons styling - LEFT SIDE POSITIONING following Project-Specific Patterns */
-.context-buttons-section {
-    position: relative; /* Changed from fixed */
-    width: 160px;
-    flex-shrink: 0;
-    align-self: flex-start;
-    top: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 100;
-    direction: rtl;
-}
-
-.context-btn {
-    padding: 12px 16px;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s;
-    width: 100%; /* Full width of the container */
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    white-space: nowrap;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-}
-
-.context-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-}
-
-/* Specific button colors with enhanced styling */
-.context-btn[style*="background: #C15A16"] {
-    background: linear-gradient(135deg, #C15A16 0%, #a04912 100%) !important;
-    border: 1px solid rgba(255,255,255,0.3);
-}
-
-.context-btn[style*="background: #6c757d"] {
-    background: linear-gradient(135deg, #6c757d 0%, #545b62 100%) !important;
-    border: 1px solid rgba(255,255,255,0.3);
-}
-
-/* Students table styling matching schoollist.html following Hebrew/RTL Specific Patterns */
-.students-table-section {
-    margin-top: 30px;
-}
-
-.students-table-section h3 {
-    margin-bottom: 20px;
-    color: #333;
-    font-size: 1.3em;
-    font-weight: 600;
-}
-
-/* Summary cards styling matching schoollist.html */
-.students-summary {
-    margin-bottom: 30px;
-}
-
-.summary-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-    direction: rtl;
-}
-
-.summary-card {
-    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    border-radius: 12px;
-    padding: 20px;
-    display: flex;
-    align-items: center;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    transition: transform 0.2s;
-}
-
-.summary-card:hover {
-    transform: translateY(-2px);
-}
-
-.summary-icon {
-    font-size: 2.5em;
-    margin-left: 15px;
-}
-
-.summary-info {
-    flex: 1;
-    text-align: right;
-}
-
-.summary-value {
-    font-size: 2em;
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 5px;
-}
-
-.summary-label {
-    color: #666;
-    font-size: 0.9em;
-}
-
-/* Table container styling matching schoollist.html exactly */
-#studentsTableContainer .table-container {
-    overflow-x: auto;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    background: white;
-    direction: rtl;
-}
-
-#studentsTableContainer .data-table {
-    width: 100%;
-    border-collapse: collapse;
-    direction: rtl;
-    text-align: right;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-#studentsTableContainer .data-table th {
-    background-color: #f8f9fa;
-    color: #333;
-    font-weight: 600;
-    padding: 15px 12px;
-    border-bottom: 2px solid #dee2e6;
-    border-left: 1px solid #dee2e6;
-    white-space: nowrap;
-    font-size: 0.95em;
-    text-align: right;
-}
-
-#studentsTableContainer .data-table th:first-child {
-    border-right: none;
-}
-
-#studentsTableContainer .data-table td {
-    padding: 12px;
-    border-bottom: 1px solid #dee2e6;
-    border-left: 1px solid #dee2e6;
-    vertical-align: middle;
-    text-align: right;
-}
-
-#studentsTableContainer .data-table td:first-child {
-    border-right: none;
-}
-
-#studentsTableContainer .data-table tr:hover {
-    background-color: #f5f5f5;
-}
-
-#studentsTableContainer .data-table tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
-
-/* ID column styling */
-#studentsTableContainer .data-table td:first-child {
-    background-color: #f8f9fa;
-    font-weight: 500;
-    direction: ltr;
-    text-align: center;
-}
-
-/* Name column styling */
-#studentsTableContainer .data-table td:nth-child(2) {
-    font-weight: 600;
-    color: #2c3e50;
-}
-
-/* Status column styling */
-#studentsTableContainer .data-table .status-badge {
-    padding: 4px 8px;
-    border-radius: 12px;
-    font-size: 0.85em;
-    font-weight: 500;
-    white-space: nowrap;
-}
-
-#studentsTableContainer .data-table .status-חדש {
-    background-color: #e3f2fd;
-    color: #1565c0;
-    border: 1px solid #bbdefb;
-}
-
-#studentsTableContainer .data-table .status-בטיפול {
-    background-color: #fff3e0;
-    color: #ef6c00;
-    border: 1px solid #ffcc02;
-}
-
-#studentsTableContainer .data-table .status-הסתיים {
-    background-color: #f3ffe0;
-    color: #00ef34;
-    border: 1px solid #4aff02;
-}
-
-/* Category column styling */
-#studentsTableContainer .data-table .category-badge {
-    padding: 3px 8px;
-    border-radius: 8px;
-    font-size: 0.85em;
-    font-weight: 600;
-    background-color: #f8f9fa;
-    color: #495057;
-    border: 1px solid #dee2e6;
-    font-family: 'Courier New', monospace;
-    min-width: 30px;
-    text-align: center;
-    display: inline-block;
-}
-
-/* Actions cell styling matching schoollist.html exactly */
-#studentsTableContainer .actions-cell {
-    white-space: nowrap;
-    text-align: center;
-    direction: ltr;
-    padding: 8px 12px;
-}
-
-/* Action icon styling with natural colors following Frontend Architecture Patterns */
-.action-icon-natural {
-    width: 15px;
-    height: 15px;
-    vertical-align: middle;
-    /* No color filters - use natural icon colors */
-    transition: transform 0.2s ease, opacity 0.2s ease;
-    object-fit: contain;
-}
-
-/* Button styling for natural icon buttons */
-#studentsTableContainer .btn-icon {
-    padding: 4px 6px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    margin: 0 1px;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
-    min-width: 26px;
-    min-height: 24px;
-    background-color: transparent; /* Transparent background to show icon colors naturally */
-    border: 1px solid #dee2e6; /* Light border for button definition */
-}
-
-#studentsTableContainer .btn-icon:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-    background-color: #f8f9fa; /* Light background on hover */
-    border-color: #adb5bd;
-}
-
-#studentsTableContainer .btn-icon:hover .action-icon-natural {
-    transform: scale(1.1); /* Slight scale on hover for visual feedback */
-    opacity: 0.9;
-}
-
-#studentsTableContainer .btn-sm.btn-icon {
-    padding: 3px 5px;
-    min-width: 24px;
-    min-height: 22px;
-}
-
-#studentsTableContainer .btn-sm .action-icon-natural {
-    width: 15px;
-    height: 15px;
-}
-
-/* Remove old colored button classes for icon buttons */
-#studentsTableContainer .btn-icon.btn-secondary,
-#studentsTableContainer .btn-icon.btn-primary,
-#studentsTableContainer .btn-icon.btn-success {
-    background-color: transparent;
-    color: inherit;
-}
-
-#studentsTableContainer .btn-icon.btn-secondary:hover,
-#studentsTableContainer .btn-icon.btn-primary:hover,
-#studentsTableContainer .btn-icon.btn-success:hover {
-    background-color: #f8f9fa;
-}
-
-/* Button styling matching schoollist.html exactly for non-icon buttons */
-#studentsTableContainer .btn {
-    padding: 4px 8px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 11px;
-    margin: 0 2px;
-    text-decoration: none;
-    display: inline-block;
-    transition: background-color 0.2s, transform 0.1s;
-    font-weight: 500;
-}
-
-#studentsTableContainer .btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
-#studentsTableContainer .btn-sm {
-    padding: 3px 6px;
-    font-size: 10px;
-}
-
-#studentsTableContainer .btn-secondary {
-    background-color: #6c757d;
-    color: white;
-}
-
-#studentsTableContainer .btn-secondary:hover {
-    background-color: #545b62;
-}
-
-#studentsTableContainer .btn-primary {
-    background-color: #007bff;
-    color: white;
-}
-
-#studentsTableContainer .btn-primary:hover {
-    background-color: #0056b3;
-}
-
-#studentsTableContainer .btn-success {
-    background-color: #28a745;
-    color: white;
-}
-
-#studentsTableContainer .btn-success:hover {
-    background-color: #1e7e34;
-}
-
-/* Loading and error states following Hebrew/RTL Specific Patterns */
-.loading-spinner, .table-error {
-    text-align: center;
-    padding: 40px 20px;
-    direction: rtl;
-    font-size: 1.1em;
-    color: #666;
-}
-
-.table-error {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-    border-radius: 8px;
-}
-
-.table-error button {
-    margin-top: 15px;
-    padding: 8px 16px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.table-error button:hover {
-    background-color: #0056b3;
-}
-
-/* Content card styling consistency */
-.content-card {
-    background: white;
-    border-radius: 12px;
-    padding: 30px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    border: 1px solid #e9ecef;
-}
-
-/* Mobile responsiveness */
-@media (max-width: 768px) {
-    .students-container {
-        flex-direction: column;
-        gap: 15px;
-    }
-    
-    .students-content {
-        max-width: 100%;
-    }
-    
-    .context-buttons-section {
-        position: relative;
-        width: 100%;
-        flex-direction: row;
-        justify-content: center;
-        flex-wrap: wrap;
-        order: -1; /* Show buttons at top on mobile */
-        top: 0;
-    }
-    
-    .context-btn {
-        width: auto;
-        min-width: 120px;
-        font-size: 12px;
-        padding: 10px 12px;
-    }
-    
-    .summary-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .action-icon-natural {
-        width: 13px;
-        height: 13px;
-    }
-    
-    #studentsTableContainer .btn-icon {
-        padding: 3px 5px;
-        min-width: 22px;
-        min-height: 20px;
-    }
-    
-    #studentsTableContainer .btn-sm.btn-icon {
-        padding: 2px 4px;
-        min-width: 20px;
-        min-height: 18px;
-    }
-    
-    #studentsTableContainer .btn-sm .action-icon-natural {
-        width: 13px;
-        height: 13px;
-    }
-    
-    #studentsTableContainer .data-table {
-        font-size: 0.85em;
-    }
-    
-    #studentsTableContainer .data-table th,
-    #studentsTableContainer .data-table td {
-        padding: 8px 6px;
-    }
-}
-
-/* RTL-specific adjustments following Hebrew/RTL Specific Patterns */
-[dir="rtl"] .students-container {
-    direction: rtl;
-}
-
-[dir="rtl"] .context-buttons-section {
-    direction: rtl;
-}
-
-[dir="rtl"] .students-content {
-    direction: rtl;
-}
-
-[dir="rtl"] .action-icon-natural {
-    margin-left: 0;
-    margin-right: 0;
-}
-</style>
+</div>
 
 <script>
 // Load students data from API following API Communication Pattern
@@ -830,7 +352,7 @@ function getStudentById(studentId) {
 }
 
 // Student action function following Cross-Component Communication
-function viewStudentDetails(studentId) {
+async function viewStudentDetails(studentId) {
     console.log('👁️ Viewing student details:', studentId);
     
     const student = getStudentById(studentId);
@@ -838,11 +360,11 @@ function viewStudentDetails(studentId) {
         console.log('✅ Student found:', student);
         
         // Store complete student data in session following Authentication & Session Management
-        sessionStorage.setItem('selectedStudentId', studentId);
-        sessionStorage.setItem('selectedStudentData', JSON.stringify(student));
+    await window.SessionState.setProperty('SelectedStudentId', studentId);
+    await window.SessionState.setProperty('SelectedStudentData', JSON.stringify(student));
         
         console.log('📝 Session storage updated with complete student data:', {
-            selectedStudentId: sessionStorage.getItem('selectedStudentId'),
+            selectedStudentId: await window.SessionState.getProperty('SelectedStudentId'),
             selectedStudentData: student
         });
         
@@ -858,9 +380,9 @@ function viewStudentDetails(studentId) {
 async function navigateToStudentDetails() {
     try {
         // Verify session data exists before navigation
-        const selectedStudentId = sessionStorage.getItem('selectedStudentId');
-        const selectedStudentDataStr = sessionStorage.getItem('selectedStudentData');
-        
+        const selectedStudentId = await window.SessionState.getProperty('SelectedStudentId');
+        const selectedStudentDataStr = await window.SessionState.getProperty('SelectedStudentData');
+
         if (!selectedStudentId || !selectedStudentDataStr) {
             console.error('❌ Missing student data in session storage before navigation');
             alert('נתוני התלמיד חסרים. אנא בחר תלמיד שוב.');

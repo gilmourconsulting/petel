@@ -120,24 +120,30 @@
         }
 
         // Update page title with year following Hebrew/RTL Specific Patterns
-        async function updatePageTitleWithYear() {
-            console.log('🏷️ Updating page title with selected year...');
-            
-            try {
-                const sessionManager = new SessionManager();
-                const yearValue = await sessionManager.getSessionProperty('SelectedYearValue');
-                console.log('Selected year value from session:', yearValue);
-                const pageTitleElement = document.querySelector('.page-title');
-                if (pageTitleElement && yearValue) {
-                    pageTitleElement.textContent = `רשימת בתי ספר - שנת לימודים ${yearValue}`;
-                    console.log('✅ Page title updated with year:', yearValue);
-                } else {
-                    console.log('⚠️ Could not update page title - missing element or year value');
-                }
-            } catch (error) {
-                console.error('❌ Error updating page title with year:', error);
-            }
+    async function updatePageTitleWithYear() {
+    console.log('🏷️ Updating page title with year...');
+    
+    try {
+        // ✅ Use centralized SessionState
+        const yearValue = await window.SessionState.getProperty('SelectedYearValue');
+        
+        console.log('📅 Year value from SessionState:', yearValue);
+        
+        const pageTitleElement = document.querySelector('.page-title');
+        if (pageTitleElement && yearValue) {
+            pageTitleElement.textContent = `רשימת בתי ספר - שנת לימודים ${yearValue}`;
+            console.log('✅ Page title updated via SessionState');
+        } else if (pageTitleElement) {
+            pageTitleElement.textContent = 'רשימת בתי ספר';
         }
+    } catch (error) {
+        console.error('❌ Error updating page title:', error);
+        const pageTitleElement = document.querySelector('.page-title');
+        if (pageTitleElement) {
+            pageTitleElement.textContent = 'רשימת בתי ספר';
+        }
+    }
+}
 
         // Use ReusableTable following Standard Table Component
         function initializeReusableTable(schools) {
@@ -219,7 +225,7 @@
 
 
         // School management functions following Cross-Component Communication
-        function viewSchool(schoolId, schoolName) {
+        async function viewSchool(schoolId, schoolName) {
             console.log('🔍 Viewing school:', { 
                 id: schoolId, 
                 name: schoolName,
@@ -247,41 +253,17 @@
                     selectedSchoolName: finalSchoolName
                 });
                 
-                // Clear any existing school session data following Authentication & Session Management
-                sessionStorage.removeItem('selectedSchoolId');
-                sessionStorage.removeItem('selectedSchoolName');
-                
-                // Store selected school information with string conversion
-                const schoolIdStr = String(schoolId);
-                
-                sessionStorage.setItem('selectedSchoolId', schoolIdStr);
-                sessionStorage.setItem('selectedSchoolName', finalSchoolName);
-                sessionStorage.setItem('navigationSource', 'schoollist');
-                sessionStorage.setItem('schoolSelectionTimestamp', new Date().toISOString());
-                
-                // Verify storage immediately following Critical Development Workflows
-                const verifyId = sessionStorage.getItem('selectedSchoolId');
-                const verifyName = sessionStorage.getItem('selectedSchoolName');
-                
-                console.log('✅ Session storage verification:', {
-                    stored: { id: verifyId, name: verifyName },
-                    expected: { id: schoolIdStr, name: finalSchoolName },
-                    matches: verifyId === schoolIdStr && verifyName === finalSchoolName
-                });
-                
-                if (verifyId === schoolIdStr && verifyName === finalSchoolName) {
-                    console.log('✅ Session storage verified successfully, navigating...');
-                    
-                    // Small delay to ensure session storage persistence
-                    setTimeout(() => {
-                        console.log('🚀 Navigating to school dashboard...');
-                        navigateToSchoolDashboard();
-                    }, 50);
-                } else {
-                    console.error('❌ Session storage verification failed');
-                    alert('שגיאה בשמירת נתוני בית הספר במערכת');
-                }
-                
+      const schoolIdStr = String(schoolId);
+        
+        await window.SessionState.setProperty('SelectedSchoolId', schoolIdStr);
+        await window.SessionState.setProperty('SelectedSchoolName', finalSchoolName);
+        await window.SessionState.setProperty('NavigationSource', 'schoollist');
+        
+        console.log('✅ School selection stored in backend session via SessionState');
+
+        console.log('🚀 Navigating to school dashboard...');
+        await navigateToSchoolDashboard();
+
             } catch (error) {
                 console.error('💥 Error in viewSchool function:', error);
                 alert('שגיאה בבחירת בית הספר');
@@ -334,37 +316,45 @@
         }
 
         // Context button navigation functions following Single-Page Application with Module Loading
-function navigateToCouncilsList() {
+async function navigateToCouncilsList() {
     console.log('🏛️ Navigating to council summary...');
     
-    sessionStorage.setItem('navigationSource', 'schoollist');
-    sessionStorage.setItem('navigationTimestamp', new Date().toISOString());
-    
-    // Use the centralized loader from index.html following Cross-Component Communication
-    if (typeof window.loadCouncilSummaryPage === 'function') {
-        window.loadCouncilSummaryPage();
-    } else {
-        // Fallback to direct loading
-        loadPageDirectly('councilsummary.html', 'councilsummary', 'סיכום רשויות משלחות');
-    }
-}   
-
-        function navigateBackToDashboard() {
-            console.log('📊 Navigating back to dashboard...');
-            
-            // Store navigation context following Authentication & Session Management
-            sessionStorage.setItem('navigationSource', 'schoollist');
-            sessionStorage.setItem('returnToDashboard', 'true');
-            
-            // Restart year selection and navigate to school list
-            ensureFreshYearSelectionAndNavigate('schoollist', async () => {
-                if (typeof navigateTo === 'function') {
-                    navigateTo('schoollist');
-                } else {
-                    loadPageDirectly('schoollist.html','schoollist','רשימת בתי ספר');
-                }
-            });
+    try {
+        // ✅ FIX: Use SessionState instead of sessionStorage
+        await window.SessionState.setProperty('NavigationSource', 'schoollist');
+        
+        // Use the centralized loader from index.html following Cross-Component Communication
+        if (typeof window.loadCouncilSummaryPage === 'function') {
+            window.loadCouncilSummaryPage();
+        } else {
+            // Fallback to direct loading
+            loadPageDirectly('councilsummary.html', 'councilsummary', 'סיכום רשויות משלחות');
         }
+    } catch (error) {
+        console.error('❌ Error navigating to councils list:', error);
+        alert('שגיאה בניווט לרשימת רשויות');
+    }
+} 
+
+async function navigateBackToDashboard() {
+    console.log('📊 Navigating back to dashboard...');
+    
+    try {
+        // ✅ FIX: Use SessionState instead of sessionStorage
+        await window.SessionState.setProperty('NavigationSource', 'schoollist');
+        await window.SessionState.setProperty('ReturnToDashboard', 'true');
+        
+        // Navigate to main dashboard
+        if (typeof navigateTo === 'function') {
+            navigateTo('maindashboard');
+        } else {
+            loadPageDirectly('maindashboard.html', 'maindashboard', 'לוח בקרה ראשי');
+        }
+    } catch (error) {
+        console.error('❌ Error navigating to dashboard:', error);
+        alert('שגיאה בחזרה ללוח הבקרה');
+    }
+}
 
         // Generic page loading function following Frontend Architecture Patterns
         function loadPageDirectly(filename, section, displayName) {

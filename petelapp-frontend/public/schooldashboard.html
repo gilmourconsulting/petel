@@ -169,65 +169,35 @@
         }
 
         // Add navigation function for school details following Project-Specific Patterns
-        async function navigateToSchoolDetails() {
-            console.log('🏫 Navigating to school details...');
-            
-            try {
-                // Store selected school information in session following Authentication & Session Management
-               // const selectedSchoolName = sessionStorage.getItem('selectedSchoolName') || 'בית ספר '
-             //   const selectedSchoolId = sessionStorage.getItem('selectedSchoolId') || '0';
+    async function navigateToSchoolDetails() {
+    console.log('🏫 Navigating to school details...');
+    
+    try {
+        // ✅ Session context already in SessionState, no need to set
+        
+        if (typeof window.navigateTo === 'function') {
+            window.navigateTo('schooldetails');
+        } else {
+            const response = await fetch('schooldetails.html');
+            if (response.ok) {
+                const html = await response.text();
+                const mainContainer = document.getElementById('dynamicContent') || 
+                                     document.getElementById('mainContent') || 
+                                     document.querySelector('.main-content');
                 
-                // Ensure school context is stored
-             //   sessionStorage.setItem('selectedSchoolName', selectedSchoolName);
-              //  sessionStorage.setItem('selectedSchoolId', selectedSchoolId);
-             //   sessionStorage.setItem('navigationSource', 'schooldashboard');
-                
-                console.log('School details navigation context:', {
-                    schoolName: selectedSchoolName,
-                    schoolId: selectedSchoolId
-                });
-                
-                // Check if navigateTo function is available from main app following Cross-Component Communication
-                if (typeof navigateTo === 'function') {
-                    navigateTo('schooldetails');
-                } else if (typeof window.navigateTo === 'function') {
-                    window.navigateTo('schooldetails');
-                } else {
-                    // Fallback: Load school details page directly following Frontend Architecture Patterns
-                    const response = await fetch('schooldetails.html');
-                    if (response.ok) {
-                        const html = await response.text();
-                        
-                        // Find the main content container following Project-Specific Patterns
-                        const mainContainer = document.getElementById('dynamicContent') || 
-                                             document.getElementById('mainContent') || 
-                                             document.querySelector('.main-content') || 
-                                             document.body;
-                        
-                        if (mainContainer) {
-                            mainContainer.innerHTML = html;
-                            
-                            // Re-execute scripts in loaded content following Common Gotchas
-                            executeScriptsInContainer(mainContainer);
-                            
-                            // Update browser history following Single-Page Application patterns
-                            history.pushState({ section: 'schooldetails' }, '', '#schooldetails');
-                            
-                            console.log('✅ School details page loaded successfully');
-                        } else {
-                            console.error('❌ Could not find main content container');
-                        }
-                    } else {
-                        console.error('❌ Failed to load schooldetails.html:', response.status);
-                        alert('שגיאה בטעינת פרטי בית הספר');
-                    }
+                if (mainContainer) {
+                    mainContainer.innerHTML = html;
+                    executeScriptsInContainer(mainContainer);
+                    history.pushState({ section: 'schooldetails' }, '', '#schooldetails');
+                    console.log('✅ School details page loaded');
                 }
-            } catch (error) {
-                console.error('💥 Error loading school details page:', error);
-                alert('שגיאה בטעינת פרטי בית הספר');
             }
         }
-
+    } catch (error) {
+        console.error('💥 Error loading school details:', error);
+        alert('שגיאה בטעינת פרטי בית הספר');
+    }
+}
         // Load system version following API Communication Pattern
         async function loadSystemVersion() {
             try {
@@ -250,66 +220,42 @@
         }
 
         // Update the loadSchoolTitle function in schooldashboard.html
-        function loadSchoolTitle() {
-            console.log('📋 Loading school title from session...');
-            
-            try {
-                // Debug session storage first
-                console.log('🔍 Session storage contents:', {
-                    selectedSchoolId: sessionStorage.getItem('selectedSchoolId'),
-                    selectedSchoolName: sessionStorage.getItem('selectedSchoolName'),
-                 //   allKeys: Object.keys(sessionStorage)
-                });
-                
-                // Get selected school from session storage following Authentication & Session Management
-                let selectedSchoolName = sessionStorage.getItem('selectedSchoolName');
-                const selectedSchoolId = sessionStorage.getItem('selectedSchoolId');
-                const currentYearValue =   sessionStorage.getItem('selectedYearValue') ;
-                
-                // If no school name but we have an ID, try to get it from URL or other sources
-                if (!selectedSchoolName && selectedSchoolId) {
-                    console.log('⚠️ Missing school name');
-                    
-
-                }
-                
-                // Use session data or fallback
-                const schoolName = selectedSchoolName || 'בית ספר נבחר';
-                const yearValue = currentYearValue;
-                
-                console.log('🏫 School context resolved:', {
-                    schoolName: schoolName,
-                    yearValue: yearValue,
-                    schoolId: selectedSchoolId,
-                    isFromSession: !!selectedSchoolName
-                });
-                
-                // Update title element
-                const titleElement = document.getElementById('schoolTitle');
-                if (titleElement) {
-                    titleElement.textContent = `${schoolName} - ${yearValue}`;
-                    console.log('✅ School title updated:', titleElement.textContent);
-                } else {
-                    console.warn('⚠️ School title element not found');
-                }
-                
-
-                // Store confirmation that title was loaded
-           //     sessionStorage.setItem('schoolTitleLoaded', 'true');
-            //    sessionStorage.setItem('schoolTitleTimestamp', new Date().toISOString());
-                
-            } catch (error) {
-                console.error('❌ Error loading school title:', error);
-                
-                // Fallback title
-                const titleElement = document.getElementById('schoolTitle');
-                if (titleElement) {
-                    titleElement.textContent = 'שגיאה';
-                }
+ async function loadSchoolTitle() {
+    console.log('📋 Loading school title from SessionState...');
+    
+    try {
+        // ✅ Use centralized SessionState
+        const session = await window.SessionState.getSession();
+        const yearValue = await window.SessionState.getProperty('SelectedYearValue');
+        
+        let schoolName = session.entityName;
+        
+        if (parseInt(session.entityTypeId, 10) === 5) {
+            // Multi-school network - get selected school name
+            const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
+            if (selectedSchoolName) {
+                schoolName = selectedSchoolName;
             }
         }
-
-
+        
+        console.log('🏫 School context:', { schoolName, yearValue });
+        
+        const titleElement = document.getElementById('schoolTitle');
+        if (titleElement) {
+            titleElement.textContent = yearValue 
+                ? `${schoolName} - ${yearValue}` 
+                : schoolName;
+            console.log('✅ School title updated via SessionState');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading school title:', error);
+        const titleElement = document.getElementById('schoolTitle');
+        if (titleElement) {
+            titleElement.textContent = 'לוח בקרה של בית ספר';
+        }
+    }
+}
 
 
         // Execute scripts in dynamically loaded content following Common Gotchas

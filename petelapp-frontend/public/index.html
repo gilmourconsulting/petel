@@ -14,6 +14,170 @@
     <script src="session-manager.js"></script> 
     <script src="table-component.js"></script>
     <script src="debug.js"></script>
+ 
+    <script>
+    // Global Session State Manager - Centralized session data cache
+    // Following Authentication & Session Management + Cross-Component Communication patterns
+    window.SessionState = {
+        _sessionData: null,
+        _sessionProperties: {},
+        _lastFetch: null,
+        _cacheDuration: 60000, // 1 minute cache
+    
+        // Get full session info (with caching)
+        async getSession(forceRefresh = false) {
+            const now = Date.now();
+            
+            // Return cached data if valid
+            if (!forceRefresh && 
+                this._sessionData && 
+                this._lastFetch && 
+                (now - this._lastFetch) < this._cacheDuration) {
+                console.log('✅ Returning cached session data');
+                return this._sessionData;
+            }
+    
+            console.log('🔄 Fetching fresh session data from server');
+            
+            try {
+                const token = sessionStorage.getItem('authToken');
+                if (!token) {
+                    throw new Error('No auth token');
+                }
+    
+                const response = await fetch(AppConfig.getApiUrl('session'), {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+    
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        sessionStorage.clear();
+                        window.location.href = 'login.html';
+                    }
+                    throw new Error(`HTTP ${response.status}`);
+                }
+    
+                this._sessionData = await response.json();
+                this._lastFetch = now;
+                
+                console.log('✅ Session data cached:', {
+                    userId: this._sessionData.userId,
+                    entityId: this._sessionData.entityId,
+                    entityTypeId: this._sessionData.entityTypeId
+                });
+    
+                // Dispatch session loaded event
+                window.dispatchEvent(new CustomEvent('sessionLoaded', {
+                    detail: this._sessionData
+                }));
+    
+                return this._sessionData;
+                
+            } catch (error) {
+                console.error('❌ Error fetching session:', error);
+                throw error;
+            }
+        },
+    
+        // Get session property (with caching)
+        async getProperty(key, forceRefresh = false) {
+            const now = Date.now();
+            
+            // Return cached property if valid
+            if (!forceRefresh && 
+                this._sessionProperties[key] && 
+                this._sessionProperties[key].timestamp &&
+                (now - this._sessionProperties[key].timestamp) < this._cacheDuration) {
+                console.log(`✅ Returning cached property: ${key}`);
+                return this._sessionProperties[key].value;
+            }
+    
+            console.log(`🔄 Fetching property from server: ${key}`);
+            
+            try {
+                const token = sessionStorage.getItem('authToken');
+                if (!token) throw new Error('No auth token');
+    
+                const response = await fetch(AppConfig.getApiUrl(`session/property/${key}`), {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+    
+                if (response.status === 404) {
+                    this._sessionProperties[key] = { value: null, timestamp: now };
+                    return null;
+                }
+    
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+                const result = await response.json();
+                this._sessionProperties[key] = { 
+                    value: result.value, 
+                    timestamp: now 
+                };
+    
+                return result.value;
+                
+            } catch (error) {
+                console.error(`❌ Error fetching property ${key}:`, error);
+                return null;
+            }
+        },
+    
+        // Set session property (updates cache)
+        async setProperty(key, value) {
+            console.log(`🔧 Setting property: ${key} = ${value}`);
+            
+            try {
+                const token = sessionStorage.getItem('authToken');
+                if (!token) throw new Error('No auth token');
+    
+                const response = await fetch(AppConfig.getApiUrl('session/property'), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ key, value })
+                });
+    
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    
+                // Update local cache
+                this._sessionProperties[key] = { 
+                    value: value, 
+                    timestamp: Date.now() 
+                };
+    
+                // Dispatch property changed event
+                window.dispatchEvent(new CustomEvent('sessionPropertyChanged', {
+                    detail: { key, value }
+                }));
+    
+                console.log(`✅ Property set: ${key}`);
+                return true;
+                
+            } catch (error) {
+                console.error(`❌ Error setting property ${key}:`, error);
+                throw error;
+            }
+        },
+    
+        // Clear cache (force refresh on next access)
+        clearCache() {
+            console.log('🧹 Clearing session cache');
+            this._sessionData = null;
+            this._sessionProperties = {};
+            this._lastFetch = null;
+        },
+    
+        // Refresh session data
+        async refresh() {
+            return await this.getSession(true);
+        }
+    };
+    
+    console.log('✅ SessionState initialized');
+    </script>
 </head>
 <body>
     <div class="app-container">
@@ -232,34 +396,29 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // Load user information following Authentication & Session Management
-// Replace loadUserInfo function (around line 230)
-
 async function loadUserInfo() {
     try {
-        const response = await fetch(AppConfig.getApiUrl('session'), {
-            headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-            }
-        });
+        // Use centralized session state
+        const session = await window.SessionState.getSession();
         
-        if (response.ok) {
-            const session = await response.json();
-            const userNameElement = document.getElementById('userName');
-            const entityNameElement = document.getElementById('entityName');
-            const entityTypeElement = document.getElementById('entityType');
-            
-            if (userNameElement) {
-                userNameElement.textContent = session.userFullName || '';
-            }
-            if (entityNameElement) {
-                entityNameElement.textContent = session.entityName || '';
-            }
-            if (entityTypeElement) {
-                entityTypeElement.textContent = session.entityTypeName || '';
-            }
+        const userNameElement = document.getElementById('userName');
+        const entityNameElement = document.getElementById('entityName');
+        const entityTypeElement = document.getElementById('entityType');
+        
+        if (userNameElement) {
+            userNameElement.textContent = session.userFullName || '';
         }
+        if (entityNameElement) {
+            entityNameElement.textContent = session.entityName || '';
+        }
+        if (entityTypeElement) {
+            entityTypeElement.textContent = session.entityTypeName || '';
+        }
+
+        console.log('✅ User info loaded from SessionState cache');
+        
     } catch (error) {
-        console.error('Error loading user info:', error);
+        console.error('❌ Error loading user info:', error);
     }
 }
 

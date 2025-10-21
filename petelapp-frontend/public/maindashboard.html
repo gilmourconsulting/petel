@@ -200,7 +200,8 @@
         }
 
         // Update the storeSelectedYearInSession function to use direct API calls
- // Store selected year using SessionManager following Authentication & Session Management
+ 
+        
 async function storeSelectedYearInSession(yearId, yearType) {
     console.log('Storing selected year in session:', yearId, yearType);
     
@@ -215,118 +216,56 @@ async function storeSelectedYearInSession(yearId, yearType) {
             yearValue = sessionStorage.getItem('nextYearValue') || '';
         }
         
-        // ✅ FIX: Use SessionManager for all session operations
-        const sessionManager = new SessionManager();
-        
-        // Store year selection on server-side session
-        await sessionManager.setSessionProperty('CurrentSchoolYearId', yearId.toString());
-        await sessionManager.setSessionProperty('SelectedYearType', yearType);
+        // ✅ Use centralized SessionState
+        await window.SessionState.setProperty('CurrentSchoolYearId', yearId.toString());
+        await window.SessionState.setProperty('SelectedYearType', yearType);
         
         if (yearValue) {
-            await sessionManager.setSessionProperty('SelectedYearValue', yearValue);
+            await window.SessionState.setProperty('SelectedYearValue', yearValue);
         }
         
-        console.log('✅ Selected year stored in server session:', {
-            yearId: yearId,
-            yearType: yearType,
-            yearValue: yearValue
-        });
+        console.log('✅ Selected year stored via SessionState');
         
-        // Dispatch school year changed event following Cross-Component Communication
-        const yearChangedEvent = new CustomEvent('schoolYearChanged', {
-            detail: {
-                yearId: yearId,
-                yearType: yearType,
-                yearValue: yearValue
-            }
-        });
-        window.dispatchEvent(yearChangedEvent);
-        
-        return true; // Success
+        return true;
         
     } catch (error) {
         console.error('❌ Error storing selected year:', error);
-        throw error; // Re-throw to handle in caller
+        throw error;
     }
 }
-   
 // Update the showSchoolYear function to handle session storage errors gracefully
    // Show school year with proper error handling following Frontend Architecture Patterns
 async function showSchoolYear(yearId, yearType) {
-    console.log('🗓️ showSchoolYear called with yearId:', yearId, 'yearType:', yearType);
+    console.log('🗓️ showSchoolYear called:', yearId, yearType);
     
-    // Validate inputs
     if (!yearId || !yearType) {
-        console.error('❌ Invalid year parameters:', { yearId, yearType });
+        console.error('❌ Invalid year parameters');
         alert('שגיאה: פרמטרי שנה לא תקינים');
         return;
     }
     
     try {
-        // ✅ FIX: Store the selected year - throw error if fails
         await storeSelectedYearInSession(yearId, yearType);
         
-        // ✅ FIX: Get entity type from backend session (not sessionStorage)
-        const sessionManager = new SessionManager();
-        const session = await sessionManager.getSessionInfo();
+        // ✅ Use centralized SessionState
+        const session = await window.SessionState.getSession();
         const entityTypeId = parseInt(session.entityTypeId, 10);
         
-        console.log('📋 Entity type check:', { entityTypeId });
+        console.log('📋 Entity type:', entityTypeId);
         
-        // ✅ FIX: entityTypeId 5 is multi-school network
         if (entityTypeId === 5) {
-            console.log('🏫 Entity type 5 (multi-school network) - navigating to school list');
+            console.log('🏫 Multi-school network - navigating to school list');
             await loadSchoolListPage();
         } else {
-            console.log('🏫 Single school entity - navigating to school dashboard');
+            console.log('🏫 Single school - navigating to school dashboard');
             await loadSchoolDashboardPage();
         }
         
     } catch (error) {
-        // ✅ FIX: Stay on main dashboard on error
         console.error('💥 Error in showSchoolYear:', error);
         alert('שגיאה בטעינת שנת לימודים. אנא נסה שוב.');
-        // Don't navigate - stay on current page
     }
 }
-        // Load school year page following Single-Page Application with Module Loading
-        async function loadSchoolYearPage() {
-            try {
-                console.log('🔄 Loading school year page...');
-                
-                const response = await fetch('schoolyear.html');
-                if (response.ok) {
-                    const html = await response.text();
-                    
-                    // Find the main content container following Project-Specific Patterns
-                    const mainContainer = document.getElementById('dynamicContent') || 
-                                         document.getElementById('mainContent') || 
-                                         document.querySelector('.main-content') || 
-                                         document.body;
-                    
-                    if (mainContainer) {
-                        mainContainer.innerHTML = html;
-                        
-                        // Re-execute scripts following Common Gotchas pattern
-                        executeScriptsInContainer(mainContainer);
-                        
-                        // Update browser history following Single-Page Application patterns
-                        history.pushState({ section: 'schoolyear' }, '', '#schoolyear');
-                        
-                        console.log('✅ School year page loaded successfully');
-                    } else {
-                        console.error('❌ Could not find main content container');
-                    }
-                } else {
-                    console.error('❌ Failed to load schoolyear.html:', response.status);
-                    alert('שגיאה בטעינת ניהול שנת לימודים');
-                }
-            } catch (error) {
-                console.error('💥 Error loading school year page:', error);
-                alert('שגיאה בטעינת ניהול שנת לימודים');
-            }
-        }
-
 
         // Load school list page for multi-school entities
 async function loadSchoolListPage() {
