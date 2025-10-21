@@ -17,7 +17,6 @@ class ReusableTable {
     }
 
     // Initialize the table with server validation
- // Lines 20-38: REPLACE init() method with:
 
 async init(data, columns) {
     console.log('🔵 ReusableTable.init() called');
@@ -33,6 +32,7 @@ async init(data, columns) {
         readOnly: col.readOnly || false,
         filterAllowed: col.filterAllowed !== false,
         sortable: col.sortable !== false,
+        hidden: col.hidden || false,
         render: col.render || null,
         ...col
     }));
@@ -336,13 +336,17 @@ render() {
         return;
     }
 
+        // ✅ Filter out hidden columns for rendering
+    const visibleColumns = this.columns.filter(col => !col.hidden);
+    console.log('Visible columns:', visibleColumns.length, 'out of', this.columns.length);
+
     // Create table HTML following Hebrew/RTL Specific Patterns
-    const tableHTML = `
+      const tableHTML = `
         <div class="table-container" dir="rtl">
             <table class="data-table">
                 <thead>
                     <tr>
-                        ${this.columns.map(col => {
+                        ${visibleColumns.map(col => {
                             console.log('Rendering header for column:', col.key, col.label);
                             return `
                                 <th data-column="${col.key}" ${col.sortable ? 'style="cursor: pointer;"' : ''}>
@@ -360,7 +364,7 @@ render() {
                         }
                         return `
                             <tr>
-                                ${this.columns.map(col => {
+                                ${visibleColumns.map(col => {
                                     const cellValue = row[col.key];
                                     const renderedValue = col.render ? col.render(row) : (cellValue !== undefined && cellValue !== null ? cellValue : '');
                                     
@@ -384,8 +388,8 @@ render() {
 
     container.innerHTML = tableHTML;
 
-    // Add sort listeners for sortable columns
-    this.columns.forEach(col => {
+    // Add sort listeners for sortable AND visible columns
+    visibleColumns.forEach(col => {
         if (col.sortable) {
             const header = container.querySelector(`th[data-column="${col.key}"]`);
             if (header) {

@@ -62,13 +62,13 @@
 
 
 // Document URL mapping following Project-Specific Patterns - UPDATE TO ACCESSIBLE PATHS
-const DOCUMENT_URL_MAP = {
-    '1': "./sample-documents/hotzh-3%20filled%20sample.pdf",
-    '2': "./sample-documents/hotzh-10-network-data.pdf", 
-    '3': "./sample-documents/hotzh-11-custody-confirmation.pdf",
-    '4': "./sample-documents/hotzh-12-psychologist-hours.pdf",
-    '5': "./sample-documents/hotzh-15-sign-language-interpreter.pdf"
-};
+//const DOCUMENT_URL_MAP = {
+//    '1': "./sample-documents/hotzh-3%20filled%20sample.pdf",
+ //   '2': "./sample-documents/hotzh-10-network-data.pdf", 
+ //   '3': "./sample-documents/hotzh-11-custody-confirmation.pdf",
+ //   '4': "./sample-documents/hotzh-12-psychologist-hours.pdf",
+ //   '5': "./sample-documents/hotzh-15-sign-language-interpreter.pdf"
+//};
 
 // Close document modal function - MISSING FUNCTION following Critical Development Workflows
 function closeDocumentModal() {
@@ -222,24 +222,20 @@ function getDocumentById(documentId) {
 }
 
 // Enhanced document viewing function - with delayed popup check following Frontend Architecture Patterns
-async function viewDocumentDetails(documentId) {
-    console.log('👁️ Viewing document details:', documentId);
+async function viewDocumentDetails(documentId, documentUrl) {
+    console.log('👁️ Viewing document details:', documentUrl);
     
-    const documentData = getDocumentById(documentId);
-    if (!documentData) {
-        alert('המסמך המבוקש לא נמצא במערכת.');
-        return;
-    }
+
     
     try {
         // ✅ Store in backend session via SessionState
-        await window.SessionState.setProperty('SelectedDocumentId', documentId);
-        await window.SessionState.setProperty('SelectedDocumentForm', documentData.form);
+      //  await window.SessionState.setProperty('SelectedDocumentId', documentId);
+       // await window.SessionState.setProperty('SelectedDocumentForm', documentData.form);
         
-        console.log('✅ Document selection stored in backend session');
-        
-        const documentUrl = DOCUMENT_URL_MAP[documentId];
-        
+        //console.log('✅ Document selection stored in backend session');
+
+        // const documentUrl = DOCUMENT_URL_MAP[documentId];
+
         if (!documentUrl) {
             showDocumentNotFoundOptions(documentData);
             return;
@@ -363,12 +359,12 @@ function requestDocumentCreation(documentId) {
 }
 
 // Enhanced download function with better error handling following Project-Specific Patterns
-function downloadDocument(documentId) {
+function downloadDocument(documentId, documentUrl) {
     console.log('📥 Downloading document:', documentId);
     
-    const documentData = getDocumentById(documentId);
+    //const documentData = getDocumentById(documentId);
     if (documentData) {
-        const documentUrl = DOCUMENT_URL_MAP[documentId];
+       // const documentUrl = DOCUMENT_URL_MAP[documentId];
         if (documentUrl) {
             // Build full URL following API Communication Pattern
             const baseUrl = window.location.origin;
@@ -804,11 +800,11 @@ function loadDocumentsData() {
     
     // Mock documents data - keeping original structure
     const mockDocuments = [
-        { id: '1', form: 'טופס 3', level: 'אישי', status: 'מוכן', lastUpdate: '2024-01-15' },
-        { id: '2', form: 'טופס 10', level: 'בית ספר', status: 'בתהליך', lastUpdate: '2024-01-14' },
-        { id: '3', form: 'טופס 11', level: 'אישי', status: 'לא התחיל', lastUpdate: '2024-01-10' },
-        { id: '4', form: 'טופס 12', level: 'רשת', status: 'נשלח', lastUpdate: '2024-01-12' },
-        { id: '5', form: 'טופס 15', level: 'אישי', status: 'מוכן', lastUpdate: '2024-01-13' }
+        { id: '1', form: 'טופס 3', level: 'אישי', status: 'מוכן', lastUpdate: '2024-01-15' , documentUrl: "./sample-documents/hotzh-3%20filled%20sample.pdf"},
+        { id: '2', form: 'טופס 10', level: 'בית ספר', status: 'בתהליך', lastUpdate: '2024-01-14' , documentUrl: "./sample-documents/hotzh-10%20filled%20sample.pdf"},
+        { id: '3', form: 'טופס 11', level: 'אישי', status: 'לא התחיל', lastUpdate: '2024-01-10' , documentUrl: "./sample-documents/hotzh-11%20filled%20sample.pdf"},
+        { id: '4', form: 'טופס 12', level: 'רשת', status: 'נשלח', lastUpdate: '2024-01-12' , documentUrl: "./sample-documents/hotzh-12%20filled%20sample.pdf"},
+        { id: '5', form: 'טופס 15', level: 'אישי', status: 'מוכן', lastUpdate: '2024-01-13' , documentUrl: "./sample-documents/hotzh-15%20filled%20sample.pdf"}
     ];
     
     // Store documents globally following Cross-Component Communication
@@ -917,17 +913,18 @@ function initializeDocumentsTable(data) {
             render: (doc) => `<span class="status-badge status-${doc.status}">${doc.status}</span>`
         },
         { key: 'lastUpdate', label: 'עדכון אחרון', sortable: true, readOnly: true },
-        {
-            key: 'actions',
+        { key: 'documentUrl', label: 'URL', sortable: false, readOnly: true, hidden: true }, 
+
+        {   key: 'actions',
             label: 'פעולות',
             sortable: false,
             readOnly: true,
             render: (doc) => `
                 <div class="actions-cell">
-                    <button class="btn btn-sm btn-icon" onclick="viewDocumentDetails('${doc.id}')" title="צפייה">
+                    <button class="btn btn-sm btn-icon" onclick="viewDocumentDetails('${doc.id}', '${doc.documentUrl}')" title="צפייה">
                         <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
                     </button>
-                    <button class="btn btn-sm btn-icon" onclick="downloadDocument('${doc.id}')" title="הורדה">
+                    <button class="btn btn-sm btn-icon" onclick="downloadDocument('${doc.id}', '${doc.documentUrl}')" title="הורדה">
                         <img src="download_icon.png" alt="הורדה" class="action-icon-natural">
                     </button>
                 </div>
