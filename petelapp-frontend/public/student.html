@@ -59,8 +59,7 @@
 
 
 <script>
-// Remove the duplicate style block that's causing the parsing error
-// The error is on line 317 where there's an unexpected '<' token
+
 
 // Document URL mapping following Project-Specific Patterns - UPDATE TO ACCESSIBLE PATHS
 const DOCUMENT_URL_MAP = {
@@ -472,67 +471,62 @@ async function initializeCharacterization() {
 }
 
 // Navigation functions following Single-Page Application with Module Loading
+// Lines 420-505: REPLACE all three navigation functions
+
+// Navigation functions - Use global navigateTo following Single-Page Application with Module Loading
 async function navigateToStudents() {
     console.log('👥 Navigating back to students list...');
     
     try {
-        // ✅ Clear from backend session via SessionState
-        await window.SessionState.setProperty('SelectedStudentId', null);
-        await window.SessionState.setProperty('SelectedStudentData', null);
+        // ✅ Clear student selection from backend session
+        await window.SessionState.setProperty('SelectedStudentId', '');
+        await window.SessionState.setProperty('SelectedStudentData', '');
         console.log('✅ Student selection cleared from backend session');
         
-        const dynamicContent = document.getElementById('dynamicContent') || 
-                              document.getElementById('mainContent') || 
-                              document.querySelector('.main-content');
-        
-        if (!dynamicContent) {
+        // ✅ Use global navigation function from index.html
+        if (typeof window.navigateTo === 'function') {
+            window.navigateTo('students');
+        } else {
+            console.error('❌ window.navigateTo not available');
             window.history.back();
-            return;
         }
         
-        const response = await fetch('students.html');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
-        const html = await response.text();
-        dynamicContent.innerHTML = html;
-        
-        const scripts = dynamicContent.querySelectorAll('script');
-        scripts.forEach(oldScript => {
-            const newScript = document.createElement('script');
-            Array.from(oldScript.attributes).forEach(attr => {
-                newScript.setAttribute(attr.name, attr.value);
-            });
-            newScript.textContent = oldScript.textContent;
-            oldScript.parentNode.replaceChild(newScript, oldScript);
-        });
-        
-        history.pushState({ section: 'students' }, 'רשימת תלמידים', '#students');
-        console.log('✅ Navigated back to students list');
-        
     } catch (error) {
-        console.error('💥 Error navigating to students:', error);
-        window.history.back();
+        console.error('💥 Error clearing session data:', error);
+        // Still navigate even if clearing fails
+        if (typeof window.navigateTo === 'function') {
+            window.navigateTo('students');
+        } else {
+            window.history.back();
+        }
     }
 }
-
 
 async function navigateToSchoolDashboard() {
     console.log('🏫 Navigating to school dashboard...');
     
     try {
         // ✅ Clear student selection from backend session
-        await window.SessionState.setProperty('SelectedStudentId', null);
-        await window.SessionState.setProperty('SelectedStudentData', null);
+        await window.SessionState.setProperty('SelectedStudentId', '');
+        await window.SessionState.setProperty('SelectedStudentData', '');
+        console.log('✅ Student selection cleared from backend session');
         
+        // ✅ Use global navigation function from index.html
+        if (typeof window.navigateTo === 'function') {
+            window.navigateTo('schooldashboard');
+        } else {
+            console.error('❌ window.navigateTo not available');
+            window.history.back();
+        }
+        
+    } catch (error) {
+        console.error('💥 Error clearing session data:', error);
+        // Still navigate even if clearing fails
         if (typeof window.navigateTo === 'function') {
             window.navigateTo('schooldashboard');
         } else {
             window.history.back();
         }
-        
-    } catch (error) {
-        console.error('💥 Error navigating to school dashboard:', error);
-        window.history.back();
     }
 }
 
@@ -540,28 +534,31 @@ async function navigateToSchoolList() {
     console.log('🏫 Navigating to school list...');
     
     try {
-        // ✅ Clear student selection from backend session
-        await window.SessionState.setProperty('SelectedStudentId', null);
-        await window.SessionState.setProperty('SelectedStudentData', null);
+        // ✅ Clear student and school selection from backend session
+        await window.SessionState.setProperty('SelectedStudentId', '');
+        await window.SessionState.setProperty('SelectedStudentData', '');
+        await window.SessionState.setProperty('SelectedSchoolId', '');
+        await window.SessionState.setProperty('SelectedSchoolName', '');
+        console.log('✅ Student and school selection cleared from backend session');
         
+        // ✅ Use global navigation function from index.html
+        if (typeof window.navigateTo === 'function') {
+            window.navigateTo('schoollist');
+        } else {
+            console.error('❌ window.navigateTo not available');
+            window.history.back();
+        }
+        
+    } catch (error) {
+        console.error('💥 Error clearing session data:', error);
+        // Still navigate even if clearing fails
         if (typeof window.navigateTo === 'function') {
             window.navigateTo('schoollist');
         } else {
             window.history.back();
         }
-        
-    } catch (error) {
-        console.error('💥 Error navigating to school list:', error);
-        window.history.back();
     }
 }
-
-// Add stub functions for student and document loading to prevent errors
-function loadStudentsData() {
-    console.log('🔄 Loading student data (redirecting to loadStudentData)...');
-    loadStudentData();
-}
-
 
 // Load selected student data from session storage following Authentication & Session Management
 
