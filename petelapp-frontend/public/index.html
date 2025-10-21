@@ -246,12 +246,16 @@ async function loadUserInfo() {
             const session = await response.json();
             const userNameElement = document.getElementById('userName');
             const entityNameElement = document.getElementById('entityName');
+            const entityTypeElement = document.getElementById('entityType');
             
             if (userNameElement) {
                 userNameElement.textContent = session.userFullName || '';
             }
             if (entityNameElement) {
                 entityNameElement.textContent = session.entityName || '';
+            }
+            if (entityTypeElement) {
+                entityTypeElement.textContent = session.entityTypeName || '';
             }
         }
     } catch (error) {
