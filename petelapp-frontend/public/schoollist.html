@@ -120,21 +120,17 @@
         }
 
         // Update page title with year following Hebrew/RTL Specific Patterns
-        function updatePageTitleWithYear() {
+        async function updatePageTitleWithYear() {
             console.log('🏷️ Updating page title with selected year...');
             
             try {
-                const selectedYearValue = sessionStorage.getItem('selectedYearValue') || 
-                                     sessionStorage.getItem('currentYearValue') || 
-                                     sessionStorage.getItem('nextYearValue') || 
-                                     sessionStorage.getItem('previousYearValue');
-                
-                console.log('📅 Selected year value:', selectedYearValue);
-                
+                const sessionManager = new SessionManager();
+                const yearValue = await sessionManager.getSessionProperty('SelectedYearValue');
+                console.log('Selected year value from session:', yearValue);
                 const pageTitleElement = document.querySelector('.page-title');
-                if (pageTitleElement && selectedYearValue) {
-                    pageTitleElement.textContent = `רשימת בתי ספר - שנת לימודים ${selectedYearValue}`;
-                    console.log('✅ Page title updated with year:', selectedYearValue);
+                if (pageTitleElement && yearValue) {
+                    pageTitleElement.textContent = `רשימת בתי ספר - שנת לימודים ${yearValue}`;
+                    console.log('✅ Page title updated with year:', yearValue);
                 } else {
                     console.log('⚠️ Could not update page title - missing element or year value');
                 }
