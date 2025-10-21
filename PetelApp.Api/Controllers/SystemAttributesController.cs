@@ -14,19 +14,16 @@ namespace PetelApp.Api.Controllers
     [Route("api/[controller]")]
     public class SystemAttributesController : ControllerBase
     {
-        private readonly SystemAttributeCache _cache;
-        private readonly SystemAttributeLoaderHostedService _loaderService;
-        private readonly ILogger<SystemAttributesController> _logger;
+private readonly SystemAttributeCache _cache;
+private readonly ILogger<SystemAttributesController> _logger;
 
-        public SystemAttributesController(
-            SystemAttributeCache cache,
-            SystemAttributeLoaderHostedService loaderService,
-            ILogger<SystemAttributesController> logger)
-        {
-            _cache = cache;
-            _loaderService = loaderService;
-            _logger = logger;
-        }
+public SystemAttributesController(
+    SystemAttributeCache cache,
+    ILogger<SystemAttributesController> logger)
+{
+    _cache = cache;
+    _logger = logger;
+}
 
         /// <summary>
         /// Get all system attributes - NO AUTHENTICATION REQUIRED
@@ -47,6 +44,7 @@ namespace PetelApp.Api.Controllers
                 var attributes = _cache.GetAllAttributes();
                 var dtos = attributes.Select(a => new SystemAttributeDto
                 {
+                    Id= a.Id,
                     Name = a.Name,
                     Value = a.Value,
                     Description = a.Description,
@@ -177,24 +175,25 @@ namespace PetelApp.Api.Controllers
         /// </summary>
         [HttpPost("reload")]
         [Authorize]
-        public async Task<IActionResult> ReloadSystemAttributes()
-        {
-            try
-            {
-                await _loaderService.LoadAttributesAsync();
-                _logger.LogInformation("System attributes reloaded by admin request");
-                return Ok(new { 
-                    message = "System attributes reloaded successfully",
-                    lastLoaded = _cache.GetLastLoadedTime(),
-                    attributeCount = _cache.GetAllAttributes().Count()
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error reloading system attributes");
-                return StatusCode(500, new { message = "Error reloading system attributes" });
-            }
-        }
+       public IActionResult ReloadSystemAttributes()
+{
+    try
+    {
+        // Cannot reload - requires application restart
+        // SystemAttributeLoaderHostedService loads at startup only
+        _logger.LogWarning("Reload requested but not supported - requires app restart");
+        return Ok(new { 
+            message = "System attributes reload requires application restart",
+            lastLoaded = _cache.GetLastLoadedTime(),
+            attributeCount = _cache.GetAllAttributes().Count()
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error in reload request");
+        return StatusCode(500, new { message = "Error processing reload request" });
+    }
+}
 
         /// <summary>
         /// Get cache statistics - REQUIRES AUTHENTICATION

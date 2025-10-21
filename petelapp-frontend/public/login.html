@@ -443,84 +443,41 @@
         }
 
         // Load system version from database
-        async function loadSystemVersion() {
-            try {
-                console.log('Loading system version...');
-                const apiUrl = AppConfig.getApiUrl('systemattributes');
-                
-                const response = await fetch(apiUrl);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error ${response.status}: ${response.statusText}`);
-                }
-                
-                const result = await response.json();
-                console.log('System attributes response:', result);
-                
-                let versionValue = null;
-                
-                // Scenario 1: Check if data is available and properly structured
-                if (result && result.success === true && result.data) {
-                    // Look for the system attribute with id = 1 (version)
-                    const data = result.data;
-                    
-                    // If data is an array, find the attribute with id = 1
-                    if (Array.isArray(data)) {
-                        const versionAttr = data.find(attr => attr.id === 1);
-                        if (versionAttr) {
-                            versionValue = versionAttr.value;
-                            console.log('Found version by id=1:', versionValue);
-                        }
-                    } 
-                    // If data is a dictionary/object
-                    else {
-                        // Check if there's a 'version' key
-                        if (data.version && data.version.value) {
-                            versionValue = data.version.value;
-                            console.log('Found version in data.version:', versionValue);
-                        }
-                        
-                        // Look through all properties for id=1
-                        for (const key in data) {
-                            if (data[key] && data[key].id === 1) {
-                                versionValue = data[key].value;
-                                console.log('Found version in data object with id=1:', versionValue);
-                                break;
-                            }
-                        }
-                        
-                        // Convert object to array and search
-                        const attributesArray = Object.values(data);
-                        const versionAttr = attributesArray.find(attr => 
-                            attr.id === 1 || 
-                            (attr.name && attr.name.toLowerCase() === 'version')
-                        );
-                        
-                        if (versionAttr && !versionValue) {
-                            versionValue = versionAttr.value;
-                            console.log('Found version in object values:', versionValue);
-                        }
-                    }
-                }
-                
-                if (versionValue) {
-                    document.getElementById('systemVersion').textContent = versionValue;
-                    return;
-                }
-                
-                // Fallback to "Latest"
-                console.log('Version not found in response, using "Latest"');
-                document.getElementById('systemVersion').textContent = "Latest";
-            } catch (error) {
-                console.error('Error loading system version:', error);
-                document.getElementById('systemVersion').textContent = "Latest";
-            }
+async function loadSystemVersion() {
+    try {
+        // ✅ Get all system attributes and find id=1
+        const apiUrl = AppConfig.getApiUrl('systemattributes');
+        const response = await fetch(apiUrl);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
         }
+        
+        const attributes = await response.json();
+        
+        // Find attribute with id=1 (handle both lowercase and PascalCase)
+        const versionAttr = attributes.find(attr => 
+            (attr.id === 1 || attr.Id === 1)
+        );
+        
+        if (versionAttr) {
+            const version = versionAttr.value || versionAttr.Value || 'Latest';
+            document.getElementById('systemVersion').textContent = version;
+            console.log('System version (id=1) loaded:', version);
+        } else {
+            console.log('System version attribute (id=1) not found');
+            document.getElementById('systemVersion').textContent = "Latest";
+        }
+        
+    } catch (error) {
+        console.error('Error loading system version:', error);
+        document.getElementById('systemVersion').textContent = "Latest";
+    }
+}
 
         
   
-        // Also update the login form submission to store complete user data
-      // Line 647-720: REPLACE with this:
+
 loginForm.addEventListener('submit', async function(e) {
     e.preventDefault();
     
