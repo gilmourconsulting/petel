@@ -1,74 +1,189 @@
+<link rel="stylesheet" href="system-attributes.css">
+
 <div class="content-card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <h2 style="margin: 0; color: #333;">מאפייני מערכת</h2>
-        <button id="reloadAttributesBtn" style="background: #1D9CF3; color: #fff; border: none; border-radius: 6px; padding: 8px 18px; font-size: 16px; cursor: pointer;">
-            טען מחדש מאפייני מערכת
-        </button>
+    <div class="system-attributes-header">
+        <h2 class="system-attributes-title">מאפייני מערכת</h2>
+        <div class="system-attributes-actions">
+            <button onclick="loadSystemAttributesFromCache()" class="reload-cache-btn">
+                רענן מהמטמון
+            </button>
+            <button onclick="reloadSystemAttributesFromDB()" class="reload-db-btn">
+                טען מחדש מהמסד נתונים
+            </button>
+        </div>
     </div>
-    <div id="systemAttributesTable">
-        <p style="color: #666;">טוען נתונים...</p>
+    
+    <div id="systemAttributesContainer">
+        <p class="system-attributes-loading">טוען נתונים...</p>
     </div>
 </div>
-<script>
-document.getElementById('reloadAttributesBtn').onclick = function() {
-    this.textContent = 'טוען...';
-    this.disabled = true;
-    
-    fetch(AppConfig.getApiUrl('systemAttributesRefresh'), { method: 'POST' })
-        .then(response => {
-            if (response.ok) {
-                loadSystemAttributes();
-            }
-        })
-        .catch(error => {
-            console.error('Error refreshing attributes:', error);
-        })
-        .finally(() => {
-            this.textContent = 'טען מחדש מאפייני מערכת';
-            this.disabled = false;
-        });
-};
 
-        function loadSystemAttributes() {
-            fetch(AppConfig.getApiUrl('systemAttributes'))
-                .then(response => response.json())
-                .then(data => {
-                    const table = document.createElement('table');
-                    table.className = 'attributes-table';
-                    table.innerHTML = `
-                        <thead>
-                            <tr>
-                                <th>מזהה</th>
-                                <th>תיאור</th>
-                                <th>ערך</th>
-                                <th>סוג ערך</th>
-                                <th>שם</th>
-                                <th>מזהה חיצוני</th>
-                                <th>עודכן לאחרונה</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${data.map(attr => `
-                                <tr>
-                                    <td>${attr.id}</td>
-                                    <td>${attr.description}</td>
-                                    <td>${attr.value}</td>
-                                    <td>${attr.valueType}</td>
-                                    <td>${attr.name}</td>
-                                    <td>${attr.foreignId || ''}</td>
-                                    <td>${attr.updatedAt ? new Date(attr.updatedAt).toLocaleString('he-IL') : ''}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    `;
-                    const container = document.getElementById('systemAttributesTable');
-                    container.innerHTML = '';
-                    container.appendChild(table);
-                })
-                .catch(error => {
-                    console.error('Error loading system attributes:', error);
-                    document.getElementById('systemAttributesTable').innerHTML = '<p style="color:red;">שגיאה בטעינת מאפייני מערכת.</p>';
-                });
+<script>
+// Load system attributes from cache following System Attributes Pattern
+
+async function loadSystemAttributesFromCache() {
+    const container = document.getElementById('systemAttributesContainer');
+    if (!container) return;
+    
+    try {
+        container.innerHTML = '<p class="system-attributes-loading">טוען נתונים מהמטמון...</p>';
+        
+        const response = await fetch(AppConfig.getApiUrl('systemattributes'));
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
+        
+        const data = await response.json();
+        console.log('System attributes loaded from cache:', data.length);
+        console.log('First item structure:', data[0]); // ✅ Debug: Check data structure
+        console.log('First item ID:', data[0].id); // ✅ Debug: Verify id field
+        
+        if (data && data.length > 0) {
+            // Define columns BEFORE creating table instance
+            const columns = [
+                { 
+                    key: 'id', 
+                    label: 'מזהה', 
+                    sortable: true, 
+                    readOnly: true 
+                },
+                { 
+                    key: 'name', 
+                    label: 'שם', 
+                    sortable: true, 
+                    readOnly: true 
+                },
+                { 
+                    key: 'value', 
+                    label: 'ערך', 
+                    sortable: false, 
+                    readOnly: true 
+                },
+                { 
+                    key: 'description', 
+                    label: 'תיאור', 
+                    sortable: false, 
+                    readOnly: true 
+                },
+                { 
+                    key: 'valueType', 
+                    label: 'סוג ערך', 
+                    sortable: true, 
+                    readOnly: true 
+                },
+                { 
+                    key: 'foreignId', 
+                    label: 'מזהה חיצוני', 
+                    sortable: true, 
+                    readOnly: true,
+                    render: (data) => data.foreignId || '-'
+                },
+                { 
+                    key: 'updatedAt', 
+                    label: 'עודכן לאחרונה', 
+                    sortable: true, 
+                    readOnly: true,
+                    render: (data) => data.updatedAt 
+                        ? new Date(data.updatedAt).toLocaleDateString('he-IL', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })
+                        : '-'
+                }
+            ];
+            
+            console.log('Columns configuration:', columns); // ✅ Debug: Verify columns
+            
+            // Create ReusableTable instance
+            const table = new ReusableTable('systemAttributesContainer', {
+                tableName: 'systemAttributes',
+                isReadOnly: true,
+                allowAdd: false,
+                allowEdit: false,
+                allowDelete: false
+            });
+            
+            console.log('Table instance created:', table); // ✅ Debug: Verify table object
+            
+            // Initialize table with data and columns
+            table.init(data, columns);
+            
+            console.log('Table initialized successfully'); // ✅ Debug: Confirm initialization
+            
+        } else {
+            container.innerHTML = '<p class="system-attributes-empty">אין מאפייני מערכת זמינים במטמון</p>';
+        }
+        
+    } catch (error) {
+        console.error('Error loading system attributes from cache:', error);
+        container.innerHTML = `
+            <div class="system-attributes-error">
+                <p>שגיאה בטעינת מאפייני המערכת מהמטמון</p>
+                <p style="font-size: var(--font-size-small);">${error.message}</p>
+                <button onclick="loadSystemAttributesFromCache()" class="reload-cache-btn">
+                    נסה שוב
+                </button>
+            </div>
+        `;
+    }
+}
+
+
+
+// Reload system attributes from database to cache (admin operation)
+async function reloadSystemAttributesFromDB() {
+    try {
+        // Get auth token following Frontend Token-Only Storage pattern
+        const token = sessionStorage.getItem('authToken');
+        if (!token) {
+            alert('נדרשת התחברות למערכת');
+            window.location.href = 'login.html';
+            return;
+        }
+        
+        const confirmReload = confirm('האם אתה בטוח שברצונך לטעון מחדש את מאפייני המערכת מהמסד נתונים?\n\nפעולה זו תעדכן את המטמון מהמסד נתונים.');
+        if (!confirmReload) return;
+        
+        // Show loading state
+        const container = document.getElementById('systemAttributesContainer');
+        container.innerHTML = '<p class="system-attributes-loading">טוען מחדש מהמסד נתונים...</p>';
+        
+        // Call reload endpoint (requires authentication)
+        const response = await fetch(AppConfig.getApiUrl('systemattributes/reload'), {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert(`מאפייני המערכת נטענו מחדש בהצלחה!\n\nנטענו ${result.count} רשומות מהמסד נתונים.`);
+            // Reload from cache to show updated data
+            await loadSystemAttributesFromCache();
+        } else {
+            throw new Error(result.message || 'שגיאה בטעינה מחדש');
+        }
+        
+    } catch (error) {
+        console.error('Error reloading system attributes from DB:', error);
+        alert(`שגיאה בטעינה מחדש: ${error.message}`);
+        // Try to reload from cache anyway
+        await loadSystemAttributesFromCache();
+    }
+}
+
+// Load data on page load following Single-Page Application pattern
+loadSystemAttributesFromCache();
+
+// Make functions globally available following Cross-Component Communication pattern
+window.loadSystemAttributesFromCache = loadSystemAttributesFromCache;
+window.reloadSystemAttributesFromDB = reloadSystemAttributesFromDB;
 </script>
 

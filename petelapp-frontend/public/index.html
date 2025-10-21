@@ -103,7 +103,8 @@ document.addEventListener('DOMContentLoaded', function() {
             'schooldashboard': 'schooldashboard.html',
             'students': 'students.html',  // MAKE SURE THIS EXISTS
             'studentdetails': 'student.html',
-            'student': 'student.html'
+            'student': 'student.html',
+            'systemattributes': 'system-attributes.html'
         };
     
         let fileName = sectionMap[section.toLowerCase()];
@@ -965,7 +966,7 @@ function toggleMenu() {
 window.loadMainDashboard = loadMainDashboard;
 window.navigateToMainDashboard = navigateToMainDashboard;
 window.getCurrentEntityTypeId = getCurrentEntityTypeId;
-window.getCurrentEntityTypeName = getCurrentEntityTypeName;
+//window.getCurrentEntityTypeName = getCurrentEntityTypeName;
 window.isMultiSchoolNetwork = isMultiSchoolNetwork;
 window.loadUserInfo = loadUserInfo;
 window.loadSystemAttributes = loadSystemAttributes;

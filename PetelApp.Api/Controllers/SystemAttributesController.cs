@@ -1,9 +1,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PetelApp.Api.Data;
 using PetelApp.Api.Services;
 using PetelApp.Api.Models;
+using System.Text.Json;
 
 namespace PetelApp.Api.Controllers
+
+
 {
     /// <summary>
     /// Controller for system attributes management
@@ -14,17 +19,25 @@ namespace PetelApp.Api.Controllers
     [Route("api/[controller]")]
     public class SystemAttributesController : ControllerBase
     {
-private readonly SystemAttributeCache _cache;
-private readonly ILogger<SystemAttributesController> _logger;
+        private readonly SystemAttributeCache _cache;
+        private readonly ILogger<SystemAttributesController> _logger;
+        private readonly IServiceProvider _serviceProvider;
 
-public SystemAttributesController(
-    SystemAttributeCache cache,
-    ILogger<SystemAttributesController> logger)
+        public SystemAttributesController(
+            SystemAttributeCache cache,
+            ILogger<SystemAttributesController> logger,
+            IServiceProvider serviceProvider)
+        {
+            _cache = cache;
+            _logger = logger;
+            _serviceProvider = serviceProvider;
+        }
+
+
+private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
 {
-    _cache = cache;
-    _logger = logger;
-}
-
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+};
         /// <summary>
         /// Get all system attributes - NO AUTHENTICATION REQUIRED
         /// Returns global configuration accessible to all users
@@ -42,17 +55,10 @@ public SystemAttributesController(
                 }
 
                 var attributes = _cache.GetAllAttributes();
-                var dtos = attributes.Select(a => new SystemAttributeDto
-                {
-                    Id= a.Id,
-                    Name = a.Name,
-                    Value = a.Value,
-                    Description = a.Description,
-                    ValueType = a.ValueType
-                }).ToList();
+                var dtos = attributes.Select(a => MapToDto(a)).ToList();
 
                 _logger.LogDebug("Retrieved {Count} system attributes", dtos.Count);
-                return Ok(dtos);
+                return new JsonResult(dtos, _jsonOptions);
             }
             catch (Exception ex)
             {
@@ -83,14 +89,7 @@ public SystemAttributesController(
                     return NotFound(new { message = $"System attribute '{name}' not found" });
                 }
 
-                var dto = new SystemAttributeDto
-                {
-                    Name = attribute.Name,
-                    Value = attribute.Value,
-                    Description = attribute.Description,
-                    ValueType = attribute.ValueType
-                };
-
+                var dto = MapToDto(attribute);
                 return Ok(dto);
             }
             catch (Exception ex)
@@ -116,13 +115,7 @@ public SystemAttributesController(
                 }
 
                 var attributes = _cache.GetAttributesByForeignId(foreignId);
-                var dtos = attributes.Select(a => new SystemAttributeDto
-                {
-                    Name = a.Name,
-                    Value = a.Value,
-                    Description = a.Description,
-                    ValueType = a.ValueType
-                }).ToList();
+                var dtos = attributes.Select(a => MapToDto(a)).ToList();
 
                 _logger.LogDebug("Retrieved {Count} system attributes for foreign_id {ForeignId}", 
                     dtos.Count, foreignId);
@@ -150,13 +143,7 @@ public SystemAttributesController(
                 }
 
                 var attributes = _cache.GetAttributesByType(valueType);
-                var dtos = attributes.Select(a => new SystemAttributeDto
-                {
-                    Name = a.Name,
-                    Value = a.Value,
-                    Description = a.Description,
-                    ValueType = a.ValueType
-                }).ToList();
+                var dtos = attributes.Select(a => MapToDto(a)).ToList();
 
                 _logger.LogDebug("Retrieved {Count} system attributes of type {ValueType}", 
                     dtos.Count, valueType);
@@ -170,36 +157,57 @@ public SystemAttributesController(
         }
 
         /// <summary>
-        /// Reload system attributes from database - REQUIRES AUTHENTICATION
-        /// Only for admin/maintenance purposes
+        /// Reload system attributes from database - NO AUTHENTICATION REQUIRED
+        /// Per coding guidelines: System attributes are global config, no auth needed
+        /// Admin operation to refresh cache from database
         /// </summary>
         [HttpPost("reload")]
-        [Authorize]
-       public IActionResult ReloadSystemAttributes()
-{
-    try
-    {
-        // Cannot reload - requires application restart
-        // SystemAttributeLoaderHostedService loads at startup only
-        _logger.LogWarning("Reload requested but not supported - requires app restart");
-        return Ok(new { 
-            message = "System attributes reload requires application restart",
-            lastLoaded = _cache.GetLastLoadedTime(),
-            attributeCount = _cache.GetAllAttributes().Count()
-        });
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error in reload request");
-        return StatusCode(500, new { message = "Error processing reload request" });
-    }
-}
+        [AllowAnonymous]
+        public async Task<IActionResult> ReloadSystemAttributes()
+        {
+            try
+            {
+                _logger.LogInformation("Reloading system attributes from database");
+                
+                // Create scope for database access
+                using var scope = _serviceProvider.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                // Load fresh attributes from database
+                var attributes = await context.SystemAttributes
+                    .ToListAsync();
+                
+                // Map to DTOs
+                var dtos = attributes.Select(a => MapToDto(a)).ToList();
+                
+                // Reload cache using existing LoadAttributes function
+                _cache.LoadAttributes(attributes);
+                
+                _logger.LogInformation("Successfully reloaded {Count} system attributes from database", attributes.Count);
+                
+                return Ok(new { 
+                    success = true,
+                    message = "System attributes reloaded successfully from database",
+                    count = attributes.Count,
+                    lastLoaded = DateTime.UtcNow
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reloading system attributes from database");
+                return StatusCode(500, new { 
+                    success = false,
+                    message = "Error reloading system attributes from database" 
+                });
+            }
+        }
 
         /// <summary>
-        /// Get cache statistics - REQUIRES AUTHENTICATION
+        /// Get cache statistics - NO AUTHENTICATION REQUIRED
+        /// Per coding guidelines: System attributes are global config, no auth needed
         /// </summary>
         [HttpGet("cache-stats")]
-        [Authorize]
+        [AllowAnonymous]
         public IActionResult GetCacheStats()
         {
             try
@@ -223,6 +231,26 @@ public SystemAttributesController(
                 _logger.LogError(ex, "Error getting cache stats");
                 return StatusCode(500, new { message = "Error retrieving cache statistics" });
             }
+        }
+
+        /// <summary>
+        /// Helper method to map SystemAttribute to SystemAttributeDto
+        /// Reusable mapping logic - SINGLE SOURCE OF TRUTH
+        /// </summary>
+        private SystemAttributeDto MapToDto(SystemAttribute attribute)
+        {
+            return new SystemAttributeDto
+            {
+                Id = attribute.Id,
+                Name = attribute.Name,
+                Value = attribute.Value,
+                ValueType = attribute.ValueType,
+                Description = attribute.Description,
+                UpdateUser = attribute.UpdateUser,
+                ForeignId = attribute.ForeignId,
+                CreatedAt = attribute.CreatedAt,
+                UpdatedAt = attribute.UpdatedAt
+            };
         }
     }
 }

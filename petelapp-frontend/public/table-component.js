@@ -17,31 +17,43 @@ class ReusableTable {
     }
 
     // Initialize the table with server validation
-    async init(data, columns) {
-        this.data = data;
-        this.originalData = JSON.parse(JSON.stringify(data)); // Deep copy
-        this.columns = columns.map(col => ({
-            key: col.key,
-            label: col.label,
-            readOnly: col.readOnly || false,
-            filterAllowed: col.filterAllowed !== false,
-            ...col
-        }));
-        
-        // Skip server validation for read-only tables or when no auth token
-        if (this.isReadOnly || !this.sessionToken || this.sessionToken === 'undefined') {
-            console.log('Skipping server validation for read-only table');
-            this.filteredData = [...this.data];
-            this.render();
-            return;
-        }
-        
-        // Get server-side column permissions only for editable tables
-        await this.validateColumnPermissions();
-        
+ // Lines 20-38: REPLACE init() method with:
+
+async init(data, columns) {
+    console.log('🔵 ReusableTable.init() called');
+    console.log('Data received:', data.length, 'rows');
+    console.log('First row:', data[0]);
+    console.log('Columns received:', columns);
+    
+    this.data = data;
+    this.originalData = JSON.parse(JSON.stringify(data)); // Deep copy
+    this.columns = columns.map(col => ({
+        key: col.key,
+        label: col.label,
+        readOnly: col.readOnly || false,
+        filterAllowed: col.filterAllowed !== false,
+        sortable: col.sortable !== false,
+        render: col.render || null,
+        ...col
+    }));
+    
+    console.log('Processed columns:', this.columns);
+    
+    // Skip server validation for read-only tables or when no auth token
+    if (this.isReadOnly || !this.sessionToken || this.sessionToken === 'undefined') {
+        console.log('✅ Skipping server validation for read-only table');
         this.filteredData = [...this.data];
+        console.log('Filtered data set:', this.filteredData.length, 'rows');
         this.render();
+        return;
     }
+    
+    // Get server-side column permissions only for editable tables
+    await this.validateColumnPermissions();
+    
+    this.filteredData = [...this.data];
+    this.render();
+}
 
     // Validate column permissions with server
     async validateColumnPermissions() {
@@ -306,57 +318,84 @@ class ReusableTable {
 
     // Add this render method to table-component.js following Hebrew/RTL Specific Patterns:
 
-    render() {
-        const container = document.getElementById(this.containerId);
-        if (!container) {
-            console.error('Container not found:', this.containerId);
-            return;
-        }
 
-        // Create table HTML following Hebrew/RTL Specific Patterns
-        const tableHTML = `
-            <div class="table-container" dir="rtl">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            ${this.columns.map(col => `
+
+render() {
+    console.log('🟢 ReusableTable.render() called');
+    const container = document.getElementById(this.containerId);
+    if (!container) {
+        console.error('❌ Container not found:', this.containerId);
+        return;
+    }
+
+    console.log('Rendering', this.filteredData.length, 'rows with', this.columns.length, 'columns');
+    
+    // ✅ FIX: Ensure we have data to render
+    if (!this.filteredData || this.filteredData.length === 0) {
+        container.innerHTML = '<p style="text-align: center; padding: 20px; color: #666;">אין נתונים להצגה</p>';
+        return;
+    }
+
+    // Create table HTML following Hebrew/RTL Specific Patterns
+    const tableHTML = `
+        <div class="table-container" dir="rtl">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        ${this.columns.map(col => {
+                            console.log('Rendering header for column:', col.key, col.label);
+                            return `
                                 <th data-column="${col.key}" ${col.sortable ? 'style="cursor: pointer;"' : ''}>
                                     ${col.label}
                                     ${col.sortable ? '<span class="sort-indicator"></span>' : ''}
                                 </th>
-                            `).join('')}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${this.filteredData.map(row => `
+                            `;
+                        }).join('')}
+                    </tr>
+                </thead>
+                <tbody>
+                    ${this.filteredData.map((row, rowIndex) => {
+                        if (rowIndex === 0) {
+                            console.log('First row data:', row);
+                        }
+                        return `
                             <tr>
-                                ${this.columns.map(col => `
-                                    <td data-column="${col.key}">
-                                        ${col.render ? col.render(row) : (row[col.key] || '')}
-                                    </td>
-                                `).join('')}
+                                ${this.columns.map(col => {
+                                    const cellValue = row[col.key];
+                                    const renderedValue = col.render ? col.render(row) : (cellValue !== undefined && cellValue !== null ? cellValue : '');
+                                    
+                                    if (rowIndex === 0) {
+                                        console.log(`Column ${col.key}:`, cellValue, '→', renderedValue);
+                                    }
+                                    
+                                    return `
+                                        <td data-column="${col.key}">
+                                            ${renderedValue}
+                                        </td>
+                                    `;
+                                }).join('')}
                             </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            </div>
-        `;
+                        `;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
 
-        container.innerHTML = tableHTML;
+    container.innerHTML = tableHTML;
 
-        // Add sort listeners for sortable columns
-        this.columns.forEach(col => {
-            if (col.sortable) {
-                const header = container.querySelector(`th[data-column="${col.key}"]`);
-                if (header) {
-                    header.addEventListener('click', () => this.sort(col.key));
-                }
+    // Add sort listeners for sortable columns
+    this.columns.forEach(col => {
+        if (col.sortable) {
+            const header = container.querySelector(`th[data-column="${col.key}"]`);
+            if (header) {
+                header.addEventListener('click', () => this.sort(col.key));
             }
-        });
+        }
+    });
 
-        console.log('✅ Table rendered successfully');
-    }
-
+    console.log('✅ Table rendered successfully');
+}
     // Add sort method
     sort(columnKey) {
         if (this.sortColumn === columnKey) {
