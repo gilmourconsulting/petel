@@ -1,11 +1,37 @@
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
 using PetelApp.Api.Services;
-using PetelApp.Api.Session;
 using Hangfire;
 using Hangfire.PostgreSql;
+using PetelApp.Api.Session;
+using Serilog;
+using System.IO;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
+
+var logsPath = Path.Combine(Directory.GetCurrentDirectory(), "logs");
+if (!Directory.Exists(logsPath))
+{
+    Directory.CreateDirectory(logsPath);
+}
+
+// Configure Serilog for file logging
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft.AspNetCore", Serilog.Events.LogEventLevel.Warning)
+    .WriteTo.Console()
+    .WriteTo.File(
+        path: Path.Combine(logsPath, "petelapp-.txt"),
+        rollingInterval: RollingInterval.Day,
+        retainedFileCountLimit: 7,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}"
+    )
+    .CreateLogger();
+// Use Serilog instead of default logging
+builder.Host.UseSerilog();
+
 
 // Add services
 builder.Services.AddControllers();
@@ -50,6 +76,9 @@ builder.Services.AddSingleton<UserSessionService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<UserRoleService>();
 
+// Register file processor service
+builder.Services.AddScoped<StudentsFileProcessor>();
+
 // Hangfire (if used)
 var hangfireConnectionString = builder.Configuration.GetConnectionString("HangfireConnection");
 if (!string.IsNullOrEmpty(hangfireConnectionString))
@@ -92,3 +121,6 @@ if (app.Environment.IsDevelopment())
 app.MapControllers();
 
 app.Run();
+
+// Ensure logs are flushed on shutdown
+Log.CloseAndFlush();

@@ -12,15 +12,17 @@ namespace PetelApp.Api.Data
 
         [Column("id_number")]
         public string? IdNumber { get; set; }
+        [Column("version")]
+        public int Version { get; set; }
 
         [Column("class_id")]
         public int? ClassId { get; set; }
 
         [Column("start_date")]
-        public DateTime? StartDate { get; set; }
+        public DateOnly? StartDate { get; set; }
 
         [Column("end_date")]
-        public DateTime? EndDate { get; set; }
+        public DateOnly? EndDate { get; set; }
 
         [Column("first_name")]
         public string? FirstName { get; set; }

@@ -7,6 +7,9 @@
         <button class="context-btn" onclick="window.history.back()">
             חזרה
         </button>
+     <button class="context-btn" onclick="showUploadDialog()">
+            העלאת קובץ תלמידים
+        </button>
     </div>
 
     <!-- Main content area -->
@@ -58,6 +61,28 @@
                 </div>
             </div>
         </div>
+    </div>
+</div>
+
+<div id="uploadDialog" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close" onclick="closeUploadDialog()">&times;</span>
+        <h2>העלאת קובץ תלמידים</h2>
+        <form id="uploadForm" onsubmit="handleFileUpload(event)">
+            <div class="form-group">
+                <label for="studentFile">בחר קובץ (CSV, XLS, XLSX)</label>
+                <input type="file" id="studentFile" name="file" accept=".csv,.xls,.xlsx" required>
+            </div>
+            <div class="form-group">
+                <label for="mappingJson">מיפוי עמודות (אופציונלי - JSON)</label>
+                <textarea id="mappingJson" name="mappingJson" rows="4" placeholder='{"id_number": "ת.ז", "first_name": "שם פרטי"}'></textarea>
+            </div>
+            <div class="upload-status" id="uploadStatus" style="display: none;"></div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">העלה קובץ</button>
+                <button type="button" class="btn btn-secondary" onclick="closeUploadDialog()">ביטול</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -469,12 +494,119 @@ async function navigateToStudentDetails() {
     }
 }
 
+// Show upload dialog
+function showUploadDialog() {
+    document.getElementById('uploadDialog').style.display = 'block';
+}
+
+// Close upload dialog
+function closeUploadDialog() {
+    document.getElementById('uploadDialog').style.display = 'none';
+    document.getElementById('uploadForm').reset();
+    document.getElementById('uploadStatus').style.display = 'none';
+}
+
+// Handle file upload following API Communication Pattern and Authentication & Session Management
+async function handleFileUpload(event) {
+    event.preventDefault();
+    
+    const statusDiv = document.getElementById('uploadStatus');
+    statusDiv.style.display = 'none';
+    
+    try {
+        // Get auth token following Frontend Token-Only Storage
+        const token = window.sessionManager.getToken();
+        if (!token) {
+            showUploadStatus('נדרש אימות. אנא התחבר מחדש.', 'error');
+            return;
+        }
+        
+        // Get session data from backend following Session Data Architecture
+        const schoolId = await window.sessionManager.getSessionProperty('SelectedSchoolId');
+        
+        if (!schoolId) {
+            showUploadStatus('לא נבחר בית ספר. אנא בחר בית ספר ונסה שנית.', 'error');
+            return;
+        }
+        
+        // Prepare form data
+        const formData = new FormData();
+        const fileInput = document.getElementById('studentFile');
+        formData.append('file', fileInput.files[0]);
+        formData.append('schoolId', schoolId);
+        formData.append('schoolYearId', '4'); // Hard-coded for now
+        
+        // Add mapping if provided
+        const mappingJson = document.getElementById('mappingJson').value.trim();
+        if (mappingJson) {
+            formData.append('mappingJson', mappingJson);
+        }
+        
+        // Upload file following API Communication Pattern
+        const response = await fetch(AppConfig.getApiUrl('studentsfileupload/upload'), {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            showUploadStatus(
+                `הקובץ עובד בהצלחה!\n` +
+                `נוצרו: ${result.created}\n` +
+                `עודכנו: ${result.updated}\n` +
+                `ללא שינוי: ${result.unchanged}\n` +
+                `שגיאות: ${result.errors}`,
+                'success'
+            );
+            
+            // Show detailed errors if any
+            if (result.errors > 0 && result.details?.errorList) {
+                console.log('Upload errors:', result.details.errorList);
+            }
+            
+            // Refresh students table after successful upload
+            setTimeout(() => {
+                closeUploadDialog();
+                window.refreshStudentsData();
+            }, 2000);
+        } else {
+            showUploadStatus(`שגיאה: ${result.message || 'העלאת הקובץ נכשלה'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        showUploadStatus('שגיאה בהעלאת הקובץ. אנא נסה שנית.', 'error');
+    }
+}
+
+// Show upload status message
+function showUploadStatus(message, type) {
+    const statusDiv = document.getElementById('uploadStatus');
+    statusDiv.textContent = message;
+    statusDiv.className = `upload-status upload-status-${type}`;
+    statusDiv.style.display = 'block';
+}
+
+// Close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('uploadDialog');
+    if (event.target === modal) {
+        closeUploadDialog();
+    }
+}
+
 // Make functions globally available following Cross-Component Communication
 window.loadStudentsData = loadStudentsData;
 window.viewStudentDetails = viewStudentDetails;
 window.getStudentById = getStudentById;
 window.navigateToStudentDetails = navigateToStudentDetails;
 window.refreshStudentsData = refreshStudentsData;
+window.showUploadDialog = showUploadDialog;
+window.closeUploadDialog = closeUploadDialog;
+window.handleFileUpload = handleFileUpload;
 
 // Initialize on page load following Critical Development Workflows
 document.addEventListener('DOMContentLoaded', () => {
