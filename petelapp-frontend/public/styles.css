@@ -812,7 +812,7 @@ body {
     max-width: calc(100% - 200px);
 }
 
-.students-context {
+.screenwithtable-context {
     order: 2;
     width: 180px;
     min-width: 180px;
@@ -834,7 +834,7 @@ body {
     flex-shrink: 0;
 }
 
-.students-context .context-btn {
+.screenwithtable-context .context-btn {
     width: 100%;
     min-width: 100px;
     height: 48px;
@@ -849,7 +849,7 @@ body {
     opacity: 0.7;
 }
 
-.students-context .context-btn:hover {
+.screenwithtable-context .context-btn:hover {
     opacity: 1;
     transform: translateY(-1px);
 }
@@ -1157,7 +1157,7 @@ body {
     }
 }
 
-/* Student Page Context Buttons - Following Context Button Pattern */
+/* Student Page Context Buttons - Following Context Button Pattern 
 .students-context .context-btn:nth-child(1) {
     background: linear-gradient(135deg, #C15A16 0%, #a04912 100%);
     color: white;
@@ -1179,7 +1179,7 @@ body {
 .students-context .context-btn:hover {
     opacity: 1;
     transform: translateY(-1px);
-}
+}*/
 
 /* Add after line 700 (after existing table styles) */
 
