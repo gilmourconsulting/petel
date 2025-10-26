@@ -16,19 +16,19 @@ namespace PetelApp.Api.Data
 
         [Required]
         [Column("council_code")]
-        public string CouncilCode { get; set; }
+        public required string CouncilCode { get; set; }
 
         [Column("council_type")]
         [MaxLength(25)]
-        public string? CouncilType { get; set; }
+        public required string CouncilType { get; set; }
 
         [Column("council_short_name")]
         [MaxLength(25)]
-        public string? CouncilShortName { get; set; }
+        public required string CouncilShortName { get; set; }
 
         [Column("council_long_name")]
         [MaxLength(50)]
-        public string? CouncilLongName { get; set; }
+        public required string CouncilLongName { get; set; }
 
         [Column("council_district")]
         [MaxLength(25)]
