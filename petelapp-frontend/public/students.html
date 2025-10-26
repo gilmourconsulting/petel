@@ -98,6 +98,7 @@ async function loadStudentsData() {
             showTableError('נדרש אימות. אנא התחבר מחדש.');
             return;
         }
+        const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId')
 
         // Show loading indicator
         const container = document.getElementById('studentsTableContainer');
@@ -109,14 +110,16 @@ async function loadStudentsData() {
             `;
         }
 
-        const response = await fetch(AppConfig.getApiUrl('students'), {
+
+        const apiUrl = AppConfig.getApiUrl(`students?schoolYearId=${schoolYearId}`);
+
+        const response = await fetch(apiUrl, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${authToken}`
             }
         });
-
         console.log('📥 Students API response:', response.status, response.ok);
 
         if (response.ok) {
@@ -187,6 +190,9 @@ async function loadStudentsData() {
         showTableError('שגיאה בטעינת נתוני תלמידים. אנא נסה שוב.');
     }
 }
+
+
+
 
 // Update summary statistics to count by name instead of ID
 function updateStudentsSummary(data) {
@@ -609,8 +615,9 @@ window.closeUploadDialog = closeUploadDialog;
 window.handleFileUpload = handleFileUpload;
 
 // Initialize on page load following Critical Development Workflows
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('📋 Students page loaded, initializing...');
+    
     loadStudentsData();
 });
 
@@ -619,6 +626,10 @@ if (document.readyState === 'loading') {
     console.log('⏳ Document still loading, waiting for DOMContentLoaded...');
 } else {
     console.log('✅ Document already loaded, initializing immediately...');
-    loadStudentsData();
+    // ensure the school-year resolution runs before loading data
+    (async () => {
+        
+        loadStudentsData();
+    })();
 }
 </script>

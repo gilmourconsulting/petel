@@ -65,20 +65,29 @@
             try {
                 // Get auth token following Authentication & Session Management
                 const authToken = sessionStorage.getItem('authToken');
-                
-                console.log('📋 Session Debug:', {
-                    authToken: authToken ? 'present' : 'null',
-                    hasAuthToken: !!authToken
-                });
+
+        // ✅ Get selectedYearId from backend session
+        const selectedYearId = await window.SessionState.getProperty('SelectedYearId');
+
+        console.log('📋 Session Debug: selectedYearId', {
+            selectedYearId: selectedYearId
+        });
+
+
+        console.log('📋 Session Debug:', {
+            authToken: authToken ? 'present' : 'null',
+            hasAuthToken: !!authToken,
+            selectedYearId: selectedYearId
+        });
                 
                 if (!authToken || authToken === 'undefined') {
                     console.error('❌ No valid auth token found in session');
                     return;
                 }
 
-                // API call following API Communication Pattern
-                const apiUrl = AppConfig.getApiUrl('entities/schools');
-                console.log('🌐 Making API call to:', apiUrl);
+        // ✅ API call with year_id query parameter
+        const apiUrl = AppConfig.getApiUrl(`entities/schools?yearId=${selectedYearId}`);
+        console.log('🌐 Making API call to:', apiUrl);
                 
                 const response = await fetch(apiUrl, {
                     method: 'GET',

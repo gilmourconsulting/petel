@@ -57,7 +57,7 @@ namespace PetelApp.Api.Controllers
         }
 
         [HttpGet("schools")]
-        public async Task<IActionResult> GetSchools()
+        public async Task<IActionResult> GetSchools([FromQuery] int? yearId = null)
         {
             try
             {
@@ -75,13 +75,22 @@ namespace PetelApp.Api.Controllers
                     return BadRequest(new { success = false, message = "Invalid session entity ID" });
                 }
 
-                _logger.LogInformation("Loading schools for entity {EntityId} (User: {UserId})",
-                    sessionEntityId, session.UserId);
+                _logger.LogInformation("Loading schools for entity {EntityId} (User: {UserId}) with year filter: {YearId}",
+                    sessionEntityId, session.UserId, yearId);
 
-                var schools = await _context.Entities
+                var query = _context.Entities
                     .Include(e => e.EntityType)
                     .AsNoTracking()
-                    .Where(e => e.IsActive && e.OwnerId == sessionEntityId)
+                    .Where(e => e.IsActive && e.OwnerId == sessionEntityId);
+
+                // ✅ Filter by school_years.year_id if yearId is provided
+                if (yearId.HasValue)
+                {
+                    query = query.Where(e => _context.SchoolYears
+                        .Any(sy => sy.SchoolId == e.Id && sy.YearId == yearId.Value));
+                }
+
+                var schools = await query
                     .Select(e => new SchoolDto
                     {
                         Id = e.Id,
@@ -101,7 +110,8 @@ namespace PetelApp.Api.Controllers
                     .OrderBy(e => e.Name)
                     .ToListAsync();
 
-                _logger.LogInformation("Loaded {Count} schools for entity {EntityId}", schools.Count, sessionEntityId);
+                _logger.LogInformation("Loaded {Count} schools for entity {EntityId} with year filter: {YearId}", 
+                    schools.Count, sessionEntityId, yearId);
                 return Ok(schools);
             }
             catch (Exception ex)

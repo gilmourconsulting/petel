@@ -21,7 +21,7 @@ namespace PetelApp.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetStudents()
+        public async Task<IActionResult> GetStudents([FromQuery] int? schoolYearId = null)
         {
             try
             {
@@ -37,6 +37,17 @@ namespace PetelApp.Api.Controllers
                     _logger.LogError("Invalid EntityId in session: '{EntityId}'", session.EntityId);
                     return BadRequest(new { success = false, message = "מזהה ישות לא תקין בסשן" });
                 }
+        // ✅ Get SelectedSchoolYearId from session if not provided in query
+        if (!schoolYearId.HasValue)
+        {
+            var sessionSchoolYearId = session.GetProperty("SelectedSchoolYearId");
+            if (string.IsNullOrEmpty(sessionSchoolYearId) || !int.TryParse(sessionSchoolYearId, out int parsedSchoolYearId))
+            {
+                _logger.LogWarning("No valid SelectedSchoolYearId found in session");
+                return BadRequest(new { success = false, message = "לא נבחרה שנת לימודים" });
+            }
+            schoolYearId = parsedSchoolYearId;
+        }
 
                 _logger.LogInformation("Loading students for entity {EntityId}", sessionEntityId);
 
@@ -44,7 +55,7 @@ namespace PetelApp.Api.Controllers
                 // Following Entity-Based Request Flow from coding guidelines
                 var students = await _context.SchoolStudents
                     .AsNoTracking()
-                    .Where(s => s.SchoolYearId == 4 && s.IsLastVersion == true)
+                    .Where(s => s.SchoolYearId == schoolYearId.Value && s.IsLastVersion == true)
                     .Select(s => new
                     {
                         Id = s.Id,

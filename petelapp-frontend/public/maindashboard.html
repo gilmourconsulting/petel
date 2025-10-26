@@ -155,7 +155,6 @@
                     throw new Error('Failed to load system attributes');
                 }
                 const attributes = await response.json();
-                // Expecting attributes to be an array
                 if (!Array.isArray(attributes)) {
                     console.error('System attributes response is not an array:', attributes);
                     return;
@@ -166,34 +165,32 @@
                 const currentYearAttr  = attributes.find(attr => attr.name === "Current Year");
                 const nextYearAttr     = attributes.find(attr => attr.name === "Next Year");
 
-                // Update previous year button
+                // ✅ Store in backend session via SessionState instead of sessionStorage
                 if (previousYearAttr) {
                     window.previousYearId = previousYearAttr.foreignId;
-                    sessionStorage.setItem('previousYearId', previousYearAttr.foreignId);
-                    sessionStorage.setItem('previousYearValue', previousYearAttr.value);
+                    await window.SessionState.setProperty('PreviousYearId', previousYearAttr.foreignId.toString());
+                    await window.SessionState.setProperty('PreviousYearValue', previousYearAttr.value);
                     const prevButton = document.querySelector('.context-btn[onclick*="previous"]');
                     if (prevButton) prevButton.textContent = previousYearAttr.value;
                 }
 
-                // Update current year button
                 if (currentYearAttr) {
                     window.currentYearId = currentYearAttr.foreignId;
-                    sessionStorage.setItem('currentYearId', currentYearAttr.foreignId);
-                    sessionStorage.setItem('currentYearValue', currentYearAttr.value);
+                    await window.SessionState.setProperty('CurrentYearId', currentYearAttr.foreignId.toString());
+                    await window.SessionState.setProperty('CurrentYearValue', currentYearAttr.value);
                     const currentButton = document.querySelector('.context-btn[onclick*="current"]');
                     if (currentButton) currentButton.textContent = currentYearAttr.value;
                 }
 
-                // Update next year button
                 if (nextYearAttr) {
                     window.nextYearId = nextYearAttr.foreignId;
-                    sessionStorage.setItem('nextYearId', nextYearAttr.foreignId);
-                    sessionStorage.setItem('nextYearValue', nextYearAttr.value);
+                    await window.SessionState.setProperty('NextYearId', nextYearAttr.foreignId.toString());
+                    await window.SessionState.setProperty('NextYearValue', nextYearAttr.value);
                     const nextButton = document.querySelector('.context-btn[onclick*="next"]');
                     if (nextButton) nextButton.textContent = nextYearAttr.value;
                 }
 
-                console.log('Context button labels updated with year values and foreign IDs');
+                console.log('✅ Context button labels updated and stored in backend session via SessionState');
             } catch (error) {
                 console.error('Error loading context button data:', error);
             }
@@ -206,18 +203,18 @@ async function storeSelectedYearInSession(yearId, yearType) {
     console.log('Storing selected year in session:', yearId, yearType);
     
     try {
-        // Get year value from stored session data
+        // ✅ Get year value from backend session instead of sessionStorage
         let yearValue = '';
         if (yearType === 'previous') {
-            yearValue = sessionStorage.getItem('previousYearValue') || '';
+            yearValue = await window.SessionState.getProperty('PreviousYearValue') || '';
         } else if (yearType === 'current') {
-            yearValue = sessionStorage.getItem('currentYearValue') || '';
+            yearValue = await window.SessionState.getProperty('CurrentYearValue') || '';
         } else if (yearType === 'next') {
-            yearValue = sessionStorage.getItem('nextYearValue') || '';
+            yearValue = await window.SessionState.getProperty('NextYearValue') || '';
         }
         
         // ✅ Use centralized SessionState
-        await window.SessionState.setProperty('CurrentSchoolYearId', yearId.toString());
+        await window.SessionState.setProperty('SelectedYearId', yearId.toString());
         await window.SessionState.setProperty('SelectedYearType', yearType);
         
         if (yearValue) {
@@ -233,6 +230,7 @@ async function storeSelectedYearInSession(yearId, yearType) {
         throw error;
     }
 }
+
 // Update the showSchoolYear function to handle session storage errors gracefully
    // Show school year with proper error handling following Frontend Architecture Patterns
 async function showSchoolYear(yearId, yearType) {

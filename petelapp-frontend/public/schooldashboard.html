@@ -257,6 +257,55 @@
     }
 }
 
+// Resolve SelectedSchoolYearId (school_years.id) from backend and store in session
+async function resolveSelectedSchoolYearId() {
+    try {
+        const selectedYearId = await window.SessionState.getProperty('SelectedYearId');
+        const selectedSchoolId = await window.SessionState.getProperty('SelectedSchoolId');
+
+        console.log('🔎 Resolving SelectedSchoolYearId:', { selectedYearId, selectedSchoolId });
+
+        if (!selectedYearId || !selectedSchoolId) {
+            console.warn('⚠ Missing SelectedYearId or SelectedSchoolId; skipping school_year lookup');
+            return null;
+        }
+
+        const url = AppConfig.getApiUrl(`schoolYears/by-year-and-school?yearId=${encodeURIComponent(selectedYearId)}&schoolId=${encodeURIComponent(selectedSchoolId)}`);
+        console.log('🌐 Fetching school_year id from:', url);
+
+        const authToken = sessionStorage.getItem('authToken');
+        const resp = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': authToken ? `Bearer ${authToken}` : ''
+            }
+        });
+
+        if (!resp.ok) {
+            console.warn('⚠ school_year lookup returned non-OK status', resp.status);
+            return null;
+        }
+
+        const payload = await resp.json();
+        // Accept either { id: 123 } or plain numeric response
+        const schoolYearId = payload && (payload.id ?? payload) ? (payload.id ?? payload) : null;
+
+        if (schoolYearId) {
+            await window.SessionState.setProperty('SelectedSchoolYearId', String(schoolYearId));
+            console.log('✅ Stored SelectedSchoolYearId in session:', schoolYearId);
+            return schoolYearId;
+        } else {
+            console.warn('⚠ school_year not found for given yearId/schoolId', { selectedYearId, selectedSchoolId });
+            // Ensure property is cleared if not found
+            await window.SessionState.setProperty('SelectedSchoolYearId', '');
+            return null;
+        }
+    } catch (err) {
+        console.error('❌ Error resolving SelectedSchoolYearId:', err);
+        return null;
+    }
+}
 
         // Execute scripts in dynamically loaded content following Common Gotchas
         function executeScriptsInContainer(container) {
@@ -298,7 +347,8 @@
                 loadSchoolTitle(); // Load school name and year
                 loadDashboardCardData('alertsCard');
                 loadDashboardCardData('eventsCard');
-               // loadSystemVersion();
+                await resolveSelectedSchoolYearId()
+
                 
 
                 console.log('✅ School Dashboard initialized successfully');
@@ -312,7 +362,8 @@
                 loadSchoolTitle(); // Load school name and year
                 loadDashboardCardData('alertsCard');
                 loadDashboardCardData('eventsCard');
-                //loadSystemVersion();
+                await resolveSelectedSchoolYearId();
+
 
                 console.log('✅ School Dashboard initialized immediately');
             }, 50);
