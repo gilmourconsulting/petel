@@ -171,7 +171,6 @@ table.init(data, columns);
 - **Custom scrollbar styling**: Use webkit scrollbar styles for better UX
 - **Mobile adjustments**: Reduce font size and padding on mobile devices
 - **ReusableTable integration**: Ensure table component containers have scroll capability
-```
 
 ### Authentication & Session Management
 
@@ -422,12 +421,220 @@ Dynamic configuration via `SystemAttributes` table loaded at startup:
 // NO AUTHENTICATION REQUIRED - these are global configuration values
 ```
 
+### Global Helper Functions
+
+**Backend Utility Service**: `GlobalFunctions` provides reusable helper methods for common data operations and text processing.
+
+**File Location**: `PetelApp.Api/Services/GlobalSystemFunctions.cs`
+
+#### Service Registration and Usage
+
+```csharp
+// Service is registered in Program.cs as scoped service
+builder.Services.AddScoped<GlobalFunctions>();
+
+// Inject into controllers or other services
+public class MyController : BaseController
+{
+    private readonly GlobalFunctions _globalFunctions;
+
+    public MyController(GlobalFunctions globalFunctions)
+    {
+        _globalFunctions = globalFunctions;
+    }
+    
+    public async Task<IActionResult> ProcessData()
+    {
+        // Use instance methods
+        var classId = await _globalFunctions.GetClassIdByName("א-1", schoolYearId);
+        
+        // Use static methods (no injection needed)
+        var pureText = GlobalFunctions.PureHebrewText("א-1");
+        
+        return Ok();
+    }
+}
+```
+
+#### Available Functions
+
+**1. Pure Hebrew Text and Numbers** (Static Method)
+- **Purpose**: Extract only Hebrew letters (א-ת) and digits (0-9) from text
+- **Removes**: Spaces, dashes, punctuation, Latin letters, special characters
+- **Use Case**: Normalizing text for comparison (class names, council names, IDs with formatting)
+```csharp
+// Static - no injection needed
+var pure = GlobalFunctions.PureHebrewText("א-1");      // Returns: "א1"
+var pure = GlobalFunctions.PureHebrewText("ב׳ 2");     // Returns: "ב2"
+var pure = GlobalFunctions.PureHebrewText("כיתה 12");  // Returns: "כיתה12"
+var pure = GlobalFunctions.PureHebrewText("3rd ג");    // Returns: "3ג"
+```
+
+**2. Get School Year by IDs**
+- **Purpose**: Find school_year ID by year_id and school_id
+- **Database**: Queries `SchoolYears` table
+- **Returns**: `int?` (null if not found)
+```csharp
+var schoolYearId = await _globalFunctions.GetSchoolYearByIds(
+    yearId: 5,      // Hebrew year ID from hebrew_years.id
+    schoolId: 123   // School entity ID from entities.id
+);
+```
+
+**3. Get School Year by Hebrew Year and Symbol**
+- **Purpose**: Multi-step lookup: Hebrew year text → school symbol → school_year ID
+- **Steps**: 
+  1. Find year_id from `HebrewYears` by year_name
+  2. Find school_id from `Entities` by symbol
+  3. Call `GetSchoolYearByIds()`
+- **Returns**: `int?` (null if any step fails)
+```csharp
+var schoolYearId = await _globalFunctions.GetSchoolYearByHebrewYearAndSymbol(
+    hebrewYear: "תשפ״ה",     // Hebrew year text from hebrew_years.year_name
+    schoolSymbol: "1234"     // School symbol from entities.symbol
+);
+```
+
+**4. Get Class ID by Name**
+- **Purpose**: Find class ID by comparing pure Hebrew/numeric text of class names
+- **Comparison**: Uses `PureHebrewText()` to normalize both input and database names
+- **Database**: Queries `SchoolClasses` filtered by school_year_id
+- **Returns**: `int?` (null if not found)
+```csharp
+var classId = await _globalFunctions.GetClassIdByName(
+    className: "א-1",        // Class name (with or without punctuation/spaces)
+    schoolYearId: 42         // School year context from school_years.id
+);
+// Matches against normalized class names: "א-1", "א 1", "א1" all become "א1"
+```
+
+**5. Get Council by Name**
+- **Purpose**: Find council ID by comparing pure Hebrew/numeric text of council short names
+- **Comparison**: Uses `PureHebrewText()` to normalize against `council_short_name` field
+- **Database**: Queries `Councils` table
+- **Returns**: `int?` (null if not found)
+```csharp
+var councilId = await _globalFunctions.GetCouncilByName(
+    councilName: "ירושלים"  // Council name (compares to councils.council_short_name)
+);
+```
+
+**6. Get Council by Code**
+- **Purpose**: Find council ID by exact council code match
+- **Database**: Queries `Councils` table by `council_code` field
+- **Returns**: `int?` (null if not found)
+```csharp
+var councilId = await _globalFunctions.GetCouncilByCode(
+    councilCode: "3000"      // Council code from councils.council_code
+);
+```
+
+#### Best Practices
+
+**When to Use GlobalFunctions**:
+- ✅ Text normalization for Hebrew/numeric comparisons
+- ✅ Common lookup patterns used across multiple controllers
+- ✅ Entity resolution by name/code/symbol
+- ✅ Multi-step data retrieval workflows
+- ✅ Import/export operations requiring fuzzy matching
+
+**Error Handling**:
+- All async methods return `null` on failure (not throwing exceptions)
+- Always check for null before using results
+- Log context when null is returned for debugging
+```csharp
+var classId = await _globalFunctions.GetClassIdByName(className, yearId);
+if (classId == null)
+{
+    _logger.LogWarning("Class not found: {ClassName} in year {YearId}", className, yearId);
+    return NotFound($"Class '{className}' not found");
+}
+```
+
+**Combining Functions**:
+```csharp
+// Example: Process student import by class name and Hebrew year
+var schoolYearId = await _globalFunctions.GetSchoolYearByHebrewYearAndSymbol(
+    hebrewYear: "תשפ״ה",
+    schoolSymbol: "1234"
+);
+
+if (schoolYearId == null)
+{
+    return NotFound("School year not found for תשפ״ה at school 1234");
+}
+
+var classId = await _globalFunctions.GetClassIdByName(
+    className: studentData.ClassName,
+    schoolYearId: schoolYearId.Value
+);
+
+if (classId == null)
+{
+    return NotFound($"Class '{studentData.ClassName}' not found in school year {schoolYearId}");
+}
+
+// Process student with resolved IDs
+var student = new SchoolStudent
+{
+    ClassId = classId.Value,
+    SchoolYearId = schoolYearId.Value,
+    // ... other fields
+};
+```
+
+**Static vs Instance Methods**:
+- **Static**: `PureHebrewText()` - Text processing only, no database access
+  - Call directly: `GlobalFunctions.PureHebrewText(text)`
+  - No dependency injection needed
+  - Can be used in static contexts
+  
+- **Instance**: All other methods - Require database access via `AppDbContext`
+  - Require injection: `_globalFunctions.GetSchoolYearByIds(...)`
+  - Must be registered as scoped service
+  - Participate in EF Core change tracking
+
+**Performance Considerations**:
+- Name-based lookups load all records into memory for comparison
+  - `GetClassIdByName()` loads all classes for the school year
+  - `GetCouncilByName()` loads all councils
+- Use code-based lookups when possible for better performance
+  - `GetCouncilByCode()` uses indexed database query
+- Consider caching results for frequently-called lookups
+
+**Integration with File Imports**:
+```csharp
+// Example: Excel import with fuzzy matching
+foreach (var row in excelRows)
+{
+    // Normalize input data
+    var normalizedClass = GlobalFunctions.PureHebrewText(row["כיתה"]);
+    var normalizedCouncil = GlobalFunctions.PureHebrewText(row["רשות"]);
+    
+    // Resolve IDs using global functions
+    var classId = await _globalFunctions.GetClassIdByName(row["כיתה"], schoolYearId);
+    var councilId = await _globalFunctions.GetCouncilByName(row["רשות"]);
+    
+    if (classId == null || councilId == null)
+    {
+        // Log validation error with original and normalized values
+        errors.Add($"Row {rowNum}: Class '{row["כיתה"]}' (normalized: '{normalizedClass}') " +
+                   $"or Council '{row["רשות"]}' (normalized: '{normalizedCouncil}') not found");
+        continue;
+    }
+    
+    // Create record with resolved IDs
+}
+```
+
 ## Hebrew/RTL Specific Patterns
 
 - HTML `lang="he" dir="rtl"` on all pages
 - CSS variables in `theme.css` for RTL-aware spacing
 - Date formatting: `new Date().toLocaleDateString('he-IL')`
 - Form layouts use CSS Grid with `grid-template-areas` for RTL compatibility
+- **Hebrew text normalization**: Always use `GlobalFunctions.PureHebrewText()` for comparisons
+- **Mixed Hebrew/numeric content**: `PureHebrewText()` preserves both Hebrew letters and digits
 
 ## Integration Points
 
@@ -460,3 +667,6 @@ fetch(AppConfig.getApiUrl('systemAttributes'))
 - **All tables MUST use ReusableTable component** - no manual table HTML
 - **All icons MUST use provided PNG set** - no emoji, Unicode symbols, or custom icons
 - **Context buttons MUST be positioned to the left of main section** - use fixed/sticky positioning
+- **GlobalFunctions must be injected** - except for static `PureHebrewText()` method
+- **Always normalize Hebrew text before comparison** - use `PureHebrewText()` for fuzzy matching
+- **Check for null after GlobalFunctions calls** - all lookup methods return `int?`

@@ -16,7 +16,7 @@ namespace PetelApp.Api.Data
 
         [Required]
         [Column("council_code")]
-        public int CouncilCode { get; set; }
+        public string CouncilCode { get; set; }
 
         [Column("council_type")]
         [MaxLength(25)]

@@ -68,6 +68,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddSingleton<SystemAttributeCache>();
 builder.Services.AddHostedService<SystemAttributeLoaderHostedService>();
 builder.Services.AddScoped<SystemAttributeService>();
+builder.Services.AddScoped<GlobalFunctions>();
 
 // User Session Management (Token-based)
 builder.Services.AddSingleton<UserSessionService>();

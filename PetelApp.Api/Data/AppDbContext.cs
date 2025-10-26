@@ -25,6 +25,8 @@ namespace PetelApp.Api.Data
         // DbSets following Entity-Based Request Flow
         public DbSet<SchoolStudent> SchoolStudents { get; set; }
 
+        public DbSet<HebrewYear> HebrewYears { get; set; }
+
         // NEW DbSets for Council and SchoolClass
         public DbSet<Council> Councils { get; set; }
         public DbSet<SchoolClass> SchoolClasses { get; set; }
