@@ -1,0 +1,32 @@
+# Database Schema Extraction - .gitignore
+# Add this content to your project's .gitignore file
+
+# Database credentials (IMPORTANT!)
+run_extract.cmd
+update_schema.cmd
+.env
+.env.local
+
+# PostgreSQL password file
+.pgpass
+pgpass.conf
+
+# Temporary files
+*.tmp
+*.log
+
+# Optional: Uncomment if you don't want to commit schema files
+# db-schema/
+# *_schema.sql
+# *_schema_simple.sql
+
+# IDE files
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store

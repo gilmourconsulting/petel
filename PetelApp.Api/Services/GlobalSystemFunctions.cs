@@ -128,7 +128,7 @@ namespace PetelApp.Api.Services
         public async Task<int?> GetCouncilByCode(string councilCode)
         {
             var council = await _context.Councils
-                .Where(c => c.CouncilCode == councilCode)
+                .Where(c => c.CouncilCode.ToString() == councilCode)
                 .FirstOrDefaultAsync();
 
             return council?.Id;

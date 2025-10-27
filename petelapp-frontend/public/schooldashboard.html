@@ -1,12 +1,10 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>שנתון בית ספר</title>
-</head>
-<body>
-    <div class="main-dashboard-container">
+<div class="students-container">
+        <!-- Context buttons - LEFT SIDE POSITIONING -->
+        <div class="context-buttons-section screenwithtable-context">
+                <button class="context-btn" onclick="navigateToStudents()">תלמידים</button>
+                <button class="context-btn" onclick="navigateToSchoolDetails()">פרטי בית ספר</button>
+                <button class="context-btn" >מסמכים בית ספריים</button>
+        </div>
         <!-- School Title Section -->
         <div class="school-title-section">
             <h1 class="school-title" id="schoolTitle" style="margin-bottom: 20px; color: #C15A16;">ניהול תלמידי חוץ</h1>
@@ -47,19 +45,11 @@
                 </div>
             </div>
             
-            <div class="context-buttons-section">
-                <button class="context-btn" onclick="navigateToStudents()">תלמידים</button>
-                <button class="context-btn" onclick="navigateToSchoolDetails()">פרטי בית ספר</button>
-                <button class="context-btn" >מסמכים בית ספריים</button>
-            </div>
+
         </div>
 
-        <div class="content-card">
-            <div class="form-footer" style="text-align: center; color: #666; font-size: 12px;">
-                פט"ל - פתרונות טכנולגים לחינוך - גרסה <span id="systemVersion">טוען...</span>
-            </div>
-        </div>
-    </div>
+
+ </div>
 
     <script>
         console.log('🔍 Main Dashboard script loaded');
@@ -385,5 +375,3 @@ async function resolveSelectedSchoolYearId() {
 
         console.log('✅ School Dashboard functions registered globally');
     </script>
-</body>
-</html>

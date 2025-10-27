@@ -1,0 +1,51 @@
+# Project Instructions for AI Assistants
+
+## Database Schema
+
+The database schema is documented in `db-schema/public_schema_simple.sql`. 
+Always refer to this file when:
+- Writing SQL queries
+- Creating ORM models or entities
+- Working with database migrations
+- Discussing data relationships
+
+## Coding Guidelines
+
+When working with database code:
+1. Check the schema file first for table structure and relationships
+2. Use the exact column names and types as defined in the schema
+3. Respect foreign key constraints and relationships
+4. Follow the naming conventions used in the database
+
+## Key Database Conventions
+
+- Primary keys: Usually `id` (SERIAL or BIGSERIAL)
+- Foreign keys: Named as `{table_name}_id`
+- Timestamps: `created_at`, `updated_at` (TIMESTAMPTZ)
+- Soft deletes: `deleted_at` (TIMESTAMPTZ, nullable)
+
+## Example Usage
+
+When generating code, prefer this style:
+
+```typescript
+// ✓ Good: References actual schema
+interface User {
+  id: number;
+  email: string;
+  created_at: Date;
+  updated_at: Date;
+}
+
+// ✗ Bad: Assumes schema without checking
+interface User {
+  userId: number;  // actual column is 'id'
+  emailAddress: string;  // actual column is 'email'
+}
+```
+
+## Notes
+
+- Schema file is auto-generated from the database
+- Update the schema file after running migrations
+- If schema seems outdated, ask the developer to regenerate it

@@ -4,8 +4,8 @@
         <button class="context-btn" onclick="refreshStudentsData()">
             רענן נתונים
         </button>
-        <button class="context-btn" onclick="window.history.back()">
-            חזרה
+        <button class="context-btn" onclick="navigateToSchoolDashboard()">
+            חזרה לדף בית הספר
         </button>
      <button class="context-btn" onclick="showUploadDialog()">
             העלאת קובץ תלמידים
@@ -191,7 +191,19 @@ async function loadStudentsData() {
     }
 }
 
-
+// Navigate back to school dashboard following Frontend Architecture Patterns
+function navigateToSchoolDashboard() {
+    console.log('🔙 Navigating back to school dashboard...');
+    
+    // Use global navigation function following Single-Page Application with Module Loading
+    if (typeof window.navigateTo === 'function') {
+        window.navigateTo('schooldashboard');
+    } else {
+        console.error('❌ window.navigateTo not available');
+        // Fallback: use browser history
+        window.history.back();
+    }
+}
 
 
 // Update summary statistics to count by name instead of ID
@@ -610,6 +622,7 @@ window.viewStudentDetails = viewStudentDetails;
 window.getStudentById = getStudentById;
 window.navigateToStudentDetails = navigateToStudentDetails;
 window.refreshStudentsData = refreshStudentsData;
+window.navigateToSchoolDashboard = navigateToSchoolDashboard;
 window.showUploadDialog = showUploadDialog;
 window.closeUploadDialog = closeUploadDialog;
 window.handleFileUpload = handleFileUpload;

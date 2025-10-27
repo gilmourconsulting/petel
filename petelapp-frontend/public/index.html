@@ -265,7 +265,8 @@ document.addEventListener('DOMContentLoaded', function() {
             'maindashboard': 'maindashboard.html',
             'schoollist': 'schoollist.html',
             'schooldashboard': 'schooldashboard.html',
-            'students': 'students.html',  // MAKE SURE THIS EXISTS
+            'schooldetails': 'schooldetails.html',
+            'students': 'students.html', 
             'studentdetails': 'student.html',
             'student': 'student.html',
             'systemattributes': 'system-attributes.html'
@@ -625,6 +626,30 @@ async function loadSchoolDashboardPage() {
     }
 }
 
+
+async function loadSchoolDetailsPage() {
+    if (!checkAuthentication()) return;
+    
+    try {
+        console.log('Loading school details page...');
+        
+        const response = await fetch('schooldetails.html');
+        if (response.ok) {
+            const html = await response.text();
+            document.getElementById('dynamicContent').innerHTML = html;
+            
+            executeScriptsInContainer(document.getElementById('dynamicContent'));
+            
+            history.pushState({ section: 'schooldetails' }, '', '#schooldetails');
+            
+            console.log('✅ School details page loaded successfully');
+        } else {
+            console.error('Failed to load schooldetails.html:', response.status);
+        }
+    } catch (error) {
+        console.error('Error loading school details page:', error);
+    }
+}
 // Find and update the navigateTo function or add loadCouncilSummaryPage
 
 async function loadCouncilSummaryPage() {
@@ -680,6 +705,9 @@ window.addEventListener('popstate', function(event) {
             case 'schooldashboard':
                 loadSchoolDashboardPage();
                 break;
+            case 'schooldetails': 
+                loadSchoolDetailsPage();
+                break;    
             case 'councilsummary':
                 loadCouncilSummaryPage();
                 break;
@@ -1136,6 +1164,7 @@ window.loadSystemAttributes = loadSystemAttributes;
 window.toggleMenu = toggleMenu;
 window.logout = logout;
 window.executeScriptsInContainer = executeScriptsInContainer;
+window.loadSchoolDetailsPage = loadSchoolDetailsPage;
 window.loadSchoolListPage = loadSchoolListPage;
 window.loadSchoolYearPage = loadSchoolYearPage;
 window.loadStudentsPage = loadStudentsPage;

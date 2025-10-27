@@ -28,6 +28,7 @@ namespace PetelApp.Api.Data
         public DbSet<HebrewYear> HebrewYears { get; set; }
 
         // NEW DbSets for Council and SchoolClass
+        public DbSet<School> Schools { get; set; }
         public DbSet<Council> Councils { get; set; }
         public DbSet<SchoolClass> SchoolClasses { get; set; }
 
@@ -162,6 +163,31 @@ namespace PetelApp.Api.Data
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
                 entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
             });
+
+            // Configure School relationships
+            modelBuilder.Entity<School>()
+                .HasOne(s => s.PrincipalPerson)
+                .WithMany()
+                .HasForeignKey(s => s.Principal)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<School>()
+                .HasOne(s => s.InspectorPerson)
+                .WithMany()
+                .HasForeignKey(s => s.Inspector)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<School>()
+                .HasOne(s => s.ContactPersonPerson)
+                .WithMany()
+                .HasForeignKey(s => s.ContactPerson)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<School>()
+                .HasOne(s => s.CouncilEntity)
+                .WithMany()
+                .HasForeignKey(s => s.Council)
+                .OnDelete(DeleteBehavior.Restrict);
         }
     }
 
