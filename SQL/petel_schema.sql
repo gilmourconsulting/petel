@@ -1,15 +1,15 @@
 -- DDL STATEMENTS (copy all rows) --
-"-- ============================================
+-- ============================================
 -- Schema DDL Export: petel_schema
 -- Generated: 2025-10-28 14:44:42.493503+02
 -- ============================================
-"
-"
+
+
 -- ============================================
 -- TABLES
 -- ============================================
-"
-"
+
+
 -- Table: petel_schema.budget_statuses
 CREATE TABLE petel_schema.budget_statuses (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.roles_seq'::regclass),
@@ -19,8 +19,8 @@ CREATE TABLE petel_schema.budget_statuses (
     updated_at timestamp with time zone DEFAULT now(),
     update_user integer(32,0)
 );
-"
-"
+
+
 -- Table: petel_schema.councils
 CREATE TABLE petel_schema.councils (
     id integer(32,0) NOT NULL,
@@ -31,8 +31,8 @@ CREATE TABLE petel_schema.councils (
     council_district character varying(25),
     council_HP_number integer(32,0)
 );
-"
-"
+
+
 -- Table: petel_schema.entities
 CREATE TABLE petel_schema.entities (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.entities_seq'::regclass),
@@ -55,8 +55,8 @@ CREATE TABLE petel_schema.entities (
     education_stage character varying(25),
     symbol character(8)
 );
-"
-"
+
+
 -- Table: petel_schema.entity_types
 CREATE TABLE petel_schema.entity_types (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.entity_types_seq'::regclass),
@@ -64,8 +64,8 @@ CREATE TABLE petel_schema.entity_types (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
-"
-"
+
+
 -- Table: petel_schema.genders
 CREATE TABLE petel_schema.genders (
     id integer(32,0) NOT NULL,
@@ -74,15 +74,15 @@ CREATE TABLE petel_schema.genders (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
-"
-"
+
+
 -- Table: petel_schema.hebrew_years
 CREATE TABLE petel_schema.hebrew_years (
     id integer(32,0) NOT NULL,
     hebrew_year character varying NOT NULL
 );
-"
-"
+
+
 -- Table: petel_schema.persons
 CREATE TABLE petel_schema.persons (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.persons_seq'::regclass),
@@ -101,8 +101,8 @@ CREATE TABLE petel_schema.persons (
     office_number_prefix character varying(3),
     office_number character varying(10)
 );
-"
-"
+
+
 -- Table: petel_schema.roles
 CREATE TABLE petel_schema.roles (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.roles_seq'::regclass),
@@ -112,8 +112,8 @@ CREATE TABLE petel_schema.roles (
     updated_at timestamp with time zone DEFAULT now(),
     update_user integer(32,0)
 );
-"
-"
+
+
 -- Table: petel_schema.roles_actions
 CREATE TABLE petel_schema.roles_actions (
     id integer(32,0) NOT NULL,
@@ -123,8 +123,8 @@ CREATE TABLE petel_schema.roles_actions (
     updated_at timestamp with time zone,
     update_user integer(32,0)
 );
-"
-"
+
+
 -- Table: petel_schema.school_attribute_types_values
 CREATE TABLE petel_schema.school_attribute_types_values (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.school_attribute_types_values_seq'::regclass),
@@ -134,8 +134,8 @@ CREATE TABLE petel_schema.school_attribute_types_values (
     is_valid boolean DEFAULT true,
     sort_order integer(32,0) DEFAULT 10
 );
-"
-"
+
+
 -- Table: petel_schema.school_attributes
 CREATE TABLE petel_schema.school_attributes (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.school_attributes_seq'::regclass),
@@ -148,8 +148,8 @@ CREATE TABLE petel_schema.school_attributes (
     user_id integer(32,0) NOT NULL DEFAULT 0,
     is_last_version boolean DEFAULT true
 );
-"
-"
+
+
 -- Table: petel_schema.school_attributes_types
 CREATE TABLE petel_schema.school_attributes_types (
     id integer(32,0) NOT NULL,
@@ -158,8 +158,8 @@ CREATE TABLE petel_schema.school_attributes_types (
     attribute_value_type character varying(25),
     hebrew_name character varying
 );
-"
-"
+
+
 -- Table: petel_schema.school_classes
 CREATE TABLE petel_schema.school_classes (
     id integer(32,0) NOT NULL,
@@ -170,8 +170,8 @@ CREATE TABLE petel_schema.school_classes (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
-"
-"
+
+
 -- Table: petel_schema.school_grades
 CREATE TABLE petel_schema.school_grades (
     id integer(32,0) NOT NULL,
@@ -180,8 +180,8 @@ CREATE TABLE petel_schema.school_grades (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
-"
-"
+
+
 -- Table: petel_schema.school_hours_budget
 CREATE TABLE petel_schema.school_hours_budget (
     id integer(32,0) NOT NULL,
@@ -195,8 +195,8 @@ CREATE TABLE petel_schema.school_hours_budget (
     update_at timestamp with time zone,
     update_user integer(32,0)
 );
-"
-"
+
+
 -- Table: petel_schema.school_students
 CREATE TABLE petel_schema.school_students (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.school_students_id_seq'::regclass),
@@ -220,8 +220,8 @@ CREATE TABLE petel_schema.school_students (
     sending_council integer(32,0),
     is_last_version boolean DEFAULT true
 );
-"
-"
+
+
 -- Table: petel_schema.school_tracks
 CREATE TABLE petel_schema.school_tracks (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.school_tracks_seq'::regclass),
@@ -231,8 +231,8 @@ CREATE TABLE petel_schema.school_tracks (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
-"
-"
+
+
 -- Table: petel_schema.school_years
 CREATE TABLE petel_schema.school_years (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.school_years_seq'::regclass),
@@ -247,8 +247,8 @@ CREATE TABLE petel_schema.school_years (
     status integer(32,0),
     year_id integer(32,0)
 );
-"
-"
+
+
 -- Table: petel_schema.schools
 CREATE TABLE petel_schema.schools (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.schools_seq'::regclass),
@@ -278,8 +278,8 @@ CREATE TABLE petel_schema.schools (
     symbol character(8),
     is_last_version boolean DEFAULT true
 );
-"
-"
+
+
 -- Table: petel_schema.student_school_years
 CREATE TABLE petel_schema.student_school_years (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.student_school_years_id_seq'::regclass),
@@ -291,8 +291,8 @@ CREATE TABLE petel_schema.student_school_years (
     updated_at timestamp with time zone DEFAULT now(),
     school_grade_id integer(32,0)
 );
-"
-"
+
+
 -- Table: petel_schema.students
 CREATE TABLE petel_schema.students (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.students_seq'::regclass),
@@ -301,8 +301,8 @@ CREATE TABLE petel_schema.students (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
-"
-"
+
+
 -- Table: petel_schema.system_actions
 CREATE TABLE petel_schema.system_actions (
     id integer(32,0) NOT NULL,
@@ -313,8 +313,8 @@ CREATE TABLE petel_schema.system_actions (
     updated_at timestamp with time zone DEFAULT now(),
     update_user integer(32,0)
 );
-"
-"
+
+
 -- Table: petel_schema.system_attributes
 CREATE TABLE petel_schema.system_attributes (
     id integer(32,0) NOT NULL,
@@ -327,8 +327,8 @@ CREATE TABLE petel_schema.system_attributes (
     update_user integer(32,0),
     foreign_id integer(32,0)
 );
-"
-"
+
+
 -- Table: petel_schema.user_roles
 CREATE TABLE petel_schema.user_roles (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.user_roles_seq'::regclass),
@@ -339,8 +339,8 @@ CREATE TABLE petel_schema.user_roles (
     update_user integer(32,0),
     is_active boolean
 );
-"
-"
+
+
 -- Table: petel_schema.users
 CREATE TABLE petel_schema.users (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.users_seq'::regclass),
@@ -357,311 +357,311 @@ CREATE TABLE petel_schema.users (
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
-"
-"
+
+
 -- ============================================
 -- PRIMARY KEYS
 -- ============================================
-"
-"
+
+
 ALTER TABLE petel_schema.budget_statuses
   ADD CONSTRAINT budget_statuses_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.councils
   ADD CONSTRAINT councils_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.entities
   ADD CONSTRAINT entities_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.entity_types
   ADD CONSTRAINT entity_types_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.genders
   ADD CONSTRAINT genders_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.hebrew_years
   ADD CONSTRAINT hebrew_years_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.persons
   ADD CONSTRAINT persons_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.roles
   ADD CONSTRAINT roles_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.roles_actions
   ADD CONSTRAINT action_roles_PK
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.school_attribute_types_values
   ADD CONSTRAINT school_attribute_types_values_pk
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.school_attributes
   ADD CONSTRAINT school_attributes_pk
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.school_attributes_types
   ADD CONSTRAINT school_attributes_types_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.school_classes
   ADD CONSTRAINT school_classes_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.school_grades
   ADD CONSTRAINT school_grades_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.school_hours_budget
   ADD CONSTRAINT school_budget_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.school_students
   ADD CONSTRAINT school_students_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.school_tracks
   ADD CONSTRAINT school_tracks_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.school_years
   ADD CONSTRAINT school_years_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.schools
   ADD CONSTRAINT schools_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.student_school_years
   ADD CONSTRAINT student_school_years_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.students
   ADD CONSTRAINT students_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.system_actions
   ADD CONSTRAINT system_actions_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.system_attributes
   ADD CONSTRAINT system_attributes_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.user_roles
   ADD CONSTRAINT user_roles_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.users
   ADD CONSTRAINT users_pkey
-  PRIMARY KEY (id);"
-"
+  PRIMARY KEY (id);
+
 -- ============================================
 -- FOREIGN KEYS
 -- ============================================
-"
-"
+
+
 ALTER TABLE petel_schema.entities
   ADD CONSTRAINT entities_entity_type_id_fkey
   FOREIGN KEY (entity_type_id)
-  REFERENCES petel_schema.entity_types (id);"
-"
+  REFERENCES petel_schema.entity_types (id);
+
 ALTER TABLE petel_schema.entities
   ADD CONSTRAINT owner_fkey
   FOREIGN KEY (owner)
-  REFERENCES petel_schema.entities (id);"
-"
+  REFERENCES petel_schema.entities (id);
+
 ALTER TABLE petel_schema.persons
   ADD CONSTRAINT persons_user_id_fkey
   FOREIGN KEY (user_id)
-  REFERENCES petel_schema.users (id);"
-"
+  REFERENCES petel_schema.users (id);
+
 ALTER TABLE petel_schema.roles_actions
   ADD CONSTRAINT action_roles_fk2
   FOREIGN KEY (action_id)
-  REFERENCES petel_schema.system_actions (id);"
-"
+  REFERENCES petel_schema.system_actions (id);
+
 ALTER TABLE petel_schema.roles_actions
   ADD CONSTRAINT action_roles_fk1
   FOREIGN KEY (role_id)
-  REFERENCES petel_schema.roles (id);"
-"
+  REFERENCES petel_schema.roles (id);
+
 ALTER TABLE petel_schema.school_attribute_types_values
   ADD CONSTRAINT school_attribute_type_value_attribute_type_id
   FOREIGN KEY (school_attribute_id)
-  REFERENCES petel_schema.school_attributes_types (id);"
-"
+  REFERENCES petel_schema.school_attributes_types (id);
+
 ALTER TABLE petel_schema.school_attributes
   ADD CONSTRAINT school_attributes_attribute_type_id
   FOREIGN KEY (school_attribute_id)
-  REFERENCES petel_schema.school_attributes_types (id);"
-"
+  REFERENCES petel_schema.school_attributes_types (id);
+
 ALTER TABLE petel_schema.school_classes
   ADD CONSTRAINT school_classes_fk1
   FOREIGN KEY (school_year)
-  REFERENCES petel_schema.school_years (id);"
-"
+  REFERENCES petel_schema.school_years (id);
+
 ALTER TABLE petel_schema.school_students
   ADD CONSTRAINT school_students_gender_fk
   FOREIGN KEY (gender)
-  REFERENCES petel_schema.genders (id);"
-"
+  REFERENCES petel_schema.genders (id);
+
 ALTER TABLE petel_schema.school_students
   ADD CONSTRAINT school_students_school_year_id_fkey
   FOREIGN KEY (school_year_id)
-  REFERENCES petel_schema.school_years (id);"
-"
+  REFERENCES petel_schema.school_years (id);
+
 ALTER TABLE petel_schema.school_years
   ADD CONSTRAINT school_years_school_id_fkey
   FOREIGN KEY (school_id)
-  REFERENCES petel_schema.entities (id);"
-"
+  REFERENCES petel_schema.entities (id);
+
 ALTER TABLE petel_schema.school_years
   ADD CONSTRAINT school_years_update_user_fkey
   FOREIGN KEY (update_user)
-  REFERENCES petel_schema.users (id);"
-"
+  REFERENCES petel_schema.users (id);
+
 ALTER TABLE petel_schema.schools
   ADD CONSTRAINT contact_person_person_fkey
   FOREIGN KEY (contact_person)
-  REFERENCES petel_schema.persons (id);"
-"
+  REFERENCES petel_schema.persons (id);
+
 ALTER TABLE petel_schema.schools
   ADD CONSTRAINT school_year_id_fkey
   FOREIGN KEY (school_year_id)
-  REFERENCES petel_schema.school_years (id);"
-"
+  REFERENCES petel_schema.school_years (id);
+
 ALTER TABLE petel_schema.schools
   ADD CONSTRAINT owner_fkey
   FOREIGN KEY (owner)
-  REFERENCES petel_schema.entities (id);"
-"
+  REFERENCES petel_schema.entities (id);
+
 ALTER TABLE petel_schema.schools
   ADD CONSTRAINT schools_entity_id_fkey
   FOREIGN KEY (entity_id)
-  REFERENCES petel_schema.entities (id);"
-"
+  REFERENCES petel_schema.entities (id);
+
 ALTER TABLE petel_schema.schools
   ADD CONSTRAINT schools_entity_type_id_fkey
   FOREIGN KEY (entity_type_id)
-  REFERENCES petel_schema.entity_types (id);"
-"
+  REFERENCES petel_schema.entity_types (id);
+
 ALTER TABLE petel_schema.schools
   ADD CONSTRAINT inspector_person_fkey
   FOREIGN KEY (inspector)
-  REFERENCES petel_schema.persons (id);"
-"
+  REFERENCES petel_schema.persons (id);
+
 ALTER TABLE petel_schema.schools
   ADD CONSTRAINT principal_person_fkey
   FOREIGN KEY (principal)
-  REFERENCES petel_schema.persons (id);"
-"
+  REFERENCES petel_schema.persons (id);
+
 ALTER TABLE petel_schema.student_school_years
   ADD CONSTRAINT student_school_years_school_year_id_fkey
   FOREIGN KEY (school_year_id)
-  REFERENCES petel_schema.school_years (id);"
-"
+  REFERENCES petel_schema.school_years (id);
+
 ALTER TABLE petel_schema.students
   ADD CONSTRAINT students_user_id_fkey
   FOREIGN KEY (user_id)
-  REFERENCES petel_schema.users (id);"
-"
+  REFERENCES petel_schema.users (id);
+
 ALTER TABLE petel_schema.students
   ADD CONSTRAINT students_person_id_fkey
   FOREIGN KEY (person_id)
-  REFERENCES petel_schema.persons (id);"
-"
+  REFERENCES petel_schema.persons (id);
+
 ALTER TABLE petel_schema.users
   ADD CONSTRAINT users_entity_id_id_fkey
   FOREIGN KEY (entity_id)
-  REFERENCES petel_schema.entities (id);"
-"
+  REFERENCES petel_schema.entities (id);
+
 ALTER TABLE petel_schema.users
   ADD CONSTRAINT users_update_user_fkey
   FOREIGN KEY (update_user)
-  REFERENCES petel_schema.users (id);"
-"
+  REFERENCES petel_schema.users (id);
+
 -- ============================================
 -- UNIQUE CONSTRAINTS
 -- ============================================
-"
-"
+
+
 ALTER TABLE petel_schema.roles_actions
   ADD CONSTRAINT action_roles_uq
-  UNIQUE (role_id, action_id);"
-"
+  UNIQUE (role_id, action_id);
+
 ALTER TABLE petel_schema.school_classes
   ADD CONSTRAINT school_classes_uq
-  UNIQUE (school_year, name);"
-"
+  UNIQUE (school_year, name);
+
 ALTER TABLE petel_schema.school_grades
   ADD CONSTRAINT school_grades_uq
-  UNIQUE (name);"
-"
+  UNIQUE (name);
+
 ALTER TABLE petel_schema.school_students
   ADD CONSTRAINT unique_school_student
-  UNIQUE (id_number, school_year_id, version);"
-"
+  UNIQUE (id_number, school_year_id, version);
+
 ALTER TABLE petel_schema.school_tracks
   ADD CONSTRAINT School_tracks_per_year
-  UNIQUE (year_id, external_code);"
-"
+  UNIQUE (year_id, external_code);
+
 ALTER TABLE petel_schema.school_years
   ADD CONSTRAINT unique_school_year_per_school
-  UNIQUE (school_id, hebrew_year_name);"
-"
+  UNIQUE (school_id, hebrew_year_name);
+
 ALTER TABLE petel_schema.schools
   ADD CONSTRAINT unique_school
-  UNIQUE (entity_id, school_year_id, version);"
-"
+  UNIQUE (entity_id, school_year_id, version);
+
 ALTER TABLE petel_schema.student_school_years
   ADD CONSTRAINT unique_student_school_year
-  UNIQUE (student_id, school_year_id);"
-"
+  UNIQUE (student_id, school_year_id);
+
 ALTER TABLE petel_schema.users
   ADD CONSTRAINT unique_username_per_entity_id
-  UNIQUE (username, entity_id);"
-"
+  UNIQUE (username, entity_id);
+
 -- ============================================
 -- CHECK CONSTRAINTS
 -- ============================================
-"
-"
+
+
 ALTER TABLE petel_schema.school_years
   ADD CONSTRAINT school_years_date_check
-  CHECK ((end_date > start_date));"
-"
+  CHECK ((end_date > start_date));
+
 -- ============================================
 -- INDEXES
 -- ============================================
-"
-"
-CREATE UNIQUE INDEX action_roles_uq ON petel_schema.roles_actions USING btree (role_id, action_id);"
-"
-CREATE UNIQUE INDEX school_classes_uq ON petel_schema.school_classes USING btree (school_year, name);"
-"
-CREATE UNIQUE INDEX school_grades_uq ON petel_schema.school_grades USING btree (name);"
-"
-CREATE UNIQUE INDEX unique_school_student ON petel_schema.school_students USING btree (id_number, school_year_id, version);"
-"
-CREATE UNIQUE INDEX ""School_tracks_per_year"" ON petel_schema.school_tracks USING btree (year_id, external_code);"
-"
-CREATE UNIQUE INDEX unique_school_year_per_school ON petel_schema.school_years USING btree (school_id, hebrew_year_name);"
-"
-CREATE UNIQUE INDEX unique_school ON petel_schema.schools USING btree (entity_id, school_year_id, version);"
-"
-CREATE UNIQUE INDEX unique_student_school_year ON petel_schema.student_school_years USING btree (student_id, school_year_id);"
-"
-CREATE UNIQUE INDEX unique_username_per_entity_id ON petel_schema.users USING btree (username, entity_id);"
-"
+
+
+CREATE UNIQUE INDEX action_roles_uq ON petel_schema.roles_actions USING btree (role_id, action_id);
+
+CREATE UNIQUE INDEX school_classes_uq ON petel_schema.school_classes USING btree (school_year, name);
+
+CREATE UNIQUE INDEX school_grades_uq ON petel_schema.school_grades USING btree (name);
+
+CREATE UNIQUE INDEX unique_school_student ON petel_schema.school_students USING btree (id_number, school_year_id, version);
+
+CREATE UNIQUE INDEX School_tracks_per_year ON petel_schema.school_tracks USING btree (year_id, external_code);
+
+CREATE UNIQUE INDEX unique_school_year_per_school ON petel_schema.school_years USING btree (school_id, hebrew_year_name);
+
+CREATE UNIQUE INDEX unique_school ON petel_schema.schools USING btree (entity_id, school_year_id, version);
+
+CREATE UNIQUE INDEX unique_student_school_year ON petel_schema.student_school_years USING btree (student_id, school_year_id);
+
+CREATE UNIQUE INDEX unique_username_per_entity_id ON petel_schema.users USING btree (username, entity_id);
+
 -- ============================================
 -- END OF DDL EXPORT
--- ============================================"
+-- ============================================

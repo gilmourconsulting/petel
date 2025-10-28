@@ -1,3 +1,7 @@
+<!-- School Title Section -->
+        <div class="school-title-section">
+            <h1 class="page-title" id="schoolTitle">ניהול תלמידי חוץ</h1>
+        </div>
 <div class="students-container">
     <!-- Context buttons - LEFT SIDE POSITIONING -->
     <div class="context-buttons-section screenwithtable-context">
@@ -13,27 +17,30 @@
     <!-- Main content positioned after menu and context buttons -->
     <div class="students-content">
         <div class="content-card">
-            <div class="content-header">
-                <h1 class="page-title">פרטי בית ספר</h1>
-
-            </div>
-
             <!-- School Details Card -->
             <div class="detail-card">
-                <div class="detail-card-header">
-                    <h2 class="detail-card-title">פרטי בית הספר</h2>
-                </div>
+
                 <div class="detail-card-content" id="schoolDetailsContent">
                     <!-- Content will be populated here -->
                 </div>
             </div>
 
-            <!-- School Services Card -->
+            <!-- School attributes Card -->
             <div class="detail-card">
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">שירותי בית ספר</h2>
                 </div>
-                <div class="detail-card-content" id="schoolServicesContent">
+                <div class="detail-card-content" id="schoolattributesContent">
+                    <!-- Content will be populated here -->
+                </div>
+            </div>
+
+            <!-- School Classes Card -->
+            <div class="detail-card">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">מגמות בית ספר</h2>
+                </div>
+                <div class="detail-card-content" id="schoolClassesContent">
                     <!-- Content will be populated here -->
                 </div>
             </div>
@@ -54,42 +61,134 @@
         console.log('🔍 SCRIPT SECTION LOADED - schooldetails.html');
         
        
+       // Update the loadSchoolTitle function in schooldetails.html
+ async function loadSchoolTitle() {
+    console.log('📋 Loading school title from SessionState...');
+    
+    try {
+        // ✅ Use centralized SessionState
+        const session = await window.SessionState.getSession();
+        const yearValue = await window.SessionState.getProperty('SelectedYearValue');
+        
+        let schoolName = session.entityName;
+        
+        if (parseInt(session.entityTypeId, 10) === 5) {
+            // Multi-school network - get selected school name
+            const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
+            if (selectedSchoolName) {
+                schoolName = selectedSchoolName;
+            }
+        }
+        
+        console.log('🏫 School context:', { schoolName, yearValue });
+        
+        const titleElement = document.getElementById('schoolTitle');
+        if (titleElement) {
+            titleElement.textContent = yearValue 
+                ? `${schoolName} - ${yearValue}` 
+                : schoolName;
+            console.log('✅ School title updated via SessionState');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading school title:', error);
+        const titleElement = document.getElementById('schoolTitle');
+        if (titleElement) {
+            titleElement.textContent = 'לוח בקרה של בית ספר';
+        }
+    }
+}
 
+// Store pool dropdown options globally
+let poolDropdownOptions = [];
+
+// Load pool dropdown options on page initialization
+async function loadPoolDropdownOptions() {
+    try {
+        console.log('📋 Loading pool dropdown options...');
+        
+        // Pool attribute type ID is 3 based on database schema
+        const apiUrl = AppConfig.getApiUrl('schoolAttributes/attribute-values/3');
+        console.log('🌐 Fetching pool options from:', apiUrl);
+        
+        const response = await fetch(apiUrl);
+        
+        if (response.ok) {
+            const result = await response.json();
+            console.log('📥 Pool options response:', result);
+            
+            if (result.success && result.data) {
+                poolDropdownOptions = result.data;
+                console.log('✅ Pool dropdown options loaded:', poolDropdownOptions);
+            } else {
+                console.warn('⚠️ Pool options response missing data:', result);
+                poolDropdownOptions = [];
+            }
+        } else {
+            console.error('❌ Failed to load pool dropdown options:', response.status);
+            poolDropdownOptions = [];
+        }
+    } catch (error) {
+        console.error('💥 Error loading pool dropdown options:', error);
+        poolDropdownOptions = [];
+    }
+}
+
+// Update the loadSchoolTitle function in schooldetails.html
+async function loadSchoolTitle() {
+    console.log('📋 Loading school title from SessionState...');
+    
+    try {
+        // ✅ Use centralized SessionState
+        const session = await window.SessionState.getSession();
+        const yearValue = await window.SessionState.getProperty('SelectedYearValue');
+        
+        let schoolName = session.entityName;
+        
+        if (parseInt(session.entityTypeId, 10) === 5) {
+            // Multi-school network - get selected school name
+            const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
+            if (selectedSchoolName) {
+                schoolName = selectedSchoolName;
+            }
+        }
+        
+        console.log('🏫 School context:', { schoolName, yearValue });
+        
+        const titleElement = document.getElementById('schoolTitle');
+        if (titleElement) {
+            titleElement.textContent = yearValue 
+                ? `${schoolName} - ${yearValue}` 
+                : schoolName;
+            console.log('✅ School title updated via SessionState');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error loading school title:', error);
+        const titleElement = document.getElementById('schoolTitle');
+        if (titleElement) {
+            titleElement.textContent = 'לוח בקרה של בית ספר';
+        }
+    }
+}
 
         // Initialize page following Critical Development Workflows
         async function initializeSchoolDetails() {
-            console.log('🚀 initializeSchoolDetails FUNCTION CALLED!');
+            console.log('🚀 Initializing school details page...');
             
             try {
-                // Get selected school from session following Authentication & Session Management
-                const selectedSchoolId = await sessionManager.getSessionProperty('SelectedSchoolId');
-                const selectedSchoolName = await sessionManager.getSessionProperty('SelectedSchoolName');
-                const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
-
-                console.log('📋 School Details Debug:', {
-                    schoolId: selectedSchoolId,
-                    schoolName: selectedSchoolName,
-                    schoolYearId: selectedSchoolYearId
-                });
+                // Load pool dropdown options first
+                await loadPoolDropdownOptions();
                 
-                if (!selectedSchoolId || !selectedSchoolName) {
-                    console.error('❌ No school selected');
-                    showError('לא נבחר בית ספר');
-                    return;
-                }
-
-                // Update page subtitle with school name
-                const subtitleElement = document.getElementById('schoolNameSubtitle');
-                if (subtitleElement) {
-                    subtitleElement.textContent = `פרטים מפורטים של ${selectedSchoolName}`;
-                }
-
-                // Load school details data
+                // Then load school title
+                await loadSchoolTitle();
+                
+                // Load all data sections
                 await loadSchoolDetailsData();
                 
+                console.log('✅ School details page initialized successfully');
             } catch (error) {
-                console.error('💥 Exception in initializeSchoolDetails:', error);
-                showError('שגיאה בטעינת פרטי בית הספר');
+                console.error('💥 Error initializing school details:', error);
             }
         }
 
@@ -119,8 +218,8 @@
                 // Load school details
                 await loadSchoolDetails();
                 
-                // Load school services data
-                await loadSchoolServices();
+                // Load school attributes data
+                await loadSchoolattributes();
                 
                 // Load additional education table data
                 await loadAdditionalEducationTable();
@@ -207,9 +306,8 @@ function displaySchoolDetails(data) {
     const detailsHTML = `
         <div class="detail-fields-grid">
             <div class="detail-section">
-                <h4 class="detail-section-title">פרטי זהות</h4>
+                <h4 class="detail-section-title">פרטים בסיסים</h4>
                 <div>
-                    <p class="detail-field"><span class="detail-field-label">שם בית הספר:</span> <span class="detail-field-value">${data.name || ''}</span></p>
                     <p class="detail-field"><span class="detail-field-label">סמל בית ספר:</span> <span class="detail-field-value">${data.symbol || 'לא זמין'}</span></p>
                     <p class="detail-field"><span class="detail-field-label">אפיון:</span> <span class="detail-field-value">${data.characterization || 'לא זמין'}</span></p>
                     <p class="detail-field"><span class="detail-field-label">שלב חינוך:</span> <span class="detail-field-value">${data.educationStage || 'לא זמין'}</span></p>
@@ -235,23 +333,7 @@ function displaySchoolDetails(data) {
                 </div>
             </div>
             
-            <div class="detail-section">
-                <h4 class="detail-section-title">מידע נוסף</h4>
-                <div>
-                    <p class="detail-field"><span class="detail-field-label">מזהה:</span> <span class="detail-field-value">${data.id}</span></p>
-                    <p class="detail-field"><span class="detail-field-label">גרסה:</span> <span class="detail-field-value">${data.version}</span></p>
-                    <p class="detail-field"><span class="detail-field-label">סטטוס:</span> <span class="${data.isActive ? 'detail-status-active' : 'detail-status-inactive'}">${data.isActive ? 'פעיל' : 'לא פעיל'}</span></p>
-                    <p class="detail-field detail-timestamp">
-                        <span class="detail-field-label">עודכן לאחרונה:</span> ${new Date(data.updatedAt).toLocaleDateString('he-IL', { 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        })}
-                    </p>
-                </div>
-            </div>
+            
         </div>
     `;
 
@@ -262,16 +344,221 @@ function displaySchoolDetails(data) {
 
   
 
-        // Load school services following API Communication Pattern
-        async function loadSchoolServices() {
-            console.log('🏢 Loading school services...');
-            
-            const container = document.getElementById('schoolServicesContent');
-            if (container) {
-                container.innerHTML = '<p>טוען שירותי בית ספר...</p>';
-                // API call will be implemented here
-            }
+  // Load school attributes following API Communication Pattern
+async function loadSchoolattributes() {
+    console.log('🏢 Loading school attributes...');
+    
+    const container = document.getElementById('schoolattributesContent');
+    if (!container) {
+        console.error('❌ schoolattributesContent container not found');
+        return;
+    }
+    
+    try {
+        const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
+        
+        if (!selectedSchoolYearId) {
+            console.error('❌ No school year ID in session');
+            container.innerHTML = '<p style="color: #721c24; padding: 20px;">לא נמצא מזהה שנת לימודים</p>';
+            return;
         }
+
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            console.error('❌ No auth token found');
+            container.innerHTML = '<p style="color: #721c24; padding: 20px;">נדרש אימות. אנא התחבר מחדש.</p>';
+            return;
+        }
+
+        // Show loading state
+        container.innerHTML = '<p style="padding: 20px;">טוען שירותי בית ספר...</p>';
+
+        // API call following API Communication Pattern
+        const apiUrl = AppConfig.getApiUrl(`schoolAttributes/by-school-year/${selectedSchoolYearId}`);
+        console.log('🌐 Making API call to:', apiUrl);
+        
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        console.log('📥 Response:', response.status, response.ok);
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('🏢 School attributes received:', result);
+            
+            if (result.success && result.data) {
+                displaySchoolAttributes(result.data);
+            } else {
+                throw new Error('Invalid response format');
+            }
+        } else {
+            const errorText = await response.text();
+            console.error('❌ API Error:', response.status, errorText);
+            container.innerHTML = `<p style="color: #721c24; padding: 20px;">שגיאה בטעינת שירותי בית הספר: ${response.status}</p>`;
+        }
+    } catch (error) {
+        console.error('💥 Exception in loadSchoolattributes:', error);
+        container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה בטעינת שירותי בית הספר</p>';
+    }
+}
+
+// Display school attributes with editable fields following Hebrew/RTL Specific Patterns
+function displaySchoolAttributes(attributes) {
+    console.log('🏢 Displaying school attributes:', attributes);
+    
+    const container = document.getElementById('schoolattributesContent');
+    if (!container) return;
+
+    if (!attributes || attributes.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 20px; color: #6c757d;">
+                <p>אין שירותים מוגדרים עבור שנת לימודים זו</p>
+            </div>
+        `;
+        return;
+    }
+
+    // Create attributes display with editable fields following Hebrew/RTL patterns
+    const attributesHTML = `
+        <div class="attributes-grid" style="
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            direction: rtl;
+        ">
+            ${attributes.map(attr => {
+                // Render based on attribute type
+                let inputField = '';
+                
+                if (attr.valueType === 'Boolean') {
+                    // Boolean - Editable checkbox
+                    const isChecked = attr.value?.toLowerCase() === 'true' || attr.value === '1';
+                    inputField = `
+                        <div class="attribute-checkbox-container">
+                            <input type="checkbox" 
+                                   class="attribute-checkbox"
+                                   id="attr_${attr.id}"
+                                   data-attribute-id="${attr.id}"
+                                   data-value-type="Boolean"
+                                   ${isChecked ? 'checked' : ''}
+                                   onchange="handleAttributeChange(this)">
+
+                        </div>
+                    `;
+                } else if (attr.valueType === 'Integer') {
+                    // Integer - Editable number input
+                    inputField = `
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <input type="number" 
+                                   class="attribute-input"
+                                   id="attr_${attr.id}"
+                                   data-attribute-id="${attr.id}"
+                                   data-value-type="Integer"
+                                   value="${attr.value || '0'}"
+                                   min="0"
+                                   step="1"
+                                   onchange="handleAttributeChange(this)">
+                            <span style="font-size: 0.85em; color: #6c757d; white-space: nowrap;">שעות</span>
+                        </div>
+                    `;
+                } else if (attr.valueType === 'List') {
+                    // List - Dropdown select (for pool attribute)
+                    const currentValueId = attr.value || '';
+                    inputField = `
+                        <select class="attribute-select"
+                                id="attr_${attr.id}"
+                                data-attribute-id="${attr.id}"
+                                data-value-type="List"
+                                onchange="handleAttributeChange(this)">
+                            <option value="">בחר...</option>
+                            ${poolDropdownOptions.map(option => `
+                                <option value="${option.id}" ${currentValueId == option.id ? 'selected' : ''}>
+                                    ${option.value}
+                                </option>
+                            `).join('')}
+                        </select>
+                    `;
+                } else {
+                    // Default - Text input
+                    inputField = `
+                        <input type="text" 
+                               class="attribute-input"
+                               id="attr_${attr.id}"
+                               data-attribute-id="${attr.id}"
+                               data-value-type="Text"
+                               value="${attr.displayValue || ''}"
+                               onchange="handleAttributeChange(this)">
+                    `;
+                }
+                
+                return `
+                    <div class="attribute-item" style="
+                        padding: 10px 12px;
+                        background: #f8f9fa;
+                        border-radius: 6px;
+                        border: 1px solid #dee2e6;
+                        min-height: 75px;
+                        display: flex;
+                        flex-direction: column;
+                        gap: 8px;
+                    ">
+                        <label for="attr_${attr.id}" style="
+                            font-weight: 600; 
+                            color: #495057; 
+                            font-size: 0.9em;
+                            cursor: pointer;
+                        ">
+                            ${attr.hebrewName || attr.name}
+                        </label>
+                        ${inputField}
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+
+    container.innerHTML = attributesHTML;
+    
+    // Update checkbox labels dynamically
+    document.querySelectorAll('.attribute-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const label = this.nextElementSibling;
+
+        });
+    });
+    
+    console.log('✅ School attributes displayed successfully with editable fields');
+}
+
+// Handle attribute value changes (placeholder for future update functionality)
+function handleAttributeChange(element) {
+    const attributeId = element.dataset.attributeId;
+    const valueType = element.dataset.valueType;
+    let newValue = '';
+    
+    if (valueType === 'Boolean') {
+        newValue = element.checked ? 'true' : 'false';
+    } else if (valueType === 'List') {
+        newValue = element.value; // This is the ID from school_attribute_type_values
+    } else {
+        newValue = element.value;
+    }
+    
+    console.log('📝 Attribute changed:', {
+        attributeId: attributeId,
+        valueType: valueType,
+        newValue: newValue,
+        displayValue: valueType === 'List' ? element.options[element.selectedIndex]?.text : newValue
+    });
+    
+    // TODO: Add update API call here when update functionality is implemented
+    // await updateSchoolAttribute(attributeId, newValue);
+}
 
         // Load additional education table following Standard Table Component
         async function loadAdditionalEducationTable() {
@@ -752,7 +1039,7 @@ function displaySchoolDetails(data) {
         window.initializeSchoolDetails = initializeSchoolDetails;
         window.loadSchoolDetailsData = loadSchoolDetailsData;
         window.loadSchoolDetails = loadSchoolDetails;
-        window.loadSchoolServices = loadSchoolServices;
+        window.loadSchoolattributes = loadSchoolattributes;
         window.loadAdditionalEducationTable = loadAdditionalEducationTable;
 
         window.initializeAdditionalEducationTable = initializeAdditionalEducationTable;

@@ -32,6 +32,11 @@ namespace PetelApp.Api.Data
         public DbSet<Council> Councils { get; set; }
         public DbSet<SchoolClass> SchoolClasses { get; set; }
 
+            // Add these DbSets for school attributes
+        public DbSet<SchoolAttributeType> SchoolAttributeTypes { get; set; }
+        public DbSet<SchoolAttributeTypeValue> SchoolAttributeTypeValues { get; set; }
+        public DbSet<SchoolAttribute> SchoolAttributes { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -188,6 +193,42 @@ namespace PetelApp.Api.Data
                 .WithMany()
                 .HasForeignKey(s => s.Council)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Configure school attribute relationships
+            modelBuilder.Entity<SchoolAttributeTypeValue>(entity =>
+            {
+                entity.ToTable("school_attribute_types_values", "petel_schema");
+                entity.HasOne(v => v.SchoolAttributeType)
+                    .WithMany()
+                    .HasForeignKey(v => v.SchoolAttributeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<SchoolAttributeType>(entity =>
+            {
+                entity.ToTable("school_attributes_types", "petel_schema");
+            });
+
+            modelBuilder.Entity<SchoolAttribute>(entity =>
+            {
+                entity.ToTable("school_attributes", "petel_schema");
+                
+                // Foreign key to school_years
+                entity.HasOne(a => a.SchoolYear)
+                    .WithMany()
+                    .HasForeignKey(a => a.SchoolYearId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Foreign key to school_attributes_types
+                entity.HasOne(a => a.SchoolAttributeType)
+                    .WithMany()
+                    .HasForeignKey(a => a.SchoolAttributeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                // Unique constraint for school_attributes
+                entity.HasIndex(a => new { a.Id, a.SchoolYearId, a.Version })
+                    .IsUnique();
+            });
         }
     }
 
