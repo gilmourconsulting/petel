@@ -29,6 +29,15 @@
             <div class="detail-card">
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">שירותי בית ספר</h2>
+                    <button id="editAttributesBtn" class="btn-icon" >
+                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
+                    <!--document.getElementById('schoolattributesContent').parentElement.previousElementSibling.innerHTML = `
+                        <h2 class="detail-card-title" style="display:inline-block;">שירותי בית ספר</h2>
+                        <button id="editAttributesBtn" class="btn-icon" >
+                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                        </button>
+                    `;-->
                 </div>
                 <div class="detail-card-content" id="schoolattributesContent">
                     <!-- Content will be populated here -->
@@ -100,7 +109,212 @@
 }
 
 // Store pool dropdown options globally
-let poolDropdownOptions = [];
+window.poolDropdownOptions = window.poolDropdownOptions || [];
+
+// Store edit mode state globally
+window.schoolAttributesEditMode = window.schoolAttributesEditMode || false;
+
+// Store last attributes data for re-rendering
+window.lastSchoolAttributesData = window.lastSchoolAttributesData || [];
+
+// Store original values for change detection
+window.originalSchoolAttributesValues = window.originalSchoolAttributesValues || {};
+
+// Track if there are unsaved changes
+window.hasUnsavedAttributeChanges = window.hasUnsavedAttributeChanges || false;
+
+// Capture original values when loading attributes
+function captureOriginalAttributeValues(attributes) {
+    window.originalSchoolAttributesValues = {};
+    
+    const allAttributeTypes = [
+        { id: 1, valueType: "Boolean" },
+        { id: 2, valueType: "Boolean" },
+        { id: 3, valueType: "List" },
+        { id: 4, valueType: "Integer" },
+        { id: 5, valueType: "Integer" }
+    ];
+    
+    const attrMap = {};
+    (attributes || []).forEach(attr => {
+        attrMap[attr.attributeId] = attr;
+    });
+    
+    allAttributeTypes.forEach(attrType => {
+        const existingAttr = attrMap[attrType.id] || {};
+        let value = existingAttr.value;
+        
+        if (attrType.valueType === 'Boolean') {
+            value = value === 'true' || value === '1' || value === 'True' || 
+                    value === 'TRUE' || value === true || value === 1;
+        } else if (attrType.valueType === 'Integer') {
+            value = value || '0';
+        } else if (attrType.valueType === 'List') {
+            value = value || '';
+        }
+        
+        window.originalSchoolAttributesValues[attrType.id] = value;
+    });
+    
+    window.hasUnsavedAttributeChanges = false;
+    console.log('📋 Original attribute values captured:', window.originalSchoolAttributesValues);
+}
+
+// Check if any attribute values have changed
+function checkForAttributeChanges() {
+    const allAttributeTypes = [1, 2, 3, 4, 5];
+    
+    for (const attrId of allAttributeTypes) {
+        const element = document.getElementById(`attr_${attrId}`);
+        if (!element) continue;
+        
+        const valueType = element.dataset.valueType;
+        const originalValue = window.originalSchoolAttributesValues[attrId];
+        let currentValue;
+        
+        if (valueType === 'Boolean') {
+            currentValue = element.checked;
+        } else if (valueType === 'List') {
+            currentValue = element.value || '';
+        } else {
+            currentValue = element.value || '0';
+        }
+        
+        if (String(currentValue) !== String(originalValue)) {
+            console.log(`📝 Change detected in attribute ${attrId}:`, {
+                original: originalValue,
+                current: currentValue
+            });
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+// Show confirmation dialog with three options
+function showAttributeSaveDialog() {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+        
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        
+        dialog.innerHTML = `
+            <h3 class="dialog-title">שינויים לא נשמרו</h3>
+            <p class="dialog-message">ביצעת שינויים בשירותי בית הספר. מה ברצונך לעשות?</p>
+            <div class="dialog-buttons">
+                <button id="saveBtn" class="dialog-btn save">שמור</button>
+                <button id="dontSaveBtn" class="dialog-btn dont-save">אל תשמור</button>
+                <button id="cancelBtn" class="dialog-btn cancel">ביטול</button>
+            </div>
+        `;
+        
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+        
+        const saveBtn = dialog.querySelector('#saveBtn');
+        const dontSaveBtn = dialog.querySelector('#dontSaveBtn');
+        const cancelBtn = dialog.querySelector('#cancelBtn');
+        
+        saveBtn.onclick = () => {
+            document.body.removeChild(overlay);
+            resolve('save');
+        };
+        
+        dontSaveBtn.onclick = () => {
+            document.body.removeChild(overlay);
+            resolve('dontSave');
+        };
+        
+        cancelBtn.onclick = () => {
+            document.body.removeChild(overlay);
+            resolve('cancel');
+        };
+    });
+}
+
+// Show navigation warning dialog
+function showNavigationWarningDialog() {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+        
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        
+        dialog.innerHTML = `
+            <h3 class="dialog-title warning">אזהרה</h3>
+            <p class="dialog-message warning">לא נשמרו העריכות שביצעת במסך</p>
+            <div class="dialog-buttons">
+                <button id="stayBtn" class="dialog-btn stay">הישאר במסך</button>
+                <button id="leaveBtn" class="dialog-btn leave">עזוב בכל זאת</button>
+            </div>
+        `;
+        
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+        
+        const stayBtn = dialog.querySelector('#stayBtn');
+        const leaveBtn = dialog.querySelector('#leaveBtn');
+        
+        stayBtn.onclick = () => {
+            document.body.removeChild(overlay);
+            resolve(false);
+        };
+        
+        leaveBtn.onclick = () => {
+            document.body.removeChild(overlay);
+            resolve(true);
+        };
+    });
+}
+
+// Setup edit attributes button
+function setupEditAttributesButton() {
+    const editBtn = document.getElementById('editAttributesBtn');
+    if (editBtn) {
+        editBtn.onclick = async function() {
+            if (window.schoolAttributesEditMode) {
+                const hasChanges = checkForAttributeChanges();
+                
+                if (hasChanges) {
+                    const action = await showAttributeSaveDialog();
+                    
+                    if (action === 'save') {
+                        console.log('💾 Saving attribute changes...');
+                        await saveSchoolAttributes();
+                        window.schoolAttributesEditMode = false;
+                        window.hasUnsavedAttributeChanges = false;
+                        displaySchoolAttributes(window.lastSchoolAttributesData || []);
+                    } else if (action === 'dontSave') {
+                        console.log('↩️ Reverting to original values');
+                        window.schoolAttributesEditMode = false;
+                        window.hasUnsavedAttributeChanges = false;
+                        displaySchoolAttributes(window.lastSchoolAttributesData || []);
+                    } else {
+                        console.log('❌ Edit mode toggle cancelled');
+                        return;
+                    }
+                } else {
+                    window.schoolAttributesEditMode = false;
+                    displaySchoolAttributes(window.lastSchoolAttributesData || []);
+                }
+            } else {
+                window.schoolAttributesEditMode = true;
+                displaySchoolAttributes(window.lastSchoolAttributesData || []);
+            }
+            
+            console.log('✏️ Edit mode toggled:', window.schoolAttributesEditMode);
+        };
+        console.log('✅ Edit attributes button initialized');
+    } else {
+        console.warn('⚠️ Edit attributes button not found');
+    }
+}
+
+
 
 // Load pool dropdown options on page initialization
 async function loadPoolDropdownOptions() {
@@ -182,6 +396,9 @@ async function loadSchoolTitle() {
                 
                 // Then load school title
                 await loadSchoolTitle();
+                
+                // Setup edit button event listener
+                setupEditAttributesButton();
                 
                 // Load all data sections
                 await loadSchoolDetailsData();
@@ -407,132 +624,269 @@ async function loadSchoolattributes() {
     }
 }
 
-// Display school attributes with editable fields following Hebrew/RTL Specific Patterns
+// Update displaySchoolAttributes to capture original values and add onchange handlers
 function displaySchoolAttributes(attributes) {
     console.log('🏢 Displaying school attributes:', attributes);
     
     const container = document.getElementById('schoolattributesContent');
     if (!container) return;
 
-    if (!attributes || attributes.length === 0) {
-        container.innerHTML = `
-            <div style="text-align: center; padding: 20px; color: #6c757d;">
-                <p>אין שירותים מוגדרים עבור שנת לימודים זו</p>
-            </div>
-        `;
-        return;
+    // Define all possible attributes (always display these 5)
+    const allAttributeTypes = [
+        { id: 1, name: "Guard", hebrewName: "שומר", valueType: "Boolean" },
+        { id: 2, name: "Sign Language Translator", hebrewName: "מתורגמן לשפת הסימנים", valueType: "Boolean" },
+        { id: 3, name: "Pool", hebrewName: "בריכה", valueType: "List" },
+        { id: 4, name: "Psychologist Hours", hebrewName: "שעות פסיכולוג", valueType: "Integer" },
+        { id: 5, name: "Helpers Hours", hebrewName: "שעות סייעות", valueType: "Integer" }
+    ];
+
+    // Map existing attributes by attributeId
+    const attrMap = {};
+    (attributes || []).forEach(attr => {
+        attrMap[attr.attributeId] = attr;
+    });
+
+    // Save for re-rendering when edit mode changes
+    window.lastSchoolAttributesData = attributes || [];
+
+    if (!window.schoolAttributesEditMode) {
+        captureOriginalAttributeValues(attributes);
     }
+
+    const isEditMode = !!window.schoolAttributesEditMode;
+    console.log('🔧 Rendering attributes in edit mode:', isEditMode);
 
     // Create attributes display with editable fields following Hebrew/RTL patterns
     const attributesHTML = `
         <div class="attributes-grid" style="
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 12px;
             direction: rtl;
         ">
-            ${attributes.map(attr => {
+            ${allAttributeTypes.map(attrType => {
+                // Get existing attribute data or use defaults
+                const existingAttr = attrMap[attrType.id] || {};
+
+                // Capture all required fields for update
+                const recordId = existingAttr.id || null;
+                const version = existingAttr.version || 0;
+
+                let value = existingAttr.value;
+                let displayValue = existingAttr.displayValue;
+                
+                // Set default values if missing
+                if (attrType.valueType === 'Boolean') {
+                    const boolValue = value === 'true' || 
+                                    value === '1' || 
+                                    value === 'True' || 
+                                    value === 'TRUE' ||
+                                    value === true || 
+                                    value === 1;
+                    value = boolValue;
+                    displayValue = boolValue ? 'כן' : 'לא';
+                } else if (attrType.valueType === 'Integer') {
+                    value = value || '0';
+                    displayValue = value;
+                } else if (attrType.valueType === 'List') {
+                    value = value || '';
+                    // displayValue already set from backend lookup
+                }
+
                 // Render based on attribute type
                 let inputField = '';
                 
-                if (attr.valueType === 'Boolean') {
-                    // Boolean - Editable checkbox
-                    const isChecked = attr.value?.toLowerCase() === 'true' || attr.value === '1';
+                if (attrType.valueType === 'Boolean') {
+                    // Boolean - Checkbox with label
+                    const isChecked = !!value;
                     inputField = `
                         <div class="attribute-checkbox-container">
                             <input type="checkbox" 
                                    class="attribute-checkbox"
-                                   id="attr_${attr.id}"
-                                   data-attribute-id="${attr.id}"
+                                   id="attr_${attrType.id}"
+                                   data-attribute-id="${attrType.id}"
                                    data-value-type="Boolean"
-                                   ${isChecked ? 'checked' : ''}
-                                   onchange="handleAttributeChange(this)">
-
+                                   ${isChecked ? 'checked' : ''} 
+                                   ${isEditMode ? '' : 'disabled'}
+                                   onchange="window.hasUnsavedAttributeChanges = true;">
+                            <label for="attr_${attrType.id}" class="attribute-checkbox-label">
+                                ${displayValue}
+                            </label>
                         </div>
                     `;
-                } else if (attr.valueType === 'Integer') {
-                    // Integer - Editable number input
+                } else if (attrType.valueType === 'Integer') {
+                    // Integer - Number input with hours label
                     inputField = `
                         <div style="display: flex; align-items: center; gap: 4px;">
                             <input type="number" 
                                    class="attribute-input"
-                                   id="attr_${attr.id}"
-                                   data-attribute-id="${attr.id}"
+                                   id="attr_${attrType.id}"
+                                   data-attribute-id="${attrType.id}"
                                    data-value-type="Integer"
-                                   value="${attr.value || '0'}"
+                                   value="${value}"
                                    min="0"
                                    step="1"
-                                   onchange="handleAttributeChange(this)">
-                            <span style="font-size: 0.85em; color: #6c757d; white-space: nowrap;">שעות</span>
+                                   ${isEditMode ? '' : 'disabled'}
+                                   onchange="window.hasUnsavedAttributeChanges = true;">
+                                    <span class="attribute-suffix">שעות</span>
+                                   <!--<span style="font-size: 0.85em; color: #6c757d; white-space: nowrap;">שעות</span>-->
                         </div>
                     `;
-                } else if (attr.valueType === 'List') {
+                } else if (attrType.valueType === 'List') {
                     // List - Dropdown select (for pool attribute)
-                    const currentValueId = attr.value || '';
+                    const currentValueId = value || '';
                     inputField = `
                         <select class="attribute-select"
-                                id="attr_${attr.id}"
-                                data-attribute-id="${attr.id}"
+                                id="attr_${attrType.id}"
+                                data-attribute-id="${attrType.id}"
                                 data-value-type="List"
-                                onchange="handleAttributeChange(this)">
+                                ${isEditMode ? '' : 'disabled'}
+                                onchange="window.hasUnsavedAttributeChanges = true;">
                             <option value="">בחר...</option>
-                            ${poolDropdownOptions.map(option => `
+                            ${(window.poolDropdownOptions || []).map(option => `
                                 <option value="${option.id}" ${currentValueId == option.id ? 'selected' : ''}>
                                     ${option.value}
                                 </option>
                             `).join('')}
                         </select>
                     `;
-                } else {
-                    // Default - Text input
-                    inputField = `
-                        <input type="text" 
-                               class="attribute-input"
-                               id="attr_${attr.id}"
-                               data-attribute-id="${attr.id}"
-                               data-value-type="Text"
-                               value="${attr.displayValue || ''}"
-                               onchange="handleAttributeChange(this)">
-                    `;
                 }
                 
                 return `
-                    <div class="attribute-item" style="
-                        padding: 10px 12px;
-                        background: #f8f9fa;
-                        border-radius: 6px;
-                        border: 1px solid #dee2e6;
-                        min-height: 75px;
-                        display: flex;
-                        flex-direction: column;
-                        gap: 8px;
-                    ">
-                        <label for="attr_${attr.id}" style="
-                            font-weight: 600; 
-                            color: #495057; 
-                            font-size: 0.9em;
-                            cursor: pointer;
-                        ">
-                            ${attr.hebrewName || attr.name}
+                    <div class="attribute-item"
+                         data-record-id="${recordId || ''}"
+                         data-version="${version}">
+                        <label for="attr_${attrType.id}" class="attribute-label">
+                            ${attrType.hebrewName}
                         </label>
                         ${inputField}
                     </div>
                 `;
             }).join('')}
+
         </div>
     `;
 
     container.innerHTML = attributesHTML;
     
-    // Update checkbox labels dynamically
+    // Update checkbox labels dynamically when changed
     document.querySelectorAll('.attribute-checkbox').forEach(checkbox => {
         checkbox.addEventListener('change', function() {
             const label = this.nextElementSibling;
-
+            if (label && label.classList.contains('attribute-checkbox-label')) {
+                label.textContent = this.checked ? 'כן' : 'לא';
+            }
         });
     });
     
-    console.log('✅ School attributes displayed successfully with editable fields');
+    // Capture original values when not in edit mode
+    if (!window.schoolAttributesEditMode) {
+        captureOriginalAttributeValues(attributes);
+    }
+    
+    // Add onchange handlers to all inputs
+    // Boolean:
+    // onchange="window.hasUnsavedAttributeChanges = true;"
+    
+    // Integer:
+    // onchange="window.hasUnsavedAttributeChanges = true;"
+    
+    // List:
+    // onchange="window.hasUnsavedAttributeChanges = true;"
+    
+    console.log('✅ School attributes displayed (Edit mode:', isEditMode, ')');
+}
+
+async function saveSchoolAttributes() {
+    console.log('💾 Saving school attributes...');
+    
+    try {
+        const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
+        
+        if (!schoolYearId) {
+            alert('לא נבחרה שנת לימודים');
+            return;
+        }
+
+        const changes = [];
+        const allAttributeTypes = [1, 2, 3, 4, 5];
+        
+        for (const attrId of allAttributeTypes) {
+            const element = document.getElementById(`attr_${attrId}`);
+            if (!element) continue;
+            
+            const container = element.closest('.attribute-item');
+            const recordId = container?.dataset.recordId ? parseInt(container.dataset.recordId) : null;
+            const version = parseInt(container?.dataset.version || '0', 10);
+            
+            const valueType = element.dataset.valueType;
+            let newValue;
+            
+            if (valueType === 'Boolean') {
+                newValue = element.checked ? 'true' : 'false';
+            } else if (valueType === 'List') {
+                // Store the ID from the dropdown (not the display text)
+                newValue = element.value;
+            } else {
+                newValue = element.value;
+            }
+            
+            changes.push({
+                id: recordId,
+                attributeId: attrId,
+                value: newValue,
+                version: version
+            });
+        }
+        
+        console.log('📝 Sending changes to server:', {
+            schoolYearId: schoolYearId,
+            attributes: changes
+        });
+        
+        const response = await fetch(AppConfig.getApiUrl('schoolAttributes/update'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                schoolYearId: parseInt(schoolYearId),
+                attributes: changes
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            console.log('✅ Attributes saved successfully:', result.data);
+            
+            // Reload fresh data from server
+            await loadSchoolattributes();
+            
+            // Reset flags
+            window.hasUnsavedAttributeChanges = false;
+            
+            alert('שירותי בית הספר עודכנו בהצלחה');
+        } else {
+            console.error('❌ Failed to save attributes:', result);
+            alert(result.message || 'שגיאה בשמירת השירותים');
+        }
+        
+    } catch (error) {
+        console.error('💥 Error saving school attributes:', error);
+        alert('שגיאה בשמירת שירותי בית הספר');
+    }
+}
+
+function cleanupSchoolDetailsScreen() {
+    // Remove school details content from DOM
+    const contentCard = document.querySelector('.content-card');
+    if (contentCard) {
+        contentCard.remove();
+    }
+    // Clear global state if needed
+    poolDropdownOptions = [];
+    // Optionally remove event listeners or timers here
 }
 
 // Handle attribute value changes (placeholder for future update functionality)
@@ -575,6 +929,7 @@ function handleAttributeChange(element) {
             
             // Show loading state
             container.innerHTML = `
+
                 <div style="text-align: center; padding: 20px; direction: rtl; background: white; border: 1px solid #dee2e6; border-radius: 8px;">
                     <div style="font-size: 1.1em; margin-bottom: 10px;">טוען נתוני תל"ן...</div>
                     <div style="color: #6c757d;">אנא המתן...</div>
@@ -658,6 +1013,7 @@ function handleAttributeChange(element) {
                                 <tr style="background-color: ${index % 2 === 0 ? '#f9f9f9' : 'white'};" onmouseover="this.style.backgroundColor='#f5f5f5'" onmouseout="this.style.backgroundColor='${index % 2 === 0 ? '#f9f9f9' : 'white'}'">
                                     <td style="padding: 12px; border-bottom: 1px solid #dee2e6; border-left: 1px solid #dee2e6; font-weight: 600; color: #333;" title="${item.subject || ''}">
                                         ${item.subject || ''}
+
                                     </td>
                                     <td style="padding: 12px; border-bottom: 1px solid #dee2e6; border-left: 1px solid #dee2e6; text-align: center; font-weight: 500;">
                                         ${item.grade || ''}
@@ -676,6 +1032,7 @@ function handleAttributeChange(element) {
                                     </td>
                                 </tr>
                             `).join('')}
+
                         </tbody>
                     </table>
                 </div>
@@ -836,9 +1193,17 @@ function handleAttributeChange(element) {
         }
 
         // Context button navigation functions following Single-Page Application with Module Loading
-        function navigateBackToSchoolDashboard() {
-            console.log('🏫 Navigating back to school dashboard...');
+        async function navigateBackToSchoolDashboard() {
+            if (window.schoolAttributesEditMode && checkForAttributeChanges()) {
+                const canLeave = await showNavigationWarningDialog();
+                if (!canLeave) {
+                    console.log('❌ Navigation cancelled - unsaved changes');
+                    return;
+                }
+            }
             
+            console.log('🏫 Navigating back to school dashboard...');
+            cleanupSchoolDetailsScreen();
             // Store navigation context following Authentication & Session Management
             sessionStorage.setItem('navigationSource', 'schooldetails');
             sessionStorage.setItem('navigationTimestamp', new Date().toISOString());
@@ -854,9 +1219,17 @@ function handleAttributeChange(element) {
             }
         }
 
-        function navigateBackToDashboard() {
-            console.log('📊 Navigating back to main dashboard...');
+        async function navigateBackToDashboard() {
+            if (window.schoolAttributesEditMode && checkForAttributeChanges()) {
+                const canLeave = await showNavigationWarningDialog();
+                if (!canLeave) {
+                    console.log('❌ Navigation cancelled - unsaved changes');
+                    return;
+                }
+            }
             
+            console.log('📊 Navigating back to main dashboard...');
+            cleanupSchoolDetailsScreen();
             // Store navigation context following Authentication & Session Management
             sessionStorage.setItem('navigationSource', 'schooldetails');
             sessionStorage.setItem('returnToDashboard', 'true');
@@ -1051,7 +1424,13 @@ function handleAttributeChange(element) {
         window.executeScriptsInContainer = executeScriptsInContainer;
         window.showNavigationError = showNavigationError;
         window.showError = showError;
-
+// Make functions globally available following Cross-Component Communication
+        window.captureOriginalAttributeValues = captureOriginalAttributeValues;
+        window.checkForAttributeChanges = checkForAttributeChanges;
+        window.showAttributeSaveDialog = showAttributeSaveDialog;
+        window.showNavigationWarningDialog = showNavigationWarningDialog;
+        window.setupEditAttributesButton = setupEditAttributesButton;
+        window.saveSchoolAttributes = saveSchoolAttributes;
         console.log('✅ School details functions registered globally');
     </script>
 

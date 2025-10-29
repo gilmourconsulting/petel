@@ -165,8 +165,8 @@ namespace PetelApp.Api.Data
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(6);
                 entity.Property(e => e.Level).IsRequired().HasMaxLength(3);
                 entity.Property(e => e.ClassNumber).IsRequired().HasMaxLength(3);
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-                entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
+              //  entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+              //  entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
             });
 
             // Configure School relationships

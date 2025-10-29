@@ -1139,6 +1139,44 @@ body {
     height: 15px !important;
 }
 
+/* School Attributes Styles */
+.attributes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    direction: rtl;
+}
+
+.attribute-item {
+    padding: 10px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    min-height: 75px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.attribute-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.9em;
+    cursor: pointer;
+}
+
+.attribute-value-container {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.attribute-suffix {
+    font-size: 0.85em;
+    color: #6c757d;
+    white-space: nowrap;
+}
+
 /* School Attributes Editable Styles */
 .attribute-input,
 .attribute-select {
@@ -1226,3 +1264,88 @@ body {
     opacity: 1;
     margin-left: 8px;
 }
+
+/* School Attributes Dialog Overlays */
+.dialog-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    direction: rtl;
+}
+
+.dialog-box {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    max-width: 500px;
+    text-align: center;
+}
+
+.dialog-title {
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.dialog-title.warning {
+    color: #dc3545;
+}
+
+.dialog-message {
+    margin-bottom: 30px;
+    color: #6c757d;
+    font-size: 16px;
+}
+
+.dialog-message.warning {
+    color: #333;
+}
+
+.dialog-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.dialog-btn {
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.dialog-btn.save {
+    background: #28a745;
+    color: white;
+}
+
+.dialog-btn.dont-save {
+    background: #dc3545;
+    color: white;
+}
+
+.dialog-btn.cancel {
+    background: #6c757d;
+    color: white;
+}
+
+.dialog-btn.stay {
+    background: #007bff;
+    color: white;
+}
+
+.dialog-btn.leave {
+    background: #6c757d;
+    color: white;
+}
+
+

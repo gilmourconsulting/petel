@@ -191,7 +191,11 @@ table.init(data, columns);
 
 #### Backend Implementation
 
+**CRITICAL**: Controllers must inherit from `BaseController` and inject `UserSessionService` from `PetelApp.Api.Session` namespace.
+
 ```csharp
+using PetelApp.Api.Session;  // ✅ REQUIRED - UserSessionService is in Session namespace
+
 // UserSession structure
 public class UserSession
 {
@@ -210,12 +214,24 @@ public class UserSession
     public Dictionary<string, string> GetAllProperties();
 }
 
-// Controller usage
+// Controller usage - MUST inherit from BaseController
 public class MyController : BaseController 
 {
+    private readonly AppDbContext _context;
+    
+    // ✅ CORRECT - Inject UserSessionService and pass to base
+    public MyController(
+        AppDbContext context,
+        UserSessionService userSessionService,  // From PetelApp.Api.Session
+        ILogger<MyController> logger)
+        : base(userSessionService, logger)
+    {
+        _context = context;
+    }
+    
     public IActionResult GetData()
     {
-        var session = GetCurrentSession();
+        var session = GetCurrentSession();  // Inherited from BaseController
         
         // Access identity data (properties)
         var entityId = session.EntityId;
@@ -233,6 +249,35 @@ public class MyController : BaseController
 }
 ```
 
+**Required Namespaces**:
+- `using PetelApp.Api.Session;` - For `UserSessionService`
+- `using PetelApp.Api.Controllers;` - For `BaseController`
+
+**Controller Inheritance Pattern**:
+```csharp
+// ✅ CORRECT
+public class MyController : BaseController
+{
+    public MyController(
+        UserSessionService userSessionService,  // Must inject
+        ILogger<MyController> logger)           // Must inject
+        : base(userSessionService, logger)      // Must pass to base
+    {
+    }
+}
+
+// ❌ WRONG - Missing BaseController inheritance
+public class MyController : ControllerBase  // NO!
+
+// ❌ WRONG - Missing UserSessionService injection
+public MyController(ILogger<MyController> logger)  // NO!
+
+// ❌ WRONG - Not passing to base constructor
+public MyController(UserSessionService service, ILogger logger)
+{
+    // Missing: : base(service, logger)
+}
+```
 **Session API Endpoints**:
 - `GET /api/session` - Get identity data + all properties
 - `POST /api/session/property` - Set: `{ "key": "CurrentSchoolYearId", "value": "123" }`
