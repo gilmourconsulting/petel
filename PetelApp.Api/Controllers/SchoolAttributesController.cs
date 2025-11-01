@@ -5,6 +5,7 @@ using PetelApp.Api.Controllers;
 using PetelApp.Api.Data;
 using PetelApp.Api.Services;
 using PetelApp.Api.Session;
+using PetelApp.Api.DTOs;
 
 namespace PetelApp.Api.Controllers;
 
@@ -28,6 +29,66 @@ public class SchoolAttributesController : BaseController
         _attributeCache = attributeCache;
     }
 
+    
+    
+    [HttpGet("attribute-types/{yearId}")]
+    public IActionResult GetAttributeTypesByYear(int yearId)
+    {
+        try
+        {
+            var session = GetCurrentSession();
+            _logger.LogInformation("Loading attribute types for year {YearId}, Entity {EntityId}", 
+                yearId, session.EntityId);
+    
+            // Get attribute types from cache (not database)
+            var attributeTypes = _attributeCache.GetAttributeTypesByYear(yearId);  
+            // Map to DTOs
+            var attributeTypeDtos = attributeTypes.Select(t => new SchoolAttributeTypeDto
+            {
+                Id = t.Id,
+                Name = t.Name,
+                HebrewName = t.HebrewName,
+                AttributeValueType  = t.AttributeValueType,
+                YearId = t.YearId
+            }).ToList();
+    
+            // For List type attributes, load possible values from cache
+            foreach (var attrType in attributeTypeDtos.Where(a => a.AttributeValueType == "List"))
+            {
+                var possibleValues = _attributeCache.GetAttributeTypeValues(attrType.Id);
+                
+                attrType.PossibleValues = possibleValues.Select(v => new SchoolAttributeTypeValueDto
+                {
+                    Id = v.Id,
+                    Value = v.Value,
+                    Sort_Order = v.SortOrder
+                }).ToList();
+            }
+    
+            _logger.LogInformation("Found {Count} attribute types for year {YearId}", 
+                attributeTypeDtos.Count, yearId);
+    
+            return Ok(new
+            {
+                success = true,
+                data = attributeTypeDtos,
+                message = $"Found {attributeTypeDtos.Count} attribute types"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading attribute types for year {YearId}", yearId);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "Error loading attribute types",
+                error = ex.Message
+            });
+        }
+    }
+    
+
+    
     /// <summary>
     /// Get school attributes for a specific school year with formatted display values
     /// NO AUTHENTICATION REQUIRED - Similar to system attributes pattern
@@ -50,7 +111,7 @@ public class SchoolAttributesController : BaseController
             {
                 a.Id,
                 a.SchoolYearId,
-                a.SchoolAttributeId,
+                a.SchoolAttributeTypeId,
                 a.Value,
                 a.Version,
                 a.IsLastVersion,
@@ -67,12 +128,12 @@ public class SchoolAttributesController : BaseController
             // Format attributes with display values
             var formattedAttributes = attributes.Select(attr =>
             {
-                var attributeType = _attributeCache.GetAttributeType(attr.SchoolAttributeId);
+                var attributeType = _attributeCache.GetAttributeType(attr.SchoolAttributeTypeId);
                 if (attributeType == null)
                 {
                     _logger.LogWarning(
-                        "Attribute type not found in cache for ID {AttributeId}", 
-                        attr.SchoolAttributeId
+                        "Attribute type not found in cache for ID {AttributeTypeId}", 
+                        attr.SchoolAttributeTypeId
                     );
                     return null;
                 }
@@ -86,7 +147,7 @@ public class SchoolAttributesController : BaseController
                     if (int.TryParse(attr.Value, out int valueId))
                     {
                         // Get all values for this attribute type
-                        var values = _attributeCache.GetAttributeValues(attributeType.Id);
+                        var values = _attributeCache.GetAttributeTypeValues(attributeType.Id);
                         
                         // Find matching value by ID
                         var matchingValue = values.FirstOrDefault(v => v.Id == valueId);
@@ -111,7 +172,7 @@ public class SchoolAttributesController : BaseController
                     else
                     {
                         // Value is not an ID, try direct string match (fallback)
-                        var values = _attributeCache.GetAttributeValues(attributeType.Id);
+                        var values = _attributeCache.GetAttributeTypeValues(attributeType.Id);
                         var matchingValue = values.FirstOrDefault(v => 
                             v.Value != null && v.Value.Equals(attr.Value, StringComparison.OrdinalIgnoreCase)
                         );
@@ -140,7 +201,7 @@ public class SchoolAttributesController : BaseController
                 return new
                 {
                     id = attr.Id,
-                    attributeId = attr.SchoolAttributeId,
+                    attributeTypeId = attr.SchoolAttributeTypeId,
                     name = attributeType.Name,
                     hebrewName = attributeType.HebrewName,
                     valueType = attributeType.AttributeValueType,
@@ -197,8 +258,8 @@ public class SchoolAttributesController : BaseController
             foreach (var attr in request.Attributes)
             {
                 _logger.LogInformation(
-                    "Processing attribute {AttributeId} with ID {Id}, Version {Version}",
-                    attr.AttributeId, attr.Id, attr.Version
+                    "Processing attribute {AttributeTypeId} with ID {Id}, Version {Version}",
+                    attr.AttributeTypeId, attr.Id, attr.Version
                 );
 
                 // If no existing record (id is null), create new
@@ -207,7 +268,7 @@ public class SchoolAttributesController : BaseController
                     var newAttribute = new SchoolAttribute
                     {
                         SchoolYearId = request.SchoolYearId,
-                        SchoolAttributeId = attr.AttributeId,
+                        SchoolAttributeTypeId = attr.AttributeTypeId,
                         Value = attr.Value,
                         Version = 1,
                         IsLastVersion = true,
@@ -218,14 +279,15 @@ public class SchoolAttributesController : BaseController
                     await _context.SaveChangesAsync();
 
                     _logger.LogInformation(
-                        "Created new attribute record with ID {Id}",
-                        newAttribute.Id
+                        "Created new attribute record with ID {Id}, AttributeTypeId {AttributeTypeId}",
+                        newAttribute.Id,
+                        newAttribute.SchoolAttributeTypeId 
                     );
 
                     updatedRecords.Add(new
                     {
                         id = newAttribute.Id,
-                        attributeId = newAttribute.SchoolAttributeId,
+                        attributeTypeId = newAttribute.SchoolAttributeTypeId,
                         value = newAttribute.Value,
                         version = newAttribute.Version
                     });
@@ -244,7 +306,7 @@ public class SchoolAttributesController : BaseController
                     //Entity = a,
                     a.Id,
                     a.SchoolYearId,
-                    a.SchoolAttributeId,
+                    a.SchoolAttributeTypeId,
                     a.Value,
                     a.Version
 
@@ -261,7 +323,7 @@ public class SchoolAttributesController : BaseController
                     {
                         success = false,
                         message = "הרשומה השתנתה על ידי משתמש אחר. אנא רענן את המסך ונסה שוב.",
-                        attributeId = attr.AttributeId
+                        attributeTypeId = attr.AttributeTypeId
                     });
                 }
 
@@ -269,14 +331,14 @@ public class SchoolAttributesController : BaseController
                 if (existingRecord.Value == attr.Value)
                 {
                     _logger.LogInformation(
-                        "No change detected for attribute {AttributeId}, skipping",
-                        attr.AttributeId
+                        "No change detected for attribute {AttributeTypeId}, skipping",
+                        attr.AttributeTypeId
                     );
                     
                     updatedRecords.Add(new
                     {
                         id = existingRecord.Id,
-                        attributeId = existingRecord.SchoolAttributeId,
+                        attributeTypeId = existingRecord.SchoolAttributeTypeId,
                         value = existingRecord.Value,
                         version = existingRecord.Version
                     });
@@ -299,7 +361,7 @@ public class SchoolAttributesController : BaseController
                 var newVersion = new SchoolAttribute
                 {
                     SchoolYearId = existingRecord.SchoolYearId,
-                    SchoolAttributeId = existingRecord.SchoolAttributeId,
+                    SchoolAttributeTypeId = existingRecord.SchoolAttributeTypeId,
                     Value = attr.Value,
                     Version = existingRecord.Version + 1,
                     IsLastVersion = true,            
@@ -312,8 +374,8 @@ public class SchoolAttributesController : BaseController
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation(
-                    "Created new version {NewVersion} for attribute {AttributeId}, old record ID {OldId}, new record ID {NewId}",
-                    newVersion.Version, attr.AttributeId, existingRecord.Id, newVersion.Id
+                    "Created new version {NewVersion} for attribute {AttributeTypeId}, old record ID {OldId}, new record ID {NewId}",
+                    newVersion.Version, attr.AttributeTypeId, existingRecord.Id, newVersion.Id
                 );
 
                 // Step 4: Retrieve the new record with generated ID
@@ -321,7 +383,7 @@ public class SchoolAttributesController : BaseController
             updatedRecords.Add(new
             {
                 id = newVersion.Id,
-                attributeId = newVersion.SchoolAttributeId,
+                attributeTypeId = newVersion.SchoolAttributeTypeId,
                 value = newVersion.Value,
                 version = newVersion.Version
             });
@@ -392,8 +454,8 @@ public class SchoolAttributesController : BaseController
         try
         {
             _logger.LogInformation("Getting attribute values for type {AttributeTypeId}", attributeTypeId);
-            
-            var values = _attributeCache.GetAttributeValues(attributeTypeId)
+
+            var values = _attributeCache.GetAttributeTypeValues(attributeTypeId)
                 .OrderBy(v => v.SortOrder)
                 .Select(v => new
                 {
@@ -432,7 +494,7 @@ public class UpdateSchoolAttributesRequest
 public class AttributeUpdate
 {
     public int? Id { get; set; }              // Existing record ID (null for new)
-    public int AttributeId { get; set; }      // school_attribute_id
+    public int AttributeTypeId { get; set; }      // school_attribute_type_id
     public string? Value { get; set; }        // New value
     public int Version { get; set; }          // Current version (for optimistic locking)
 }

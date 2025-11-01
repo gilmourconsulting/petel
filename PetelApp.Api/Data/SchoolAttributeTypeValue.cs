@@ -13,7 +13,7 @@ public class SchoolAttributeTypeValue
     public int Id { get; set; }
 
     [Column("school_attribute_id")]
-    public int SchoolAttributeId { get; set; }
+    public int SchoolAttributeTypeId { get; set; }
 
     [Column("value")]
     [MaxLength(50)]
@@ -29,7 +29,7 @@ public class SchoolAttributeTypeValue
     public int SortOrder { get; set; } = 10;
 
     // Navigation property
-    [ForeignKey("SchoolAttributeId")]
+    [ForeignKey("SchoolAttributeTypeId")]
     public SchoolAttributeType? SchoolAttributeType { get; set; }
 }
 }

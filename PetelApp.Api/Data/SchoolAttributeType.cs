@@ -11,6 +11,10 @@ public class SchoolAttributeType
     [Column("id")]
     public int Id { get; set; }
 
+
+    [Column("year_id")]
+    public int YearId { get; set; }
+
     [Column("name")]
     [MaxLength(25)]
     public string Name { get; set; } = string.Empty;

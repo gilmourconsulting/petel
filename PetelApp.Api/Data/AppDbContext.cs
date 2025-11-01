@@ -200,7 +200,7 @@ namespace PetelApp.Api.Data
                 entity.ToTable("school_attribute_types_values", "petel_schema");
                 entity.HasOne(v => v.SchoolAttributeType)
                     .WithMany()
-                    .HasForeignKey(v => v.SchoolAttributeId)
+                    .HasForeignKey(v => v.SchoolAttributeTypeId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
@@ -222,7 +222,7 @@ namespace PetelApp.Api.Data
                 // Foreign key to school_attributes_types
                 entity.HasOne(a => a.SchoolAttributeType)
                     .WithMany()
-                    .HasForeignKey(a => a.SchoolAttributeId)
+                    .HasForeignKey(a => a.SchoolAttributeTypeId)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 // Unique constraint for school_attributes

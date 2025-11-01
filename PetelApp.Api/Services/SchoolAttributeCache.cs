@@ -47,7 +47,7 @@ public class SchoolAttributeCache
                 .ToListAsync();
 
             _attributeValues = attributeValues
-                .GroupBy(v => v.SchoolAttributeId)
+                .GroupBy(v => v.SchoolAttributeTypeId)
                 .ToDictionary(g => g.Key, g => g.ToList());
 
             _isLoaded = true;
@@ -76,12 +76,21 @@ public class SchoolAttributeCache
             a.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
     }
 
-    public List<SchoolAttributeTypeValue> GetAttributeValues(int attributeTypeId)
-    {
-        return _attributeValues.TryGetValue(attributeTypeId, out var values) 
-            ? values 
-            : new List<SchoolAttributeTypeValue>();
-    }
+public List<SchoolAttributeType> GetAttributeTypesByYear(int yearId)
+{
+    return _attributeTypes.Values
+        .Where(t => t.YearId == yearId || t.YearId == null)
+        .OrderBy(t => t.Id)
+        .ToList();
+}
+
+
+public List<SchoolAttributeTypeValue> GetAttributeTypeValues(int attributeTypeId)
+{
+    return _attributeValues.TryGetValue(attributeTypeId, out var values)
+        ? values.OrderBy(v => v.SortOrder).ToList()
+        : new List<SchoolAttributeTypeValue>();
+}
 
     public IEnumerable<SchoolAttributeType> GetAllAttributeTypes()
     {

@@ -14,8 +14,8 @@ public class SchoolAttribute
     [Column("school_year_id")]
     public int SchoolYearId { get; set; }
 
-    [Column("school_attribute_id")]
-    public int SchoolAttributeId { get; set; }
+    [Column("school_attribute_type_id")]
+    public int SchoolAttributeTypeId { get; set; }
 
     [Column("version")]
     public int Version { get; set; } = 0;
@@ -40,7 +40,7 @@ public class SchoolAttribute
     [ForeignKey("SchoolYearId")]
     public SchoolYear? SchoolYear { get; set; }
 
-    [ForeignKey("SchoolAttributeId")]
+    [ForeignKey("SchoolAttributeTypeId")]
     public SchoolAttributeType? SchoolAttributeType { get; set; }
 }
 }   
