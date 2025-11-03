@@ -72,12 +72,19 @@
                 </div>
             </div>
 
-            <!-- Additional Education Table Card -->
+            <!-- Additional Study Program Table Card -->
             <div class="detail-card">
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">תל"ן</h2>
+                            <button id="editAdditionalStudyBtn" class="btn-icon">
+            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+        </button>
+        <button id="addAdditionalStudyBtn" class="btn-icon" onclick="showAddAdditionalStudyModal()" title="הוספת תל״ן חדש"
+            style="display: none;">
+            <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
+        </button>
                 </div>
-                <div class="detail-card-content" id="additionalEducationContent">
+                <div class="detail-card-content" id="additionalStudyProgramContent">
                     <!-- Table will be populated here -->
                 </div>
             </div>
@@ -1505,6 +1512,7 @@ async function deleteTrack(trackId) {
             setupEditAttributesButton();
             setupEditClassesButton();
             setupEditTracksButton();
+            setupEditAdditionalStudyButton();
             // Load all data sections
             await loadSchoolDetailsData();
 
@@ -1514,45 +1522,40 @@ async function deleteTrack(trackId) {
         }
     }
 
-    // Load school details data following Multi-Tenant Request Flow
-    async function loadSchoolDetailsData() {
-        const selectedSchoolId = await sessionManager.getSessionProperty('SelectedSchoolId');
-        console.log('🏫 Loading school details data for school:', selectedSchoolId);
+// Update loadSchoolDetailsData function
+async function loadSchoolDetailsData() {
+    const selectedSchoolId = await sessionManager.getSessionProperty('SelectedSchoolId');
+    console.log('🏫 Loading school details data for school:', selectedSchoolId);
 
-        try {
-            // Get session data following Authentication & Session Management
-            const authToken = sessionStorage.getItem('authToken');
-            if (!authToken) {
-                console.error('❌ No auth token found');
-                showTableError('נדרש אימות. אנא התחבר מחדש.');
-                return;
-            }
-
-            const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
-            if (!selectedSchoolYearId) {
-                console.error('❌ No school year ID in session');
-                showError('לא נמצא מזהה שנת לימודים');
-                return;
-            }
-
-            console.log('📊 Loading data for school year ID:', selectedSchoolYearId);
-
-            // Load school details
-            await loadSchoolDetails();
-            await loadSchoolClasses();
-            // Load school attributes data
-            await loadSchoolAttributes();
-             // Load school tracks
-            await loadSchoolTracks();
-
-            // Load additional education table data
-            await loadAdditionalEducationTable();
-
-        } catch (error) {
-            console.error('💥 Exception in loadSchoolDetailsData:', error);
-            showError('שגיאה בטעינת נתוני בית הספר');
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            console.error('❌ No auth token found');
+            showTableError('נדרש אימות. אנא התחבר מחדש.');
+            return;
         }
+
+        const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
+        if (!selectedSchoolYearId) {
+            console.error('❌ No school year ID in session');
+            showError('לא נמצא מזהה שנת לימודים');
+            return;
+        }
+
+        console.log('📊 Loading data for school year ID:', selectedSchoolYearId);
+
+        // Load all sections
+        await loadSchoolDetails();
+        await loadSchoolClasses();
+        await loadSchoolAttributes();
+        await loadSchoolTracks();
+        await loadSchoolAdditionalStudyPrograms(); // ✅ REPLACE loadAdditionalStudyProgramTable with this
+
+    } catch (error) {
+        console.error('💥 Exception in loadSchoolDetailsData:', error);
+        showError('שגיאה בטעינת נתוני בית הספר');
     }
+}
 
 
     // Load school details following API Communication Pattern
@@ -1965,248 +1968,509 @@ async function deleteTrack(trackId) {
         // Optionally remove event listeners or timers here
     }
 
+// School Additional Study Programs Management Section
 
+// Store edit mode state globally
+window.schoolAdditionalStudyEditMode = window.schoolAdditionalStudyEditMode || false;
 
-    // Load additional education table following Standard Table Component
-    async function loadAdditionalEducationTable() {
-        console.log('📋 ========== LOADING ADDITIONAL EDUCATION TABLE ==========');
+// Store last additional study data for re-rendering
+window.lastSchoolAdditionalStudyData = window.lastSchoolAdditionalStudyData || [];
 
-        const container = document.getElementById('additionalEducationContent');
-        if (!container) {
-            console.error('❌ additionalEducationContent container not found in DOM');
-            console.log('Available containers:', document.querySelectorAll('[id*="Content"]'));
-            return;
-        }
+// Setup edit additional study button - TOGGLE ACTIONS COLUMN VISIBILITY
+function setupEditAdditionalStudyButton() {
+    const editBtn = document.getElementById('editAdditionalStudyBtn');
+    const addBtn = document.getElementById('addAdditionalStudyBtn');
 
-        console.log('✅ Container found:', container);
+    if (editBtn) {
+        editBtn.onclick = function () {
+            window.schoolAdditionalStudyEditMode = !window.schoolAdditionalStudyEditMode;
 
-        // Show loading state
-        container.innerHTML = `
-
-                <div style="text-align: center; padding: 20px; direction: rtl; background: white; border: 1px solid #dee2e6; border-radius: 8px;">
-                    <div style="font-size: 1.1em; margin-bottom: 10px;">טוען נתוני תל"ן...</div>
-                    <div style="color: #6c757d;">אנא המתן...</div>
-                </div>
-            `;
-
-        try {
-
-
-
-
-
-        } catch (error) {
-            console.error('💥 Exception in loadAdditionalEducationTable:', error);
-            showNoDataMessage();
-        }
-    }
-
-
-    // Completely rewrite the initializeAdditionalEducationTable function for better reliability
-    function initializeAdditionalEducationTable(data) {
-        console.log('📊 Initializing additional education table with', data?.length || 0, 'records');
-
-        if (!data || !Array.isArray(data) || data.length === 0) {
-            console.warn('⚠️ No data provided for additional education table');
-            showNoDataMessage();
-            return;
-        }
-
-        const container = document.getElementById('additionalEducationContent');
-        if (!container) {
-            console.error('❌ Container additionalEducationContent not found');
-            return;
-        }
-
-        // Always use simple table first, then try ReusableTable as enhancement
-        console.log('📋 Creating simple table first for reliability');
-        createAdditionalEducationSimpleTable(data);
-
-        // Then try to enhance with ReusableTable if available
-        setTimeout(() => {
-            if (typeof ReusableTable !== 'undefined') {
-                console.log('✅ ReusableTable available, enhancing table');
-                enhanceWithReusableTable(data);
-            } else {
-                console.log('📦 ReusableTable not available');
-
-            }
-        }, 100);
-    }
-
-    // Enhanced simple table that works reliably
-    function createAdditionalEducationSimpleTable(data) {
-        console.log('📊 Creating reliable simple table for additional education with', data.length, 'records');
-
-        const container = document.getElementById('additionalEducationContent');
-        if (!container) {
-            console.error('❌ Container not found');
-            return;
-        }
-
-        // Clear any existing content
-        container.innerHTML = '';
-
-        // Create table with horizontal scrolling following Table Horizontal Scrolling
-        const tableHTML = `
-                <div class="table-container" style="overflow-x: auto; max-width: 100%; border: 1px solid #dee2e6; border-radius: 8px; background: white; margin-top: 10px;">
-                    <table class="data-table" style="width: 100%; min-width: 1200px; border-collapse: collapse; direction: rtl; text-align: right;">
-                        <thead>
-                            <tr style="background-color: #f8f9fa;">
-                                <th style="padding: 15px 12px; border-bottom: 2px solid #dee2e6; border-left: 1px solid #dee2e6; min-width: 200px; font-weight: 600; color: #333;">מקצוע</th>
-                                <th style="padding: 15px 12px; border-bottom: 2px solid #dee2e6; border-left: 1px solid #dee2e6; min-width: 100px; font-weight: 600; color: #333;">כיתה</th>
-                                <th style="padding: 15px 12px; border-bottom: 2px solid #dee2e6; border-left: 1px solid #dee2e6; min-width: 120px; font-weight: 600; color: #333;">רמה</th>
-                                <th style="padding: 15px 12px; border-bottom: 2px solid #dee2e6; border-left: 1px solid #dee2e6; min-width: 150px; font-weight: 600; color: #333;">מספר השעות מדויק</th>
-                                <th style="padding: 15px 12px; border-bottom: 2px solid #dee2e6; border-left: 1px solid #dee2e6; min-width: 150px; font-weight: 600; color: #333;">מחירון</th>
-                                <th style="padding: 15px 12px; border-bottom: 2px solid #dee2e6; min-width: 180px; font-weight: 600; color: #333;">תאריך עדכון אחרון</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${data.map((item, index) => `
-                                <tr style="background-color: ${index % 2 === 0 ? '#f9f9f9' : 'white'};" onmouseover="this.style.backgroundColor='#f5f5f5'" onmouseout="this.style.backgroundColor='${index % 2 === 0 ? '#f9f9f9' : 'white'}'">
-                                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; border-left: 1px solid #dee2e6; font-weight: 600; color: #333;" title="${item.subject || ''}">
-                                        ${item.subject || ''}
-
-                                    </td>
-                                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; border-left: 1px solid #dee2e6; text-align: center; font-weight: 500;">
-                                        ${item.grade || ''}
-                                    </td>
-                                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; border-left: 1px solid #dee2e6; color: #6c757d;">
-                                        ${item.level || ''}
-                                    </td>
-                                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; border-left: 1px solid #dee2e6; text-align: center; font-weight: 600; font-family: 'Courier New', monospace; color: #C15A16;">
-                                        ${item.exactHours || '0'}
-                                    </td>
-                                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; border-left: 1px solid #dee2e6; font-weight: 600; color: #28a745;">
-                                        ${item.priceList || ''}
-                                    </td>
-                                    <td style="padding: 12px; border-bottom: 1px solid #dee2e6; font-size: 0.9em; color: #6c757d;">
-                                        ${item.lastUpdateDate || ''}
-                                    </td>
-                                </tr>
-                            `).join('')}
-
-                        </tbody>
-                    </table>
-                </div>
-                
-                <div style="text-align: left; margin-top: 10px; color: #6c757d; font-size: 0.9em; direction: rtl;">
-                    <p>סה"כ ${data.length} רשומות תל"ן</p>
-                </div>
-            `;
-
-        container.innerHTML = tableHTML;
-        console.log('✅ Simple additional education table created successfully with', data.length, 'records');
-    }
-
-    // Function to show no data message
-    function showNoDataMessage() {
-        const container = document.getElementById('additionalEducationContent');
-        if (container) {
-            container.innerHTML = `
-                    <div style="text-align: center; padding: 40px; color: #6c757d; direction: rtl; background: white; border: 1px solid #dee2e6; border-radius: 8px;">
-                        <h4 style="margin-bottom: 15px; color: #333;">אין נתוני תל"ן</h4>
-                        <p>לא נמצאו נתוני תל"ן עבור בית ספר זה.</p>
-                        <button onclick="loadAdditionalEducationTable()" style="
-                            background: #C15A16;
-                            color: white;
-                            border: none;
-                            padding: 8px 16px;
-                            border-radius: 4px;
-                            cursor: pointer;
-                            font-size: 14px;
-                            margin-top: 15px;
-                        ">
-                            נסה שוב
-                        </button>
-                    </div>
-                `;
-        }
-    }
-
-
-    // Function to enhance existing table with ReusableTable
-    function enhanceWithReusableTable(data) {
-        console.log('🔧 Enhancing table with ReusableTable component');
-
-        const container = document.getElementById('additionalEducationContent');
-        if (!container) return;
-
-        // Clear existing content
-        container.innerHTML = '';
-
-        // Define columns following Hebrew/RTL Specific Patterns and Standard Table Component
-        const tableColumns = [
-            {
-                key: 'subject',
-                label: 'מקצוע',
-                sortable: true,
-                readOnly: true,
-                render: (item) => {
-                    const subject = item.subject || '';
-                    return subject.length > 30 ?
-                        `<span title="${subject}">${subject.substring(0, 30)}...</span>` :
-                        subject;
-                }
-            },
-            {
-                key: 'grade',
-                label: 'כיתה',
-                sortable: true,
-                readOnly: true
-            },
-            {
-                key: 'level',
-                label: 'רמה',
-                sortable: true,
-                readOnly: true
-            },
-            {
-                key: 'exactHours',
-                label: 'מספר השעות מדויק',
-                sortable: true,
-                readOnly: true,
-                render: (item) => `<span class="hours-cell">${item.exactHours || '0'}</span>`
-            },
-            {
-                key: 'priceList',
-                label: 'מחירון',
-                sortable: true,
-                readOnly: true,
-                render: (item) => `<span style="font-weight: 600; color: #28a745;">${item.priceList || ''}</span>`
-            },
-            {
-                key: 'lastUpdateDate',
-                label: 'תאריך עדכון אחרון',
-                sortable: true,
-                readOnly: true,
-                render: (item) => `<span class="date-cell">${item.lastUpdateDate || ''}</span>`
-            }
-        ];
-
-        try {
-            // Create ReusableTable with correct constructor following Standard Table Component
-            const additionalEducationTable = new ReusableTable('additionalEducationContent', {
-                tableName: 'additionalEducation',
-                isReadOnly: true,
-                allowAdd: false,
-                allowEdit: false,
-                allowDelete: false
+            // Toggle actions column visibility
+            const actionsColumn = document.querySelectorAll('#additionalStudyTableContainer [data-column="actions"]');
+            actionsColumn.forEach(cell => {
+                cell.style.display = window.schoolAdditionalStudyEditMode ? '' : 'none';
             });
 
-            console.log('📋 ReusableTable created successfully for additional education');
+            // Toggle add button in header
+            if (addBtn) {
+                addBtn.style.display = window.schoolAdditionalStudyEditMode ? 'inline-flex' : 'none';
+            }
 
-            // Initialize with data and columns following Critical Development Workflows
-            additionalEducationTable.init(data, tableColumns);
+            // Update button icon/text
+            const btnImg = editBtn.querySelector('img');
+            if (btnImg) {
+                btnImg.alt = window.schoolAdditionalStudyEditMode ? 'סגור עריכה' : 'עריכה';
+            }
 
-            console.log('✅ Additional education ReusableTable enhanced successfully');
-
-        } catch (error) {
-            console.error('❌ Error enhancing with ReusableTable:', error);
-            // Fall back to simple table if ReusableTable fails
-            createAdditionalEducationSimpleTable(data);
-        }
+            console.log('✏️ Additional study edit mode toggled:', window.schoolAdditionalStudyEditMode);
+        };
+        console.log('✅ Edit additional study button initialized');
+    } else {
+        console.warn('⚠️ Edit additional study button not found');
     }
+}
+
+// Load school additional study programs
+async function loadSchoolAdditionalStudyPrograms() {
+    console.log('📚 Loading school additional study programs...');
+
+    const container = document.getElementById('additionalStudyProgramContent');
+    if (!container) {
+        console.error('❌ additionalStudyProgramContent container not found');
+        return;
+    }
+
+    try {
+        const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
+
+        if (!selectedSchoolYearId) {
+            console.error('❌ No school year ID in session');
+            container.innerHTML = '<p style="color: #721c24; padding: 20px;">לא נמצא מזהה שנת לימודים</p>';
+            return;
+        }
+
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            console.error('❌ No auth token found');
+            container.innerHTML = '<p style="color: #721c24; padding: 20px;">נדרש אימות. אנא התחבר מחדש.</p>';
+            return;
+        }
+
+        container.innerHTML = '<p style="padding: 20px;">טוען תל"ן...</p>';
+
+        const apiUrl = AppConfig.getApiUrl(`schoolAdditionalStudyPrograms/by-school-year/${selectedSchoolYearId}`);
+        console.log('🌐 Making API call to:', apiUrl);
+
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('📚 Additional study programs received:', result);
+
+            if (result.success && result.data) {
+                window.lastSchoolAdditionalStudyData = result.data;
+                displaySchoolAdditionalStudyPrograms(result.data);
+            } else {
+                throw new Error('Invalid response format');
+            }
+        } else {
+            const errorText = await response.text();
+            console.error('❌ API Error:', response.status, errorText);
+            container.innerHTML = `<p style="color: #721c24; padding: 20px;">שגיאה בטעינת תל"ן: ${response.status}</p>`;
+        }
+    } catch (error) {
+        console.error('💥 Exception in loadSchoolAdditionalStudyPrograms:', error);
+        container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה בטעינת תל"ן</p>';
+    }
+}
+
+// Display school additional study programs - READ-ONLY TABLE with HIDDEN ACTIONS COLUMN
+function displaySchoolAdditionalStudyPrograms(programs) {
+    console.log('📚 Displaying school additional study programs:', programs);
+
+    const container = document.getElementById('additionalStudyProgramContent');
+    if (!container) return;
+
+    if (!programs || programs.length === 0) {
+        container.innerHTML = '<p style="padding: 20px; color: #6c757d;">אין תל"ן להצגה</p>';
+        return;
+    }
+
+    // Clear container
+    container.innerHTML = '';
+
+    // Create table container
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `<div id="additionalStudyTableContainer"></div>`;
+    container.appendChild(wrapper);
+
+    // Define columns - actions column hidden by default
+    const columns = [
+        {
+            key: 'className',
+            label: 'כיתה',
+            sortable: true,
+            readOnly: true
+        },
+        {
+            key: 'name',
+            label: 'שם',
+            sortable: true,
+            readOnly: true
+        },
+        {
+            key: 'weeklyHours',
+            label: 'שעות שבועיות',
+            sortable: true,
+            readOnly: true,
+            render: (item) => `<span style="font-weight: 600; color: #C15A16;">${item.weeklyHours || '0'}</span>`
+        },
+        {
+            key: 'numberOfStudents',
+            label: 'מספר תלמידים בכיתה',
+            sortable: true,
+            readOnly: true,
+            render: (item) => `<span style="font-weight: 600; color: #28a745;">${item.numberOfStudents || '0'}</span>`
+        },
+        {
+            key: 'actions',
+            label: 'פעולות',
+            sortable: false,
+            readOnly: true,
+            render: (item) => `
+                <button class="btn-icon" onclick="showEditAdditionalStudyModal(${item.id})" title="עריכת תל״ן">
+                    <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                </button>
+                <button class="btn-icon" onclick="deleteAdditionalStudyProgram(${item.id})" title="מחיקת תל״ן">
+                    <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                </button>
+            `
+        }
+    ];
+
+    // Create ReusableTable
+    try {
+        window.additionalStudyTable = new ReusableTable('additionalStudyTableContainer', {
+            tableName: 'schoolAdditionalStudy',
+            isReadOnly: true,
+            allowAdd: false,
+            allowEdit: false,
+            allowDelete: false
+        });
+
+        window.additionalStudyTable.init(programs, columns);
+
+        // Hide actions column initially
+        const actionsHeaders = document.querySelectorAll('#additionalStudyTableContainer th:last-child');
+        const actionsCells = document.querySelectorAll('#additionalStudyTableContainer td:last-child');
+
+        actionsHeaders.forEach(th => {
+            th.style.display = 'none';
+            th.setAttribute('data-column', 'actions');
+        });
+
+        actionsCells.forEach(td => {
+            td.style.display = 'none';
+            td.setAttribute('data-column', 'actions');
+        });
+
+        console.log('✅ ReusableTable created with hidden actions column for additional study programs');
+
+    } catch (error) {
+        console.error('❌ Error creating ReusableTable for additional study programs:', error);
+        container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה ביצירת טבלת תל"ן</p>';
+    }
+}
+
+// Show add additional study program modal
+async function showAddAdditionalStudyModal() {
+    console.log('➕ Opening add additional study program modal');
+    await showAdditionalStudyModal(null);
+}
+
+// Show edit additional study program modal
+async function showEditAdditionalStudyModal(programId) {
+    console.log('✏️ Opening edit additional study program modal for program:', programId);
+    const program = window.lastSchoolAdditionalStudyData.find(p => p.id === programId);
+    if (!program) {
+        console.error('❌ Additional study program not found:', programId);
+        alert('תל״ן לא נמצא');
+        return;
+    }
+    await showAdditionalStudyModal(program);
+}
+
+// Generic additional study program modal (add or edit)
+async function showAdditionalStudyModal(programData) {
+    console.log('📋 Opening additional study program modal:', programData ? 'EDIT' : 'ADD');
+
+    try {
+        // Get school year ID from session
+        const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
+
+        if (!selectedSchoolYearId) {
+            alert('לא נמצא מזהה שנת לימודים');
+            return;
+        }
+
+        // Load classes for the school year
+        const classesResponse = await fetch(AppConfig.getApiUrl(`schoolClasses/by-school-year/${selectedSchoolYearId}`), {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+            }
+        });
+
+        if (!classesResponse.ok) {
+            throw new Error('Failed to load classes');
+        }
+
+        const classesResult = await classesResponse.json();
+        const classes = classesResult.success ? classesResult.data : [];
+
+        // Create modal
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        const classOptions = classes.map(c =>
+            `<option value="${c.id}" ${programData && programData.classId === c.id ? 'selected' : ''}>
+                ${c.level} ${c.classNumber}
+            </option>`
+        ).join('');
+
+        dialog.innerHTML = `
+            <h3 class="dialog-title">${programData ? 'עריכת תל״ן' : 'הוספת תל״ן חדש'}</h3>
+            <div style="margin: 20px 0;">
+                <div style="margin-bottom: 15px;">
+                    <label for="programClass" style="display: block; margin-bottom: 5px; font-weight: 600;">כיתה:</label>
+                    <select id="programClass" style="
+                        width: 100%;
+                        padding: 8px;
+                        border: 1px solid #dee2e6;
+                        border-radius: 4px;
+                        font-size: 14px;
+                        direction: rtl;
+                    ">
+                        <option value="">בחר כיתה...</option>
+                        ${classOptions}
+                    </select>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label for="programName" style="display: block; margin-bottom: 5px; font-weight: 600;">שם:</label>
+                    <input type="text" id="programName" placeholder="הזן שם תל״ן"
+                        value="${programData ? programData.name : ''}"
+                        style="
+                        width: 100%;
+                        padding: 8px;
+                        border: 1px solid #dee2e6;
+                        border-radius: 4px;
+                        font-size: 14px;
+                        direction: rtl;
+                    ">
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label for="programHours" style="display: block; margin-bottom: 5px; font-weight: 600;">שעות שבועיות:</label>
+                    <input type="number" id="programHours" placeholder="הזן מספר שעות" min="0" step="0.5"
+                        value="${programData ? programData.weeklyHours : ''}"
+                        style="
+                        width: 100%;
+                        padding: 8px;
+                        border: 1px solid #dee2e6;
+                        border-radius: 4px;
+                        font-size: 14px;
+                        direction: rtl;
+                    ">
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label for="programStudents" style="display: block; margin-bottom: 5px; font-weight: 600;">מספר תלמידים בכיתה:</label>
+                    <input type="number" id="programStudents" placeholder="הזן מספר תלמידים" min="0" step="1"
+                        value="${programData ? programData.numberOfStudents : ''}"
+                        style="
+                        width: 100%;
+                        padding: 8px;
+                        border: 1px solid #dee2e6;
+                        border-radius: 4px;
+                        font-size: 14px;
+                        direction: rtl;
+                    ">
+                </div>
+                
+                <input type="hidden" id="programRecordId" value="${programData ? programData.id : ''}">
+            </div>
+            <div class="dialog-buttons">
+                <button id="programOkBtn" class="dialog-btn save">אישור</button>
+                <button id="programCancelBtn" class="dialog-btn cancel">ביטול</button>
+            </div>
+        `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        // OK button handler with validation and save
+        document.getElementById('programOkBtn').onclick = async () => {
+            const classId = document.getElementById('programClass').value;
+            const name = document.getElementById('programName').value.trim();
+            const hours = parseFloat(document.getElementById('programHours').value);
+            const students = parseInt(document.getElementById('programStudents').value);
+            const recordId = document.getElementById('programRecordId').value;
+
+            // Validate required fields
+            if (!classId || !name || isNaN(hours) || isNaN(students)) {
+                alert('נא למלא את כל השדות הנדרשים');
+                return;
+            }
+
+            if (hours < 0) {
+                alert('מספר השעות חייב להיות חיובי');
+                return;
+            }
+
+            if (students < 0) {
+                alert('מספר התלמידים חייב להיות חיובי');
+                return;
+            }
+
+            console.log('📝 Saving additional study program:', {
+                recordId: recordId || null,
+                schoolYearId: selectedSchoolYearId,
+                classId,
+                name,
+                weeklyHours: hours,
+                numberOfStudents: students,
+                isEdit: !!recordId
+            });
+
+            try {
+                const url = recordId 
+                    ? AppConfig.getApiUrl(`schoolAdditionalStudyPrograms/${recordId}`)
+                    : AppConfig.getApiUrl('schoolAdditionalStudyPrograms');
+                
+                const method = recordId ? 'PUT' : 'POST';
+
+                const payload = {
+                    schoolYearId: parseInt(selectedSchoolYearId),
+                    classId: parseInt(classId),
+                    name: name,
+                    weeklyHours: hours,
+                    numberOfStudents: students
+                };
+
+                if (recordId) {
+                    payload.id = parseInt(recordId);
+                }
+
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    console.log('✅ Additional study program saved successfully');
+                    document.body.removeChild(overlay);
+                    
+                    // Refresh table
+                    await loadSchoolAdditionalStudyPrograms();
+                    
+                    // Restore edit mode if was active
+                    if (window.schoolAdditionalStudyEditMode) {
+                        setTimeout(() => {
+                            const actionsColumn = document.querySelectorAll('#additionalStudyTableContainer [data-column="actions"]');
+                            actionsColumn.forEach(cell => cell.style.display = '');
+                            const addBtn = document.getElementById('addAdditionalStudyBtn');
+                            if (addBtn) addBtn.style.display = 'inline-flex';
+                        }, 100);
+                    }
+
+                    alert(recordId ? 'התל"ן עודכן בהצלחה' : 'התל"ן נוסף בהצלחה');
+                } else {
+                    console.error('❌ Failed to save additional study program:', result);
+                    alert(result.message || 'שגיאה בשמירת התל"ן');
+                }
+
+            } catch (error) {
+                console.error('💥 Error saving additional study program:', error);
+                alert('שגיאה בשמירת התל"ן');
+            }
+        };
+
+        // Cancel button handler
+        document.getElementById('programCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+
+        // ESC key handler
+        const escHandler = (e) => {
+            if (e.key === 'Escape' && document.body.contains(overlay)) {
+                document.body.removeChild(overlay);
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+
+    } catch (error) {
+        console.error('💥 Error opening additional study program modal:', error);
+        alert('שגיאה בפתיחת חלון עריכה');
+    }
+}
+
+// Delete additional study program with confirmation
+async function deleteAdditionalStudyProgram(programId) {
+    console.log('🗑️ Attempting to delete additional study program:', programId);
+
+    try {
+        // Show confirmation dialog
+        const confirmed = await showDeleteConfirmationDialog();
+
+        if (!confirmed) {
+            console.log('❌ Delete cancelled by user');
+            return;
+        }
+
+        // Delete from database via backend API
+        const response = await fetch(AppConfig.getApiUrl(`schoolAdditionalStudyPrograms/${programId}`), {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+            }
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            console.log('✅ Additional study program deleted successfully');
+
+            // Refresh table
+            await loadSchoolAdditionalStudyPrograms();
+
+            // Re-show actions column and add button if in edit mode
+            if (window.schoolAdditionalStudyEditMode) {
+                setTimeout(() => {
+                    const actionsColumn = document.querySelectorAll('#additionalStudyTableContainer [data-column="actions"]');
+                    actionsColumn.forEach(cell => cell.style.display = '');
+
+                    const addBtn = document.getElementById('addAdditionalStudyBtn');
+                    if (addBtn) {
+                        addBtn.style.display = 'inline-flex';
+                    }
+                }, 100);
+            }
+
+            alert('התל"ן נמחק בהצלחה');
+        } else {
+            console.error('❌ Failed to delete additional study program:', result);
+            alert(result.message || 'שגיאה במחיקת התל"ן');
+        }
+
+    } catch (error) {
+        console.error('💥 Error deleting additional study program:', error);
+        alert('שגיאה במחיקת התל"ן');
+    }
+}
+
+ 
+
+ 
 
     // Context button navigation functions following Single-Page Application with Module Loading
     async function navigateBackToSchoolDashboard() {
@@ -2459,7 +2723,13 @@ async function deleteTrack(trackId) {
     window.showTrackModal = showTrackModal;
     window.deleteTrack = deleteTrack;
 
-
+window.setupEditAdditionalStudyButton = setupEditAdditionalStudyButton;
+window.loadSchoolAdditionalStudyPrograms = loadSchoolAdditionalStudyPrograms;
+window.displaySchoolAdditionalStudyPrograms = displaySchoolAdditionalStudyPrograms;
+window.showAddAdditionalStudyModal = showAddAdditionalStudyModal;
+window.showEditAdditionalStudyModal = showEditAdditionalStudyModal;
+window.showAdditionalStudyModal = showAdditionalStudyModal;
+window.deleteAdditionalStudyProgram = deleteAdditionalStudyProgram;
 
 
 

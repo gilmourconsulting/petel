@@ -41,6 +41,8 @@ namespace PetelApp.Api.Data
         public DbSet<TrackLevel> TrackLevels { get; set; }
         public DbSet<SchoolTrack> SchoolTracks { get; set; }
 
+        public DbSet<SchoolAdditionalStudyProgram> SchoolAdditionalStudyPrograms { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
