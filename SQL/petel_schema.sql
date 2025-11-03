@@ -1,7 +1,6 @@
--- DDL STATEMENTS (copy all rows) --
 -- ============================================
 -- Schema DDL Export: petel_schema
--- Generated: 2025-10-30 15:02:47.491088+02
+-- Generated: 2025-11-03 13:13:35.211366+02
 -- ============================================
 
 
@@ -140,7 +139,7 @@ CREATE TABLE petel_schema.school_attribute_types_values (
 CREATE TABLE petel_schema.school_attributes (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.school_attributes_seq'::regclass),
     school_year_id integer(32,0) NOT NULL,
-    school_attribute_id integer(32,0) NOT NULL,
+    school_attribute_type_id integer(32,0) NOT NULL,
     version integer(32,0) NOT NULL DEFAULT 0,
     value character varying(50),
     created_at time with time zone DEFAULT now(),
@@ -156,14 +155,15 @@ CREATE TABLE petel_schema.school_attributes_types (
     name character varying(25),
     created_at time with time zone,
     attribute_value_type character varying(25),
-    hebrew_name character varying
+    hebrew_name character varying,
+    year_id integer(32,0)
 );
 
 
 -- Table: petel_schema.school_classes
 CREATE TABLE petel_schema.school_classes (
     id integer(32,0) NOT NULL,
-    school_year integer(32,0) NOT NULL,
+    school_year_id integer(32,0) NOT NULL,
     name character varying(6) NOT NULL,
     level character varying(3) NOT NULL,
     class_number character varying(3) NOT NULL,
@@ -224,7 +224,7 @@ CREATE TABLE petel_schema.school_students (
 
 -- Table: petel_schema.school_tracks
 CREATE TABLE petel_schema.school_tracks (
-    id integer(32,0) NOT NULL,
+    id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.school_tracks_seq'::regclass),
     school_year_id integer(32,0) NOT NULL,
     track_id integer(32,0) NOT NULL,
     track_level_id integer(32,0) NOT NULL DEFAULT 0,
@@ -338,7 +338,8 @@ CREATE TABLE petel_schema.tracks (
     year_id integer(32,0) NOT NULL,
     external_code character varying(10),
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    available_for_classes _varchar
 );
 
 
@@ -547,12 +548,12 @@ ALTER TABLE petel_schema.school_attribute_types_values
 
 ALTER TABLE petel_schema.school_attributes
   ADD CONSTRAINT school_attributes_attribute_type_id
-  FOREIGN KEY (school_attribute_id)
+  FOREIGN KEY (school_attribute_type_id)
   REFERENCES petel_schema.school_attributes_types (id);
 
 ALTER TABLE petel_schema.school_classes
   ADD CONSTRAINT school_classes_fk1
-  FOREIGN KEY (school_year)
+  FOREIGN KEY (school_year_id)
   REFERENCES petel_schema.school_years (id);
 
 ALTER TABLE petel_schema.school_students
@@ -681,7 +682,7 @@ ALTER TABLE petel_schema.roles_actions
 
 ALTER TABLE petel_schema.school_classes
   ADD CONSTRAINT school_classes_uq
-  UNIQUE (school_year, name);
+  UNIQUE (school_year_id, name);
 
 ALTER TABLE petel_schema.school_grades
   ADD CONSTRAINT school_grades_uq
@@ -727,7 +728,7 @@ ALTER TABLE petel_schema.school_years
 
 CREATE UNIQUE INDEX action_roles_uq ON petel_schema.roles_actions USING btree (role_id, action_id);
 
-CREATE UNIQUE INDEX school_classes_uq ON petel_schema.school_classes USING btree (school_year, name);
+CREATE UNIQUE INDEX school_classes_uq ON petel_schema.school_classes USING btree (school_year_id, name);
 
 CREATE UNIQUE INDEX school_grades_uq ON petel_schema.school_grades USING btree (name);
 

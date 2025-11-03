@@ -27,15 +27,19 @@ namespace PetelApp.Api.Data
 
         public DbSet<HebrewYear> HebrewYears { get; set; }
 
-        // NEW DbSets for Council and SchoolClass
+        //  DbSets for Council and SchoolClass
         public DbSet<School> Schools { get; set; }
         public DbSet<Council> Councils { get; set; }
         public DbSet<SchoolClass> SchoolClasses { get; set; }
 
-            // Add these DbSets for school attributes
+            // DbSets for school attributes
         public DbSet<SchoolAttributeType> SchoolAttributeTypes { get; set; }
         public DbSet<SchoolAttributeTypeValue> SchoolAttributeTypeValues { get; set; }
         public DbSet<SchoolAttribute> SchoolAttributes { get; set; }
+        // DbSets for Tracks management
+        public DbSet<Track> Tracks { get; set; }
+        public DbSet<TrackLevel> TrackLevels { get; set; }
+        public DbSet<SchoolTrack> SchoolTracks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -229,6 +233,58 @@ namespace PetelApp.Api.Data
                 entity.HasIndex(a => new { a.Id, a.SchoolYearId, a.Version })
                     .IsUnique();
             });
+
+            // DbSets for Tracks management
+                       // Configure Track
+            modelBuilder.Entity<Track>(entity =>
+            {
+                entity.ToTable("tracks", "petel_schema");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.TrackName).HasColumnName("name");
+                entity.Property(e => e.YearId).HasColumnName("year_id");
+            });
+
+            // Configure TrackLevel
+            modelBuilder.Entity<TrackLevel>(entity =>
+            {
+                entity.ToTable("tracks_levels", "petel_schema");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.LevelName).HasColumnName("level");
+                entity.Property(e => e.SchoolTrackId).HasColumnName("school_track_id");
+            });
+
+            // Configure SchoolTrack
+            modelBuilder.Entity<SchoolTrack>(entity =>
+            {
+                entity.ToTable("school_tracks", "petel_schema");
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(e => e.SchoolYear)
+                    .WithMany()
+                    .HasForeignKey(e => e.SchoolYearId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Track)
+                    .WithMany(t => t.SchoolTracks)
+                    .HasForeignKey(e => e.TrackId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.TrackLevel)
+                    .WithMany(tl => tl.SchoolTracks)
+                    .HasForeignKey(e => e.TrackLevelId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.SchoolClass)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClassId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+        
         }
     }
 

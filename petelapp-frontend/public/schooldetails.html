@@ -58,7 +58,15 @@
             <div class="detail-card">
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">מגמות בית ספר</h2>
-                </div>
+
+                    <button id="editTracksBtn" class="btn-icon">
+                        <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
+                    <button id="addTrackBtn" class="btn-icon" onclick="showAddTrackModal()" title="הוספת מגמה חדשה"
+                        style="display: none;">
+                        <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
+                    </button>
+                                    </div>
                 <div class="detail-card-content" id="schoolCoursesContent">
                     <!-- Content will be populated here -->
                 </div>
@@ -118,7 +126,7 @@
         }
     }
 
-
+// School Classes Management Section
     // Store school classes edit mode state globally
     window.schoolClassesEditMode = window.schoolClassesEditMode || false;
 
@@ -577,7 +585,7 @@
             alert('שגיאה במחיקת הכיתה');
         }
     }
-
+// School Attributes Management Section
     window.schoolAttributeTypes = window.schoolAttributeTypes || [];
 
     // Store edit mode state globally
@@ -761,44 +769,726 @@
             console.warn('⚠️ Edit attributes button not found');
         }
     }
+// School Tracks (formerly Courses) Management Section
 
-    // Update the loadSchoolTitle function in schooldetails.html
-    async function loadSchoolTitle() {
-        console.log('📋 Loading school title from SessionState...');
+    // Store school tracks edit mode state globally
+    window.schoolTracksEditMode = window.schoolTracksEditMode || false;
 
-        try {
-            // ✅ Use centralized SessionState
-            const session = await window.SessionState.getSession();
-            const yearValue = await window.SessionState.getProperty('SelectedYearValue');
+    // Store last tracks data for re-rendering
+    window.lastSchoolTracksData = window.lastSchoolTracksData || [];
 
-            let schoolName = session.entityName;
+        // Setup edit tracks button - TOGGLE ACTIONS COLUMN VISIBILITY
+    function setupEditTracksButton() {
+        const editBtn = document.getElementById('editTracksBtn');
+        const addBtn = document.getElementById('addTrackBtn');
 
-            if (parseInt(session.entityTypeId, 10) === 5) {
-                // Multi-school network - get selected school name
-                const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
-                if (selectedSchoolName) {
-                    schoolName = selectedSchoolName;
+        if (editBtn) {
+            editBtn.onclick = function () {
+                window.schoolTracksEditMode = !window.schoolTracksEditMode;
+
+                // Toggle actions column visibility
+                const actionsColumn = document.querySelectorAll('#tracksTableContainer [data-column="actions"]');
+                actionsColumn.forEach(cell => {
+                    cell.style.display = window.schoolTracksEditMode ? '' : 'none';
+                });
+
+                // Toggle add button in header
+                if (addBtn) {
+                    addBtn.style.display = window.schoolTracksEditMode ? 'inline-flex' : 'none';
                 }
-            }
 
-            console.log('🏫 School context:', { schoolName, yearValue });
+                // Update button icon/text
+                const btnImg = editBtn.querySelector('img');
+                if (btnImg) {
+                    btnImg.alt = window.schoolTracksEditMode ? 'סגור עריכה' : 'עריכה';
+                }
 
-            const titleElement = document.getElementById('schoolTitle');
-            if (titleElement) {
-                titleElement.textContent = yearValue
-                    ? `${schoolName} - ${yearValue}`
-                    : schoolName;
-                console.log('✅ School title updated via SessionState');
-            }
-
-        } catch (error) {
-            console.error('❌ Error loading school title:', error);
-            const titleElement = document.getElementById('schoolTitle');
-            if (titleElement) {
-                titleElement.textContent = 'לוח בקרה של בית ספר';
-            }
+                console.log('✏️ Tracks edit mode toggled:', window.schoolTracksEditMode);
+            };
+            console.log('✅ Edit tracks button initialized');
+        } else {
+            console.warn('⚠️ Edit tracks button not found');
         }
     }
+
+   // Load school tracks (formerly courses)
+    async function loadSchoolTracks() {
+        console.log('📚 Loading school tracks...');
+
+        const container = document.getElementById('schoolCoursesContent');
+        if (!container) {
+            console.error('❌ schoolCoursesContent container not found');
+            return;
+        }
+
+        try {
+            const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
+
+            if (!selectedSchoolYearId) {
+                console.error('❌ No school year ID in session');
+                container.innerHTML = '<p style="color: #721c24; padding: 20px;">לא נמצא מזהה שנת לימודים</p>';
+                return;
+            }
+
+            const authToken = sessionStorage.getItem('authToken');
+            if (!authToken) {
+                console.error('❌ No auth token found');
+                container.innerHTML = '<p style="color: #721c24; padding: 20px;">נדרש אימות. אנא התחבר מחדש.</p>';
+                return;
+            }
+
+            container.innerHTML = '<p style="padding: 20px;">טוען מגמות...</p>';
+
+            const apiUrl = AppConfig.getApiUrl(`schoolTracks/by-school-year/${selectedSchoolYearId}`);
+            console.log('🌐 Making API call to:', apiUrl);
+
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log('📚 School tracks received:', result);
+
+                if (result.success && result.data) {
+               window.lastSchoolTracksData = result.data;
+                    displaySchoolTracks(result.data);
+                } else {
+                    throw new Error('Invalid response format');
+                }
+            } else {
+                const errorText = await response.text();
+                console.error('❌ API Error:', response.status, errorText);
+                container.innerHTML = `<p style="color: #721c24; padding: 20px;">שגיאה בטעינת מגמות: ${response.status}</p>`;
+            }
+        } catch (error) {
+            console.error('💥 Exception in loadSchoolTracks:', error);
+            container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה בטעינת מגמות בית הספר</p>';
+        }
+    }
+
+    // Display school tracks - READ-ONLY TABLE with HIDDEN ACTIONS COLUMN
+    function displaySchoolTracks(tracks) {
+        console.log('📚 Displaying school tracks:', tracks);
+
+        const container = document.getElementById('schoolCoursesContent');
+        if (!container) return;
+
+        if (!tracks || tracks.length === 0) {
+            container.innerHTML = '<p style="padding: 20px; color: #6c757d;">אין מגמות להצגה</p>';
+            return;
+        }
+
+        // Clear container
+        container.innerHTML = '';
+
+        // Create table container
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `<div id="tracksTableContainer"></div>`;
+        container.appendChild(wrapper);
+
+        // Define columns - actions column hidden by default
+        const columns = [
+               {
+                key: 'className',
+                label: 'כיתה',
+                sortable: true,
+                readOnly: true
+            },
+                     {
+                key: 'track',
+                label: 'מגמה',
+                sortable: true,
+                readOnly: true
+            },
+            {
+                key: 'trackLevel',
+                label: 'רמת מגמה',
+                sortable: true,
+                readOnly: true
+            },
+
+            {
+                key: 'weeklyHours',
+                label: 'שעות שבועיות',
+                sortable: true,
+                readOnly: true,
+                render: (item) => `<span style="font-weight: 600; color: #C15A16;">${item.weeklyHours || '0'}</span>`
+            },
+            {
+                key: 'actions',
+                label: 'פעולות',
+                sortable: false,
+                readOnly: true,
+                render: (item) => `
+                    <button class="btn-icon" onclick="showEditTrackModal(${item.id})" title="עריכת מגמה">
+                        <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
+                    <button class="btn-icon" onclick="deleteTrack(${item.id})" title="מחיקת מגמה">
+                        <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                    </button>
+                `
+            }
+        ];
+
+        // Create ReusableTable
+        try {
+            window.tracksTable = new ReusableTable('tracksTableContainer', {
+                tableName: 'schoolTracks',
+                isReadOnly: true,
+                allowAdd: false,
+                allowEdit: false,
+                allowDelete: false
+            });
+
+            window.tracksTable.init(tracks, columns);
+
+            // Hide actions column initially
+            const actionsHeaders = document.querySelectorAll('#tracksTableContainer th:last-child');
+            const actionsCells = document.querySelectorAll('#tracksTableContainer td:last-child');
+
+            actionsHeaders.forEach(th => {
+                th.style.display = 'none';
+                th.setAttribute('data-column', 'actions');
+            });
+
+            actionsCells.forEach(td => {
+                td.style.display = 'none';
+                td.setAttribute('data-column', 'actions');
+            });
+
+            console.log('✅ ReusableTable created with hidden actions column for tracks');
+
+        } catch (error) {
+            console.error('❌ Error creating ReusableTable for tracks:', error);
+            container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה ביצירת טבלת מגמות</p>';
+        }
+    }
+
+    // Show add track modal
+    async function showAddTrackModal() {
+        console.log('➕ Opening add track modal');
+        await showTrackModal(null);
+    }
+
+    // Show edit track modal
+    async function showEditTrackModal(trackId) {
+        console.log('✏️ Opening edit track modal for track:', trackId);
+        const track = window.lastSchoolTracksData.find(t => t.id === trackId);
+        if (!track) {
+            console.error('❌ Track not found:', trackId);
+            alert('מגמה לא נמצאה');
+            return;
+        }
+        await showTrackModal(track);
+    }
+
+    // Generic track modal (add or edit)
+    async function showTrackModal(trackData) {
+        console.log('📋 Opening track modal:', trackData ? 'EDIT' : 'ADD');
+
+        try {
+            // Get school year IDs from session
+            const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
+            const selectedYearId = await sessionManager.getSessionProperty('SelectedYearId');
+
+            if (!selectedSchoolYearId || !selectedYearId) {
+                alert('לא נמצא מזהה שנת לימודים');
+                return;
+            }
+
+            // Load classes for the school year
+            const classesResponse = await fetch(AppConfig.getApiUrl(`schoolClasses/by-school-year/${selectedSchoolYearId}`), {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                }
+            });
+
+            if (!classesResponse.ok) {
+                throw new Error('Failed to load classes');
+            }
+
+            const classesResult = await classesResponse.json();
+            const classes = classesResult.success ? classesResult.data : [];
+
+            // ✅ Initialize track level constraints map
+            window.trackLevelConstraints = new Map();
+
+            // Create modal
+            const overlay = document.createElement('div');
+            overlay.className = 'dialog-overlay';
+
+            const dialog = document.createElement('div');
+            dialog.className = 'dialog-box';
+            dialog.style.minWidth = '500px';
+
+            const classOptions = classes.map(c =>
+                `<option value="${c.id}" data-level="${c.level}" ${trackData && trackData.classId === c.id ? 'selected' : ''}>
+                    ${c.level} ${c.classNumber}
+                </option>`
+            ).join('');
+
+            dialog.innerHTML = `
+                <h3 class="dialog-title">${trackData ? 'עריכת מגמה' : 'הוספת מגמה חדשה'}</h3>
+                <div style="margin: 20px 0;">
+                    <div style="margin-bottom: 15px;">
+                        <label for="trackClass" style="display: block; margin-bottom: 5px; font-weight: 600;">כיתה:</label>
+                        <select id="trackClass" style="
+                            width: 100%;
+                            padding: 8px;
+                            border: 1px solid #dee2e6;
+                            border-radius: 4px;
+                            font-size: 14px;
+                            direction: rtl;
+                        ">
+                            <option value="">בחר כיתה...</option>
+                            ${classOptions}
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label for="trackTrack" style="display: block; margin-bottom: 5px; font-weight: 600;">מגמה:</label>
+                        <select id="trackTrack" style="
+                            width: 100%;
+                            padding: 8px;
+                            border: 1px solid #dee2e6;
+                            border-radius: 4px;
+                            font-size: 14px;
+                            direction: rtl;
+                        " disabled>
+                            <option value="">בחר תחילה כיתה...</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label for="trackLevel" style="display: block; margin-bottom: 5px; font-weight: 600;">רמת מגמה:</label>
+                        <select id="trackLevel" style="
+                            width: 100%;
+                            padding: 8px;
+                            border: 1px solid #dee2e6;
+                            border-radius: 4px;
+                            font-size: 14px;
+                            direction: rtl;
+                        " disabled>
+                            <option value="">בחר תחילה מגמה...</option>
+                        </select>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label for="trackHours" style="display: block; margin-bottom: 5px; font-weight: 600;">
+                            מספר שעות:
+                            <span id="hoursConstraint" style="color: #6c757d; font-weight: normal; font-size: 0.9em;"></span>
+                        </label>
+                        <input type="number" id="trackHours" placeholder="הזן מספר שעות" min="0" step="1"
+                            value="${trackData ? trackData.weeklyHours : ''}"
+                            style="
+                            width: 100%;
+                            padding: 8px;
+                            border: 1px solid #dee2e6;
+                            border-radius: 4px;
+                            font-size: 14px;
+                            direction: rtl;
+                        ">
+                        <div id="hoursError" style="color: #dc3545; font-size: 0.85em; margin-top: 5px; display: none;"></div>
+                    </div>
+                    
+                    <input type="hidden" id="trackRecordId" value="${trackData ? trackData.id : ''}">
+                </div>
+                <div class="dialog-buttons">
+                    <button id="trackOkBtn" class="dialog-btn save">אישור</button>
+                    <button id="trackCancelBtn" class="dialog-btn cancel">ביטול</button>
+                </div>
+            `;
+
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+
+            // ✅ Get element references AFTER appending to DOM
+            const classSelect = document.getElementById('trackClass');
+            const trackSelect = document.getElementById('trackTrack');
+            const levelSelect = document.getElementById('trackLevel');
+            const hoursInput = document.getElementById('trackHours');
+            const hoursConstraint = document.getElementById('hoursConstraint');
+            const hoursError = document.getElementById('hoursError');
+
+            // ✅ Setup class selection change handler - loads tracks filtered by class level
+            classSelect.onchange = async function () {
+                const classId = this.value;
+                
+                // Reset track and level dropdowns
+                trackSelect.innerHTML = '<option value="">טוען מגמות...</option>';
+                trackSelect.disabled = true;
+                levelSelect.innerHTML = '<option value="">בחר תחילה מגמה...</option>';
+                levelSelect.disabled = true;
+                
+                if (hoursConstraint) hoursConstraint.textContent = '';
+                if (hoursError) hoursError.style.display = 'none';
+
+                if (!classId) {
+                    trackSelect.innerHTML = '<option value="">בחר תחילה כיתה...</option>';
+                    return;
+                }
+
+                try {
+                    // ✅ Get class level from the selected option
+                    const selectedOption = this.options[this.selectedIndex];
+                    const classLevel = selectedOption.getAttribute('data-level');
+
+                    if (!classLevel) {
+                        console.error('❌ No class level found for selected class');
+                        trackSelect.innerHTML = '<option value="">שגיאה: לא נמצאה שכבה</option>';
+                        return;
+                    }
+
+                    console.log(`📚 Loading tracks for year ${selectedYearId} and class level ${classLevel}`);
+
+                    // ✅ Load tracks filtered by year and class level
+                    const tracksResponse = await fetch(
+                        AppConfig.getApiUrl(`tracks/by-year/${selectedYearId}/class-level/${encodeURIComponent(classLevel)}`), 
+                        {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                            }
+                        }
+                    );
+
+                    if (!tracksResponse.ok) {
+                        throw new Error('Failed to load tracks for class level');
+                    }
+
+                    const tracksResult = await tracksResponse.json();
+                    console.log('📚 Tracks API response:', tracksResult);
+                    
+                    const tracks = tracksResult.success ? tracksResult.data : [];
+                    console.log(`📚 Tracks loaded: ${tracks.length} tracks`);
+
+                    if (tracks.length === 0) {
+                        trackSelect.innerHTML = `<option value="">אין מגמות זמינות לשכבה ${classLevel}</option>`;
+                        trackSelect.disabled = true;
+                        return;
+                    }
+
+                    const trackOptions = tracks.map(t =>
+                        `<option value="${t.id}" ${trackData && trackData.trackId === t.id ? 'selected' : ''}>
+                            ${t.name}
+                        </option>`
+                    ).join('');
+
+                    trackSelect.innerHTML = `<option value="">בחר מגמה...</option>${trackOptions}`;
+                    trackSelect.disabled = false;
+
+                    console.log(`✅ Loaded ${tracks.length} tracks for class level ${classLevel}`);
+
+                    // ✅ If editing and track is pre-selected, trigger track change
+                    if (trackData && trackData.trackId) {
+                        trackSelect.value = trackData.trackId;
+                        await trackSelect.onchange.call(trackSelect);
+                    }
+
+                } catch (error) {
+                    console.error('❌ Error loading tracks for class:', error);
+                    trackSelect.innerHTML = '<option value="">שגיאה בטעינת מגמות</option>';
+                    trackSelect.disabled = true;
+                }
+            };
+
+            // Setup track selection change handler - loads track levels
+            trackSelect.onchange = async function () {
+                const trackId = this.value;
+                levelSelect.innerHTML = '<option value="">טוען רמות...</option>';
+                levelSelect.disabled = true;
+                
+                if (hoursConstraint) hoursConstraint.textContent = '';
+                if (hoursError) hoursError.style.display = 'none';
+
+                if (!trackId) {
+                    levelSelect.innerHTML = '<option value="">בחר תחילה מגמה...</option>';
+                    return;
+                }
+
+                try {
+                    // Load track levels for selected track
+                    const levelsResponse = await fetch(AppConfig.getApiUrl(`trackLevels/by-track/${trackId}`), {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                        }
+                    });
+
+                    if (!levelsResponse.ok) {
+                        throw new Error('Failed to load track levels');
+                    }
+
+                    const levelsResult = await levelsResponse.json();
+                    const levels = levelsResult.success ? levelsResult.data : [];
+
+                    if (levels.length === 0) {
+                        levelSelect.innerHTML = '<option value="">אין רמות זמינות</option>';
+                        levelSelect.disabled = true;
+                        return;
+                    }
+
+                    // ✅ Store constraints for each level
+                    window.trackLevelConstraints.clear();
+                    levels.forEach(l => {
+                        window.trackLevelConstraints.set(l.id, {
+                            minHours: l.minHours,
+                            maxHours: l.maxHours
+                        });
+                    });
+
+                    const levelOptions = levels.map(l =>
+                        `<option value="${l.id}" data-min="${l.minHours}" data-max="${l.maxHours || ''}">
+                            ${l.levelName || l.level || ''}
+                        </option>`
+                    ).join('');
+
+                    levelSelect.innerHTML = `<option value="">בחר רמת מגמה...</option>${levelOptions}`;
+                    levelSelect.disabled = false;
+
+                    // ✅ If editing, set the selected level
+                    if (trackData && trackData.trackLevelId) {
+                        levelSelect.value = trackData.trackLevelId;
+                        if (levelSelect.onchange) {
+                            levelSelect.onchange();
+                        }
+                    }
+
+                } catch (error) {
+                    console.error('❌ Error loading track levels:', error);
+                    levelSelect.innerHTML = '<option value="">שגיאה בטעינת רמות</option>';
+                    levelSelect.disabled = true;
+                }
+            };
+
+            // ✅ Setup level selection change handler - update hours constraint display
+            levelSelect.onchange = function () {
+                const levelId = parseInt(this.value);
+                if (hoursError) hoursError.style.display = 'none';
+
+                if (!levelId) {
+                    if (hoursConstraint) hoursConstraint.textContent = '';
+                    return;
+                }
+
+                const constraints = window.trackLevelConstraints.get(levelId);
+                if (constraints && hoursConstraint) {
+                    const minText = `מינימום: ${constraints.minHours}`;
+                    const maxText = constraints.maxHours ? `, מקסימום: ${constraints.maxHours}` : '';
+                    hoursConstraint.textContent = `(${minText}${maxText})`;
+                }
+            };
+
+            // ✅ Validate hours on input
+            hoursInput.oninput = function () {
+                const levelId = parseInt(levelSelect.value);
+                if (!levelId) return;
+
+                const hours = parseInt(this.value);
+                const constraints = window.trackLevelConstraints.get(levelId);
+
+                if (!constraints || isNaN(hours) || !hoursError) {
+                    if (hoursError) hoursError.style.display = 'none';
+                    return;
+                }
+
+                if (hours < constraints.minHours) {
+                    hoursError.textContent = `מספר השעות חייב להיות לפחות ${constraints.minHours}`;
+                    hoursError.style.display = 'block';
+                } else if (constraints.maxHours && hours > constraints.maxHours) {
+                    hoursError.textContent = `מספר השעות לא יכול לעבור ${constraints.maxHours}`;
+                    hoursError.style.display = 'block';
+                } else {
+                    hoursError.style.display = 'none';
+                }
+            };
+
+            // ✅ If editing with pre-selected class, trigger class change to load tracks
+            if (trackData && trackData.classId) {
+                classSelect.value = trackData.classId;
+                await classSelect.onchange.call(classSelect);
+            }
+
+            // OK button handler with validation and save
+            document.getElementById('trackOkBtn').onclick = async () => {
+                const classId = document.getElementById('trackClass').value;
+                const trackId = document.getElementById('trackTrack').value;
+                const levelId = document.getElementById('trackLevel').value;
+                const hours = parseInt(document.getElementById('trackHours').value);
+                const recordId = document.getElementById('trackRecordId').value;
+
+                // Validate required fields
+                if (!classId || !trackId || !hours) {
+                    alert('נא למלא את כל השדות הנדרשים');
+                    return;
+                }
+
+                // ✅ Validate hours against track level constraints
+                if (levelId) {
+                    const constraints = window.trackLevelConstraints.get(parseInt(levelId));
+                    if (constraints) {
+                        if (hours < constraints.minHours) {
+                            alert(`מספר השעות חייב להיות לפחות ${constraints.minHours}`);
+                            return;
+                        }
+                        if (constraints.maxHours && hours > constraints.maxHours) {
+                            alert(`מספר השעות לא יכול לעבור ${constraints.maxHours}`);
+                            return;
+                        }
+                    }
+                }
+
+                console.log('📝 Saving track:', {
+                    recordId: recordId || null,
+                    schoolYearId: selectedSchoolYearId,
+                    trackId,
+                    trackLevelId: levelId || null,
+                    classId,
+                    weeklyHours: hours,
+                    isEdit: !!recordId
+                });
+
+                try {
+                    const url = recordId 
+                        ? AppConfig.getApiUrl(`schoolTracks/${recordId}`)
+                        : AppConfig.getApiUrl('schoolTracks');
+                    
+                    const method = recordId ? 'PUT' : 'POST';
+
+                    const payload = {
+                        schoolYearId: parseInt(selectedSchoolYearId),
+                        trackId: parseInt(trackId),
+                        trackLevelId: levelId ? parseInt(levelId) : null,
+                        classId: parseInt(classId),
+                        weeklyHours: hours
+                    };
+
+                    if (recordId) {
+                        payload.id = parseInt(recordId);
+                    }
+
+                    const response = await fetch(url, {
+                        method: method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        console.log('✅ Track saved successfully');
+                        document.body.removeChild(overlay);
+                        
+                        // Refresh tracks table
+                        await loadSchoolTracks();
+                        
+                        // Restore edit mode if was active
+                        if (window.schoolTracksEditMode) {
+                            setTimeout(() => {
+                                const actionsColumn = document.querySelectorAll('#tracksTableContainer [data-column="actions"]');
+                                actionsColumn.forEach(cell => cell.style.display = '');
+                                const addBtn = document.getElementById('addTrackBtn');
+                                if (addBtn) addBtn.style.display = 'inline-flex';
+                            }, 100);
+                        }
+
+                        alert(recordId ? 'המגמה עודכנה בהצלחה' : 'המגמה נוספה בהצלחה');
+                    } else {
+                        console.error('❌ Failed to save track:', result);
+                        alert(result.message || 'שגיאה בשמירת המגמה');
+                    }
+
+                } catch (error) {
+                    console.error('💥 Error saving track:', error);
+                    alert('שגיאה בשמירת המגמה');
+                }
+            };
+
+            // Cancel button handler
+            document.getElementById('trackCancelBtn').onclick = () => {
+                document.body.removeChild(overlay);
+            };
+
+            // ESC key handler
+            const escHandler = (e) => {
+                if (e.key === 'Escape' && document.body.contains(overlay)) {
+                    document.body.removeChild(overlay);
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+
+        } catch (error) {
+            console.error('💥 Error opening track modal:', error);
+            alert('שגיאה בפתיחת חלון עריכה');
+        }
+    }
+// Delete track with confirmation
+async function deleteTrack(trackId) {
+    console.log('🗑️ Attempting to delete track:', trackId);
+
+    try {
+        // Show confirmation dialog
+        const confirmed = await showDeleteConfirmationDialog();
+
+        if (!confirmed) {
+            console.log('❌ Delete cancelled by user');
+            return;
+        }
+
+        // Delete from database via backend API
+        const response = await fetch(AppConfig.getApiUrl(`schoolTracks/${trackId}`), {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+            }
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            console.log('✅ Track deleted successfully');
+
+            // Refresh table
+            await loadSchoolTracks();
+
+            // Re-show actions column and add button if in edit mode
+            if (window.schoolTracksEditMode) {
+                setTimeout(() => {
+                    const actionsColumn = document.querySelectorAll('#tracksTableContainer [data-column="actions"]');
+                    actionsColumn.forEach(cell => cell.style.display = '');
+
+                    const addBtn = document.getElementById('addTrackBtn');
+                    if (addBtn) {
+                        addBtn.style.display = 'inline-flex';
+                    }
+                }, 100);
+            }
+
+            alert('המגמה נמחקה בהצלחה');
+        } else {
+            console.error('❌ Failed to delete track:', result);
+            alert(result.message || 'שגיאה במחיקת המגמה');
+        }
+
+    } catch (error) {
+        console.error('💥 Error deleting track:', error);
+        alert('שגיאה במחיקת המגמה');
+    }
+}
 
     // Initialize page following Critical Development Workflows
     async function initializeSchoolDetails() {
@@ -814,6 +1504,7 @@
             // Setup edit button event listener
             setupEditAttributesButton();
             setupEditClassesButton();
+            setupEditTracksButton();
             // Load all data sections
             await loadSchoolDetailsData();
 
@@ -851,6 +1542,8 @@
             await loadSchoolClasses();
             // Load school attributes data
             await loadSchoolAttributes();
+             // Load school tracks
+            await loadSchoolTracks();
 
             // Load additional education table data
             await loadAdditionalEducationTable();
@@ -1756,6 +2449,15 @@
     window.deleteClassWithConfirmation = deleteClassWithConfirmation;
     window.showDeleteConfirmationDialog = showDeleteConfirmationDialog;
     window.deleteClassFromDatabase = deleteClassFromDatabase;
+
+        // Make school tracks functions globally available following Cross-Component Communication
+    window.setupEditTracksButton = setupEditTracksButton;
+    window.loadSchoolTracks = loadSchoolTracks;
+    window.displaySchoolTracks = displaySchoolTracks;
+    window.showAddTrackModal = showAddTrackModal;
+    window.showEditTrackModal = showEditTrackModal;
+    window.showTrackModal = showTrackModal;
+    window.deleteTrack = deleteTrack;
 
 
 

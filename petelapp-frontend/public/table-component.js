@@ -14,6 +14,8 @@ class ReusableTable {
         this.options = options;
         this.sessionToken = sessionStorage.getItem('authToken'); // Security token
         this.allowedUpdates = new Set(); // Track server-approved updatable fields
+        this.columnVisibility = new Map(); // columnKey -> boolean (true = visible, false = hidden)
+ 
     }
 
     // Initialize the table with server validation
@@ -362,13 +364,16 @@ render() {
 
     console.log('Rendering', this.filteredData.length, 'rows with', this.columns.length, 'columns');
     
-    // ✅ FIX: Ensure we have data to render
+    // Ensure we have data to render
     if (!this.filteredData || this.filteredData.length === 0) {
         container.innerHTML = '<p style="text-align: center; padding: 20px; color: #666;">אין נתונים להצגה</p>';
         return;
     }
 
-        // ✅ Filter out hidden columns for rendering
+    //  BEFORE re-rendering, save current visibility states from DOM
+        this.saveColumnVisibilityStates();
+
+    // Filter out hidden columns for rendering
     const visibleColumns = this.columns.filter(col => !col.hidden);
     console.log('Visible columns:', visibleColumns.length, 'out of', this.columns.length);
 
@@ -380,8 +385,15 @@ render() {
                     <tr>
                         ${visibleColumns.map(col => {
                             console.log('Rendering header for column:', col.key, col.label);
-                            return `
-                                <th data-column="${col.key}" ${col.sortable ? 'style="cursor: pointer;"' : ''}>
+
+                            // Check if frontend has hidden this column
+                            const isHiddenByFrontend = this.columnVisibility.get(col.key) === false;
+                            const hideStyle = isHiddenByFrontend ? 'display: none;' : '';
+
+                           return `
+                                <th data-column="${col.key}" 
+                                    style="${hideStyle}${col.sortable ? 'cursor: pointer;' : ''}"
+                                    ${col.sortable ? '' : ''}>
                                     ${col.label}
                                     ${col.sortable ? '<span class="sort-indicator"></span>' : ''}
                                 </th>
@@ -404,8 +416,11 @@ render() {
                                         console.log(`Column ${col.key}:`, cellValue, '→', renderedValue);
                                     }
                                     
+                                     // Check if frontend has hidden this column
+                                    const isHiddenByFrontend = this.columnVisibility.get(col.key) === false;
+                                    const hideStyle = isHiddenByFrontend ? 'display: none;' : '';
                                     return `
-                                        <td data-column="${col.key}">
+                                        <td data-column="${col.key}" style="${hideStyle}">
                                             ${renderedValue}
                                         </td>
                                     `;
@@ -455,5 +470,41 @@ render() {
         this.render();
     }
 
-    // ... (keep all other existing methods)
+       //  Save current column visibility states from DOM before re-render
+    saveColumnVisibilityStates() {
+        const container = document.getElementById(this.containerId);
+        if (!container) return;
+
+        // Check all header cells for display style
+        const headers = container.querySelectorAll('th[data-column]');
+        headers.forEach(th => {
+            const columnKey = th.getAttribute('data-column');
+            const isVisible = th.style.display !== 'none';
+            this.columnVisibility.set(columnKey, isVisible);
+        });
+
+        console.log('📊 Saved column visibility states:', Object.fromEntries(this.columnVisibility));
+    }
+
+    //  Allow frontend to explicitly set column visibility
+    setColumnVisibility(columnKey, isVisible) {
+        this.columnVisibility.set(columnKey, isVisible);
+        
+        const container = document.getElementById(this.containerId);
+        if (!container) return;
+
+        // Apply to DOM immediately
+        const headers = container.querySelectorAll(`th[data-column="${columnKey}"]`);
+        const cells = container.querySelectorAll(`td[data-column="${columnKey}"]`);
+
+        headers.forEach(th => {
+            th.style.display = isVisible ? '' : 'none';
+        });
+
+        cells.forEach(td => {
+            td.style.display = isVisible ? '' : 'none';
+        });
+
+        console.log(`🔄 Column visibility changed: ${columnKey} = ${isVisible ? 'visible' : 'hidden'}`);
+    }
 }
