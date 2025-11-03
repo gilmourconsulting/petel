@@ -34,7 +34,12 @@ builder.Host.UseSerilog();
 
 
 // Add services
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping;
+        // Preserve Hebrew and special characters
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -96,6 +101,8 @@ if (!string.IsNullOrEmpty(hangfireConnectionString))
 builder.Services.AddLogging();
 
 var app = builder.Build();
+
+
 
 // Configure pipeline
 if (app.Environment.IsDevelopment())

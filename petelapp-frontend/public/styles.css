@@ -1349,3 +1349,46 @@ body {
 }
 
 
+/* School Classes Edit Mode - Select Dropdown Styling */
+.class-row select.class-level,
+#classesTableContainer select[data-field="level"] {
+    padding: 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    text-align: right;
+    font-family: Arial, sans-serif;
+    font-size: 14px;
+    direction: rtl;
+    background-color: white;
+    cursor: pointer;
+    width: 100%;
+}
+
+.class-row select.class-level:focus,
+#classesTableContainer select[data-field="level"]:focus {
+    outline: none;
+    border-color: #C15A16;
+    box-shadow: 0 0 0 2px rgba(193, 90, 22, 0.1);
+}
+
+.class-row select.class-level option,
+#classesTableContainer select[data-field="level"] option {
+    padding: 8px;
+    font-family: Arial, sans-serif;
+    direction: rtl;
+}
+
+/* Delete button styling */
+.dialog-btn.delete {
+    background-color: #dc3545;
+    color: white;
+}
+
+.dialog-btn.delete:hover {
+    background-color: #c82333;
+}
+
+/* Warning dialog title */
+.dialog-title.warning {
+    color: #856404;
+}

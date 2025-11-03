@@ -161,7 +161,7 @@ namespace PetelApp.Api.Data
             {
                 entity.ToTable("school_classes", "petel_schema");
                 entity.HasKey(e => e.Id);
-                entity.Property(e => e.SchoolYear).IsRequired();
+                entity.Property(e => e.SchoolYearId).IsRequired();
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(6);
                 entity.Property(e => e.Level).IsRequired().HasMaxLength(3);
                 entity.Property(e => e.ClassNumber).IsRequired().HasMaxLength(3);

@@ -15,8 +15,8 @@ namespace PetelApp.Api.Data
         public int Id { get; set; }
 
         [Required]
-        [Column("school_year")]
-        public int SchoolYear { get; set; }
+        [Column("school_year_id")]
+        public int SchoolYearId { get; set; }
 
         [Required]
         [Column("name")]

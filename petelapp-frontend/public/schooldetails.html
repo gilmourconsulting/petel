@@ -24,9 +24,24 @@
                     <!-- Content will be populated here -->
                 </div>
             </div>
-
+            <!-- School Classes Card -->
+            <div class="detail-card">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">כיתות בית ספר</h2>
+                            <button id="editClassesBtn" class="btn-icon">
+            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+        </button>
+                    <button id="addClassBtn" class="btn-icon" onclick="showAddClassModal()" title="הוספת כיתה חדשה" style="display: none;">
+                <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
+            </button>
+                </div>
+                <div class="detail-card-content" id="schoolClassesContent">
+                    <!-- Content will be populated here -->
+                </div>
+            </div>
             <!-- School attributes Card -->
             <div class="detail-card">
+ 
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">שירותי בית ספר</h2>
                     <button id="editAttributesBtn" class="btn-icon" >
@@ -44,12 +59,12 @@
                 </div>
             </div>
 
-            <!-- School Classes Card -->
+            <!-- School Courses Card -->
             <div class="detail-card">
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">מגמות בית ספר</h2>
                 </div>
-                <div class="detail-card-content" id="schoolClassesContent">
+                <div class="detail-card-content" id="schoolCoursesContent">
                     <!-- Content will be populated here -->
                 </div>
             </div>
@@ -108,7 +123,562 @@
     }
 }
 
-// Store school attribute types globally
+
+// Store school classes edit mode state globally
+window.schoolClassesEditMode = window.schoolClassesEditMode || false;
+
+// Store last classes data for re-rendering
+window.lastSchoolClassesData = window.lastSchoolClassesData || [];
+
+// Store original values for change detection
+//!!!!! window.originalSchoolClassesValues = window.originalSchoolClassesValues || {};
+
+// Setup edit classes button - TOGGLE ACTIONS COLUMN VISIBILITY
+function setupEditClassesButton() {
+    const editBtn = document.getElementById('editClassesBtn');
+    const addBtn = document.getElementById('addClassBtn');
+    
+    if (editBtn) {
+        editBtn.onclick = function() {
+            window.schoolClassesEditMode = !window.schoolClassesEditMode;
+            
+            // Toggle actions column visibility
+            const actionsColumn = document.querySelectorAll('[data-column="actions"]');
+            actionsColumn.forEach(cell => {
+                cell.style.display = window.schoolClassesEditMode ? '' : 'none';
+            });
+            
+            // ✅ Toggle add button in header
+            if (addBtn) {
+                addBtn.style.display = window.schoolClassesEditMode ? 'inline-flex' : 'none';
+            }
+            
+            // Update button icon/text
+            const btnImg = editBtn.querySelector('img');
+            if (btnImg) {
+                btnImg.alt = window.schoolClassesEditMode ? 'סגור עריכה' : 'עריכה';
+            }
+            
+            console.log('✏️ Classes edit mode toggled:', window.schoolClassesEditMode);
+        };
+        console.log('✅ Edit classes button initialized');
+    } else {
+        console.warn('⚠️ Edit classes button not found');
+    }
+}
+
+// Load school classes
+async function loadSchoolClasses() {
+    console.log('📚 Loading school classes...');
+    
+    const container = document.getElementById('schoolClassesContent');
+    if (!container) {
+        console.error('❌ schoolClassesContent container not found');
+        return;
+    }
+    
+    try {
+        const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
+        
+        if (!selectedSchoolYearId) {
+            console.error('❌ No school year ID in session');
+            container.innerHTML = '<p style="color: #721c24; padding: 20px;">לא נמצא מזהה שנת לימודים</p>';
+            return;
+        }
+
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            console.error('❌ No auth token found');
+            container.innerHTML = '<p style="color: #721c24; padding: 20px;">נדרש אימות. אנא התחבר מחדש.</p>';
+            return;
+        }
+
+        container.innerHTML = '<p style="padding: 20px;">טוען כיתות...</p>';
+
+        const apiUrl = AppConfig.getApiUrl(`schoolClasses/by-school-year/${selectedSchoolYearId}`);
+        console.log('🌐 Making API call to:', apiUrl);
+        
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('📚 School classes received:', result);
+            
+            if (result.success && result.data) {
+                displaySchoolClasses(result.data);
+            } else {
+                throw new Error('Invalid response format');
+            }
+        } else {
+            const errorText = await response.text();
+            console.error('❌ API Error:', response.status, errorText);
+            container.innerHTML = `<p style="color: #721c24; padding: 20px;">שגיאה בטעינת כיתות: ${response.status}</p>`;
+        }
+    } catch (error) {
+        console.error('💥 Exception in loadSchoolClasses:', error);
+        container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה בטעינת כיתות בית הספר</p>';
+    }
+}
+
+
+// Display school classes - READ-ONLY TABLE with HIDDEN ACTIONS COLUMN
+function displaySchoolClasses(classes) {
+    console.log('📚 Displaying school classes:', classes);
+    
+    const container = document.getElementById('schoolClassesContent');
+    if (!container) return;
+    
+    window.lastSchoolClassesData = classes || [];
+
+    // Clear container
+    container.innerHTML = '';
+    
+    // ✅ Just create table container (no add button here)
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `<div id="classesTableContainer"></div>`;
+    container.appendChild(wrapper);
+    
+    // Define columns - actions column hidden by default
+    const columns = [
+        { 
+            key: 'level', 
+            label: 'שכבה', 
+            sortable: true, 
+            readOnly: true
+        },
+        { 
+            key: 'classNumber', 
+            label: 'מספר כיתה', 
+            sortable: true, 
+            readOnly: true
+        },
+        {
+            key: 'actions',
+            label: 'פעולות',
+            sortable: false,
+            readOnly: true,
+            render: (item) => `
+                <button class="btn-icon" onclick="deleteClassWithConfirmation(${item.id})" title="מחיקת כיתה">
+                    <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                </button>
+            `
+        }
+    ];
+
+    // Create ReusableTable
+    try {
+        window.classesTable = new ReusableTable('classesTableContainer', {
+            tableName: 'schoolClasses',
+            isReadOnly: true,
+            allowAdd: false,
+            allowEdit: false,
+            allowDelete: false
+        });
+        
+        window.classesTable.init(classes, columns);
+        
+        // ✅ HIDE actions column initially
+        const actionsHeaders = document.querySelectorAll('#classesTableContainer th:last-child');
+        const actionsCells = document.querySelectorAll('#classesTableContainer td:last-child');
+        
+        actionsHeaders.forEach(th => {
+            th.style.display = 'none';
+            th.setAttribute('data-column', 'actions');
+        });
+        
+        actionsCells.forEach(td => {
+            td.style.display = 'none';
+            td.setAttribute('data-column', 'actions');
+        });
+        
+        console.log('✅ ReusableTable created with hidden actions column');
+        
+    } catch (error) {
+        console.error('❌ Error creating ReusableTable for classes:', error);
+    }
+}
+
+// Show add class modal with frontend validation
+function showAddClassModal() {
+    console.log('➕ Opening add class modal');
+    
+    const gradeLevels = [
+        'א', 'ב', 'ג', 'ד', 'ה', 'ו',
+        'ז', 'ח', 'ט', 'י', 'י״א', 'י״ב'
+    ];
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'dialog-overlay';
+    
+    const dialog = document.createElement('div');
+    dialog.className = 'dialog-box';
+    dialog.style.minWidth = '400px';
+    
+    const options = gradeLevels.map(level => 
+        `<option value="${level}">${level}</option>`
+    ).join('');
+    
+    dialog.innerHTML = `
+        <h3 class="dialog-title">הוספת כיתה חדשה</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label for="newClassLevel" style="display: block; margin-bottom: 5px; font-weight: 600;">שכבה:</label>
+                <select id="newClassLevel" style="
+                    width: 100%;
+                    padding: 8px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 4px;
+                    font-size: 14px;
+                    direction: rtl;
+                ">
+                    <option value="">בחר שכבה...</option>
+                    ${options}
+                </select>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label for="newClassNumber" style="display: block; margin-bottom: 5px; font-weight: 600;">מספר כיתה:</label>
+                <input type="text" id="newClassNumber" placeholder="הזן מספר כיתה" style="
+                    width: 100%;
+                    padding: 8px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 4px;
+                    font-size: 14px;
+                    direction: rtl;
+                ">
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="addClassOkBtn" class="dialog-btn save">אישור</button>
+            <button id="addClassCancelBtn" class="dialog-btn cancel">ביטול</button>
+        </div>
+    `;
+    
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+    
+    setTimeout(() => document.getElementById('newClassLevel')?.focus(), 100);
+    
+    // OK button handler
+    document.getElementById('addClassOkBtn').onclick = async () => {
+        const level = document.getElementById('newClassLevel').value.trim();
+        const classNumber = document.getElementById('newClassNumber').value.trim();
+        
+        if (!level || !classNumber) {
+            alert('נא למלא את כל השדות');
+            return;
+        }
+        
+        // ✅ Check if class already exists in current table data
+        const exists = window.lastSchoolClassesData.some(cls => 
+            cls.level === level && cls.classNumber === classNumber
+        );
+        
+        if (exists) {
+            alert(`כיתה ${level} ${classNumber} כבר קיימת`);
+            return;
+        }
+        
+        document.body.removeChild(overlay);
+        await addClassToDatabase(level, classNumber);
+    };
+    
+    // Cancel button handler
+    document.getElementById('addClassCancelBtn').onclick = () => {
+        document.body.removeChild(overlay);
+    };
+    
+    // ESC key to cancel
+    const escHandler = (e) => {
+        if (e.key === 'Escape' && document.body.contains(overlay)) {
+            document.body.removeChild(overlay);
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
+
+
+
+// Show add class modal
+function showAddClassModal() {
+    console.log('➕ Opening add class modal');
+    
+    // Hebrew grade levels א to י״ב
+    const gradeLevels = [
+        'א', 'ב', 'ג', 'ד', 'ה', 'ו',
+        'ז', 'ח', 'ט', 'י', 'י״א', 'י״ב'
+    ];
+    
+    const overlay = document.createElement('div');
+    overlay.className = 'dialog-overlay';
+    
+    const dialog = document.createElement('div');
+    dialog.className = 'dialog-box';
+    dialog.style.minWidth = '400px';
+    
+    const options = gradeLevels.map(level => 
+        `<option value="${level}">${level}</option>`
+    ).join('');
+    
+    dialog.innerHTML = `
+        <h3 class="dialog-title">הוספת כיתה חדשה</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label for="newClassLevel" style="display: block; margin-bottom: 5px; font-weight: 600;">שכבה:</label>
+                <select id="newClassLevel" style="
+                    width: 100%;
+                    padding: 8px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 4px;
+                    font-size: 14px;
+                    direction: rtl;
+                ">
+                    <option value="">בחר שכבה...</option>
+                    ${options}
+                </select>
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label for="newClassNumber" style="display: block; margin-bottom: 5px; font-weight: 600;">מספר כיתה:</label>
+                <input type="text" id="newClassNumber" placeholder="הזן מספר כיתה" style="
+                    width: 100%;
+                    padding: 8px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 4px;
+                    font-size: 14px;
+                    direction: rtl;
+                ">
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="addClassOkBtn" class="dialog-btn save">אישור</button>
+            <button id="addClassCancelBtn" class="dialog-btn cancel">ביטול</button>
+        </div>
+    `;
+    
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+    
+    // Focus on level dropdown
+    setTimeout(() => document.getElementById('newClassLevel')?.focus(), 100);
+    
+    // OK button handler
+    document.getElementById('addClassOkBtn').onclick = async () => {
+        const level = document.getElementById('newClassLevel').value.trim();
+        const classNumber = document.getElementById('newClassNumber').value.trim();
+        
+        if (!level || !classNumber) {
+            alert('נא למלא את כל השדות');
+            return;
+        }
+        
+        document.body.removeChild(overlay);
+        await addClassToDatabase(level, classNumber);
+    };
+    
+    // Cancel button handler
+    document.getElementById('addClassCancelBtn').onclick = () => {
+        document.body.removeChild(overlay);
+    };
+    
+    // ESC key to cancel
+    const escHandler = (e) => {
+        if (e.key === 'Escape' && document.body.contains(overlay)) {
+            document.body.removeChild(overlay);
+            document.removeEventListener('keydown', escHandler);
+        }
+    };
+    document.addEventListener('keydown', escHandler);
+}
+
+// Add class to database via backend API
+async function addClassToDatabase(level, classNumber) {
+    console.log('💾 Adding class to database:', { level, classNumber });
+    
+    try {
+        const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
+        
+        if (!schoolYearId) {
+            alert('לא נבחרה שנת לימודים');
+            return;
+        }
+        
+        const response = await fetch(AppConfig.getApiUrl('schoolClasses'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+            },
+            body: JSON.stringify({
+                schoolYearId: parseInt(schoolYearId),
+                level: level,
+                classNumber: classNumber
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            console.log('✅ Class added successfully');
+            
+            // Refresh table
+            await loadSchoolClasses();
+            
+            // Re-show actions column if in edit mode
+            if (window.schoolClassesEditMode) {
+                setTimeout(() => {
+                    const actionsColumn = document.querySelectorAll('[data-column="actions"]');
+                    actionsColumn.forEach(cell => cell.style.display = '');
+                }, 100);
+            }
+            
+            alert('הכיתה נוספה בהצלחה');
+        } else {
+            console.error('❌ Failed to add class:', result);
+            alert(result.message || 'שגיאה בהוספת הכיתה');
+        }
+        
+    } catch (error) {
+        console.error('💥 Error adding class:', error);
+        alert('שגיאה בהוספת כיתה');
+    }
+}
+
+// Delete class with confirmation and usage check via backend API
+async function deleteClassWithConfirmation(classId) {
+    console.log('🗑️ Attempting to delete class:', classId);
+    
+    try {
+        // ✅ Check if class is in use via backend API
+        const checkResponse = await fetch(AppConfig.getApiUrl(`schoolClasses/${classId}/in-use`), {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+            }
+        });
+        
+        if (!checkResponse.ok) {
+            throw new Error(`HTTP ${checkResponse.status}`);
+        }
+        
+        const checkResult = await checkResponse.json();
+        
+        if (checkResult.success) {
+            if (checkResult.data.inUse) {
+                alert(`לא ניתן למחוק כיתה זו. יש ${checkResult.data.studentCount} תלמידים המשויכים לכיתה.`);
+                return;
+            }
+            
+            // Show confirmation dialog
+            const confirmed = await showDeleteConfirmationDialog();
+            
+            if (!confirmed) {
+                console.log('❌ Delete cancelled by user');
+                return;
+            }
+            
+            // Delete from database via backend API
+            await deleteClassFromDatabase(classId);
+            
+        } else {
+            console.error('❌ Failed to check class usage:', checkResult);
+            alert(checkResult.message || 'שגיאה בבדיקת שימוש בכיתה');
+        }
+        
+    } catch (error) {
+        console.error('💥 Error checking class usage:', error);
+        alert('שגיאה בבדיקת שימוש בכיתה');
+    }
+}
+
+
+// Show delete confirmation dialog
+function showDeleteConfirmationDialog() {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+        
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        
+        dialog.innerHTML = `
+            <h3 class="dialog-title warning">אישור מחיקה</h3>
+            <p class="dialog-message">האם אתה בטוח שברצונך למחוק כיתה זו?</p>
+            <p style="color: #6c757d; font-size: 0.9em; margin-top: 10px;">פעולה זו אינה ניתנת לביטול.</p>
+            <div class="dialog-buttons">
+                <button id="confirmDeleteBtn" class="dialog-btn delete">כן, מחק</button>
+                <button id="cancelDeleteBtn" class="dialog-btn cancel">ביטול</button>
+            </div>
+        `;
+        
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+        
+        document.getElementById('confirmDeleteBtn').onclick = () => {
+            document.body.removeChild(overlay);
+            resolve(true);
+        };
+        
+        document.getElementById('cancelDeleteBtn').onclick = () => {
+            document.body.removeChild(overlay);
+            resolve(false);
+        };
+    });
+}
+
+/// Delete class from database via backend API
+async function deleteClassFromDatabase(classId) {
+    console.log('💾 Deleting class from database:', classId);
+    
+    try {
+        const response = await fetch(AppConfig.getApiUrl(`schoolClasses/${classId}`), {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            console.log('✅ Class deleted successfully');
+            
+            // Refresh table
+            await loadSchoolClasses();
+            
+            // Re-show actions column and add button if in edit mode
+            if (window.schoolClassesEditMode) {
+                setTimeout(() => {
+                    const actionsColumn = document.querySelectorAll('[data-column="actions"]');
+                    actionsColumn.forEach(cell => cell.style.display = '');
+                    
+                    const addBtn = document.getElementById('addClassBtn');
+                    if (addBtn) {
+                        addBtn.style.display = 'inline-flex';
+                    }
+                }, 100);
+            }
+            
+            alert('הכיתה נמחקה בהצלחה');
+        } else {
+            console.error('❌ Failed to delete class:', result);
+            alert(result.message || 'שגיאה במחיקת הכיתה');
+        }
+        
+    } catch (error) {
+        console.error('💥 Error deleting class:', error);
+        alert('שגיאה במחיקת הכיתה');
+    }
+}
+
 window.schoolAttributeTypes = window.schoolAttributeTypes || [];
 
 // Store edit mode state globally
@@ -117,11 +687,14 @@ window.schoolAttributesEditMode = window.schoolAttributesEditMode || false;
 // Store last attributes data for re-rendering
 window.lastSchoolAttributesData = window.lastSchoolAttributesData || [];
 
+// ✅ Simple flag - set to true when ANY field changes
+window.hasUnsavedAttributeChanges = false;
+
 // Store original values for change detection
 window.originalSchoolAttributesValues = window.originalSchoolAttributesValues || {};
 
 // Track if there are unsaved changes
-window.hasUnsavedAttributeChanges = window.hasUnsavedAttributeChanges || false;
+//window.hasUnsavedAttributeChanges = window.hasUnsavedAttributeChanges || false;
 
 // Load attribute types dynamically from database
 async function loadAttributeTypes() {
@@ -200,7 +773,7 @@ function captureOriginalAttributeValues(attributes) {
 }
 
 // Check if any attribute values have changed
-function checkForAttributeChanges() {
+/*function checkForAttributeChanges() {
    
     
     for (const attrType of window.schoolAttributeTypes) {
@@ -229,7 +802,7 @@ function checkForAttributeChanges() {
     }
     
     return false;
-}
+}*/
 
 // Show confirmation dialog with three options
 function showAttributeSaveDialog() {
@@ -316,9 +889,8 @@ function setupEditAttributesButton() {
     if (editBtn) {
         editBtn.onclick = async function() {
             if (window.schoolAttributesEditMode) {
-                const hasChanges = checkForAttributeChanges();
-                
-                if (hasChanges) {
+                // ✅ Only check flag, no complex change detection
+                if (window.hasUnsavedAttributeChanges) {
                     const action = await showAttributeSaveDialog();
                     
                     if (action === 'save') {
@@ -328,7 +900,7 @@ function setupEditAttributesButton() {
                         window.hasUnsavedAttributeChanges = false;
                         displaySchoolAttributes(window.lastSchoolAttributesData || []);
                     } else if (action === 'dontSave') {
-                        console.log('↩️ Reverting to original values');
+                        console.log('↩️ Discarding changes and reverting to read-only');
                         window.schoolAttributesEditMode = false;
                         window.hasUnsavedAttributeChanges = false;
                         displaySchoolAttributes(window.lastSchoolAttributesData || []);
@@ -337,11 +909,14 @@ function setupEditAttributesButton() {
                         return;
                     }
                 } else {
+                    // No changes, just exit edit mode
                     window.schoolAttributesEditMode = false;
                     displaySchoolAttributes(window.lastSchoolAttributesData || []);
                 }
             } else {
+                // Entering edit mode
                 window.schoolAttributesEditMode = true;
+                window.hasUnsavedAttributeChanges = false; // ✅ Reset flag on entering edit mode
                 displaySchoolAttributes(window.lastSchoolAttributesData || []);
             }
             
@@ -352,10 +927,6 @@ function setupEditAttributesButton() {
         console.warn('⚠️ Edit attributes button not found');
     }
 }
-
-
-
-
 
 // Update the loadSchoolTitle function in schooldetails.html
 async function loadSchoolTitle() {
@@ -408,7 +979,7 @@ async function loadSchoolTitle() {
                 
                 // Setup edit button event listener
                 setupEditAttributesButton();
-                
+                setupEditClassesButton();
                 // Load all data sections
                 await loadSchoolDetailsData();
                 
@@ -443,7 +1014,7 @@ async function loadSchoolTitle() {
 
                 // Load school details
                 await loadSchoolDetails();
-                
+                await loadSchoolClasses();
                 // Load school attributes data
                 await loadSchoolAttributes();
                 
@@ -640,14 +1211,6 @@ function displaySchoolAttributes(attributes) {
     const container = document.getElementById('schoolattributesContent');
     if (!container) return;
     
-    // Check if attribute types are loaded
-    
- /*   if (!window.schoolAttributeTypes || window.schoolAttributeTypes.length === 0) {
-        console.warn('⚠️ No attribute types loaded');
-        container.innerHTML = '<p style="padding: 20px; color: #6c757d;">לא נמצאו סוגי שירותים עבור שנה זו</p>';
-        return;
-    }
-*/
     // Map existing attributes by attributeId
     const attrMap = {};
     (attributes || []).forEach(attr => {
@@ -657,9 +1220,9 @@ function displaySchoolAttributes(attributes) {
     // Save for re-rendering when edit mode changes
     window.lastSchoolAttributesData = attributes || [];
 
-    if (!window.schoolAttributesEditMode) {
+    /* !!!!!if (!window.schoolAttributesEditMode) {
         captureOriginalAttributeValues(attributes);
-    }
+    }*/
 
     const isEditMode = !!window.schoolAttributesEditMode;
     console.log('🔧 Rendering attributes in edit mode:', isEditMode);
@@ -1189,14 +1752,15 @@ function handleAttributeChange(element) {
 
         // Context button navigation functions following Single-Page Application with Module Loading
         async function navigateBackToSchoolDashboard() {
-            if (window.schoolAttributesEditMode && checkForAttributeChanges()) {
+            if ((window.schoolAttributesEditMode && window.hasUnsavedAttributeChanges) ) {
                 const canLeave = await showNavigationWarningDialog();
                 if (!canLeave) {
                     console.log('❌ Navigation cancelled - unsaved changes');
                     return;
                 }
             }
-            
+            window.schoolClassesEditMode =  false;
+            window.schoolAttributesEditMode = false;
             console.log('🏫 Navigating back to school dashboard...');
             cleanupSchoolDetailsScreen();
             // Store navigation context following Authentication & Session Management
@@ -1215,14 +1779,15 @@ function handleAttributeChange(element) {
         }
 
         async function navigateBackToDashboard() {
-            if (window.schoolAttributesEditMode && checkForAttributeChanges()) {
+            if ((window.schoolAttributesEditMode && window.hasUnsavedAttributeChanges) )  {
                 const canLeave = await showNavigationWarningDialog();
                 if (!canLeave) {
                     console.log('❌ Navigation cancelled - unsaved changes');
                     return;
                 }
             }
-            
+                        window.schoolClassesEditMode =  false;
+            window.schoolAttributesEditMode = false;
             console.log('📊 Navigating back to main dashboard...');
             cleanupSchoolDetailsScreen();
             // Store navigation context following Authentication & Session Management
@@ -1420,8 +1985,21 @@ function handleAttributeChange(element) {
         window.showNavigationError = showNavigationError;
         window.showError = showError;
 // Make functions globally available following Cross-Component Communication
+    window.setupEditClassesButton = setupEditClassesButton;
+    window.loadSchoolClasses = loadSchoolClasses;
+    window.displaySchoolClasses = displaySchoolClasses;
+window.addClassToDatabase = addClassToDatabase;
+window.deleteClassWithConfirmation = deleteClassWithConfirmation;
+window.showDeleteConfirmationDialog = showDeleteConfirmationDialog;
+window.deleteClassFromDatabase = deleteClassFromDatabase;
+
+
+
+
+
+
         window.captureOriginalAttributeValues = captureOriginalAttributeValues;
-        window.checkForAttributeChanges = checkForAttributeChanges;
+      //  window.checkForAttributeChanges = checkForAttributeChanges;
         window.showAttributeSaveDialog = showAttributeSaveDialog;
         window.showNavigationWarningDialog = showNavigationWarningDialog;
         window.setupEditAttributesButton = setupEditAttributesButton;

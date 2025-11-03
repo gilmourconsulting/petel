@@ -93,7 +93,7 @@ namespace PetelApp.Api.Services
             var pureInputName = PureHebrewText(className);
 
             var classes = await _context.SchoolClasses
-                .Where(c => c.SchoolYear == schoolYearId)
+                .Where(c => c.SchoolYearId == schoolYearId)
                 .ToListAsync();
 
             var matchedClass = classes

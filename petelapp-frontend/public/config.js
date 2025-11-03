@@ -28,6 +28,8 @@ const AppConfig = {
                 'Authorization': authToken ? `Bearer ${authToken}` : ''
             }
         };
+
+        
     },
     
     async fetchWithAuth(url, options = {}) {
@@ -54,6 +56,7 @@ const AppConfig = {
             throw error;
         }
     }
+    
 };
 
 // Make globally accessible

@@ -4,7 +4,7 @@ class ReusableTable {
         this.data = [];
         this.originalData = []; // Keep original data for comparison
         this.columns = [];
-        this.isReadOnly = true;
+        this.isReadOnly = options.isReadOnly !== false; // ✅ Store as instance property
         this.isEditing = false;
         this.sortColumn = null;
         this.sortDirection = 'asc';
@@ -55,6 +55,38 @@ async init(data, columns) {
     this.render();
 }
 
+    // ✅ NEW METHOD: Toggle between read-only and edit modes
+    toggleMode(isReadOnly) {
+        console.log(`🔄 Toggling table mode from ${this.isReadOnly ? 'READ-ONLY' : 'EDIT'} to ${isReadOnly ? 'READ-ONLY' : 'EDIT'}`);
+        
+        this.isReadOnly = isReadOnly;
+        this.options.isReadOnly = isReadOnly;
+        
+        // Re-render with current data
+        this.render();
+        
+        console.log(`✅ Table mode toggled successfully`);
+    }
+
+    // ✅ NEW METHOD: Update data without full re-initialization
+updateData(newData, newColumns = null) {
+    console.log(`🔄 Updating table data: ${newData?.length || 0} rows`);
+    
+    this.data = newData || [];
+    this.originalData = JSON.parse(JSON.stringify(newData || []));
+    this.filteredData = [...this.data];
+    
+    // ✅ Update columns if provided
+    if (newColumns) {
+        console.log('📋 Updating columns with new render functions');
+        this.columns = newColumns;
+    }
+    
+    // Re-render with updated data and columns
+    this.render();
+    
+    console.log(`✅ Table data updated successfully`);
+}
     // Validate column permissions with server
     async validateColumnPermissions() {
         try {
