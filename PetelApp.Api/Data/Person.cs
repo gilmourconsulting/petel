@@ -28,11 +28,13 @@ namespace PetelApp.Api.Data
         public string? Email { get; set; }
 
 
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; }
+        [Column("phone_number_prefix")]
+        public string? PhoneNumberPrefix { get; set; }
 
-        [Column("updated_at")]
-        public DateTime UpdatedAt { get; set; }
+        [Column("phone_number")]
+        public string? PhoneNumber { get; set; }
+
+ 
 
         /// <summary>
         /// Helper property to get full name

@@ -99,7 +99,7 @@ namespace PetelApp.Api.Controllers
                         Address = e.Address,
                         PrincipalName = e.PrincipalName,
                         InspectorName = e.InspectorName,
-                        Characterization = e.Characterization,
+                        CharacterizationId = e.CharacterizationId,
                         ContactPerson = e.ContactPerson,
                         EducationStage = e.EducationStage,
                         OwnerId = e.OwnerId,

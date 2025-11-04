@@ -5,6 +5,7 @@ using PetelApp.Api.Data;
 using PetelApp.Api.DTOs;
 using PetelApp.Api.Models;
 using PetelApp.Api.Session;
+using PetelApp.Api.Services;
 
 namespace PetelApp.Api.Controllers
 {
@@ -37,28 +38,34 @@ namespace PetelApp.Api.Controllers
                     schoolYearId
                 );
 
-                var tracks = await _context.SchoolTracks
-                    .AsNoTracking()
-                    .Include(st => st.Track)
-                    .Include(st => st.TrackLevel)
-                    .Include(st => st.SchoolClass)
-                    .Where(st => st.SchoolYearId == schoolYearId)
-                    .Select(st => new
-                    {
-                        id = st.Id,
-                        trackId = st.TrackId,
-                        track = st.Track != null ? st.Track.TrackName : "",
-                        trackLevelId = st.TrackLevelId,
-                        trackLevel = st.TrackLevel != null ? st.TrackLevel.LevelName ?? "" : "",
-                        classId = st.ClassId,
-                        className = st.SchoolClass != null ? 
-                            st.SchoolClass.Level + " " + st.SchoolClass.ClassNumber : "",
-                        weeklyHours = st.WeeklyHours ?? 0
-                    })
-                    .OrderBy(st => st.track)
-                    .ThenBy(st => st.trackLevel)
-                    .ThenBy(st => st.className)
-                    .ToListAsync();
+        // ✅ Get data from database WITHOUT calling GlobalFunctions
+        var tracksFromDb = await _context.SchoolTracks
+            .AsNoTracking()
+            .Include(st => st.Track)
+            .Include(st => st.TrackLevel)
+            .Include(st => st.SchoolClass)
+            .Where(st => st.SchoolYearId == schoolYearId)
+            .OrderBy(st => st.Track.TrackName) // ✅ Order by database field
+            .ThenBy(st => st.TrackLevel.LevelName)
+            .ThenBy(st => st.SchoolClass.Level)
+            .ThenBy(st => st.SchoolClass.ClassNumber)
+            .ToListAsync(); // ✅ Execute query FIRST
+
+        // ✅ THEN apply RTL text processing in memory
+        var tracks = tracksFromDb
+            .Select(st => new
+            {
+                id = st.Id,
+                trackId = st.TrackId,
+                track = st.Track != null ? GlobalFunctions.ToRtlText(st.Track.TrackName) : "",
+                trackLevelId = st.TrackLevelId,
+                trackLevel = st.TrackLevel != null ? GlobalFunctions.ToRtlText(st.TrackLevel.LevelName) ?? "" : "",
+                classId = st.ClassId,
+                className = st.SchoolClass != null ? 
+                    st.SchoolClass.Level + " " + st.SchoolClass.ClassNumber : "",
+                weeklyHours = st.WeeklyHours ?? 0
+            })
+            .ToList();
 
                 _logger.LogInformation(
                     "Found {Count} school tracks for school year {SchoolYearId}", 

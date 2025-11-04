@@ -48,7 +48,7 @@ namespace PetelApp.Api.Data
         public string? PostCode { get; set; }
 
         [Column("council")]
-        public int Council { get; set; }
+        public int? Council { get; set; }
 
         [Column("phone")]
         [MaxLength(50)]
@@ -77,18 +77,17 @@ namespace PetelApp.Api.Data
         [Column("school_logo")]
         public byte[]? SchoolLogo { get; set; }
 
-        [Column("created_at")]
+       /* [Column("created_at")]
         public DateTime CreatedAt { get; set; }
 
         [Column("updated_at")]
-        public DateTime UpdatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }*/
 
         [Column("owner")]
         public int? Owner { get; set; }
 
-        [Column("characterization")]
-        [MaxLength(24)]
-        public string? Characterization { get; set; }
+        [Column("characterization_id")]
+        public int? CharacterizationId { get; set; }
 
         [Column("education_stage")]
         [MaxLength(25)]
@@ -121,5 +120,8 @@ namespace PetelApp.Api.Data
 
         [ForeignKey("Council")]
         public virtual Council? CouncilEntity { get; set; }
+
+        [ForeignKey("CharacterizationId")]
+        public virtual SpecialNeedsCharacterization? Characterization { get; set; }
     }
 }

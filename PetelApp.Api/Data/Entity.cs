@@ -22,11 +22,11 @@ namespace PetelApp.Api.Data
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
 
-        [Column("created_at")]
+      /*  [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         [Column("updated_at")]
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;*/
         [Column("symbol")]
         public string? Symbol { get; set; }
 
@@ -39,8 +39,12 @@ namespace PetelApp.Api.Data
         [Column("inspector_name")]
         public string? InspectorName { get; set; }
 
-        [Column("characterization")]
-        public string? Characterization { get; set; }
+
+        [Column("characterization_id")]
+        public int? CharacterizationId { get; set; }
+
+        [Column("council")]
+        public int? CouncilId { get; set; }
 
         [Column("contact_person")]
         public string? ContactPerson { get; set; }
@@ -49,7 +53,12 @@ namespace PetelApp.Api.Data
         public string? EducationStage { get; set; }
             [Column("owner")]
         public int? OwnerId { get; set; }
-        
+
+        [ForeignKey("CharacterizationId")]
+        public virtual SpecialNeedsCharacterization? Characterization { get; set; }
+
+        [ForeignKey("CouncilId")]
+        public virtual Council? Council { get; set; }
 
         // Navigation properties
         public virtual EntityType? EntityType { get; set; }

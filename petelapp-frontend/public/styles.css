@@ -1013,12 +1013,23 @@ body {
     border-radius: 3px;
     margin-bottom: 20px;
     overflow: hidden;
+    transition: all 0.3s ease;
 }
 
 .detail-card-header {
     background: #e9ecef;
     padding: 8px 15px;
-    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+    min-height: 50px;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.detail-card-header:hover {
+    background: linear-gradient(135deg, #b7cdf3 0%, #95a1b8 100%);
 }
 
 .detail-card-title {
@@ -1026,17 +1037,83 @@ body {
     color: #333;
     font-size: 1.1em;
     font-weight: 600;
+    flex: 1;
+        white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 50ch; /* 50 character limit */
+    padding-right: 10px;
 }
 
-/* Enhanced detail card content for table containers following Table Horizontal Scrolling */
+.card-header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+        flex-shrink: 0;
+}
+
+.collapse-toggle {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.3s ease;
+    line-height: 1;
+    border-radius: 4px;
+        flex-shrink: 0;
+}
+
+.collapse-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.detail-card.collapsed .collapse-toggle {
+    transform: rotate(0deg);
+}
+
+.detail-card.expanded .collapse-toggle {
+    transform: rotate(45deg);
+}
+
+
+.detail-card-content {
+    padding: 20px;
+    background: white;
+    max-height: 2000px;
+    overflow: hidden;
+    transition: max-height 0.3s ease, padding 0.3s ease;
+    direction: rtl;
+}
+
+.detail-card.collapsed .detail-card-content {
+    max-height: 0;
+    padding: 0 20px;
+}
+
+/* Ensure action buttons don't interfere with collapse toggle */
+.detail-card-header .btn-icon {
+    z-index: 2;
+    position: relative;
+    flex-shrink: 0;
+}
+
+/* Enhanced detail card content for table containers following Table Horizontal Scrolling 
 .detail-card-content {
     padding: 10px;
     background: white;
     min-height: 75px;
     color: #6c757d;
     direction: rtl;
-    overflow-x: auto; /* Enable horizontal scroll for card content */
-}
+    overflow-x: auto; // Enable horizontal scroll for card content 
+}*/
 
 /* Generic Detail Fields - System-wide styling */
 .detail-fields-grid {
@@ -1390,4 +1467,30 @@ body {
 /* Warning dialog title */
 .dialog-title.warning {
     color: #856404;
+}
+
+* Inline edit button for detail fields */
+.btn-icon-inline {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 4px;
+    margin-left: 8px;
+   /* border: 1px solid #dee2e6;
+    border-radius: 4px; */
+    background-color: transparent;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: all 0.2s ease;
+}
+
+.btn-icon-inline:hover {
+    background-color: #f8f9fa;
+    border-color: #0d6efd;
+    transform: scale(1.05);
+}
+
+.btn-icon-inline:active {
+    background-color: #e9ecef;
+    transform: scale(0.98);
 }

@@ -8,7 +8,8 @@ namespace PetelApp.Api.Models
         public string? Address { get; set; }
         public string? PrincipalName { get; set; }
         public string? InspectorName { get; set; }
-        public string? Characterization { get; set; }
+        public int? CharacterizationId { get; set; }
+        public string? CharacterizationName { get; set; }
         public string? ContactPerson { get; set; }
         public string? EducationStage { get; set; }
         public int? OwnerId { get; set; }

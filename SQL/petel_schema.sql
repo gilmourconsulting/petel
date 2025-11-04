@@ -1,6 +1,6 @@
 -- ============================================
 -- Schema DDL Export: petel_schema
--- Generated: 2025-11-03 15:17:29.897348+02
+-- Generated: 2025-11-04 10:37:42.120476+02
 -- ============================================
 
 
@@ -52,7 +52,8 @@ CREATE TABLE petel_schema.entities (
     characterization character varying(24),
     contact_person character varying(50),
     education_stage character varying(25),
-    symbol character(8)
+    symbol character(8),
+    characterization_id integer(32,0)
 );
 
 
@@ -133,7 +134,8 @@ CREATE TABLE petel_schema.school_additional_study_programs (
     weekly_hours integer(32,0) NOT NULL,
     number_of_class_students integer(32,0) NOT NULL,
     created_at time with time zone NOT NULL DEFAULT now(),
-    updated_at time with time zone NOT NULL DEFAULT now()
+    updated_at time with time zone NOT NULL DEFAULT now(),
+    user_id integer(32,0) NOT NULL DEFAULT 0
 );
 
 
@@ -287,11 +289,20 @@ CREATE TABLE petel_schema.schools (
     updated_at timestamp with time zone DEFAULT now(),
     owner integer(32,0) NOT NULL DEFAULT 0,
     inspector integer(32,0) NOT NULL DEFAULT 0,
-    characterization character varying(24),
     contact_person integer(32,0) NOT NULL DEFAULT 0,
     education_stage character varying(25),
     symbol character(8),
-    is_last_version boolean DEFAULT true
+    is_last_version boolean DEFAULT true,
+    characterization_id integer(32,0)
+);
+
+
+-- Table: petel_schema.special_needs_characterizations
+CREATE TABLE petel_schema.special_needs_characterizations (
+    id integer(32,0) NOT NULL,
+    name character varying(50),
+    foreign_id integer(32,0),
+    user_id integer(32,0) DEFAULT 0
 );
 
 
@@ -492,6 +503,10 @@ ALTER TABLE petel_schema.schools
   ADD CONSTRAINT schools_pkey
   PRIMARY KEY (id);
 
+ALTER TABLE petel_schema.special_needs_characterizations
+  ADD CONSTRAINT special_needs_characterizations_pkey
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.student_school_years
   ADD CONSTRAINT student_school_years_pkey
   PRIMARY KEY (id);
@@ -534,14 +549,14 @@ ALTER TABLE petel_schema.users
 
 
 ALTER TABLE petel_schema.entities
-  ADD CONSTRAINT entities_entity_type_id_fkey
-  FOREIGN KEY (entity_type_id)
-  REFERENCES petel_schema.entity_types (id);
-
-ALTER TABLE petel_schema.entities
   ADD CONSTRAINT owner_fkey
   FOREIGN KEY (owner)
   REFERENCES petel_schema.entities (id);
+
+ALTER TABLE petel_schema.entities
+  ADD CONSTRAINT entities_entity_type_id_fkey
+  FOREIGN KEY (entity_type_id)
+  REFERENCES petel_schema.entity_types (id);
 
 ALTER TABLE petel_schema.persons
   ADD CONSTRAINT persons_user_id_fkey
@@ -549,24 +564,24 @@ ALTER TABLE petel_schema.persons
   REFERENCES petel_schema.users (id);
 
 ALTER TABLE petel_schema.roles_actions
-  ADD CONSTRAINT action_roles_fk1
-  FOREIGN KEY (role_id)
-  REFERENCES petel_schema.roles (id);
-
-ALTER TABLE petel_schema.roles_actions
   ADD CONSTRAINT action_roles_fk2
   FOREIGN KEY (action_id)
   REFERENCES petel_schema.system_actions (id);
 
-ALTER TABLE petel_schema.school_additional_study_programs
-  ADD CONSTRAINT school_tracks_class_fk
-  FOREIGN KEY (class_id)
-  REFERENCES petel_schema.school_classes (id);
+ALTER TABLE petel_schema.roles_actions
+  ADD CONSTRAINT action_roles_fk1
+  FOREIGN KEY (role_id)
+  REFERENCES petel_schema.roles (id);
 
 ALTER TABLE petel_schema.school_additional_study_programs
   ADD CONSTRAINT school_additional_study_programs_school_year_fk
   FOREIGN KEY (school_year_id)
   REFERENCES petel_schema.school_years (id);
+
+ALTER TABLE petel_schema.school_additional_study_programs
+  ADD CONSTRAINT school_tracks_class_fk
+  FOREIGN KEY (class_id)
+  REFERENCES petel_schema.school_classes (id);
 
 ALTER TABLE petel_schema.school_attribute_types_values
   ADD CONSTRAINT school_attribute_type_value_attribute_type_id
@@ -584,19 +599,19 @@ ALTER TABLE petel_schema.school_classes
   REFERENCES petel_schema.school_years (id);
 
 ALTER TABLE petel_schema.school_students
-  ADD CONSTRAINT school_students_school_year_id_fkey
-  FOREIGN KEY (school_year_id)
-  REFERENCES petel_schema.school_years (id);
-
-ALTER TABLE petel_schema.school_students
   ADD CONSTRAINT school_students_gender_fk
   FOREIGN KEY (gender)
   REFERENCES petel_schema.genders (id);
 
+ALTER TABLE petel_schema.school_students
+  ADD CONSTRAINT school_students_school_year_id_fkey
+  FOREIGN KEY (school_year_id)
+  REFERENCES petel_schema.school_years (id);
+
 ALTER TABLE petel_schema.school_tracks
-  ADD CONSTRAINT school_tracks_tracks_fk
-  FOREIGN KEY (track_id)
-  REFERENCES petel_schema.tracks (id);
+  ADD CONSTRAINT school_tracks_school_year_fk
+  FOREIGN KEY (school_year_id)
+  REFERENCES petel_schema.school_years (id);
 
 ALTER TABLE petel_schema.school_tracks
   ADD CONSTRAINT school_tracks_class_fk
@@ -609,9 +624,9 @@ ALTER TABLE petel_schema.school_tracks
   REFERENCES petel_schema.tracks_levels (id);
 
 ALTER TABLE petel_schema.school_tracks
-  ADD CONSTRAINT school_tracks_school_year_fk
-  FOREIGN KEY (school_year_id)
-  REFERENCES petel_schema.school_years (id);
+  ADD CONSTRAINT school_tracks_tracks_fk
+  FOREIGN KEY (track_id)
+  REFERENCES petel_schema.tracks (id);
 
 ALTER TABLE petel_schema.school_years
   ADD CONSTRAINT school_years_update_user_fkey
@@ -621,26 +636,6 @@ ALTER TABLE petel_schema.school_years
 ALTER TABLE petel_schema.school_years
   ADD CONSTRAINT school_years_school_id_fkey
   FOREIGN KEY (school_id)
-  REFERENCES petel_schema.entities (id);
-
-ALTER TABLE petel_schema.schools
-  ADD CONSTRAINT principal_person_fkey
-  FOREIGN KEY (principal)
-  REFERENCES petel_schema.persons (id);
-
-ALTER TABLE petel_schema.schools
-  ADD CONSTRAINT school_year_id_fkey
-  FOREIGN KEY (school_year_id)
-  REFERENCES petel_schema.school_years (id);
-
-ALTER TABLE petel_schema.schools
-  ADD CONSTRAINT owner_fkey
-  FOREIGN KEY (owner)
-  REFERENCES petel_schema.entities (id);
-
-ALTER TABLE petel_schema.schools
-  ADD CONSTRAINT schools_entity_id_fkey
-  FOREIGN KEY (entity_id)
   REFERENCES petel_schema.entities (id);
 
 ALTER TABLE petel_schema.schools
@@ -657,6 +652,31 @@ ALTER TABLE petel_schema.schools
   ADD CONSTRAINT inspector_person_fkey
   FOREIGN KEY (inspector)
   REFERENCES petel_schema.persons (id);
+
+ALTER TABLE petel_schema.schools
+  ADD CONSTRAINT principal_person_fkey
+  FOREIGN KEY (principal)
+  REFERENCES petel_schema.persons (id);
+
+ALTER TABLE petel_schema.schools
+  ADD CONSTRAINT owner_fkey
+  FOREIGN KEY (owner)
+  REFERENCES petel_schema.entities (id);
+
+ALTER TABLE petel_schema.schools
+  ADD CONSTRAINT schools_entity_id_fkey
+  FOREIGN KEY (entity_id)
+  REFERENCES petel_schema.entities (id);
+
+ALTER TABLE petel_schema.schools
+  ADD CONSTRAINT school_year_id_fkey
+  FOREIGN KEY (school_year_id)
+  REFERENCES petel_schema.school_years (id);
+
+ALTER TABLE petel_schema.schools
+  ADD CONSTRAINT characterizations_id_fk
+  FOREIGN KEY (characterization_id)
+  REFERENCES petel_schema.special_needs_characterizations (id);
 
 ALTER TABLE petel_schema.student_school_years
   ADD CONSTRAINT student_school_years_school_year_id_fkey
@@ -679,14 +699,14 @@ ALTER TABLE petel_schema.tracks_levels
   REFERENCES petel_schema.tracks (id);
 
 ALTER TABLE petel_schema.tracks_pricing
-  ADD CONSTRAINT school_tracks_pricing_school_tracks_fk
-  FOREIGN KEY (school_track_id)
-  REFERENCES petel_schema.tracks (id);
-
-ALTER TABLE petel_schema.tracks_pricing
   ADD CONSTRAINT school_tracks_pricing_school_tracks_levels_fk
   FOREIGN KEY (level_id)
   REFERENCES petel_schema.tracks_levels (id);
+
+ALTER TABLE petel_schema.tracks_pricing
+  ADD CONSTRAINT school_tracks_pricing_school_tracks_fk
+  FOREIGN KEY (school_track_id)
+  REFERENCES petel_schema.tracks (id);
 
 ALTER TABLE petel_schema.users
   ADD CONSTRAINT users_entity_id_id_fkey

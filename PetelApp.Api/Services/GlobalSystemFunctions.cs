@@ -133,5 +133,17 @@ namespace PetelApp.Api.Services
 
             return council?.Id;
         }
+
+        /// <summary>
+        /// Convert Latin parentheses to Hebrew/RTL equivalents for proper display
+        /// </summary>
+        public static string ToRtlText(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            
+            return text
+                .Replace("(", "\u200F(") // Add RTL mark before opening parenthesis
+                .Replace(")", ")\u200F"); // Add RTL mark after closing parenthesis
+        }
     }
 }

@@ -22,15 +22,18 @@ namespace PetelApp.Api.Controllers
         private readonly SystemAttributeCache _cache;
         private readonly ILogger<SystemAttributesController> _logger;
         private readonly IServiceProvider _serviceProvider;
+        private readonly AppDbContext _context;
 
         public SystemAttributesController(
             SystemAttributeCache cache,
             ILogger<SystemAttributesController> logger,
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            AppDbContext context)
         {
             _cache = cache;
             _logger = logger;
             _serviceProvider = serviceProvider;
+            _context = context;
         }
 
 
@@ -251,6 +254,78 @@ private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
                 CreatedAt = attribute.CreatedAt,
                 UpdatedAt = attribute.UpdatedAt
             };
+        }
+
+        /// <summary>
+        /// Get characterizations - NO AUTHENTICATION REQUIRED
+        /// Returns a list of special needs characterizations
+        /// </summary>
+        [HttpGet("characterizations")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetCharacterizations()
+        {
+            try
+            {
+                var characterizations = await _context.SpecialNeedsCharacterizations
+                    .AsNoTracking()
+                    .OrderBy(c => c.Name)
+                    .Select(c => new
+                    {
+                        id = c.Id,
+                        name = c.Name
+                    })
+                    .ToListAsync();
+
+                return Ok(new
+                {
+                    success = true,
+                    data = characterizations
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading characterizations");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בטעינת אפיונים"
+                });
+            }
+        }
+
+                [HttpGet("councils")]
+        public async Task<IActionResult> GetCouncils()
+        {
+            try
+            {
+                _logger.LogInformation("Loading councils list");
+                
+                var councils = await _context.Councils
+                    .AsNoTracking()
+                    .OrderBy(c => c.CouncilShortName)
+                    .Select(c => new
+                    {
+                        id = c.Id,
+                        councilShortName = c.CouncilShortName,
+                        councilCode = c.CouncilCode
+                    })
+                    .ToListAsync();
+        
+                return Ok(new
+                {
+                    success = true,
+                    data = councils
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading councils");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בטעינת רשויות"
+                });
+            }
         }
     }
 }

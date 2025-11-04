@@ -32,6 +32,9 @@ namespace PetelApp.Api.Data
         public DbSet<Council> Councils { get; set; }
         public DbSet<SchoolClass> SchoolClasses { get; set; }
 
+                // Person DbSet for contact management
+        public DbSet<Person> Persons { get; set; } = null!;
+
             // DbSets for school attributes
         public DbSet<SchoolAttributeType> SchoolAttributeTypes { get; set; }
         public DbSet<SchoolAttributeTypeValue> SchoolAttributeTypeValues { get; set; }
@@ -42,6 +45,7 @@ namespace PetelApp.Api.Data
         public DbSet<SchoolTrack> SchoolTracks { get; set; }
 
         public DbSet<SchoolAdditionalStudyProgram> SchoolAdditionalStudyPrograms { get; set; }
+        public DbSet<SpecialNeedsCharacterization> SpecialNeedsCharacterizations { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

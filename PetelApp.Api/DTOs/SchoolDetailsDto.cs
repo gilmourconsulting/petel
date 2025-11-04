@@ -17,26 +17,27 @@ namespace PetelApp.Api.DTOs
         /// PostCode omitted if null or all zeros
         /// </summary>
         public string Address { get; set; } = string.Empty;
+        public string? Street { get; set; }
+        public string? HouseNumber { get; set; }
+        public string? City { get; set; }
+        public string? PostCode { get; set; }
         
         public string? Phone { get; set; }
         public string? Email { get; set; }
         
-        /// <summary>
-        /// Principal full name (FirstName LastName)
-        /// </summary>
+// ✅ Add person IDs
+        public int? PrincipalId { get; set; }
         public string PrincipalName { get; set; } = string.Empty;
         
-        /// <summary>
-        /// Inspector full name (FirstName LastName)
-        /// </summary>
+        public int? InspectorId { get; set; }
         public string InspectorName { get; set; } = string.Empty;
         
-        /// <summary>
-        /// Contact person full name (FirstName LastName)
-        /// </summary>
+        public int? ContactPersonId { get; set; }
         public string ContactPersonName { get; set; } = string.Empty;
-        
-        public string? Characterization { get; set; }
+
+        public int? CharacterizationId { get; set; }
+        public string? CharacterizationName { get; set; }
+                public int? CouncilId { get; set; }
         public string? EducationStage { get; set; }
         public string? Symbol { get; set; }
         public bool IsActive { get; set; }

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
 using PetelApp.Api.Session;
+using PetelApp.Api.Services;
 
 namespace PetelApp.Api.Controllers
 {
@@ -27,20 +28,24 @@ namespace PetelApp.Api.Controllers
             {
                 _logger.LogInformation("Loading tracks for year {YearId}", yearId);
 
-                var tracks = await _context.Tracks
+                // ✅ Get data from database WITHOUT calling GlobalFunctions
+                var tracksFromDb = await _context.Tracks
                     .AsNoTracking()
                     .Where(t => t.YearId == yearId && t.Id >= 100000)
+                    .OrderBy(t => t.TrackName) // ✅ Order by database field
+                    .ToListAsync(); // ✅ Execute query FIRST
+
+                // ✅ THEN apply RTL text processing in memory
+                var tracks = tracksFromDb
                     .Select(t => new
                     {
                         id = t.Id,
-                        name = t.TrackName,
+                        name = GlobalFunctions.ToRtlText(t.TrackName), // ✅ Now in memory
                         yearId = t.YearId,
                         externalCode = t.ExternalCode,
                         availableForClasses = t.AvailableForClasses
                     })
-                    .OrderBy(t => t.name)
-                    .ToListAsync();
-
+                    .ToList();
                 _logger.LogInformation("Found {Count} tracks for year {YearId}", tracks.Count, yearId);
 
                 return Ok(new
@@ -74,28 +79,26 @@ namespace PetelApp.Api.Controllers
                 _logger.LogInformation("Loading tracks for year {YearId} and class level {ClassLevel}", 
                     yearId, classLevel);
 
-                var allTracks = await _context.Tracks
+                // ✅ Get data from database WITHOUT calling GlobalFunctions
+                var tracksFromDb = await _context.Tracks
                     .AsNoTracking()
-                    .Where(t => t.YearId == yearId && 
-                                t.Id >= 100000)
+                    .Where(t => t.YearId == yearId && t.Id >= 100000)
+                    .OrderBy(t => t.TrackName) // ✅ Order by database field
+                    .ToListAsync(); // ✅ Execute query FIRST
+                    
+                // ✅ THEN filter and apply RTL text processing in memory
+                var tracks = tracksFromDb
+                    .Where(t => t.AvailableForClasses == null || 
+                               t.AvailableForClasses.Length == 0 ||
+                               t.AvailableForClasses.Contains(classLevel))
                     .Select(t => new
                     {
                         id = t.Id,
-                        name = t.TrackName,
+                        name = GlobalFunctions.ToRtlText(t.TrackName), // ✅ Now in memory
                         yearId = t.YearId,
                         externalCode = t.ExternalCode,
                         availableForClasses = t.AvailableForClasses
                     })
-                    .OrderBy(t => t.name)
-                    .ToListAsync();
-
-                    
-                // Filter in memory for array containment
-                var tracks = allTracks
-                    .Where(t => t.availableForClasses == null || 
-                               t.availableForClasses.Length == 0 ||
-                               t.availableForClasses.Contains(classLevel))
-                    .OrderBy(t => t.name)
                     .ToList();
 
                 _logger.LogInformation("Found {Count} tracks for year {YearId} and class level {ClassLevel}", 
