@@ -14,8 +14,19 @@
     <div class="students-content">
         <div class="content-card">
         
-            <h1 class="page-title">רשימת בתי ספר</h1>
-            <p class="page-subtitle">ניהול ומעקב אחר בתי הספר במערכת</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div>
+                    <h1 class="page-title">רשימת בתי ספר</h1>
+                    <p class="page-subtitle">ניהול ומעקב אחר בתי הספר במערכת</p>
+                </div>
+                <button class="btn btn-icon"  title="הוספת בית ספר חדש"
+                        onclick="schoolManagement.showAddSchoolModal()" >
+                        
+
+                    <img src="Plus icon.png" alt="הוספת בית ספר חדש" class="action-icon-natural">
+
+                </button>
+            </div>
         
             <!-- Schools table - ReusableTable component -->
             <div class="schools-table-section">
@@ -30,6 +41,9 @@
         </div>
     </div>
 </div>
+
+<!-- Load school management module -->
+<script src="js/school-management.js"></script>
     <script>
         console.log('🚀 schoollist.html script loaded');
 
