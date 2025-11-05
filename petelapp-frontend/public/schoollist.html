@@ -59,81 +59,82 @@
         }
 
         // Load schools data following Entity-Based Request Flow
-        async function loadSchoolsData() {
-            console.log('🚀 loadSchoolsData FUNCTION CALLED!');
-            
-            // Show loading indicator
-            const loadingElement = document.getElementById('schoolsLoading');
-            if (loadingElement) {
-                loadingElement.style.display = 'block';
-                console.log('✅ Loading indicator shown');
-            }
+ async function loadSchoolsData() {
+    console.log('🚀 loadSchoolsData FUNCTION CALLED!');
+    
+    const loadingElement = document.getElementById('schoolsLoading');
+    if (loadingElement) {
+        loadingElement.style.display = 'block';
+        console.log('✅ Loading indicator shown');
+    }
 
-            try {
-                // Get auth token following Authentication & Session Management
-                const authToken = sessionStorage.getItem('authToken');
+    try {
+        const authToken = sessionStorage.getItem('authToken');
 
-        // ✅ Get selectedYearId from backend session
+        // ✅ Get SelectedYearId from backend session (NOT yearId)
         const selectedYearId = await window.SessionState.getProperty('SelectedYearId');
-
-        console.log('📋 Session Debug: selectedYearId', {
-            selectedYearId: selectedYearId
-        });
-
 
         console.log('📋 Session Debug:', {
             authToken: authToken ? 'present' : 'null',
             hasAuthToken: !!authToken,
             selectedYearId: selectedYearId
         });
-                
-                if (!authToken || authToken === 'undefined') {
-                    console.error('❌ No valid auth token found in session');
-                    return;
-                }
+        
+        if (!authToken || authToken === 'undefined') {
+            console.error('❌ No valid auth token found in session');
+            return;
+        }
 
-        // ✅ API call with year_id query parameter
+        if (!selectedYearId) {
+            console.error('❌ No SelectedYearId in session');
+            const container = document.getElementById('schoolsTableContainer');
+            if (container) {
+                container.innerHTML = '<p style="color: #721c24; padding: 20px;">לא נבחרה שנת לימודים</p>';
+            }
+            return;
+        }
+
+        // ✅ API call with SelectedYearId query parameter (backend will filter by owner + year + is_last_version)
         const apiUrl = AppConfig.getApiUrl(`entities/schools?yearId=${selectedYearId}`);
         console.log('🌐 Making API call to:', apiUrl);
-                
-                const response = await fetch(apiUrl, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-
-                console.log('📥 Response:', response.status, response.ok);
-
-                if (response.ok) {
-                    const schools = await response.json();
-                    console.log('🏫 Schools data received:', schools.length, schools);
-                    
-                    // Store in window.allSchools following Cross-Component Communication
-                    window.allSchools = schools;
-                    
-                    // Use ReusableTable component following Standard Table Component
-                    if (typeof ReusableTable !== 'undefined') {
-                        console.log('✅ Using ReusableTable component');
-                        initializeReusableTable(schools);
-                    } else {
-                        console.error('❌ ReusableTable component not available');
-                    }
-                } else {
-                    const errorText = await response.text();
-                    console.error('❌ API Error:', response.status, errorText);
-                }
-            } catch (error) {
-                console.error('💥 Exception in loadSchoolsData:', error);
-            } finally {
-                const loadingElement = document.getElementById('schoolsLoading');
-                if (loadingElement) {
-                    loadingElement.style.display = 'none';
-                    console.log('✅ Loading indicator hidden');
-                }
+        
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
             }
+        });
+
+        console.log('📥 Response:', response.status, response.ok);
+
+        if (response.ok) {
+            const schools = await response.json();
+            console.log('🏫 Schools data received from schools table:', schools.length, schools);
+            
+            window.allSchools = schools;
+            
+            if (typeof ReusableTable !== 'undefined') {
+                console.log('✅ Using ReusableTable component');
+                initializeReusableTable(schools);
+            } else {
+                console.error('❌ ReusableTable component not available');
+            }
+        } else {
+            const errorText = await response.text();
+            console.error('❌ API Error:', response.status, errorText);
         }
+    } catch (error) {
+        console.error('💥 Exception in loadSchoolsData:', error);
+    } finally {
+        const loadingElement = document.getElementById('schoolsLoading');
+        if (loadingElement) {
+            loadingElement.style.display = 'none';
+            console.log('✅ Loading indicator hidden');
+        }
+    }
+}
+
 
         // Update page title with year following Hebrew/RTL Specific Patterns
     async function updatePageTitleWithYear() {
@@ -182,7 +183,7 @@
                 { key: 'address', label: 'כתובת', sortable: false },
                 { key: 'principalName', label: 'שם המנהל', sortable: true },
                 { key: 'inspectorName', label: 'שם המפקח', sortable: true },
-                { key: 'characterization', label: 'אפיון המוסד', sortable: false },
+                { key: 'characterizationName', label: 'אפיון המוסד', sortable: false },
                 { key: 'contactPerson', label: 'איש קשר במוסד', sortable: true },
                 { key: 'educationStage', label: 'שלב חינוך', sortable: true },
                 { 
@@ -514,7 +515,7 @@ async function navigateBackToDashboard() {
         window.onContextCouncilsClick = onContextCouncilsClick;
         window.onContextStartSchoollist = onContextStartSchoollist;
         window.navigateToCouncilsList = navigateToCouncilsList;
-        // ... other function exports
+
 
         console.log('✅ School list functions registered globally');
     </script>

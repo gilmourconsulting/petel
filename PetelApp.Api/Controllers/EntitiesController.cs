@@ -56,75 +56,167 @@ namespace PetelApp.Api.Controllers
             }
         }
 
-        [HttpGet("schools")]
-        public async Task<IActionResult> GetSchools([FromQuery] int? yearId = null)
+[HttpGet("schools")]
+public async Task<IActionResult> GetSchools([FromQuery] int? yearId = null)
+{
+    try
+    {
+        // ✅ Get session from BaseController helper
+        var session = GetCurrentSession();
+        if (session == null)
         {
-            try
+            _logger.LogWarning("No valid session found for schools request");
+            return Unauthorized(new { success = false, message = "Authentication required" });
+        }
+
+        if (!int.TryParse(session.EntityId, out int sessionEntityId))
+        {
+            _logger.LogError("Invalid EntityId in session: {EntityId}", session.EntityId);
+            return BadRequest(new { success = false, message = "Invalid session entity ID" });
+        }
+
+        // ✅ Get SelectedYearId from session if not provided in query
+        if (!yearId.HasValue)
+        {
+            var selectedYearIdStr = session.GetProperty("SelectedYearId");
+            if (!string.IsNullOrEmpty(selectedYearIdStr) && int.TryParse(selectedYearIdStr, out int selectedYearId))
             {
-                // ✅ CORRECT: Get session from BaseController helper
-                var session = GetCurrentSession();
-                if (session == null)
-                {
-                    _logger.LogWarning("No valid session found for schools request");
-                    return Unauthorized(new { success = false, message = "Authentication required" });
-                }
-
-                if (!int.TryParse(session.EntityId, out int sessionEntityId))
-                {
-                    _logger.LogError("Invalid EntityId in session: {EntityId}", session.EntityId);
-                    return BadRequest(new { success = false, message = "Invalid session entity ID" });
-                }
-
-                _logger.LogInformation("Loading schools for entity {EntityId} (User: {UserId}) with year filter: {YearId}",
-                    sessionEntityId, session.UserId, yearId);
-
-                var query = _context.Entities
-                    .Include(e => e.EntityType)
-                    .AsNoTracking()
-                    .Where(e => e.IsActive && e.OwnerId == sessionEntityId);
-
-                // ✅ Filter by school_years.year_id if yearId is provided
-                if (yearId.HasValue)
-                {
-                    query = query.Where(e => _context.SchoolYears
-                        .Any(sy => sy.SchoolId == e.Id && sy.YearId == yearId.Value));
-                }
-
-                var schools = await query
-                    .Select(e => new SchoolDto
-                    {
-                        Id = e.Id,
-                        Name = e.Name ?? string.Empty,
-                        Symbol = e.Symbol,
-                        Address = e.Address,
-                        PrincipalName = e.PrincipalName,
-                        InspectorName = e.InspectorName,
-                        CharacterizationId = e.CharacterizationId,
-                        ContactPerson = e.ContactPerson,
-                        EducationStage = e.EducationStage,
-                        OwnerId = e.OwnerId,
-                        EntityTypeId = e.EntityTypeId,
-                        EntityTypeName = e.EntityType != null ? e.EntityType.Name : "Unknown",
-                        IsActive = e.IsActive
-                    })
-                    .OrderBy(e => e.Name)
-                    .ToListAsync();
-
-                _logger.LogInformation("Loaded {Count} schools for entity {EntityId} with year filter: {YearId}", 
-                    schools.Count, sessionEntityId, yearId);
-                return Ok(schools);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error loading schools");
-                return StatusCode(500, new
-                {
-                    success = false,
-                    message = "שגיאה בטעינת רשימת בתי הספר",
-                    error = ex.Message
-                });
+                yearId = selectedYearId;
             }
         }
+
+        if (!yearId.HasValue)
+        {
+            _logger.LogError("No year ID provided or found in session");
+            return BadRequest(new { success = false, message = "Year ID required" });
+        }
+
+        _logger.LogInformation("Loading schools from schools table for owner {EntityId} and year {YearId}",
+            sessionEntityId, yearId.Value);
+
+         // ✅ STEP 1: Get all school_year IDs for the selected Hebrew year
+        var schoolYearIds = await _context.SchoolYears
+            .AsNoTracking()
+            .Where(sy => sy.YearId == yearId.Value)
+            .Select(sy => sy.Id)
+            .ToListAsync();
+
+        _logger.LogInformation("Found {Count} school years for year ID {YearId}", 
+            schoolYearIds.Count, yearId.Value);
+
+        if (!schoolYearIds.Any())
+        {
+            _logger.LogWarning("No school years found for year ID {YearId}", yearId.Value);
+            return Ok(new List<SchoolDto>()); // Return empty list
+        }
+
+        // ✅ STEP 2: Query schools table - filter by school_year IDs, owner, and is_last_version
+        var schoolsQuery = await _context.Schools
+            .AsNoTracking()
+            .Where(s => schoolYearIds.Contains(s.SchoolYearId) &&
+                       s.Owner == sessionEntityId && 
+                       s.IsLastVersion &&
+                       s.IsActive)
+            .Select(s => new 
+            {
+                s.EntityId,
+                s.Name,
+                s.Symbol,
+                s.Street,
+                s.HouseNumber,
+                s.City,
+                s.PostCode,
+                PrincipalFirstName = s.PrincipalPerson != null ? s.PrincipalPerson.FirstName : null,
+                PrincipalLastName = s.PrincipalPerson != null ? s.PrincipalPerson.LastName : null,
+                InspectorFirstName = s.InspectorPerson != null ? s.InspectorPerson.FirstName : null,
+                InspectorLastName = s.InspectorPerson != null ? s.InspectorPerson.LastName : null,
+                ContactFirstName = s.ContactPersonPerson != null ? s.ContactPersonPerson.FirstName : null,
+                ContactLastName = s.ContactPersonPerson != null ? s.ContactPersonPerson.LastName : null,
+                CharacterizationName = s.Characterization != null ? s.Characterization.Name : null,
+                s.EducationStage,
+                s.IsActive,
+                s.SchoolYearId
+            })
+            .OrderBy(s => s.Name)
+            .ToListAsync();
+
+        // ✅ Format data in memory (after database query)
+        var schools = schoolsQuery.Select(s => new SchoolDto
+        {
+            Id = s.EntityId,
+            Name = s.Name ?? string.Empty,
+            Symbol = s.Symbol,
+            Address = FormatSchoolAddress(s.Street, s.HouseNumber, s.City, s.PostCode),
+            PrincipalName = FormatPersonName(s.PrincipalFirstName, s.PrincipalLastName),
+            InspectorName = FormatPersonName(s.InspectorFirstName, s.InspectorLastName),
+            ContactPerson = FormatPersonName(s.ContactFirstName, s.ContactLastName),
+            CharacterizationName = s.CharacterizationName,
+            EducationStage = s.EducationStage,
+            IsActive = s.IsActive,
+            SchoolYearId = s.SchoolYearId
+        }).ToList();
+
+        _logger.LogInformation("Loaded {Count} schools from schools table for owner {EntityId} and year {YearId}", 
+            schools.Count, sessionEntityId, yearId.Value);
+        
+        return Ok(schools);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error loading schools from schools table");
+        return StatusCode(500, new
+        {
+            success = false,
+            message = "שגיאה בטעינת רשימת בתי הספר",
+            error = ex.Message
+        });
+    }
+}
+
+
+// ✅ Helper method to format address
+private static string FormatSchoolAddress(string? street, string? houseNumber, string? city, string? postCode)
+{
+    var parts = new List<string>();
+
+    if (!string.IsNullOrWhiteSpace(street))
+    {
+        var streetPart = street.Trim();
+        if (!string.IsNullOrWhiteSpace(houseNumber))
+        {
+            streetPart += " " + houseNumber.Trim();
+        }
+        parts.Add(streetPart);
+    }
+
+    if (!string.IsNullOrWhiteSpace(city))
+    {
+        parts.Add(city.Trim());
+    }
+
+    if (!string.IsNullOrWhiteSpace(postCode) && !IsAllZeros(postCode))
+    {
+        parts.Add(postCode.Trim());
+    }
+
+    return string.Join(", ", parts);
+}
+
+// ✅ Helper method to format person name
+private static string FormatPersonName(string? firstName, string? lastName)
+{
+    var first = firstName?.Trim() ?? string.Empty;
+    var last = lastName?.Trim() ?? string.Empty;
+
+    return $"{first} {last}".Trim();
+}
+
+// ✅ Helper method to check if string is all zeros
+private static bool IsAllZeros(string value)
+{
+    return !string.IsNullOrWhiteSpace(value) && value.Trim().All(c => c == '0');
+}
+
 
         [HttpGet("{id}")]
         public async Task<IActionResult> GetEntity(int id)

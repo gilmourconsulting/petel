@@ -16,5 +16,7 @@ namespace PetelApp.Api.Models
         public int EntityTypeId { get; set; }
         public string EntityTypeName { get; set; } = string.Empty;
         public bool IsActive { get; set; }
+
+        public int? SchoolYearId { get; set; }
     }
 }
