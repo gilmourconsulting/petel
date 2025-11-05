@@ -8,6 +8,9 @@
                 <button class="context-btn" onclick="navigateToStudents()">תלמידים</button>
                 <button class="context-btn" onclick="navigateToSchoolDetails()">פרטי בית ספר</button>
                 <button class="context-btn" >מסמכים בית ספריים</button>
+                <button class="context-btn" onclick="navigateBackToSchoolList()" title="חזרה לרשימת בתי הספר">
+                    חזרה לרשימת בתי הספר
+                </button>
         </div>
 
         
@@ -189,24 +192,50 @@
         alert('שגיאה בטעינת פרטי בית הספר');
     }
 }
-        // Load system version following API Communication Pattern
-        async function loadSystemVersion() {
+
+
+
+               // Navigate back to school list and clean up school-specific session data
+        async function navigateBackToSchoolList() {
+            console.log('📋 Navigating back to school list...');
+            
             try {
-                const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
-                if (response.ok) {
-                    const attributes = await response.json();
-                    const versionAttr = attributes.find(attr => attr.name === "System Version");
-                    const versionElement = document.getElementById('systemVersion');
-                    if (versionElement) {
-                        versionElement.textContent = versionAttr ? versionAttr.value : '1.0';
+                // Clear school-specific session properties using SessionState
+                await window.SessionState.setProperty('SelectedSchoolId', '');
+                await window.SessionState.setProperty('SelectedSchoolName', '');
+                await window.SessionState.setProperty('SelectedSchoolYearId', '');
+                
+                console.log('✅ School-specific session properties cleared');
+                
+                // Store navigation source
+                await window.SessionState.setProperty('NavigationSource', 'schooldashboard');
+                
+                // Navigate to school list
+                if (typeof window.navigateTo === 'function') {
+                    window.navigateTo('schoollist');
+                } else {
+                    // Fallback: direct loading
+                    const response = await fetch('schoollist.html');
+                    if (response.ok) {
+                        const html = await response.text();
+                        const mainContainer = document.getElementById('dynamicContent') || 
+                                             document.getElementById('mainContent') || 
+                                             document.querySelector('.main-content');
+                        
+                        if (mainContainer) {
+                            mainContainer.innerHTML = html;
+                            executeScriptsInContainer(mainContainer);
+                            history.pushState({ section: 'schoollist' }, '', '#schoollist');
+                            console.log('✅ School list page loaded');
+                        }
+                    } else {
+                        console.error('❌ Failed to load schoollist.html:', response.status);
+                        alert('שגיאה בטעינת רשימת בתי הספר');
                     }
-                } 
-            } catch (error) {
-                console.log('Could not load system version, using default');
-                const versionElement = document.getElementById('systemVersion');
-                if (versionElement) {
-                    versionElement.textContent = '1.0';
                 }
+            } catch (error) {
+                console.error('💥 Error navigating to school list:', error);
+                alert('שגיאה בחזרה לרשימת בתי הספר');
             }
         }
 
@@ -363,7 +392,9 @@ async function resolveSelectedSchoolYearId() {
         // Make functions globally available following Cross-Component Communication
         window.loadDashboardCardData = loadDashboardCardData;
         window.showAddModal = showAddModal;
-        window.loadSystemVersion = loadSystemVersion;
+        
+        window.loadSchoolTitle = loadSchoolTitle;
+        window.resolveSelectedSchoolYearId = resolveSelectedSchoolYearId;
         window.navigateToStudents = navigateToStudents;
         window.navigateToSchoolDetails = navigateToSchoolDetails;
         window.updateContextButtonLabels = updateContextButtonLabels;
