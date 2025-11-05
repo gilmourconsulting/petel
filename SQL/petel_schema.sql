@@ -1,6 +1,6 @@
 -- ============================================
 -- Schema DDL Export: petel_schema
--- Generated: 2025-11-04 10:37:42.120476+02
+-- Generated: 2025-11-05 13:43:45.35583+02
 -- ============================================
 
 
@@ -99,7 +99,8 @@ CREATE TABLE petel_schema.persons (
     phone_number character varying(10),
     email character varying(50),
     office_number_prefix character varying(3),
-    office_number character varying(10)
+    office_number character varying(10),
+    position character varying(25)
 );
 
 
@@ -278,18 +279,18 @@ CREATE TABLE petel_schema.schools (
     house_number character varying(6),
     city character varying(50),
     post_code character varying(10),
-    council integer(32,0) NOT NULL DEFAULT 0,
+    council integer(32,0) DEFAULT 0,
     phone character varying(50),
     email character varying(255),
-    principal integer(32,0) NOT NULL DEFAULT 0,
+    principal integer(32,0) DEFAULT 0,
     api_connection_id character varying(255),
     is_active boolean DEFAULT true,
     school_logo bytea,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     owner integer(32,0) NOT NULL DEFAULT 0,
-    inspector integer(32,0) NOT NULL DEFAULT 0,
-    contact_person integer(32,0) NOT NULL DEFAULT 0,
+    inspector integer(32,0) DEFAULT 0,
+    contact_person integer(32,0) DEFAULT 0,
     education_stage character varying(25),
     symbol character(8),
     is_last_version boolean DEFAULT true,

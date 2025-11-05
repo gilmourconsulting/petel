@@ -34,7 +34,8 @@ namespace PetelApp.Api.Data
         [Column("phone_number")]
         public string? PhoneNumber { get; set; }
 
- 
+         [Column("position")]
+        public string? Position { get; set; }
 
         /// <summary>
         /// Helper property to get full name

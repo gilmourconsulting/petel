@@ -161,6 +161,66 @@ namespace PetelApp.Api.Controllers
                 });
             }
         }
+
+        /// <summary>
+        /// Search for persons by name (partial match)
+        /// Used by person selection modals in school details
+        /// </summary>
+        [HttpGet("search")]
+        public async Task<IActionResult> SearchPersons(
+            [FromQuery] string? firstName = null,
+            [FromQuery] string? lastName = null)
+        {
+            try
+            {
+                _logger.LogInformation("Searching persons: FirstName={FirstName}, LastName={LastName}", 
+                    firstName, lastName);
+
+                var query = _context.Persons.AsQueryable();
+
+                // Apply filters if provided
+                if (!string.IsNullOrWhiteSpace(firstName))
+                {
+                    query = query.Where(p => p.FirstName.Contains(firstName));
+                }
+
+                if (!string.IsNullOrWhiteSpace(lastName))
+                {
+                    query = query.Where(p => p.LastName.Contains(lastName));
+                }
+
+                var persons = await query
+                    .Select(p => new
+                    {
+                        id = p.Id,
+                        firstName = p.FirstName,
+                        lastName = p.LastName,
+                        position = p.Position,
+                        phoneNumberPrefix = p.PhoneNumberPrefix,
+                        phoneNumber = p.PhoneNumber,
+                        email = p.Email
+                    })
+                    .Take(50) // Limit results to prevent large response
+                    .ToListAsync();
+
+                _logger.LogInformation("Found {Count} persons matching search criteria", persons.Count);
+
+                return Ok(new
+                {
+                    success = true,
+                    data = persons
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error searching persons");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בחיפוש אנשים"
+                });
+            }
+        }
     }
 
     public class CreatePersonDto
@@ -170,6 +230,8 @@ namespace PetelApp.Api.Controllers
         public string? PhoneNumberPrefix { get; set; }
         public string? PhoneNumber { get; set; }
         public string? Email { get; set; }
+
+        public string? Position { get; set; }
 
     }
 

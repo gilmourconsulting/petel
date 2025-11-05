@@ -111,6 +111,10 @@
         
     </div>
 </div>
+
+<!-- Person Management Module -->
+<script src="person-management.js"></script>
+
 <script>
     console.log('🔍 SCRIPT SECTION LOADED - schooldetails.html');
 
@@ -2528,445 +2532,48 @@ async function editAddress() {
 }
 
 
-// Generic person edit modal for Principal, Inspector, and Contact Person
-async function showEditPersonModal(personType) {
-    console.log('👤 Opening edit person modal for:', personType);
 
-    try {
-        const data = window.lastSchoolDetailsData;
-        if (!data) {
-            alert('לא נמצאו נתוני בית הספר');
-            return;
-        }
-
-        // Get person data based on type
-        let personId = null;
-        let personName = '';
-        let modalTitle = '';
-        let fieldKey = '';
-
-        switch (personType) {
-            case 'principal':
-                personId = data.principalId || null;
-                personName = data.principalName || '';
-                modalTitle = 'עריכת מנהל/ת';
-                fieldKey = 'principal';
-                break;
-            case 'inspector':
-                personId = data.inspectorId || null;
-                personName = data.inspectorName || '';
-                modalTitle = 'עריכת מפקח/ת';
-                fieldKey = 'inspector';
-                break;
-            case 'contactPerson':
-                personId = data.contactPersonId || null;
-                personName = data.contactPersonName || '';
-                modalTitle = 'עריכת איש קשר';
-                fieldKey = 'contactPerson';
-                break;
-            default:
-                console.error('❌ Invalid person type:', personType);
-                return;
-        }
-
-        console.log('📋 Person data:', { personId, personName, personType });
-
-        // Load person details if ID exists
-        let personDetails = null;
-        if (personId) {
-            try {
-                const response = await fetch(AppConfig.getApiUrl(`persons/${personId}`), {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-                    }
-                });
-
-                if (response.ok) {
-                    const result = await response.json();
-                    if (result.success && result.data) {
-                        personDetails = result.data;
-                        console.log('✅ Person details loaded:', personDetails);
-                    }
-                }
-            } catch (error) {
-                console.error('❌ Error loading person details:', error);
-            }
-        }
-
-        // Create modal
-        const overlay = document.createElement('div');
-        overlay.className = 'dialog-overlay';
-
-        const dialog = document.createElement('div');
-        dialog.className = 'dialog-box';
-        dialog.style.minWidth = '500px';
-
-        // Track if this is a new person entry
-        let isNewPerson = !personId;
-
-        dialog.innerHTML = `
-            <h3 class="dialog-title">${modalTitle}</h3>
-            <div style="margin: 20px 0;">
-                ${personId ? `
-                    <div style="margin-bottom: 20px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-weight: 600;">איש קשר נוכחי:</span>
-                            <button id="newPersonBtn" class="dialog-btn" style="
-                                background: #28a745;
-                                padding: 6px 12px;
-                                font-size: 0.9em;
-                            ">
-                                איש קשר חדש
-                            </button>
-                        </div>
-                    </div>
-                ` : ''}
-                
-                <div style="margin-bottom: 15px;">
-                    <label for="personFirstName" style="display: block; margin-bottom: 5px; font-weight: 600;">שם פרטי:</label>
-                    <input type="text" 
-                           id="personFirstName" 
-                           value="${personDetails?.firstName || ''}"
-                           placeholder="הזן שם פרטי"
-                           ${!isNewPerson ? 'readonly' : ''}
-                           style="
-                               width: 100%;
-                               padding: 8px;
-                               border: 1px solid #dee2e6;
-                               border-radius: 4px;
-                               font-size: 14px;
-                               direction: rtl;
-                               ${!isNewPerson ? 'background: #e9ecef; cursor: not-allowed;' : ''}
-                           ">
-                </div>
-                
-                <div style="margin-bottom: 15px;">
-                    <label for="personLastName" style="display: block; margin-bottom: 5px; font-weight: 600;">שם משפחה:</label>
-                    <input type="text" 
-                           id="personLastName" 
-                           value="${personDetails?.lastName || ''}"
-                           placeholder="הזן שם משפחה"
-                           ${!isNewPerson ? 'readonly' : ''}
-                           style="
-                               width: 100%;
-                               padding: 8px;
-                               border: 1px solid #dee2e6;
-                               border-radius: 4px;
-                               font-size: 14px;
-                               direction: rtl;
-                               ${!isNewPerson ? 'background: #e9ecef; cursor: not-allowed;' : ''}
-                           ">
-                </div>
-                
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">טלפון:</label>
-                    <div style="display: flex; gap: 8px; direction: ltr;">
-                        <input type="text" 
-                               id="personPhonePrefix" 
-                               value="${personDetails?.phoneNumberPrefix || ''}"
-                               placeholder="קידומת"
-                               maxlength="7"
-                               style="
-                                   width: 80px;
-                                   padding: 8px;
-                                   border: 1px solid #dee2e6;
-                                   border-radius: 4px;
-                                   font-size: 14px;
-                                   text-align: left;
-                               ">
-                        <input type="text" 
-                               id="personPhone" 
-                               value="${personDetails?.phoneNumber || ''}"
-                               placeholder="מספר טלפון"
-                               maxlength="10"
-                               style="
-                                   flex: 1;
-                                   padding: 8px;
-                                   border: 1px solid #dee2e6;
-                                   border-radius: 4px;
-                                   font-size: 14px;
-                                   text-align: left;
-                               ">
-                    </div>
-                </div>
-                
-                <div style="margin-bottom: 15px;">
-                    <label for="personEmail" style="display: block; margin-bottom: 5px; font-weight: 600;">דוא"ל:</label>
-                    <input type="email" 
-                           id="personEmail" 
-                           value="${personDetails?.email || ''}"
-                           placeholder="example@domain.com"
-                           style="
-                               width: 100%;
-                               padding: 8px;
-                               border: 1px solid #dee2e6;
-                               border-radius: 4px;
-                               font-size: 14px;
-                               direction: ltr;
-                               text-align: left;
-                           ">
-                </div>
-                
-                <input type="hidden" id="personRecordId" value="${personId || ''}">
-                <input type="hidden" id="isNewPersonFlag" value="${isNewPerson}">
-            </div>
-            <div class="dialog-buttons">
-                <button id="personOkBtn" class="dialog-btn save">אישור</button>
-                <button id="personCancelBtn" class="dialog-btn cancel">ביטול</button>
-            </div>
-        `;
-
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-
-        // Get element references after appending to DOM
-        const firstNameInput = document.getElementById('personFirstName');
-        const lastNameInput = document.getElementById('personLastName');
-        const phonePrefixInput = document.getElementById('personPhonePrefix');
-        const phoneInput = document.getElementById('personPhone');
-        const emailInput = document.getElementById('personEmail');
-        const newPersonBtn = document.getElementById('newPersonBtn');
-        const isNewPersonFlag = document.getElementById('isNewPersonFlag');
-
-        // New Person button handler - enable all fields
-        if (newPersonBtn) {
-            newPersonBtn.onclick = function() {
-                console.log('➕ Switching to new person mode');
-                
-                // Clear all fields
-                firstNameInput.value = '';
-                lastNameInput.value = '';
-                phonePrefixInput.value = '';
-                phoneInput.value = '';
-                emailInput.value = '';
-                
-                // Enable name fields
-                firstNameInput.readOnly = false;
-                firstNameInput.style.background = '';
-                firstNameInput.style.cursor = '';
-                
-                lastNameInput.readOnly = false;
-                lastNameInput.style.background = '';
-                lastNameInput.style.cursor = '';
-                
-                // Update hidden flags
-                document.getElementById('personRecordId').value = '';
-                isNewPersonFlag.value = 'true';
-                
-                // Hide the "New Person" button
-                this.style.display = 'none';
-                
-                // Focus first name field
-                firstNameInput.focus();
-                
-                console.log('✅ Switched to new person mode');
-            };
-        }
-
-        // Focus appropriate field
-        setTimeout(() => {
-            if (isNewPerson) {
-                firstNameInput?.focus();
-            } else {
-                phonePrefixInput?.focus();
-            }
-        }, 100);
-
-        // OK button handler
-        document.getElementById('personOkBtn').onclick = async () => {
-            const recordId = document.getElementById('personRecordId').value;
-            const isNew = document.getElementById('isNewPersonFlag').value === 'true';
-            
-            const firstName = firstNameInput?.value.trim() || '';
-            const lastName = lastNameInput?.value.trim() || '';
-            const phonePrefix = phonePrefixInput?.value.trim() || '';
-            const phone = phoneInput?.value.trim() || '';
-            const email = emailInput?.value.trim() || '';
-
-            console.log('📝 Person form data:', {
-                recordId,
-                isNew,
-                firstName,
-                lastName,
-                phonePrefix,
-                phone,
-                email
-            });
-
-            // Validation for new person
-            if (isNew) {
-                if (!firstName || !lastName) {
-                    alert('נא למלא שם פרטי ושם משפחה');
-                    return;
-                }
-            }
-
-            // Validate email format if provided
-            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                alert('כתובת דוא"ל לא תקינה');
-                emailInput?.focus();
-                return;
-            }
-
-            try {
-                let savedPersonId = recordId;
-                let personReferenceChanged = false; 
-
-                if (isNew) {
-                    // Create new person
-                    console.log('➕ Creating new person...');
-                    
-                    const createPayload = {
-                        firstName: firstName,
-                        lastName: lastName,
-                        phoneNumberPrefix: phonePrefix || null,
-                        phoneNumber: phone || null,
-                        email: email || null,
-                        idNumber: '0', // Required field with default
-                        idType: 0,     // Required field with default
-                        gender: 99     // Required field with default
-                    };
-
-                    const createResponse = await fetch(AppConfig.getApiUrl('persons'), {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-                        },
-                        body: JSON.stringify(createPayload)
-                    });
-
-                    const createResult = await createResponse.json();
-
-            if (createResponse.ok && createResult.success) {
-                savedPersonId = createResult.data.id;
-                personReferenceChanged = true; // ✅ New person = reference changed
-                console.log('✅ New person created with ID:', savedPersonId);
-                alert('איש קשר חדש נוצר בהצלחה');
-            } else {
-                console.error('❌ Failed to create person:', createResult);
-                alert(createResult.message || 'שגיאה ביצירת איש קשר חדש');
-                return;
-            }
-                    
-                } else {
-                    // Update existing person (only phone/email)
-                    console.log('💾 Updating existing person:', recordId);
-                    
-                    const updatePayload = {
-                        id: parseInt(recordId),
-                        phoneNumberPrefix: phonePrefix || null,
-                        phoneNumber: phone || null,
-                        email: email || null
-                    };
-
-                    const updateResponse = await fetch(AppConfig.getApiUrl(`persons/${recordId}`), {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-                        },
-                        body: JSON.stringify(updatePayload)
-                    });
-
-                    const updateResult = await updateResponse.json();
-
-                    if (updateResponse.ok && updateResult.success) {
-                        console.log('✅ Person updated successfully');
-                        alert('פרטי איש הקשר עודכנו בהצלחה');
-                    } else {
-                        console.error('❌ Failed to update person:', updateResult);
-                        alert(updateResult.message || 'שגיאה בעדכון פרטי איש הקשר');
-                        return;
-                    }
-                }
-
-                // Update cached data with new person ID and display name
-                if (window.lastSchoolDetailsData) {
-                    const displayName = isNew 
-                        ? `${firstName} ${lastName}`.trim()
-                        : personDetails 
-                            ? `${personDetails.firstName} ${personDetails.lastName}`.trim()
-                            : '';
-                  
-                                        // ✅ Track original person ID to detect change
-            let originalPersonId = null;
-            switch (personType) {
-                case 'principal':
-                    originalPersonId = window.lastSchoolDetailsData.principalId;
-                    window.lastSchoolDetailsData.principalId = savedPersonId;
-                    window.lastSchoolDetailsData.principalName = displayName;
-                    break;
-                case 'inspector':
-                    originalPersonId = window.lastSchoolDetailsData.inspectorId;
-                    window.lastSchoolDetailsData.inspectorId = savedPersonId;
-                    window.lastSchoolDetailsData.inspectorName = displayName;
-                    break;
-                case 'contactPerson':
-                    originalPersonId = window.lastSchoolDetailsData.contactPersonId;
-                    window.lastSchoolDetailsData.contactPersonId = savedPersonId;
-                    window.lastSchoolDetailsData.contactPersonName = displayName;
-                    break;
-            }
-
-                        // ✅ If person reference changed, raise the school details changes flag
-            if (personReferenceChanged || originalPersonId != savedPersonId) {
-                window.hasUnsavedSchoolDetailsChanges = true;
-                updateSchoolDetailsCardTitle();
-                console.log('🚩 Person reference changed - school details changes flag raised');
-            }
-                    // Re-render display
-                    displaySchoolDetails(window.lastSchoolDetailsData);
-                }
-
-                document.body.removeChild(overlay);
-
-            } catch (error) {
-                console.error('💥 Error saving person:', error);
-                alert('שגיאה בשמירת פרטי איש הקשר');
-            }
-        };
-
-        // Cancel button handler
-        document.getElementById('personCancelBtn').onclick = () => {
-            console.log('❌ Person edit cancelled');
-            document.body.removeChild(overlay);
-        };
-
-        // ESC key handler
-        const escHandler = (e) => {
-            if (e.key === 'Escape' && document.body.contains(overlay)) {
-                document.body.removeChild(overlay);
-                document.removeEventListener('keydown', escHandler);
-            }
-        };
-        document.addEventListener('keydown', escHandler);
-
-        console.log('✅ Person edit modal opened');
-
-    } catch (error) {
-        console.error('💥 Error opening person edit modal:', error);
-        alert('שגיאה בפתיחת חלון עריכה');
+    function editPrincipal() {
+        console.log('👤 Edit principal clicked');
+        PersonManagement.setCurrentPersonType('principal');
+        
+        const currentPerson = window.lastSchoolDetailsData ? {
+            id: window.lastSchoolDetailsData.principalId,
+            firstName: window.lastSchoolDetailsData.principalName ? window.lastSchoolDetailsData.principalName.split(' ')[0] : '',
+            lastName: window.lastSchoolDetailsData.principalName ? window.lastSchoolDetailsData.principalName.split(' ').slice(1).join(' ') : '',
+            position: 'מנהל'
+        } : null;
+        
+        PersonManagement.showPersonEditModal('principal', currentPerson);
     }
-}
 
-// Update the individual edit functions to call the generic modal
-function editPrincipal() {
-    console.log('👤 Edit principal clicked');
-    showEditPersonModal('principal');
-}
+    function editInspector() {
+        console.log('👤 Edit inspector clicked');
+        PersonManagement.setCurrentPersonType('inspector');
+        
+        const currentPerson = window.lastSchoolDetailsData ? {
+            id: window.lastSchoolDetailsData.inspectorId,
+            firstName: window.lastSchoolDetailsData.inspectorName ? window.lastSchoolDetailsData.inspectorName.split(' ')[0] : '',
+            lastName: window.lastSchoolDetailsData.inspectorName ? window.lastSchoolDetailsData.inspectorName.split(' ').slice(1).join(' ') : '',
+            position: 'מפקח'
+        } : null;
+        
+        PersonManagement.showPersonEditModal('inspector', currentPerson);
+    }
 
-function editInspector() {
-    console.log('👤 Edit inspector clicked');
-    showEditPersonModal('inspector');
-}
-
-function editContactPerson() {
-    console.log('👤 Edit contact person clicked');
-    showEditPersonModal('contactPerson');
-}
+    function editContactPerson() {
+        console.log('👤 Edit contact person clicked');
+        PersonManagement.setCurrentPersonType('contactPerson');
+        
+        const currentPerson = window.lastSchoolDetailsData ? {
+            id: window.lastSchoolDetailsData.contactPersonId,
+            firstName: window.lastSchoolDetailsData.contactPersonName ? window.lastSchoolDetailsData.contactPersonName.split(' ')[0] : '',
+            lastName: window.lastSchoolDetailsData.contactPersonName ? window.lastSchoolDetailsData.contactPersonName.split(' ').slice(1).join(' ') : '',
+            position: 'איש קשר'
+        } : null;
+        
+        PersonManagement.showPersonEditModal('contactPerson', currentPerson);
+    }
 
 // ✅ Add confirmation dialog before saving
 async function confirmSaveSchoolDetails() {
@@ -4244,7 +3851,7 @@ window.showEditAdditionalStudyModal = showEditAdditionalStudyModal;
 window.showAdditionalStudyModal = showAdditionalStudyModal;
 window.deleteAdditionalStudyProgram = deleteAdditionalStudyProgram;
 
-window.showEditPersonModal = showEditPersonModal;
+
 window.editAddress = editAddress;
 window.editPrincipal = editPrincipal;
 window.editInspector = editInspector;
