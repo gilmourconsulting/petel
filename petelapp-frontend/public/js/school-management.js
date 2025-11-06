@@ -4,7 +4,8 @@
  * Following Authentication & Session Management patterns
  */
 
-class SchoolManagement {
+if (typeof window.SchoolManagement === 'undefined') {
+    window.SchoolManagement = class SchoolManagement {
     constructor() {
         this.modal = null;
     }
@@ -334,7 +335,7 @@ class SchoolManagement {
             this.modal = null;
         }
     }
-}
+}}
 
 // Create global instance
 window.schoolManagement = new SchoolManagement();

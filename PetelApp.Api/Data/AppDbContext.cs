@@ -47,6 +47,11 @@ namespace PetelApp.Api.Data
         public DbSet<SchoolAdditionalStudyProgram> SchoolAdditionalStudyPrograms { get; set; }
         public DbSet<SpecialNeedsCharacterization> SpecialNeedsCharacterizations { get; set; } = null!;
 
+
+        // DbSets for Documents management
+        public DbSet<Document> Documents { get; set; } = null!;
+        public DbSet<DocumentType> DocumentTypes { get; set; } = null!;
+        public DbSet<DocumentLink> DocumentLinks { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -57,7 +62,7 @@ namespace PetelApp.Api.Data
                 entity.ToTable("users", "petel_schema");
                 entity.HasIndex(e => e.Username).IsUnique();
                 entity.HasIndex(e => e.Email).IsUnique();
-                
+
                 entity.HasOne(u => u.Entity)
                       .WithMany(e => e.Users)
                       .HasForeignKey(u => u.EntityId)
@@ -93,12 +98,12 @@ namespace PetelApp.Api.Data
             {
                 entity.ToTable("user_roles", "petel_schema");
                 entity.HasIndex(e => new { e.UserId }).IsUnique();
-                
+
                 entity.HasOne(ur => ur.User)
                       .WithMany(u => u.UserRoles)
                       .HasForeignKey(ur => ur.UserId)
                       .OnDelete(DeleteBehavior.Cascade);
-                      
+
 
             });
 
@@ -118,7 +123,7 @@ namespace PetelApp.Api.Data
                 entity.ToTable("hours_budget", "petel_schema");
                 entity.HasIndex(e => new { e.EntityId, e.SchoolYear, e.BudgetType })
                       .HasDatabaseName("ix_hours_budget_entity_year_type");
-                      
+
                 entity.Property(e => e.AllocatedHours).HasPrecision(10, 2);
                 entity.Property(e => e.UsedHours).HasPrecision(10, 2);
                 entity.Property(e => e.RemainingHours).HasPrecision(10, 2);
@@ -160,7 +165,7 @@ namespace PetelApp.Api.Data
                 entity.Property(e => e.CouncilShortName).HasMaxLength(25);
                 entity.Property(e => e.CouncilLongName).HasMaxLength(50);
                 entity.Property(e => e.CouncilDistrict).HasMaxLength(25);
-                
+
                 // Ignore computed properties (not in database)
                 entity.Ignore(e => e.Name);
                 entity.Ignore(e => e.ShortName);
@@ -175,8 +180,8 @@ namespace PetelApp.Api.Data
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(6);
                 entity.Property(e => e.Level).IsRequired().HasMaxLength(3);
                 entity.Property(e => e.ClassNumber).IsRequired().HasMaxLength(3);
-              //  entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
-              //  entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
+                //  entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+                //  entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
             });
 
             // Configure School relationships
@@ -222,7 +227,7 @@ namespace PetelApp.Api.Data
             modelBuilder.Entity<SchoolAttribute>(entity =>
             {
                 entity.ToTable("school_attributes", "petel_schema");
-                
+
                 // Foreign key to school_years
                 entity.HasOne(a => a.SchoolYear)
                     .WithMany()
@@ -241,7 +246,7 @@ namespace PetelApp.Api.Data
             });
 
             // DbSets for Tracks management
-                       // Configure Track
+            // Configure Track
             modelBuilder.Entity<Track>(entity =>
             {
                 entity.ToTable("tracks", "petel_schema");
@@ -290,7 +295,102 @@ namespace PetelApp.Api.Data
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
-        
+               modelBuilder.Entity<Document>(entity =>
+    {
+        entity.ToTable("documents", "petel_schema"); // ✅ Lowercase table name with schema
+        entity.HasKey(e => e.Id);
+
+        entity.Property(e => e.Id)
+            .HasColumnName("id"); // ✅ Lowercase column name
+
+        entity.Property(e => e.MasterDocumentId)
+            .HasColumnName("master_document_id");
+
+        entity.Property(e => e.Description)
+            .HasColumnName("description")
+            .HasMaxLength(500);
+
+        entity.Property(e => e.DocumentTypeId)
+            .HasColumnName("document_type_id");
+
+        entity.Property(e => e.StatusId)
+            .HasColumnName("status_id");
+
+        entity.Property(e => e.FileBlob)
+            .HasColumnName("file_blob")
+            .IsRequired(false);
+
+        entity.Property(e => e.FileEncoding)
+            .HasColumnName("file_encoding")
+            .HasMaxLength(10)
+            .IsRequired(false);
+
+
+        entity.Property(e => e.Version)
+            .HasColumnName("version");
+
+        entity.Property(e => e.IsLastVersion)
+            .HasColumnName("is_last_version");
+
+
+        entity.HasOne(d => d.DocumentType)
+            .WithMany()
+            .HasForeignKey(d => d.DocumentTypeId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        entity.HasMany(d => d.DocumentLinks)
+            .WithOne(dl => dl.Document)
+            .HasForeignKey(dl => dl.DocumentId)
+            .OnDelete(DeleteBehavior.Cascade);
+    });
+
+    modelBuilder.Entity<DocumentType>(entity =>
+    {
+        entity.ToTable("document_types", "petel_schema"); // ✅ Lowercase table name with schema
+        entity.HasKey(e => e.Id);
+
+        entity.Property(e => e.Id)
+            .HasColumnName("id");
+
+        entity.Property(e => e.Name)
+            .HasColumnName("name")
+            .HasMaxLength(100)
+            .IsRequired();
+
+        entity.Property(e => e.Level)
+            .HasColumnName("level")
+            .HasMaxLength(50);
+
+        entity.Property(e => e.YearId)
+            .HasColumnName("year_id");
+    });
+
+    modelBuilder.Entity<DocumentLink>(entity =>
+    {
+        entity.ToTable("document_links", "petel_schema"); // ✅ Lowercase table name with schema
+        entity.HasKey(e => e.Id);
+
+        entity.Property(e => e.Id)
+            .HasColumnName("id");
+
+        entity.Property(e => e.DocumentId)
+            .HasColumnName("document_id");
+
+        entity.Property(e => e.SchoolStudentId)
+            .HasColumnName("school_student_id");
+
+        entity.Property(e => e.EntityId)
+            .HasColumnName("entity_id");
+
+        entity.HasOne(dl => dl.Document)
+            .WithMany(d => d.DocumentLinks)
+            .HasForeignKey(dl => dl.DocumentId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        entity.HasIndex(e => new { e.DocumentId, e.EntityId });
+        entity.HasIndex(e => new { e.DocumentId, e.SchoolStudentId });
+    });
+
         }
     }
 

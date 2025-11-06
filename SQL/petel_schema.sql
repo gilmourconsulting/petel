@@ -1,6 +1,6 @@
 -- ============================================
 -- Schema DDL Export: petel_schema
--- Generated: 2025-11-05 13:43:45.35583+02
+-- Generated: 2025-11-05 14:54:34.633659+02
 -- ============================================
 
 
@@ -29,6 +29,39 @@ CREATE TABLE petel_schema.councils (
     council_long_name character varying(50),
     council_district character varying(25),
     council_HP_number integer(32,0)
+);
+
+
+-- Table: petel_schema.document_links
+CREATE TABLE petel_schema.document_links (
+    id bigint(64,0) NOT NULL DEFAULT nextval('petel_schema.document_links_id_seq'::regclass),
+    document_id bigint(64,0) NOT NULL,
+    school_student_id bigint(64,0),
+    entity_id bigint(64,0)
+);
+
+
+-- Table: petel_schema.document_types
+CREATE TABLE petel_schema.document_types (
+    id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.document_types_id_seq'::regclass),
+    name character varying(100) NOT NULL,
+    level character varying(50) NOT NULL,
+    year_id integer(32,0)
+);
+
+
+-- Table: petel_schema.documents
+CREATE TABLE petel_schema.documents (
+    id bigint(64,0) NOT NULL DEFAULT nextval('petel_schema.documents_id_seq'::regclass),
+    master_document_id bigint(64,0),
+    description character varying(50),
+    document_type_id integer(32,0) NOT NULL,
+    status_id integer(32,0) NOT NULL,
+    file_blob bytea,
+    file_encoding character varying(20) NOT NULL,
+    version integer(32,0) NOT NULL,
+    is_last_version boolean NOT NULL DEFAULT true,
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -432,6 +465,18 @@ ALTER TABLE petel_schema.councils
   ADD CONSTRAINT councils_pkey
   PRIMARY KEY (id);
 
+ALTER TABLE petel_schema.document_links
+  ADD CONSTRAINT document_links_pkey
+  PRIMARY KEY (id);
+
+ALTER TABLE petel_schema.document_types
+  ADD CONSTRAINT document_types_pkey
+  PRIMARY KEY (id);
+
+ALTER TABLE petel_schema.documents
+  ADD CONSTRAINT documents_pkey
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.entities
   ADD CONSTRAINT entities_pkey
   PRIMARY KEY (id);
@@ -549,15 +594,40 @@ ALTER TABLE petel_schema.users
 -- ============================================
 
 
-ALTER TABLE petel_schema.entities
-  ADD CONSTRAINT owner_fkey
-  FOREIGN KEY (owner)
+ALTER TABLE petel_schema.document_links
+  ADD CONSTRAINT document_links_entity_id_fkey
+  FOREIGN KEY (entity_id)
   REFERENCES petel_schema.entities (id);
+
+ALTER TABLE petel_schema.document_links
+  ADD CONSTRAINT document_links_document_id_fkey
+  FOREIGN KEY (document_id)
+  REFERENCES petel_schema.documents (id);
+
+ALTER TABLE petel_schema.document_links
+  ADD CONSTRAINT document_links_school_student_id_fkey
+  FOREIGN KEY (school_student_id)
+  REFERENCES petel_schema.school_students (id);
+
+ALTER TABLE petel_schema.documents
+  ADD CONSTRAINT fk_master_document
+  FOREIGN KEY (master_document_id)
+  REFERENCES petel_schema.documents (id);
+
+ALTER TABLE petel_schema.documents
+  ADD CONSTRAINT documents_document_type_id_fkey
+  FOREIGN KEY (document_type_id)
+  REFERENCES petel_schema.document_types (id);
 
 ALTER TABLE petel_schema.entities
   ADD CONSTRAINT entities_entity_type_id_fkey
   FOREIGN KEY (entity_type_id)
   REFERENCES petel_schema.entity_types (id);
+
+ALTER TABLE petel_schema.entities
+  ADD CONSTRAINT owner_fkey
+  FOREIGN KEY (owner)
+  REFERENCES petel_schema.entities (id);
 
 ALTER TABLE petel_schema.persons
   ADD CONSTRAINT persons_user_id_fkey
@@ -600,14 +670,14 @@ ALTER TABLE petel_schema.school_classes
   REFERENCES petel_schema.school_years (id);
 
 ALTER TABLE petel_schema.school_students
-  ADD CONSTRAINT school_students_gender_fk
-  FOREIGN KEY (gender)
-  REFERENCES petel_schema.genders (id);
-
-ALTER TABLE petel_schema.school_students
   ADD CONSTRAINT school_students_school_year_id_fkey
   FOREIGN KEY (school_year_id)
   REFERENCES petel_schema.school_years (id);
+
+ALTER TABLE petel_schema.school_students
+  ADD CONSTRAINT school_students_gender_fk
+  FOREIGN KEY (gender)
+  REFERENCES petel_schema.genders (id);
 
 ALTER TABLE petel_schema.school_tracks
   ADD CONSTRAINT school_tracks_school_year_fk
@@ -615,14 +685,14 @@ ALTER TABLE petel_schema.school_tracks
   REFERENCES petel_schema.school_years (id);
 
 ALTER TABLE petel_schema.school_tracks
-  ADD CONSTRAINT school_tracks_class_fk
-  FOREIGN KEY (class_id)
-  REFERENCES petel_schema.school_classes (id);
-
-ALTER TABLE petel_schema.school_tracks
   ADD CONSTRAINT school_tracks_level_fk
   FOREIGN KEY (track_level_id)
   REFERENCES petel_schema.tracks_levels (id);
+
+ALTER TABLE petel_schema.school_tracks
+  ADD CONSTRAINT school_tracks_class_fk
+  FOREIGN KEY (class_id)
+  REFERENCES petel_schema.school_classes (id);
 
 ALTER TABLE petel_schema.school_tracks
   ADD CONSTRAINT school_tracks_tracks_fk
@@ -630,13 +700,33 @@ ALTER TABLE petel_schema.school_tracks
   REFERENCES petel_schema.tracks (id);
 
 ALTER TABLE petel_schema.school_years
+  ADD CONSTRAINT school_years_school_id_fkey
+  FOREIGN KEY (school_id)
+  REFERENCES petel_schema.entities (id);
+
+ALTER TABLE petel_schema.school_years
   ADD CONSTRAINT school_years_update_user_fkey
   FOREIGN KEY (update_user)
   REFERENCES petel_schema.users (id);
 
-ALTER TABLE petel_schema.school_years
-  ADD CONSTRAINT school_years_school_id_fkey
-  FOREIGN KEY (school_id)
+ALTER TABLE petel_schema.schools
+  ADD CONSTRAINT owner_fkey
+  FOREIGN KEY (owner)
+  REFERENCES petel_schema.entities (id);
+
+ALTER TABLE petel_schema.schools
+  ADD CONSTRAINT characterizations_id_fk
+  FOREIGN KEY (characterization_id)
+  REFERENCES petel_schema.special_needs_characterizations (id);
+
+ALTER TABLE petel_schema.schools
+  ADD CONSTRAINT school_year_id_fkey
+  FOREIGN KEY (school_year_id)
+  REFERENCES petel_schema.school_years (id);
+
+ALTER TABLE petel_schema.schools
+  ADD CONSTRAINT schools_entity_id_fkey
+  FOREIGN KEY (entity_id)
   REFERENCES petel_schema.entities (id);
 
 ALTER TABLE petel_schema.schools
@@ -658,26 +748,6 @@ ALTER TABLE petel_schema.schools
   ADD CONSTRAINT principal_person_fkey
   FOREIGN KEY (principal)
   REFERENCES petel_schema.persons (id);
-
-ALTER TABLE petel_schema.schools
-  ADD CONSTRAINT owner_fkey
-  FOREIGN KEY (owner)
-  REFERENCES petel_schema.entities (id);
-
-ALTER TABLE petel_schema.schools
-  ADD CONSTRAINT schools_entity_id_fkey
-  FOREIGN KEY (entity_id)
-  REFERENCES petel_schema.entities (id);
-
-ALTER TABLE petel_schema.schools
-  ADD CONSTRAINT school_year_id_fkey
-  FOREIGN KEY (school_year_id)
-  REFERENCES petel_schema.school_years (id);
-
-ALTER TABLE petel_schema.schools
-  ADD CONSTRAINT characterizations_id_fk
-  FOREIGN KEY (characterization_id)
-  REFERENCES petel_schema.special_needs_characterizations (id);
 
 ALTER TABLE petel_schema.student_school_years
   ADD CONSTRAINT student_school_years_school_year_id_fkey
@@ -724,6 +794,10 @@ ALTER TABLE petel_schema.users
 -- ============================================
 
 
+ALTER TABLE petel_schema.document_types
+  ADD CONSTRAINT document_types_name_key
+  UNIQUE (name);
+
 ALTER TABLE petel_schema.roles_actions
   ADD CONSTRAINT action_roles_uq
   UNIQUE (role_id, action_id);
@@ -765,6 +839,10 @@ ALTER TABLE petel_schema.users
 -- ============================================
 
 
+ALTER TABLE petel_schema.document_links
+  ADD CONSTRAINT chk_one_link_required
+  CHECK ((((school_student_id IS NOT NULL) OR (entity_id IS NOT NULL)) AND (NOT ((school_student_id IS NOT NULL) AND (entity_id IS NOT NULL)))));
+
 ALTER TABLE petel_schema.school_years
   ADD CONSTRAINT school_years_date_check
   CHECK ((end_date > start_date));
@@ -773,6 +851,14 @@ ALTER TABLE petel_schema.school_years
 -- INDEXES
 -- ============================================
 
+
+CREATE UNIQUE INDEX idx_unique_document_link_entity ON petel_schema.document_links USING btree (document_id, entity_id) WHERE (entity_id IS NOT NULL);
+
+CREATE UNIQUE INDEX idx_unique_document_link_student ON petel_schema.document_links USING btree (document_id, school_student_id) WHERE (school_student_id IS NOT NULL);
+
+CREATE UNIQUE INDEX document_types_name_key ON petel_schema.document_types USING btree (name);
+
+CREATE UNIQUE INDEX idx_unique_document_version ON petel_schema.documents USING btree (master_document_id, version);
 
 CREATE UNIQUE INDEX action_roles_uq ON petel_schema.roles_actions USING btree (role_id, action_id);
 

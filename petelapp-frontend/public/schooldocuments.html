@@ -1,0 +1,190 @@
+<div class="students-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section screenwithtable-context">
+        <button class="context-btn" onclick="navigateToSchoolDashboard()">לוח בקרה</button>
+        <button class="context-btn" onclick="navigateBackToSchoolList()" title="חזרה לרשימת בתי הספר">
+            חזרה לרשימת בתי הספר
+        </button>
+    </div>
+
+    <!-- Main content area -->
+    <div class="students-content">
+        <div class="content-card">
+            <div class="school-title-section">
+                <h1 class="page-title" id="pageTitle">מסמכים בית ספריים</h1>
+            </div>
+            <!-- Documents table component will be rendered here -->
+            <div id="schoolDocumentsContainer"></div>
+        </div>
+    </div>
+</div>
+
+<script src="documents-table.js"></script>
+<script>
+    (function() {
+    'use strict';
+    console.log('📄 School Documents page loaded');
+
+    let documentsComponent = null;
+
+    // Initialize page
+    async function initializeDocumentsPage() {
+        try {
+            console.log('🔧 Initializing school documents page...');
+
+            // Get session context
+            const session = await window.SessionState.getSession();
+            const selectedSchoolId = await window.SessionState.getProperty('SelectedSchoolId');
+            const selectedYearId = await window.SessionState.getProperty('SelectedYearId');
+            const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
+
+
+
+                        // Validate session context
+            if (!selectedSchoolId) {
+                console.error('❌ No school selected, redirecting to school list');
+                alert('לא נבחר בית ספר. חוזר לרשימת בתי הספר...');
+                if (typeof window.navigateTo === 'function') {
+                    window.navigateTo('schoollist');
+                }
+                return;
+            }
+        
+            const displayName = selectedSchoolName || 'לא ידוע' ;
+
+            console.log('📋 Documents for school context:',
+                selectedSchoolId,
+                selectedYearId, displayName
+            );
+
+            // Update page title
+            const titleElement = document.getElementById('pageTitle');
+            if (titleElement) {
+                titleElement.textContent = ` מסמכים  - בית ספר- ${displayName}`;
+            }
+
+            // Initialize documents table component
+            documentsComponent = new DocumentsTableComponent('schoolDocumentsContainer', {
+                showUploadForm: false,
+                allowDelete: true,
+                allowDownload: true,
+                allowUpload: true,
+                entityId: selectedSchoolId,
+                entityType: 'school',
+                yearId: selectedYearId,
+                onUploadSuccess: (result) => {
+                    console.log('📄 Document uploaded:', result);
+                },
+                onDeleteSuccess: (documentId) => {
+                    console.log('🗑 Document deleted:', documentId);
+                }
+            });
+
+            // Create global reference for button onclick handlers
+            window[`documentsTableInstance_schoolDocumentsContainer`] = documentsComponent;
+
+            await documentsComponent.init();
+
+            console.log('✅ School documents page initialized');
+        } catch (error) {
+            console.error('❌ Error initializing documents page:', error);
+            alert('שגיאה באתחול עמוד המסמכים');
+        }
+    }
+
+       // ✅ Cleanup function - called when leaving the page
+    function cleanupDocumentsPage() {
+        try {
+            console.log('🧹 Cleaning up documents page...');
+
+            // Cleanup component instance
+            if (documentsComponent) {
+                // Clear table reference
+                if (documentsComponent.documentsTable) {
+                    documentsComponent.documentsTable = null;
+                }
+                
+                // Clear document types
+                documentsComponent.documentTypes = [];
+                
+                // Null the component
+                documentsComponent = null;
+            }
+
+            // Remove global reference
+            if (window[`documentsTableInstance_schoolDocumentsContainer`]) {
+                delete window[`documentsTableInstance_schoolDocumentsContainer`];
+            }
+
+            // Clear container HTML
+            const container = document.getElementById('schoolDocumentsContainer');
+            if (container) {
+                container.innerHTML = '';
+            }
+
+            console.log('✅ Documents page cleanup complete');
+        } catch (error) {
+            console.error('❌ Error during cleanup:', error);
+        }
+    }
+
+    // Navigation functions
+
+
+
+
+    async function navigateToSchoolDashboard() {
+        console.log('📊 Navigating to school dashboard...');
+        try {
+
+                        cleanupDocumentsPage();
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('schooldashboard');
+            } else {
+                console.error('❌ navigateTo function not available');
+                alert('שגיאה בניווט ללוח בקרה');
+            }
+        } catch (error) {
+            console.error('💥 Error navigating to school dashboard:', error);
+            alert('שגיאה בטעינת לוח בקרה');
+        }
+    }
+
+    // ✅ CORRECTED - Proper screen flow pattern
+    async function navigateBackToSchoolList() {
+        console.log('⬅️ Navigating back to school list...');
+        
+        try {
+
+                        cleanupDocumentsPage();
+            // Clear school-specific session properties using SessionState
+            await window.SessionState.setProperty('SelectedSchoolId', '');
+            await window.SessionState.setProperty('SelectedSchoolName', '');
+
+            
+            console.log('🧹 Cleared school-specific session properties');
+
+            // Use centralized navigation function
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('schoollist');
+            } else {
+                console.error('❌ navigateTo function not available');
+                alert('שגיאה בחזרה לרשימת בתי הספר');
+            }
+        } catch (error) {
+            console.error('💥 Error navigating back to school list:', error);
+            alert('שגיאה בחזרה לרשימת בתי הספר');
+        }
+    }
+    // Make functions globally available
+
+    window.navigateToSchoolDashboard = navigateToSchoolDashboard;
+    window.navigateBackToSchoolList = navigateBackToSchoolList;
+
+        // Initialize on load - Common Gotchas pattern
+    document.addEventListener('DOMContentLoaded', initializeDocumentsPage);
+    if (document.readyState !== 'loading') {
+        setTimeout(initializeDocumentsPage, 50);
+    }
+ })();
+</script>
