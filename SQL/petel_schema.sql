@@ -1,6 +1,6 @@
 -- ============================================
 -- Schema DDL Export: petel_schema
--- Generated: 2025-11-05 14:54:34.633659+02
+-- Generated: 2025-11-11 15:47:43.492866+02
 -- ============================================
 
 
@@ -41,6 +41,14 @@ CREATE TABLE petel_schema.document_links (
 );
 
 
+-- Table: petel_schema.document_status_types
+CREATE TABLE petel_schema.document_status_types (
+    id smallint(16,0) NOT NULL DEFAULT nextval('petel_schema.document_status_types_id_seq'::regclass),
+    name character varying(25),
+    created_at time with time zone DEFAULT now()
+);
+
+
 -- Table: petel_schema.document_types
 CREATE TABLE petel_schema.document_types (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.document_types_id_seq'::regclass),
@@ -58,10 +66,11 @@ CREATE TABLE petel_schema.documents (
     document_type_id integer(32,0) NOT NULL,
     status_id integer(32,0) NOT NULL,
     file_blob bytea,
-    file_encoding character varying(20) NOT NULL,
+    file_encoding character varying(20),
     version integer(32,0) NOT NULL,
     is_last_version boolean NOT NULL DEFAULT true,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    file_name character varying(100)
 );
 
 
@@ -246,6 +255,16 @@ CREATE TABLE petel_schema.school_hours_budget (
 );
 
 
+-- Table: petel_schema.school_student_pricing_elements
+CREATE TABLE petel_schema.school_student_pricing_elements (
+    id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.school_student_pricing_elements_id_seq'::regclass),
+    school_student integer(32,0) NOT NULL,
+    pricing_element integer(32,0) NOT NULL,
+    price numeric(7,2),
+    determinig_factor character varying(30)
+);
+
+
 -- Table: petel_schema.school_students
 CREATE TABLE petel_schema.school_students (
     id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.school_students_id_seq'::regclass),
@@ -337,6 +356,29 @@ CREATE TABLE petel_schema.special_needs_characterizations (
     name character varying(50),
     foreign_id integer(32,0),
     user_id integer(32,0) DEFAULT 0
+);
+
+
+-- Table: petel_schema.special_needs_pricing_categories
+CREATE TABLE petel_schema.special_needs_pricing_categories (
+    id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.special_needs_pricing_categories_id_seq'::regclass),
+    pricing_element integer(32,0) NOT NULL,
+    category integer(32,0) NOT NULL,
+    is_lowest_level boolean,
+    price numeric(10,2),
+    user_id integer(32,0)
+);
+
+
+-- Table: petel_schema.special_needs_pricing_elements
+CREATE TABLE petel_schema.special_needs_pricing_elements (
+    id integer(32,0) NOT NULL DEFAULT nextval('petel_schema.special_needs_pricing_elements_id_seq'::regclass),
+    year_id integer(32,0) NOT NULL,
+    name character varying(50) NOT NULL,
+    title character varying(25) NOT NULL,
+    description text,
+    user_id integer(32,0),
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -469,6 +511,10 @@ ALTER TABLE petel_schema.document_links
   ADD CONSTRAINT document_links_pkey
   PRIMARY KEY (id);
 
+ALTER TABLE petel_schema.document_status_types
+  ADD CONSTRAINT document_status_types_pk
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.document_types
   ADD CONSTRAINT document_types_pkey
   PRIMARY KEY (id);
@@ -533,6 +579,10 @@ ALTER TABLE petel_schema.school_hours_budget
   ADD CONSTRAINT school_budget_pkey
   PRIMARY KEY (id);
 
+ALTER TABLE petel_schema.school_student_pricing_elements
+  ADD CONSTRAINT school_student_pricing_elements_pk
+  PRIMARY KEY (id);
+
 ALTER TABLE petel_schema.school_students
   ADD CONSTRAINT school_students_pkey
   PRIMARY KEY (id);
@@ -551,6 +601,14 @@ ALTER TABLE petel_schema.schools
 
 ALTER TABLE petel_schema.special_needs_characterizations
   ADD CONSTRAINT special_needs_characterizations_pkey
+  PRIMARY KEY (id);
+
+ALTER TABLE petel_schema.special_needs_pricing_categories
+  ADD CONSTRAINT special_needs_pricing_categories_pk
+  PRIMARY KEY (id);
+
+ALTER TABLE petel_schema.special_needs_pricing_elements
+  ADD CONSTRAINT special_needs_pricing_elements_pk
   PRIMARY KEY (id);
 
 ALTER TABLE petel_schema.student_school_years
@@ -600,14 +658,14 @@ ALTER TABLE petel_schema.document_links
   REFERENCES petel_schema.entities (id);
 
 ALTER TABLE petel_schema.document_links
-  ADD CONSTRAINT document_links_document_id_fkey
-  FOREIGN KEY (document_id)
-  REFERENCES petel_schema.documents (id);
-
-ALTER TABLE petel_schema.document_links
   ADD CONSTRAINT document_links_school_student_id_fkey
   FOREIGN KEY (school_student_id)
   REFERENCES petel_schema.school_students (id);
+
+ALTER TABLE petel_schema.document_links
+  ADD CONSTRAINT document_links_document_id_fkey
+  FOREIGN KEY (document_id)
+  REFERENCES petel_schema.documents (id);
 
 ALTER TABLE petel_schema.documents
   ADD CONSTRAINT fk_master_document
@@ -620,14 +678,14 @@ ALTER TABLE petel_schema.documents
   REFERENCES petel_schema.document_types (id);
 
 ALTER TABLE petel_schema.entities
-  ADD CONSTRAINT entities_entity_type_id_fkey
-  FOREIGN KEY (entity_type_id)
-  REFERENCES petel_schema.entity_types (id);
-
-ALTER TABLE petel_schema.entities
   ADD CONSTRAINT owner_fkey
   FOREIGN KEY (owner)
   REFERENCES petel_schema.entities (id);
+
+ALTER TABLE petel_schema.entities
+  ADD CONSTRAINT entities_entity_type_id_fkey
+  FOREIGN KEY (entity_type_id)
+  REFERENCES petel_schema.entity_types (id);
 
 ALTER TABLE petel_schema.persons
   ADD CONSTRAINT persons_user_id_fkey
@@ -669,6 +727,16 @@ ALTER TABLE petel_schema.school_classes
   FOREIGN KEY (school_year_id)
   REFERENCES petel_schema.school_years (id);
 
+ALTER TABLE petel_schema.school_student_pricing_elements
+  ADD CONSTRAINT school_student_pricing_elements_pricing_element
+  FOREIGN KEY (pricing_element)
+  REFERENCES petel_schema.special_needs_pricing_elements (id);
+
+ALTER TABLE petel_schema.school_student_pricing_elements
+  ADD CONSTRAINT school_student_pricing_elements_school_student
+  FOREIGN KEY (school_student)
+  REFERENCES petel_schema.school_students (id);
+
 ALTER TABLE petel_schema.school_students
   ADD CONSTRAINT school_students_school_year_id_fkey
   FOREIGN KEY (school_year_id)
@@ -680,24 +748,24 @@ ALTER TABLE petel_schema.school_students
   REFERENCES petel_schema.genders (id);
 
 ALTER TABLE petel_schema.school_tracks
-  ADD CONSTRAINT school_tracks_school_year_fk
-  FOREIGN KEY (school_year_id)
-  REFERENCES petel_schema.school_years (id);
-
-ALTER TABLE petel_schema.school_tracks
   ADD CONSTRAINT school_tracks_level_fk
   FOREIGN KEY (track_level_id)
   REFERENCES petel_schema.tracks_levels (id);
 
 ALTER TABLE petel_schema.school_tracks
-  ADD CONSTRAINT school_tracks_class_fk
-  FOREIGN KEY (class_id)
-  REFERENCES petel_schema.school_classes (id);
+  ADD CONSTRAINT school_tracks_school_year_fk
+  FOREIGN KEY (school_year_id)
+  REFERENCES petel_schema.school_years (id);
 
 ALTER TABLE petel_schema.school_tracks
   ADD CONSTRAINT school_tracks_tracks_fk
   FOREIGN KEY (track_id)
   REFERENCES petel_schema.tracks (id);
+
+ALTER TABLE petel_schema.school_tracks
+  ADD CONSTRAINT school_tracks_class_fk
+  FOREIGN KEY (class_id)
+  REFERENCES petel_schema.school_classes (id);
 
 ALTER TABLE petel_schema.school_years
   ADD CONSTRAINT school_years_school_id_fkey
@@ -712,21 +780,6 @@ ALTER TABLE petel_schema.school_years
 ALTER TABLE petel_schema.schools
   ADD CONSTRAINT owner_fkey
   FOREIGN KEY (owner)
-  REFERENCES petel_schema.entities (id);
-
-ALTER TABLE petel_schema.schools
-  ADD CONSTRAINT characterizations_id_fk
-  FOREIGN KEY (characterization_id)
-  REFERENCES petel_schema.special_needs_characterizations (id);
-
-ALTER TABLE petel_schema.schools
-  ADD CONSTRAINT school_year_id_fkey
-  FOREIGN KEY (school_year_id)
-  REFERENCES petel_schema.school_years (id);
-
-ALTER TABLE petel_schema.schools
-  ADD CONSTRAINT schools_entity_id_fkey
-  FOREIGN KEY (entity_id)
   REFERENCES petel_schema.entities (id);
 
 ALTER TABLE petel_schema.schools
@@ -748,6 +801,31 @@ ALTER TABLE petel_schema.schools
   ADD CONSTRAINT principal_person_fkey
   FOREIGN KEY (principal)
   REFERENCES petel_schema.persons (id);
+
+ALTER TABLE petel_schema.schools
+  ADD CONSTRAINT school_year_id_fkey
+  FOREIGN KEY (school_year_id)
+  REFERENCES petel_schema.school_years (id);
+
+ALTER TABLE petel_schema.schools
+  ADD CONSTRAINT characterizations_id_fk
+  FOREIGN KEY (characterization_id)
+  REFERENCES petel_schema.special_needs_characterizations (id);
+
+ALTER TABLE petel_schema.schools
+  ADD CONSTRAINT schools_entity_id_fkey
+  FOREIGN KEY (entity_id)
+  REFERENCES petel_schema.entities (id);
+
+ALTER TABLE petel_schema.special_needs_pricing_categories
+  ADD CONSTRAINT special_needs_pricing_categories_pricing_element_fk
+  FOREIGN KEY (pricing_element)
+  REFERENCES petel_schema.special_needs_pricing_elements (id);
+
+ALTER TABLE petel_schema.special_needs_pricing_elements
+  ADD CONSTRAINT special_needs_pricing_elements_year_id_fk
+  FOREIGN KEY (year_id)
+  REFERENCES petel_schema.hebrew_years (id);
 
 ALTER TABLE petel_schema.student_school_years
   ADD CONSTRAINT student_school_years_school_year_id_fkey
@@ -822,6 +900,14 @@ ALTER TABLE petel_schema.schools
   ADD CONSTRAINT unique_school
   UNIQUE (entity_id, school_year_id, version);
 
+ALTER TABLE petel_schema.special_needs_pricing_categories
+  ADD CONSTRAINT pricing_element_category_uc
+  UNIQUE (pricing_element, category);
+
+ALTER TABLE petel_schema.special_needs_pricing_elements
+  ADD CONSTRAINT unique_name_per_year_uc
+  UNIQUE (year_id, name);
+
 ALTER TABLE petel_schema.student_school_years
   ADD CONSTRAINT unique_student_school_year
   UNIQUE (student_id, school_year_id);
@@ -871,6 +957,10 @@ CREATE UNIQUE INDEX unique_school_student ON petel_schema.school_students USING 
 CREATE UNIQUE INDEX unique_school_year_per_school ON petel_schema.school_years USING btree (school_id, hebrew_year_name);
 
 CREATE UNIQUE INDEX unique_school ON petel_schema.schools USING btree (entity_id, school_year_id, version);
+
+CREATE UNIQUE INDEX pricing_element_category_uc ON petel_schema.special_needs_pricing_categories USING btree (pricing_element, category);
+
+CREATE UNIQUE INDEX unique_name_per_year_uc ON petel_schema.special_needs_pricing_elements USING btree (year_id, name);
 
 CREATE UNIQUE INDEX unique_student_school_year ON petel_schema.student_school_years USING btree (student_id, school_year_id);
 

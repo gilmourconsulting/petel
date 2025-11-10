@@ -21,55 +21,70 @@ namespace PetelApp.Api.Controllers
             _context = context;
         }
 
-        /// <summary>
-        /// Get documents by entity (school) and year
-        /// </summary>
-        [HttpGet("by-entity")]
-        public async Task<IActionResult> GetDocumentsByEntity(
-            [FromQuery] int entityId,
-            [FromQuery] int? yearId = null)
+ /// <summary>
+/// Get documents by entity (school) and year
+/// </summary>
+[HttpGet("by-entity")]
+public async Task<IActionResult> GetDocumentsByEntity(
+    [FromQuery] int? entityId = null,
+    [FromQuery] int? yearId = null)
+{
+    try
+    {
+        var session = GetCurrentSession();
+        
+        // Use session values if not provided in query
+        int effectiveEntityId = entityId ?? 
+            (int.TryParse(session.GetProperty("SelectedSchoolId"), out var sessionSchoolId) 
+                ? sessionSchoolId 
+                : int.Parse(session.EntityId));
+        
+        int? effectiveYearId = yearId ?? 
+            (int.TryParse(session.GetProperty("SelectedYearId"), out var sessionYearId) 
+                ? sessionYearId 
+                : (int?)null);
+
+        _logger.LogInformation("Fetching documents for entityId: {EntityId}, yearId: {YearId}", 
+            effectiveEntityId, effectiveYearId);
+
+        var query = _context.Documents
+            .Include(d => d.DocumentLinks)
+            .Include(d => d.DocumentType)
+            .Where(d => d.DocumentLinks.Any(dl => dl.EntityId == effectiveEntityId));
+
+        if (effectiveYearId.HasValue)
         {
-            try
-            {
-                var session = GetCurrentSession();
-                _logger.LogInformation("Fetching documents for entityId: {EntityId}, yearId: {YearId}", 
-                    entityId, yearId);
-
-                var query = _context.Documents
-                    .Include(d => d.DocumentLinks)
-                    .Include(d => d.DocumentType)
-                    .Where(d => d.DocumentLinks.Any(dl => dl.EntityId == entityId));
-
-                if (yearId.HasValue)
-                {
-                    query = query.Where(d => d.DocumentType.YearId == yearId.Value);
-                }
-
-                var documents = await query
-                    .Where(d => d.IsLastVersion)
-                    .OrderByDescending(d => d.DocumentTypeId)
-                    .Select(d => new
-                    {
-                        d.Id,
-                        d.Description,
-                        DocumentType = d.DocumentType.Name,
-                        d.Version,
-                        d.FileEncoding,
-                        FileSize = d.FileBlob != null ? d.FileBlob.Length : 0,
-                        HasFile = d.FileBlob != null
-                    })
-                    .ToListAsync();
-
-                _logger.LogInformation("Retrieved {Count} documents", documents.Count);
-                return Ok(documents);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error retrieving documents for entityId: {EntityId}", entityId);
-                return StatusCode(500, new { error = "שגיאה בטעינת המסמכים" });
-            }
+            query = query.Where(d => d.DocumentType.YearId == effectiveYearId.Value);
         }
 
+        var documents = await query
+            .Where(d => d.IsLastVersion)
+            .OrderByDescending(d => d.CreatedAt)
+            .Select(d => new
+            {
+                d.Id,
+                d.Description,
+                DocumentType = d.DocumentType.Name,
+                DocumentTypeId = d.DocumentTypeId,
+                StatusName = _context.Set<DocumentStatusType>()
+                    .Where(s => s.Id == d.StatusId)
+                    .Select(s => s.Name)
+                    .FirstOrDefault() ?? "לא מוגדר",
+                CreatedAt = d.CreatedAt,
+                FileSize = d.FileBlob != null ? d.FileBlob.Length : 0,
+                HasFile = d.FileBlob != null
+            })
+            .ToListAsync();
+
+        _logger.LogInformation("Retrieved {Count} documents", documents.Count);
+        return Ok(documents);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving documents");
+        return StatusCode(500, new { error = "שגיאה בטעינת המסמכים" });
+    }
+}
         /// <summary>
         /// Download document file
         /// </summary>
@@ -78,6 +93,17 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
+                var session = GetCurrentSession();
+
+                // ✅ Check if this is a view request (from header instead of query string)
+                var isViewMode = Request.Headers.ContainsKey("X-View-Mode") &&
+                                 Request.Headers["X-View-Mode"] == "inline";
+
+                if (isViewMode)
+                {
+                    _logger.LogInformation("Document view access: {DocumentId}", id);
+                }
+
                 var document = await _context.Documents
                     .Include(d => d.DocumentType)
                     .FirstOrDefaultAsync(d => d.Id == id);
@@ -87,102 +113,231 @@ namespace PetelApp.Api.Controllers
                     return NotFound(new { error = "מסמך לא נמצא" });
                 }
 
-                if (document.FileBlob == null)
+                if (document.FileBlob == null || document.FileBlob.Length == 0)
                 {
-                    return NotFound(new { error = "קובץ המסמך לא נמצא" });
+                    return NotFound(new { error = "אין קובץ מצורף למסמך" });
                 }
 
-                var fileName = $"{document.Description ?? document.DocumentType.Name}_{document.Version}.{document.FileEncoding}";
-                var contentType = GetContentType(document.FileEncoding);
+                // Determine content type based on file extension
+                var contentType = document.FileEncoding?.ToLower() switch
+                {
+                    "pdf" => "application/pdf",
+                    "doc" => "application/msword",
+                    "docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    "xls" => "application/vnd.ms-excel",
+                    "xlsx" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    "jpg" or "jpeg" => "image/jpeg",
+                    "png" => "image/png",
+                    "gif" => "image/gif",
+                    "txt" => "text/plain",
+                    "html" => "text/html",
+                    _ => "application/octet-stream"
+                };
 
-                return File(document.FileBlob, contentType, fileName);
+                // ✅ Use saved filename
+                var fileName = !string.IsNullOrEmpty(document.FileName)
+                    ? document.FileName
+                    : !string.IsNullOrEmpty(document.Description)
+                        ? $"{document.Description}.{document.FileEncoding}"
+                        : $"document_{document.Id}.{document.FileEncoding}";
+
+                // ✅ Use inline for view mode, attachment for download
+                var disposition = isViewMode ? "inline" : "attachment";
+
+                Response.Headers.Append("Content-Disposition", $"{disposition}; filename=\"{fileName}\"");
+                Response.Headers.Append("X-Content-Type-Options", "nosniff");
+
+                _logger.LogInformation("Document {Action}: {DocumentId}, FileName: {FileName}, Size: {Size}KB",
+                    disposition == "inline" ? "viewed" : "downloaded",
+                    id,
+                    fileName,
+                    document.FileBlob.Length / 1024);
+
+                return File(document.FileBlob, contentType);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error downloading document {DocumentId}", id);
-                return StatusCode(500, new { error = "שגיאה בהורדת המסמך" });
+                _logger.LogError(ex, "Error accessing document {DocumentId}", id);
+                return StatusCode(500, new { error = "שגיאה בגישה למסמך" });
             }
         }
 
+/// <summary>
+/// Get all document types
+/// </summary>
+[HttpGet("types")]
+public async Task<IActionResult> GetDocumentTypes()
+{
+    try
+    {
+        var documentTypes = await _context.Set<DocumentType>()
+            .OrderBy(dt => dt.Name)
+            .Select(dt => new
+            {
+                dt.Id,
+                dt.Name,
+                dt.Level,
+                dt.YearId
+            })
+            .ToListAsync();
+
+        _logger.LogInformation("Retrieved {Count} document types", documentTypes.Count);
+        return Ok(documentTypes);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving document types");
+        return StatusCode(500, new { error = "שגיאה בטעינת סוגי מסמכים" });
+    }
+}
+
         /// <summary>
-        /// Upload new document
+        /// Get document status types
         /// </summary>
-        [HttpPost("upload")]
-        public async Task<IActionResult> UploadDocument(
-            [FromForm] IFormFile file,
-            [FromForm] string description,
-            [FromForm] int documentTypeId,
-            [FromForm] int entityId,
-            [FromForm] int? yearId = null)
+        [HttpGet("status-types")]
+        public async Task<IActionResult> GetDocumentStatusTypes()
         {
             try
             {
-                var session = GetCurrentSession();
+                var statusTypes = await _context.Set<DocumentStatusType>()
+                    .OrderBy(s => s.Id)
+                    .Select(s => new
+                    {
+                        s.Id,
+                        s.Name
+                    })
+                    .ToListAsync();
 
-                if (file == null || file.Length == 0)
-                {
-                    return BadRequest(new { error = "לא הועלה קובץ" });
-                }
-
-                // Validate document type
-                var documentType = await _context.DocumentTypes.FindAsync(documentTypeId);
-                if (documentType == null)
-                {
-                    return BadRequest(new { error = "סוג מסמך לא תקין" });
-                }
-
-                // Get file extension
-                var fileExtension = Path.GetExtension(file.FileName).TrimStart('.');
-
-                // Read file to byte array
-                byte[] fileBytes;
-                using (var memoryStream = new MemoryStream())
-                {
-                    await file.CopyToAsync(memoryStream);
-                    fileBytes = memoryStream.ToArray();
-                }
-
-                // Create document record
-                var document = new Document
-                {
-                    Description = description,
-                    DocumentTypeId = documentTypeId,
-                    StatusId = 1, // Active status
-                    FileBlob = fileBytes,
-                    FileEncoding = fileExtension,
-                    Version = 1,
-                    IsLastVersion = true
-                };
-
-                _context.Documents.Add(document);
-                await _context.SaveChangesAsync();
-
-                // Create document link
-                var documentLink = new DocumentLink
-                {
-                    DocumentId = document.Id,
-                    EntityId = entityId
-                };
-
-                _context.DocumentLinks.Add(documentLink);
-                await _context.SaveChangesAsync();
-
-                _logger.LogInformation("Document uploaded successfully: {DocumentId}", document.Id);
-
-                return Ok(new
-                {
-                    id = document.Id,
-                    description = document.Description,
-                    message = "המסמך הועלה בהצלחה"
-                });
+                return Ok(statusTypes);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error uploading document");
-                return StatusCode(500, new { error = "שגיאה בהעלאת המסמך" });
+                _logger.LogError(ex, "Error retrieving document status types");
+                return StatusCode(500, new { error = "שגיאה בטעינת סוגי סטטוס" });
             }
         }
 
+ /// <summary>
+/// Upload new document or replace existing
+/// </summary>
+[HttpPost("upload")]
+public async Task<IActionResult> UploadDocument(
+    [FromForm] IFormFile file,
+    [FromForm] string? description,
+    [FromForm] int documentTypeId,
+    [FromForm] int statusId,
+    [FromForm] int entityId,
+    [FromForm] int? yearId = null,
+    [FromForm] long? existingDocumentId = null,
+    [FromForm] bool replaceExisting = false)
+{
+    try
+    {
+        var session = GetCurrentSession();
+
+        if (file == null || file.Length == 0)
+        {
+            return BadRequest(new { error = "לא הועלה קובץ" });
+        }
+
+        // Validate document type
+        var documentType = await _context.DocumentTypes.FindAsync(documentTypeId);
+        if (documentType == null)
+        {
+            return BadRequest(new { error = "סוג מסמך לא תקין" });
+        }
+
+        // Get file extension and original filename
+        var fileExtension = Path.GetExtension(file.FileName).TrimStart('.');
+        var originalFileName = file.FileName;
+
+        // Read file to byte array
+        byte[] fileBytes;
+        using (var memoryStream = new MemoryStream())
+        {
+            await file.CopyToAsync(memoryStream);
+            fileBytes = memoryStream.ToArray();
+        }
+
+        Document document;
+
+        // ✅ ALWAYS handle as replacement if existingDocumentId is provided
+        if (existingDocumentId.HasValue)
+        {
+            // Get existing document
+            var existingDoc = await _context.Documents
+                .Include(d => d.DocumentLinks)
+                .FirstOrDefaultAsync(d => d.Id == existingDocumentId.Value);
+
+            if (existingDoc == null)
+            {
+                return NotFound(new { error = "מסמך קיים לא נמצא" });
+            }
+
+            // ✅ Mark existing document as not last version
+            existingDoc.IsLastVersion = false;
+            _context.Documents.Update(existingDoc);
+
+            // ✅ Create new document with incremented version
+            document = new Document
+            {
+                MasterDocumentId = existingDoc.MasterDocumentId ?? existingDoc.Id, // ✅ Preserve or set master
+                Description = !string.IsNullOrWhiteSpace(description) ? description : existingDoc.Description,
+                DocumentTypeId = existingDoc.DocumentTypeId, // ✅ Preserve document type
+                StatusId = statusId,
+                FileBlob = fileBytes,
+                FileEncoding = fileExtension,
+                FileName = originalFileName,
+                Version = existingDoc.Version + 1, // ✅ Increment version
+                IsLastVersion = true
+            };
+
+            _context.Documents.Add(document);
+            await _context.SaveChangesAsync();
+
+            // ✅ Copy document links from existing document
+            foreach (var existingLink in existingDoc.DocumentLinks)
+            {
+                var newLink = new DocumentLink
+                {
+                    DocumentId = document.Id,
+                    EntityId = existingLink.EntityId,
+                    SchoolStudentId = existingLink.SchoolStudentId
+                };
+                _context.DocumentLinks.Add(newLink);
+            }
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Document replaced. Old: {OldId} (v{OldVer}), New: {NewId} (v{NewVer}), Master: {MasterId}",
+                existingDocumentId, existingDoc.Version, document.Id, document.Version, document.MasterDocumentId);
+
+            return Ok(new
+            {
+                id = document.Id,
+                description = document.Description,
+                version = document.Version,
+                fileSize = fileBytes.Length,
+                fileEncoding = fileExtension,
+                fileName = originalFileName,
+                masterDocumentId = document.MasterDocumentId,
+                message = "המסמך הועלה בהצלחה"
+            });
+        }
+        else
+        {
+            // ✅ NEW document upload - should never happen via upload button
+            // Upload button always passes existingDocumentId
+            _logger.LogWarning("Upload called without existingDocumentId - this should not happen");
+            return BadRequest(new { error = "חסר מזהה מסמך קיים" });
+        }
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error uploading document");
+        return StatusCode(500, new { error = "שגיאה בהעלאת המסמך" });
+    }
+}
         /// <summary>
         /// Delete document
         /// </summary>

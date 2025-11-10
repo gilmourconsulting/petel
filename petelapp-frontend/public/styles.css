@@ -955,7 +955,7 @@ body {
     background-color: #f8f9fa;
     font-weight: 500;
     direction: ltr;
-    text-align: center;
+    text-align: right;
 }
 
 .data-table tr:hover {
@@ -969,6 +969,17 @@ body {
 .data-table td:nth-child(3) {
     font-weight: 600;
     color: #2c3e50;
+}
+
+/* Right-align table cells except actions column */
+.data-table td,
+.data-table th {
+    text-align: right;
+}
+
+.data-table td:last-child,
+.data-table th:last-child {
+    text-align: center; /* Actions column centered */
 }
 
 /* Loading and Error States */

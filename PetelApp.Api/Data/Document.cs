@@ -1,3 +1,5 @@
+using DocumentFormat.OpenXml.InkML;
+
 namespace PetelApp.Api.Data
 {
     public class Document
@@ -9,8 +11,12 @@ namespace PetelApp.Api.Data
         public int StatusId { get; set; }
         public byte[]? FileBlob { get; set; }
         public string FileEncoding { get; set; } = string.Empty;
+        
+        public string? FileName { get; set; }
         public int Version { get; set; }
         public bool IsLastVersion { get; set; }
+
+        public Timestamp? CreatedAt { get; set; }
 
         // Navigation properties
         public DocumentType? DocumentType { get; set; }
@@ -34,5 +40,11 @@ namespace PetelApp.Api.Data
 
         // Navigation properties
         public Document? Document { get; set; }
+    }
+
+    public class DocumentStatusType
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
     }
 }
