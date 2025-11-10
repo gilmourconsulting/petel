@@ -53,6 +53,7 @@ namespace PetelApp.Api.Controllers
                         d.Id,
                         d.Description,
                         DocumentType = d.DocumentType.Name,
+                        DocumentTypeId = d.DocumentTypeId,
                         d.Version,
                         d.FileEncoding,
                         FileSize = d.FileBlob != null ? d.FileBlob.Length : 0,
@@ -105,15 +106,44 @@ namespace PetelApp.Api.Controllers
         }
 
         /// <summary>
-        /// Upload new document
+        /// Get document status types
+        /// </summary>
+        [HttpGet("status-types")]
+        public async Task<IActionResult> GetDocumentStatusTypes()
+        {
+            try
+            {
+                var statusTypes = await _context.Set<DocumentStatusType>()
+                    .OrderBy(s => s.Id)
+                    .Select(s => new
+                    {
+                        s.Id,
+                        s.Name
+                    })
+                    .ToListAsync();
+
+                return Ok(statusTypes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving document status types");
+                return StatusCode(500, new { error = "שגיאה בטעינת סוגי סטטוס" });
+            }
+        }
+
+        /// <summary>
+        /// Upload new document or replace existing
         /// </summary>
         [HttpPost("upload")]
         public async Task<IActionResult> UploadDocument(
             [FromForm] IFormFile file,
-            [FromForm] string description,
+            [FromForm] string? description,
             [FromForm] int documentTypeId,
+            [FromForm] int statusId,
             [FromForm] int entityId,
-            [FromForm] int? yearId = null)
+            [FromForm] int? yearId = null,
+            [FromForm] long? existingDocumentId = null,
+            [FromForm] bool replaceExisting = false)
         {
             try
             {
@@ -142,38 +172,97 @@ namespace PetelApp.Api.Controllers
                     fileBytes = memoryStream.ToArray();
                 }
 
-                // Create document record
-                var document = new Document
+                Document document;
+                DocumentLink documentLink;
+
+                // Handle replacement logic
+                if (replaceExisting && existingDocumentId.HasValue)
                 {
-                    Description = description,
-                    DocumentTypeId = documentTypeId,
-                    StatusId = 1, // Active status
-                    FileBlob = fileBytes,
-                    FileEncoding = fileExtension,
-                    Version = 1,
-                    IsLastVersion = true
-                };
+                    // Get existing document
+                    var existingDoc = await _context.Documents
+                        .Include(d => d.DocumentLinks)
+                        .FirstOrDefaultAsync(d => d.Id == existingDocumentId.Value);
 
-                _context.Documents.Add(document);
-                await _context.SaveChangesAsync();
+                    if (existingDoc == null)
+                    {
+                        return NotFound(new { error = "מסמך קיים לא נמצא" });
+                    }
 
-                // Create document link
-                var documentLink = new DocumentLink
+                    // Set existing document to not last version
+                    existingDoc.IsLastVersion = false;
+                    _context.Documents.Update(existingDoc);
+
+                    // Create new document with incremented version
+                    document = new Document
+                    {
+                        MasterDocumentId = existingDoc.MasterDocumentId ?? existingDoc.Id,
+                        Description = !string.IsNullOrWhiteSpace(description) ? description : existingDoc.Description,
+                        DocumentTypeId = existingDoc.DocumentTypeId,
+                        StatusId = statusId,
+                        FileBlob = fileBytes,
+                        FileEncoding = fileExtension,
+                        Version = existingDoc.Version + 1,
+                        IsLastVersion = true
+                    };
+
+                    _context.Documents.Add(document);
+                    await _context.SaveChangesAsync();
+
+                    // Copy document links from existing document
+                    foreach (var existingLink in existingDoc.DocumentLinks)
+                    {
+                        var newLink = new DocumentLink
+                        {
+                            DocumentId = document.Id,
+                            EntityId = existingLink.EntityId,
+                            SchoolStudentId = existingLink.SchoolStudentId
+                        };
+                        _context.DocumentLinks.Add(newLink);
+                    }
+
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation("Document replaced successfully. Old: {OldId}, New: {NewId}, Version: {Version}",
+                        existingDocumentId, document.Id, document.Version);
+                }
+                else
                 {
-                    DocumentId = document.Id,
-                    EntityId = entityId
-                };
+                    // Create new document (version 1)
+                    document = new Document
+                    {
+                        Description = description,
+                        DocumentTypeId = documentTypeId,
+                        StatusId = statusId,
+                        FileBlob = fileBytes,
+                        FileEncoding = fileExtension,
+                        Version = 1,
+                        IsLastVersion = true
+                    };
 
-                _context.DocumentLinks.Add(documentLink);
-                await _context.SaveChangesAsync();
+                    _context.Documents.Add(document);
+                    await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Document uploaded successfully: {DocumentId}", document.Id);
+                    // Create document link
+                    documentLink = new DocumentLink
+                    {
+                        DocumentId = document.Id,
+                        EntityId = entityId
+                    };
+
+                    _context.DocumentLinks.Add(documentLink);
+                    await _context.SaveChangesAsync();
+
+                    _logger.LogInformation("New document uploaded: {DocumentId}", document.Id);
+                }
 
                 return Ok(new
                 {
                     id = document.Id,
                     description = document.Description,
-                    message = "המסמך הועלה בהצלחה"
+                    version = document.Version,
+                    fileSize = fileBytes.Length,
+                    fileEncoding = fileExtension,
+                    message = replaceExisting ? "המסמך הוחלף בהצלחה" : "המסמך הועלה בהצלחה"
                 });
             }
             catch (Exception ex)

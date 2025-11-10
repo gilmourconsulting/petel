@@ -117,23 +117,50 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
 
                 this.documentTypes = await response.json();
 
-                if (this.options.showUploadForm) {
-                    const selectElement = document.getElementById(`${this.containerId}_documentTypeSelect`);
-                    if (selectElement) {
-                        this.documentTypes.forEach(type => {
-                            const option = document.createElement('option');
-                            option.value = type.id;
-                            option.textContent = type.description;
-                            selectElement.appendChild(option);
-                        });
-                    }
-                }
+                /*   if (this.options.showUploadForm) {
+                       const selectElement = document.getElementById(`${this.containerId}_documentTypeSelect`);
+                       if (selectElement) {
+                           this.documentTypes.forEach(type => {
+                               const option = document.createElement('option');
+                               option.value = type.id;
+                               option.textContent = type.description;
+                               selectElement.appendChild(option);
+                           });
+                       }
+                   }*/
 
                 console.log('✅ Document types loaded:', this.documentTypes.length);
             } catch (error) {
                 console.error('❌ Error loading document types:', error);
             }
         }
+
+        /**
+ * Load document status types
+ */
+        async loadDocumentStatusTypes() {
+            try {
+                const url = AppConfig.getApiUrl('documents/status-types');
+                const token = sessionStorage.getItem('authToken');
+
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (!response.ok) {
+                    console.warn('⚠ Failed to load document status types');
+                    return [];
+                }
+
+                const statusTypes = await response.json();
+                console.log('✅ Document status types loaded:', statusTypes.length);
+                return statusTypes;
+            } catch (error) {
+                console.error('❌ Error loading document status types:', error);
+                return [];
+            }
+        }
+
 
         /**
          * Load and display documents table
@@ -228,6 +255,13 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
                         sortable: false,
                         readOnly: true,
                         render: (data) => {
+                            const viewBtn = this.options.allowDownload && data.fileSize > 0
+                                ? `<button onclick="documentsTableInstance_${this.containerId}.viewDocument(${data.id})" class="btn-icon" title="צפייה">
+                <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
+            </button>`
+                                : `<button class="btn-icon" disabled title="אין קובץ לצפייה">
+                <img src="view_icon.png" alt="צפייה" class="action-icon-natural" style="opacity: 0.3;">
+            </button>`;
                             const downloadBtn = this.options.allowDownload && data.fileSize > 0
                                 ? `<button onclick="documentsTableInstance_${this.containerId}.downloadDocument(${data.id})" class="btn-icon" title="הורדה">
                                 <img src="download_icon.png" alt="הורדה" class="action-icon-natural">
@@ -239,9 +273,9 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
                                     : '');
 
                             const uploadBtn = this.options.allowUpload
-                                ? `<button onclick="documentsTableInstance_${this.containerId}.uploadDocument(${data.id})" class="btn-icon" title="העלאה">
-                                <img src="upload_icon.png" alt="העלאה" class="action-icon-natural">
-                            </button>`
+                                ? `<button onclick="documentsTableInstance_${this.containerId}.showUploadModal(${data.id}, ${data.fileSize}, '${data.documentType}', ${data.documentTypeId})" class="btn-icon" title="העלאת קובץ">
+                            <img src="upload_icon.png" alt="העלאה" class="action-icon-natural">
+                        </button>`
                                 : '';
 
                             const deleteBtn = this.options.allowDelete
@@ -250,7 +284,7 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
                             </button>`
                                 : '';
 
-                            return `${downloadBtn} ${uploadBtn} ${deleteBtn}`;
+                            return `${viewBtn} ${downloadBtn} ${uploadBtn} ${deleteBtn}`;
                         }
                     }
                 ];
@@ -262,6 +296,199 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
                 alert('שגיאה בטעינת המסמכים');
             }
         }
+
+
+
+        /**
+ * View document in new browser tab
+ */
+        async viewDocument(documentId) {
+            try {
+                console.log('👁️ Viewing document:', documentId);
+
+                const token = sessionStorage.getItem('authToken');
+                const url = AppConfig.getApiUrl(`documents/${documentId}/download`);
+
+                // Open document in new tab with auth token in URL
+                const viewUrl = `${url}?token=${encodeURIComponent(token)}`;
+                window.open(viewUrl, '_blank');
+
+                console.log('✅ Document opened in new tab');
+            } catch (error) {
+                console.error('❌ Error viewing document:', error);
+                alert('שגיאה בפתיחת המסמך');
+            }
+        }
+
+        /**
+ * Show upload modal
+ */
+        async showUploadModal(documentId, currentFileSize, documentTypeName, documentTypeId) {
+            try {
+                console.log('📤 Showing upload modal for document:', documentId);
+
+                // Load status types only (document type is read-only)
+                const statusTypes = await this.loadDocumentStatusTypes();
+
+                // Create modal HTML
+                const modalHtml = `
+            <div class="modal-overlay" id="uploadModal_${this.containerId}">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3>העלאת מסמך - ${documentTypeName}</h3>
+                        <button class="modal-close" onclick="documentsTableInstance_${this.containerId}.closeUploadModal()">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="uploadModalForm_${this.containerId}">
+                            <div class="form-group">
+                                <label for="uploadFile_${this.containerId}">בחר קובץ *</label>
+                                <input type="file" id="uploadFile_${this.containerId}" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="uploadDescription_${this.containerId}">תיאור (אופציונלי)</label>
+                                <input type="text" id="uploadDescription_${this.containerId}">
+                            </div>
+
+                            <div class="form-group">
+                            <div class="form-group">
+                                <label>סוג מסמך</label>
+                                <input type="text" value="${documentTypeName}" readonly class="readonly-field">
+                            </div>
+
+                            </div>
+
+                            <div class="form-group">
+                                <label for="uploadStatus_${this.containerId}">סטטוס *</label>
+                                <select id="uploadStatus_${this.containerId}" required>
+                                    ${statusTypes.map(status =>
+                    `<option value="${status.id}">${status.name}</option>`
+                ).join('')}
+                                </select>
+                            </div>
+
+                            <input type="hidden" id="uploadDocumentId_${this.containerId}" value="${documentId}">
+                            <input type="hidden" id="uploadDocumentTypeId_${this.containerId}" value="${documentTypeId}">
+                            <input type="hidden" id="uploadCurrentFileSize_${this.containerId}" value="${currentFileSize}">
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn-secondary" onclick="documentsTableInstance_${this.containerId}.closeUploadModal()">ביטול</button>
+                        <button class="btn-primary" onclick="documentsTableInstance_${this.containerId}.processUpload()">העלה</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+                // Add modal to document body
+                const modalContainer = document.createElement('div');
+                modalContainer.innerHTML = modalHtml;
+                document.body.appendChild(modalContainer.firstElementChild);
+
+                console.log('✅ Upload modal displayed');
+            } catch (error) {
+                console.error('❌ Error showing upload modal:', error);
+                alert('שגיאה בפתיחת חלון ההעלאה');
+            }
+        }
+
+        /**
+         * Close upload modal
+         */
+        closeUploadModal() {
+            const modal = document.getElementById(`uploadModal_${this.containerId}`);
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        /**
+         * Process upload from modal
+         */
+        async processUpload() {
+            try {
+                const fileInput = document.getElementById(`uploadFile_${this.containerId}`);
+                const descriptionInput = document.getElementById(`uploadDescription_${this.containerId}`);
+                const statusSelect = document.getElementById(`uploadStatus_${this.containerId}`);
+                const documentIdInput = document.getElementById(`uploadDocumentId_${this.containerId}`);
+                const documentTypeIdInput = document.getElementById(`uploadDocumentTypeId_${this.containerId}`);
+                const currentFileSizeInput = document.getElementById(`uploadCurrentFileSize_${this.containerId}`);
+
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    alert('אנא בחר קובץ להעלאה');
+                    return;
+                }
+
+                const file = fileInput.files[0];
+                const documentId = parseInt(documentIdInput.value);
+                const documentTypeId = parseInt(documentTypeIdInput.value);
+                const currentFileSize = parseInt(currentFileSizeInput.value);
+                const hasExistingFile = currentFileSize > 0;
+
+                // Check if replacing existing document
+                let replaceExisting = false;
+                if (hasExistingFile) {
+                    replaceExisting = confirm('קיים כבר קובץ למסמך זה. האם ברצונך להחליף אותו?');
+                    if (!replaceExisting) {
+                        console.log('ℹ️ User cancelled replacement');
+                        this.closeUploadModal();
+                        return;
+                    }
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('description', descriptionInput.value || '');
+                formData.append('statusId', statusSelect.value);
+                formData.append('entityId', this.options.entityId);
+                formData.append('documentTypeId', documentTypeId);
+
+                if (this.options.yearId) {
+                    formData.append('yearId', this.options.yearId);
+                }
+
+                if (replaceExisting) {
+                    formData.append('existingDocumentId', documentId.toString());
+                    formData.append('replaceExisting', 'true');
+                }
+
+                const token = sessionStorage.getItem('authToken');
+                const url = AppConfig.getApiUrl('documents/upload');
+
+                console.log('📤 Uploading document...');
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'שגיאה בהעלאת המסמך');
+                }
+
+                const result = await response.json();
+                alert(result.message || 'המסמך הועלה בהצלחה');
+
+                // Close modal
+                this.closeUploadModal();
+
+                // Reload table
+                await this.loadDocumentsTable();
+
+                // Call custom callback if provided
+                if (this.options.onUploadSuccess) {
+                    this.options.onUploadSuccess(result);
+                }
+
+                console.log('✅ Document uploaded successfully:', result);
+            } catch (error) {
+                console.error('❌ Error processing upload:', error);
+                alert(error.message || 'שגיאה בהעלאת המסמך');
+            }
+        }
+
 
         /**
          * Setup upload form event handler
@@ -283,8 +510,7 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
             try {
                 const fileInput = document.getElementById(`${this.containerId}_fileInput`);
                 const descriptionInput = document.getElementById(`${this.containerId}_descriptionInput`);
-                const documentTypeSelect = document.getElementById(`${this.containerId}_documentTypeSelect`);
-                const uploadBtn = document.getElementById(`${this.containerId}_uploadBtn`);
+                const documentTypeIdInput = document.getElementById(`uploadDocumentTypeId_${this.containerId}`);
 
                 if (!fileInput.files || fileInput.files.length === 0) {
                     alert('אנא בחר קובץ להעלאה');
@@ -295,7 +521,7 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
                 const formData = new FormData();
                 formData.append('file', file);
                 formData.append('description', descriptionInput.value);
-                formData.append('documentTypeId', documentTypeSelect.value);
+                formData.append('documentTypeId', documentTypeIdInput.value);
 
                 // Add entity context if provided
                 if (this.options.entityId) {
@@ -461,4 +687,4 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
 }
 
 // Make class globally available
-window.DocumentsTableComponent = DocumentsTableComponent;
+//window.DocumentsTableComponent = DocumentsTableComponent;

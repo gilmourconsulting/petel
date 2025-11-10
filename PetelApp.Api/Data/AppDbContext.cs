@@ -32,10 +32,10 @@ namespace PetelApp.Api.Data
         public DbSet<Council> Councils { get; set; }
         public DbSet<SchoolClass> SchoolClasses { get; set; }
 
-                // Person DbSet for contact management
+        // Person DbSet for contact management
         public DbSet<Person> Persons { get; set; } = null!;
 
-            // DbSets for school attributes
+        // DbSets for school attributes
         public DbSet<SchoolAttributeType> SchoolAttributeTypes { get; set; }
         public DbSet<SchoolAttributeTypeValue> SchoolAttributeTypeValues { get; set; }
         public DbSet<SchoolAttribute> SchoolAttributes { get; set; }
@@ -52,6 +52,8 @@ namespace PetelApp.Api.Data
         public DbSet<Document> Documents { get; set; } = null!;
         public DbSet<DocumentType> DocumentTypes { get; set; } = null!;
         public DbSet<DocumentLink> DocumentLinks { get; set; } = null!;
+
+        public DbSet<DocumentStatusType> DocumentStatusTypes { get; set; } = null!;
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -184,6 +186,8 @@ namespace PetelApp.Api.Data
                 //  entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
             });
 
+
+
             // Configure School relationships
             modelBuilder.Entity<School>()
                 .HasOne(s => s.PrincipalPerson)
@@ -295,104 +299,117 @@ namespace PetelApp.Api.Data
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
-               modelBuilder.Entity<Document>(entity =>
-    {
-        entity.ToTable("documents", "petel_schema"); // ✅ Lowercase table name with schema
-        entity.HasKey(e => e.Id);
+            modelBuilder.Entity<Document>(entity =>
+ {
+     entity.ToTable("documents", "petel_schema"); // ✅ Lowercase table name with schema
+     entity.HasKey(e => e.Id);
 
-        entity.Property(e => e.Id)
-            .HasColumnName("id"); // ✅ Lowercase column name
+     entity.Property(e => e.Id)
+         .HasColumnName("id"); // ✅ Lowercase column name
 
-        entity.Property(e => e.MasterDocumentId)
-            .HasColumnName("master_document_id");
+     entity.Property(e => e.MasterDocumentId)
+         .HasColumnName("master_document_id");
 
-        entity.Property(e => e.Description)
-            .HasColumnName("description")
-            .HasMaxLength(500);
+     entity.Property(e => e.Description)
+         .HasColumnName("description")
+         .HasMaxLength(500);
 
-        entity.Property(e => e.DocumentTypeId)
-            .HasColumnName("document_type_id");
+     entity.Property(e => e.DocumentTypeId)
+         .HasColumnName("document_type_id");
 
-        entity.Property(e => e.StatusId)
-            .HasColumnName("status_id");
+     entity.Property(e => e.StatusId)
+         .HasColumnName("status_id");
 
-        entity.Property(e => e.FileBlob)
-            .HasColumnName("file_blob")
-            .IsRequired(false);
+     entity.Property(e => e.FileBlob)
+         .HasColumnName("file_blob")
+         .IsRequired(false);
 
-        entity.Property(e => e.FileEncoding)
-            .HasColumnName("file_encoding")
-            .HasMaxLength(10)
-            .IsRequired(false);
-
-
-        entity.Property(e => e.Version)
-            .HasColumnName("version");
-
-        entity.Property(e => e.IsLastVersion)
-            .HasColumnName("is_last_version");
+     entity.Property(e => e.FileEncoding)
+         .HasColumnName("file_encoding")
+         .HasMaxLength(10)
+         .IsRequired(false);
 
 
-        entity.HasOne(d => d.DocumentType)
-            .WithMany()
-            .HasForeignKey(d => d.DocumentTypeId)
-            .OnDelete(DeleteBehavior.Restrict);
+     entity.Property(e => e.Version)
+         .HasColumnName("version");
 
-        entity.HasMany(d => d.DocumentLinks)
-            .WithOne(dl => dl.Document)
-            .HasForeignKey(dl => dl.DocumentId)
-            .OnDelete(DeleteBehavior.Cascade);
-    });
+     entity.Property(e => e.IsLastVersion)
+         .HasColumnName("is_last_version");
 
-    modelBuilder.Entity<DocumentType>(entity =>
-    {
-        entity.ToTable("document_types", "petel_schema"); // ✅ Lowercase table name with schema
-        entity.HasKey(e => e.Id);
 
-        entity.Property(e => e.Id)
-            .HasColumnName("id");
+     entity.HasOne(d => d.DocumentType)
+         .WithMany()
+         .HasForeignKey(d => d.DocumentTypeId)
+         .OnDelete(DeleteBehavior.Restrict);
 
-        entity.Property(e => e.Name)
-            .HasColumnName("name")
-            .HasMaxLength(100)
-            .IsRequired();
+     entity.HasMany(d => d.DocumentLinks)
+         .WithOne(dl => dl.Document)
+         .HasForeignKey(dl => dl.DocumentId)
+         .OnDelete(DeleteBehavior.Cascade);
+ });
 
-        entity.Property(e => e.Level)
-            .HasColumnName("level")
-            .HasMaxLength(50);
+            modelBuilder.Entity<DocumentType>(entity =>
+            {
+                entity.ToTable("document_types", "petel_schema"); // ✅ Lowercase table name with schema
+                entity.HasKey(e => e.Id);
 
-        entity.Property(e => e.YearId)
-            .HasColumnName("year_id");
-    });
+                entity.Property(e => e.Id)
+                    .HasColumnName("id");
 
-    modelBuilder.Entity<DocumentLink>(entity =>
-    {
-        entity.ToTable("document_links", "petel_schema"); // ✅ Lowercase table name with schema
-        entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name)
+                    .HasColumnName("name")
+                    .HasMaxLength(100)
+                    .IsRequired();
 
-        entity.Property(e => e.Id)
-            .HasColumnName("id");
+                entity.Property(e => e.Level)
+                    .HasColumnName("level")
+                    .HasMaxLength(50);
 
-        entity.Property(e => e.DocumentId)
-            .HasColumnName("document_id");
+                entity.Property(e => e.YearId)
+                    .HasColumnName("year_id");
+            });
 
-        entity.Property(e => e.SchoolStudentId)
-            .HasColumnName("school_student_id");
+            modelBuilder.Entity<DocumentLink>(entity =>
+            {
+                entity.ToTable("document_links", "petel_schema"); // ✅ Lowercase table name with schema
+                entity.HasKey(e => e.Id);
 
-        entity.Property(e => e.EntityId)
-            .HasColumnName("entity_id");
+                entity.Property(e => e.Id)
+                    .HasColumnName("id");
 
-        entity.HasOne(dl => dl.Document)
-            .WithMany(d => d.DocumentLinks)
-            .HasForeignKey(dl => dl.DocumentId)
-            .OnDelete(DeleteBehavior.Cascade);
+                entity.Property(e => e.DocumentId)
+                    .HasColumnName("document_id");
 
-        entity.HasIndex(e => new { e.DocumentId, e.EntityId });
-        entity.HasIndex(e => new { e.DocumentId, e.SchoolStudentId });
-    });
+                entity.Property(e => e.SchoolStudentId)
+                    .HasColumnName("school_student_id");
+
+                entity.Property(e => e.EntityId)
+                    .HasColumnName("entity_id");
+
+                entity.HasOne(dl => dl.Document)
+                    .WithMany(d => d.DocumentLinks)
+                    .HasForeignKey(dl => dl.DocumentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(e => new { e.DocumentId, e.EntityId });
+                entity.HasIndex(e => new { e.DocumentId, e.SchoolStudentId });
+            });
+            modelBuilder.Entity<DocumentStatusType>(entity =>
+        {
+            entity.ToTable("document_status_types", "petel_schema");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
+
+            entity.Property(e => e.Name)
+                .HasColumnName("name")
+                .HasMaxLength(50)
+                .IsRequired();
+        });
 
         }
     }
 
-  
+
 }

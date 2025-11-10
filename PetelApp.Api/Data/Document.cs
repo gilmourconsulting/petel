@@ -35,4 +35,10 @@ namespace PetelApp.Api.Data
         // Navigation properties
         public Document? Document { get; set; }
     }
+
+    public class DocumentStatusType
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
 }
