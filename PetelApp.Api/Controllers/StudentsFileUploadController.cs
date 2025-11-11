@@ -21,16 +21,18 @@ namespace PetelApp.Api.Controllers
     {
         private readonly AppDbContext _context;
         private readonly StudentsFileProcessor _fileProcessor;
-    
+        private readonly GlobalFunctions _globalFunctions;
         public StudentsFileUploadController(
             UserSessionService userSessionService,
             ILogger<StudentsFileUploadController> logger,
             AppDbContext context,
-            StudentsFileProcessor fileProcessor)
+            StudentsFileProcessor fileProcessor,
+    GlobalFunctions globalFunctions)
         : base(userSessionService, logger)
         {
             _context = context;
             _fileProcessor = fileProcessor;
+                _globalFunctions = globalFunctions;
         }
 
         /// <summary>
@@ -83,21 +85,21 @@ namespace PetelApp.Api.Controllers
             if (rows == null || !rows.Any())
                 return BadRequest(new { success = false, message = "No valid student data found in file." });
 
-           _logger.LogInformation(
-                "ResolveSchoolAndYearAsync  returned with: schoolId={SchoolId}, schoolYearId={SchoolYearId}",
-                resolvedSchoolId, resolvedYearId);
+            _logger.LogInformation(
+                 "ResolveSchoolAndYearAsync  returned with: schoolId={SchoolId}, schoolYearId={SchoolYearId}",
+                 resolvedSchoolId, resolvedYearId);
 
 
             // Process student data
             var result = await _fileProcessor.ProcessStudentRowsAsync(
-                rows, 
-                resolvedSchoolId.Value, 
-                resolvedYearId.Value, 
+                rows,
+                resolvedSchoolId.Value,
+                resolvedYearId.Value,
                 session.UserId);
 
-            return Ok(new 
-            { 
-                success = true, 
+            return Ok(new
+            {
+                success = true,
                 message = "File processed successfully.",
                 created = result.Created,
                 updated = result.Updated,
@@ -147,14 +149,14 @@ namespace PetelApp.Api.Controllers
 
             // Process student data
             var result = await _fileProcessor.ProcessStudentRowsAsync(
-                rows, 
-                resolvedSchoolId.Value, 
-                resolvedYearId.Value, 
+                rows,
+                resolvedSchoolId.Value,
+                resolvedYearId.Value,
                 session.UserId);
 
-            return Ok(new 
-            { 
-                success = true, 
+            return Ok(new
+            {
+                success = true,
                 message = "File processed successfully via API.",
                 created = result.Created,
                 updated = result.Updated,
@@ -179,7 +181,7 @@ namespace PetelApp.Api.Controllers
             {
                 using var reader = new StreamReader(stream);
                 using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
-                
+
                 csv.Read();
                 csv.ReadHeader();
                 var headers = csv.HeaderRecord;
@@ -285,9 +287,9 @@ namespace PetelApp.Api.Controllers
         /// Priority: Direct IDs first, then natural keys (symbol + Hebrew year).
         /// </summary>
         private async Task<(int? schoolId, int? yearId, string? error)> ResolveSchoolAndYearAsync(
-            int? schoolId, 
-            int? schoolYearId, 
-            string? schoolSymbol, 
+            int? schoolId,
+            int? schoolYearId,
+            string? schoolSymbol,
             string? hebrewYear)
         {
             // Debug log received parameters
@@ -303,7 +305,7 @@ namespace PetelApp.Api.Controllers
             {
                 resolvedYearId = schoolYearId;
                 _logger.LogInformation("Using provided schoolYearId={SchoolYearId}", schoolYearId);
-                
+
                 // schoolYearId is sufficient - no need for school resolution
                 return (resolvedSchoolId, resolvedYearId, null);
             }
@@ -319,7 +321,7 @@ namespace PetelApp.Api.Controllers
                     return (null, null, $"School with symbol '{schoolSymbol}' not found.");
 
                 resolvedSchoolId = entity.Id;
-                _logger.LogInformation("Resolved schoolId={ResolvedSchoolId} from symbol={SchoolSymbol}", 
+                _logger.LogInformation("Resolved schoolId={ResolvedSchoolId} from symbol={SchoolSymbol}",
                     resolvedSchoolId, schoolSymbol);
             }
 
@@ -346,16 +348,16 @@ namespace PetelApp.Api.Controllers
                 if (schoolYear == null)
                 {
                     _logger.LogWarning(
-                        "School year not found for schoolId={SchoolId}, yearId={YearId}, hebrewYear={HebrewYear}", 
+                        "School year not found for schoolId={SchoolId}, yearId={YearId}, hebrewYear={HebrewYear}",
                         resolvedSchoolId, yearId, hebrewYear);
                     return (null, null, $"School year not found for school '{resolvedSchoolId}' and Hebrew year '{hebrewYear}'.");
                 }
 
                 resolvedYearId = schoolYear.Id;
                 _logger.LogInformation(
-                    "Resolved schoolYearId={ResolvedYearId} from hebrewYear={HebrewYear} and schoolId={SchoolId}", 
+                    "Resolved schoolYearId={ResolvedYearId} from hebrewYear={HebrewYear} and schoolId={SchoolId}",
                     resolvedYearId, hebrewYear, resolvedSchoolId);
-                
+
                 return (resolvedSchoolId, resolvedYearId, null);
             }
 
@@ -367,5 +369,5 @@ namespace PetelApp.Api.Controllers
 
 
 
-  
+
 }

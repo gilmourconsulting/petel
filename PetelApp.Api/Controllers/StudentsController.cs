@@ -37,17 +37,17 @@ namespace PetelApp.Api.Controllers
                     _logger.LogError("Invalid EntityId in session: '{EntityId}'", session.EntityId);
                     return BadRequest(new { success = false, message = "מזהה ישות לא תקין בסשן" });
                 }
-        // ✅ Get SelectedSchoolYearId from session if not provided in query
-        if (!schoolYearId.HasValue)
-        {
-            var sessionSchoolYearId = session.GetProperty("SelectedSchoolYearId");
-            if (string.IsNullOrEmpty(sessionSchoolYearId) || !int.TryParse(sessionSchoolYearId, out int parsedSchoolYearId))
-            {
-                _logger.LogWarning("No valid SelectedSchoolYearId found in session");
-                return BadRequest(new { success = false, message = "לא נבחרה שנת לימודים" });
-            }
-            schoolYearId = parsedSchoolYearId;
-        }
+                // ✅ Get SelectedSchoolYearId from session if not provided in query
+                if (!schoolYearId.HasValue)
+                {
+                    var sessionSchoolYearId = session.GetProperty("SelectedSchoolYearId");
+                    if (string.IsNullOrEmpty(sessionSchoolYearId) || !int.TryParse(sessionSchoolYearId, out int parsedSchoolYearId))
+                    {
+                        _logger.LogWarning("No valid SelectedSchoolYearId found in session");
+                        return BadRequest(new { success = false, message = "לא נבחרה שנת לימודים" });
+                    }
+                    schoolYearId = parsedSchoolYearId;
+                }
 
                 _logger.LogInformation("Loading students for entity {EntityId}", sessionEntityId);
 
@@ -61,6 +61,8 @@ namespace PetelApp.Api.Controllers
                         Id = s.Id,
                         IdNumber = s.IdNumber,
                         ClassId = s.ClassId,
+                        StartDate = s.StartDate,
+                        EndDate = s.EndDate,
                         FirstName = s.FirstName,
                         LastName = s.LastName,
                         Gender = s.Gender,
@@ -86,7 +88,7 @@ namespace PetelApp.Api.Controllers
                     .ToListAsync();
 
                 _logger.LogInformation("Loaded {Count} students with enriched data", students.Count);
-                
+
                 return Ok(new { success = true, data = students });
             }
             catch (Exception ex)

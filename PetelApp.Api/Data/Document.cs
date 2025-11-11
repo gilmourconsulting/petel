@@ -16,7 +16,7 @@ namespace PetelApp.Api.Data
         public int Version { get; set; }
         public bool IsLastVersion { get; set; }
 
-        public Timestamp? CreatedAt { get; set; }
+        public DateTime CreatedAt { get; set; }
 
         // Navigation properties
         public DocumentType? DocumentType { get; set; }

@@ -1,36 +1,39 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using PetelApp.Api.Services;
 using PetelApp.Api.Data;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+
 
 namespace PetelApp.Api.Services
 {
+
+    //private readonly GlobalFunctions _globalFunctions;
     public class StudentsFileProcessor
     {
+
+        private readonly GlobalFunctions _globalFunctions;
         private readonly AppDbContext _context;
         private readonly ILogger<StudentsFileProcessor> _logger;
 
-        public StudentsFileProcessor(AppDbContext context, ILogger<StudentsFileProcessor> logger)
+        public StudentsFileProcessor(AppDbContext context, ILogger<StudentsFileProcessor> logger,
+        GlobalFunctions globalFunctions)
         {
             _context = context;
             _logger = logger;
+            _globalFunctions = globalFunctions;
         }
 
         /// <summary>
         /// Process student rows from uploaded file.
         /// </summary>
         public async Task<ProcessingResult> ProcessStudentRowsAsync(
-            List<StudentFileRow> rows, 
-            int schoolId, 
+            List<StudentFileRow> rows,
+            int schoolId,
             int schoolYearId,
             string userId)
         {
 
-                _logger.LogInformation("=== STARTING FILE PROCESSING === RowCount={RowCount}, SchoolId={SchoolId}, SchoolYearId={SchoolYearId}, UserId={UserId}", 
-        rows.Count, schoolId, schoolYearId, userId);
+            _logger.LogInformation("=== STARTING FILE PROCESSING === RowCount={RowCount}, SchoolId={SchoolId}, SchoolYearId={SchoolYearId}, UserId={UserId}",
+    rows.Count, schoolId, schoolYearId, userId);
             var result = new ProcessingResult();
 
             foreach (var row in rows)
@@ -50,15 +53,15 @@ namespace PetelApp.Api.Services
         }
 
         private async Task ProcessSingleStudentAsync(
-            StudentFileRow row, 
-            int schoolId, 
+            StudentFileRow row,
+            int schoolId,
             int schoolYearId,
             string userId,
             ProcessingResult result)
         {
 
             _logger.LogInformation("Processing student record: {IdNumber}", row.IdNumber);
-  
+
             // Validate data format
             var (isValid, formatError) = ValidateRowFormat(row);
             if (!isValid)
@@ -68,25 +71,39 @@ namespace PetelApp.Api.Services
                 return;
             }
 
+            // Resolve class ID from class name using GlobalFunctions
+            var classId = await _globalFunctions.GetClassIdByName(row.Class, schoolYearId);
+
+            if (classId == null)
+            {
+                result.Errors.Add($"{row.IdNumber} - כיתה '{row.Class}' לא נמצאה בשנת הלימודים");
+                _logger.LogWarning("Class not found: {ClassName} in school year {SchoolYearId} for student {IdNumber}",
+                    row.Class, schoolYearId, row.IdNumber);
+                return;
+            }
+
+            _logger.LogInformation("Resolved class '{ClassName}' to ID {ClassId} for student {IdNumber}",
+                row.Class, classId, row.IdNumber);
+
             // Retrieve existing record with is_last_version = true for this school year
 
-           var existingStudent = await _context.SchoolStudents
-                .Where(s => s.IdNumber == row.IdNumber && 
-                           s.IsLastVersion == true &&
-                           s.SchoolYearId == schoolYearId)
-                .FirstOrDefaultAsync();
+            var existingStudent = await _context.SchoolStudents
+                 .Where(s => s.IdNumber == row.IdNumber &&
+                            s.IsLastVersion == true &&
+                            s.SchoolYearId == schoolYearId)
+                 .FirstOrDefaultAsync();
 
             if (existingStudent == null)
             {
                 // Create new record
-                await CreateNewStudentAsync(row, schoolId, schoolYearId, userId);
+                await CreateNewStudentAsync(row, schoolId, schoolYearId, userId, classId.Value);
                 result.Created++;
                 _logger.LogInformation("Created new student record: {IdNumber}", row.IdNumber);
             }
             else
             {
                 // Check if data has changed
-                bool hasChanges = HasDataChanged(existingStudent, row);
+                bool hasChanges = HasDataChanged(existingStudent, row, classId.Value);
 
                 if (!hasChanges)
                 {
@@ -96,9 +113,9 @@ namespace PetelApp.Api.Services
                 else
                 {
                     // Update existing record and create new version
-                    await UpdateStudentWithNewVersionAsync(existingStudent, row, userId);
+                    await UpdateStudentWithNewVersionAsync(existingStudent, row, userId, classId.Value);
                     result.Updated++;
-                    _logger.LogInformation("Updated student record: {IdNumber}, new version {Version}", 
+                    _logger.LogInformation("Updated student record: {IdNumber}, new version {Version}",
                         row.IdNumber, existingStudent.Version + 1);
                 }
             }
@@ -157,7 +174,7 @@ namespace PetelApp.Api.Services
             return (true, null);
         }
 
-        private bool HasDataChanged(SchoolStudent existing, StudentFileRow row)
+        private bool HasDataChanged(SchoolStudent existing, StudentFileRow row, int  classId )
         {
             var rowGender = ParseGender(row.Gender);
             var rowDisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory) ? null : (int?)int.Parse(row.DisabilityCategory);
@@ -166,7 +183,7 @@ namespace PetelApp.Api.Services
             return existing.FirstName != row.FirstName ||
                    existing.LastName != row.LastName ||
                    existing.Gender != rowGender ||
-                   existing.ClassId?.ToString() != row.Class ||
+                   existing.ClassId != classId  ||
                    existing.StartDate?.ToString("yyyy-MM-dd") != DateTime.Parse(row.StartDate).ToString("yyyy-MM-dd") ||
                    existing.EndDate?.ToString("yyyy-MM-dd") != DateTime.Parse(row.EndDate).ToString("yyyy-MM-dd") ||
                    existing.DisabilityCategory != rowDisabilityCategory ||
@@ -178,10 +195,11 @@ namespace PetelApp.Api.Services
         }
 
         private async Task CreateNewStudentAsync(
-            StudentFileRow row, 
-            int schoolId, 
+            StudentFileRow row,
+            int schoolId,
             int schoolYearId,
-            string userId)
+            string userId,
+            int classId)
         {
             var newStudent = new SchoolStudent
             {
@@ -192,7 +210,7 @@ namespace PetelApp.Api.Services
                 FirstName = row.FirstName,
                 LastName = row.LastName,
                 Gender = ParseGender(row.Gender),
-                ClassId = string.IsNullOrWhiteSpace(row.Class) ? null : (int?)int.Parse(row.Class),
+                ClassId = classId,
                 StartDate = DateOnly.Parse(row.StartDate),
                 EndDate = DateOnly.Parse(row.EndDate),
                 DisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory) ? null : (int?)int.Parse(row.DisabilityCategory),
@@ -213,28 +231,29 @@ namespace PetelApp.Api.Services
                  newStudent.StartDate, newStudent.EndDate, newStudent.DisabilityCategory,
                  newStudent.Street, newStudent.HouseNumber, newStudent.City, newStudent.PostCode, newStudent.SendingCouncil,
                  newStudent.SchoolYearId, newStudent.IsLastVersion);
-        
+
             _context.SchoolStudents.Add(newStudent);
             await _context.SaveChangesAsync();
         }
 
         private async Task UpdateStudentWithNewVersionAsync(
-            SchoolStudent existing, 
+            SchoolStudent existing,
             StudentFileRow row,
-            string userId)
+            string userId,
+            int classId)
         {
             // Mark existing record as not last version
             existing.IsLastVersion = false;
 
-              //  Log before marking as old version
-    _logger.LogInformation(
-        "Marking existing record as not last version: IdNumber={IdNumber}, OldVersion={OldVersion}, Id={Id}",
-        existing.IdNumber, existing.Version, existing.Id);
-    
+            //  Log before marking as old version
+            _logger.LogInformation(
+                "Marking existing record as not last version: IdNumber={IdNumber}, OldVersion={OldVersion}, Id={Id}",
+                existing.IdNumber, existing.Version, existing.Id);
 
-    
-    // Explicitly mark entity as modified
-    _context.SchoolStudents.Update(existing);
+
+
+            // Explicitly mark entity as modified
+            _context.SchoolStudents.Update(existing);
 
             // Create new version
             var newVersion = new SchoolStudent
@@ -246,7 +265,7 @@ namespace PetelApp.Api.Services
                 FirstName = row.FirstName,
                 LastName = row.LastName,
                 Gender = ParseGender(row.Gender),
-                ClassId = string.IsNullOrWhiteSpace(row.Class) ? existing.ClassId : (int?)int.Parse(row.Class),
+                ClassId = classId,
                 StartDate = DateOnly.Parse(row.StartDate),
                 EndDate = DateOnly.Parse(row.EndDate),
                 DisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory) ? null : (int?)int.Parse(row.DisabilityCategory),
@@ -259,22 +278,22 @@ namespace PetelApp.Api.Services
             };
 
 
-    _logger.LogInformation(
-        "Updating student (new version): IdNumber={IdNumber}, Name={FirstName} {LastName}, Gender={Gender}, ClassId={ClassId}, " +
-        "StartDate={StartDate}, EndDate={EndDate}, DisabilityCategory={DisabilityCategory}, " +
-        "Street={Street}, HouseNumber={HouseNumber}, City={City}, PostCode={PostCode}, SendingCouncil={SendingCouncil}, " +
-        "SchoolYearId={SchoolYearId}, IsLastVersion={IsLastVersion}, Version={Version}",
-        newVersion.IdNumber, newVersion.FirstName, newVersion.LastName, newVersion.Gender, newVersion.ClassId,
-        newVersion.StartDate, newVersion.EndDate, newVersion.DisabilityCategory,
-        newVersion.Street, newVersion.HouseNumber, newVersion.City, newVersion.PostCode, newVersion.SendingCouncil,
-        newVersion.SchoolYearId, newVersion.IsLastVersion, newVersion.Version);
+            _logger.LogInformation(
+                "Updating student (new version): IdNumber={IdNumber}, Name={FirstName} {LastName}, Gender={Gender}, ClassId={ClassId}, " +
+                "StartDate={StartDate}, EndDate={EndDate}, DisabilityCategory={DisabilityCategory}, " +
+                "Street={Street}, HouseNumber={HouseNumber}, City={City}, PostCode={PostCode}, SendingCouncil={SendingCouncil}, " +
+                "SchoolYearId={SchoolYearId}, IsLastVersion={IsLastVersion}, Version={Version}",
+                newVersion.IdNumber, newVersion.FirstName, newVersion.LastName, newVersion.Gender, newVersion.ClassId,
+                newVersion.StartDate, newVersion.EndDate, newVersion.DisabilityCategory,
+                newVersion.Street, newVersion.HouseNumber, newVersion.City, newVersion.PostCode, newVersion.SendingCouncil,
+                newVersion.SchoolYearId, newVersion.IsLastVersion, newVersion.Version);
 
             _context.SchoolStudents.Add(newVersion);
             await _context.SaveChangesAsync();
 
-                _logger.LogInformation(
-        "✓ Successfully updated student: OldId={OldId} marked as old version, NewId={NewId} created as version {Version}",
-        existing.Id, newVersion.Id, newVersion.Version);
+            _logger.LogInformation(
+    "✓ Successfully updated student: OldId={OldId} marked as old version, NewId={NewId} created as version {Version}",
+    existing.Id, newVersion.Id, newVersion.Version);
         }
 
         private int? ParseGender(string gender)

@@ -64,29 +64,164 @@
     </div>
 </div>
 
-<div id="uploadDialog" class="modal" style="display: none;">
+<!-- Replace the upload dialog div with modal styling -->
+<div id="uploadDialog" class="modal-overlay" style="display: none;">
     <div class="modal-content">
-        <span class="close" onclick="closeUploadDialog()">&times;</span>
-        <h2>העלאת קובץ תלמידים</h2>
-        <form id="uploadForm" onsubmit="handleFileUpload(event)">
-            <div class="form-group">
-                <label for="studentFile">בחר קובץ (CSV, XLS, XLSX)</label>
-                <input type="file" id="studentFile" name="file" accept=".csv,.xls,.xlsx" required>
-            </div>
-            <div class="form-group">
-                <label for="mappingJson">מיפוי עמודות (אופציונלי - JSON)</label>
-                <textarea id="mappingJson" name="mappingJson" rows="4" placeholder='{"id_number": "ת.ז", "first_name": "שם פרטי"}'></textarea>
-            </div>
-            <div class="upload-status" id="uploadStatus" style="display: none;"></div>
-            <div class="form-actions">
-                <button type="submit" class="btn btn-primary">העלה קובץ</button>
-                <button type="button" class="btn btn-secondary" onclick="closeUploadDialog()">ביטול</button>
-            </div>
-        </form>
+        <div class="modal-header">
+            <h3>העלאת קובץ תלמידים</h3>
+            <button class="modal-close" onclick="closeUploadDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="uploadForm" onsubmit="handleFileUpload(event)">
+                <div class="form-group">
+                    <label for="studentFile">בחר קובץ (CSV, XLS, XLSX) *</label>
+                    <input type="file" id="studentFile" name="file" accept=".csv,.xls,.xlsx" required>
+                </div>
+                <div class="form-group">
+                    <label for="mappingJson">מיפוי עמודות (אופציונלי - JSON)</label>
+                    <textarea id="mappingJson" name="mappingJson" rows="4" placeholder='{"id_number": "ת.ז", "first_name": "שם פרטי"}'></textarea>
+                </div>
+               
+            </form>
+        </div>
+         <div class="upload-status" id="uploadStatus" style="display: none;"></div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeUploadDialog()">ביטול</button>
+            <button type="submit" form="uploadForm" class="btn-primary">העלה קובץ</button>
+        </div>
     </div>
 </div>
 
+
+
 <script>
+async function handleFileUpload(event) {
+    event.preventDefault();
+    
+    const statusDiv = document.getElementById('uploadStatus');
+    statusDiv.style.display = 'none';
+    
+    // Disable submit button during upload
+    const submitBtn = document.querySelector('#uploadDialog .btn-primary');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'מעלה...';
+    
+    try {
+        // Show loading status
+        showUploadStatus('מעלה קובץ...', 'loading');
+        
+        const token = window.sessionManager.getToken();
+        if (!token) {
+            showUploadStatus('נדרש אימות. אנא התחבר מחדש.', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+            return;
+        }
+        
+        const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
+        
+        const schoolId = await window.SessionState.getProperty('SelectedSchoolId');
+        const hebrewYear = await window.SessionState.getProperty('SelectedYearValue');
+        
+        if (!schoolYearId) {
+            showUploadStatus('לא נבחרה שנת לימודים. אנא בחר שנת לימודים ונסה שנית.', 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+            return;
+        }
+        
+        const formData = new FormData();
+        const fileInput = document.getElementById('studentFile');
+        formData.append('file', fileInput.files[0]);
+        formData.append('schoolYearId', schoolYearId);
+        formData.append('schoolId', schoolId);
+        formData.append('hebrewYear', hebrewYear);
+        
+        const mappingJson = document.getElementById('mappingJson').value.trim();
+        if (mappingJson) {
+            formData.append('mappingJson', mappingJson);
+        }
+        
+        const response = await fetch(AppConfig.getApiUrl('studentsfileupload/upload'), {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            const summaryMessage = 
+                `✅ הקובץ עובד בהצלחה!\n\n` +
+                `📊 סיכום העלאה:\n` +
+                `➕ נוצרו: ${result.created}\n` +
+                `✏️ עודכנו: ${result.updated}\n` +
+                `➖ ללא שינוי: ${result.unchanged}\n` +
+                `❌ שגיאות: ${result.errors}`;
+            
+            // Show detailed errors if any
+            let finalMessage = summaryMessage;
+            if (result.errors > 0 && result.details?.errorList) {
+                console.log('Upload errors:', result.details.errorList);
+                const errorDetails = result.details.errorList.slice(0, 5).join('\n');
+                finalMessage += '\n\n⚠️ שגיאות:\n' + errorDetails;
+                if (result.details.errorList.length > 5) {
+                    finalMessage += '\n... ועוד';
+                }
+            }
+            
+            showUploadStatus(finalMessage, 'success');
+            
+            // Hide form, show only status and OK button
+            document.getElementById('uploadForm').style.display = 'none';
+            
+            // Update footer to show only OK button
+            const modalFooter = document.querySelector('#uploadDialog .modal-footer');
+            modalFooter.innerHTML = `
+                <button type="button" class="btn-primary" onclick="closeUploadDialogAndRefresh()">אישור</button>
+            `;
+        } else {
+            showUploadStatus(`❌ שגיאה: ${result.message || 'העלאת הקובץ נכשלה'}`, 'error');
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        showUploadStatus('❌ שגיאה בהעלאת הקובץ. אנא נסה שנית.', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    }
+}
+
+// Show upload dialog as modal popup
+function showUploadDialog() {
+    const modal = document.getElementById('uploadDialog');
+    if (modal) {
+        modal.style.display = 'flex'; // ✅ Use flex to center content
+    }
+}
+
+// Close upload dialog
+function closeUploadDialog() {
+    const modal = document.getElementById('uploadDialog');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    document.getElementById('uploadForm').reset();
+    document.getElementById('uploadStatus').style.display = 'none';
+}
+
+// Close modal when clicking on overlay (outside modal content)
+window.addEventListener('click', function(event) {
+    const modal = document.getElementById('uploadDialog');
+    if (event.target === modal) {
+        closeUploadDialog();
+    }
+});
+
 // Load students data from API following API Communication Pattern
 async function loadStudentsData() {
     console.log('🔄 Loading students data from API...');
@@ -131,12 +266,9 @@ async function loadStudentsData() {
                 const transformedData = result.data.map(student => {
                     // Determine total amount - specific value for student 123456358
                     let totalAmount;
-                    if (student.idNumber === '123456358') {
-                        totalAmount = '15,178';
-                        console.log('💰 Setting specific amount for student 123456358:', totalAmount);
-                    } else {
-                        totalAmount = (Math.floor(Math.random() * (15555 - 10655 + 1)) + 10655).toLocaleString('he-IL');
-                    }
+                    
+                    totalAmount = '0';
+
 
                     return {
                         id: student.id,
@@ -152,7 +284,10 @@ async function loadStudentsData() {
                         // Use enriched class name from backend
                         class: student.className || student.classId?.toString() || '',
                         classId: student.classId, // Keep for reference
-                        status: 'בטיפול',
+                        startDate: student.startDate ? new Date(student.startDate).toLocaleDateString('he-IL') : '' ,
+                        endDate: student.endDate ? new Date(student.endDate).toLocaleDateString('he-IL') : '',
+ 
+                        status: 'איסוף נתונים',
                         category: student.disabilityCategory || '',
                         totalAmount: totalAmount,
                         // Use enriched council short name from backend
@@ -292,6 +427,8 @@ function initializeStudentsTable(data) {
         { key: 'gender', label: 'מין', sortable: true, readOnly: false },
         { key: 'address', label: 'כתובת', sortable: false, readOnly: false },
         { key: 'class', label: 'כיתה', sortable: true, readOnly: false },
+        { key: 'startDate', label: 'התחלה', sortable: true, readOnly: false },
+        { key: 'endDate', label: 'סיום', sortable: true, readOnly: false },
         { 
             key: 'status', 
             label: 'סטטוס', 
@@ -524,81 +661,6 @@ function closeUploadDialog() {
     document.getElementById('uploadStatus').style.display = 'none';
 }
 
-// Handle file upload following API Communication Pattern and Authentication & Session Management
-async function handleFileUpload(event) {
-    event.preventDefault();
-    
-    const statusDiv = document.getElementById('uploadStatus');
-    statusDiv.style.display = 'none';
-    
-    try {
-        // Get auth token following Frontend Token-Only Storage
-        const token = window.sessionManager.getToken();
-        if (!token) {
-            showUploadStatus('נדרש אימות. אנא התחבר מחדש.', 'error');
-            return;
-        }
-        
-        // Get session data from backend following Session Data Architecture
-        const schoolId = await window.sessionManager.getSessionProperty('SelectedSchoolId');
-        
-        if (!schoolId) {
-            showUploadStatus('לא נבחר בית ספר. אנא בחר בית ספר ונסה שנית.', 'error');
-            return;
-        }
-        
-        // Prepare form data
-        const formData = new FormData();
-        const fileInput = document.getElementById('studentFile');
-        formData.append('file', fileInput.files[0]);
-        formData.append('schoolId', schoolId);
-        formData.append('schoolYearId', '4'); // Hard-coded for now
-        
-        // Add mapping if provided
-        const mappingJson = document.getElementById('mappingJson').value.trim();
-        if (mappingJson) {
-            formData.append('mappingJson', mappingJson);
-        }
-        
-        // Upload file following API Communication Pattern
-        const response = await fetch(AppConfig.getApiUrl('studentsfileupload/upload'), {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            },
-            body: formData
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok && result.success) {
-            showUploadStatus(
-                `הקובץ עובד בהצלחה!\n` +
-                `נוצרו: ${result.created}\n` +
-                `עודכנו: ${result.updated}\n` +
-                `ללא שינוי: ${result.unchanged}\n` +
-                `שגיאות: ${result.errors}`,
-                'success'
-            );
-            
-            // Show detailed errors if any
-            if (result.errors > 0 && result.details?.errorList) {
-                console.log('Upload errors:', result.details.errorList);
-            }
-            
-            // Refresh students table after successful upload
-            setTimeout(() => {
-                closeUploadDialog();
-                window.refreshStudentsData();
-            }, 2000);
-        } else {
-            showUploadStatus(`שגיאה: ${result.message || 'העלאת הקובץ נכשלה'}`, 'error');
-        }
-    } catch (error) {
-        console.error('Upload error:', error);
-        showUploadStatus('שגיאה בהעלאת הקובץ. אנא נסה שנית.', 'error');
-    }
-}
 
 // Show upload status message
 function showUploadStatus(message, type) {
@@ -606,6 +668,34 @@ function showUploadStatus(message, type) {
     statusDiv.textContent = message;
     statusDiv.className = `upload-status upload-status-${type}`;
     statusDiv.style.display = 'block';
+}
+
+
+// Close upload dialog and refresh students list
+function closeUploadDialogAndRefresh() {
+    const modal = document.getElementById('uploadDialog');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    // Reset form and status
+    const form = document.getElementById('uploadForm');
+    form.reset();
+    form.style.display = 'block';
+    
+    const statusDiv = document.getElementById('uploadStatus');
+    statusDiv.style.display = 'none';
+    
+    // Reset modal footer to original state
+    const modalFooter = document.querySelector('#uploadDialog .modal-footer');
+    modalFooter.innerHTML = `
+        <button type="button" class="btn-secondary" onclick="closeUploadDialog()">ביטול</button>
+        <button type="submit" form="uploadForm" class="btn-primary">העלה קובץ</button>
+    `;
+    
+    // Refresh students data
+    console.log('🔄 Refreshing students data after upload...');
+    window.refreshStudentsData();
 }
 
 // Close modal when clicking outside
@@ -625,6 +715,7 @@ window.refreshStudentsData = refreshStudentsData;
 window.navigateToSchoolDashboard = navigateToSchoolDashboard;
 window.showUploadDialog = showUploadDialog;
 window.closeUploadDialog = closeUploadDialog;
+window.closeUploadDialogAndRefresh = closeUploadDialogAndRefresh;
 window.handleFileUpload = handleFileUpload;
 
 // Initialize on page load following Critical Development Workflows
