@@ -117,6 +117,19 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
                 }
 
                 this.documentTypes = await response.json();
+
+                /*   if (this.options.showUploadForm) {
+                       const selectElement = document.getElementById(`${this.containerId}_documentTypeSelect`);
+                       if (selectElement) {
+                           this.documentTypes.forEach(type => {
+                               const option = document.createElement('option');
+                               option.value = type.id;
+                               option.textContent = type.description;
+                               selectElement.appendChild(option);
+                           });
+                       }
+                   }*/
+
                 console.log('✅ Document types loaded:', this.documentTypes.length);
             } catch (error) {
                 console.error('❌ Error loading document types:', error);
@@ -520,6 +533,7 @@ async showUploadModal(documentId, currentFileSize, documentTypeName, documentTyp
                 const descriptionInput = document.getElementById(`${this.containerId}_descriptionInput`);
                 const documentTypeIdInput = document.getElementById(`uploadDocumentTypeId_${this.containerId}`);
 
+
                 if (!fileInput.files || fileInput.files.length === 0) {
                     alert('אנא בחר קובץ להעלאה');
                     return;
@@ -529,6 +543,7 @@ async showUploadModal(documentId, currentFileSize, documentTypeName, documentTyp
                 const formData = new FormData();
                 formData.append('file', file);
                 formData.append('description', descriptionInput.value);
+                formData.append('documentTypeId', documentTypeIdInput.value);
                 formData.append('documentTypeId', documentTypeIdInput.value);
 
                 // Add entity context if provided
