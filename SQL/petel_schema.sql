@@ -1,6 +1,6 @@
 -- ============================================
 -- Schema DDL Export: petel_schema
--- Generated: 2025-11-11 15:47:43.492866+02
+-- Generated: 2025-11-16 12:33:00.119347+02
 -- ============================================
 
 
@@ -286,7 +286,8 @@ CREATE TABLE petel_schema.school_students (
     city character varying(50),
     post_code character varying(10),
     sending_council integer(32,0),
-    is_last_version boolean DEFAULT true
+    is_last_version boolean DEFAULT true,
+    cost numeric(7,2) DEFAULT 0
 );
 
 

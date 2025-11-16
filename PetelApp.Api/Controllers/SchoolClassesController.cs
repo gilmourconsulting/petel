@@ -90,6 +90,11 @@ namespace PetelApp.Api.Controllers
             try
             {
                 var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "שגיאה בזיהוי המשתמש" });
+                }
+
                 _logger.LogInformation("Adding class for school year {SchoolYearId}, Entity: {EntityId}", 
                     request.SchoolYearId, session.EntityId);
 

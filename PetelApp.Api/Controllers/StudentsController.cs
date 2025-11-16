@@ -72,6 +72,7 @@ namespace PetelApp.Api.Controllers
                         PostCode = s.PostCode,
                         SendingCouncil = s.SendingCouncil,
                         DisabilityCategory = s.DisabilityCategory,
+                        Cost = s.Cost,
 
                         // LEFT JOIN with Councils - uses council_short_name, falls back to council_long_name
                         CouncilShortName = _context.Councils

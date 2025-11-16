@@ -265,10 +265,11 @@ async function loadStudentsData() {
                 // Transform API data using enriched fields from backend following Entity-Based Request Flow
                 const transformedData = result.data.map(student => {
                     // Determine total amount - specific value for student 123456358
-                    let totalAmount;
+                  //  let totalAmount;
                     
-                    totalAmount = '0';
+                  //  totalAmount = '0';
 
+                    const totalAmount = student.cost != null ? student.cost.toString() : '0';
 
                     return {
                         id: student.id,

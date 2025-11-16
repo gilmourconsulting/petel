@@ -54,6 +54,10 @@ namespace PetelApp.Api.Data
         public DbSet<DocumentLink> DocumentLinks { get; set; } = null!;
 
         public DbSet<DocumentStatusType> DocumentStatusTypes { get; set; } = null!;
+
+
+public DbSet<SchoolStudentPricingElement> SchoolStudentPricingElements { get; set; }
+public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

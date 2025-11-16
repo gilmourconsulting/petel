@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מערכת  פט"ל - עמוד ראשי</title>
+    <title>מערכת פט"ל</title>
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="petel_logo.png">
     <link rel="shortcut icon" type="image/png" href="petel_logo.png">
@@ -11,174 +12,175 @@
     <link rel="stylesheet" href="theme.css">
     <link rel="stylesheet" href="styles.css">
     <script src="config.js"></script>
-    <script src="session-manager.js"></script> 
+    <script src="session-manager.js"></script>
     <script src="table-component.js"></script>
     <script src="debug.js"></script>
- 
+
     <script>
-    // Global Session State Manager - Centralized session data cache
-    // Following Authentication & Session Management + Cross-Component Communication patterns
-    window.SessionState = {
-        _sessionData: null,
-        _sessionProperties: {},
-        _lastFetch: null,
-        _cacheDuration: 60000, // 1 minute cache
-    
-        // Get full session info (with caching)
-        async getSession(forceRefresh = false) {
-            const now = Date.now();
-            
-            // Return cached data if valid
-            if (!forceRefresh && 
-                this._sessionData && 
-                this._lastFetch && 
-                (now - this._lastFetch) < this._cacheDuration) {
-                console.log('✅ Returning cached session data');
-                return this._sessionData;
-            }
-    
-            console.log('🔄 Fetching fresh session data from server');
-            
-            try {
-                const token = sessionStorage.getItem('authToken');
-                if (!token) {
-                    throw new Error('No auth token');
+        // Global Session State Manager - Centralized session data cache
+        // Following Authentication & Session Management + Cross-Component Communication patterns
+        window.SessionState = {
+            _sessionData: null,
+            _sessionProperties: {},
+            _lastFetch: null,
+            _cacheDuration: 60000, // 1 minute cache
+
+            // Get full session info (with caching)
+            async getSession(forceRefresh = false) {
+                const now = Date.now();
+
+                // Return cached data if valid
+                if (!forceRefresh &&
+                    this._sessionData &&
+                    this._lastFetch &&
+                    (now - this._lastFetch) < this._cacheDuration) {
+                    console.log('✅ Returning cached session data');
+                    return this._sessionData;
                 }
-    
-                const response = await fetch(AppConfig.getApiUrl('session'), {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-    
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        sessionStorage.clear();
-                        window.location.href = 'login.html';
+
+                console.log('🔄 Fetching fresh session data from server');
+
+                try {
+                    const token = sessionStorage.getItem('authToken');
+                    if (!token) {
+                        throw new Error('No auth token');
                     }
-                    throw new Error(`HTTP ${response.status}`);
+
+                    const response = await fetch(AppConfig.getApiUrl('session'), {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            sessionStorage.clear();
+                            window.location.href = 'login.html';
+                        }
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    this._sessionData = await response.json();
+                    this._lastFetch = now;
+
+                    console.log('✅ Session data cached:', {
+                        userId: this._sessionData.userId,
+                        entityId: this._sessionData.entityId,
+                        entityTypeId: this._sessionData.entityTypeId
+                    });
+
+                    // Dispatch session loaded event
+                    window.dispatchEvent(new CustomEvent('sessionLoaded', {
+                        detail: this._sessionData
+                    }));
+
+                    return this._sessionData;
+
+                } catch (error) {
+                    console.error('❌ Error fetching session:', error);
+                    throw error;
                 }
-    
-                this._sessionData = await response.json();
-                this._lastFetch = now;
-                
-                console.log('✅ Session data cached:', {
-                    userId: this._sessionData.userId,
-                    entityId: this._sessionData.entityId,
-                    entityTypeId: this._sessionData.entityTypeId
-                });
-    
-                // Dispatch session loaded event
-                window.dispatchEvent(new CustomEvent('sessionLoaded', {
-                    detail: this._sessionData
-                }));
-    
-                return this._sessionData;
-                
-            } catch (error) {
-                console.error('❌ Error fetching session:', error);
-                throw error;
-            }
-        },
-    
-        // Get session property (with caching)
-        async getProperty(key, forceRefresh = false) {
-            const now = Date.now();
-            
-            // Return cached property if valid
-            if (!forceRefresh && 
-                this._sessionProperties[key] && 
-                this._sessionProperties[key].timestamp &&
-                (now - this._sessionProperties[key].timestamp) < this._cacheDuration) {
-                console.log(`✅ Returning cached property: ${key}`);
-                return this._sessionProperties[key].value;
-            }
-    
-            console.log(`🔄 Fetching property from server: ${key}`);
-            
-            try {
-                const token = sessionStorage.getItem('authToken');
-                if (!token) throw new Error('No auth token');
-    
-                const response = await fetch(AppConfig.getApiUrl(`session/property/${key}`), {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-    
-                if (response.status === 404) {
-                    this._sessionProperties[key] = { value: null, timestamp: now };
+            },
+
+            // Get session property (with caching)
+            async getProperty(key, forceRefresh = false) {
+                const now = Date.now();
+
+                // Return cached property if valid
+                if (!forceRefresh &&
+                    this._sessionProperties[key] &&
+                    this._sessionProperties[key].timestamp &&
+                    (now - this._sessionProperties[key].timestamp) < this._cacheDuration) {
+                    console.log(`✅ Returning cached property: ${key}`);
+                    return this._sessionProperties[key].value;
+                }
+
+                console.log(`🔄 Fetching property from server: ${key}`);
+
+                try {
+                    const token = sessionStorage.getItem('authToken');
+                    if (!token) throw new Error('No auth token');
+
+                    const response = await fetch(AppConfig.getApiUrl(`session/property/${key}`), {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+
+                    if (response.status === 404) {
+                        this._sessionProperties[key] = { value: null, timestamp: now };
+                        return null;
+                    }
+
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                    const result = await response.json();
+                    this._sessionProperties[key] = {
+                        value: result.value,
+                        timestamp: now
+                    };
+
+                    return result.value;
+
+                } catch (error) {
+                    console.error(`❌ Error fetching property ${key}:`, error);
                     return null;
                 }
-    
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
-                const result = await response.json();
-                this._sessionProperties[key] = { 
-                    value: result.value, 
-                    timestamp: now 
-                };
-    
-                return result.value;
-                
-            } catch (error) {
-                console.error(`❌ Error fetching property ${key}:`, error);
-                return null;
+            },
+
+            // Set session property (updates cache)
+            async setProperty(key, value) {
+                console.log(`🔧 Setting property: ${key} = ${value}`);
+
+                try {
+                    const token = sessionStorage.getItem('authToken');
+                    if (!token) throw new Error('No auth token');
+
+                    const response = await fetch(AppConfig.getApiUrl('session/property'), {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ key, value })
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                    // Update local cache
+                    this._sessionProperties[key] = {
+                        value: value,
+                        timestamp: Date.now()
+                    };
+
+                    // Dispatch property changed event
+                    window.dispatchEvent(new CustomEvent('sessionPropertyChanged', {
+                        detail: { key, value }
+                    }));
+
+                    console.log(`✅ Property set: ${key}`);
+                    return true;
+
+                } catch (error) {
+                    console.error(`❌ Error setting property ${key}:`, error);
+                    throw error;
+                }
+            },
+
+            // Clear cache (force refresh on next access)
+            clearCache() {
+                console.log('🧹 Clearing session cache');
+                this._sessionData = null;
+                this._sessionProperties = {};
+                this._lastFetch = null;
+            },
+
+            // Refresh session data
+            async refresh() {
+                return await this.getSession(true);
             }
-        },
-    
-        // Set session property (updates cache)
-        async setProperty(key, value) {
-            console.log(`🔧 Setting property: ${key} = ${value}`);
-            
-            try {
-                const token = sessionStorage.getItem('authToken');
-                if (!token) throw new Error('No auth token');
-    
-                const response = await fetch(AppConfig.getApiUrl('session/property'), {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ key, value })
-                });
-    
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
-                // Update local cache
-                this._sessionProperties[key] = { 
-                    value: value, 
-                    timestamp: Date.now() 
-                };
-    
-                // Dispatch property changed event
-                window.dispatchEvent(new CustomEvent('sessionPropertyChanged', {
-                    detail: { key, value }
-                }));
-    
-                console.log(`✅ Property set: ${key}`);
-                return true;
-                
-            } catch (error) {
-                console.error(`❌ Error setting property ${key}:`, error);
-                throw error;
-            }
-        },
-    
-        // Clear cache (force refresh on next access)
-        clearCache() {
-            console.log('🧹 Clearing session cache');
-            this._sessionData = null;
-            this._sessionProperties = {};
-            this._lastFetch = null;
-        },
-    
-        // Refresh session data
-        async refresh() {
-            return await this.getSession(true);
-        }
-    };
-    
-    console.log('✅ SessionState initialized');
+        };
+
+        console.log('✅ SessionState initialized');
     </script>
 </head>
+
 <body>
     <div class="app-container">
         <!-- Top Bar -->
@@ -186,23 +188,23 @@
             <!-- Left Side: System Logo and Info -->
             <div class="top-bar-left">
                 <div class="system-logo-section">
-                    <div class="system-logo" style="cursor: pointer;" onclick="navigateToMainDashboard()" title="חזור למסך הראשי">
-                        <img src="petel_logo.png" alt="לוגו המערכת" style="transition: opacity 0.2s;" 
-                             onmouseover="this.style.opacity='0.8'" 
-                             onmouseout="this.style.opacity='1'" />
+                    <div class="system-logo" style="cursor: pointer;" onclick="navigateToMainDashboard()"
+                        title="חזור למסך הראשי">
+                        <img src="petel_logo.png" alt="לוגו המערכת" style="transition: opacity 0.2s;"
+                            onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'" />
                     </div>
                     <div class="system-info">
                         <div class="app-title">פט"ל - פתרונות טכנולגים לחינוך</div>
                     </div>
                 </div>
             </div>
-                <!-- Debug button in center -->
+            <!-- Debug button in center -->
             <div class="top-bar-center">
-                <button id="debugSessionBtn" class="debug-btn" onclick="showSessionDebug()" 
-                style="display: none;" title="הצג נתוני סשן">
-            🔍 Debug Session
-             </button>
-    </div>
+                <button id="debugSessionBtn" class="debug-btn" onclick="showSessionDebug()" style="display: none;"
+                    title="הצג נתוני סשן">
+                    🔍 Debug Session
+                </button>
+            </div>
             <!-- Right Side: Entity Info and Current User -->
             <div class="top-bar-right">
                 <div class="entity-section">
@@ -212,19 +214,19 @@
                         <div class="entity-type" id="entityType">סוג הישות</div>
                     </div>
                 </div>
-                
+
                 <div class="user-section">
                     <div class="user-name" id="userName">שם המשתמש</div>
                     <div class="user-role" id="userRole">תפקיד</div>
                 </div>
-                
+
                 <button class="logout-btn" onclick="logout()">יציאה</button>
             </div>
         </div>
 
         <!-- Main Container -->
         <div class="main-container">
-                        <div id="sideMenuContainer"></div>
+            <div id="sideMenuContainer"></div>
             <!-- Collapsible Side Menu - Operational Area -->
 
 
@@ -238,7 +240,15 @@
                     </div>
                 </div>
             </div>
-                    
+
+        </div>
+
+
+        <!-- System Footer -->
+        <div class="system-footer">
+            <div class="footer-content">
+                פט"ל - פתרונות טכנולגים לחינוך - גרסה <span id="systemVersion">טוען...</span>
+            </div>
         </div>
 
     </div>
@@ -246,225 +256,226 @@
     <script>
         // Replace the menu loading section in the DOMContentLoaded event handler
 
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('🚀 Application starting...');
-    
-    // Check authentication before loading any content following Security Patterns
-    if (!checkAuthentication()) {
-        return; // checkAuthentication will redirect to login
-    }
-    
-    console.log('✅ Authentication passed, loading application...');
-    
-    // Define navigateTo function globally BEFORE loading menu following Cross-Component Communication
-    window.navigateTo = async function(section, fromPopstate = false) {
-        console.log(`🔄 Navigating to section: ${section}`);
-    
-        // Map section names to file names following Single-Page Application with Module Loading
-        const sectionMap = {
-            'maindashboard': 'maindashboard.html',
-            'schoollist': 'schoollist.html',
-            'schooldashboard': 'schooldashboard.html',
-            'schooldetails': 'schooldetails.html',
-            'schooldocuments': 'schooldocuments.html',
-            'students': 'students.html', 
-            'studentdetails': 'student.html',
-            'student': 'student.html',
-            'systemattributes': 'system-attributes.html'
-        };
-    
-        let fileName = sectionMap[section.toLowerCase()];
-    
-        if (!fileName) {
-            console.error(`❌ Unknown section: ${section}`);
-            console.log('📋 Available sections:', Object.keys(sectionMap));
-            console.log('⚠️ Defaulting to maindashboard instead');
-            section = 'maindashboard';
-            fileName = 'maindashboard.html';
-        }
-    
-        console.log(`📄 Loading file: ${fileName} for section: ${section}`);
-    
-        try {
-            const response = await fetch(fileName);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-    
-            const html = await response.text();
-            const dynamicContent = document.getElementById('dynamicContent');
-    
-            if (dynamicContent) {
-                dynamicContent.innerHTML = html;
-    
-                // Re-execute scripts following Common Gotchas
-                const scripts = dynamicContent.querySelectorAll('script');
-                scripts.forEach(oldScript => {
-                    const newScript = document.createElement('script');
-                    Array.from(oldScript.attributes).forEach(attr => {
-                        newScript.setAttribute(attr.name, attr.value);
-                    });
-                    newScript.textContent = oldScript.textContent;
-                    oldScript.parentNode.replaceChild(newScript, oldScript);
-                });
-    
-                // Update browser history
-                history.pushState({ section: section }, section, `#${section}`);
-    
-                console.log(`✅ Navigated to ${section} successfully`);
-            }
-        } catch (error) {
-            console.error(`💥 Error navigating to ${section}:`, error);
-            alert('שגיאה בטעינת העמוד');
-        }
-    };
+        document.addEventListener('DOMContentLoaded', function () {
+            console.log('🚀 Application starting...');
 
-    // Also define other menu functions globally following Cross-Component Communication
-    window.showSchoolYearSection = function(section) {
-        console.log('showSchoolYearSection called with:', section);
-        // Implementation here...
-    };
+            // Check authentication before loading any content following Security Patterns
+            if (!checkAuthentication()) {
+                return; // checkAuthentication will redirect to login
+            }
 
-    window.toggleMenu = function() {
-        const sideMenu = document.getElementById('sideMenu');
-        if (!sideMenu) return;
-        
-        console.log('Toggling menu. Current state:', sideMenu.classList.contains('collapsed'));
-        
-        if (sideMenu.classList.contains('collapsed')) {
-            sideMenu.classList.remove('collapsed');
-            console.log('Menu expanded');
-        } else {
-            sideMenu.classList.add('collapsed');
-            console.log('Menu collapsed');
-        }
-    };
-    
-    // Load menu AFTER defining navigation functions
-    fetch('menu.html')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Failed to load menu: ${response.status}`);
-            }
-            return response.text();
-        })
-        .then(html => {
-            const menuContainer = document.getElementById('sideMenuContainer');
-            if (menuContainer) {
-                menuContainer.innerHTML = html;
-                console.log('✅ Menu loaded successfully');
-                
-                // Re-execute menu scripts following Common Gotchas
-                executeScriptsInContainer(menuContainer);
-            } else {
-                console.error('❌ Menu container not found');
-            }
-        })
-        .catch(err => {
-            console.error('❌ Failed to load menu:', err);
-            // Show error in menu area
-            const menuContainer = document.getElementById('sideMenuContainer');
-            if (menuContainer) {
-                menuContainer.innerHTML = `
+            console.log('✅ Authentication passed, loading application...');
+
+            // Define navigateTo function globally BEFORE loading menu following Cross-Component Communication
+            window.navigateTo = async function (section, fromPopstate = false) {
+                console.log(`🔄 Navigating to section: ${section}`);
+
+                // Map section names to file names following Single-Page Application with Module Loading
+                const sectionMap = {
+                    'maindashboard': 'maindashboard.html',
+                    'schoollist': 'schoollist.html',
+                    'schooldashboard': 'schooldashboard.html',
+                    'schooldetails': 'schooldetails.html',
+                    'schooldocuments': 'schooldocuments.html',
+                    'students': 'students.html',
+                    'studentdetails': 'student.html',
+                    'student': 'student.html',
+                    'systemattributes': 'system-attributes.html'
+                };
+
+                let fileName = sectionMap[section.toLowerCase()];
+
+                if (!fileName) {
+                    console.error(`❌ Unknown section: ${section}`);
+                    console.log('📋 Available sections:', Object.keys(sectionMap));
+                    console.log('⚠️ Defaulting to maindashboard instead');
+                    section = 'maindashboard';
+                    fileName = 'maindashboard.html';
+                }
+
+                console.log(`📄 Loading file: ${fileName} for section: ${section}`);
+
+                try {
+                    const response = await fetch(fileName);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const html = await response.text();
+                    const dynamicContent = document.getElementById('dynamicContent');
+
+                    if (dynamicContent) {
+                        dynamicContent.innerHTML = html;
+
+                        // Re-execute scripts following Common Gotchas
+                        const scripts = dynamicContent.querySelectorAll('script');
+                        scripts.forEach(oldScript => {
+                            const newScript = document.createElement('script');
+                            Array.from(oldScript.attributes).forEach(attr => {
+                                newScript.setAttribute(attr.name, attr.value);
+                            });
+                            newScript.textContent = oldScript.textContent;
+                            oldScript.parentNode.replaceChild(newScript, oldScript);
+                        });
+
+                        // Update browser history
+                        history.pushState({ section: section }, section, `#${section}`);
+
+                        console.log(`✅ Navigated to ${section} successfully`);
+                    }
+                } catch (error) {
+                    console.error(`💥 Error navigating to ${section}:`, error);
+                    alert('שגיאה בטעינת העמוד');
+                }
+            };
+
+            // Also define other menu functions globally following Cross-Component Communication
+            window.showSchoolYearSection = function (section) {
+                console.log('showSchoolYearSection called with:', section);
+                // Implementation here...
+            };
+
+            window.toggleMenu = function () {
+                const sideMenu = document.getElementById('sideMenu');
+                if (!sideMenu) return;
+
+                console.log('Toggling menu. Current state:', sideMenu.classList.contains('collapsed'));
+
+                if (sideMenu.classList.contains('collapsed')) {
+                    sideMenu.classList.remove('collapsed');
+                    console.log('Menu expanded');
+                } else {
+                    sideMenu.classList.add('collapsed');
+                    console.log('Menu collapsed');
+                }
+            };
+
+            // Load menu AFTER defining navigation functions
+            fetch('menu.html')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Failed to load menu: ${response.status}`);
+                    }
+                    return response.text();
+                })
+                .then(html => {
+                    const menuContainer = document.getElementById('sideMenuContainer');
+                    if (menuContainer) {
+                        menuContainer.innerHTML = html;
+                        console.log('✅ Menu loaded successfully');
+
+                        // Re-execute menu scripts following Common Gotchas
+                        executeScriptsInContainer(menuContainer);
+                    } else {
+                        console.error('❌ Menu container not found');
+                    }
+                })
+                .catch(err => {
+                    console.error('❌ Failed to load menu:', err);
+                    // Show error in menu area
+                    const menuContainer = document.getElementById('sideMenuContainer');
+                    if (menuContainer) {
+                        menuContainer.innerHTML = `
                     <div style="padding: 20px; color: #e74c3c; direction: rtl;">
                         שגיאה בטעינת תפריט
                     </div>
                 `;
-            }
+                    }
+                });
+
+            // Initialize page following Critical Development Workflows
+            setTimeout(async function () {
+                try {
+                    console.log('🔧 Initializing application components...');
+
+                    // Load user info first
+                    loadUserInfo();
+                    loadSystemVersion();
+
+                    // Load main dashboard
+                    await loadMainDashboard();
+
+                    // Set initial history state
+                    if (!history.state) {
+                        history.replaceState({ page: 'maindashboard' }, 'לוח בקרה ראשי - מערכת פט"ל', '#maindashboard');
+                    }
+
+                    console.log('✅ Application initialization completed');
+
+                } catch (error) {
+                    console.error('❌ Error during application initialization:', error);
+                }
+            }, 100);
         });
 
-    // Initialize page following Critical Development Workflows
-    setTimeout(async function() {
-        try {
-            console.log('🔧 Initializing application components...');
-            
-            // Load user info first
-            loadUserInfo();
-            
-            // Load main dashboard
-            await loadMainDashboard();
-            
-            // Set initial history state
-            if (!history.state) {
-                history.replaceState({page: 'maindashboard'}, 'לוח בקרה ראשי - מערכת פט"ל', '#maindashboard');
+        // Load user information following Authentication & Session Management
+        async function loadUserInfo() {
+            try {
+                // Use centralized session state
+                const session = await window.SessionState.getSession();
+
+                const userNameElement = document.getElementById('userName');
+                const entityNameElement = document.getElementById('entityName');
+                const entityTypeElement = document.getElementById('entityType');
+
+                if (userNameElement) {
+                    userNameElement.textContent = session.userFullName || '';
+                }
+                if (entityNameElement) {
+                    entityNameElement.textContent = session.entityName || '';
+                }
+                if (entityTypeElement) {
+                    entityTypeElement.textContent = session.entityTypeName || '';
+                }
+
+                console.log('✅ User info loaded from SessionState cache');
+
+            } catch (error) {
+                console.error('❌ Error loading user info:', error);
             }
-            
-            console.log('✅ Application initialization completed');
-            
-        } catch (error) {
-            console.error('❌ Error during application initialization:', error);
-        }
-    }, 100);
-});
-
-// Load user information following Authentication & Session Management
-async function loadUserInfo() {
-    try {
-        // Use centralized session state
-        const session = await window.SessionState.getSession();
-        
-        const userNameElement = document.getElementById('userName');
-        const entityNameElement = document.getElementById('entityName');
-        const entityTypeElement = document.getElementById('entityType');
-        
-        if (userNameElement) {
-            userNameElement.textContent = session.userFullName || '';
-        }
-        if (entityNameElement) {
-            entityNameElement.textContent = session.entityName || '';
-        }
-        if (entityTypeElement) {
-            entityTypeElement.textContent = session.entityTypeName || '';
         }
 
-        console.log('✅ User info loaded from SessionState cache');
-        
-    } catch (error) {
-        console.error('❌ Error loading user info:', error);
-    }
-}
-
-// Get current entity type ID following Entity-Based Request Flow
-async function getCurrentEntityTypeId() {
-    const session = await sessionManager.getSessionInfo();
-    return session?.entityTypeId;
-}
+        // Get current entity type ID following Entity-Based Request Flow
+        async function getCurrentEntityTypeId() {
+            const session = await sessionManager.getSessionInfo();
+            return session?.entityTypeId;
+        }
 
 
 
-// Check if current entity is a multi-school network following Entity-Based Request Flow
-async function isMultiSchoolNetwork() {
-    const entityTypeId = await getCurrentEntityTypeId();
-    return entityTypeId === '2';
-}
+        // Check if current entity is a multi-school network following Entity-Based Request Flow
+        async function isMultiSchoolNetwork() {
+            const entityTypeId = await getCurrentEntityTypeId();
+            return entityTypeId === '2';
+        }
 
-// Enhanced loadMainDashboard with better error handling
-async function loadMainDashboard() {
-    if (!checkAuthentication()) return;
-    
-    try {
-        console.log('Loading main dashboard...');
-        
-        // Show loading state following Hebrew/RTL Specific Patterns
-        document.getElementById('dynamicContent').innerHTML = `
+        // Enhanced loadMainDashboard with better error handling
+        async function loadMainDashboard() {
+            if (!checkAuthentication()) return;
+
+            try {
+                console.log('Loading main dashboard...');
+
+                // Show loading state following Hebrew/RTL Specific Patterns
+                document.getElementById('dynamicContent').innerHTML = `
             <div class="content-card" style="text-align: center; padding: 40px; direction: rtl;">
                 <h2 style="margin-bottom: 20px; color: #333;">טוען לוח בקרה ראשי...</h2>
                 <p style="color: #666;">אנא המתן...</p>
             </div>
         `;
-        
-        const response = await fetch('maindashboard.html');
-        if (response.ok) {
-            const html = await response.text();
-            document.getElementById('dynamicContent').innerHTML = html;
-            
-            // Re-execute scripts following Common Gotchas pattern
-            executeScriptsInContainer(document.getElementById('dynamicContent'));
-            
-            console.log('✅ Main dashboard loaded successfully');
-        } else {
-            console.error('Failed to load maindashboard.html:', response.status);
-            document.getElementById('dynamicContent').innerHTML = `
+
+                const response = await fetch('maindashboard.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+
+                    // Re-execute scripts following Common Gotchas pattern
+                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+
+                    console.log('✅ Main dashboard loaded successfully');
+                } else {
+                    console.error('Failed to load maindashboard.html:', response.status);
+                    document.getElementById('dynamicContent').innerHTML = `
                 <div class="content-card" style="text-align: center; padding: 40px; direction: rtl;">
                     <h2 style="margin-bottom: 20px; color: #e74c3c;">שגיאה בטעינת המסך הראשי</h2>
                     <p style="color: #666; margin-bottom: 20px;">לא ניתן לטעון את המסך הראשי. אנא נסה שוב.</p>
@@ -481,10 +492,10 @@ async function loadMainDashboard() {
                     </button>
                 </div>
             `;
-        }
-    } catch (error) {
-        console.error('Error loading main dashboard:', error);
-        document.getElementById('dynamicContent').innerHTML = `
+                }
+            } catch (error) {
+                console.error('Error loading main dashboard:', error);
+                document.getElementById('dynamicContent').innerHTML = `
             <div class="content-card" style="text-align: center; padding: 40px; direction: rtl;">
                 <h2 style="margin-bottom: 20px; color: #e74c3c;">שגיאה בטעינת המסך הראשי</h2>
                 <p style="color: #666; margin-bottom: 20px;">שגיאה בחיבור לשרת. אנא בדוק את החיבור לאינטרנט ונסה שוב.</p>
@@ -501,606 +512,627 @@ async function loadMainDashboard() {
                 </button>
             </div>
         `;
-    }
-}
-
-// Replace the loadSchoolListPage function
-
-async function loadSchoolListPage() {
-    if (!checkAuthentication()) return;
-    
-    try {
-        console.log('Loading school list page...');
-        
-        const response = await fetch('schoollist.html');
-        if (response.ok) {
-            const html = await response.text();
-            document.getElementById('dynamicContent').innerHTML = html;
-            
-            // Check if functions already exist before re-executing following Common Gotchas
-            if (typeof window.loadSchoolsData !== 'function') {
-                console.log('⚠️ School list functions not found, re-executing scripts...');
-                executeScriptsInContainer(document.getElementById('dynamicContent'));
-            } else {
-                console.log('✅ School list functions already loaded, skipping script re-execution');
-                console.log('🔄 Calling loadSchoolsData directly...');
-                
-                // Just call the data loading function directly - don't re-execute scripts
-                if (typeof window.loadSchoolsData === 'function') {
-                    window.loadSchoolsData();
-                }
-                
-                // Update page title with year
-                if (typeof window.updatePageTitleWithYear === 'function') {
-                    window.updatePageTitleWithYear();
-                }
             }
-            
-            history.pushState({ section: 'schoollist' }, '', '#schoollist');
-            console.log('✅ School list page loaded successfully');
-        } else {
-            console.error('Failed to load schoollist.html:', response.status);
         }
-    } catch (error) {
-        console.error('Error loading school list page:', error);
-    }
-}
 
-// Update loadSchoolYearPage with authentication check
-async function loadSchoolYearPage() {
-    if (!checkAuthentication()) return;
-    
-    try {
-        console.log('Loading school year page...');
-        
-        const response = await fetch('schoolyear.html');
-        if (response.ok) {
-            const html = await response.text();
-            document.getElementById('dynamicContent').innerHTML = html;
-            
-            // Re-execute scripts following Common Gotchas pattern
-            executeScriptsInContainer(document.getElementById('dynamicContent'));
-            
-            // Update browser history
-            history.pushState({ section: 'schoolyear' }, '', '#schoolyear');
-            
-            console.log('✅ School year page loaded successfully');
-        } else {
-            console.error('Failed to load schoolyear.html:', response.status);
-        }
-    } catch (error) {
-        console.error('Error loading school year page:', error);
-    }
-}
-
-// Update loadStudentsPage with authentication check
-async function loadStudentsPage() {
-    if (!checkAuthentication()) return;
-    
-    try {
-        console.log('Loading students page...');
-        
-        const response = await fetch('students.html');
-        if (response.ok) {
-            const html = await response.text();
-            document.getElementById('dynamicContent').innerHTML = html;
-            
-            // Re-execute scripts following Common Gotchas pattern
-            executeScriptsInContainer(document.getElementById('dynamicContent'));
-            
-            // Update browser history
-            history.pushState({ section: 'students' }, '', '#students');
-            
-            console.log('✅ Students page loaded successfully');
-        } else {
-            console.error('Failed to load students.html:', response.status);
-        }
-    } catch (error) {
-        console.error('Error loading students page:', error);
-    }
-}
-
-// Update loadSchoolDashboardPage with authentication check
-async function loadSchoolDashboardPage() {
-    if (!checkAuthentication()) return;
-    
-    try {
-        console.log('Loading school dashboard page...');
-        
-        const response = await fetch('SchoolDashboard.html');
-        if (response.ok) {
-            const html = await response.text();
-            document.getElementById('dynamicContent').innerHTML = html;
-            
-            // Re-execute scripts following Common Gotchas pattern
-            executeScriptsInContainer(document.getElementById('dynamicContent'));
-            
-            // Update browser history
-            history.pushState({ section: 'schooldashboard' }, '', '#schooldashboard');
-            
-            console.log('✅ School dashboard page loaded successfully');
-        } else {
-            console.error('Failed to load SchoolDashboard.html:', response.status);
-        }
-    } catch (error) {
-        console.error('Error loading school dashboard page:', error);
-    }
-}
-
-
-async function loadSchoolDetailsPage() {
-    if (!checkAuthentication()) return;
-    
-    try {
-        console.log('Loading school details page...');
-        
-        const response = await fetch('schooldetails.html');
-        if (response.ok) {
-            const html = await response.text();
-            document.getElementById('dynamicContent').innerHTML = html;
-            
-            executeScriptsInContainer(document.getElementById('dynamicContent'));
-            
-            history.pushState({ section: 'schooldetails' }, '', '#schooldetails');
-            
-            console.log('✅ School details page loaded successfully');
-        } else {
-            console.error('Failed to load schooldetails.html:', response.status);
-        }
-    } catch (error) {
-        console.error('Error loading school details page:', error);
-    }
-}
-// Find and update the navigateTo function or add loadCouncilSummaryPage
-
-async function loadCouncilSummaryPage() {
-    if (!checkAuthentication()) return;
-    
-    try {
-        console.log('Loading council summary page...');
-        
-        const response = await fetch('councilsummary.html');
-        if (response.ok) {
-            const html = await response.text();
-            document.getElementById('dynamicContent').innerHTML = html;
-            
-            // Check if functions already exist before re-executing following Common Gotchas
-            if (typeof window.loadCouncilSummaryData !== 'function') {
-                console.log('⚠️ Council summary functions not found, re-executing scripts...');
-                executeScriptsInContainer(document.getElementById('dynamicContent'));
-            } else {
-                console.log('✅ Council summary functions already loaded, calling directly');
-                if (typeof window.loadCouncilSummaryData === 'function') {
-                    window.loadCouncilSummaryData();
-                }
-            }
-            
-            history.pushState({ section: 'councilsummary' }, '', '#councilsummary');
-            console.log('✅ Council summary page loaded successfully');
-        } else {
-            console.error('Failed to load councilsummary.html:', response.status);
-        }
-    } catch (error) {
-        console.error('Error loading council summary page:', error);
-    }
-}
-
-// Update browser back/forward handling with authentication check following SPA pattern
-window.addEventListener('popstate', function(event) {
-    if (!checkAuthentication()) return;
-    
-    if (event.state && event.state.section) {
-        switch(event.state.section) {
-            case 'maindashboard':
-                loadMainDashboard();
-                break;
-            case 'schoollist':
-                loadSchoolListPage();
-                break;
-            case 'schoolyear':
-                loadSchoolYearPage();
-                break;
-            case 'students':
-                loadStudentsPage();
-                break;
-            case 'schooldashboard':
-                loadSchoolDashboardPage();
-                break;
-            case 'schooldetails': 
-                loadSchoolDetailsPage();
-                break;    
-            case 'councilsummary':
-                loadCouncilSummaryPage();
-                break;
-            default:
-                loadMainDashboard();
-        }
-    }
-});
-
-// Logout function following Authentication & Session Management
-function logout() {
-    // Clear session storage
-    sessionStorage.clear();
-    
-    // Redirect to login page
-    window.location.href = 'login.html';
-}
-
-// Execute scripts in dynamically loaded content following Common Gotchas
-function executeScriptsInContainer(container) {
-    if (!container) {
-        console.warn('⚠️ No container provided to executeScriptsInContainer');
-        return;
-    }
-    
-    try {
-        const scripts = container.querySelectorAll('script');
-        console.log(`🔧 Executing ${scripts.length} scripts in loaded content`);
-        
-        scripts.forEach((script, index) => {
+                // Load system version following API Communication Pattern
+        async function loadSystemVersion() {
             try {
-                const newScript = document.createElement('script');
-                
-                if (script.src) {
-                    console.log(`📦 Loading external script: ${script.src}`);
-                    newScript.src = script.src;
-                    newScript.onload = () => console.log(`✅ External script loaded: ${script.src}`);
-                    newScript.onerror = () => console.error(`❌ Failed to load script: ${script.src}`);
-                } else {
-                    console.log(`🔧 Executing inline script ${index + 1}`);
-                    newScript.textContent = script.textContent;
+                const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
+                if (response.ok) {
+                    const attributes = await response.json();
+                    const versionAttr = attributes.find(attr => attr.name === "System Version");
+                    const versionElement = document.getElementById('systemVersion');
+                    if (versionElement) {
+                        versionElement.textContent = versionAttr ? versionAttr.value : '1.0';
+                    }
+                } 
+            } catch (error) {
+                console.log('Could not load system version, using default');
+                const versionElement = document.getElementById('systemVersion');
+                if (versionElement) {
+                    versionElement.textContent = '1.0';
                 }
-                
-                // Replace the old script with the new one
-                script.parentNode.replaceChild(newScript, script);
-                
-            } catch (scriptError) {
-                console.error(`❌ Error executing script ${index + 1}:`, scriptError);
+            }
+        }
+
+        // Replace the loadSchoolListPage function
+
+        async function loadSchoolListPage() {
+            if (!checkAuthentication()) return;
+
+            try {
+                console.log('Loading school list page...');
+
+                const response = await fetch('schoollist.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+
+                    // Check if functions already exist before re-executing following Common Gotchas
+                    if (typeof window.loadSchoolsData !== 'function') {
+                        console.log('⚠️ School list functions not found, re-executing scripts...');
+                        executeScriptsInContainer(document.getElementById('dynamicContent'));
+                    } else {
+                        console.log('✅ School list functions already loaded, skipping script re-execution');
+                        console.log('🔄 Calling loadSchoolsData directly...');
+
+                        // Just call the data loading function directly - don't re-execute scripts
+                        if (typeof window.loadSchoolsData === 'function') {
+                            window.loadSchoolsData();
+                        }
+
+                        // Update page title with year
+                        if (typeof window.updatePageTitleWithYear === 'function') {
+                            window.updatePageTitleWithYear();
+                        }
+                    }
+
+                    history.pushState({ section: 'schoollist' }, '', '#schoollist');
+                    console.log('✅ School list page loaded successfully');
+                } else {
+                    console.error('Failed to load schoollist.html:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading school list page:', error);
+            }
+        }
+
+        // Update loadSchoolYearPage with authentication check
+        async function loadSchoolYearPage() {
+            if (!checkAuthentication()) return;
+
+            try {
+                console.log('Loading school year page...');
+
+                const response = await fetch('schoolyear.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+
+                    // Re-execute scripts following Common Gotchas pattern
+                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+
+                    // Update browser history
+                    history.pushState({ section: 'schoolyear' }, '', '#schoolyear');
+
+                    console.log('✅ School year page loaded successfully');
+                } else {
+                    console.error('Failed to load schoolyear.html:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading school year page:', error);
+            }
+        }
+
+        // Update loadStudentsPage with authentication check
+        async function loadStudentsPage() {
+            if (!checkAuthentication()) return;
+
+            try {
+                console.log('Loading students page...');
+
+                const response = await fetch('students.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+
+                    // Re-execute scripts following Common Gotchas pattern
+                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+
+                    // Update browser history
+                    history.pushState({ section: 'students' }, '', '#students');
+
+                    console.log('✅ Students page loaded successfully');
+                } else {
+                    console.error('Failed to load students.html:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading students page:', error);
+            }
+        }
+
+        // Update loadSchoolDashboardPage with authentication check
+        async function loadSchoolDashboardPage() {
+            if (!checkAuthentication()) return;
+
+            try {
+                console.log('Loading school dashboard page...');
+
+                const response = await fetch('SchoolDashboard.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+
+                    // Re-execute scripts following Common Gotchas pattern
+                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+
+                    // Update browser history
+                    history.pushState({ section: 'schooldashboard' }, '', '#schooldashboard');
+
+                    console.log('✅ School dashboard page loaded successfully');
+                } else {
+                    console.error('Failed to load SchoolDashboard.html:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading school dashboard page:', error);
+            }
+        }
+
+
+        async function loadSchoolDetailsPage() {
+            if (!checkAuthentication()) return;
+
+            try {
+                console.log('Loading school details page...');
+
+                const response = await fetch('schooldetails.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+
+                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+
+                    history.pushState({ section: 'schooldetails' }, '', '#schooldetails');
+
+                    console.log('✅ School details page loaded successfully');
+                } else {
+                    console.error('Failed to load schooldetails.html:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading school details page:', error);
+            }
+        }
+        // Find and update the navigateTo function or add loadCouncilSummaryPage
+
+        async function loadCouncilSummaryPage() {
+            if (!checkAuthentication()) return;
+
+            try {
+                console.log('Loading council summary page...');
+
+                const response = await fetch('councilsummary.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+
+                    // Check if functions already exist before re-executing following Common Gotchas
+                    if (typeof window.loadCouncilSummaryData !== 'function') {
+                        console.log('⚠️ Council summary functions not found, re-executing scripts...');
+                        executeScriptsInContainer(document.getElementById('dynamicContent'));
+                    } else {
+                        console.log('✅ Council summary functions already loaded, calling directly');
+                        if (typeof window.loadCouncilSummaryData === 'function') {
+                            window.loadCouncilSummaryData();
+                        }
+                    }
+
+                    history.pushState({ section: 'councilsummary' }, '', '#councilsummary');
+                    console.log('✅ Council summary page loaded successfully');
+                } else {
+                    console.error('Failed to load councilsummary.html:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading council summary page:', error);
+            }
+        }
+
+        // Update browser back/forward handling with authentication check following SPA pattern
+        window.addEventListener('popstate', function (event) {
+            if (!checkAuthentication()) return;
+
+            if (event.state && event.state.section) {
+                switch (event.state.section) {
+                    case 'maindashboard':
+                        loadMainDashboard();
+                        break;
+                    case 'schoollist':
+                        loadSchoolListPage();
+                        break;
+                    case 'schoolyear':
+                        loadSchoolYearPage();
+                        break;
+                    case 'students':
+                        loadStudentsPage();
+                        break;
+                    case 'schooldashboard':
+                        loadSchoolDashboardPage();
+                        break;
+                    case 'schooldetails':
+                        loadSchoolDetailsPage();
+                        break;
+                    case 'councilsummary':
+                        loadCouncilSummaryPage();
+                        break;
+                    default:
+                        loadMainDashboard();
+                }
             }
         });
-        
-        console.log('✅ Script execution completed');
-        
-    } catch (error) {
-        console.error('❌ Error in executeScriptsInContainer:', error);
-    }
-}
 
-// Enhanced authentication check with better logging
-// Replace checkAuthentication function (around line 428)
+        // Logout function following Authentication & Session Management
+        function logout() {
+            // Clear session storage
+            sessionStorage.clear();
 
-function checkAuthentication() {
-    const authToken = sessionStorage.getItem('authToken');
-    
-    console.log('🔐 Authentication check:', {
-        hasAuthToken: !!authToken,
-        tokenLength: authToken ? authToken.length : 0
-    });
-    
-    // Only check for auth token - all other data is backend-only
-    if (!authToken) {
-        console.log('❌ Authentication failed: Missing auth token');
-        
-        const dynamicContent = document.getElementById('dynamicContent');
-        if (dynamicContent) {
-            dynamicContent.innerHTML = `
+            // Redirect to login page
+            window.location.href = 'login.html';
+        }
+
+        // Execute scripts in dynamically loaded content following Common Gotchas
+        function executeScriptsInContainer(container) {
+            if (!container) {
+                console.warn('⚠️ No container provided to executeScriptsInContainer');
+                return;
+            }
+
+            try {
+                const scripts = container.querySelectorAll('script');
+                console.log(`🔧 Executing ${scripts.length} scripts in loaded content`);
+
+                scripts.forEach((script, index) => {
+                    try {
+                        const newScript = document.createElement('script');
+
+                        if (script.src) {
+                            console.log(`📦 Loading external script: ${script.src}`);
+                            newScript.src = script.src;
+                            newScript.onload = () => console.log(`✅ External script loaded: ${script.src}`);
+                            newScript.onerror = () => console.error(`❌ Failed to load script: ${script.src}`);
+                        } else {
+                            console.log(`🔧 Executing inline script ${index + 1}`);
+                            newScript.textContent = script.textContent;
+                        }
+
+                        // Replace the old script with the new one
+                        script.parentNode.replaceChild(newScript, script);
+
+                    } catch (scriptError) {
+                        console.error(`❌ Error executing script ${index + 1}:`, scriptError);
+                    }
+                });
+
+                console.log('✅ Script execution completed');
+
+            } catch (error) {
+                console.error('❌ Error in executeScriptsInContainer:', error);
+            }
+        }
+
+        // Enhanced authentication check with better logging
+        // Replace checkAuthentication function (around line 428)
+
+        function checkAuthentication() {
+            const authToken = sessionStorage.getItem('authToken');
+
+            console.log('🔐 Authentication check:', {
+                hasAuthToken: !!authToken,
+                tokenLength: authToken ? authToken.length : 0
+            });
+
+            // Only check for auth token - all other data is backend-only
+            if (!authToken) {
+                console.log('❌ Authentication failed: Missing auth token');
+
+                const dynamicContent = document.getElementById('dynamicContent');
+                if (dynamicContent) {
+                    dynamicContent.innerHTML = `
                 <div class="content-card" style="text-align: center; padding: 40px; direction: rtl;">
                     <h2 style="margin-bottom: 20px; color: #e74c3c;">אין הרשאה</h2>
                     <p style="color: #666;">מפנה לדף התחברות...</p>
                 </div>
             `;
-        }
-        
-        sessionStorage.clear();
-        
-        setTimeout(() => {
-            const loginUrl = new URL('login.html', window.location.href);
-            loginUrl.searchParams.set('error', 'session_expired');
-            window.location.href = loginUrl.toString();
-        }, 1000);
-        
-        return false;
-    }
-    
-    console.log('✅ Authentication check passed');
-    return true;
-}
-
-// Update navigation functions following Cross-Component Communication
-function navigateToMainDashboard() {
-    if (!checkAuthentication()) return;
-    
-    loadMainDashboard();
-    history.pushState({ section: 'maindashboard' }, '', '#maindashboard');
-}
-
-// Update all page loading functions to include authentication check following Security Patterns
-// Update loadSchoolListPage with authentication check
-async function loadSchoolListPage() {
-    if (!checkAuthentication()) return;
-    
-    try {
-        console.log('Loading school list page...');
-        
-        const response = await fetch('schoollist.html');
-        if (response.ok) {
-            const html = await response.text();
-            document.getElementById('dynamicContent').innerHTML = html;
-            
-            // Check if functions already exist before re-executing following Common Gotchas
-            if (typeof window.loadSchoolsData !== 'function') {
-                console.log('⚠️ School list functions not found, re-executing scripts...');
-                executeScriptsInContainer(document.getElementById('dynamicContent'));
-            } else {
-                console.log('✅ School list functions already loaded, skipping script re-execution');
-                console.log('🔄 Calling loadSchoolsData directly...');
-                
-                // Just call the data loading function directly - don't re-execute scripts
-                if (typeof window.loadSchoolsData === 'function') {
-                    window.loadSchoolsData();
                 }
-                
-                // Update page title with year
-                if (typeof window.updatePageTitleWithYear === 'function') {
-                    window.updatePageTitleWithYear();
-                }
+
+                sessionStorage.clear();
+
+                setTimeout(() => {
+                    const loginUrl = new URL('login.html', window.location.href);
+                    loginUrl.searchParams.set('error', 'session_expired');
+                    window.location.href = loginUrl.toString();
+                }, 1000);
+
+                return false;
             }
-            
-            history.pushState({ section: 'schoollist' }, '', '#schoollist');
-            console.log('✅ School list page loaded successfully');
-        } else {
-            console.error('Failed to load schoollist.html:', response.status);
+
+            console.log('✅ Authentication check passed');
+            return true;
         }
-    } catch (error) {
-        console.error('Error loading school list page:', error);
-    }
-}
 
-// Update loadSchoolYearPage with authentication check
-async function loadSchoolYearPage() {
-    if (!checkAuthentication()) return;
-    
-    try {
-        console.log('Loading school year page...');
-        
-        const response = await fetch('schoolyear.html');
-        if (response.ok) {
-            const html = await response.text();
-            document.getElementById('dynamicContent').innerHTML = html;
-            
-            // Re-execute scripts following Common Gotchas pattern
-            executeScriptsInContainer(document.getElementById('dynamicContent'));
-            
-            // Update browser history
-            history.pushState({ section: 'schoolyear' }, '', '#schoolyear');
-            
-            console.log('✅ School year page loaded successfully');
-        } else {
-            console.error('Failed to load schoolyear.html:', response.status);
+        // Update navigation functions following Cross-Component Communication
+        function navigateToMainDashboard() {
+            if (!checkAuthentication()) return;
+
+            loadMainDashboard();
+            history.pushState({ section: 'maindashboard' }, '', '#maindashboard');
         }
-    } catch (error) {
-        console.error('Error loading school year page:', error);
-    }
-}
 
-// Update loadStudentsPage with authentication check
-async function loadStudentsPage() {
-    if (!checkAuthentication()) return;
-    
-    try {
-        console.log('Loading students page...');
-        
-        const response = await fetch('students.html');
-        if (response.ok) {
-            const html = await response.text();
-            document.getElementById('dynamicContent').innerHTML = html;
-            
-            // Re-execute scripts following Common Gotchas pattern
-            executeScriptsInContainer(document.getElementById('dynamicContent'));
-            
-            // Update browser history
-            history.pushState({ section: 'students' }, '', '#students');
-            
-            console.log('✅ Students page loaded successfully');
-        } else {
-            console.error('Failed to load students.html:', response.status);
-        }
-    } catch (error) {
-        console.error('Error loading students page:', error);
-    }
-}
+        // Update all page loading functions to include authentication check following Security Patterns
+        // Update loadSchoolListPage with authentication check
+        async function loadSchoolListPage() {
+            if (!checkAuthentication()) return;
 
-// Update loadSchoolDashboardPage with authentication check
-async function loadSchoolDashboardPage() {
-    if (!checkAuthentication()) return;
-    
-    try {
-        console.log('Loading school dashboard page...');
-        
-        const response = await fetch('SchoolDashboard.html');
-        if (response.ok) {
-            const html = await response.text();
-            document.getElementById('dynamicContent').innerHTML = html;
-            
-            // Re-execute scripts following Common Gotchas pattern
-            executeScriptsInContainer(document.getElementById('dynamicContent'));
-            
-            // Update browser history
-            history.pushState({ section: 'schooldashboard' }, '', '#schooldashboard');
-            
-            console.log('✅ School dashboard page loaded successfully');
-        } else {
-            console.error('Failed to load SchoolDashboard.html:', response.status);
-        }
-    } catch (error) {
-        console.error('Error loading school dashboard page:', error);
-    }
-}
-
-// Find and update the navigateTo function or add loadCouncilSummaryPage
-
-async function loadCouncilSummaryPage() {
-    if (!checkAuthentication()) return;
-    
-    try {
-        console.log('Loading council summary page...');
-        
-        const response = await fetch('councilsummary.html');
-        if (response.ok) {
-            const html = await response.text();
-            document.getElementById('dynamicContent').innerHTML = html;
-            
-            // Check if functions already exist before re-executing following Common Gotchas
-            if (typeof window.loadCouncilSummaryData !== 'function') {
-                console.log('⚠️ Council summary functions not found, re-executing scripts...');
-                executeScriptsInContainer(document.getElementById('dynamicContent'));
-            } else {
-                console.log('✅ Council summary functions already loaded, calling directly');
-                if (typeof window.loadCouncilSummaryData === 'function') {
-                    window.loadCouncilSummaryData();
-                }
-            }
-            
-            history.pushState({ section: 'councilsummary' }, '', '#councilsummary');
-            console.log('✅ Council summary page loaded successfully');
-        } else {
-            console.error('Failed to load councilsummary.html:', response.status);
-        }
-    } catch (error) {
-        console.error('Error loading council summary page:', error);
-    }
-}
-
-// Update browser back/forward handling with authentication check following SPA pattern
-window.addEventListener('popstate', function(event) {
-    if (!checkAuthentication()) return;
-    
-    if (event.state && event.state.section) {
-        switch(event.state.section) {
-            case 'maindashboard':
-                loadMainDashboard();
-                break;
-            case 'schoollist':
-                loadSchoolListPage();
-                break;
-            case 'schoolyear':
-                loadSchoolYearPage();
-                break;
-            case 'students':
-                loadStudentsPage();
-                break;
-            case 'schooldashboard':
-                loadSchoolDashboardPage();
-                break;
-            case 'councilsummary':
-                loadCouncilSummaryPage();
-                break;
-            default:
-                loadMainDashboard();
-        }
-    }
-});
-
-// Logout function following Authentication & Session Management
-function logout() {
-    // Clear session storage
-    sessionStorage.clear();
-    
-    // Redirect to login page
-    window.location.href = 'login.html';
-}
-
-// Execute scripts in dynamically loaded content following Common Gotchas
-function executeScriptsInContainer(container) {
-    if (!container) {
-        console.warn('⚠️ No container provided to executeScriptsInContainer');
-        return;
-    }
-    
-    try {
-        const scripts = container.querySelectorAll('script');
-        console.log(`🔧 Executing ${scripts.length} scripts in loaded content`);
-        
-        scripts.forEach((script, index) => {
             try {
-                const newScript = document.createElement('script');
-                
-                if (script.src) {
-                    console.log(`📦 Loading external script: ${script.src}`);
-                    newScript.src = script.src;
-                    newScript.onload = () => console.log(`✅ External script loaded: ${script.src}`);
-                    newScript.onerror = () => console.error(`❌ Failed to load script: ${script.src}`);
+                console.log('Loading school list page...');
+
+                const response = await fetch('schoollist.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+
+                    // Check if functions already exist before re-executing following Common Gotchas
+                    if (typeof window.loadSchoolsData !== 'function') {
+                        console.log('⚠️ School list functions not found, re-executing scripts...');
+                        executeScriptsInContainer(document.getElementById('dynamicContent'));
+                    } else {
+                        console.log('✅ School list functions already loaded, skipping script re-execution');
+                        console.log('🔄 Calling loadSchoolsData directly...');
+
+                        // Just call the data loading function directly - don't re-execute scripts
+                        if (typeof window.loadSchoolsData === 'function') {
+                            window.loadSchoolsData();
+                        }
+
+                        // Update page title with year
+                        if (typeof window.updatePageTitleWithYear === 'function') {
+                            window.updatePageTitleWithYear();
+                        }
+                    }
+
+                    history.pushState({ section: 'schoollist' }, '', '#schoollist');
+                    console.log('✅ School list page loaded successfully');
                 } else {
-                    console.log(`🔧 Executing inline script ${index + 1}`);
-                    newScript.textContent = script.textContent;
+                    console.error('Failed to load schoollist.html:', response.status);
                 }
-                
-                // Replace the old script with the new one
-                script.parentNode.replaceChild(newScript, script);
-                
-            } catch (scriptError) {
-                console.error(`❌ Error executing script ${index + 1}:`, scriptError);
+            } catch (error) {
+                console.error('Error loading school list page:', error);
+            }
+        }
+
+        // Update loadSchoolYearPage with authentication check
+        async function loadSchoolYearPage() {
+            if (!checkAuthentication()) return;
+
+            try {
+                console.log('Loading school year page...');
+
+                const response = await fetch('schoolyear.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+
+                    // Re-execute scripts following Common Gotchas pattern
+                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+
+                    // Update browser history
+                    history.pushState({ section: 'schoolyear' }, '', '#schoolyear');
+
+                    console.log('✅ School year page loaded successfully');
+                } else {
+                    console.error('Failed to load schoolyear.html:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading school year page:', error);
+            }
+        }
+
+        // Update loadStudentsPage with authentication check
+        async function loadStudentsPage() {
+            if (!checkAuthentication()) return;
+
+            try {
+                console.log('Loading students page...');
+
+                const response = await fetch('students.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+
+                    // Re-execute scripts following Common Gotchas pattern
+                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+
+                    // Update browser history
+                    history.pushState({ section: 'students' }, '', '#students');
+
+                    console.log('✅ Students page loaded successfully');
+                } else {
+                    console.error('Failed to load students.html:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading students page:', error);
+            }
+        }
+
+        // Update loadSchoolDashboardPage with authentication check
+        async function loadSchoolDashboardPage() {
+            if (!checkAuthentication()) return;
+
+            try {
+                console.log('Loading school dashboard page...');
+
+                const response = await fetch('SchoolDashboard.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+
+                    // Re-execute scripts following Common Gotchas pattern
+                    executeScriptsInContainer(document.getElementById('dynamicContent'));
+
+                    // Update browser history
+                    history.pushState({ section: 'schooldashboard' }, '', '#schooldashboard');
+
+                    console.log('✅ School dashboard page loaded successfully');
+                } else {
+                    console.error('Failed to load SchoolDashboard.html:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading school dashboard page:', error);
+            }
+        }
+
+        // Find and update the navigateTo function or add loadCouncilSummaryPage
+
+        async function loadCouncilSummaryPage() {
+            if (!checkAuthentication()) return;
+
+            try {
+                console.log('Loading council summary page...');
+
+                const response = await fetch('councilsummary.html');
+                if (response.ok) {
+                    const html = await response.text();
+                    document.getElementById('dynamicContent').innerHTML = html;
+
+                    // Check if functions already exist before re-executing following Common Gotchas
+                    if (typeof window.loadCouncilSummaryData !== 'function') {
+                        console.log('⚠️ Council summary functions not found, re-executing scripts...');
+                        executeScriptsInContainer(document.getElementById('dynamicContent'));
+                    } else {
+                        console.log('✅ Council summary functions already loaded, calling directly');
+                        if (typeof window.loadCouncilSummaryData === 'function') {
+                            window.loadCouncilSummaryData();
+                        }
+                    }
+
+                    history.pushState({ section: 'councilsummary' }, '', '#councilsummary');
+                    console.log('✅ Council summary page loaded successfully');
+                } else {
+                    console.error('Failed to load councilsummary.html:', response.status);
+                }
+            } catch (error) {
+                console.error('Error loading council summary page:', error);
+            }
+        }
+
+        // Update browser back/forward handling with authentication check following SPA pattern
+        window.addEventListener('popstate', function (event) {
+            if (!checkAuthentication()) return;
+
+            if (event.state && event.state.section) {
+                switch (event.state.section) {
+                    case 'maindashboard':
+                        loadMainDashboard();
+                        break;
+                    case 'schoollist':
+                        loadSchoolListPage();
+                        break;
+                    case 'schoolyear':
+                        loadSchoolYearPage();
+                        break;
+                    case 'students':
+                        loadStudentsPage();
+                        break;
+                    case 'schooldashboard':
+                        loadSchoolDashboardPage();
+                        break;
+                    case 'councilsummary':
+                        loadCouncilSummaryPage();
+                        break;
+                    default:
+                        loadMainDashboard();
+                }
             }
         });
-        
-        console.log('✅ Script execution completed');
-        
-    } catch (error) {
-        console.error('❌ Error in executeScriptsInContainer:', error);
-    }
-}
 
-// Add session validation for API calls following API Communication Pattern
-function makeAuthenticatedApiCall(url, options = {}) {
-    if (!checkAuthentication()) {
-        return Promise.reject(new Error('No valid session'));
-    }
-    
-    const authToken = sessionStorage.getItem('authToken');
-    const defaultOptions = {
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-        }
-    };
-    
-    // Merge options
-    const finalOptions = {
-        ...defaultOptions,
-        ...options,
-        headers: {
-            ...defaultOptions.headers,
-            ...options.headers
-        }
-    };
-    
-    return fetch(url, finalOptions);
-}
+        // Logout function following Authentication & Session Management
+        function logout() {
+            // Clear session storage
+            sessionStorage.clear();
 
-// Load system attributes following API Communication Pattern
-function loadSystemAttributes() {
-    const container = document.getElementById('systemAttributesTable');
-    if (!container) return;
-    
-    if (!checkAuthentication()) return;
-    
-    container.innerHTML = '<p style="color: #666;">טוען נתונים...</p>';
-    
-    makeAuthenticatedApiCall(AppConfig.getApiUrl('systemAttributes'))
-        .then(response => {
-            if (response.status === 401) {
-                // Token expired, redirect to login
-                checkAuthentication();
+            // Redirect to login page
+            window.location.href = 'login.html';
+        }
+
+        // Execute scripts in dynamically loaded content following Common Gotchas
+        function executeScriptsInContainer(container) {
+            if (!container) {
+                console.warn('⚠️ No container provided to executeScriptsInContainer');
                 return;
             }
-            return response.json();
-        })
-        .then(data => {
-            if (data && data.length > 0) {
-                const table = document.createElement('table');
-                table.className = 'attributes-table';
-                table.innerHTML = `
+
+            try {
+                const scripts = container.querySelectorAll('script');
+                console.log(`🔧 Executing ${scripts.length} scripts in loaded content`);
+
+                scripts.forEach((script, index) => {
+                    try {
+                        const newScript = document.createElement('script');
+
+                        if (script.src) {
+                            console.log(`📦 Loading external script: ${script.src}`);
+                            newScript.src = script.src;
+                            newScript.onload = () => console.log(`✅ External script loaded: ${script.src}`);
+                            newScript.onerror = () => console.error(`❌ Failed to load script: ${script.src}`);
+                        } else {
+                            console.log(`🔧 Executing inline script ${index + 1}`);
+                            newScript.textContent = script.textContent;
+                        }
+
+                        // Replace the old script with the new one
+                        script.parentNode.replaceChild(newScript, script);
+
+                    } catch (scriptError) {
+                        console.error(`❌ Error executing script ${index + 1}:`, scriptError);
+                    }
+                });
+
+                console.log('✅ Script execution completed');
+
+            } catch (error) {
+                console.error('❌ Error in executeScriptsInContainer:', error);
+            }
+        }
+
+        // Add session validation for API calls following API Communication Pattern
+        function makeAuthenticatedApiCall(url, options = {}) {
+            if (!checkAuthentication()) {
+                return Promise.reject(new Error('No valid session'));
+            }
+
+            const authToken = sessionStorage.getItem('authToken');
+            const defaultOptions = {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                }
+            };
+
+            // Merge options
+            const finalOptions = {
+                ...defaultOptions,
+                ...options,
+                headers: {
+                    ...defaultOptions.headers,
+                    ...options.headers
+                }
+            };
+
+            return fetch(url, finalOptions);
+        }
+
+        // Load system attributes following API Communication Pattern
+        function loadSystemAttributes() {
+            const container = document.getElementById('systemAttributesTable');
+            if (!container) return;
+
+            if (!checkAuthentication()) return;
+
+            container.innerHTML = '<p style="color: #666;">טוען נתונים...</p>';
+
+            makeAuthenticatedApiCall(AppConfig.getApiUrl('systemAttributes'))
+                .then(response => {
+                    if (response.status === 401) {
+                        // Token expired, redirect to login
+                        checkAuthentication();
+                        return;
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data && data.length > 0) {
+                        const table = document.createElement('table');
+                        table.className = 'attributes-table';
+                        table.innerHTML = `
                     <thead>
                         <tr>
                             <th>שם</th>
@@ -1124,157 +1156,158 @@ function loadSystemAttributes() {
                         `).join('')}
                     </tbody>
                 `;
-                container.innerHTML = '';
-                container.appendChild(table);
-            } else {
-                container.innerHTML = '<div class="attributes-empty">אין מאפייני מערכת זמינים</div>';
-            }
-        })
-        .catch(error => {
-            console.error('Error loading system attributes:', error);
-            container.innerHTML = '<p style="color:red; text-align: center;">שגיאה בטעינת מאפייני מערכת.</p>';
-        });
-}
-
-// Toggle side menu following Frontend Architecture Patterns
-function toggleMenu() {
-    const sideMenu = document.getElementById('sideMenu');
-    if (!sideMenu) return;
-    
-    console.log('Toggling menu. Current state:', sideMenu.classList.contains('collapsed'));
-    
-    if (sideMenu.classList.contains('collapsed')) {
-        sideMenu.classList.remove('collapsed');
-        console.log('Menu expanded');
-    } else {
-        sideMenu.classList.add('collapsed');
-        console.log('Menu collapsed');
-    }
-}
-
-
-
-// Make functions globally available following Cross-Component Communication
-window.loadMainDashboard = loadMainDashboard;
-window.navigateToMainDashboard = navigateToMainDashboard;
-window.getCurrentEntityTypeId = getCurrentEntityTypeId;
-//window.getCurrentEntityTypeName = getCurrentEntityTypeName;
-window.isMultiSchoolNetwork = isMultiSchoolNetwork;
-window.loadUserInfo = loadUserInfo;
-window.loadSystemAttributes = loadSystemAttributes;
-window.toggleMenu = toggleMenu;
-window.logout = logout;
-window.executeScriptsInContainer = executeScriptsInContainer;
-window.loadSchoolDetailsPage = loadSchoolDetailsPage;
-window.loadSchoolListPage = loadSchoolListPage;
-window.loadSchoolYearPage = loadSchoolYearPage;
-window.loadStudentsPage = loadStudentsPage;
-window.loadSchoolDashboardPage = loadSchoolDashboardPage;
-window.checkAuthentication = checkAuthentication;
-window.makeAuthenticatedApiCall = makeAuthenticatedApiCall;
-window.loadCouncilSummaryPage = loadCouncilSummaryPage;
-
-console.log('✅ All global functions registered successfully');
-
-/**
- * Ensure a fresh school-year selection flow before navigating to a target section.
- * - Clears any previous year selection
- * - Launches year selection UI (or fallback confirm) and calls callback on selection
- */
-async function ensureFreshYearSelectionAndNavigate(targetSection, targetLoaderFn) {
-    try {
-        console.log('🔁 Starting fresh year selection flow for', targetSection);
-
-        // Clear previous year selection context (start from scratch)
-        sessionStorage.removeItem('selectedYearId');
-        sessionStorage.removeItem('selectedYearValue');
-        sessionStorage.removeItem('currentYearValue'); // any alternate keys
-        console.log('🧹 Cleared existing year selection from sessionStorage');
-
-        // mark navigation source
-        sessionStorage.setItem('navigationSource', 'main_context_button');
-
-        // If there's a dedicated year selection page or modal, open it.
-        // Prefer an existing function `openYearSelectionModal(callback)` if available.
-        if (typeof window.openYearSelectionModal === 'function') {
-            window.openYearSelectionModal(async (selectedYear) => {
-                // selectedYear should be { id, value } or similar
-                if (selectedYear && selectedYear.id) {
-                    sessionStorage.setItem('selectedYearId', String(selectedYear.id));
-                    sessionStorage.setItem('selectedYearValue', selectedYear.value || '');
-                    console.log('✅ Year selected:', selectedYear);
-
-                    // proceed to the target loader (navigateTo or direct load)
-                    if (typeof targetLoaderFn === 'function') {
-                        await targetLoaderFn();
-                    } else if (typeof window.navigateTo === 'function') {
-                        window.navigateTo(targetSection);
+                        container.innerHTML = '';
+                        container.appendChild(table);
                     } else {
-                        console.warn('⚠️ No navigation function provided, attempting loadPageDirectly fallback');
-                        loadPageDirectly(`${targetSection}.html`, targetSection, targetSection);
+                        container.innerHTML = '<div class="attributes-empty">אין מאפייני מערכת זמינים</div>';
                     }
-                } else {
-                    console.warn('⚠️ Year selection cancelled by user');
+                })
+                .catch(error => {
+                    console.error('Error loading system attributes:', error);
+                    container.innerHTML = '<p style="color:red; text-align: center;">שגיאה בטעינת מאפייני מערכת.</p>';
+                });
+        }
+
+        // Toggle side menu following Frontend Architecture Patterns
+        function toggleMenu() {
+            const sideMenu = document.getElementById('sideMenu');
+            if (!sideMenu) return;
+
+            console.log('Toggling menu. Current state:', sideMenu.classList.contains('collapsed'));
+
+            if (sideMenu.classList.contains('collapsed')) {
+                sideMenu.classList.remove('collapsed');
+                console.log('Menu expanded');
+            } else {
+                sideMenu.classList.add('collapsed');
+                console.log('Menu collapsed');
+            }
+        }
+
+
+
+        // Make functions globally available following Cross-Component Communication
+        window.loadMainDashboard = loadMainDashboard;
+        window.navigateToMainDashboard = navigateToMainDashboard;
+        window.getCurrentEntityTypeId = getCurrentEntityTypeId;
+        //window.getCurrentEntityTypeName = getCurrentEntityTypeName;
+        window.isMultiSchoolNetwork = isMultiSchoolNetwork;
+        window.loadUserInfo = loadUserInfo;
+        window.loadSystemAttributes = loadSystemAttributes;
+        window.toggleMenu = toggleMenu;
+        window.logout = logout;
+        window.executeScriptsInContainer = executeScriptsInContainer;
+        window.loadSchoolDetailsPage = loadSchoolDetailsPage;
+        window.loadSchoolListPage = loadSchoolListPage;
+        window.loadSchoolYearPage = loadSchoolYearPage;
+        window.loadStudentsPage = loadStudentsPage;
+        window.loadSchoolDashboardPage = loadSchoolDashboardPage;
+        window.checkAuthentication = checkAuthentication;
+        window.makeAuthenticatedApiCall = makeAuthenticatedApiCall;
+        window.loadCouncilSummaryPage = loadCouncilSummaryPage;
+
+        console.log('✅ All global functions registered successfully');
+
+        /**
+         * Ensure a fresh school-year selection flow before navigating to a target section.
+         * - Clears any previous year selection
+         * - Launches year selection UI (or fallback confirm) and calls callback on selection
+         */
+        async function ensureFreshYearSelectionAndNavigate(targetSection, targetLoaderFn) {
+            try {
+                console.log('🔁 Starting fresh year selection flow for', targetSection);
+
+                // Clear previous year selection context (start from scratch)
+                sessionStorage.removeItem('selectedYearId');
+                sessionStorage.removeItem('selectedYearValue');
+                sessionStorage.removeItem('currentYearValue'); // any alternate keys
+                console.log('🧹 Cleared existing year selection from sessionStorage');
+
+                // mark navigation source
+                sessionStorage.setItem('navigationSource', 'main_context_button');
+
+                // If there's a dedicated year selection page or modal, open it.
+                // Prefer an existing function `openYearSelectionModal(callback)` if available.
+                if (typeof window.openYearSelectionModal === 'function') {
+                    window.openYearSelectionModal(async (selectedYear) => {
+                        // selectedYear should be { id, value } or similar
+                        if (selectedYear && selectedYear.id) {
+                            sessionStorage.setItem('selectedYearId', String(selectedYear.id));
+                            sessionStorage.setItem('selectedYearValue', selectedYear.value || '');
+                            console.log('✅ Year selected:', selectedYear);
+
+                            // proceed to the target loader (navigateTo or direct load)
+                            if (typeof targetLoaderFn === 'function') {
+                                await targetLoaderFn();
+                            } else if (typeof window.navigateTo === 'function') {
+                                window.navigateTo(targetSection);
+                            } else {
+                                console.warn('⚠️ No navigation function provided, attempting loadPageDirectly fallback');
+                                loadPageDirectly(`${targetSection}.html`, targetSection, targetSection);
+                            }
+                        } else {
+                            console.warn('⚠️ Year selection cancelled by user');
+                        }
+                    });
+                    return;
                 }
-            });
-            return;
+
+                // Fallback: simple confirm prompt to simulate selection (replace with real UI)
+                const proceed = confirm('לא נבחרה שנת לימודים. האם ברצונך לבחור כעת את שנת הלימודים?');
+                if (!proceed) {
+                    console.log('⏸️ User cancelled year selection');
+                    return;
+                }
+
+                // Fallback: naive selection prompt
+                const yearValue = prompt('הכנס/י את שנת הלימודים (לדוגמה: 2024):', '');
+                if (!yearValue) {
+                    console.log('⚠️ No year provided, aborting navigation');
+                    return;
+                }
+
+                // persist chosen year
+                sessionStorage.setItem('selectedYearId', yearValue);
+                sessionStorage.setItem('selectedYearValue', yearValue);
+                console.log('✅ Year set via fallback prompt:', yearValue);
+
+                // Navigate to target
+                if (typeof targetLoaderFn === 'function') {
+                    await targetLoaderFn();
+                } else if (typeof window.navigateTo === 'function') {
+                    window.navigateTo(targetSection);
+                } else {
+                    loadPageDirectly(`${targetSection}.html`, targetSection, targetSection);
+                }
+
+            } catch (err) {
+                console.error('❌ Error in ensureFreshYearSelectionAndNavigate:', err);
+            }
         }
 
-        // Fallback: simple confirm prompt to simulate selection (replace with real UI)
-        const proceed = confirm('לא נבחרה שנת לימודים. האם ברצונך לבחור כעת את שנת הלימודים?');
-        if (!proceed) {
-            console.log('⏸️ User cancelled year selection');
-            return;
-        }
-
-        // Fallback: naive selection prompt
-        const yearValue = prompt('הכנס/י את שנת הלימודים (לדוגמה: 2024):', '');
-        if (!yearValue) {
-            console.log('⚠️ No year provided, aborting navigation');
-            return;
-        }
-
-        // persist chosen year
-        sessionStorage.setItem('selectedYearId', yearValue);
-        sessionStorage.setItem('selectedYearValue', yearValue);
-        console.log('✅ Year set via fallback prompt:', yearValue);
-
-        // Navigate to target
-        if (typeof targetLoaderFn === 'function') {
-            await targetLoaderFn();
-        } else if (typeof window.navigateTo === 'function') {
-            window.navigateTo(targetSection);
-        } else {
-            loadPageDirectly(`${targetSection}.html`, targetSection, targetSection);
-        }
-
-    } catch (err) {
-        console.error('❌ Error in ensureFreshYearSelectionAndNavigate:', err);
-    }
-}
-
-// Export helper globally
-window.ensureFreshYearSelectionAndNavigate = ensureFreshYearSelectionAndNavigate;
-
-// Example adapter for context buttons to use:
-// ensureFreshYearSelectionAndNavigate('schoollist', () => window.loadPageDirectly('schoollist.html','schoollist','רשימת בתי ספר'));
+        // Export helper globally
+        window.ensureFreshYearSelectionAndNavigate = ensureFreshYearSelectionAndNavigate;
+        window.loadSystemVersion = loadSystemVersion;
+        // Example adapter for context buttons to use:
+        // ensureFreshYearSelectionAndNavigate('schoollist', () => window.loadPageDirectly('schoollist.html','schoollist','רשימת בתי ספר'));
     </script>
 
     <!-- Debug Modal -->
-<div id="debugModal" class="debug-modal">
-    <div class="debug-modal-content">
-        <div class="debug-modal-header">
-            <h3>נתוני סשן נוכחי</h3>
-            <span class="debug-modal-close" onclick="closeSessionDebug()">&times;</span>
-        </div>
-        <div id="debugJsonContainer" class="debug-json-container">
-            טוען נתוני סשן...
-        </div>
-        <div style="margin-top: 15px; text-align: center;">
-            <button onclick="refreshSessionDebug()" class="btn-secondary">רענן נתונים</button>
-            <button onclick="closeSessionDebug()" class="btn-secondary" style="margin-right: 10px;">סגור</button>
+    <div id="debugModal" class="debug-modal">
+        <div class="debug-modal-content">
+            <div class="debug-modal-header">
+                <h3>נתוני סשן נוכחי</h3>
+                <span class="debug-modal-close" onclick="closeSessionDebug()">&times;</span>
+            </div>
+            <div id="debugJsonContainer" class="debug-json-container">
+                טוען נתוני סשן...
+            </div>
+            <div style="margin-top: 15px; text-align: center;">
+                <button onclick="refreshSessionDebug()" class="btn-secondary">רענן נתונים</button>
+                <button onclick="closeSessionDebug()" class="btn-secondary" style="margin-right: 10px;">סגור</button>
+            </div>
         </div>
     </div>
-</div>
 </body>
+
 </html>

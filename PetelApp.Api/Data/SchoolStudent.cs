@@ -56,5 +56,8 @@ namespace PetelApp.Api.Data
 
         [Column("is_last_version")]
         public bool IsLastVersion { get; set; }
+
+        [Column("cost")]
+        public decimal? Cost { get; set; }
     }
 }

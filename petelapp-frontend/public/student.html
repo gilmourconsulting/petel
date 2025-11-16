@@ -5,18 +5,38 @@
     <!-- Main content area -->
     <div class="students-content">
         <div class="content-card">
-            <h2 id="studentTitle" class="page-title">מסמכי התלמיד</h2>           
+            <h2 id="studentTitle" class="page-title">פרטי התלמיד</h2>           
 
 
             <!-- Students table - ReusableTable component -->
             <div class="students-table-section">
                 <h3 class="section-title">פרטי התלמיד</h3>
+                        <button class="btn-icon" onclick="viewStudentPricingFromSection()" title="צפייה ברכיבי תמחור">
+            <img src="stats_icon.png" alt="תמחור" class="action-icon-natural">
+            <span style="margin-right: 5px;">רכיבי תמחור</span>
+        </button>
                 <div id="studentsTableContainer">
                     <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
                         טוען נתוני תלמידים...
                     </div>
                 </div>
             </div>
+            <div id="pricingModal" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2>רכיבי תמחור - <span id="pricingStudentName"></span></h2>
+            <button class="btn-close" onclick="closePricingModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div id="pricingTableContainer" class="table-container">
+                <div class="loading-spinner">טוען נתונים...</div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closePricingModal()">סגור</button>
+        </div>
+    </div>
+</div>
                
             <!-- Class Characterization Field - Updated to dropdown 
               <div class="class-characterization-section">
@@ -60,6 +80,34 @@
 
 <script>
 
+// View student pricing from section header
+async function viewStudentPricingFromSection() {
+    try {
+        // Get student ID from backend session
+        const studentId = await window.SessionState.getProperty('SelectedStudentId');
+        
+        if (!studentId) {
+            console.error('❌ No student ID in session');
+            alert('לא נמצא מזהה תלמיד');
+            return;
+        }
+        
+        // Get student name from current data
+        let studentName = 'תלמיד';
+        if (window.currentStudentsData && window.currentStudentsData.length > 0) {
+            studentName = window.currentStudentsData[0].name || 'תלמיד';
+        }
+        
+        // Call existing pricing function
+        await viewStudentPricing(studentId, studentName);
+        
+    } catch (error) {
+        console.error('❌ Error opening pricing modal:', error);
+        alert('שגיאה בפתיחת חלון התמחור');
+    }
+}
+
+window.viewStudentPricingFromSection = viewStudentPricingFromSection;
 
 // Document URL mapping following Project-Specific Patterns - UPDATE TO ACCESSIBLE PATHS
 //const DOCUMENT_URL_MAP = {
@@ -420,54 +468,201 @@ function initiateDownload(documentData, fullDocumentUrl) {
     }
 }
 
-// Add characterization functionality following Project-Specific Patterns
-async function updateCharacterizationDisplay(selectedValue) {
-    console.log('🔄 Updating characterization:', selectedValue);
+// View student pricing elements
+async function viewStudentPricing(studentId, studentName) {
+    console.log('💰 Viewing pricing elements for student:', studentId);
     
-    const characterizationMap = {
-        '11': 'מוגבלות בשמיעה',
-        '12': 'מוגבלות בראיה'
-    };
-    
-    const numberElement = document.getElementById('characterizationNumber');
-    const textElement = document.getElementById('characterizationText');
-    
-    if (numberElement && textElement) {
-        numberElement.textContent = selectedValue;
-        textElement.textContent = characterizationMap[selectedValue] || 'לא זמין';
-        
-        // ✅ Store in backend session via SessionState
-        await window.SessionState.setProperty('SelectedCharacterization', selectedValue);
-        
-        console.log('✅ Characterization updated and stored in backend session');
-    }
-}
-
-
-// Initialize characterization from session or default following Critical Development Workflows
-async function initializeCharacterization() {
     try {
-        // ✅ Get from backend session via SessionState
-        const savedCharacterization = await window.SessionState.getProperty('SelectedCharacterization') || '11';
-        const selectElement = document.getElementById('characterizationSelect');
+        // Show modal
+        const modal = document.getElementById('pricingModal');
+        const studentNameSpan = document.getElementById('pricingStudentName');
+        const container = document.getElementById('pricingTableContainer');
         
-        if (selectElement) {
-            selectElement.value = savedCharacterization;
-            updateCharacterizationDisplay(savedCharacterization);
-            console.log('✅ Characterization initialized from backend session:', savedCharacterization);
+        if (!modal || !studentNameSpan || !container) {
+            console.error('❌ Modal elements not found');
+            return;
         }
+        
+        // Set student name
+        studentNameSpan.textContent = studentName;
+        
+        // Show loading
+        container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
+        modal.style.display = 'flex';
+        
+        // Fetch pricing data
+        const token = window.sessionManager.getToken();
+        if (!token) {
+            throw new Error('No authentication token found');
+        }
+        
+        const response = await fetch(AppConfig.getApiUrl(`studentpricing/${studentId}`), {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+            console.log('✅ Pricing data loaded:', result.data);
+            createPricingTable(result.data);
+        } else {
+            throw new Error(result.message || 'Failed to load pricing data');
+        }
+        
     } catch (error) {
-        console.error('❌ Error initializing characterization:', error);
-        const selectElement = document.getElementById('characterizationSelect');
-        if (selectElement) {
-            selectElement.value = '11';
-            updateCharacterizationDisplay('11');
-        }
+        console.error('❌ Error loading pricing elements:', error);
+        showPricingTableError('שגיאה בטעינת נתוני תמחור');
     }
 }
+
+// Create pricing elements table
+function createPricingTable(data) {
+    console.log('📊 Creating pricing table with ReusableTable component');
+    
+    if (typeof ReusableTable === 'undefined') {
+        console.log('⚠️ ReusableTable not loaded, loading component...');
+        loadReusableTableComponentForPricing(data);
+        return;
+    }
+    
+    initializePricingTable(data);
+}
+
+// Load ReusableTable for pricing
+function loadReusableTableComponentForPricing(data) {
+    const existingScript = document.querySelector('script[src="table-component.js"]');
+    if (existingScript) {
+        console.log('table-component.js already loaded, waiting for ReusableTable...');
+        setTimeout(() => {
+            if (typeof ReusableTable !== 'undefined') {
+                initializePricingTable(data);
+            } else {
+                showPricingTableError('שגיאה בטעינת רכיב הטבלה');
+            }
+        }, 500);
+        return;
+    }
+    
+    const script = document.createElement('script');
+    script.src = 'table-component.js';
+    script.onload = () => {
+        console.log('✅ table-component.js loaded for pricing');
+        setTimeout(() => {
+            initializePricingTable(data);
+        }, 100);
+    };
+    script.onerror = () => {
+        console.error('❌ Failed to load table-component.js');
+        showPricingTableError('שגיאה בטעינת רכיב הטבלה');
+    };
+    document.head.appendChild(script);
+}
+
+// Initialize pricing table
+function initializePricingTable(data) {
+    console.log('🔧 Initializing pricing ReusableTable with data:', data);
+    
+    if (!data || data.length === 0) {
+        const container = document.getElementById('pricingTableContainer');
+        if (container) {
+            container.innerHTML = '<div class="empty-state">לא נמצאו רכיבי תמחור לתלמיד זה</div>';
+        }
+        return;
+    }
+    
+    const columns = [
+        { key: 'id', label: 'מזהה', sortable: true, readOnly: true, hidden: true },
+        { key: 'pricingElementName', label: 'רכיב תמחור', sortable: true, readOnly: true },
+        { 
+            key: 'price', 
+            label: 'סכום', 
+            sortable: true, 
+            readOnly: true,
+            render: (item) => `₪${item.price.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        }
+    ];
+    
+    try {
+        const pricingTable = new ReusableTable('pricingTableContainer', {
+            tableName: 'pricing',
+            isReadOnly: true,
+            allowAdd: false,
+            allowEdit: false,
+            allowDelete: false
+        });
+        
+        console.log('✅ Pricing ReusableTable instance created');
+        
+        pricingTable.init(data, columns);
+        
+        console.log('✅ Pricing ReusableTable initialized successfully with', data.length, 'elements');
+        
+    } catch (error) {
+        console.error('❌ Error creating pricing ReusableTable:', error);
+        showPricingTableError('שגיאה ביצירת טבלת התמחור');
+    }
+}
+
+// Show error in pricing table
+function showPricingTableError(message) {
+    const container = document.getElementById('pricingTableContainer');
+    if (container) {
+        container.innerHTML = `
+            <div class="error-message" style="
+                padding: 20px;
+                text-align: center;
+                color: #dc3545;
+                background-color: #f8d7da;
+                border: 1px solid #f5c6cb;
+                border-radius: 8px;
+            ">
+                <strong>❌ ${message}</strong>
+            </div>
+        `;
+    }
+}
+
+// Close pricing modal
+function closePricingModal() {
+    const modal = document.getElementById('pricingModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    // Clear container
+    const container = document.getElementById('pricingTableContainer');
+    if (container) {
+        container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
+    }
+}
+
+// Close modal when clicking outside
+window.addEventListener('click', function(event) {
+    const uploadModal = document.getElementById('uploadDialog');
+    const pricingModal = document.getElementById('pricingModal');
+    
+    if (event.target === uploadModal) {
+        closeUploadDialog();
+    }
+    
+    if (event.target === pricingModal) {
+        closePricingModal();
+    }
+});
+
+window.viewStudentPricing = viewStudentPricing;
+window.closePricingModal = closePricingModal;
 
 // Navigation functions following Single-Page Application with Module Loading
-// Lines 420-505: REPLACE all three navigation functions
+
 
 // Navigation functions - Use global navigateTo following Single-Page Application with Module Loading
 async function navigateToStudents() {
@@ -1009,8 +1204,7 @@ function initializePage() {
     console.log('📋 Current location:', window.location.href);
     console.log('📋 Session storage keys:', Object.keys(sessionStorage));
     
-    // Initialize characterization dropdown
-    initializeCharacterization();
+
     
     // Load student data (from session storage) with a small delay
     setTimeout(() => {
@@ -1056,7 +1250,6 @@ window.navigateToSchoolDashboard = navigateToSchoolDashboard;
 window.navigateToSchoolList = navigateToSchoolList;
 window.viewDocumentDetails = viewDocumentDetails;
 window.downloadDocument = downloadDocument;
-window.updateCharacterizationDisplay = updateCharacterizationDisplay;
 window.closeDocumentModal = closeDocumentModal;
 window.copyDocumentUrl = copyDocumentUrl;
 window.requestDocumentCreation = requestDocumentCreation;

@@ -1,0 +1,22 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace PetelApp.Api.Data
+{
+    [Table("school_student_pricing_elements", Schema = "petel_schema")]
+    public class SchoolStudentPricingElement
+    {
+        [Key]
+        [Column("id")]
+        public int Id { get; set; }
+
+        [Column("school_student")]
+        public int StudentId { get; set; }
+
+        [Column("pricing_element")]
+        public int PricingElementId { get; set; }
+
+        [Column("price")]
+        public decimal Price { get; set; }
+    }
+}

@@ -170,11 +170,40 @@ body {
     transform: translateY(-1px);
 }
 
+/* System Footer */
+.system-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bar-background);
+    color: var(--bar-text-color);
+    padding: 8px 20px;
+    text-align: center;
+    font-size: 12px;
+    border-top: 1px solid #444;
+    z-index: 999;
+    box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.footer-content {
+    direction: rtl;
+}
+
+#systemVersion {
+    font-weight: 600;
+    color: var(--bar-text-color);
+}
+
+
 /* Main Container */
 .main-container {
     display: flex;
     flex-direction: row-reverse;
-    height: 83.33vh;
+    height: calc(100vh - 70px - 35px);
+    /* 70px top bar + 35px footer */
+    overflow: hidden;
+
 }
 
 /* Side Menu */
@@ -317,6 +346,9 @@ body {
     background: var(--main-background);
     padding: 30px;
     overflow-y: auto;
+    overflow-x: hidden;
+    padding-bottom: 20px;
+    /* Extra padding at bottom for breathing room */
 }
 
 .content-header {
@@ -367,24 +399,29 @@ body {
     max-width: 250px;
     /* Dynamic height based on screen size */
     min-height: 250px;
-    height: calc(100vh - 280px); /* Adjust based on top bar and margins */
+    height: calc(100vh - 280px);
+    /* Adjust based on top bar and margins */
     max-height: calc(100vh - 200px);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
+
 .internal-card {
     background: var(--secondary-background);
-    border: 1px solid #000000; /* Black border as requested */
+    border: 1px solid #000000;
+    /* Black border as requested */
     border-radius: var(--border-radius);
     padding: 12px;
     font-size: 11pt;
     font-family: inherit;
-    text-align: left; /* Changed to left alignment */
+    text-align: left;
+    /* Changed to left alignment */
     transition: background-color 0.2s ease;
     cursor: pointer;
 }
+
 .internal-cards-container {
     flex: 1;
     margin-top: 16px;
@@ -397,21 +434,24 @@ body {
 
 .internal-card:hover {
     background: var(--hover-background);
-    border-color: #000000; /* Keep black border on hover */
+    border-color: #000000;
+    /* Keep black border on hover */
 }
 
 .internal-card-timestamp {
     color: var(--text-muted);
     font-size: 9pt;
     margin-top: 6px;
-    text-align: right; /* Keep timestamps left aligned */
+    text-align: right;
+    /* Keep timestamps left aligned */
 }
 
 .internal-card-content {
     color: var(--text-secondary);
     font-size: 10pt;
     line-height: 1.3;
-    text-align: right; /* Left alignment for content */
+    text-align: right;
+    /* Left alignment for content */
 }
 
 
@@ -425,7 +465,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    margin-bottom: 8px; /* Reduced space between title and card border */
+    margin-bottom: 8px;
+    /* Reduced space between title and card border */
     gap: 8px;
     padding-bottom: 8px;
     border-bottom: 1px solid var(--border-color);
@@ -433,7 +474,8 @@ body {
 
 .dashboard-card-icon {
     font-size: 16pt;
-    margin-right: 8px; /* RTL spacing */
+    margin-right: 8px;
+    /* RTL spacing */
     flex-shrink: 0;
 }
 
@@ -443,13 +485,15 @@ body {
     font-size: 16pt;
     margin: 0;
     flex: 1;
-    text-align: right; /* RTL alignment */
+    text-align: right;
+    /* RTL alignment */
 }
 
 .dashboard-card-plus {
     width: 20px;
     height: 20px;
-    margin-left: auto; /* Push to leftmost position in RTL */
+    margin-left: auto;
+    /* Push to leftmost position in RTL */
     cursor: pointer;
     opacity: 0.7;
     transition: opacity 0.2s ease, transform 0.2s ease;
@@ -465,15 +509,18 @@ body {
     display: flex;
     align-items: flex-start;
     gap: 32px;
-    margin-bottom: 15px; /* 15px from bottom as requested */
+    margin-bottom: 15px;
+    /* 15px from bottom as requested */
     max-width: 1200px;
     width: 100%;
     margin-left: auto;
     margin-right: auto;
     justify-content: space-between;
     /* Calculate height to reach 15px from bottom */
-    height: calc(100vh - 16.67vh - 60px - 15px); /* Total height - top bar - padding - bottom margin */
-    min-height: 400px; /* Minimum height for usability */
+    height: calc(100vh - 16.67vh - 60px - 15px);
+    /* Total height - top bar - padding - bottom margin */
+    min-height: 400px;
+    /* Minimum height for usability */
 }
 
 /* Add dashboard cards wrapper to contain the cards */
@@ -482,8 +529,10 @@ body {
     gap: 20px;
     flex-wrap: wrap;
     flex: 1;
-    min-width: 0; /* Prevent overflow */
-    align-items: flex-start; /* Align cards to top */
+    min-width: 0;
+    /* Prevent overflow */
+    align-items: flex-start;
+    /* Align cards to top */
 
 }
 
@@ -491,8 +540,10 @@ body {
 .context-buttons-section {
     order: 2;
     width: 180px;
-    min-width: 180px; /* Ensure it doesn't shrink */
-    max-width: 180px; /* Prevent it from growing */
+    min-width: 180px;
+    /* Ensure it doesn't shrink */
+    max-width: 180px;
+    /* Prevent it from growing */
     height: 260px;
     display: flex;
     flex-direction: column;
@@ -504,8 +555,10 @@ body {
     background: var(--context-section-background);
     border-radius: var(--border-radius-large);
     box-shadow: var(--box-shadow-light);
-    margin: 24px 0 0 0; /* Remove right margin to align with edge */
-    flex-shrink: 0; /* Prevent shrinking */
+    margin: 24px 0 0 0;
+    /* Remove right margin to align with edge */
+    flex-shrink: 0;
+    /* Prevent shrinking */
 }
 
 .context-btn {
@@ -600,7 +653,7 @@ body {
 }
 
 .filter-icon:hover {
-    background-color: rgba(255,255,255,0.2);
+    background-color: rgba(255, 255, 255, 0.2);
 }
 
 .filter-icon.filtered {
@@ -651,7 +704,7 @@ body {
     background: var(--card-background);
     border: 1px solid #ddd;
     border-radius: var(--button-border-radius);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     min-width: 200px;
     max-height: 300px;
     overflow-y: auto;
@@ -707,8 +760,10 @@ body {
 
 .schoolyear-content {
     flex: 1;
-    min-width: 0; /* Prevents flex item from overflowing */
-    width: calc(100% - 200px); /* Main content minus context buttons width */
+    min-width: 0;
+    /* Prevents flex item from overflowing */
+    width: calc(100% - 200px);
+    /* Main content minus context buttons width */
     max-width: calc(100% - 200px);
 }
 
@@ -719,7 +774,8 @@ body {
 }
 
 .schoolyear-context {
-    order: 2; /* Places it on the right in RTL */
+    order: 2;
+    /* Places it on the right in RTL */
     width: 180px;
     min-width: 180px;
     max-width: 180px;
@@ -737,7 +793,8 @@ body {
     margin: 0;
     position: sticky;
     top: 20px;
-    flex-shrink: 0; /* Prevent context buttons from shrinking */
+    flex-shrink: 0;
+    /* Prevent context buttons from shrinking */
 }
 
 .schoolyear-context .context-btn {
@@ -750,7 +807,8 @@ body {
     cursor: pointer;
     transition: var(--button-transition);
     box-shadow: var(--box-shadow-light);
-    margin: 0 !important; /* Override inline styles */
+    margin: 0 !important;
+    /* Override inline styles */
 }
 
 /* Responsive for school year page */
@@ -758,14 +816,15 @@ body {
     .schoolyear-container {
         flex-direction: column;
     }
-    
+
     .schoolyear-content {
         width: 100%;
         max-width: 100%;
     }
-    
+
     .schoolyear-context {
-        order: 1; /* Move to top on mobile */
+        order: 1;
+        /* Move to top on mobile */
         width: 100%;
         height: auto;
         flex-direction: row;
@@ -777,7 +836,7 @@ body {
         min-width: auto;
         max-width: none;
     }
-    
+
     .schoolyear-context .context-btn {
         width: 30vw;
         min-width: 80px;
@@ -817,7 +876,8 @@ body {
     width: 180px;
     min-width: 180px;
     max-width: 180px;
-    height: 320px; /* Taller for 4 buttons */
+    height: 320px;
+    /* Taller for 4 buttons */
     display: flex;
     flex-direction: column;
     align-items: stretch;
@@ -874,13 +934,13 @@ body {
     display: flex;
     align-items: center;
     gap: 15px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
 .summary-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .summary-icon-img {
@@ -979,7 +1039,8 @@ body {
 
 .data-table td:last-child,
 .data-table th:last-child {
-    text-align: center; /* Actions column centered */
+    text-align: center;
+    /* Actions column centered */
 }
 
 /* Loading and Error States */
@@ -1049,10 +1110,11 @@ body {
     font-size: 1.1em;
     font-weight: 600;
     flex: 1;
-        white-space: nowrap;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 50ch; /* 50 character limit */
+    max-width: 50ch;
+    /* 50 character limit */
     padding-right: 10px;
 }
 
@@ -1060,7 +1122,7 @@ body {
     display: flex;
     gap: 8px;
     align-items: center;
-        flex-shrink: 0;
+    flex-shrink: 0;
 }
 
 .collapse-toggle {
@@ -1079,7 +1141,7 @@ body {
     transition: transform 0.3s ease;
     line-height: 1;
     border-radius: 4px;
-        flex-shrink: 0;
+    flex-shrink: 0;
 }
 
 .collapse-toggle:hover {
@@ -1295,7 +1357,7 @@ body {
 .attribute-select {
     direction: rtl;
     text-align: right;
-  
+
     padding-right: 8px;
     appearance: auto;
     -webkit-appearance: auto;
@@ -1333,11 +1395,11 @@ body {
     user-select: none;
 }
 
-.attribute-checkbox:checked + .attribute-checkbox-label {
+.attribute-checkbox:checked+.attribute-checkbox-label {
     color: #28a745;
 }
 
-.attribute-checkbox:not(:checked) + .attribute-checkbox-label {
+.attribute-checkbox:not(:checked)+.attribute-checkbox-label {
     color: #dc3545;
 }
 
@@ -1482,14 +1544,13 @@ body {
     color: #856404;
 }
 
-* Inline edit button for detail fields */
-.btn-icon-inline {
+* Inline edit button for detail fields */ .btn-icon-inline {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     padding: 2px 4px;
     margin-left: 8px;
-   /* border: 1px solid #dee2e6;
+    /* border: 1px solid #dee2e6;
     border-radius: 4px; */
     background-color: transparent;
     cursor: pointer;
@@ -1595,6 +1656,7 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
 .modal-overlay {
     position: fixed;
     top: 0;

@@ -391,7 +391,7 @@ const PersonManagement = {
     /**
      * Display search results
      */
-    displaySearchResults(persons) {
+   displaySearchResults(persons) {
         const resultsContainer = document.getElementById('searchResults');
 
         if (!persons || persons.length === 0) {
@@ -399,33 +399,45 @@ const PersonManagement = {
             return;
         }
 
-        const resultsHTML = persons.map(person => `
-            <div class="person-result-item" 
-                 data-person-id="${person.id}"
-                 style="
-                     padding: 12px;
-                     border-bottom: 1px solid #dee2e6;
-                     cursor: pointer;
-                     direction: rtl;
-                     transition: background 0.2s;
-                 "
-                 onmouseover="this.style.background='#f8f9fa'"
-                 onmouseout="this.style.background='white'">
-                <div style="font-weight: 600; margin-bottom: 4px;">
-                    ${person.firstName} ${person.lastName}
+        const resultsHTML = persons.map(person => {
+            // Concatenate phone prefix and number
+            const phoneDisplay = [person.phoneNumberPrefix,"-" , person.phoneNumber]
+                .filter(p => p)
+                .join('');
+
+            return `
+                <div class="person-result-item" 
+                     data-person-id="${person.id}"
+                     style="
+                         padding: 12px;
+                         border-bottom: 1px solid #dee2e6;
+                         cursor: pointer;
+                         direction: rtl;
+                         transition: background 0.2s;
+                     "
+                     onmouseover="this.style.background='#f8f9fa'"
+                     onmouseout="this.style.background='white'">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; align-items: center;">
+                        <div>
+                           <!-- <div style="color: #6c757d; font-size: 0.85em; margin-bottom: 2px;">שם פרטי</div> -->
+                            <div style="font-weight: 600;">${person.firstName || '-'}</div>
+                        </div>
+                        <div>
+                          <!--   <div style="color: #6c757d; font-size: 0.85em; margin-bottom: 2px;">שם משפחה</div> -->
+                            <div style="font-weight: 600;">${person.lastName || '-'}</div>
+                        </div>
+                        <div>
+                         <!--    <div style="color: #6c757d; font-size: 0.85em; margin-bottom: 2px;">טלפון</div> -->
+                            <div style="direction: ltr; text-align: right;">${phoneDisplay || '-'}</div>
+                        </div>
+                        <div>
+                          <!--   <div style="color: #6c757d; font-size: 0.85em; margin-bottom: 2px;">תפקיד</div> -->
+                            <div>${person.position || '-'}</div>
+                        </div>
+                    </div>
                 </div>
-                ${person.position ? `
-                    <div style="color: #6c757d; font-size: 0.9em;">
-                        תפקיד: ${person.position}
-                    </div>
-                ` : ''}
-                ${person.phoneNumber ? `
-                    <div style="color: #6c757d; font-size: 0.9em;">
-                        טלפון: ${person.phoneNumberPrefix || ''}${person.phoneNumber}
-                    </div>
-                ` : ''}
-            </div>
-        `).join('');
+            `;
+        }).join('');
 
         resultsContainer.innerHTML = resultsHTML;
 
@@ -437,7 +449,7 @@ const PersonManagement = {
             };
         });
     },
-
+    
     /**
      * Select person from search results
      */
@@ -699,6 +711,12 @@ const PersonManagement = {
             alert('כתובת דוא"ל לא תקינה');
             document.getElementById('newPersonEmail')?.focus();
             return;
+        }
+
+                // Set correct position based on person type
+        let finalPosition = position;
+        if (personType === 'inspector') {
+            finalPosition = 'מפקח';
         }
 
         console.log('➕ Creating new person:', { firstName, lastName, position });

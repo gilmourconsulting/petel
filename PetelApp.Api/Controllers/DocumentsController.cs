@@ -35,12 +35,12 @@ public async Task<IActionResult> GetDocumentsByEntity(
         
         // Use session values if not provided in query
         int effectiveEntityId = entityId ?? 
-            (int.TryParse(session.GetProperty("SelectedSchoolId"), out var sessionSchoolId) 
+            (int.TryParse(session.GetProperty("SelectedSchoolId") ?? "", out var sessionSchoolId) 
                 ? sessionSchoolId 
                 : int.Parse(session.EntityId));
         
         int? effectiveYearId = yearId ?? 
-            (int.TryParse(session.GetProperty("SelectedYearId"), out var sessionYearId) 
+            (int.TryParse(session.GetProperty("SelectedYearId") ?? "", out var sessionYearId) 
                 ? sessionYearId 
                 : (int?)null);
 
