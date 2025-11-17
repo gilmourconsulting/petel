@@ -1498,6 +1498,26 @@ body {
 }
 
 
+.autocomplete-arrow {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid #6b7280;
+    pointer-events: none;
+    opacity: 0.7;
+    transition: transform 0.2s ease;
+}
+
+/* Rotate arrow when dropdown is open */
+.autocomplete-dropdown.show ~ .autocomplete-arrow {
+    transform: translateY(-50%) rotate(180deg);
+}
+
 /* School Classes Edit Mode - Select Dropdown Styling */
 .class-row select.class-level,
 #classesTableContainer select[data-field="level"] {

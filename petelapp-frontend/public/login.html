@@ -1,218 +1,23 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>כניסה למערכת</title>
-        <script src="bootstrap-config.js"></script>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    <script src="bootstrap-config.js"></script>
+    <!-- Load styles -->
+    <link rel="stylesheet" href="theme.css">
+    <link rel="stylesheet" href="login.css">
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            direction: rtl;
-        }
-
-        .login-container {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-            padding: 40px;
-            width: 100%;
-            max-width: 420px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            position: relative;
-        }
-
-        .logo {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            width: 60px;
-            height: 60px;
-            z-index: 10;
-        }
-
-        .logo img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-        }
-
-        .login-header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-
-        .login-title {
-            color: #333;
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .login-subtitle {
-            color: #666;
-            font-size: 14px;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-            position: relative;
-        }
-
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            color: #333;
-            font-weight: 500;
-            font-size: 14px;
-        }
-
-        .form-input, .form-select {
-            width: 100%;
-            padding: 12px 16px;
-            border: 2px solid #e1e5e9;
-            border-radius: 10px;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            background: white;
-            direction: rtl;
-        }
-
-        .form-input:focus, .form-select:focus {
-            outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        .form-select {
-            cursor: pointer;
-            appearance: none;
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-            background-position: left 12px center;
-            background-repeat: no-repeat;
-            background-size: 16px;
-            padding-left: 40px;
-        }
-
-        .login-button {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 10px;
-        }
-
-        .login-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
-        }
-
-        .login-button:active {
-            transform: translateY(0);
-        }
-
-        .login-button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .error-message {
-            background: #fee;
-            color: #c53030;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-right: 4px solid #e53e3e;
-            font-size: 14px;
-            display: none;
-            transition: all 0.3s ease;
-        }
-
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-            margin-left: 10px;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        .credentials-section {
-            transition: all 0.4s ease;
-            opacity: 0;
-            max-height: 0;
-            overflow: hidden;
-        }
-
-        .credentials-section.show {
-            opacity: 1;
-            max-height: 200px;
-        }
-
-        .entity-info {
-            background: #f8f9ff;
-            border: 1px solid #e1e8ff;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .entity-info.show {
-            display: block;
-        }
-
-        .entity-name {
-            font-weight: 600;
-            color: #4f46e5;
-            margin-bottom: 4px;
-        }
-
-        .form-footer {
-            text-align: center;
-            margin-top: 20px;
-            color: #666;
-            font-size: 12px;
-        }
-
-        @keyframes errorShake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-5px); }
-            75% { transform: translateX(5px); }
-        }
-    </style>
 </head>
+
 <body>
     <div class="login-container">
         <div class="logo">
             <img src="petel_logo.png" alt="לוגו המערכת" />
         </div>
-        
+
         <div class="login-header">
             <h1 class="login-title">כניסה למערכת</h1>
             <p class="login-subtitle">בחר את הארגון שלך ולאחר מכן הזן את פרטי ההתחברות</p>
@@ -240,9 +45,13 @@
         <form id="loginForm">
             <div class="form-group">
                 <label for="entity" class="form-label">בית ספר/עיריה/רשת</label>
-                <select id="entity" name="entity" class="form-select" required>
-                    <option value="">בחר ישות...</option>
-                </select>
+                <div class="autocomplete-container">
+                    <input type="text" id="entityAutocomplete" class="autocomplete-input"
+                        placeholder="הזן לפחות 3 תווים לחיפוש..." autocomplete="off" required>
+                    <div class="autocomplete-arrow"></div>
+                    <div class="autocomplete-dropdown" id="entityDropdown"></div>
+                </div>
+                <input type="hidden" id="entity" name="entity">
                 <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">
                     בחר את הארגון שלך לפני הזנת פרטי ההתחברות
                 </small>
@@ -251,12 +60,14 @@
             <div class="credentials-section" id="credentialsSection" style="display: none;">
                 <div class="form-group">
                     <label for="username" class="form-label">שם משתמש</label>
-                    <input type="text" id="username" name="username" class="form-input" autocomplete="username"required>
+                    <input type="text" id="username" name="username" class="form-input" autocomplete="username"
+                        required>
                 </div>
 
                 <div class="form-group">
                     <label for="password" class="form-label">סיסמה</label>
-                    <input type="password" id="password" name="password" class="form-input" autocomplete="current-password" required >
+                    <input type="password" id="password" name="password" class="form-input"
+                        autocomplete="current-password" required>
                 </div>
             </div>
 
@@ -274,7 +85,7 @@
         // ✅ SECURE: Dynamic configuration loaded from backend
         let AppConfig = {
             apiBaseUrl: null,  // Will be loaded from server
-            
+
             getApiUrl(endpoint) {
                 if (!this.apiBaseUrl) {
                     console.error('❌ AppConfig not initialized');
@@ -287,44 +98,210 @@
             }
         };
 
-        
+
         // ✅ SECURE: Load configuration before app starts
         async function initializeAppConfig() {
             try {
                 console.log('🔄 Loading configuration from backend...');
                 const configUrl = window.BootstrapConfig.getConfigUrl();
-                
+
                 // Use relative path to avoid chicken-egg problem
                 const response = await fetch(configUrl);
-                
+
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
-                
+
                 const config = await response.json();
-                
+
                 // Update AppConfig with server values
                 AppConfig.apiBaseUrl = config.apiBaseUrl;
-                
+
                 console.log('✅ Configuration loaded:', {
                     apiBaseUrl: AppConfig.apiBaseUrl,
                     environment: config.environment
                 });
-                
+
                 return true;
             } catch (error) {
                 console.error('❌ Failed to load configuration:', error);
-                
+
                 // ✅ SECURE: Fail to safe defaults
                 AppConfig.apiBaseUrl = window.BootstrapConfig.getBackendUrl();
-                
+
                 console.warn('⚠️ Using fallback configuration:', {
                     apiBaseUrl: AppConfig.apiBaseUrl
                 });
-                
+
                 return false;
             }
         }
+
+        // Autocomplete functionality
+        class EntityAutocomplete {
+            constructor(inputId, dropdownId, hiddenInputId) {
+                this.input = document.getElementById(inputId);
+                this.dropdown = document.getElementById(dropdownId);
+                this.hiddenInput = document.getElementById(hiddenInputId);
+                this.entities = [];
+                this.selectedIndex = -1;
+                this.selectedEntity = null;
+                this.minChars = 3;
+
+                this.init();
+            }
+
+            init() {
+                // Input events
+                this.input.addEventListener('input', () => this.handleInput());
+                this.input.addEventListener('focus', () => this.handleFocus());
+                this.input.addEventListener('keydown', (e) => this.handleKeyboard(e));
+
+                // Click outside to close
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.autocomplete-container')) {
+                        this.hideDropdown();
+                    }
+                });
+            }
+
+            setEntities(entities) {
+                this.entities = entities;
+                this.renderOptions(entities);
+            }
+
+            handleFocus() {
+                const searchTerm = this.input.value.trim();
+
+                // Only show dropdown if minimum characters entered
+                if (searchTerm.length >= this.minChars) {
+                    this.handleInput();
+                } else {
+                    this.dropdown.innerHTML = `<div class="autocomplete-no-results">הזן לפחות ${this.minChars} תווים לחיפוש</div>`;
+                    this.showDropdown();
+                }
+            }
+
+            handleInput() {
+                const searchTerm = this.input.value.trim();
+
+                // ✅ Require minimum characters based on setting
+                if (searchTerm.length < this.minChars) {
+                    this.dropdown.innerHTML = `<div class="autocomplete-no-results">הזן לפחות ${this.minChars} תווים לחיפוש</div>`;
+                    this.showDropdown();
+                    return;
+                }
+
+                const searchTermLower = searchTerm.toLowerCase();
+
+                const filtered = this.entities.filter(entity =>
+                    entity.name.toLowerCase().includes(searchTermLower)
+                );
+
+                this.renderOptions(filtered);
+                this.showDropdown();
+            }
+
+            renderOptions(entities) {
+                this.selectedIndex = -1;
+
+                if (entities.length === 0) {
+                    this.dropdown.innerHTML = '<div class="autocomplete-no-results">לא נמצאו תוצאות</div>';
+                    return;
+                }
+
+                this.dropdown.innerHTML = entities.map((entity, index) => `
+                    <div class="autocomplete-option" 
+                         data-index="${index}" 
+                         data-id="${entity.id}"
+                         data-name="${entity.name}">
+                        ${entity.name}
+                    </div>
+                `).join('');
+
+                // Add click handlers
+                this.dropdown.querySelectorAll('.autocomplete-option').forEach(option => {
+                    option.addEventListener('click', () => {
+                        this.selectEntity(option.dataset.id, option.dataset.name);
+                    });
+                });
+            }
+
+            handleKeyboard(e) {
+                const options = this.dropdown.querySelectorAll('.autocomplete-option');
+
+                if (!options.length) return;
+
+                switch (e.key) {
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        this.selectedIndex = Math.min(this.selectedIndex + 1, options.length - 1);
+                        this.highlightOption();
+                        break;
+
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        this.selectedIndex = Math.max(this.selectedIndex - 1, 0);
+                        this.highlightOption();
+                        break;
+
+                    case 'Enter':
+                        e.preventDefault();
+                        if (this.selectedIndex >= 0) {
+                            const option = options[this.selectedIndex];
+                            this.selectEntity(option.dataset.id, option.dataset.name);
+                        }
+                        break;
+
+                    case 'Escape':
+                        this.hideDropdown();
+                        break;
+                }
+            }
+
+            highlightOption() {
+                const options = this.dropdown.querySelectorAll('.autocomplete-option');
+                options.forEach((opt, idx) => {
+                    opt.classList.toggle('highlighted', idx === this.selectedIndex);
+                });
+
+                // Scroll into view
+                if (this.selectedIndex >= 0) {
+                    options[this.selectedIndex].scrollIntoView({ block: 'nearest' });
+                }
+            }
+
+            selectEntity(id, name) {
+                this.selectedEntity = { id, name };
+                this.input.value = name;
+                this.hiddenInput.value = id;
+                this.hideDropdown();
+
+                // Trigger change event
+                const event = new CustomEvent('entitySelected', {
+                    detail: { id, name }
+                });
+                this.input.dispatchEvent(event);
+            }
+
+            showDropdown() {
+                this.dropdown.classList.add('show');
+            }
+
+            hideDropdown() {
+                this.dropdown.classList.remove('show');
+            }
+
+            clear() {
+                this.input.value = '';
+                this.hiddenInput.value = '';
+                this.selectedEntity = null;
+                this.renderOptions(this.entities);
+            }
+        }
+
+        // Initialize autocomplete
+        let entityAutocomplete;
 
         // Elements
         const entitySelect = document.getElementById('entity');
@@ -334,22 +311,35 @@
         const errorMessage = document.getElementById('errorMessage');
 
         // ✅ Initialize config BEFORE loading any data
-        document.addEventListener('DOMContentLoaded', async function() {
+        document.addEventListener('DOMContentLoaded', async function () {
+
+            // Initialize autocomplete
+            entityAutocomplete = new EntityAutocomplete(
+                'entityAutocomplete',
+                'entityDropdown',
+                'entity'
+            );
+
+            // Listen for entity selection
+            document.getElementById('entityAutocomplete').addEventListener('entitySelected', (e) => {
+                handleEntitySelection(e.detail.id);
+            });
+
             // Step 1: Load configuration
             const configLoaded = await initializeAppConfig();
-            
+
             if (!configLoaded) {
                 showError('שגיאה בטעינת הגדרות המערכת. המערכת תמשיך עם הגדרות ברירת מחדל.');
             }
-            
+
             // Step 2: Load entities and system version (now with correct URLs)
             loadEntities();
             loadSystemVersion();
-            
+
             // Step 3: Check for error parameters
             const urlParams = new URLSearchParams(window.location.search);
             const error = urlParams.get('error');
-            
+
             if (error === 'session_expired') {
                 showError('פג תוקף ההתחברות. אנא התחבר מחדש.');
             }
@@ -359,46 +349,46 @@
         function setEntityContext(entityId) {
             // Parse to ensure it's a clean integer string
             const cleanEntityId = parseInt(entityId).toString();
-            
+
             // Store entity ID for subsequent API calls
             sessionStorage.setItem('selectedEntityId', cleanEntityId);
-            
+
             console.log('Entity context set:', cleanEntityId);
         }
 
         // Handle entity selection
-        entitySelect.addEventListener('change', function() {
+        entitySelect.addEventListener('change', function () {
             const selectedEntityId = this.value;
-            
+
             if (selectedEntityId) {
                 // Parse to integer to remove any padding
                 const entityIdInt = parseInt(selectedEntityId);
                 const entityIdString = entityIdInt.toString();
-                
+
                 console.log('Entity selected:', {
                     originalValue: selectedEntityId,
                     parsedInt: entityIdInt,
                     finalString: entityIdString
                 });
-                
+
                 // Update step indicator
                 document.getElementById('step1').classList.add('completed');
                 document.getElementById('step1').classList.remove('active');
                 document.getElementById('step2').classList.add('active');
-                
+
                 // Show credentials section with animation
                 credentialsSection.style.display = 'block';
                 setTimeout(() => {
                     credentialsSection.classList.add('show');
                 }, 100);
-                
+
                 // Enable login button
                 loginButton.disabled = false;
                 loginButton.textContent = 'התחבר';
-                
+
                 // Set entity context for API calls (use parsed integer)
                 setEntityContext(entityIdString);
-                
+
                 // Focus on username field
                 setTimeout(() => {
                     document.getElementById('username').focus();
@@ -409,83 +399,94 @@
                 document.getElementById('step1').classList.add('active');
                 document.getElementById('step2').classList.remove('active');
                 document.getElementById('step3').classList.remove('active');
-                
+
                 // Hide credentials section
                 credentialsSection.classList.remove('show');
                 setTimeout(() => {
                     credentialsSection.style.display = 'none';
                 }, 400);
-                
+
                 loginButton.disabled = true;
                 loginButton.textContent = 'בחר ישות תחילה';
             }
         });
+
+        function handleEntitySelection(entityId) {
+            const cleanEntityId = parseInt(entityId).toString();
+
+            console.log('Entity selected:', cleanEntityId);
+
+            // Update step indicator
+            document.getElementById('step1').classList.add('completed');
+            document.getElementById('step1').classList.remove('active');
+            document.getElementById('step2').classList.add('active');
+
+            // Show credentials section
+            credentialsSection.style.display = 'block';
+            setTimeout(() => {
+                credentialsSection.classList.add('show');
+            }, 100);
+
+            // Enable login button
+            loginButton.disabled = false;
+            loginButton.textContent = 'התחבר';
+
+            // Store entity context
+            sessionStorage.setItem('selectedEntityId', cleanEntityId);
+
+            // Focus username
+            setTimeout(() => {
+                document.getElementById('username').focus();
+            }, 500);
+        }
 
         // Load entities from database
         async function loadEntities() {
             try {
                 // Use AppConfig for API URL
                 const apiUrl = AppConfig.getApiUrl('entities/login');
-                
+
                 console.log('Loading entities from:', apiUrl);
-                
+
                 const response = await fetch(apiUrl);
-                
+
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
-                
+
                 const result = await response.json();
-                
+
                 // Check if the response has the expected structure
                 const entities = result.data || result;
-                
+
                 if (!entities || !Array.isArray(entities) || entities.length === 0) {
                     console.log('No entities found');
 
                     return;
                 }
-                
-                // Clear existing options except the first one
-                while (entitySelect.options.length > 1) {
-                    entitySelect.remove(1);
-                }
-                
-                entities.forEach(entity => {
-                    const option = document.createElement('option');
-                    // Ensure ID is stored as integer, not string with padding
-                    option.value = parseInt(entity.id).toString();
-                    option.textContent = entity.name;
-                    entitySelect.appendChild(option);
-                    
-                    // Debug logging
-                    console.log('Added entity:', { 
-                        originalId: entity.id, 
-                        parsedId: parseInt(entity.id), 
-                        finalValue: option.value,
-                        name: entity.name 
-                    });
-                });
-                
+
+                // Set entities in autocomplete
+                entityAutocomplete.setEntities(entities);
+
                 console.log('Successfully loaded', entities.length, 'entities from database');
             } catch (error) {
                 console.error('Error loading entities:', error);
                 showError('שגיאה בטעינת הישויות');
-                
+
                 // Fallback to mock data for testing
                 console.log('No data for entities found');
 
             }
         }
-        
 
-   
+
+
 
         // Enhance the error display function for better visibility
         function showError(message) {
             errorMessage.textContent = message;
             errorMessage.style.display = 'block';
-            
+
             // Add subtle animation for better user attention
             errorMessage.style.animation = 'none';
             setTimeout(() => {
@@ -498,111 +499,112 @@
         }
 
         // Load system version from database
-async function loadSystemVersion() {
-    try {
-        // ✅ Get all system attributes and find id=1
-        const apiUrl = AppConfig.getApiUrl('systemattributes');
-        const response = await fetch(apiUrl);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        
-        const attributes = await response.json();
-        
-        // Find attribute with id=1 (handle both lowercase and PascalCase)
-        const versionAttr = attributes.find(attr => 
-            (attr.id === 1 || attr.Id === 1)
-        );
-        
-        if (versionAttr) {
-            const version = versionAttr.value || versionAttr.Value || 'Latest';
-            document.getElementById('systemVersion').textContent = version;
-            console.log('System version (id=1) loaded:', version);
-        } else {
-            console.log('System version attribute (id=1) not found');
-            document.getElementById('systemVersion').textContent = "Latest";
-        }
-        
-    } catch (error) {
-        console.error('Error loading system version:', error);
-        document.getElementById('systemVersion').textContent = "Latest";
-    }
-}
+        async function loadSystemVersion() {
+            try {
+                // ✅ Get all system attributes and find id=1
+                const apiUrl = AppConfig.getApiUrl('systemattributes');
+                const response = await fetch(apiUrl);
 
-        
-  
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
 
-loginForm.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    const entityId = document.getElementById('entity').value;
-    
-    if (!username || !password || !entityId) {
-        showError('אנא מלא את כל השדות');
-        return;
-    }
+                const attributes = await response.json();
 
-    loginButton.disabled = true;
-    loginButton.innerHTML = 'מתחבר... <span class="loading"></span>';
-    hideError();
+                // Find attribute with id=1 (handle both lowercase and PascalCase)
+                const versionAttr = attributes.find(attr =>
+                    (attr.id === 1 || attr.Id === 1)
+                );
 
-    try {
-        document.getElementById('step2').classList.add('completed');
-        document.getElementById('step2').classList.remove('active');
-        document.getElementById('step3').classList.add('active');
-        
-        const loginData = {
-            username: username.trim(),
-            password: password,
-            entityId: parseInt(entityId)
-        };
+                if (versionAttr) {
+                    const version = versionAttr.value || versionAttr.Value || 'Latest';
+                    document.getElementById('systemVersion').textContent = version;
+                    console.log('System version (id=1) loaded:', version);
+                } else {
+                    console.log('System version attribute (id=1) not found');
+                    document.getElementById('systemVersion').textContent = "Latest";
+                }
 
-        const response = await fetch(AppConfig.getApiUrl('auth/login'), {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(loginData)
-        });
-
-        const data = await response.json();
-        console.log('Login response:', data);
-        
-        if (!response.ok) {
-            if (response.status === 401) {
-                throw new Error('שם משתמש או סיסמה שגויים');
-            } else if (response.status === 400) {
-                throw new Error(data.message || 'נתונים שגויים בטופס');
-            } else {
-                throw new Error(data.message || 'שגיאה בהתחברות');
+            } catch (error) {
+                console.error('Error loading system version:', error);
+                document.getElementById('systemVersion').textContent = "Latest";
             }
         }
-        
-        if (data.success && data.token) {
-            // ✅ Store ONLY auth token (Frontend Token-Only Storage pattern)
-            sessionStorage.setItem('authToken', data.token);
-            
-            console.log('Login successful, token stored, redirecting to dashboard');
-            window.location.href = 'index.html';
-        } else {
-            throw new Error(data.message || 'שגיאה בהתחברות');
-        }
-    } catch (error) {
-        console.error('Login error:', error);
-        document.getElementById('step3').classList.remove('active');
-        document.getElementById('step2').classList.add('active');
-        showError(error.message || 'שם משתמש או סיסמה שגויים. אנא נסה שוב.');
-        
-        document.getElementById('password').focus();
-        document.getElementById('password').select();
-    } finally {
-        loginButton.disabled = false;
-        loginButton.innerHTML = 'התחבר';
-    }
-});
+
+
+
+
+        loginForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const entityId = document.getElementById('entity').value;
+
+            if (!username || !password || !entityId) {
+                showError('אנא מלא את כל השדות');
+                return;
+            }
+
+            loginButton.disabled = true;
+            loginButton.innerHTML = 'מתחבר... <span class="loading"></span>';
+            hideError();
+
+            try {
+                document.getElementById('step2').classList.add('completed');
+                document.getElementById('step2').classList.remove('active');
+                document.getElementById('step3').classList.add('active');
+
+                const loginData = {
+                    username: username.trim(),
+                    password: password,
+                    entityId: parseInt(entityId)
+                };
+
+                const response = await fetch(AppConfig.getApiUrl('auth/login'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(loginData)
+                });
+
+                const data = await response.json();
+                console.log('Login response:', data);
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        throw new Error('שם משתמש או סיסמה שגויים');
+                    } else if (response.status === 400) {
+                        throw new Error(data.message || 'נתונים שגויים בטופס');
+                    } else {
+                        throw new Error(data.message || 'שגיאה בהתחברות');
+                    }
+                }
+
+                if (data.success && data.token) {
+                    // ✅ Store ONLY auth token (Frontend Token-Only Storage pattern)
+                    sessionStorage.setItem('authToken', data.token);
+
+                    console.log('Login successful, token stored, redirecting to dashboard');
+                    window.location.href = 'index.html';
+                } else {
+                    throw new Error(data.message || 'שגיאה בהתחברות');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                document.getElementById('step3').classList.remove('active');
+                document.getElementById('step2').classList.add('active');
+                showError(error.message || 'שם משתמש או סיסמה שגויים. אנא נסה שוב.');
+
+                document.getElementById('password').focus();
+                document.getElementById('password').select();
+            } finally {
+                loginButton.disabled = false;
+                loginButton.innerHTML = 'התחבר';
+            }
+        });
     </script>
 </body>
+
 </html>
