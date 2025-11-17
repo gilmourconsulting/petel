@@ -28,7 +28,7 @@ namespace PetelApp.Api.Data
         public string? Description { get; set; }
         
         [Column("update_user")]
-        public string? UpdateUser { get; set; }
+        public int? UpdateUser { get; set; }
         
         [Column("foreign_id")]
         public int? ForeignId { get; set; }  // Changed from string to int?

@@ -34,7 +34,7 @@ namespace PetelApp.Api.Models
         /// <summary>
         /// User who last updated the attribute
         /// </summary>
-        public string UpdateUser { get; set; } = string.Empty;
+        public int? UpdateUser { get; set; }
         
         /// <summary>
         /// Optional foreign key reference

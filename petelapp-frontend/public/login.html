@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>כניסה למערכת</title>
+        <script src="bootstrap-config.js"></script>
     <style>
         * {
             margin: 0;
@@ -250,12 +251,12 @@
             <div class="credentials-section" id="credentialsSection" style="display: none;">
                 <div class="form-group">
                     <label for="username" class="form-label">שם משתמש</label>
-                    <input type="text" id="username" name="username" class="form-input" required>
+                    <input type="text" id="username" name="username" class="form-input" autocomplete="username"required>
                 </div>
 
                 <div class="form-group">
                     <label for="password" class="form-label">סיסמה</label>
-                    <input type="password" id="password" name="password" class="form-input" required>
+                    <input type="password" id="password" name="password" class="form-input" autocomplete="current-password" required >
                 </div>
             </div>
 
@@ -270,14 +271,60 @@
     </div>
 
     <script>
-        // For API communication following project pattern
-        const AppConfig = {
-            apiBaseUrl: 'http://localhost:5082/api',
+        // ✅ SECURE: Dynamic configuration loaded from backend
+        let AppConfig = {
+            apiBaseUrl: null,  // Will be loaded from server
             
             getApiUrl(endpoint) {
-                return `${this.apiBaseUrl}/${endpoint}`;
+                if (!this.apiBaseUrl) {
+                    console.error('❌ AppConfig not initialized');
+                    // Fallback to bootstrap URL
+                    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+                    return `${window.BootstrapConfig.getBackendUrl()}/api/${cleanEndpoint}`;
+                }
+                const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+                return `${this.apiBaseUrl}/api/${cleanEndpoint}`;
             }
         };
+
+        
+        // ✅ SECURE: Load configuration before app starts
+        async function initializeAppConfig() {
+            try {
+                console.log('🔄 Loading configuration from backend...');
+                const configUrl = window.BootstrapConfig.getConfigUrl();
+                
+                // Use relative path to avoid chicken-egg problem
+                const response = await fetch(configUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const config = await response.json();
+                
+                // Update AppConfig with server values
+                AppConfig.apiBaseUrl = config.apiBaseUrl;
+                
+                console.log('✅ Configuration loaded:', {
+                    apiBaseUrl: AppConfig.apiBaseUrl,
+                    environment: config.environment
+                });
+                
+                return true;
+            } catch (error) {
+                console.error('❌ Failed to load configuration:', error);
+                
+                // ✅ SECURE: Fail to safe defaults
+                AppConfig.apiBaseUrl = window.BootstrapConfig.getBackendUrl();
+                
+                console.warn('⚠️ Using fallback configuration:', {
+                    apiBaseUrl: AppConfig.apiBaseUrl
+                });
+                
+                return false;
+            }
+        }
 
         // Elements
         const entitySelect = document.getElementById('entity');
@@ -286,12 +333,20 @@
         const loginButton = document.getElementById('loginButton');
         const errorMessage = document.getElementById('errorMessage');
 
-        // Load entities on page load
-        document.addEventListener('DOMContentLoaded', function() {
+        // ✅ Initialize config BEFORE loading any data
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Step 1: Load configuration
+            const configLoaded = await initializeAppConfig();
+            
+            if (!configLoaded) {
+                showError('שגיאה בטעינת הגדרות המערכת. המערכת תמשיך עם הגדרות ברירת מחדל.');
+            }
+            
+            // Step 2: Load entities and system version (now with correct URLs)
             loadEntities();
             loadSystemVersion();
             
-            // Check for error parameter following Security Patterns
+            // Step 3: Check for error parameters
             const urlParams = new URLSearchParams(window.location.search);
             const error = urlParams.get('error');
             
@@ -386,8 +441,8 @@
                 const entities = result.data || result;
                 
                 if (!entities || !Array.isArray(entities) || entities.length === 0) {
-                    console.log('No entities found, using mock data');
-                    loadMockEntities();
+                    console.log('No entities found');
+
                     return;
                 }
                 
@@ -418,8 +473,8 @@
                 showError('שגיאה בטעינת הישויות');
                 
                 // Fallback to mock data for testing
-                console.log('Falling back to mock data');
-                loadMockEntities();
+                console.log('No data for entities found');
+
             }
         }
         
