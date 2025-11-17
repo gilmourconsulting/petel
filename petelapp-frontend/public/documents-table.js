@@ -118,18 +118,6 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
 
                 this.documentTypes = await response.json();
 
-                /*   if (this.options.showUploadForm) {
-                       const selectElement = document.getElementById(`${this.containerId}_documentTypeSelect`);
-                       if (selectElement) {
-                           this.documentTypes.forEach(type => {
-                               const option = document.createElement('option');
-                               option.value = type.id;
-                               option.textContent = type.description;
-                               selectElement.appendChild(option);
-                           });
-                       }
-                   }*/
-
                 console.log('✅ Document types loaded:', this.documentTypes.length);
             } catch (error) {
                 console.error('❌ Error loading document types:', error);
@@ -173,21 +161,42 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
                 console.log('📊 Loading documents table...');
         
                 const token = sessionStorage.getItem('authToken');
+
+                let url = '';
         
-                // Build URL with query parameters if entityId/yearId provided
-                let url = AppConfig.getApiUrl('documents/by-entity');
-                const params = new URLSearchParams();
-        
-                if (this.options.entityId) {
+                if (this.options.entityType === 'student') {
+                    // Use by-student-id endpoint
+                    url = AppConfig.getApiUrl('documents/by-student-id');
+                    const params = new URLSearchParams();
+                    if (this.options.entityId) {
                     params.append('entityId', this.options.entityId);
-                }
-                if (this.options.yearId) {
-                    params.append('yearId', this.options.yearId);
-                }
-        
-                if (params.toString()) {
+                    }
+
+                                    if (params.toString()) {
                     url += '?' + params.toString();
                 }
+                }
+
+                else if (this.options.entityType === 'school' || this.options.entityType === 'entity') {
+                // Build URL with query parameters if entityId/yearId provided
+                    url = AppConfig.getApiUrl('documents/by-entity');
+                    const params = new URLSearchParams();
+            
+                    if (this.options.entityId) {
+                        params.append('entityId', this.options.entityId);
+                    }
+                    if (this.options.yearId) {
+                        params.append('yearId', this.options.yearId);
+                    }
+
+                                    if (params.toString()) {
+                    url += '?' + params.toString();
+                }
+                } else {
+            throw new Error(`Unknown entity type: ${this.options.entityType}`);
+        }
+        
+
         
                 console.log('📡 Fetching documents from:', url);
         

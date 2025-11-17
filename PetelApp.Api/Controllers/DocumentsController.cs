@@ -85,6 +85,63 @@ public async Task<IActionResult> GetDocumentsByEntity(
         return StatusCode(500, new { error = "שגיאה בטעינת המסמכים" });
     }
 }
+
+
+ /// <summary>
+/// Get documents by entity (school) and year
+/// </summary>
+[HttpGet("by-student-id")]
+public async Task<IActionResult> GetDocumentsByStudentId(
+    [FromQuery] int? studentId = null)
+{
+    try
+    {
+        var session = GetCurrentSession();
+        
+        // Use session values if not provided in query
+        int effectiveStudentId = studentId ?? 
+            (int.TryParse(session.GetProperty("SelectedStudentId") ?? "", out var sessionStudentId) 
+                ? sessionStudentId 
+                : throw new Exception("No student ID provided and none in session"));
+        
+
+        _logger.LogInformation("Fetching documents for studentId: {StudentId}", 
+            effectiveStudentId);
+
+        var query = _context.Documents
+            .Include(d => d.DocumentLinks)
+            .Include(d => d.DocumentType)
+            .Where(d => d.DocumentLinks.Any(dl => dl.SchoolStudentId == effectiveStudentId));
+
+        var documents = await query
+            .Where(d => d.IsLastVersion)
+            .OrderByDescending(d => d.CreatedAt)
+            .Select(d => new
+            {
+                d.Id,
+                d.Description,
+                DocumentType = d.DocumentType.Name,
+                DocumentTypeId = d.DocumentTypeId,
+                StatusName = _context.Set<DocumentStatusType>()
+                    .Where(s => s.Id == d.StatusId)
+                    .Select(s => s.Name)
+                    .FirstOrDefault() ?? "לא מוגדר",
+                CreatedAt = d.CreatedAt,
+                FileSize = d.FileBlob != null ? d.FileBlob.Length : 0,
+                HasFile = d.FileBlob != null
+            })
+            .ToListAsync();
+
+        _logger.LogInformation("Retrieved {Count} documents", documents.Count);
+        return Ok(documents);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error retrieving documents");
+        return StatusCode(500, new { error = "שגיאה בטעינת המסמכים" });
+    }
+}
+
         /// <summary>
         /// Download document file
         /// </summary>
