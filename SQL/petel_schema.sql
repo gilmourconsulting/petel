@@ -1,6 +1,6 @@
 -- ============================================
 -- Schema DDL Export: petel_schema
--- Generated: 2025-11-16 12:33:00.119347+02
+-- Generated: 2025-11-17 18:38:06.42101+02
 -- ============================================
 
 
@@ -85,7 +85,7 @@ CREATE TABLE petel_schema.entities (
     principal_name character varying(255),
     api_connection_id character varying(255),
     is_active boolean DEFAULT true,
-    school_logo bytea,
+    entity_logo bytea,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
     owner integer(32,0),
@@ -95,7 +95,8 @@ CREATE TABLE petel_schema.entities (
     contact_person character varying(50),
     education_stage character varying(25),
     symbol character(8),
-    characterization_id integer(32,0)
+    characterization_id integer(32,0),
+    tax_number character varying(20)
 );
 
 
@@ -424,8 +425,8 @@ CREATE TABLE petel_schema.system_attributes (
     description character varying(50) NOT NULL,
     value character varying(25) NOT NULL,
     value_type character varying(25),
-    created_at timestamp with time zone,
-    updated_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
     name character varying(50),
     update_user integer(32,0),
     foreign_id integer(32,0)

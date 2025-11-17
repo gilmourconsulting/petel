@@ -417,6 +417,7 @@
                 const userNameElement = document.getElementById('userName');
                 const entityNameElement = document.getElementById('entityName');
                 const entityTypeElement = document.getElementById('entityType');
+                const entityLogoElement = document.getElementById('entityLogo');
 
                 if (userNameElement) {
                     userNameElement.textContent = session.userFullName || '';
@@ -427,6 +428,31 @@
                 if (entityTypeElement) {
                     entityTypeElement.textContent = session.entityTypeName || '';
                 }
+
+                        // Load entity logo
+        if (entityLogoElement && session.entityId) {
+            try {
+                const token = sessionStorage.getItem('authToken');
+                const logoUrl = AppConfig.getApiUrl(`entities/${session.entityId}/logo`);
+                
+                const logoResponse = await fetch(logoUrl, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (logoResponse.ok) {
+                    const logoBlob = await logoResponse.blob();
+                    const logoObjectUrl = URL.createObjectURL(logoBlob);
+                    entityLogoElement.innerHTML = `<img src="${logoObjectUrl}" alt="לוגו הישות" style="width: 40px; height: 40px; object-fit: contain; border-radius: 4px;">`;
+                } else {
+                    // Keep default emoji if logo not found
+                    console.log('Entity logo not found, using default');
+                }
+            } catch (logoError) {
+                console.warn('Could not load entity logo:', logoError);
+                // Keep default emoji
+            }
+        }
+        
 
                 console.log('✅ User info loaded from SessionState cache');
 

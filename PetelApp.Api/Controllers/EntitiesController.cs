@@ -56,6 +56,46 @@ namespace PetelApp.Api.Controllers
             }
         }
 
+
+// Add new endpoint to get entity logo
+[HttpGet("{id}/logo")]
+public async Task<IActionResult> GetEntityLogo(int id)
+{
+    try
+    {
+        var session = GetCurrentSession();
+        if (session == null)
+        {
+            return Unauthorized(new { message = "Authentication required" });
+        }
+
+        var entity = await _context.Entities
+            .AsNoTracking()
+            .Where(e => e.Id == id)
+            .Select(e => new { e.Id, e.EntityLogo })
+            .FirstOrDefaultAsync();
+
+        if (entity == null)
+        {
+            return NotFound(new { message = "גוף לא נמצא" });
+        }
+
+        if (entity.EntityLogo == null || entity.EntityLogo.Length == 0)
+        {
+            // Return default logo or 404
+            return NotFound(new { message = "לוגו לא נמצא" });
+        }
+
+        // Return image as byte array
+        return File(entity.EntityLogo, "image/png"); // Adjust MIME type if needed
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error loading entity logo for ID {EntityId}", id);
+        return StatusCode(500, new { message = "שגיאה בטעינת הלוגו", error = ex.Message });
+    }
+}
+
 [HttpGet("schools")]
 public async Task<IActionResult> GetSchools([FromQuery] int? yearId = null)
 {
@@ -422,4 +462,6 @@ public async Task<IActionResult> CreateSchool([FromBody] CreateSchoolDto dto)
         
 
     }
+
+    
 }

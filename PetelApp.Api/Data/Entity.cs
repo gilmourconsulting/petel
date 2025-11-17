@@ -39,6 +39,8 @@ namespace PetelApp.Api.Data
         [Column("inspector_name")]
         public string? InspectorName { get; set; }
 
+[Column("entity_logo")]
+public byte[]? EntityLogo { get; set; }
 
         [Column("characterization_id")]
         public int? CharacterizationId { get; set; }
@@ -53,6 +55,9 @@ namespace PetelApp.Api.Data
         public string? EducationStage { get; set; }
             [Column("owner")]
         public int? OwnerId { get; set; }
+
+                [Column("tax_number")]
+        public string? TaxNumber { get; set; }
 
         [ForeignKey("CharacterizationId")]
         public virtual SpecialNeedsCharacterization? Characterization { get; set; }
