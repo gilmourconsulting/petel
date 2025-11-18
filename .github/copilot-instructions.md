@@ -40,6 +40,366 @@ Backend runs on `http://localhost:5082`, frontend on `http://localhost:3000`
 - Navigation via `navigateTo(section)` function with browser history support
 - School year context retrieved from backend session data
 
+
+### Page Lifecycle Management
+
+**Centralized Navigation System**: All page loading, cleanup, and navigation is managed through the `PageLifecycleManager` with configuration-driven rules.
+
+**Architecture Components**:
+1. **`page-lifecycle-config.js`** - Configuration file defining all pages and navigation rules
+2. **`page-lifecycle-manager.js`** - Core navigation engine handling page lifecycle
+3. **`index.html`** - Application shell providing infrastructure utilities only
+4. Individual page files - Contain page-specific logic and cleanup functions
+
+#### Page Configuration Pattern
+
+**All pages must be registered** in `page-lifecycle-config.js`:
+
+```javascript
+window.PageLifecycleConfig = {
+    pages: {
+        'pagename': {
+            file: 'page.html',              // HTML file to load
+            title: 'עמוד לדוגמה',            // Page title (Hebrew)
+            cleanup: 'cleanupPageName',     // Cleanup function name (or null)
+            init: 'initializePageName',     // Init function name (or null)
+            selfInitializing: false         // true = uses DOMContentLoaded, false = needs explicit init
+        }
+    },
+    
+    navigationRules: [
+        {
+            from: 'sourcepage',             // Page navigating from
+            to: 'targetpage',               // Page navigating to
+            clearSession: [                 // Session keys to clear
+                'SelectedStudentId',
+                'SelectedStudentData'
+            ]
+        },
+        {
+            from: '*',                      // Wildcard - matches any source page
+            to: 'maindashboard',
+            clearSession: [
+                'SelectedStudentId',
+                'SelectedStudentData',
+                'SelectedSchoolId',
+                'SelectedSchoolName'
+            ]
+        }
+    ]
+};
+```
+
+#### Page Types
+
+**Self-Initializing Pages** (`selfInitializing: true`):
+- Initialize via their own `DOMContentLoaded` event handlers
+- `PageLifecycleManager` only loads HTML and executes scripts
+- No explicit init function call needed
+- Examples: `maindashboard`, `schooldashboard`, `schooldetails`, `systemattributes`
+
+```javascript
+// Page configuration
+'maindashboard': {
+    file: 'maindashboard.html',
+    cleanup: null,
+    init: null,
+    selfInitializing: true  // ✅ Handles own initialization
+}
+
+// In maindashboard.html
+document.addEventListener('DOMContentLoaded', function() {
+    // Page initialization logic here
+    loadDashboardCardData('alertsCard');
+    updateContextButtonLabels();
+});
+```
+
+**Explicitly-Initialized Pages** (`selfInitializing: false`):
+- Require explicit function call after loading
+- `PageLifecycleManager` calls the init function after a delay
+- Examples: `students`, `student`, `schoollist`
+
+```javascript
+// Page configuration
+'students': {
+    file: 'students.html',
+    cleanup: 'cleanupStudentsPage',
+    init: 'loadStudentsData',        // ✅ Will be called by lifecycle manager
+    selfInitializing: false
+}
+
+// In students.html
+async function loadStudentsData() {
+    // Fetch and display students
+}
+
+window.loadStudentsData = loadStudentsData;  // Must export to window
+```
+
+#### Page Cleanup Pattern
+
+**Every page with reusable components MUST have a cleanup function**:
+
+```javascript
+// In page.html
+function cleanupPageName() {
+    console.log('🧹 Cleaning up page...');
+    
+    try {
+        // 1. Cleanup component instances
+        if (window.myComponent) {
+            if (typeof window.myComponent.cleanup === 'function') {
+                window.myComponent.cleanup();
+            }
+            window.myComponent = null;
+        }
+        
+        // 2. Remove global references
+        if (window['documentsTableInstance_containerId']) {
+            delete window['documentsTableInstance_containerId'];
+        }
+        
+        // 3. Clear container HTML
+        const container = document.getElementById('myTableContainer');
+        if (container) {
+            container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+        }
+        
+        // 4. Clear page-specific data
+        if (window.currentPageData) {
+            window.currentPageData = null;
+        }
+        
+        console.log('✅ Page cleanup complete');
+    } catch (error) {
+        console.error('❌ Error during cleanup:', error);
+    }
+}
+
+// ✅ MUST export to window for PageLifecycleManager
+window.cleanupPageName = cleanupPageName;
+```
+
+#### Component Variable Scope
+
+**CRITICAL**: Use `window` scope for all component variables to prevent redeclaration errors on page re-entry:
+
+```javascript
+// ❌ WRONG - Will cause "already declared" error on return
+let documentsComponent = null;
+let studentsTable = null;
+
+// ✅ CORRECT - Can be safely reassigned
+window.documentsComponent = window.documentsComponent || null;
+window.studentsTable = window.studentsTable || null;
+
+// OR use conditional declaration
+if (typeof documentsComponent === 'undefined') {
+    var documentsComponent = null;
+}
+```
+
+**Why**: When `PageLifecycleManager` reloads a page, the script is re-executed. Using `let`/`const` in script scope causes redeclaration errors because the variable still exists in memory from the previous visit.
+
+#### Navigation Pattern
+
+**All navigation MUST use `window.navigateTo()`**:
+
+```javascript
+// ✅ CORRECT - Single navigation call
+async function navigateToStudents() {
+    console.log('🔄 Navigating to students...');
+    
+    // Optional: Clear session data (if not in navigationRules)
+    await window.SessionState.setProperty('SelectedStudentId', '');
+    
+    // Navigate - PageLifecycleManager handles everything else
+    if (typeof window.navigateTo === 'function') {
+        await window.navigateTo('students');
+    } else {
+        console.error('❌ window.navigateTo not available');
+    }
+}
+
+// ❌ WRONG - Manual HTML loading
+async function navigateToStudents() {
+    const response = await fetch('students.html');
+    const html = await response.text();
+    document.getElementById('dynamicContent').innerHTML = html;
+    executeScriptsInContainer(...);
+    history.pushState(...);
+    // Missing: cleanup, session rules, state tracking
+}
+```
+
+#### What PageLifecycleManager Handles
+
+When you call `window.navigateTo('targetpage')`, the lifecycle manager automatically:
+
+1. ✅ **Cleanup** - Calls `cleanupCurrentPage()` for the page you're leaving
+2. ✅ **Session Rules** - Clears session data per `navigationRules` configuration
+3. ✅ **Table Cleanup** - Removes all `ReusableTable` and component instances from memory
+4. ✅ **HTML Loading** - Fetches target page HTML with error handling
+5. ✅ **Script Execution** - Re-executes scripts in loaded content
+6. ✅ **Browser History** - Updates URL and history state
+7. ✅ **Initialization** - Calls init function (for non-self-initializing pages)
+8. ✅ **State Tracking** - Updates `currentPage` and `previousPage`
+
+#### Session Data Clearing Rules
+
+**Use navigationRules instead of manual clearing**:
+
+```javascript
+// ❌ WRONG - Manual clearing in every navigation function
+async function navigateToStudents() {
+    await window.SessionState.setProperty('SelectedStudentId', '');
+    await window.SessionState.setProperty('SelectedStudentData', '');
+    await window.navigateTo('students');
+}
+
+async function navigateToSchoolDashboard() {
+    await window.SessionState.setProperty('SelectedStudentId', '');
+    await window.SessionState.setProperty('SelectedStudentData', '');
+    await window.navigateTo('schooldashboard');
+}
+
+// ✅ CORRECT - Define once in page-lifecycle-config.js
+navigationRules: [
+    {
+        from: 'student',
+        to: '*',  // Any destination from student page
+        clearSession: ['SelectedStudentId', 'SelectedStudentData']
+    }
+]
+
+// Then navigation is simple:
+async function navigateToStudents() {
+    await window.navigateTo('students');  // Session clearing happens automatically
+}
+
+async function navigateToSchoolDashboard() {
+    await window.navigateTo('schooldashboard');  // Session clearing happens automatically
+}
+```
+
+#### index.html Responsibilities
+
+**index.html is infrastructure ONLY** - no page-specific logic:
+
+```javascript
+// ✅ KEEP in index.html - Infrastructure functions
+window.SessionState = { /* ... */ };
+window.navigateTo = async function(section, fromPopstate) { 
+    await window.PageLifecycleManager.navigateTo(section, fromPopstate); 
+};
+window.checkAuthentication = function() { /* ... */ };
+window.executeScriptsInContainer = function(container) { /* ... */ };
+window.loadUserInfo = async function() { /* ... */ };
+window.logout = function() { /* ... */ };
+
+// ❌ REMOVE from index.html - Page loaders (use PageLifecycleManager)
+window.loadMainDashboard = async function() { /* ... */ };        // NO!
+window.loadSchoolListPage = async function() { /* ... */ };       // NO!
+window.loadStudentsPage = async function() { /* ... */ };         // NO!
+```
+
+#### Anti-Patterns to Avoid
+
+```javascript
+// ❌ Manual cleanup calls in navigation functions
+async function navigateToStudents() {
+    cleanupStudentDocuments();  // NO! - PageLifecycleManager does this
+    await window.navigateTo('students');
+}
+
+// ❌ Duplicate HTML loading logic in multiple files
+async function loadPage() {
+    const response = await fetch('page.html');  // NO! - Use navigateTo()
+    // ... 50 lines of manual loading
+}
+
+// ❌ Page-level variables without window scope
+let myComponent = null;  // NO! - Use window.myComponent
+
+// ❌ Missing cleanup function export
+function cleanupMyPage() { /* ... */ }
+// Missing: window.cleanupMyPage = cleanupMyPage;  // REQUIRED!
+
+// ❌ Session data in frontend storage
+sessionStorage.setItem('studentId', id);  // NO! - Use backend session
+
+// ❌ Page configuration missing from page-lifecycle-config.js
+// Every page must be registered in configuration
+```
+
+#### Adding a New Page - Checklist
+
+1. ✅ Create `newpage.html` with page content and script
+2. ✅ Add page configuration to `page-lifecycle-config.js`:
+   ```javascript
+   'newpage': {
+       file: 'newpage.html',
+       title: 'כותרת בעברית',
+       cleanup: 'cleanupNewPage',
+       init: 'initNewPage',  // or null if self-initializing
+       selfInitializing: false
+   }
+   ```
+3. ✅ Add navigation rules if page clears session data:
+   ```javascript
+   { from: 'newpage', to: '*', clearSession: ['Key1', 'Key2'] }
+   ```
+4. ✅ Implement cleanup function in page:
+   ```javascript
+   function cleanupNewPage() { /* ... */ }
+   window.cleanupNewPage = cleanupNewPage;
+   ```
+5. ✅ Use `window` scope for all component variables:
+   ```javascript
+   window.myComponent = window.myComponent || null;
+   ```
+6. ✅ Export init function to window (if needed):
+   ```javascript
+   window.initNewPage = initNewPage;
+   ```
+7. ✅ Navigate using `window.navigateTo('newpage')`
+
+**That's it!** No changes to `index.html` or `PageLifecycleManager` needed.
+
+#### Benefits of This Architecture
+
+- **90% less code** - No duplicate HTML loading logic in each page
+- **Single source of truth** - All lifecycle rules in one configuration file
+- **Automatic cleanup** - No manual cleanup calls needed
+- **Memory safety** - Components properly cleaned up on navigation
+- **No redeclaration errors** - Proper variable scoping prevents issues
+- **Configuration-driven** - Add pages without code changes
+- **Session management** - Automatic session data clearing per rules
+- **Browser history** - Full back/forward button support
+- **Maintainable** - Changes in one place affect all pages consistently
+
+#### Debugging Page Lifecycle
+
+**Console logging shows lifecycle flow**:
+```
+🔄 PageLifecycleManager: Navigating from student to students
+🧹 Cleaning up page: student
+✅ cleanupStudentPage() executed successfully
+🧹 Clearing table component instances...
+🗑️ Clearing session data for navigation student → students: ['SelectedStudentId', 'SelectedStudentData']
+📄 Loading students.html...
+✅ Successfully navigated to students
+🚀 Explicitly initializing page: students
+✅ loadStudentsData() executed successfully
+```
+
+**Common Issues**:
+- "Identifier already declared" → Use `window` scope for variables
+- "Cleanup function not found" → Export to window: `window.cleanupPage = cleanupPage`
+- Session not clearing → Add navigation rule to `page-lifecycle-config.js`
+- Page not initializing → Check `selfInitializing` flag and init function export
+- Component still in memory → Implement proper cleanup function
 **Standard Table Component**:
 - **ALL tables must use ReusableTable component** from `table-component.js`
 - Constructor: `new ReusableTable(containerId, options)`
@@ -715,3 +1075,656 @@ fetch(AppConfig.getApiUrl('systemAttributes'))
 - **GlobalFunctions must be injected** - except for static `PureHebrewText()` method
 - **Always normalize Hebrew text before comparison** - use `PureHebrewText()` for fuzzy matching
 - **Check for null after GlobalFunctions calls** - all lookup methods return `int?`
+
+### Documents Table Component
+
+**Specialized Component**: `DocumentsTableComponent` from `documents-table.js` provides a complete document management interface with upload, download, delete, and filtering capabilities.
+
+**Purpose**: Manage entity-specific documents (school documents, student documents, etc.) with type categorization, file upload/download, and CRUD operations.
+
+#### Component Architecture
+
+**File Location**: `petelapp-frontend/public/documents-table.js`
+
+**Key Features**:
+- Document type filtering (dropdown + pills)
+- File upload with drag-and-drop support
+- Download/delete actions per document
+- Automatic refresh after operations
+- Entity-scoped document lists (school, student, etc.)
+- Backend session integration for context
+
+#### Basic Usage Pattern
+
+```javascript
+// ✅ CORRECT - Use window scope to prevent redeclaration
+window.documentsComponent = window.documentsComponent || null;
+
+/**
+ * Initialize documents table component
+ */
+async function initializeDocuments() {
+    try {
+        console.log('📄 Initializing documents table...');
+
+        // Get entity context from backend session
+        const entityId = await window.SessionState.getProperty('SelectedStudentId');
+        const selectedYearId = await window.SessionState.getProperty('SelectedYearId');
+
+        if (!entityId) {
+            console.error('❌ No entity ID in session');
+            const container = document.getElementById('documentsTableContainer');
+            if (container) {
+                container.innerHTML = `<div class="table-error">לא נמצא מזהה ישות</div>`;
+            }
+            return;
+        }
+
+        // ✅ Create component instance
+        window.documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
+            showUploadForm: false,          // Show upload UI inline (false = use modal)
+            allowDelete: false,             // Enable delete buttons
+            allowDownload: true,            // Enable download buttons
+            allowUpload: true,              // Enable upload functionality
+            entityId: entityId,             // Entity ID (student, school, etc.)
+            entityType: 'student',          // Entity type: 'student', 'school', etc.
+            yearId: selectedYearId,         // School year context (optional)
+            onUploadSuccess: (result) => {
+                console.log('📄 Document uploaded:', result);
+                // Optional: Show success message, refresh data
+            },
+            onDeleteSuccess: (documentId) => {
+                console.log('🗑 Document deleted:', documentId);
+                // Optional: Show success message
+            },
+            onError: (error) => {
+                console.error('❌ Document operation error:', error);
+                alert('שגיאה בפעולה על המסמך');
+            }
+        });
+
+        // ✅ Create global reference for button onclick handlers
+        window['documentsTableInstance_documentsTableContainer'] = window.documentsComponent;
+
+        // ✅ Initialize component (loads document types and documents)
+        await window.documentsComponent.init();
+
+        console.log('✅ Documents table initialized');
+    } catch (error) {
+        console.error('❌ Error initializing documents:', error);
+        const container = document.getElementById('documentsTableContainer');
+        if (container) {
+            container.innerHTML = `<div class="table-error">שגיאה בטעינת רשימת המסמכים</div>`;
+        }
+    }
+}
+
+// ✅ Export to window for PageLifecycleManager
+window.initializeDocuments = initializeDocuments;
+```
+
+#### Configuration Options
+
+```javascript
+new DocumentsTableComponent(containerId, {
+    // UI Controls
+    showUploadForm: false,        // true = inline upload form, false = modal dialog
+    allowDelete: true,            // Show/hide delete buttons
+    allowDownload: true,          // Show/hide download buttons
+    allowUpload: true,            // Enable upload functionality
+    
+    // Entity Context
+    entityId: '123',              // Required: Entity ID (student_id, school_id, etc.)
+    entityType: 'student',        // Required: 'student', 'school', etc.
+    yearId: '5',                  // Optional: School year context for filtering
+    
+    // Callbacks
+    onUploadSuccess: (result) => {
+        // Called after successful upload
+        // result contains: { documentId, fileName, message }
+    },
+    onDeleteSuccess: (documentId) => {
+        // Called after successful delete
+        // documentId: ID of deleted document
+    },
+    onDownloadSuccess: (documentId, fileName) => {
+        // Called after successful download
+        // Optional: Track downloads, show notifications
+    },
+    onError: (error) => {
+        // Called on any operation error
+        // error contains: { message, operation, details }
+    },
+    onFilterChange: (documentTypeId) => {
+        // Called when document type filter changes
+        // documentTypeId: Selected type ID (null = all types)
+    }
+});
+```
+
+#### Entity Type Values
+
+**Standard Entity Types**:
+- `'student'` - Student documents (assignments, reports, etc.)
+- `'school'` - School-level documents (policies, forms, etc.)
+- `'class'` - Class-specific documents (syllabi, schedules, etc.)
+- `'teacher'` - Teacher documents (certifications, etc.)
+
+#### HTML Container Structure
+
+```html
+<!-- Document management section in page -->
+<div class="section-card">
+    <div class="section-header">
+        <h2>מסמכים</h2>
+        <div class="section-actions">
+            <button onclick="documentsComponent.showUploadDialog()" class="btn-primary">
+                <img src="upload_icon.png" alt="העלאה" class="action-icon-natural">
+                העלאת מסמך
+            </button>
+        </div>
+    </div>
+    
+    <!-- ✅ Container for DocumentsTableComponent -->
+    <div id="documentsTableContainer">
+        <div class="loading-spinner">טוען מסמכים...</div>
+    </div>
+</div>
+```
+
+#### Component Methods
+
+**Public Methods** (after initialization):
+
+```javascript
+// Refresh document list
+await documentsComponent.refresh();
+
+// Show upload dialog (if modal mode)
+documentsComponent.showUploadDialog();
+
+// Filter by document type
+documentsComponent.filterByType(documentTypeId);  // null = show all
+
+// Get current filter state
+const currentFilter = documentsComponent.getCurrentFilter();
+
+// Get all loaded documents
+const documents = documentsComponent.getDocuments();
+
+// Get available document types
+const types = documentsComponent.getDocumentTypes();
+```
+
+#### Cleanup Pattern
+
+**CRITICAL**: Always cleanup component when leaving page:
+
+```javascript
+/**
+ * Cleanup documents component when leaving page
+ */
+function cleanupDocuments() {
+    try {
+        console.log('🧹 Cleaning up documents component...');
+
+        if (window.documentsComponent) {
+            // Call component cleanup if it has one
+            if (typeof window.documentsComponent.cleanup === 'function') {
+                window.documentsComponent.cleanup();
+            }
+            
+            // Clear table reference
+            if (window.documentsComponent.documentsTable) {
+                window.documentsComponent.documentsTable = null;
+            }
+            
+            // Clear document types
+            if (window.documentsComponent.documentTypes) {
+                window.documentsComponent.documentTypes = [];
+            }
+            
+            // Null the component
+            window.documentsComponent = null;
+        }
+
+        // Remove global reference
+        if (window['documentsTableInstance_documentsTableContainer']) {
+            delete window['documentsTableInstance_documentsTableContainer'];
+        }
+
+        // Clear container HTML
+        const container = document.getElementById('documentsTableContainer');
+        if (container) {
+            container.innerHTML = '<div class="loading-spinner">טוען מסמכים...</div>';
+        }
+
+        console.log('✅ Documents component cleanup complete');
+    } catch (error) {
+        console.error('❌ Error during documents cleanup:', error);
+    }
+}
+
+// ✅ Export cleanup function
+window.cleanupDocuments = cleanupDocuments;
+```
+
+#### Integration with Page Lifecycle
+
+**In page cleanup function**:
+
+```javascript
+function cleanupStudentPage() {
+    console.log('🧹 Cleaning up student page...');
+    
+    try {
+        // ✅ Call documents cleanup
+        if (typeof cleanupDocuments === 'function') {
+            cleanupDocuments();
+        }
+        
+        // Other page cleanup...
+        
+        console.log('✅ Student page cleanup complete');
+    } catch (error) {
+        console.error('❌ Error during student page cleanup:', error);
+    }
+}
+
+window.cleanupStudentPage = cleanupStudentPage;
+```
+
+#### Backend API Endpoints
+
+**Documents API** (`/api/documents`):
+
+```csharp
+// GET /api/documents/entity/{entityType}/{entityId}
+// Get all documents for entity
+// Optional query param: ?yearId=5
+
+// POST /api/documents/upload
+// Upload document (multipart/form-data)
+// Body: { file, documentTypeId, entityType, entityId, yearId? }
+
+// GET /api/documents/{id}/download
+// Download document by ID
+// Returns: File stream with content-disposition header
+
+// DELETE /api/documents/{id}
+// Delete document by ID
+// Returns: 200 OK or 404 Not Found
+```
+
+**Document Types API** (`/api/documenttypes`):
+
+```csharp
+// GET /api/documenttypes
+// Get all document types for dropdowns
+// Returns: [{ id, typeName, categoryId, isActive }]
+
+// GET /api/documenttypes/by-category/{categoryId}
+// Get document types filtered by category
+```
+
+#### Styling and Customization
+
+**CSS Classes** (defined in `documents-table.js`):
+
+```css
+/* Document table container */
+.documents-table-container {
+    width: 100%;
+    overflow-x: auto;
+}
+
+/* Document type filter pills */
+.document-type-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.filter-pill {
+    padding: 6px 12px;
+    border-radius: 20px;
+    background-color: #f0f0f0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-pill.active {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+/* Upload dialog modal */
+.upload-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+}
+
+.upload-modal-content {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 500px;
+    margin: 50px auto;
+}
+
+/* Document action buttons */
+.doc-action-btn {
+    padding: 4px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background-color: transparent;
+    cursor: pointer;
+    margin-left: 5px;
+}
+
+.doc-action-btn:hover {
+    background-color: #f8f9fa;
+}
+```
+
+#### Common Use Cases
+
+**1. Student Documents Page**:
+```javascript
+// In student.html
+window.documentsComponent = window.documentsComponent || null;
+
+async function initializeStudentDocuments() {
+    const studentId = await window.SessionState.getProperty('SelectedStudentId');
+    const yearId = await window.SessionState.getProperty('SelectedYearId');
+    
+    window.documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
+        entityId: studentId,
+        entityType: 'student',
+        yearId: yearId,
+        allowUpload: true,
+        allowDelete: false,
+        allowDownload: true
+    });
+    
+    await window.documentsComponent.init();
+}
+```
+
+**2. School Documents Page**:
+```javascript
+// In schooldocuments.html
+window.documentsComponent = window.documentsComponent || null;
+
+async function initializeSchoolDocuments() {
+    const schoolId = await window.SessionState.getProperty('SelectedSchoolId');
+    const yearId = await window.SessionState.getProperty('SelectedYearId');
+    
+    window.documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
+        entityId: schoolId,
+        entityType: 'school',
+        yearId: yearId,
+        allowUpload: true,
+        allowDelete: true,  // School admins can delete
+        allowDownload: true,
+        showUploadForm: false  // Use modal for upload
+    });
+    
+    await window.documentsComponent.init();
+}
+```
+
+**3. Read-Only Document List**:
+```javascript
+// View-only mode for students/parents
+window.documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
+    entityId: studentId,
+    entityType: 'student',
+    allowUpload: false,
+    allowDelete: false,
+    allowDownload: true
+});
+```
+
+#### Error Handling
+
+**Component errors are handled via callbacks**:
+
+```javascript
+window.documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
+    entityId: studentId,
+    entityType: 'student',
+    onError: (error) => {
+        console.error('❌ Document error:', error);
+        
+        // Show user-friendly message based on error type
+        switch (error.operation) {
+            case 'upload':
+                alert('שגיאה בהעלאת המסמך. אנא נסה שוב.');
+                break;
+            case 'download':
+                alert('שגיאה בהורדת המסמך. אנא נסה שוב.');
+                break;
+            case 'delete':
+                alert('שגיאה במחיקת המסמך. אנא נסה שוב.');
+                break;
+            default:
+                alert('שגיאה בטעינת המסמכים. אנא רענן את העמוד.');
+        }
+    }
+});
+```
+
+#### Performance Considerations
+
+**Component is optimized for**:
+- ✅ Lazy loading of documents (loads on init)
+- ✅ File size validation before upload
+- ✅ Progress indication for uploads
+- ✅ Efficient filtering (client-side after initial load)
+- ✅ Debounced search/filter operations
+
+**Best practices**:
+- Always cleanup component when leaving page
+- Use `yearId` filter to limit initial document load
+- Implement file size limits (handled by backend)
+- Show loading states during operations
+
+#### Anti-Patterns to Avoid
+
+```javascript
+// ❌ WRONG - Not using window scope
+let documentsComponent = new DocumentsTableComponent(...);  // Will cause redeclaration error
+
+// ❌ WRONG - Missing cleanup
+function cleanupPage() {
+    // Missing: cleanupDocuments()
+}
+
+// ❌ WRONG - Not handling errors
+new DocumentsTableComponent('container', {
+    entityId: id,
+    entityType: 'student'
+    // Missing: onError callback
+});
+
+// ❌ WRONG - Creating multiple instances for same container
+window.documentsComponent = new DocumentsTableComponent('container', {...});
+window.documentsComponent = new DocumentsTableComponent('container', {...});  // NO!
+
+// ❌ WRONG - Not checking for entity ID
+const entityId = await window.SessionState.getProperty('SelectedStudentId');
+// Missing: if (!entityId) return;
+window.documentsComponent = new DocumentsTableComponent('container', {
+    entityId: entityId  // Could be null!
+});
+```
+
+#### Integration Checklist
+
+When adding documents to a page:
+
+1. ✅ Use `window` scope for component variable
+2. ✅ Add HTML container with unique ID
+3. ✅ Get entity ID from backend session
+4. ✅ Validate entity ID exists before creating component
+5. ✅ Provide all required configuration options
+6. ✅ Implement error handling via `onError` callback
+7. ✅ Create global reference for onclick handlers
+8. ✅ Implement cleanup function that:
+   - Calls component cleanup method
+   - Nulls the component instance
+   - Removes global references
+   - Clears container HTML
+9. ✅ Export cleanup to window
+10. ✅ Call cleanup in page lifecycle cleanup function
+11. ✅ Add upload button in UI if needed
+12. ✅ Test navigation away and return (no redeclaration errors)
+
+#### Complete Example
+
+**student.html** (complete implementation):
+
+```html
+<!-- HTML -->
+<div class="section-card">
+    <div class="section-header">
+        <h2>מסמכי תלמיד</h2>
+        <div class="section-actions">
+            <button onclick="documentsComponent.showUploadDialog()" class="btn-primary">
+                <img src="upload_icon.png" alt="העלאה" class="action-icon-natural">
+                העלאת מסמך
+            </button>
+        </div>
+    </div>
+    <div id="documentsTableContainer">
+        <div class="loading-spinner">טוען מסמכים...</div>
+    </div>
+</div>
+
+<script src="documents-table.js"></script>
+<script>
+// ✅ Use window scope
+window.documentsComponent = window.documentsComponent || null;
+
+/**
+ * Initialize student documents table
+ */
+async function initializeStudentDocuments() {
+    try {
+        console.log('📄 Initializing student documents...');
+
+        const studentId = await window.SessionState.getProperty('SelectedStudentId');
+        const yearId = await window.SessionState.getProperty('SelectedYearId');
+
+        if (!studentId) {
+            console.error('❌ No student ID in session');
+            const container = document.getElementById('documentsTableContainer');
+            if (container) {
+                container.innerHTML = `<div class="table-error">לא נמצא מזהה תלמיד</div>`;
+            }
+            return;
+        }
+
+        window.documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
+            showUploadForm: false,
+            allowDelete: false,
+            allowDownload: true,
+            allowUpload: true,
+            entityId: studentId,
+            entityType: 'student',
+            yearId: yearId,
+            onUploadSuccess: (result) => {
+                console.log('📄 Document uploaded:', result);
+                alert('המסמך הועלה בהצלחה');
+            },
+            onDeleteSuccess: (documentId) => {
+                console.log('🗑 Document deleted:', documentId);
+                alert('המסמך נמחק בהצלחה');
+            },
+            onError: (error) => {
+                console.error('❌ Document error:', error);
+                alert('שגיאה בפעולה על המסמך');
+            }
+        });
+
+        window['documentsTableInstance_documentsTableContainer'] = window.documentsComponent;
+        await window.documentsComponent.init();
+
+        console.log('✅ Student documents initialized');
+    } catch (error) {
+        console.error('❌ Error initializing documents:', error);
+        const container = document.getElementById('documentsTableContainer');
+        if (container) {
+            container.innerHTML = `<div class="table-error">שגיאה בטעינת המסמכים</div>`;
+        }
+    }
+}
+
+/**
+ * Cleanup documents component
+ */
+function cleanupStudentDocuments() {
+    try {
+        console.log('🧹 Cleaning up student documents...');
+
+        if (window.documentsComponent) {
+            if (typeof window.documentsComponent.cleanup === 'function') {
+                window.documentsComponent.cleanup();
+            }
+            
+            if (window.documentsComponent.documentsTable) {
+                window.documentsComponent.documentsTable = null;
+            }
+            
+            if (window.documentsComponent.documentTypes) {
+                window.documentsComponent.documentTypes = [];
+            }
+            
+            window.documentsComponent = null;
+        }
+
+        if (window['documentsTableInstance_documentsTableContainer']) {
+            delete window['documentsTableInstance_documentsTableContainer'];
+        }
+
+        const container = document.getElementById('documentsTableContainer');
+        if (container) {
+            container.innerHTML = '<div class="loading-spinner">טוען מסמכים...</div>';
+        }
+
+        console.log('✅ Student documents cleanup complete');
+    } catch (error) {
+        console.error('❌ Error during documents cleanup:', error);
+    }
+}
+
+/**
+ * Page cleanup
+ */
+function cleanupStudentPage() {
+    console.log('🧹 Cleaning up student page...');
+    
+    try {
+        cleanupStudentDocuments();
+        // Other cleanup...
+        console.log('✅ Student page cleanup complete');
+    } catch (error) {
+        console.error('❌ Error during page cleanup:', error);
+    }
+}
+
+// Export functions
+window.initializeStudentDocuments = initializeStudentDocuments;
+window.cleanupStudentDocuments = cleanupStudentDocuments;
+window.cleanupStudentPage = cleanupStudentPage;
+</script>
+```
+
+This provides a complete, production-ready documents management implementation following all coding standards and lifecycle patterns.
