@@ -13,7 +13,7 @@ window.PageLifecycleConfig = {
             file: 'maindashboard.html',
             title: 'לוח בקרה ראשי',
             cleanup: null, // No cleanup needed for main dashboard
-            init: 'initializeMainDashboard'
+            init: null
         },
         'schoollist': {
             file: 'schoollist.html',
@@ -25,7 +25,7 @@ window.PageLifecycleConfig = {
             file: 'schooldashboard.html',
             title: 'לוח בקרה בית ספר',
             cleanup: 'cleanupSchoolDashboardPage',
-            init: 'initializeSchoolDashboard'
+            init: null
         },
         'schooldetails': {
             file: 'schooldetails.html',
@@ -37,7 +37,7 @@ window.PageLifecycleConfig = {
             file: 'schooldocuments.html',
             title: 'מסמכי בית ספר',
             cleanup: 'cleanupSchoolDocumentsPage',
-            init: 'initializeSchoolDocuments'
+            init: null
         },
         'students': {
             file: 'students.html',

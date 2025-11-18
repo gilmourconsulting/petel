@@ -93,7 +93,7 @@
     }
 
        // ✅ Cleanup function - called when leaving the page
-    function cleanupDocumentsPage() {
+    function cleanupSchoolDocumentsPage() {
         try {
             console.log('🧹 Cleaning up documents page...');
 
@@ -137,7 +137,7 @@
         console.log('📊 Navigating to school dashboard...');
         try {
 
-                        cleanupDocumentsPage();
+
             if (typeof window.navigateTo === 'function') {
                 window.navigateTo('schooldashboard');
             } else {
@@ -156,7 +156,7 @@
         
         try {
 
-                        cleanupDocumentsPage();
+
             // Clear school-specific session properties using SessionState
             await window.SessionState.setProperty('SelectedSchoolId', '');
             await window.SessionState.setProperty('SelectedSchoolName', '');
@@ -180,6 +180,7 @@
 
     window.navigateToSchoolDashboard = navigateToSchoolDashboard;
     window.navigateBackToSchoolList = navigateBackToSchoolList;
+    window.cleanupSchoolDocumentsPage = cleanupSchoolDocumentsPage;
 
         // Initialize on load - Common Gotchas pattern
     document.addEventListener('DOMContentLoaded', initializeDocumentsPage);
