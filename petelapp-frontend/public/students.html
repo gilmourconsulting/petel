@@ -341,6 +341,17 @@ function navigateToSchoolDashboard() {
     }
 }
 
+function cleanupStudentsPage() {
+    console.log('🧹 Cleaning up students page...');
+    
+    if (window.currentStudentsData) {
+        window.currentStudentsData = null;
+    }
+    
+    console.log('✅ Students page cleanup complete');
+}
+
+window.cleanupStudentsPage = cleanupStudentsPage;
 
 // Update summary statistics to count by name instead of ID
 function updateStudentsSummary(data) {

@@ -136,24 +136,11 @@
     // Add navigation function following Project-Specific Patterns
     async function navigateToStudents() {
         try {
-            // Hide current content
-            document.getElementById('dynamicContent').style.display = 'block';
-
-            // Load students.html following Frontend Architecture Patterns
-            const response = await fetch('students.html');
-            if (response.ok) {
-                const html = await response.text();
-                document.getElementById('dynamicContent').innerHTML = html;
-
-                // Re-execute scripts in loaded content following Common Gotchas
-                executeScriptsInContainer(document.getElementById('dynamicContent'));
-
-                // Update browser history following Single-Page Application patterns
-                history.pushState({ section: 'students' }, '', '#students');
-
-                console.log('✅ Students page loaded successfully');
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('students');
             } else {
-                console.error('Failed to load students.html:', response.status);
+                console.error('❌ window.navigateTo not available');
+                window.history.back();
             }
         } catch (error) {
             console.error('Error loading students page:', error);
@@ -161,90 +148,51 @@
     }
 
     // Add navigation function for school details following Project-Specific Patterns
-    async function navigateToSchoolDetails() {
-        console.log('🏫 Navigating to school details...');
+async function navigateToSchoolDetails() {
+    console.log('🏫 Navigating to school details...');
 
-        try {
-            // ✅ Session context already in SessionState, no need to set
-
-            if (typeof window.navigateTo === 'function') {
-                window.navigateTo('schooldetails');
-            } else {
-                const response = await fetch('schooldetails.html');
-                if (response.ok) {
-                    const html = await response.text();
-                    const mainContainer = document.getElementById('dynamicContent') ||
-                        document.getElementById('mainContent') ||
-                        document.querySelector('.main-content');
-
-                    if (mainContainer) {
-                        mainContainer.innerHTML = html;
-                        executeScriptsInContainer(mainContainer);
-                        history.pushState({ section: 'schooldetails' }, '', '#schooldetails');
-                        console.log('✅ School details page loaded');
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('💥 Error loading school details:', error);
-            alert('שגיאה בטעינת פרטי בית הספר');
-        }
-    }
-
- async function navigateToSchoolDocuments() {
-    console.log('📄 Navigating to school documents...');
-    
     try {
         if (typeof window.navigateTo === 'function') {
-            window.navigateTo('schooldocuments');
+            window.navigateTo('schooldetails');
         } else {
-            // ✅ Just log error - navigateTo should always be available
-            console.error('❌ navigateTo function not available');
-            alert('שגיאה בניווט למסמכים בית ספריים');
+            console.error('❌ navigateTo not available');
+            alert('שגיאה בטעינת פרטי בית הספר');
         }
     } catch (error) {
-        console.error('💥 Error loading school documents:', error);
-        alert('שגיאה בטעינת מסמכים בית ספריים');
+        console.error('💥 Error loading school details:', error);
+        alert('שגיאה בטעינת פרטי בית הספר');
     }
 }
+
+    async function navigateToSchoolDocuments() {
+        console.log('📄 Navigating to school documents...');
+
+        try {
+            // ✅ PageLifecycleManager handles everything
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('schooldocuments');
+            } else {
+                console.error('❌ navigateTo function not available');
+                alert('שגיאה בניווט למסמכים בית ספריים');
+            }
+        } catch (error) {
+            console.error('💥 Error loading school documents:', error);
+            alert('שגיאה בטעינת מסמכים בית ספריים');
+        }
+    }
 
     // Navigate back to school list and clean up school-specific session data
     async function navigateBackToSchoolList() {
         console.log('📋 Navigating back to school list...');
 
         try {
-            // Clear school-specific session properties using SessionState
-            await window.SessionState.setProperty('SelectedSchoolId', '');
-            await window.SessionState.setProperty('SelectedSchoolName', '');
-            await window.SessionState.setProperty('SelectedSchoolYearId', '');
 
-            console.log('✅ School-specific session properties cleared');
-
-            // Store navigation source
-            await window.SessionState.setProperty('NavigationSource', 'schooldashboard');
-
-            // Navigate to school list
+            //Just navigate, lifecycle manager handles the rest
             if (typeof window.navigateTo === 'function') {
                 window.navigateTo('schoollist');
             } else {
-                // Fallback: direct loading
-                const response = await fetch('schoollist.html');
-                if (response.ok) {
-                    const html = await response.text();
-                    const mainContainer = document.getElementById('dynamicContent') ||
-                        document.getElementById('mainContent') ||
-                        document.querySelector('.main-content');
-
-                    if (mainContainer) {
-                        mainContainer.innerHTML = html;
-                        executeScriptsInContainer(mainContainer);
-                        history.pushState({ section: 'schoollist' }, '', '#schoollist');
-                        console.log('✅ School list page loaded');
-                    }
-                } else {
-                    console.error('❌ Failed to load schoollist.html:', response.status);
-                    alert('שגיאה בטעינת רשימת בתי הספר');
-                }
+                console.error('❌ window.navigateTo not available');
+                alert('שגיאה בחזרה לרשימת בתי הספר');
             }
         } catch (error) {
             console.error('💥 Error navigating to school list:', error);
@@ -289,6 +237,14 @@
             }
         }
     }
+
+    function cleanupSchoolDashboardPage() {
+        console.log('🧹 Cleaning up school dashboard page...');
+        // Add any school dashboard specific cleanup
+        console.log('✅ School dashboard cleanup complete');
+    }
+
+    window.cleanupSchoolDashboardPage = cleanupSchoolDashboardPage;
 
     // Resolve SelectedSchoolYearId (school_years.id) from backend and store in session
     async function resolveSelectedSchoolYearId() {

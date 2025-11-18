@@ -15,6 +15,8 @@
     <script src="session-manager.js"></script>
     <script src="table-component.js"></script>
     <script src="debug.js"></script>
+    <script src="page-lifecycle-config.js"></script>
+    <script src="page-lifecycle-manager.js"></script>
 
     <script>
         // Global Session State Manager - Centralized session data cache
@@ -254,7 +256,7 @@
     </div>
 
     <script>
-        // Replace the menu loading section in the DOMContentLoaded event handler
+        
 
         document.addEventListener('DOMContentLoaded', function () {
             console.log('🚀 Application starting...');
@@ -266,12 +268,13 @@
 
             console.log('✅ Authentication passed, loading application...');
 
-            // Define navigateTo function globally BEFORE loading menu following Cross-Component Communication
-            window.navigateTo = async function (section, fromPopstate = false) {
-                console.log(`🔄 Navigating to section: ${section}`);
+            // ✅ Use PageLifecycleManager for all navigation
+            window.navigateTo = async function(section, fromPopstate = false) {
+                await window.PageLifecycleManager.navigateTo(section, fromPopstate);
+            };
 
                 // Map section names to file names following Single-Page Application with Module Loading
-                const sectionMap = {
+           /*     const sectionMap = {
                     'maindashboard': 'maindashboard.html',
                     'schoollist': 'schoollist.html',
                     'schooldashboard': 'schooldashboard.html',
@@ -348,7 +351,7 @@
                     sideMenu.classList.add('collapsed');
                     console.log('Menu collapsed');
                 }
-            };
+            };*/
 
             // Load menu AFTER defining navigation functions
             fetch('menu.html')
@@ -395,10 +398,8 @@
                     // Load main dashboard
                     await loadMainDashboard();
 
-                    // Set initial history state
-                    if (!history.state) {
-                        history.replaceState({ page: 'maindashboard' }, 'לוח בקרה ראשי - מערכת פט"ל', '#maindashboard');
-                    }
+                    // Use PageLifecycleManager for initial load
+                    await window.PageLifecycleManager.navigateTo('maindashboard');
 
                     console.log('✅ Application initialization completed');
 
@@ -429,30 +430,30 @@
                     entityTypeElement.textContent = session.entityTypeName || '';
                 }
 
-                        // Load entity logo
-        if (entityLogoElement && session.entityId) {
-            try {
-                const token = sessionStorage.getItem('authToken');
-                const logoUrl = AppConfig.getApiUrl(`entities/${session.entityId}/logo`);
-                
-                const logoResponse = await fetch(logoUrl, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                // Load entity logo
+                if (entityLogoElement && session.entityId) {
+                    try {
+                        const token = sessionStorage.getItem('authToken');
+                        const logoUrl = AppConfig.getApiUrl(`entities/${session.entityId}/logo`);
 
-                if (logoResponse.ok) {
-                    const logoBlob = await logoResponse.blob();
-                    const logoObjectUrl = URL.createObjectURL(logoBlob);
-                    entityLogoElement.innerHTML = `<img src="${logoObjectUrl}" alt="לוגו הישות" style="width: 40px; height: 40px; object-fit: contain; border-radius: 4px;">`;
-                } else {
-                    // Keep default emoji if logo not found
-                    console.log('Entity logo not found, using default');
+                        const logoResponse = await fetch(logoUrl, {
+                            headers: { 'Authorization': `Bearer ${token}` }
+                        });
+
+                        if (logoResponse.ok) {
+                            const logoBlob = await logoResponse.blob();
+                            const logoObjectUrl = URL.createObjectURL(logoBlob);
+                            entityLogoElement.innerHTML = `<img src="${logoObjectUrl}" alt="לוגו הישות" style="width: 40px; height: 40px; object-fit: contain; border-radius: 4px;">`;
+                        } else {
+                            // Keep default emoji if logo not found
+                            console.log('Entity logo not found, using default');
+                        }
+                    } catch (logoError) {
+                        console.warn('Could not load entity logo:', logoError);
+                        // Keep default emoji
+                    }
                 }
-            } catch (logoError) {
-                console.warn('Could not load entity logo:', logoError);
-                // Keep default emoji
-            }
-        }
-        
+
 
                 console.log('✅ User info loaded from SessionState cache');
 
@@ -541,7 +542,7 @@
             }
         }
 
-                // Load system version following API Communication Pattern
+        // Load system version following API Communication Pattern
         async function loadSystemVersion() {
             try {
                 const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
@@ -552,7 +553,7 @@
                     if (versionElement) {
                         versionElement.textContent = versionAttr ? versionAttr.value : '1.0';
                     }
-                } 
+                }
             } catch (error) {
                 console.log('Could not load system version, using default');
                 const versionElement = document.getElementById('systemVersion');
@@ -744,36 +745,10 @@
         }
 
         // Update browser back/forward handling with authentication check following SPA pattern
+        // ✅ Update browser back/forward handling
         window.addEventListener('popstate', function (event) {
             if (!checkAuthentication()) return;
-
-            if (event.state && event.state.section) {
-                switch (event.state.section) {
-                    case 'maindashboard':
-                        loadMainDashboard();
-                        break;
-                    case 'schoollist':
-                        loadSchoolListPage();
-                        break;
-                    case 'schoolyear':
-                        loadSchoolYearPage();
-                        break;
-                    case 'students':
-                        loadStudentsPage();
-                        break;
-                    case 'schooldashboard':
-                        loadSchoolDashboardPage();
-                        break;
-                    case 'schooldetails':
-                        loadSchoolDetailsPage();
-                        break;
-                    case 'councilsummary':
-                        loadCouncilSummaryPage();
-                        break;
-                    default:
-                        loadMainDashboard();
-                }
-            }
+            window.PageLifecycleManager.handlePopstate(event);
         });
 
         // Logout function following Authentication & Session Management
@@ -1030,36 +1005,7 @@
             }
         }
 
-        // Update browser back/forward handling with authentication check following SPA pattern
-        window.addEventListener('popstate', function (event) {
-            if (!checkAuthentication()) return;
-
-            if (event.state && event.state.section) {
-                switch (event.state.section) {
-                    case 'maindashboard':
-                        loadMainDashboard();
-                        break;
-                    case 'schoollist':
-                        loadSchoolListPage();
-                        break;
-                    case 'schoolyear':
-                        loadSchoolYearPage();
-                        break;
-                    case 'students':
-                        loadStudentsPage();
-                        break;
-                    case 'schooldashboard':
-                        loadSchoolDashboardPage();
-                        break;
-                    case 'councilsummary':
-                        loadCouncilSummaryPage();
-                        break;
-                    default:
-                        loadMainDashboard();
-                }
-            }
-        });
-
+       
         // Logout function following Authentication & Session Management
         function logout() {
             // Clear session storage

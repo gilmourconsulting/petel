@@ -67,7 +67,9 @@
 
 <script>
 
-let documentsComponent = null;
+if (typeof documentsComponent === 'undefined') {
+    var documentsComponent = null;
+}
 
 /**
  * Initialize documents table component for selected student
@@ -153,9 +155,88 @@ async function initializeStudentDocuments() {
     }
 }
 
+
+/**
+ * Cleanup function called by PageLifecycleManager when leaving page
+ */
+function cleanupStudentPage() {
+    console.log('🧹 Cleaning up student page...');
+
+    try {
+        // ✅ ADD: Cleanup documents component FIRST
+        if (documentsComponent) {
+            console.log('🧹 Cleaning up documents component instance...');
+            
+            // Call component cleanup if available
+            if (typeof documentsComponent.cleanup === 'function') {
+                documentsComponent.cleanup();
+            }
+            
+            // Clear table reference
+            if (documentsComponent.documentsTable) {
+                documentsComponent.documentsTable = null;
+            }
+            
+            // Clear document types
+            if (documentsComponent.documentTypes) {
+                documentsComponent.documentTypes = [];
+            }
+            
+            // Null the component
+            documentsComponent = null;
+            console.log('✅ Documents component nullified');
+        }
+
+        // Remove global reference
+        const globalKey = 'documentsTableInstance_documentsTableContainer';
+        if (window[globalKey]) {
+            delete window[globalKey];
+            console.log('✅ Global documents instance removed:', globalKey);
+        }
+
+        // Clear container HTML
+        const documentsContainer = document.getElementById('documentsTableContainer');
+        if (documentsContainer) {
+            documentsContainer.innerHTML = '<div class="loading-spinner">טוען מסמכים...</div>';
+            console.log('✅ Documents container cleared');
+        }
+
+        // ✅ Clear student-specific table instances
+        if (window.currentStudentsData) {
+            window.currentStudentsData = null;
+            console.log('✅ Current students data cleared');
+        }
+
+        // ✅ Clear students table container
+        const studentsContainer = document.getElementById('studentsTableContainer');
+        if (studentsContainer) {
+            studentsContainer.innerHTML = '<div class="loading-spinner">טוען נתוני תלמידים...</div>';
+            console.log('✅ Students container cleared');
+        }
+
+        // ✅ Clear modal states
+        const pricingModal = document.getElementById('pricingModal');
+        if (pricingModal) {
+            pricingModal.style.display = 'none';
+            
+            // Clear pricing table container
+            const pricingContainer = document.getElementById('pricingTableContainer');
+            if (pricingContainer) {
+                pricingContainer.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
+            }
+        }
+
+        console.log('✅ Student page cleanup complete');
+    } catch (error) {
+        console.error('❌ Error during student page cleanup:', error);
+    }
+}
+window.cleanupStudentPage = cleanupStudentPage;
 /**
  * Cleanup documents component when leaving page
  */
+
+ 
 function cleanupStudentDocuments() {
     try {
         console.log('🧹 Cleaning up student documents...');
@@ -467,8 +548,7 @@ async function navigateToStudents() {
     
     try {
 
-        // Cleanup documents component
-        cleanupStudentDocuments();
+
         // ✅ Clear student selection from backend session
         await window.SessionState.setProperty('SelectedStudentId', '');
         await window.SessionState.setProperty('SelectedStudentData', '');
@@ -498,8 +578,7 @@ async function navigateToSchoolDashboard() {
     
     try {
 
-                // Cleanup documents component
-        cleanupStudentDocuments();
+
         // ✅ Clear student selection from backend session
         await window.SessionState.setProperty('SelectedStudentId', '');
         await window.SessionState.setProperty('SelectedStudentData', '');
@@ -529,8 +608,7 @@ async function navigateToSchoolList() {
     
     try {
 
-                // Cleanup documents component
-        cleanupStudentDocuments();
+
         // ✅ Clear student and school selection from backend session
         await window.SessionState.setProperty('SelectedStudentId', '');
         await window.SessionState.setProperty('SelectedStudentData', '');
