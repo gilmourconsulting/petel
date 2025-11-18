@@ -296,19 +296,7 @@ async function navigateToSchoolDetails() {
         }
     }
 
-    // Execute scripts in dynamically loaded content following Common Gotchas
-    function executeScriptsInContainer(container) {
-        const scripts = container.querySelectorAll('script');
-        scripts.forEach(script => {
-            const newScript = document.createElement('script');
-            if (script.src) {
-                newScript.src = script.src;
-            } else {
-                newScript.textContent = script.textContent;
-            }
-            script.parentNode.replaceChild(newScript, script);
-        });
-    }
+
 
     // Show add modal placeholder function following Frontend Architecture Patterns
     function showAddModal(cardType) {
@@ -369,10 +357,9 @@ async function navigateToSchoolDetails() {
     window.updateContextButtonLabels = updateContextButtonLabels;
     window.storeSelectedYearInSession = storeSelectedYearInSession;
     window.showSchoolYear = showSchoolYear;
-    window.loadSchoolListPage = loadSchoolListPage;
-    window.loadSchoolYearPage = loadSchoolYearPage;
-    window.executeScriptsInContainer = executeScriptsInContainer;
-    window.debugDashboardElements = debugDashboardElements;
+
+
+   window.debugDashboardElements = debugDashboardElements;
     window.navigateToSchoolDocuments = navigateToSchoolDocuments;
 
     console.log('✅ School Dashboard functions registered globally');

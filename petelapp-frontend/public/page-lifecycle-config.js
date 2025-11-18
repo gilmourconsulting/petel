@@ -73,7 +73,7 @@ window.PageLifecycleConfig = {
             file: 'councilsummary.html',
             title: 'סיכום רשויות',
             cleanup: null,
-            init: 'loadCouncilSummaryData'
+            init: null
         }
     },
 

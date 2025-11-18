@@ -316,24 +316,19 @@
 
     // Context button navigation functions following Single-Page Application with Module Loading
     async function navigateToCouncilsList() {
-        console.log('🏛️ Navigating to council summary...');
 
-        try {
-            // ✅ FIX: Use SessionState instead of sessionStorage
-            await window.SessionState.setProperty('NavigationSource', 'schoollist');
-
-            // Use the centralized loader from index.html following Cross-Component Communication
-            if (typeof window.loadCouncilSummaryPage === 'function') {
-                window.loadCouncilSummaryPage();
-            } else {
-                // Fallback to direct loading
-                loadPageDirectly('councilsummary.html', 'councilsummary', 'סיכום רשויות משלחות');
-            }
-        } catch (error) {
-            console.error('❌ Error navigating to councils list:', error);
+            console.log('🏛️ Navigating to council summary...');
+    
+    if (typeof window.navigateTo === 'function') {
+        await window.navigateTo('councilsummary');
+    } else {
+        console.error('❌ window.navigateTo not available');
             alert('שגיאה בניווט לרשימת רשויות');
-        }
     }
+}
+        
+
+
 
     async function navigateBackToDashboard() {
         console.log('📊 Navigating back to dashboard...');

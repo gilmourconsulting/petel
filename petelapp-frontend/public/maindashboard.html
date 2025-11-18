@@ -245,88 +245,31 @@ async function showSchoolYear(yearId, yearType) {
     }
 }
 
-        // Load school list page for multi-school entities
+
 async function loadSchoolListPage() {
-    try {
-        console.log('🔄 Loading school list page...');
-        
-        const response = await fetch('schoollist.html');
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const html = await response.text();
-        
-        // Use navigateTo if available, otherwise load directly
-        if (typeof window.navigateTo === 'function') {
-            window.navigateTo('schoollist');
-        } else {
-            const mainContainer = document.getElementById('dynamicContent') || 
-                                 document.getElementById('mainContent') || 
-                                 document.querySelector('.main-content');
-            
-            if (mainContainer) {
-                mainContainer.innerHTML = html;
-                executeScriptsInContainer(mainContainer);
-                history.pushState({ section: 'schoollist' }, '', '#schoollist');
-                console.log('✅ School list page loaded successfully');
-            } else {
-                throw new Error('Main content container not found');
-            }
-        }
-    } catch (error) {
-        console.error('💥 Error loading school list page:', error);
-        throw new Error('שגיאה בטעינת רשימת בתי הספר');
+    console.log('🔄 Navigating to school list...');
+    
+    if (typeof window.navigateTo === 'function') {
+        await window.navigateTo('schoollist');
+    } else {
+        console.error('❌ window.navigateTo not available');
+        alert('שגיאה בטעינת רשימת בתי הספר');
     }
 }
+
 
 // Load school dashboard page for single school entities
 async function loadSchoolDashboardPage() {
-    try {
-        console.log('🔄 Loading school dashboard page...');
-        
-        // Use navigateTo if available
-        if (typeof window.navigateTo === 'function') {
-            window.navigateTo('schooldashboard');
-        } else {
-            const response = await fetch('schooldashboard.html');
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            const html = await response.text();
-            const mainContainer = document.getElementById('dynamicContent') || 
-                                 document.getElementById('mainContent') || 
-                                 document.querySelector('.main-content');
-            
-            if (mainContainer) {
-                mainContainer.innerHTML = html;
-                executeScriptsInContainer(mainContainer);
-                history.pushState({ section: 'schooldashboard' }, '', '#schooldashboard');
-                console.log('✅ School dashboard page loaded successfully');
-            } else {
-                throw new Error('Main content container not found');
-            }
-        }
-    } catch (error) {
-        console.error('💥 Error loading school dashboard page:', error);
-        throw new Error('שגיאה בטעינת לוח בקרה של בית הספר');
+    console.log('🔄 Navigating to school dashboard...');
+    
+    if (typeof window.navigateTo === 'function') {
+        await window.navigateTo('schooldashboard');
+    } else {
+        console.error('❌ window.navigateTo not available');
+        alert('שגיאה בטעינת לוח בקרה של בית הספר');
     }
 }
-
-        // Execute scripts in dynamically loaded content following Common Gotchas
-        function executeScriptsInContainer(container) {
-            const scripts = container.querySelectorAll('script');
-            scripts.forEach(script => {
-                const newScript = document.createElement('script');
-                if (script.src) {
-                    newScript.src = script.src;
-                } else {
-                    newScript.textContent = script.textContent;
-                }
-                script.parentNode.replaceChild(newScript, script);
-            });
-        }
+ 
 
         // Show add modal placeholder function following Frontend Architecture Patterns
         function showAddModal(cardType) {
@@ -381,11 +324,8 @@ async function loadSchoolDashboardPage() {
         window.updateContextButtonLabels = updateContextButtonLabels;
         window.storeSelectedYearInSession = storeSelectedYearInSession;
         window.showSchoolYear = showSchoolYear;
-        window.loadSchoolListPage = loadSchoolListPage;
-        
-        window.loadSchoolYearPage = loadSchoolYearPage;
-        window.executeScriptsInContainer = executeScriptsInContainer;
-        window.debugDashboardElements = debugDashboardElements;
+
+         window.debugDashboardElements = debugDashboardElements;
 
         console.log('✅ Main Dashboard functions registered globally');
     </script>

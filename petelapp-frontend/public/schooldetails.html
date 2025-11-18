@@ -3689,33 +3689,7 @@ async function deleteAdditionalStudyProgram(programId) {
             });
     }
 
-    // Utility functions following Critical Development Workflows
-    function executeScriptsInContainer(container) {
-        try {
-            const scripts = container.querySelectorAll('script');
-            scripts.forEach(script => {
-                if (script.textContent && script.textContent.trim()) {
-                    try {
-                        const newScript = document.createElement('script');
 
-                        if (script.src) {
-                            newScript.src = script.src;
-                        } else {
-                            newScript.textContent = script.textContent;
-                        }
-
-                        document.head.appendChild(newScript);
-                        script.remove();
-
-                    } catch (scriptError) {
-                        console.warn('⚠️ Error executing script:', scriptError);
-                    }
-                }
-            });
-        } catch (error) {
-            console.error('❌ Error in executeScriptsInContainer:', error);
-        }
-    }
 
     function showNavigationError(container, message) {
         container.innerHTML = `
@@ -3822,8 +3796,7 @@ window.saveSchoolDetails = saveSchoolDetails;
     window.navigateBackToSchoolDashboard = navigateBackToSchoolDashboard;
     window.navigateBackToDashboard = navigateBackToDashboard;
     window.loadPageDirectly = loadPageDirectly;
-    window.executeScriptsInContainer = executeScriptsInContainer;
-    window.showNavigationError = showNavigationError;
+   window.showNavigationError = showNavigationError;
     window.showError = showError;
     // Make functions globally available following Cross-Component Communication
     window.setupEditClassesButton = setupEditClassesButton;

@@ -1,26 +1,18 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>סיכום רשויות - מערכת ניהול פט״ל</title>
-    <link rel="stylesheet" href="theme.css">
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <!-- Context buttons positioned between menu and main content following Context Buttons Layout -->
-    <div class="context-buttons-section">
-        <button class="context-btn context-btn-primary" onclick="navigateBackToSchoolsList()" title="חזרה לרשימת בתי ספר">
+<!-- Context buttons positioned between menu and main content following Context Buttons Layout -->
+<div class="students-container">
+    <div class="context-buttons-section screenwithtable-context">
+        <button class="context-btn" onclick="navigateBackToSchoolsList()" title="חזרה לרשימת בתי ספר">
             חזרה לרשימת בתי ספר
         </button>
-        
-        <button class="context-btn context-btn-secondary" onclick="navigateBackToDashboard()" title="חזרה ללוח הבקרה הראשי">
+
+        <button class="context-btn" onclick="navigateBackToDashboard()" title="חזרה ללוח הבקרה הראשי">
             חזרה ללוח הבקרה
         </button>
     </div>
 
+
     <!-- Main content positioned after menu and context buttons -->
-    <div class="content-card">
+    <div class="students-content">
         <div class="content-header">
             <h1 class="page-title">סיכום לפי רשויות אגרות חוץ - תשפ"ו</h1>
             <p class="page-subtitle">סיכום נתוני התלמידים והבקשות לפי רשות</p>
@@ -36,702 +28,292 @@
             <!-- TableComponent will render here -->
         </div>
     </div>
+</div>
 
-    <style>
-        /* Context buttons positioned between menu and main content following Context Buttons Layout */
-        .context-buttons-section {
-            position: fixed;
-            left: 180px; /* Menu width (260px) + margin (20px) */
-            top: 50%;
-            transform: translateY(-50%);
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            z-index: 1000;
-            width: 180px;
+<!-- Keep your existing script section unchanged -->
+<script>
+    console.log('🔍 SCRIPT SECTION LOADED - councilsummary.html');
+
+    // Global variables following Project-Specific Patterns
+    let allCouncils = [];
+    let councilsTable = null;
+
+    // Load councils data following Entity-Based Request Flow
+    async function loadCouncilsData() {
+        console.log('🚀 loadCouncilsData FUNCTION CALLED!');
+
+        // Show loading indicator
+        const loadingElement = document.getElementById('councilsLoading');
+        if (loadingElement) {
+            loadingElement.style.display = 'block';
+            console.log('✅ Loading indicator shown');
         }
 
-        /* Main content positioned after menu and context buttons following Context Buttons Layout */
-        .content-card {
-            margin-left: 280px; /* Menu (280px) + Context buttons (180px) + margins (20px) */
-            margin-right: 20px;
-            margin-top: 20px;
-            margin-bottom: 20px;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            direction: rtl;
-            max-width: calc(100vw - 420px);
-        }
+        try {
+            // Get auth token following Authentication & Session Management
+            const authToken = sessionStorage.getItem('authToken');
 
-        .content-header {
-            margin-bottom: 30px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #e9ecef;
-        }
+            console.log('📋 Session Debug:', {
+                authToken: authToken ? 'present' : 'null',
+                hasAuthToken: !!authToken
+            });
 
-        .page-title {
-            margin: 0 0 5px 0;
-            color: #333;
-            font-size: 1.8em;
-            font-weight: 600;
-        }
-
-        .page-subtitle {
-            margin: 0;
-            color: #6c757d;
-            font-size: 1em;
-        }
-
-        /* Context button styling following Standard Icon Set */
-        .context-btn {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            white-space: nowrap;
-            direction: rtl;
-            text-align: center;
-            font-weight: 500;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            text-decoration: none;
-            width: 100%;
-        }
-
-        .context-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2) !important;
-        }
-
-        .context-btn:active {
-            transform: translateY(0);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
-        }
-
-        /* Primary context button (orange) */
-        .context-btn-primary {
-            background: #C15A16;
-            color: white;
-        }
-
-        .context-btn-primary:hover {
-            background: #a04912;
-        }
-
-        /* Secondary context button (green) */
-        .context-btn-secondary {
-            background: #28a745;
-            color: white;
-        }
-
-        .context-btn-secondary:hover {
-            background: #1e7e34;
-        }
-
-        /* Table container with horizontal scrolling following Table Horizontal Scrolling */
-        #councilsTableContainer {
-            overflow-x: auto;
-            overflow-y: visible;
-            width: 100%;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            background: white;
-            margin-bottom: 20px;
-        }
-
-        /* Ensure table triggers horizontal scroll following Table Horizontal Scrolling */
-        #councilsTableContainer table,
-        .data-table {
-            min-width: 800px;
-            width: auto;
-        }
-
-        /* Enhanced horizontal scrollbar styling following Table Horizontal Scrolling */
-        #councilsTableContainer::-webkit-scrollbar {
-            height: 10px;
-        }
-
-        #councilsTableContainer::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 5px;
-            margin: 0 10px;
-        }
-
-        #councilsTableContainer::-webkit-scrollbar-thumb {
-            background: linear-gradient(45deg, #C15A16, #a04912);
-            border-radius: 5px;
-            box-shadow: inset 0 0 2px rgba(0,0,0,0.2);
-        }
-
-        #councilsTableContainer::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(45deg, #a04912, #8a3d0f);
-        }
-
-        /* Firefox scrollbar styling */
-        #councilsTableContainer {
-            scrollbar-width: thin;
-            scrollbar-color: #C15A16 #f1f1f1;
-        }
-
-        /* Action icon styling following Standard Icon Set */
-        .action-icon-natural {
-            width: 15px;
-            height: 15px;
-            vertical-align: middle;
-            transition: transform 0.2s ease, opacity 0.2s ease;
-            object-fit: contain;
-        }
-
-        /* Button styling for icon buttons following Standard Icon Set */
-        .btn-icon {
-            padding: 4px 6px;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            background-color: transparent;
-            cursor: pointer;
-            margin: 0 1px;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
-            min-width: 26px;
-            min-height: 24px;
-        }
-
-        .btn-icon:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-            background-color: #f8f9fa;
-            border-color: #adb5bd;
-        }
-
-        .btn-icon:hover .action-icon-natural {
-            transform: scale(1.1);
-            opacity: 0.9;
-        }
-
-        .btn-sm.btn-icon {
-            padding: 3px 5px;
-            min-width: 24px;
-            min-height: 22px;
-        }
-
-        .btn-sm .action-icon-natural {
-            width: 15px;
-            height: 15px;
-        }
-
-        /* Actions cell styling following Standard Icon Set */
-        .actions-cell {
-            white-space: nowrap;
-            text-align: center;
-            direction: ltr;
-            padding: 8px 12px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 5px;
-        }
-
-        /* Loading indicator styling following Hebrew/RTL Specific Patterns */
-        .loading-indicator {
-            text-align: center;
-            padding: 20px;
-            font-size: 1.1em;
-            color: #6c757d;
-            background-color: #f8f9fa;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            direction: rtl;
-        }
-
-        /* Loading animation following Frontend Architecture Patterns */
-        .loading-spinner {
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.6; }
-            100% { opacity: 1; }
-        }
-
-        /* Table styling with horizontal scroll following Table Horizontal Scrolling */
-        .table-container {
-            overflow-x: auto;
-            overflow-y: visible;
-            border: 1px solid #dee2e6;
-            border-radius: 8px;
-            background: white;
-            direction: rtl;
-            width: 100%;
-        }
-
-        .data-table {
-            width: 100%;
-            min-width: 800px;
-            border-collapse: collapse;
-            direction: rtl;
-            text-align: right;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        .data-table th {
-            background-color: #f8f9fa;
-            color: #333;
-            font-weight: 600;
-            padding: 15px 12px;
-            border-bottom: 2px solid #dee2e6;
-            border-left: 1px solid #dee2e6;
-            white-space: nowrap;
-            font-size: 0.95em;
-            text-align: right;
-            min-width: 140px;
-        }
-
-        .data-table th:first-child {
-            border-right: none;
-        }
-
-        .data-table td {
-            padding: 12px;
-            border-bottom: 1px solid #dee2e6;
-            border-left: 1px solid #dee2e6;
-            vertical-align: middle;
-            text-align: right;
-            white-space: nowrap;
-            min-width: 140px;
-        }
-
-        .data-table td:first-child {
-            border-right: none;
-        }
-
-        .data-table tr:hover {
-            background-color: #f5f5f5;
-        }
-
-        .data-table tr:nth-child(even) {
-            background-color: #f9f9f9;
-        }
-
-        /* Actions column styling */
-        .data-table th:last-child,
-        .data-table td:last-child {
-            min-width: 80px;
-            width: 80px;
-            text-align: center;
-        }
-
-        /* Mobile responsive adjustments following Context Buttons Layout */
-        @media (max-width: 768px) {
-            .context-buttons-section {
-                position: fixed;
-                bottom: 20px;
-                left: 50%;
-                top: auto;
-                transform: translateX(-50%);
-                flex-direction: row;
-                gap: 8px;
-                width: auto;
-            }
-            
-            .context-btn {
-                min-width: auto;
-                padding: 6px 10px;
-                font-size: 11px;
-            }
-            
-            .content-card {
-                margin-left: 20px;
-                margin-right: 20px;
-                margin-bottom: 80px;
-                max-width: none;
-            }
-            
-            #councilsTableContainer {
-                font-size: 0.85em;
-            }
-            
-            .data-table th,
-            .data-table td {
-                min-width: 120px;
-                padding: 8px 6px;
-            }
-        }
-
-        /* Tablet responsive adjustments following Context Buttons Layout */
-        @media (max-width: 1024px) and (min-width: 769px) {
-            .context-buttons-section {
-                left: 240px;
-                width: 160px;
-            }
-            
-            .content-card {
-                margin-left: 420px;
-                max-width: calc(100vw - 460px);
-            }
-            
-            .context-btn {
-                font-size: 11px;
-                padding: 7px 10px;
-            }
-        }
-
-        /* Large screen adjustments following Context Buttons Layout */
-        @media (min-width: 1400px) {
-            .context-buttons-section {
-                left: 300px;
-                width: 200px;
-            }
-            
-            .content-card {
-                margin-left: 520px;
-                max-width: calc(100vw - 560px);
-            }
-            
-            .context-btn {
-                font-size: 13px;
-                padding: 9px 14px;
-            }
-        }
-
-        /* Error message styling following Hebrew/RTL Specific Patterns */
-        .error-message {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            direction: rtl;
-            text-align: center;
-            padding: 30px;
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-            border-radius: 8px;
-            margin: 20px 0;
-        }
-
-        .error-message h3 {
-            font-size: 1.3em;
-            font-weight: 600;
-            margin-bottom: 15px;
-        }
-
-        .error-message p {
-            font-size: 1em;
-            line-height: 1.4;
-            margin-bottom: 20px;
-        }
-
-        .error-message button {
-            font-family: inherit;
-            transition: all 0.2s;
-            background: #007bff;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 0 5px;
-        }
-
-        .error-message button:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-            background: #0056b3;
-        }
-    </style>
-
-    <!-- Keep your existing script section unchanged -->
-    <script>
-        console.log('🔍 SCRIPT SECTION LOADED - councilsummary.html');
-        
-        // Global variables following Project-Specific Patterns
-        let allCouncils = [];
-        let councilsTable = null;
-
-        // Load councils data following Entity-Based Request Flow
-        async function loadCouncilsData() {
-            console.log('🚀 loadCouncilsData FUNCTION CALLED!');
-            
-            // Show loading indicator
-            const loadingElement = document.getElementById('councilsLoading');
-            if (loadingElement) {
-                loadingElement.style.display = 'block';
-                console.log('✅ Loading indicator shown');
-            }
-
-            try {
-                // Get auth token following Authentication & Session Management
-                const authToken = sessionStorage.getItem('authToken');
-                
-                console.log('📋 Session Debug:', {
-                    authToken: authToken ? 'present' : 'null',
-                    hasAuthToken: !!authToken
-                });
-                
-                if (!authToken || authToken === 'undefined') {
-                    console.error('❌ No valid auth token found in session');
-                    // Use mock data when no auth token
-                    const mockCouncils = generateMockData();
-                    allCouncils = mockCouncils;
-                    initializeTableWithData(mockCouncils);
-                    return;
-                }
-
-                // API call following API Communication Pattern
-                const apiUrl = AppConfig.getApiUrl('entities/councils');
-                console.log('🌐 Making API call to:', apiUrl);
-                
-                const response = await fetch(apiUrl, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
-                    }
-                });
-
-                console.log('📥 Response:', response.status, response.ok);
-
-                if (response.ok) {
-                    const result = await response.json();
-                    console.log('📦 Raw API response:', result);
-                    
-                    // Handle different response formats following API Communication Pattern
-                    const councils = result.data || result.councils || result || [];
-                    console.log('🏛️ Councils data extracted:', councils);
-                    console.log('🔍 First council structure:', councils[0]);
-                    
-                    // Transform councils data to summary format
-                    const councilsSummary = transformCouncilsToSummary(councils);
-                    console.log('📊 Transformed councils summary:', councilsSummary);
-                    
-                    allCouncils = councilsSummary;
-                    initializeTableWithData(councilsSummary);
-                } else {
-                    const errorText = await response.text();
-                    console.error('❌ API Error:', response.status, errorText);
-                    
-                    if (response.status === 401) {
-                        console.error('❌ Authentication failed - redirecting to login');
-                        // Optionally redirect to login
-                        // window.location.href = 'login.html';
-                    }
-                    
-                    // Fallback to mock data on API error
-                    console.log('🔄 Falling back to mock data');
-                    const mockCouncils = generateMockData();
-                    allCouncils = mockCouncils;
-                    initializeTableWithData(mockCouncils);
-                }
-            } catch (error) {
-                console.error('💥 Exception in loadCouncilsData:', error);
-                // Fallback to mock data on exception
-                console.log('🔄 Falling back to mock data due to exception');
+            if (!authToken || authToken === 'undefined') {
+                console.error('❌ No valid auth token found in session');
+                // Use mock data when no auth token
                 const mockCouncils = generateMockData();
                 allCouncils = mockCouncils;
                 initializeTableWithData(mockCouncils);
-            } finally {
-                const loadingElement = document.getElementById('councilsLoading');
-                if (loadingElement) {
-                    loadingElement.style.display = 'none';
-                    console.log('✅ Loading indicator hidden');
-                }
-            }
-        }
-
-        // Transform councils data to summary format following Entity-Based Request Flow
-        function transformCouncilsToSummary(councils) {
-            console.log('🔄 Transforming councils to summary format');
-            
-            // For now, create summary with basic council info
-            // This will be enhanced when we have actual student-council relationships
-            return councils.map(council => ({
-                id: council.id,
-                council: council.councilShortName || council.councilLongName || council.name || 'לא ידוע',
-                councilShortName: council.councilShortName,
-                councilLongName: council.councilLongName,
-                numberOfStudents: 0, // To be calculated from students data
-                status: 'ממתין',
-                totalRequested: '-',
-                lastUpdate: council.updatedAt ? new Date(council.updatedAt).toLocaleDateString('he-IL') : '-'
-            }));
-        }
-
-        // Generate mock data following Project-Specific Patterns
-        function generateMockData() {
-            console.log('📊 Generating mock council data');
-            
-            const mockData = [
-                {
-                    id: 1,
-
-                    councilShortName: '-תל-אביב-יפו',
-                    numberOfStudents: 2,
-                    status: 'נשלחו טפסים',
-                    totalRequested: '32,406 ₪',
-                    lastUpdate: new Date().toLocaleDateString('he-IL')
-                },
-                {
-                    id: 2,
-
-                    councilShortName: 'הוד השרון',
-                    numberOfStudents: 2,
-                    status: 'מוכן לשליחה',
-                    totalRequested: '15,178 ₪',
-                    lastUpdate: new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('he-IL')
-                },
-                {
-                    id: 3,
-                    councilShortName: 'הרצליה',
-                    numberOfStudents: 1,
-                    status: 'ממתין',
-                    totalRequested: '-',
-                    lastUpdate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('he-IL')
-                }
-            ];
-            
-            console.log('✅ Mock data generated:', mockData);
-            return mockData;
-        }
-
-        // Initialize table with data following Standard Table Component
-        function initializeTableWithData(councils) {
-            console.log('📊 Initializing table with', councils.length, 'councils');
-            
-            if (councils.length === 0) {
-                console.log('⚠️ No councils data available, creating empty table');
-                createEmptyTable();
                 return;
             }
-            
-            // Use ReusableTable component following Standard Table Component
-            if (typeof ReusableTable !== 'undefined') {
-                console.log('✅ Using ReusableTable component');
-                initializeReusableTable(councils);
+
+            // API call following API Communication Pattern
+            const apiUrl = AppConfig.getApiUrl('entities/councils');
+            console.log('🌐 Making API call to:', apiUrl);
+
+            const response = await fetch(apiUrl, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+
+            console.log('📥 Response:', response.status, response.ok);
+
+            if (response.ok) {
+                const result = await response.json();
+                console.log('📦 Raw API response:', result);
+
+                // Handle different response formats following API Communication Pattern
+                const councils = result.data || result.councils || result || [];
+                console.log('🏛️ Councils data extracted:', councils);
+                console.log('🔍 First council structure:', councils[0]);
+
+                // Transform councils data to summary format
+                const councilsSummary = transformCouncilsToSummary(councils);
+                console.log('📊 Transformed councils summary:', councilsSummary);
+
+                allCouncils = councilsSummary;
+                initializeTableWithData(councilsSummary);
             } else {
-                console.error('❌ ReusableTable component not available');
-                // Show loading message instead of fallback following Standard Table Component
-                const container = document.getElementById('councilsTableContainer');
-                if (container) {
-                    container.innerHTML = `
+                const errorText = await response.text();
+                console.error('❌ API Error:', response.status, errorText);
+
+                if (response.status === 401) {
+                    console.error('❌ Authentication failed - redirecting to login');
+                    // Optionally redirect to login
+                    // window.location.href = 'login.html';
+                }
+
+                // Fallback to mock data on API error
+                console.log('🔄 Falling back to mock data');
+                const mockCouncils = generateMockData();
+                allCouncils = mockCouncils;
+                initializeTableWithData(mockCouncils);
+            }
+        } catch (error) {
+            console.error('💥 Exception in loadCouncilsData:', error);
+            // Fallback to mock data on exception
+            console.log('🔄 Falling back to mock data due to exception');
+            const mockCouncils = generateMockData();
+            allCouncils = mockCouncils;
+            initializeTableWithData(mockCouncils);
+        } finally {
+            const loadingElement = document.getElementById('councilsLoading');
+            if (loadingElement) {
+                loadingElement.style.display = 'none';
+                console.log('✅ Loading indicator hidden');
+            }
+        }
+    }
+
+    // Transform councils data to summary format following Entity-Based Request Flow
+    function transformCouncilsToSummary(councils) {
+        console.log('🔄 Transforming councils to summary format');
+
+        // For now, create summary with basic council info
+        // This will be enhanced when we have actual student-council relationships
+        return councils.map(council => ({
+            id: council.id,
+            council: council.councilShortName || council.councilLongName || council.name || 'לא ידוע',
+            councilShortName: council.councilShortName,
+            councilLongName: council.councilLongName,
+            numberOfStudents: 0, // To be calculated from students data
+            status: 'ממתין',
+            totalRequested: '-',
+            lastUpdate: council.updatedAt ? new Date(council.updatedAt).toLocaleDateString('he-IL') : '-'
+        }));
+    }
+
+    // Generate mock data following Project-Specific Patterns
+    function generateMockData() {
+        console.log('📊 Generating mock council data');
+
+        const mockData = [
+            {
+                id: 1,
+
+                councilShortName: '-תל-אביב-יפו',
+                numberOfStudents: 2,
+                status: 'נשלחו טפסים',
+                totalRequested: '32,406 ₪',
+                lastUpdate: new Date().toLocaleDateString('he-IL')
+            },
+            {
+                id: 2,
+
+                councilShortName: 'הוד השרון',
+                numberOfStudents: 2,
+                status: 'מוכן לשליחה',
+                totalRequested: '15,178 ₪',
+                lastUpdate: new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('he-IL')
+            },
+            {
+                id: 3,
+                councilShortName: 'הרצליה',
+                numberOfStudents: 1,
+                status: 'ממתין',
+                totalRequested: '-',
+                lastUpdate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('he-IL')
+            }
+        ];
+
+        console.log('✅ Mock data generated:', mockData);
+        return mockData;
+    }
+
+    // Initialize table with data following Standard Table Component
+    function initializeTableWithData(councils) {
+        console.log('📊 Initializing table with', councils.length, 'councils');
+
+        if (councils.length === 0) {
+            console.log('⚠️ No councils data available, creating empty table');
+            createEmptyTable();
+            return;
+        }
+
+        // Use ReusableTable component following Standard Table Component
+        if (typeof ReusableTable !== 'undefined') {
+            console.log('✅ Using ReusableTable component');
+            initializeReusableTable(councils);
+        } else {
+            console.error('❌ ReusableTable component not available');
+            // Show loading message instead of fallback following Standard Table Component
+            const container = document.getElementById('councilsTableContainer');
+            if (container) {
+                container.innerHTML = `
                         <div class="loading-indicator">
                             <p>רכיב הטבלה לא זמין. אנא טען מחדש את הדף.</p>
                         </div>
                     `;
-                }
             }
         }
+    }
 
-        // Use ReusableTable following Standard Table Component
-        function initializeReusableTable(councils) {
-            console.log('📊 Initializing ReusableTable with', councils.length, 'councils');
-            console.log('📋 Sample council data:', councils[0]);
-            
-            // Define columns following Hebrew/RTL Specific Patterns with Standard Icon Set
-            const tableColumns = [
-                { 
-                    key: 'councilShortName', 
-                    label: 'רשות שולחת', 
-                    sortable: true,
-                    readOnly: false,
-                    render: (council) => council.councilShortName || '123456'
-                },
-                { 
-                    key: 'numberOfStudents', 
-                    label: 'מספר תלמידים', 
-                    sortable: true,
-                    readOnly: false
-                },
-                { 
-                    key: 'status', 
-                    label: 'סטטוס', 
-                    sortable: true,
-                    readOnly: false,
-                    render: (council) => {
-                        const status = council.status || 'לא ידוע';
-                        const statusClass = status.replace(/\s+/g, '-').toLowerCase();
-                        return `<span class="status-badge status-${statusClass}">${status}</span>`;
-                    }
-                },
-                { 
-                    key: 'totalRequested', 
-                    label: 'סה"כ נדרש', 
-                    sortable: true,
-                    readOnly: false
-                },
-                { 
-                    key: 'lastUpdate', 
-                    label: 'עדכון אחרון', 
-                    sortable: true,
-                    readOnly: false
-                },
-                { 
-                    key: 'actions', 
-                    label: 'פעולות', 
-                    sortable: false,
-                    readOnly: true,
-                    render: (council) => `
+    // Use ReusableTable following Standard Table Component
+    function initializeReusableTable(councils) {
+        console.log('📊 Initializing ReusableTable with', councils.length, 'councils');
+        console.log('📋 Sample council data:', councils[0]);
+
+        // Define columns following Hebrew/RTL Specific Patterns with Standard Icon Set
+        const tableColumns = [
+            {
+                key: 'councilShortName',
+                label: 'רשות שולחת',
+                sortable: true,
+                readOnly: false,
+                render: (council) => council.councilShortName || '123456'
+            },
+            {
+                key: 'numberOfStudents',
+                label: 'מספר תלמידים',
+                sortable: true,
+                readOnly: false
+            },
+            {
+                key: 'status',
+                label: 'סטטוס',
+                sortable: true,
+                readOnly: false,
+                render: (council) => {
+                    const status = council.status || 'לא ידוע';
+                    const statusClass = status.replace(/\s+/g, '-').toLowerCase();
+                    return `<span class="status-badge status-${statusClass}">${status}</span>`;
+                }
+            },
+            {
+                key: 'totalRequested',
+                label: 'סה"כ נדרש',
+                sortable: true,
+                readOnly: false
+            },
+            {
+                key: 'lastUpdate',
+                label: 'עדכון אחרון',
+                sortable: true,
+                readOnly: false
+            },
+            {
+                key: 'actions',
+                label: 'פעולות',
+                sortable: false,
+                readOnly: true,
+                render: (council) => `
                         <div class="actions-cell">
                             <button class="btn btn-sm btn-icon" onclick="viewCouncil(${council.id})" title="צפייה ברשות">
                                 <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
                             </button>
                         </div>
                     `
-                }
-            ];
+            }
+        ];
 
-            try {
-                // Create ReusableTable with correct constructor following Standard Table Component
-                councilsTable = new ReusableTable('councilsTableContainer', {
-                    tableName: 'councils',
-                    isReadOnly: true,
-                    allowAdd: false,
-                    allowEdit: false,
-                    allowDelete: false
-                });
-                
-                console.log('📋 ReusableTable created successfully');
-                
-                // Initialize with data and columns following Critical Development Workflows
-                councilsTable.init(councils, tableColumns);
-                console.log('✅ Councils table initialized successfully');
+        try {
+            // Create ReusableTable with correct constructor following Standard Table Component
+            councilsTable = new ReusableTable('councilsTableContainer', {
+                tableName: 'councils',
+                isReadOnly: true,
+                allowAdd: false,
+                allowEdit: false,
+                allowDelete: false
+            });
 
-            } catch (error) {
-                console.error('❌ Error creating ReusableTable:', error);
-                console.error('Error details:', {
-                    message: error.message,
-                    stack: error.stack
-                });
-                
-                // Show loading message on error instead of fallback following Standard Table Component
-                const container = document.getElementById('councilsTableContainer');
-                if (container) {
-                    container.innerHTML = `
+            console.log('📋 ReusableTable created successfully');
+
+            // Initialize with data and columns following Critical Development Workflows
+            councilsTable.init(councils, tableColumns);
+            console.log('✅ Councils table initialized successfully');
+
+        } catch (error) {
+            console.error('❌ Error creating ReusableTable:', error);
+            console.error('Error details:', {
+                message: error.message,
+                stack: error.stack
+            });
+
+            // Show loading message on error instead of fallback following Standard Table Component
+            const container = document.getElementById('councilsTableContainer');
+            if (container) {
+                container.innerHTML = `
                         <div class="loading-indicator">
                             <p>שגיאה בטעינת טבלת הרשויות. אנא טען מחדש את הדף.</p>
                         </div>
                     `;
-                }
             }
         }
+    }
 
-        // Simple table fallback when ReusableTable fails
- 
-        // Create empty table when no data available
-        function createEmptyTable() {
-            console.log('📊 Creating empty table');
-            
-            const container = document.getElementById('councilsTableContainer');
-            if (!container) return;
+    // Simple table fallback when ReusableTable fails
 
-            const tableHTML = `
+    // Create empty table when no data available
+    function createEmptyTable() {
+        console.log('📊 Creating empty table');
+
+        const container = document.getElementById('councilsTableContainer');
+        if (!container) return;
+
+        const tableHTML = `
                 <div class="table-container">
                     <table class="data-table">
                         <thead>
@@ -755,147 +337,120 @@
                 </div>
             `;
 
-            container.innerHTML = tableHTML;
-            console.log('✅ Empty table created');
+        container.innerHTML = tableHTML;
+        console.log('✅ Empty table created');
+    }
+
+    // Council management function following Cross-Component Communication
+    function viewCouncil(councilId) {
+        console.log('👁️ Viewing council:', councilId);
+        const council = allCouncils.find(c => c.id === councilId);
+
+        if (council) {
+            // Store selected council information in session following Authentication & Session Management
+            sessionStorage.setItem('selectedCouncilId', councilId);
+            sessionStorage.setItem('selectedCouncilName', council.council);
+
+            console.log('Selected council stored:', {
+                id: councilId,
+                name: council.council
+            });
+
+            // For now, show a simple alert - this can be extended to navigate to a detailed view
+            alert(`צפייה ברשות: ${council.council}\nמספר תלמידים: ${council.numberOfStudents}\nסטטוס: ${council.status}\nסכום נדרש: ${council.totalRequested}`);
+        } else {
+            console.error('Council not found with ID:', councilId);
+        }
+    }
+
+    // Context button navigation functions following Single-Page Application with Module Loading
+    function navigateBackToSchoolsList() {
+        console.log('🏫 Navigating back to schools list...');
+
+        // Store navigation context following Authentication & Session Management
+        sessionStorage.setItem('navigationSource', 'councilsummary');
+        sessionStorage.setItem('navigationTimestamp', new Date().toISOString());
+
+        // Check if loadSchoolListPage function is available following Cross-Component Communication
+        if (typeof window.loadSchoolListPage === 'function') {
+            window.loadSchoolListPage();
+        } else {
+            // Fallback: Load schools list page directly following Frontend Architecture Patterns
+            loadPageDirectly('schoollist.html', 'schoollist', 'רשימת בתי ספר');
+        }
+    }
+
+    function navigateBackToDashboard() {
+        console.log('📊 Navigating back to dashboard...');
+
+        // Store navigation context following Authentication & Session Management
+        sessionStorage.setItem('navigationSource', 'councilsummary');
+        sessionStorage.setItem('returnToDashboard', 'true');
+
+        // Check if loadMainDashboard function is available following Cross-Component Communication
+        if (typeof window.loadMainDashboard === 'function') {
+            window.loadMainDashboard();
+        } else if (typeof window.navigateToMainDashboard === 'function') {
+            window.navigateToMainDashboard();
+        } else {
+            // Fallback: Load dashboard page directly following Frontend Architecture Patterns
+            loadPageDirectly('maindashboard.html', 'maindashboard', 'לוח הבקרה הראשי');
+        }
+    }
+
+    // Generic page loading function following Frontend Architecture Patterns
+    function loadPageDirectly(filename, section, displayName) {
+        console.log(`🔄 Loading ${filename} page directly...`);
+
+        // Find the main content container following Project-Specific Patterns
+        const mainContainer = document.getElementById('dynamicContent') ||
+            document.getElementById('mainContent') ||
+            document.querySelector('.main-content') ||
+            document.querySelector('main') ||
+            document.body;
+
+        if (!mainContainer) {
+            console.error('❌ Could not find main content container');
+            return;
         }
 
-        // Council management function following Cross-Component Communication
-        function viewCouncil(councilId) {
-            console.log('👁️ Viewing council:', councilId);
-            const council = allCouncils.find(c => c.id === councilId);
-            
-            if (council) {
-                // Store selected council information in session following Authentication & Session Management
-                sessionStorage.setItem('selectedCouncilId', councilId);
-                sessionStorage.setItem('selectedCouncilName', council.council);
-                
-                console.log('Selected council stored:', {
-                    id: councilId,
-                    name: council.council
-                });
-                
-                // For now, show a simple alert - this can be extended to navigate to a detailed view
-                alert(`צפייה ברשות: ${council.council}\nמספר תלמידים: ${council.numberOfStudents}\nסטטוס: ${council.status}\nסכום נדרש: ${council.totalRequested}`);
-            } else {
-                console.error('Council not found with ID:', councilId);
-            }
-        }
-
-        // Context button navigation functions following Single-Page Application with Module Loading
-        function navigateBackToSchoolsList() {
-            console.log('🏫 Navigating back to schools list...');
-            
-            // Store navigation context following Authentication & Session Management
-            sessionStorage.setItem('navigationSource', 'councilsummary');
-            sessionStorage.setItem('navigationTimestamp', new Date().toISOString());
-            
-            // Check if loadSchoolListPage function is available following Cross-Component Communication
-            if (typeof window.loadSchoolListPage === 'function') {
-                window.loadSchoolListPage();
-            } else {
-                // Fallback: Load schools list page directly following Frontend Architecture Patterns
-                loadPageDirectly('schoollist.html', 'schoollist', 'רשימת בתי ספר');
-            }
-        }
-
-        function navigateBackToDashboard() {
-            console.log('📊 Navigating back to dashboard...');
-            
-            // Store navigation context following Authentication & Session Management
-            sessionStorage.setItem('navigationSource', 'councilsummary');
-            sessionStorage.setItem('returnToDashboard', 'true');
-            
-            // Check if loadMainDashboard function is available following Cross-Component Communication
-            if (typeof window.loadMainDashboard === 'function') {
-                window.loadMainDashboard();
-            } else if (typeof window.navigateToMainDashboard === 'function') {
-                window.navigateToMainDashboard();
-            } else {
-                // Fallback: Load dashboard page directly following Frontend Architecture Patterns
-                loadPageDirectly('maindashboard.html', 'maindashboard', 'לוח הבקרה הראשי');
-            }
-        }
-
-        // Generic page loading function following Frontend Architecture Patterns
-        function loadPageDirectly(filename, section, displayName) {
-            console.log(`🔄 Loading ${filename} page directly...`);
-            
-            // Find the main content container following Project-Specific Patterns
-            const mainContainer = document.getElementById('dynamicContent') ||
-                                 document.getElementById('mainContent') || 
-                                 document.querySelector('.main-content') || 
-                                 document.querySelector('main') ||
-                                 document.body;
-    
-            if (!mainContainer) {
-                console.error('❌ Could not find main content container');
-                return;
-            }
-
-            // Show loading state following Hebrew/RTL Specific Patterns
-            mainContainer.innerHTML = `
+        // Show loading state following Hebrew/RTL Specific Patterns
+        mainContainer.innerHTML = `
                 <div class="loading-spinner" style="text-align: center; padding: 40px; direction: rtl;">
                     <div style="font-size: 1.2em; margin-bottom: 15px;">טוען ${displayName}...</div>
                     <div style="color: #6c757d;">אנא המתן...</div>
                 </div>
             `;
-            
-            // Fetch and load page following API Communication Pattern
-            fetch(filename)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    return response.text();
-                })
-                .then(html => {
-                    console.log(`✅ ${filename} page loaded successfully`);
-                    mainContainer.innerHTML = html;
-                    
-                    // Execute scripts safely following Critical Development Workflows
-                    executeScriptsInContainer(mainContainer);
-                    
-                    // Update browser history following Single-Page Application patterns
-                    history.pushState({ section: section }, '', `#${section}`);
-                    
-                    console.log(`✅ ${displayName} page loaded and initialized`);
-                })
-                .catch(error => {
-                    console.error(`❌ Error loading ${filename} page:`, error);
-                    showNavigationError(mainContainer, `שגיאה בטעינת ${displayName}`);
-                });
-        }
 
-        // Utility functions following Critical Development Workflows
-        function executeScriptsInContainer(container) {
-            try {
-                const scripts = container.querySelectorAll('script');
-                scripts.forEach(script => {
-                    if (script.textContent && script.textContent.trim()) {
-                        try {
-                            const newScript = document.createElement('script');
-                            
-                            if (script.src) {
-                                newScript.src = script.src;
-                            } else {
-                                newScript.textContent = script.textContent;
-                            }
-                            
-                            document.head.appendChild(newScript);
-                            script.remove();
-                            
-                        } catch (scriptError) {
-                            console.warn('⚠️ Error executing script:', scriptError);
-                        }
-                    }
-                });
-            } catch (error) {
-                console.error('❌ Error in executeScriptsInContainer:', error);
-            }
-        }
+        // Fetch and load page following API Communication Pattern
+        fetch(filename)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.text();
+            })
+            .then(html => {
+                console.log(`✅ ${filename} page loaded successfully`);
+                mainContainer.innerHTML = html;
 
-        function showNavigationError(container, message) {
-            container.innerHTML = `
+                // Execute scripts safely following Critical Development Workflows
+                executeScriptsInContainer(mainContainer);
+
+                // Update browser history following Single-Page Application patterns
+                history.pushState({ section: section }, '', `#${section}`);
+
+                console.log(`✅ ${displayName} page loaded and initialized`);
+            })
+            .catch(error => {
+                console.error(`❌ Error loading ${filename} page:`, error);
+                showNavigationError(mainContainer, `שגיאה בטעינת ${displayName}`);
+            });
+    }
+
+
+    function showNavigationError(container, message) {
+        container.innerHTML = `
                 <div class="error-message">
                     <h3>${message}</h3>
                     <p>לא ניתן לטעון את הדף המבוקש. אנא נסה שוב.</p>
@@ -903,32 +458,30 @@
                     <button onclick="window.location.reload()">רענן דף</button>
                 </div>
             `;
-        }
+    }
 
-        // Initialize page following Critical Development Workflows
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('🏁 DOMContentLoaded event fired!');
-            loadCouncilsData();
-        });
+    // Initialize page following Critical Development Workflows
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log('🏁 DOMContentLoaded event fired!');
+        loadCouncilsData();
+    });
 
-        // Also try immediate call if DOM is already ready
-        if (document.readyState !== 'loading') {
-            console.log('📄 Document already ready, calling loadCouncilsData immediately');
-            loadCouncilsData();
-        }
+    // Also try immediate call if DOM is already ready
+    if (document.readyState !== 'loading') {
+        console.log('📄 Document already ready, calling loadCouncilsData immediately');
+        loadCouncilsData();
+    }
 
-        // Make functions globally available following Cross-Component Communication
-        window.loadCouncilsData = loadCouncilsData;
-        window.generateMockData = generateMockData;
-        window.initializeTableWithData = initializeTableWithData;
-        window.viewCouncil = viewCouncil;
-        window.navigateBackToSchoolsList = navigateBackToSchoolsList;
-        window.navigateBackToDashboard = navigateBackToDashboard;
-        window.loadPageDirectly = loadPageDirectly;
-        window.executeScriptsInContainer = executeScriptsInContainer;
-        window.showNavigationError = showNavigationError;
+    // Make functions globally available following Cross-Component Communication
+    window.loadCouncilsData = loadCouncilsData;
+    window.generateMockData = generateMockData;
+    window.initializeTableWithData = initializeTableWithData;
+    window.viewCouncil = viewCouncil;
+    window.navigateBackToSchoolsList = navigateBackToSchoolsList;
+    window.navigateBackToDashboard = navigateBackToDashboard;
+    window.loadPageDirectly = loadPageDirectly;
+    window.executeScriptsInContainer = executeScriptsInContainer;
+    window.showNavigationError = showNavigationError;
 
-        console.log('✅ Council summary functions registered globally');
-    </script>
-</body>
-</html>
+    console.log('✅ Council summary functions registered globally');
+</script>
