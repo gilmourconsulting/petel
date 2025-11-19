@@ -24,6 +24,322 @@ cd petelapp-frontend && npx serve public
 
 Backend runs on `http://localhost:5082`, frontend on `http://localhost:3000`
 
+## Configuration Management
+
+### Application Configuration Pattern
+
+**CRITICAL**: All environment-specific settings must be externalized to configuration files - **NEVER hardcoded**.
+
+#### Backend Configuration Requirements
+
+**1. Database Configuration**
+
+All database settings must be in `appsettings.json` and `appsettings.Development.json`:
+
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=petelappdb;Username=PetelAdmin;Password=..."
+  },
+  "Database": {
+    "SchemaName": "petel_schema"
+  }
+}
+```
+
+**2. Database Schema Configuration Pattern**
+
+**CRITICAL**: Use `HasDefaultSchema()` for all entities - DO NOT hardcode schema names.
+
+```csharp
+// ✅ CORRECT - AppDbContext.cs
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using PetelApp.Api.Configuration;
+
+public class AppDbContext : DbContext
+{
+    private readonly string _schemaName;
+
+    public AppDbContext(
+        DbContextOptions<AppDbContext> options,
+        IOptions<DatabaseSettings> dbSettings) 
+        : base(options)
+    {
+        _schemaName = dbSettings.Value.SchemaName;
+    }
+    
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // ✅ Set default schema ONCE - applies to ALL entities
+        modelBuilder.HasDefaultSchema(_schemaName);
+
+        // ✅ Configure entities WITHOUT schema parameter
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.ToTable("users");  // Schema from HasDefaultSchema
+            entity.HasIndex(e => e.Username).IsUnique();
+            // ... relationships
+        });
+
+        modelBuilder.Entity<School>(entity =>
+        {
+            entity.ToTable("schools");  // Schema from HasDefaultSchema
+            // ... relationships
+        });
+
+        // Continue for all entities - NO schema in ToTable()
+    }
+}
+```
+
+**3. Entity Class Pattern**
+
+```csharp
+// ✅ CORRECT - Entity class (School.cs, User.cs, etc.)
+[Table("schools")]  // ✅ Table name only - NO schema parameter
+public class School
+{
+    [Key]
+    [Column("id")]
+    public int Id { get; set; }
+    
+    // ... properties
+}
+
+// ❌ WRONG - DO NOT include schema in attribute
+[Table("schools", Schema = "petel_schema")]  // NO!
+```
+
+**4. Configuration Class Pattern**
+
+```csharp
+// Configuration/DatabaseSettings.cs
+namespace PetelApp.Api.Configuration
+{
+    public class DatabaseSettings
+    {
+        public string SchemaName { get; set; } = "petel_schema";
+    }
+}
+```
+
+**5. Program.cs Registration**
+
+```csharp
+// Required using statements
+using Microsoft.Extensions.Options;
+using PetelApp.Api.Configuration;
+
+// Register configuration
+builder.Services.Configure<DatabaseSettings>(
+    builder.Configuration.GetSection("Database"));
+
+// Inject into DbContext
+builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
+{
+    var dbSettings = serviceProvider.GetRequiredService<IOptions<DatabaseSettings>>().Value;
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        npgsqlOptions => npgsqlOptions.MigrationsHistoryTable(
+            "__EFMigrationsHistory", 
+            dbSettings.SchemaName
+        )
+    );
+});
+```
+
+**6. Required Using Statements in AppDbContext**
+
+```csharp
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;  // ✅ Required for IOptions<T>
+using PetelApp.Api.Configuration;    // ✅ Required for DatabaseSettings
+```
+
+#### Frontend Configuration Requirements
+
+**1. Environment Configuration Pattern**
+
+**CRITICAL**: Frontend API URLs must be in environment configuration files - **NEVER hardcoded**.
+
+```javascript
+// ✅ CORRECT - env-config.js (development)
+window.ENV_CONFIG = {
+    API_BASE_URL: 'http://localhost:5082/api',
+    ENVIRONMENT: 'development'
+};
+
+// ✅ Create environment-specific files
+// env-config.production.js
+window.ENV_CONFIG = {
+    API_BASE_URL: 'https://api.petel-system.co.il/api',
+    ENVIRONMENT: 'production'
+};
+
+// env-config.staging.js
+window.ENV_CONFIG = {
+    API_BASE_URL: 'https://staging-api.petel-system.co.il/api',
+    ENVIRONMENT: 'staging'
+};
+```
+
+**2. Centralized Configuration Usage**
+
+```javascript
+// ✅ CORRECT - config.js uses environment configuration
+const ENV_CONFIG = window.ENV_CONFIG || {
+    API_BASE_URL: 'http://localhost:5082/api',
+    ENVIRONMENT: 'development'
+};
+
+const AppConfig = {
+    apiBaseUrl: ENV_CONFIG.API_BASE_URL,  // ✅ From environment
+    environment: ENV_CONFIG.ENVIRONMENT,
+    
+    getApiUrl(endpoint) {
+        return `${this.apiBaseUrl}/${endpoint}`;
+    },
+    
+    getDefaultFetchOptions() {
+        const authToken = sessionStorage.getItem('authToken');
+        return {
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': authToken ? `Bearer ${authToken}` : ''
+            }
+        };
+    }
+};
+
+window.AppConfig = AppConfig;
+```
+
+**3. HTML Load Order**
+
+```html
+<head>
+    <!-- ✅ Load environment config FIRST -->
+    <script src="env-config.js"></script>
+    <!-- Then load other scripts -->
+    <script src="config.js"></script>
+</head>
+```
+
+**4. Anti-Patterns to Avoid**
+
+```javascript
+// ❌ WRONG - Hardcoded API URL
+const apiUrl = 'http://localhost:5082/api';  // NO!
+
+// ❌ WRONG - Duplicate AppConfig declaration
+const AppConfig = {
+    apiBaseUrl: 'http://localhost:5082/api'  // NO! - Use centralized config
+};
+
+// ❌ WRONG - Missing environment configuration
+// Every page must use window.AppConfig, not define its own
+
+// ✅ CORRECT - Use centralized configuration
+const response = await fetch(AppConfig.getApiUrl('schools'));
+```
+
+### Configuration Checklist for New Features
+
+When adding new features, verify:
+
+**Backend:**
+1. ✅ Database connection string in `appsettings.json`
+2. ✅ Schema name in `DatabaseSettings` configuration
+3. ✅ `HasDefaultSchema(_schemaName)` in `AppDbContext`
+4. ✅ Entity `[Table]` attributes have NO schema parameter
+5. ✅ All `entity.ToTable()` calls have NO schema parameter
+6. ✅ Required using statements in `AppDbContext`
+7. ✅ `IOptions<DatabaseSettings>` injected into `AppDbContext` constructor
+
+**Frontend:**
+1. ✅ API URLs use `AppConfig.getApiUrl()` helper
+2. ✅ NO hardcoded URLs anywhere in code
+3. ✅ Environment-specific config files exist
+4. ✅ `env-config.js` loaded BEFORE `config.js`
+5. ✅ NO duplicate `AppConfig` declarations in pages
+6. ✅ Deployment scripts copy correct env config
+
+### Deployment Configuration
+
+**1. Backend Deployment**
+
+Environment-specific `appsettings.json` files:
+- `appsettings.Development.json` - Local development
+- `appsettings.Staging.json` - Staging environment
+- `appsettings.Production.json` - Production environment
+
+Each can override:
+- Connection strings
+- Schema names
+- API keys
+- Feature flags
+
+**2. Frontend Deployment**
+
+Deployment script pattern:
+
+```bash
+#!/bin/bash
+# deploy.sh
+
+ENVIRONMENT=$1
+
+if [ -z "$ENVIRONMENT" ]; then
+    echo "Usage: ./deploy.sh [development|staging|production]"
+    exit 1
+fi
+
+echo "🚀 Deploying for environment: $ENVIRONMENT"
+
+# Copy environment-specific config
+if [ -f "public/env-config.$ENVIRONMENT.js" ]; then
+    cp "public/env-config.$ENVIRONMENT.js" "public/env-config.js"
+    echo "✅ Using env-config.$ENVIRONMENT.js"
+else
+    echo "❌ Environment config file not found"
+    exit 1
+fi
+
+# Continue with deployment...
+```
+
+### Common Configuration Errors and Fixes
+
+**Error: `relation "schools" does not exist`**
+- **Cause**: Schema not being applied to queries
+- **Fix**: Verify `HasDefaultSchema(_schemaName)` is in `OnModelCreating`
+- **Fix**: Remove all hardcoded `"petel_schema"` strings from `ToTable()` calls
+
+**Error: `IOptions<DatabaseSettings> could not be found`**
+- **Cause**: Missing using statement
+- **Fix**: Add `using Microsoft.Extensions.Options;` to `AppDbContext.cs`
+
+**Error: `Identifier 'AppConfig' has already been declared`**
+- **Cause**: Duplicate `AppConfig` declaration in page
+- **Fix**: Remove page-level declaration, use centralized `config.js`
+
+**Error: API calls return 404**
+- **Cause**: Wrong API URL for environment
+- **Fix**: Verify correct `env-config.js` is deployed
+- **Fix**: Check `window.AppConfig.apiBaseUrl` in browser console
+
+### Benefits of This Architecture
+
+✅ **Environment Portability**: Deploy to any environment without code changes
+✅ **Multi-Tenant Support**: Different schemas per tenant via configuration
+✅ **Security**: Sensitive URLs not in source control
+✅ **Maintainability**: Single source of truth for all configuration
+✅ **Flexibility**: Override via environment variables or build scripts
+✅ **Testability**: Easy to switch between test/production databases
+
 ## Project-Specific Patterns
 
 ### Entity-Based Request Flow
@@ -662,7 +978,7 @@ sessionStorage.setItem('entityId', entityId);        // DON'T DO THIS
 // ✅ CORRECT - Get from backend
 const session = await sessionManager.getSessionInfo();
 const userId = session.userId;
-const entityId = session.entityId;
+const entityId = await sessionManager.getSessionProperty('CurrentSchoolYearId');
 
 // ✅ CORRECT - Set parameter in backend
 await sessionManager.setSessionProperty('CurrentSchoolYearId', yearId);
