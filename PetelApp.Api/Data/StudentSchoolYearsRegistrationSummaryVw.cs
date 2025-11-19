@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace PetelApp.Api.Data
 {
-    [Table("student_school_years_registration_summary_vw", Schema = "petel_schema")]
+    [Table("student_school_years_registration_summary_vw")]
     public class StudentSchoolYearsRegistrationSummaryVw
     {
         public int SchoolId { get; set; } // EntityId for tenant scoping

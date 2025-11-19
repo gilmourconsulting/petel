@@ -8,7 +8,7 @@ namespace PetelApp.Api.Data
     /// System attribute entity for dynamic configuration following system attributes pattern
     /// Maps to petel_schema.system_attributes table with multi-tenant support
     /// </summary>
-    [Table("system_attributes", Schema = "petel_schema")]
+    [Table("system_attributes")]
     public class SystemAttribute
     {
         [Key]

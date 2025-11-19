@@ -1,12 +1,22 @@
 // PetelApp.Api/Data/AppDbContext.cs
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;  // ✅ ADD THIS - Required for IOptions<T>
+using PetelApp.Api.Configuration;  // ✅ ADD THIS - Required for DatabaseSettings
 using PetelApp.Api.Data;
 
 namespace PetelApp.Api.Data
 {
     public class AppDbContext : DbContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
+                private readonly string _schemaName;
+
+        public AppDbContext(
+            DbContextOptions<AppDbContext> options,
+            IOptions<DatabaseSettings> dbSettings) 
+            : base(options)
+        {
+            _schemaName = dbSettings.Value.SchemaName;
+        }
 
         // DbSets following Authentication & Session Management
         public DbSet<SystemAttribute> SystemAttributes { get; set; }
@@ -56,16 +66,19 @@ namespace PetelApp.Api.Data
         public DbSet<DocumentStatusType> DocumentStatusTypes { get; set; } = null!;
 
 
-public DbSet<SchoolStudentPricingElement> SchoolStudentPricingElements { get; set; }
-public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set; }
+        public DbSet<SchoolStudentPricingElement> SchoolStudentPricingElements { get; set; }
+        public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set; }
+        
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
+            modelBuilder.HasDefaultSchema(_schemaName);
+
             // User entity configuration following Authentication & Session Management
             modelBuilder.Entity<User>(entity =>
             {
-                entity.ToTable("users", "petel_schema");
+                entity.ToTable("users");
                 entity.HasIndex(e => e.Username).IsUnique();
                 entity.HasIndex(e => e.Email).IsUnique();
 
@@ -78,7 +91,7 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
             // Entity configuration following Entity-Based Request Flow
             modelBuilder.Entity<Entity>(entity =>
             {
-                entity.ToTable("entities", "petel_schema");
+                entity.ToTable("entities");
                 entity.Property(e => e.OwnerId).HasColumnName("owner"); // Add this line
 
                 entity.HasOne(e => e.EntityType)
@@ -90,19 +103,19 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
             // EntityType configuration
             modelBuilder.Entity<EntityType>(entity =>
             {
-                entity.ToTable("entity_types", "petel_schema");
+                entity.ToTable("entity_types");
             });
 
             // Role configuration
             modelBuilder.Entity<Role>(entity =>
             {
-                entity.ToTable("roles", "petel_schema");
+                entity.ToTable("roles");
             });
 
             // UserRole configuration - fix to match actual UserRole.cs file
             modelBuilder.Entity<UserRole>(entity =>
             {
-                entity.ToTable("user_roles", "petel_schema");
+                entity.ToTable("user_roles");
                 entity.HasIndex(e => new { e.UserId }).IsUnique();
 
                 entity.HasOne(ur => ur.User)
@@ -116,7 +129,7 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
             // RolesAction configuration
             modelBuilder.Entity<RolesAction>(entity =>
             {
-                entity.ToTable("roles_actions", "petel_schema");
+                entity.ToTable("roles_actions");
                 entity.HasOne(ra => ra.Role)
                       .WithMany(r => r.RolesActions)
                       .HasForeignKey(ra => ra.RoleId)
@@ -126,7 +139,7 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
             // HoursBudget configuration following Entity-Based Request Flow
             modelBuilder.Entity<HoursBudget>(entity =>
             {
-                entity.ToTable("hours_budget", "petel_schema");
+                entity.ToTable("hours_budget");
                 entity.HasIndex(e => new { e.EntityId, e.SchoolYear, e.BudgetType })
                       .HasDatabaseName("ix_hours_budget_entity_year_type");
 
@@ -138,21 +151,21 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
             // SystemAttribute configuration following System Attributes Pattern
             modelBuilder.Entity<SystemAttribute>(entity =>
             {
-                entity.ToTable("system_attributes", "petel_schema");
+                entity.ToTable("system_attributes");
                 entity.HasIndex(e => e.Description).IsUnique();
             });
 
             // SchoolYear configuration following Entity-Based Request Flow
             modelBuilder.Entity<SchoolYear>(entity =>
             {
-                entity.ToTable("school_years", "petel_schema");
+                entity.ToTable("school_years");
                 entity.HasIndex(e => new { e.SchoolId, e.YearName }).IsUnique();
             });
 
             // View configuration
             modelBuilder.Entity<StudentSchoolYearsRegistrationSummaryVw>(entity =>
             {
-                entity.ToView("student_school_years_registration_summary_vw", "petel_schema");
+                entity.ToView("student_school_years_registration_summary_vw");
                 entity.HasNoKey(); // Views don't have primary keys
                 entity.Property(s => s.SchoolId).HasColumnName("school_id");
                 entity.Property(s => s.SchoolYearId).HasColumnName("school_year_id");
@@ -164,7 +177,7 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
             // Council entity configuration following Database Conventions
             modelBuilder.Entity<Council>(entity =>
             {
-                entity.ToTable("councils", "petel_schema");
+                entity.ToTable("councils");
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.CouncilCode).IsRequired();
                 entity.Property(e => e.CouncilType).HasMaxLength(25);
@@ -180,7 +193,7 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
             // SchoolClass entity configuration following Database Conventions
             modelBuilder.Entity<SchoolClass>(entity =>
             {
-                entity.ToTable("school_classes", "petel_schema");
+                entity.ToTable("school_classes");
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.SchoolYearId).IsRequired();
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(6);
@@ -220,7 +233,7 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
             // Configure school attribute relationships
             modelBuilder.Entity<SchoolAttributeTypeValue>(entity =>
             {
-                entity.ToTable("school_attribute_types_values", "petel_schema");
+                entity.ToTable("school_attribute_types_values");
                 entity.HasOne(v => v.SchoolAttributeType)
                     .WithMany()
                     .HasForeignKey(v => v.SchoolAttributeTypeId)
@@ -229,12 +242,12 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
 
             modelBuilder.Entity<SchoolAttributeType>(entity =>
             {
-                entity.ToTable("school_attributes_types", "petel_schema");
+                entity.ToTable("school_attributes_types");
             });
 
             modelBuilder.Entity<SchoolAttribute>(entity =>
             {
-                entity.ToTable("school_attributes", "petel_schema");
+                entity.ToTable("school_attributes");
 
                 // Foreign key to school_years
                 entity.HasOne(a => a.SchoolYear)
@@ -257,7 +270,7 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
             // Configure Track
             modelBuilder.Entity<Track>(entity =>
             {
-                entity.ToTable("tracks", "petel_schema");
+                entity.ToTable("tracks");
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.TrackName).HasColumnName("name");
                 entity.Property(e => e.YearId).HasColumnName("year_id");
@@ -266,7 +279,7 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
             // Configure TrackLevel
             modelBuilder.Entity<TrackLevel>(entity =>
             {
-                entity.ToTable("tracks_levels", "petel_schema");
+                entity.ToTable("tracks_levels");
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.LevelName).HasColumnName("level");
                 entity.Property(e => e.SchoolTrackId).HasColumnName("school_track_id");
@@ -275,7 +288,7 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
             // Configure SchoolTrack
             modelBuilder.Entity<SchoolTrack>(entity =>
             {
-                entity.ToTable("school_tracks", "petel_schema");
+                entity.ToTable("school_tracks");
                 entity.HasKey(e => e.Id);
 
                 entity.HasOne(e => e.SchoolYear)
@@ -305,7 +318,7 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
             });
             modelBuilder.Entity<Document>(entity =>
  {
-     entity.ToTable("documents", "petel_schema"); // ✅ Lowercase table name with schema
+     entity.ToTable("documents"); // ✅ Lowercase table name with schema
      entity.HasKey(e => e.Id);
 
      entity.Property(e => e.Id)
@@ -359,7 +372,7 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
 
             modelBuilder.Entity<DocumentType>(entity =>
             {
-                entity.ToTable("document_types", "petel_schema"); // ✅ Lowercase table name with schema
+                entity.ToTable("document_types"); // ✅ Lowercase table name with schema
                 entity.HasKey(e => e.Id);
 
                 entity.Property(e => e.Id)
@@ -380,7 +393,7 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
 
             modelBuilder.Entity<DocumentLink>(entity =>
             {
-                entity.ToTable("document_links", "petel_schema"); // ✅ Lowercase table name with schema
+                entity.ToTable("document_links"); // ✅ Lowercase table name with schema
                 entity.HasKey(e => e.Id);
 
                 entity.Property(e => e.Id)
@@ -405,7 +418,7 @@ public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set;
             });
             modelBuilder.Entity<DocumentStatusType>(entity =>
         {
-            entity.ToTable("document_status_types", "petel_schema");
+            entity.ToTable("document_status_types");
             entity.HasKey(e => e.Id);
 
             entity.Property(e => e.Id)

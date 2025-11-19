@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PetelApp.Api.Data
 {
-    [Table("entity_types", Schema = "petel_schema")]
+    [Table("entity_types")]
     public class EntityType
     {
         [Key]

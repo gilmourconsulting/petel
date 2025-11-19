@@ -7,7 +7,7 @@ namespace PetelApp.Api.Data
     /// Special needs characterizations for schools
     /// Maps to petel_schema.special_needs_characterizations table
     /// </summary>
-    [Table("special_needs_characterizations", Schema = "petel_schema")]
+    [Table("special_needs_characterizations")]
     public class SpecialNeedsCharacterization
     {
         [Key]

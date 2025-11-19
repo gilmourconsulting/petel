@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PetelApp.Api.Data
 {
-    [Table("tracks_levels", Schema = "petel_schema")]
+    [Table("tracks_levels")]
     public class TrackLevel
     {
         [Key]

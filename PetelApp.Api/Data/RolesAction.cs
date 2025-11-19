@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PetelApp.Api.Data
 {
-    [Table("roles_actions", Schema = "petel_schema")]
+    [Table("roles_actions")]
     public class RolesAction
     {
         [Key]

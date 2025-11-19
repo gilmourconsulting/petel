@@ -8,7 +8,7 @@ namespace PetelApp.Api.Data
     /// Person entity representing individuals (principals, inspectors, contact persons)
     /// Maps to petel_schema.persons table
     /// </summary>
-    [Table("persons", Schema = "petel_schema")]
+    [Table("persons")]
     public class Person
     {
         [Key]

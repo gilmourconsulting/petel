@@ -1,8 +1,12 @@
+// Load environment configuration (defaults if not loaded)
+const ENV_CONFIG = window.ENV_CONFIG || {
+    API_BASE_URL: 'http://localhost:5082/api',
+    ENVIRONMENT: 'development'
+};
+
 const AppConfig = {
-    // API base URL - configure per environment
-    baseUrl: window.location.hostname === 'localhost' 
-        ? 'http://localhost:5082' 
-        : 'https://your-production-api.com',
+    apiBaseUrl: ENV_CONFIG.API_BASE_URL, // ✅ Use from environment
+    environment: ENV_CONFIG.ENVIRONMENT,
     
     /**
      * Get full API URL for endpoint
@@ -14,9 +18,7 @@ const AppConfig = {
      * - All other endpoints: Require Authorization header with auth token
      */
     getApiUrl(endpoint) {
-        // Remove leading slash if present
-        const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-        return `${this.baseUrl}/api/${cleanEndpoint}`;
+        return `${this.apiBaseUrl}/${endpoint}`;
     },
     
     getDefaultFetchOptions() {
@@ -28,8 +30,6 @@ const AppConfig = {
                 'Authorization': authToken ? `Bearer ${authToken}` : ''
             }
         };
-
-        
     },
     
     async fetchWithAuth(url, options = {}) {
@@ -44,7 +44,6 @@ const AppConfig = {
             const response = await fetch(url, mergedOptions);
             
             if (response.status === 401) {
-                // Handle unauthorized - clear session and redirect to login
                 sessionStorage.clear();
                 window.location.href = 'login.html';
                 throw new Error('Unauthorized');
@@ -56,8 +55,6 @@ const AppConfig = {
             throw error;
         }
     }
-    
 };
 
-// Make globally accessible
 window.AppConfig = AppConfig;

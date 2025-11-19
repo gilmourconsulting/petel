@@ -5,7 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace PetelApp.Api.Data
 {
 
-[Table("school_attribute_types_values", Schema = "petel_schema")]
+[Table("school_attribute_types_values")]
 public class SchoolAttributeTypeValue
 {
     [Key]

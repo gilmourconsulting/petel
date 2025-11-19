@@ -7,7 +7,7 @@ namespace PetelApp.Api.Data
     /// Hours budget entity following database conventions
     /// Maps to petel_schema.hours_budgets table with multi-tenant architecture
     /// </summary>
-    [Table("hours_budget", Schema = "petel_schema")]
+    [Table("hours_budget")]
     public class HoursBudget
     {
         [Key]

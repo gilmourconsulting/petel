@@ -7,7 +7,7 @@ namespace PetelApp.Api.Data
     /// Entity model for petel_schema.councils table
     /// Represents Israeli municipalities/councils (רשויות)
     /// </summary>
-    [Table("councils", Schema = "petel_schema")]
+    [Table("councils")]
     public class Council
     {
         [Key]

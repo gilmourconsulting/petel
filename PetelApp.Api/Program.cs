@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;  // ✅ ADD THIS - Required for IOptions<T>
+using PetelApp.Api.Configuration;  // ✅ ADD THIS - Required for DatabaseSettings
+
 using PetelApp.Api.Data;
 using PetelApp.Api.Services;
 using Hangfire;
@@ -44,8 +47,18 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Database
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.Configure<DatabaseSettings>(
+    builder.Configuration.GetSection("Database"));
+
+
+builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
+{
+    var dbSettings = serviceProvider.GetRequiredService<IOptions<DatabaseSettings>>().Value;
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        npgsqlOptions => npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", dbSettings.SchemaName)
+    );
+});
 
 // Session - ASP.NET Core session (minimal use)
 builder.Services.AddDistributedMemoryCache();

@@ -8,7 +8,7 @@ namespace PetelApp.Api.Data
     /// School entity representing school details by year and version
     /// Maps to petel_schema.schools table
     /// </summary>
-    [Table("schools", Schema = "petel_schema")]
+    [Table("schools")]
     public class School
     {
         [Key]

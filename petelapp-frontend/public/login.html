@@ -5,7 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>כניסה למערכת</title>
-    <script src="bootstrap-config.js"></script>
+
+    <!-- ✅ Load environment config FIRST -->
+    <script src="env-config.js"></script>
+    <!-- Then load other scripts -->
+    <script src="config.js"></script>
+
     <!-- Load styles -->
     <link rel="stylesheet" href="theme.css">
     <link rel="stylesheet" href="login.css">
@@ -83,60 +88,6 @@
     </div>
 
     <script>
-        // ✅ SECURE: Dynamic configuration loaded from backend
-        let AppConfig = {
-            apiBaseUrl: null,  // Will be loaded from server
-
-            getApiUrl(endpoint) {
-                if (!this.apiBaseUrl) {
-                    console.error('❌ AppConfig not initialized');
-                    // Fallback to bootstrap URL
-                    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-                    return `${window.BootstrapConfig.getBackendUrl()}/api/${cleanEndpoint}`;
-                }
-                const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-                return `${this.apiBaseUrl}/api/${cleanEndpoint}`;
-            }
-        };
-
-
-        // ✅ SECURE: Load configuration before app starts
-        async function initializeAppConfig() {
-            try {
-                console.log('🔄 Loading configuration from backend...');
-                const configUrl = window.BootstrapConfig.getConfigUrl();
-
-                // Use relative path to avoid chicken-egg problem
-                const response = await fetch(configUrl);
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                const config = await response.json();
-
-                // Update AppConfig with server values
-                AppConfig.apiBaseUrl = config.apiBaseUrl;
-
-                console.log('✅ Configuration loaded:', {
-                    apiBaseUrl: AppConfig.apiBaseUrl,
-                    environment: config.environment
-                });
-
-                return true;
-            } catch (error) {
-                console.error('❌ Failed to load configuration:', error);
-
-                // ✅ SECURE: Fail to safe defaults
-                AppConfig.apiBaseUrl = window.BootstrapConfig.getBackendUrl();
-
-                console.warn('⚠️ Using fallback configuration:', {
-                    apiBaseUrl: AppConfig.apiBaseUrl
-                });
-
-                return false;
-            }
-        }
 
         // Autocomplete functionality
         class EntityAutocomplete {
@@ -326,14 +277,7 @@
                 handleEntitySelection(e.detail.id);
             });
 
-            // Step 1: Load configuration
-            const configLoaded = await initializeAppConfig();
 
-            if (!configLoaded) {
-                showError('שגיאה בטעינת הגדרות המערכת. המערכת תמשיך עם הגדרות ברירת מחדל.');
-            }
-
-            // Step 2: Load entities and system version (now with correct URLs)
             loadEntities();
             loadSystemVersion();
 

@@ -7,7 +7,7 @@ namespace PetelApp.Api.Data
     /// Entity model for petel_schema.school_classes table
     /// Represents school classes (כיתות לימוד)
     /// </summary>
-    [Table("school_classes", Schema = "petel_schema")]
+    [Table("school_classes")]
     public class SchoolClass
     {
         [Key]
