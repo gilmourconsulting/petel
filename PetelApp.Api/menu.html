@@ -1,0 +1,40 @@
+<div class="side-menu collapsed" id="sideMenu">
+    <div class="menu-header">
+        <div class="menu-title">תפריט</div>
+        <button class="menu-toggle" id="menuToggleBtn" type="button" onclick="toggleMenu()">▶</button>
+    </div>
+    
+    <div class="menu-items">
+        <a href="#dashboard" class="menu-item active" onclick="navigateTo('dashboard')">
+            <span class="menu-item-text">עמוד ראשי</span>
+        </a>
+        <a href="#users" class="menu-item" onclick="navigateTo('users')">
+            <span class="menu-item-text">ניהול משתמשים</span>
+        </a>
+        <a href="#tasks" class="menu-item" onclick="navigateTo('tasks')">
+            <span class="menu-item-text">משימות</span>
+        </a>
+        
+        <a href="#reports" class="menu-item" onclick="navigateTo('reports')">
+            <span class="menu-item-text">דוחות</span>
+        </a>
+        <a href="#analytics" class="menu-item" onclick="navigateTo('analytics')">
+            <span class="menu-item-text">ניתוח נתונים</span>
+        </a>
+        
+        <a href="#settings" class="menu-item" onclick="navigateTo('settings')">
+            <span class="menu-item-text">הגדרות מערכת</span>
+        </a>
+        <a href="#help" class="menu-item" onclick="navigateTo('help')">
+            <span class="menu-item-text">עזרה ותמיכה</span>
+        </a>
+        <a href="#system-attributes" class="menu-item" onclick="navigateTo('systemAttributes')">
+            <span class="menu-item-text">מאפייני מערכת</span>
+        </a>
+        
+        <!-- Add sessions menu item following Hebrew/RTL Specific Patterns -->
+        <a href="#sessions" class="menu-item" onclick="navigateTo('sessions')">
+            <span class="menu-item-text">משתמשים פעילים</span>
+        </a>
+    </div>
+</div>

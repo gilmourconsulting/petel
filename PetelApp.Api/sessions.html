@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Session Data - Petel</title>
+    <link rel="stylesheet" href="theme.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="content-card">
+        <h2>Session Data Viewer</h2>
+        
+        <div class="session-info">
+            <h3>Session ID: <span id="sessionId"></span></h3>
+            <button onclick="refreshSessionData()" class="btn-primary">רענן נתונים</button>
+        </div>
+        
+        <div class="properties-section" style="margin-top: 20px;">
+            <h3>Session Properties</h3>
+            <div style="overflow-x: auto;">
+                <table class="data-table" id="propertiesTable">
+                    <thead>
+                        <tr>
+                            <th>Property Key</th>
+                            <th>Value</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="propertiesBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="add-property-section" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+            <h3>הוסף/עדכן מאפיין</h3>
+            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                <input type="text" id="propertyKey" placeholder="Property Key" style="flex: 1; padding: 8px;">
+                <input type="text" id="propertyValue" placeholder="Property Value" style="flex: 2; padding: 8px;">
+                <button onclick="addProperty()" class="btn-primary">עדכן</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
+    <script src="session-manager.js"></script>
+    <script>
+        async function refreshSessionData() {
+            try {
+                const session = await sessionManager.getSessionInfo();
+                document.getElementById('sessionId').textContent = session.sessionId;
+                
+                const properties = await sessionManager.getAllSessionProperties();
+                const tbody = document.getElementById('propertiesBody');
+                tbody.innerHTML = '';
+                
+                for (const [key, value] of Object.entries(properties)) {
+                    const row = tbody.insertRow();
+                    row.innerHTML = `
+                        <td style="font-family: monospace;">${key}</td>
+                        <td>${value}</td>
+                        <td>
+                            <button onclick="deleteProperty('${key}')" class="btn-icon" title="מחק">
+                                <img src="icons/delete_icon.png" alt="Delete" class="action-icon-natural">
+                            </button>
+                        </td>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading session data:', error);
+                alert('שגיאה בטעינת נתוני סשן');
+            }
+        }
+        
+        async function addProperty() {
+            const key = document.getElementById('propertyKey').value.trim();
+            const value = document.getElementById('propertyValue').value.trim();
+            
+            if (!key || !value) {
+                alert('נא להזין גם מפתח וגם ערך');
+                return;
+            }
+            
+            const success = await sessionManager.setSessionProperty(key, value);
+            if (success) {
+                document.getElementById('propertyKey').value = '';
+                document.getElementById('propertyValue').value = '';
+                await refreshSessionData();
+            } else {
+                alert('שגיאה בעדכון המאפיין');
+            }
+        }
+        
+        async function deleteProperty(key) {
+            if (!confirm(`למחוק את המאפיין "${key}"?`)) return;
+            
+            try {
+                const response = await fetch(AppConfig.getApiUrl(`session/property/${key}`), {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${sessionManager.getToken()}`
+                    }
+                });
+                
+                if (response.ok) {
+                    await refreshSessionData();
+                } else {
+                    alert('שגיאה במחיקת המאפיין');
+                }
+            } catch (error) {
+                console.error('Error deleting property:', error);
+                alert('שגיאה במחיקת המאפיין');
+            }
+        }
+        
+        refreshSessionData();
+    </script>
+</body>
+</html>

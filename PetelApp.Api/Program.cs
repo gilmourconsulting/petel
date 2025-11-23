@@ -115,7 +115,7 @@ builder.Services.AddLogging();
 
 var app = builder.Build();
 
-
+app.UseStaticFiles();
 
 // Configure pipeline
 if (app.Environment.IsDevelopment())
@@ -131,9 +131,6 @@ app.UseRouting();
 app.UseCors("AllowFrontend");
 app.UseSession();
 
-// ❌ REMOVE THESE - No authentication middleware needed
-// app.UseAuthentication();
-// app.UseAuthorization();
 
 if (app.Environment.IsDevelopment())
 {
@@ -144,6 +141,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapControllers();
+
+app.MapFallbackToFile("index.html");
 
 app.Run();
 

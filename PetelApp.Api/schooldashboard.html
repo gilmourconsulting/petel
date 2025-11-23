@@ -1,0 +1,366 @@
+<!-- School Title Section -->
+<div class="school-title-section">
+    <h1 class="page-title" id="schoolTitle">ניהול תלמידי חוץ</h1>
+</div>
+<div class="students-container">
+    <!-- Context buttons - LEFT SIDE POSITIONING -->
+    <div class="context-buttons-section screenwithtable-context">
+        <button class="context-btn" onclick="navigateToStudents()">תלמידים</button>
+        <button class="context-btn" onclick="navigateToSchoolDetails()">פרטי בית ספר</button>
+        <button class="context-btn" onclick="navigateToSchoolDocuments()">מסמכים בית ספריים</button>
+        <button class="context-btn" onclick="navigateBackToSchoolList()" title="חזרה לרשימת בתי הספר">
+            חזרה לרשימת בתי הספר
+        </button>
+    </div>
+
+
+    <!-- Navigation Link to Main Page -->
+    <div class="dashboard-flex-row">
+        <!-- Dashboard cards -->
+        <div class="dashboard-cards-wrapper">
+            <div class="dashboard-card" id="alertsCard">
+                <div class="dashboard-card-header">
+                    <div class="dashboard-card-icon">🔔</div>
+                    <div class="dashboard-card-title">התראות</div>
+                    <!-- Plus icon as leftmost item -->
+                    <img src="Plus icon.png" alt="הוספה" class="dashboard-card-plus"
+                        onclick="showAddModal('alertsCard')" title="הוספת התראה חדשה" />
+                </div>
+
+                <div class="internal-cards-container" id="alertsInternalCards">
+                    <!-- Internal cards will be populated here -->
+                </div>
+            </div>
+
+            <div class="dashboard-card" id="eventsCard">
+                <div class="dashboard-card-header">
+                    <div class="dashboard-card-icon">🗓</div>
+                    <div class="dashboard-card-title">אירועים</div>
+                    <!-- Plus icon as leftmost item -->
+                    <img src="Plus icon.png" alt="הוספה" class="dashboard-card-plus"
+                        onclick="showAddModal('eventsCard')" title="הוספת אירוע חדש" />
+                </div>
+
+                <div class="internal-cards-container" id="eventsInternalCards">
+                    <!-- Internal cards will be populated here -->
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+
+</div>
+
+<script>
+    console.log('🔍 Main Dashboard script loaded');
+
+    // Load dashboard card data following Project-Specific Patterns
+    function loadDashboardCardData(cardId) {
+        console.log('📊 Loading dashboard card data for:', cardId);
+
+        const mockData = {
+            alertsCard: {
+                items: [
+                    {
+                        content: "הגיע אישור שמירה ",
+                        timestamp: "לפני 10 דקות",
+                        priority: "high"
+                    },
+                    {
+                        content: "תלמיד חדש נרשם במצבת תלמידים",
+                        timestamp: "02-09-2025 14:30",
+                        priority: "medium"
+                    }
+                ]
+            },
+            eventsCard: {
+                items: [
+                    {
+                        content: "יום אחרון לרישום ליום סייעות עירוני",
+                        timestamp: "מחר 09:00",
+                        priority: "high"
+                    }
+                ]
+            }
+        };
+
+        const cardData = mockData[cardId];
+        if (!cardData) {
+            console.error('❌ No data found for cardId:', cardId);
+            return;
+        }
+
+        // Get the internal cards container
+        const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
+        if (!containerElement) {
+            console.error('❌ Container not found for:', cardId.replace('Card', 'InternalCards'));
+            return;
+        }
+
+        console.log('✅ Container found, clearing and populating...');
+
+        // Clear existing content
+        containerElement.innerHTML = '';
+
+        // Create internal cards following Hebrew/RTL Specific Patterns
+        cardData.items.forEach((item, index) => {
+            const internalCard = document.createElement('div');
+            internalCard.className = 'internal-card';
+            internalCard.setAttribute('data-priority', item.priority);
+
+            internalCard.innerHTML = `
+                    <div class="internal-card-content">${item.content}</div>
+                    <div class="internal-card-timestamp">${item.timestamp}</div>
+                `;
+
+            // Add click handler following Cross-Component Communication
+            internalCard.addEventListener('click', () => {
+                console.log(`Internal card clicked: ${item.content} in ${cardId}`);
+                const cardClickEvent = new CustomEvent('internalCardClicked', {
+                    detail: {
+                        cardId: cardId,
+                        itemIndex: index,
+                        item: item
+                    }
+                });
+                window.dispatchEvent(cardClickEvent);
+            });
+
+            containerElement.appendChild(internalCard);
+        });
+
+        console.log(`✅ ${cardData.items.length} cards loaded for ${cardId}`);
+    }
+    // Add navigation function following Project-Specific Patterns
+    async function navigateToStudents() {
+        try {
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('students');
+            } else {
+                console.error('❌ window.navigateTo not available');
+                window.history.back();
+            }
+        } catch (error) {
+            console.error('Error loading students page:', error);
+        }
+    }
+
+    // Add navigation function for school details following Project-Specific Patterns
+async function navigateToSchoolDetails() {
+    console.log('🏫 Navigating to school details...');
+
+    try {
+        if (typeof window.navigateTo === 'function') {
+            window.navigateTo('schooldetails');
+        } else {
+            console.error('❌ navigateTo not available');
+            alert('שגיאה בטעינת פרטי בית הספר');
+        }
+    } catch (error) {
+        console.error('💥 Error loading school details:', error);
+        alert('שגיאה בטעינת פרטי בית הספר');
+    }
+}
+
+    async function navigateToSchoolDocuments() {
+        console.log('📄 Navigating to school documents...');
+
+        try {
+            // ✅ PageLifecycleManager handles everything
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('schooldocuments');
+            } else {
+                console.error('❌ navigateTo function not available');
+                alert('שגיאה בניווט למסמכים בית ספריים');
+            }
+        } catch (error) {
+            console.error('💥 Error loading school documents:', error);
+            alert('שגיאה בטעינת מסמכים בית ספריים');
+        }
+    }
+
+    // Navigate back to school list and clean up school-specific session data
+    async function navigateBackToSchoolList() {
+        console.log('📋 Navigating back to school list...');
+
+        try {
+
+            //Just navigate, lifecycle manager handles the rest
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('schoollist');
+            } else {
+                console.error('❌ window.navigateTo not available');
+                alert('שגיאה בחזרה לרשימת בתי הספר');
+            }
+        } catch (error) {
+            console.error('💥 Error navigating to school list:', error);
+            alert('שגיאה בחזרה לרשימת בתי הספר');
+        }
+    }
+
+    // Update the loadSchoolTitle function in schooldashboard.html
+    async function loadSchoolTitle() {
+        console.log('📋 Loading school title from SessionState...');
+
+        try {
+            // ✅ Use centralized SessionState
+            const session = await window.SessionState.getSession();
+            const yearValue = await window.SessionState.getProperty('SelectedYearValue');
+
+            let schoolName = session.entityName;
+
+            if (parseInt(session.entityTypeId, 10) === 5) {
+                // Multi-school network - get selected school name
+                const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
+                if (selectedSchoolName) {
+                    schoolName = selectedSchoolName;
+                }
+            }
+
+            console.log('🏫 School context:', { schoolName, yearValue });
+
+            const titleElement = document.getElementById('schoolTitle');
+            if (titleElement) {
+                titleElement.textContent = yearValue
+                    ? `${schoolName} - ${yearValue}`
+                    : schoolName;
+                console.log('✅ School title updated via SessionState');
+            }
+
+        } catch (error) {
+            console.error('❌ Error loading school title:', error);
+            const titleElement = document.getElementById('schoolTitle');
+            if (titleElement) {
+                titleElement.textContent = 'לוח בקרה של בית ספר';
+            }
+        }
+    }
+
+    function cleanupSchoolDashboardPage() {
+        console.log('🧹 Cleaning up school dashboard page...');
+        // Add any school dashboard specific cleanup
+        console.log('✅ School dashboard cleanup complete');
+    }
+
+    window.cleanupSchoolDashboardPage = cleanupSchoolDashboardPage;
+
+    // Resolve SelectedSchoolYearId (school_years.id) from backend and store in session
+    async function resolveSelectedSchoolYearId() {
+        try {
+            const selectedYearId = await window.SessionState.getProperty('SelectedYearId');
+            const selectedSchoolId = await window.SessionState.getProperty('SelectedSchoolId');
+
+            console.log('🔎 Resolving SelectedSchoolYearId:', { selectedYearId, selectedSchoolId });
+
+            if (!selectedYearId || !selectedSchoolId) {
+                console.warn('⚠ Missing SelectedYearId or SelectedSchoolId; skipping school_year lookup');
+                return null;
+            }
+
+            const url = AppConfig.getApiUrl(`schoolYears/by-year-and-school?yearId=${encodeURIComponent(selectedYearId)}&schoolId=${encodeURIComponent(selectedSchoolId)}`);
+            console.log('🌐 Fetching school_year id from:', url);
+
+            const authToken = sessionStorage.getItem('authToken');
+            const resp = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': authToken ? `Bearer ${authToken}` : ''
+                }
+            });
+
+            if (!resp.ok) {
+                console.warn('⚠ school_year lookup returned non-OK status', resp.status);
+                return null;
+            }
+
+            const payload = await resp.json();
+            // Accept either { id: 123 } or plain numeric response
+            const schoolYearId = payload && (payload.id ?? payload) ? (payload.id ?? payload) : null;
+
+            if (schoolYearId) {
+                await window.SessionState.setProperty('SelectedSchoolYearId', String(schoolYearId));
+                console.log('✅ Stored SelectedSchoolYearId in session:', schoolYearId);
+                return schoolYearId;
+            } else {
+                console.warn('⚠ school_year not found for given yearId/schoolId', { selectedYearId, selectedSchoolId });
+                // Ensure property is cleared if not found
+                await window.SessionState.setProperty('SelectedSchoolYearId', '');
+                return null;
+            }
+        } catch (err) {
+            console.error('❌ Error resolving SelectedSchoolYearId:', err);
+            return null;
+        }
+    }
+
+
+
+    // Show add modal placeholder function following Frontend Architecture Patterns
+    function showAddModal(cardType) {
+        const cardName = cardType === 'alertsCard' ? 'התראה' : 'אירוע';
+        alert(`הוספת ${cardName} חדש - תכונה זו תתווסף בעתיד`);
+    }
+
+    // Debug function to check if elements exist
+    function debugDashboardElements() {
+        console.log('🔍 Dashboard Debug:', {
+            alertsContainer: document.getElementById('alertsInternalCards'),
+            eventsContainer: document.getElementById('eventsInternalCards'),
+            systemVersionElement: document.getElementById('systemVersion'),
+            contextButtons: document.querySelectorAll('.context-btn'),
+            documentReady: document.readyState
+        });
+    }
+
+    // Initialize dashboard following Critical Development Workflows
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log('🏁 School Dashboard DOMContentLoaded');
+
+        // Load dashboard data and context buttons
+        setTimeout(async () => {
+            loadSchoolTitle(); // Load school name and year
+            loadDashboardCardData('alertsCard');
+            loadDashboardCardData('eventsCard');
+            await resolveSelectedSchoolYearId()
+
+
+
+            console.log('✅ School Dashboard initialized successfully');
+        }, 100);
+    });
+
+    // Also try immediate call if DOM is already ready following Frontend Architecture Patterns
+    if (document.readyState !== 'loading') {
+        console.log('📄 Document already ready, calling initialization immediately');
+        setTimeout(async () => {
+            loadSchoolTitle(); // Load school name and year
+            loadDashboardCardData('alertsCard');
+            loadDashboardCardData('eventsCard');
+            await resolveSelectedSchoolYearId();
+
+
+            console.log('✅ School Dashboard initialized immediately');
+        }, 50);
+    }
+
+    // Make functions globally available following Cross-Component Communication
+    window.loadDashboardCardData = loadDashboardCardData;
+    window.showAddModal = showAddModal;
+
+    window.loadSchoolTitle = loadSchoolTitle;
+    window.resolveSelectedSchoolYearId = resolveSelectedSchoolYearId;
+    window.navigateToStudents = navigateToStudents;
+    window.navigateToSchoolDetails = navigateToSchoolDetails;
+    window.updateContextButtonLabels = updateContextButtonLabels;
+    window.storeSelectedYearInSession = storeSelectedYearInSession;
+    window.showSchoolYear = showSchoolYear;
+
+
+   window.debugDashboardElements = debugDashboardElements;
+    window.navigateToSchoolDocuments = navigateToSchoolDocuments;
+
+    console.log('✅ School Dashboard functions registered globally');
+</script>

@@ -1,0 +1,78 @@
+/* System Attributes Page Styles */
+.system-attributes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.system-attributes-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: var(--font-size-xxl);
+    font-weight: 600;
+}
+
+.system-attributes-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.reload-cache-btn,
+.reload-db-btn {
+    background: var(--button-primary-color);
+    color: var(--button-text-color);
+    border: none;
+    border-radius: var(--button-border-radius);
+    padding: var(--button-padding);
+    font-size: var(--font-size-base);
+    cursor: pointer;
+    transition: var(--button-transition);
+    font-family: var(--primary-font);
+}
+
+.reload-cache-btn {
+    background: #6c757d;
+}
+
+.reload-cache-btn:hover {
+    background: #5a6268;
+    transform: translateY(-1px);
+}
+
+.reload-db-btn:hover {
+    background: var(--button-primary-hover);
+    transform: translateY(-1px);
+}
+
+.reload-cache-btn:disabled,
+.reload-db-btn:disabled {
+    background: #adb5bd;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Loading state */
+.system-attributes-loading {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+}
+
+/* Error state */
+.system-attributes-error {
+    text-align: center;
+    padding: 40px;
+    color: #e74c3c;
+}
+
+.system-attributes-error p {
+    margin-bottom: 10px;
+}
+
+/* Empty state */
+.system-attributes-empty {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+}
