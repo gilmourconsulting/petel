@@ -58,6 +58,13 @@ namespace PetelApp.Api.Data
         public DbSet<SpecialNeedsCharacterization> SpecialNeedsCharacterizations { get; set; } = null!;
 
 
+        public DbSet<Alert> Alerts { get; set; }
+        public DbSet<AlertLink> AlertLinks { get; set; }
+        public DbSet<AlertType> AlertTypes { get; set; }
+        public DbSet<AlertStatus> AlertStatuses { get; set; }
+        public DbSet<AlertLevel> AlertLevels { get; set; }
+
+
         // DbSets for Documents management
         public DbSet<Document> Documents { get; set; } = null!;
         public DbSet<DocumentType> DocumentTypes { get; set; } = null!;
@@ -317,58 +324,58 @@ namespace PetelApp.Api.Data
                     .OnDelete(DeleteBehavior.Restrict);
             });
             modelBuilder.Entity<Document>(entity =>
- {
-     entity.ToTable("documents"); // ✅ Lowercase table name with schema
-     entity.HasKey(e => e.Id);
+            {
+                entity.ToTable("documents"); // ✅ Lowercase table name with schema
+                entity.HasKey(e => e.Id);
 
-     entity.Property(e => e.Id)
-         .HasColumnName("id"); // ✅ Lowercase column name
+                entity.Property(e => e.Id)
+                    .HasColumnName("id"); // ✅ Lowercase column name
 
-     entity.Property(e => e.MasterDocumentId)
-         .HasColumnName("master_document_id");
+                entity.Property(e => e.MasterDocumentId)
+                    .HasColumnName("master_document_id");
 
-     entity.Property(e => e.Description)
-         .HasColumnName("description")
-         .HasMaxLength(500);
+                entity.Property(e => e.Description)
+                    .HasColumnName("description")
+                    .HasMaxLength(500);
 
-     entity.Property(e => e.DocumentTypeId)
-         .HasColumnName("document_type_id");
+                entity.Property(e => e.DocumentTypeId)
+                    .HasColumnName("document_type_id");
 
-     entity.Property(e => e.StatusId)
-         .HasColumnName("status_id");
+                entity.Property(e => e.StatusId)
+                    .HasColumnName("status_id");
 
-     entity.Property(e => e.FileBlob)
-         .HasColumnName("file_blob")
-         .IsRequired(false);
+                entity.Property(e => e.FileBlob)
+                    .HasColumnName("file_blob")
+                    .IsRequired(false);
 
-     entity.Property(e => e.FileEncoding)
-         .HasColumnName("file_encoding")
-         .HasMaxLength(10)
-         .IsRequired(false);
+                entity.Property(e => e.FileEncoding)
+                    .HasColumnName("file_encoding")
+                    .HasMaxLength(10)
+                    .IsRequired(false);
 
-    entity.Property(e => e.FileName).HasColumnName("file_name");
-
-
-     entity.Property(e => e.Version)
-         .HasColumnName("version");
-
-     entity.Property(e => e.IsLastVersion)
-         .HasColumnName("is_last_version");
-
-    entity.Property(e => e.CreatedAt)
-         .HasColumnName("created_at");
+                entity.Property(e => e.FileName).HasColumnName("file_name");
 
 
-     entity.HasOne(d => d.DocumentType)
-         .WithMany()
-         .HasForeignKey(d => d.DocumentTypeId)
-         .OnDelete(DeleteBehavior.Restrict);
+                entity.Property(e => e.Version)
+                    .HasColumnName("version");
 
-     entity.HasMany(d => d.DocumentLinks)
-         .WithOne(dl => dl.Document)
-         .HasForeignKey(dl => dl.DocumentId)
-         .OnDelete(DeleteBehavior.Cascade);
- });
+                entity.Property(e => e.IsLastVersion)
+                    .HasColumnName("is_last_version");
+
+                entity.Property(e => e.CreatedAt)
+                    .HasColumnName("created_at");
+
+
+                entity.HasOne(d => d.DocumentType)
+                    .WithMany()
+                    .HasForeignKey(d => d.DocumentTypeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasMany(d => d.DocumentLinks)
+                    .WithOne(dl => dl.Document)
+                    .HasForeignKey(dl => dl.DocumentId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
             modelBuilder.Entity<DocumentType>(entity =>
             {
@@ -417,21 +424,67 @@ namespace PetelApp.Api.Data
                 entity.HasIndex(e => new { e.DocumentId, e.SchoolStudentId });
             });
             modelBuilder.Entity<DocumentStatusType>(entity =>
-        {
-            entity.ToTable("document_status_types");
-            entity.HasKey(e => e.Id);
+            {
+                entity.ToTable("document_status_types");
+                entity.HasKey(e => e.Id);
 
-            entity.Property(e => e.Id)
-                .HasColumnName("id");
+                entity.Property(e => e.Id)
+                    .HasColumnName("id");
 
-            entity.Property(e => e.Name)
-                .HasColumnName("name")
-                .HasMaxLength(50)
-                .IsRequired();
-        });
+                entity.Property(e => e.Name)
+                    .HasColumnName("name")
+                    .HasMaxLength(50)
+                    .IsRequired();
+            });
 
-        }
-    }
+        
+    
+      // Alert entities configuration
+    modelBuilder.Entity<Alert>(entity =>
+    {
+        entity.ToTable("alerts");
+        entity.HasKey(e => e.Id);
+        entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+    });
 
+    modelBuilder.Entity<AlertLink>(entity =>
+    {
+        entity.ToTable("alert_links");
+        entity.HasKey(e => e.Id);
+        entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+        
+        entity.HasOne(e => e.Alert)
+            .WithMany()
+            .HasForeignKey(e => e.AlertId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        entity.HasOne(e => e.Entity)
+            .WithMany()
+            .HasForeignKey(e => e.EntityId)
+            .OnDelete(DeleteBehavior.Restrict);
+    });
+
+    modelBuilder.Entity<AlertType>(entity =>
+    {
+        entity.ToTable("alert_types");
+        entity.HasKey(e => e.Id);
+        entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+    });
+
+    modelBuilder.Entity<AlertStatus>(entity =>
+    {
+        entity.ToTable("alert_statuses");
+        entity.HasKey(e => e.Id);
+        entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+    });
+
+    modelBuilder.Entity<AlertLevel>(entity =>
+    {
+        entity.ToTable("alert_levels");
+        entity.HasKey(e => e.Id);
+        entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+    });
+
+    }}
 
 }

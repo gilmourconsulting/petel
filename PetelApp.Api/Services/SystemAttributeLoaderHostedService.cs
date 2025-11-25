@@ -70,10 +70,56 @@ namespace PetelApp.Api.Services
                     .Select(g => $"{g.Key}: {g.Count()}")
                     .ToList();
                 _logger.LogDebug("Attributes by type: {Types}", string.Join(", ", typeGroups));
+
+                                // ✅ Load alert definitions (part of system attributes)
+                await LoadAlertDefinitionsAsync(dbContext);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error loading system attributes from database");
+                throw;
+            }
+        }
+        
+        /// <summary>
+        /// Load alert definitions into memory cache
+        /// Called as part of system attributes loading
+        /// </summary>
+        private async Task LoadAlertDefinitionsAsync(AppDbContext dbContext)
+        {
+            try
+            {
+                _logger.LogInformation("🔔 Loading alert definitions...");
+
+                // Load alert types
+                var alertTypes = await dbContext.AlertTypes
+                    .AsNoTracking()
+                    .ToListAsync();
+                
+                AlertDefinitionsCache.AlertTypes = alertTypes.ToDictionary(a => (int)a.Id, a => a);
+                _logger.LogInformation("✅ Loaded {Count} alert types", alertTypes.Count);
+
+                // Load alert statuses
+                var alertStatuses = await dbContext.AlertStatuses
+                    .AsNoTracking()
+                    .ToListAsync();
+                
+                AlertDefinitionsCache.AlertStatuses = alertStatuses.ToDictionary(a => (int)a.Id, a => a);
+                _logger.LogInformation("✅ Loaded {Count} alert statuses", alertStatuses.Count);
+
+                // Load alert levels
+                var alertLevels = await dbContext.AlertLevels
+                    .AsNoTracking()
+                    .ToListAsync();
+                
+                AlertDefinitionsCache.AlertLevels = alertLevels.ToDictionary(a => (int)a.Id, a => a);
+                _logger.LogInformation("✅ Loaded {Count} alert levels", alertLevels.Count);
+
+                _logger.LogInformation("✅ Alert definitions loaded successfully");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error loading alert definitions");
                 throw;
             }
         }

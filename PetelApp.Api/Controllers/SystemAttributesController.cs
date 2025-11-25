@@ -164,46 +164,38 @@ private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
         /// Per coding guidelines: System attributes are global config, no auth needed
         /// Admin operation to refresh cache from database
         /// </summary>
-        [HttpPost("reload")]
-        [AllowAnonymous]
-        public async Task<IActionResult> ReloadSystemAttributes()
-        {
-            try
-            {
-                _logger.LogInformation("Reloading system attributes from database");
-                
-                // Create scope for database access
-                using var scope = _serviceProvider.CreateScope();
-                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+  [HttpPost("reload")]
+[AllowAnonymous]
+public async Task<IActionResult> ReloadSystemAttributes()
+{
+    try
+    {
+        _logger.LogInformation("Reloading system attributes and alert definitions from database");
+        
+        // Create scope for database access
+        using var scope = _serviceProvider.CreateScope();
+        var loaderService = scope.ServiceProvider.GetRequiredService<SystemAttributeLoaderHostedService>();
 
-                // Load fresh attributes from database
-                var attributes = await context.SystemAttributes
-                    .ToListAsync();
-                
-                // Map to DTOs
-                var dtos = attributes.Select(a => MapToDto(a)).ToList();
-                
-                // Reload cache using existing LoadAttributes function
-                _cache.LoadAttributes(attributes);
-                
-                _logger.LogInformation("Successfully reloaded {Count} system attributes from database", attributes.Count);
-                
-                return Ok(new { 
-                    success = true,
-                    message = "System attributes reloaded successfully from database",
-                    count = attributes.Count,
-                    lastLoaded = DateTime.UtcNow
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error reloading system attributes from database");
-                return StatusCode(500, new { 
-                    success = false,
-                    message = "Error reloading system attributes from database" 
-                });
-            }
-        }
+        // ✅ Reload both system attributes AND alert definitions
+        await loaderService.LoadAttributesAsync();
+        
+        _logger.LogInformation("Successfully reloaded system attributes and alert definitions from database");
+        
+        return Ok(new { 
+            success = true,
+            message = "System attributes and alert definitions reloaded successfully from database",
+            lastLoaded = DateTime.UtcNow
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error reloading system attributes and alert definitions from database");
+        return StatusCode(500, new { 
+            success = false,
+            message = "Error reloading system attributes and alert definitions from database" 
+        });
+    }
+}
 
         /// <summary>
         /// Get cache statistics - NO AUTHENTICATION REQUIRED

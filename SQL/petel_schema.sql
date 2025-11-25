@@ -1,22 +1,12 @@
---
--- "PetelAdmin"QL database dump
---
-
---\restrict pNPBouUFtjZMT9yMnyczxTUUcjFCWBYwp2fjBaVVuqkXucAbBHdvtX17Lc59dnu
-
--- Dumped from database version 17.6
--- Dumped by pg_dump version 17.6
-
-
 
 --
 -- Name: petel_schema; Type: SCHEMA; Schema: -; Owner: PetelAdmin
 --
 
---CREATE SCHEMA petel_schema;
+CREATE SCHEMA petel_schema;
 
 
---ALTER SCHEMA petel_schema OWNER TO "PetelAdmin";
+ALTER SCHEMA petel_schema OWNER TO "PetelAdmin";
 
 --
 -- Name: trigger_set_timestamp(); Type: FUNCTION; Schema: petel_schema; Owner: PetelAdmin
@@ -34,6 +24,172 @@ $$;
 
 ALTER FUNCTION petel_schema.trigger_set_timestamp() OWNER TO "PetelAdmin";
 
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- Name: alert_levels; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TABLE petel_schema.alert_levels (
+    id smallint NOT NULL,
+    name character varying(25),
+    description character varying(25),
+    created_at time with time zone DEFAULT now(),
+    user_id integer DEFAULT 0
+);
+
+
+ALTER TABLE petel_schema.alert_levels OWNER TO "PetelAdmin";
+
+--
+-- Name: alert_levels_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE SEQUENCE petel_schema.alert_levels_id_seq
+    AS smallint
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.alert_levels_id_seq OWNER TO "PetelAdmin";
+
+--
+-- Name: alert_levels_id_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER SEQUENCE petel_schema.alert_levels_id_seq OWNED BY petel_schema.alert_levels.id;
+
+
+--
+-- Name: alert_links; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TABLE petel_schema.alert_links (
+    id bigint NOT NULL,
+    alert_id bigint,
+    alert_status integer,
+    entity_id integer,
+    created_at timestamp with time zone DEFAULT now(),
+    is_last_version boolean
+);
+
+
+ALTER TABLE petel_schema.alert_links OWNER TO "PetelAdmin";
+
+--
+-- Name: alert_links_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE SEQUENCE petel_schema.alert_links_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.alert_links_id_seq OWNER TO "PetelAdmin";
+
+--
+-- Name: alert_links_id_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER SEQUENCE petel_schema.alert_links_id_seq OWNED BY petel_schema.alert_links.id;
+
+
+--
+-- Name: alert_statuses; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TABLE petel_schema.alert_statuses (
+)
+INHERITS (petel_schema.alert_levels);
+
+
+ALTER TABLE petel_schema.alert_statuses OWNER TO "PetelAdmin";
+
+--
+-- Name: alert_types; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TABLE petel_schema.alert_types (
+    id smallint NOT NULL,
+    name character varying(25),
+    description character varying(25),
+    created_at time with time zone DEFAULT now(),
+    user_id integer DEFAULT 0
+);
+
+
+ALTER TABLE petel_schema.alert_types OWNER TO "PetelAdmin";
+
+--
+-- Name: alert_types_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE SEQUENCE petel_schema.alert_types_id_seq
+    AS smallint
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.alert_types_id_seq OWNER TO "PetelAdmin";
+
+--
+-- Name: alert_types_id_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER SEQUENCE petel_schema.alert_types_id_seq OWNED BY petel_schema.alert_types.id;
+
+
+--
+-- Name: alerts; Type: TABLE; Schema: petel_schema; Owner: postgres
+--
+
+CREATE TABLE petel_schema.alerts (
+    id bigint NOT NULL,
+    alert_type integer,
+    alert_level integer,
+    description text,
+    status integer,
+    user_id integer DEFAULT 0,
+    is_event boolean DEFAULT false,
+    event_date time with time zone,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE petel_schema.alerts OWNER TO postgres;
+
+--
+-- Name: alerts_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
+--
+
+CREATE SEQUENCE petel_schema.alerts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.alerts_id_seq OWNER TO postgres;
+
+--
+-- Name: alerts_id_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: postgres
+--
+
+ALTER SEQUENCE petel_schema.alerts_id_seq OWNED BY petel_schema.alerts.id;
+
+
 --
 -- Name: roles_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
 --
@@ -48,12 +204,8 @@ CREATE SEQUENCE petel_schema.roles_seq
 
 ALTER SEQUENCE petel_schema.roles_seq OWNER TO "PetelAdmin";
 
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
-
 --
--- Name: budget_statuses; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: budget_statuses; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.budget_statuses (
@@ -66,10 +218,10 @@ CREATE TABLE petel_schema.budget_statuses (
 );
 
 
-ALTER TABLE petel_schema.budget_statuses OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.budget_statuses OWNER TO postgres;
 
 --
--- Name: councils; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: councils; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.councils (
@@ -83,7 +235,7 @@ CREATE TABLE petel_schema.councils (
 );
 
 
-ALTER TABLE petel_schema.councils OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.councils OWNER TO postgres;
 
 --
 -- Name: courses_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
@@ -136,7 +288,7 @@ ALTER SEQUENCE petel_schema.document_links_id_seq OWNED BY petel_schema.document
 
 
 --
--- Name: document_status_types; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: document_status_types; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.document_status_types (
@@ -146,10 +298,10 @@ CREATE TABLE petel_schema.document_status_types (
 );
 
 
-ALTER TABLE petel_schema.document_status_types OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.document_status_types OWNER TO postgres;
 
 --
--- Name: document_status_types_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: document_status_types_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE SEQUENCE petel_schema.document_status_types_id_seq
@@ -161,17 +313,17 @@ CREATE SEQUENCE petel_schema.document_status_types_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE petel_schema.document_status_types_id_seq OWNER TO "PetelAdmin";
+ALTER SEQUENCE petel_schema.document_status_types_id_seq OWNER TO postgres;
 
 --
--- Name: document_status_types_id_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: document_status_types_id_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: postgres
 --
 
 ALTER SEQUENCE petel_schema.document_status_types_id_seq OWNED BY petel_schema.document_status_types.id;
 
 
 --
--- Name: document_types; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: document_types; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.document_types (
@@ -182,10 +334,10 @@ CREATE TABLE petel_schema.document_types (
 );
 
 
-ALTER TABLE petel_schema.document_types OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.document_types OWNER TO postgres;
 
 --
--- Name: document_types_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: document_types_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE SEQUENCE petel_schema.document_types_id_seq
@@ -197,10 +349,10 @@ CREATE SEQUENCE petel_schema.document_types_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE petel_schema.document_types_id_seq OWNER TO "PetelAdmin";
+ALTER SEQUENCE petel_schema.document_types_id_seq OWNER TO postgres;
 
 --
--- Name: document_types_id_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: document_types_id_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: postgres
 --
 
 ALTER SEQUENCE petel_schema.document_types_id_seq OWNED BY petel_schema.document_types.id;
@@ -336,7 +488,7 @@ CREATE TABLE petel_schema.entity_types (
 ALTER TABLE petel_schema.entity_types OWNER TO "PetelAdmin";
 
 --
--- Name: genders; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: genders; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.genders (
@@ -348,7 +500,7 @@ CREATE TABLE petel_schema.genders (
 );
 
 
-ALTER TABLE petel_schema.genders OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.genders OWNER TO postgres;
 
 --
 -- Name: hebrew_years; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
@@ -363,7 +515,7 @@ CREATE TABLE petel_schema.hebrew_years (
 ALTER TABLE petel_schema.hebrew_years OWNER TO "PetelAdmin";
 
 --
--- Name: persons_seq; Type: SEQUENCE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: persons_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE SEQUENCE petel_schema.persons_seq
@@ -374,7 +526,7 @@ CREATE SEQUENCE petel_schema.persons_seq
     CACHE 1;
 
 
-ALTER SEQUENCE petel_schema.persons_seq OWNER TO "PetelAdmin";
+ALTER SEQUENCE petel_schema.persons_seq OWNER TO postgres;
 
 --
 -- Name: persons; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
@@ -449,7 +601,7 @@ CREATE SEQUENCE petel_schema.school_additional_study_programs_id_seq
 ALTER SEQUENCE petel_schema.school_additional_study_programs_id_seq OWNER TO "PetelAdmin";
 
 --
--- Name: school_additional_study_programs; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: school_additional_study_programs; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.school_additional_study_programs (
@@ -465,7 +617,7 @@ CREATE TABLE petel_schema.school_additional_study_programs (
 );
 
 
-ALTER TABLE petel_schema.school_additional_study_programs OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.school_additional_study_programs OWNER TO postgres;
 
 --
 -- Name: school_attribute_types_values_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
@@ -482,7 +634,7 @@ CREATE SEQUENCE petel_schema.school_attribute_types_values_seq
 ALTER SEQUENCE petel_schema.school_attribute_types_values_seq OWNER TO "PetelAdmin";
 
 --
--- Name: school_attribute_types_values; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: school_attribute_types_values; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.school_attribute_types_values (
@@ -495,7 +647,7 @@ CREATE TABLE petel_schema.school_attribute_types_values (
 );
 
 
-ALTER TABLE petel_schema.school_attribute_types_values OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.school_attribute_types_values OWNER TO postgres;
 
 --
 -- Name: school_attributes_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
@@ -512,7 +664,7 @@ CREATE SEQUENCE petel_schema.school_attributes_seq
 ALTER SEQUENCE petel_schema.school_attributes_seq OWNER TO "PetelAdmin";
 
 --
--- Name: school_attributes; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: school_attributes; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.school_attributes (
@@ -528,10 +680,10 @@ CREATE TABLE petel_schema.school_attributes (
 );
 
 
-ALTER TABLE petel_schema.school_attributes OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.school_attributes OWNER TO postgres;
 
 --
--- Name: school_attributes_types; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: school_attributes_types; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.school_attributes_types (
@@ -544,7 +696,7 @@ CREATE TABLE petel_schema.school_attributes_types (
 );
 
 
-ALTER TABLE petel_schema.school_attributes_types OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.school_attributes_types OWNER TO postgres;
 
 --
 -- Name: school_classes; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
@@ -613,7 +765,7 @@ CREATE TABLE petel_schema.school_hours_budget (
 ALTER TABLE petel_schema.school_hours_budget OWNER TO "PetelAdmin";
 
 --
--- Name: school_student_pricing_elements; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: school_student_pricing_elements; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.school_student_pricing_elements (
@@ -625,10 +777,10 @@ CREATE TABLE petel_schema.school_student_pricing_elements (
 );
 
 
-ALTER TABLE petel_schema.school_student_pricing_elements OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.school_student_pricing_elements OWNER TO postgres;
 
 --
--- Name: school_student_pricing_elements_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: school_student_pricing_elements_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE SEQUENCE petel_schema.school_student_pricing_elements_id_seq
@@ -640,17 +792,17 @@ CREATE SEQUENCE petel_schema.school_student_pricing_elements_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE petel_schema.school_student_pricing_elements_id_seq OWNER TO "PetelAdmin";
+ALTER SEQUENCE petel_schema.school_student_pricing_elements_id_seq OWNER TO postgres;
 
 --
--- Name: school_student_pricing_elements_id_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: school_student_pricing_elements_id_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: postgres
 --
 
 ALTER SEQUENCE petel_schema.school_student_pricing_elements_id_seq OWNED BY petel_schema.school_student_pricing_elements.id;
 
 
 --
--- Name: school_students_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: school_students_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE SEQUENCE petel_schema.school_students_id_seq
@@ -661,7 +813,7 @@ CREATE SEQUENCE petel_schema.school_students_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE petel_schema.school_students_id_seq OWNER TO "PetelAdmin";
+ALTER SEQUENCE petel_schema.school_students_id_seq OWNER TO postgres;
 
 --
 -- Name: school_students; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
@@ -695,7 +847,7 @@ CREATE TABLE petel_schema.school_students (
 ALTER TABLE petel_schema.school_students OWNER TO "PetelAdmin";
 
 --
--- Name: school_tracks; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: school_tracks; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.school_tracks (
@@ -710,10 +862,10 @@ CREATE TABLE petel_schema.school_tracks (
 );
 
 
-ALTER TABLE petel_schema.school_tracks OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.school_tracks OWNER TO postgres;
 
 --
--- Name: school_tracks_seq; Type: SEQUENCE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: school_tracks_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE SEQUENCE petel_schema.school_tracks_seq
@@ -724,10 +876,10 @@ CREATE SEQUENCE petel_schema.school_tracks_seq
     CACHE 1;
 
 
-ALTER SEQUENCE petel_schema.school_tracks_seq OWNER TO "PetelAdmin";
+ALTER SEQUENCE petel_schema.school_tracks_seq OWNER TO postgres;
 
 --
--- Name: school_tracks_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: school_tracks_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: postgres
 --
 
 ALTER SEQUENCE petel_schema.school_tracks_seq OWNED BY petel_schema.school_tracks.id;
@@ -820,7 +972,7 @@ CREATE TABLE petel_schema.schools (
 ALTER TABLE petel_schema.schools OWNER TO "PetelAdmin";
 
 --
--- Name: special_needs_characterizations; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: special_needs_characterizations; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.special_needs_characterizations (
@@ -831,7 +983,7 @@ CREATE TABLE petel_schema.special_needs_characterizations (
 );
 
 
-ALTER TABLE petel_schema.special_needs_characterizations OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.special_needs_characterizations OWNER TO postgres;
 
 --
 -- Name: special_needs_pricing_categories; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
@@ -911,7 +1063,7 @@ ALTER SEQUENCE petel_schema.special_needs_pricing_elements_id_seq OWNED BY petel
 
 
 --
--- Name: student_school_years_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: student_school_years_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE SEQUENCE petel_schema.student_school_years_id_seq
@@ -922,10 +1074,10 @@ CREATE SEQUENCE petel_schema.student_school_years_id_seq
     CACHE 1;
 
 
-ALTER SEQUENCE petel_schema.student_school_years_id_seq OWNER TO "PetelAdmin";
+ALTER SEQUENCE petel_schema.student_school_years_id_seq OWNER TO postgres;
 
 --
--- Name: student_school_years; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: student_school_years; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.student_school_years (
@@ -940,10 +1092,10 @@ CREATE TABLE petel_schema.student_school_years (
 );
 
 
-ALTER TABLE petel_schema.student_school_years OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.student_school_years OWNER TO postgres;
 
 --
--- Name: tracks_seq; Type: SEQUENCE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: tracks_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE SEQUENCE petel_schema.tracks_seq
@@ -954,10 +1106,10 @@ CREATE SEQUENCE petel_schema.tracks_seq
     CACHE 1;
 
 
-ALTER SEQUENCE petel_schema.tracks_seq OWNER TO "PetelAdmin";
+ALTER SEQUENCE petel_schema.tracks_seq OWNER TO postgres;
 
 --
--- Name: tracks; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: tracks; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.tracks (
@@ -971,10 +1123,10 @@ CREATE TABLE petel_schema.tracks (
 );
 
 
-ALTER TABLE petel_schema.tracks OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.tracks OWNER TO postgres;
 
 --
--- Name: student_school_years_registration_summary_vw; Type: VIEW; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: student_school_years_registration_summary_vw; Type: VIEW; Schema: petel_schema; Owner: postgres
 --
 
 CREATE VIEW petel_schema.student_school_years_registration_summary_vw AS
@@ -991,7 +1143,7 @@ CREATE VIEW petel_schema.student_school_years_registration_summary_vw AS
   GROUP BY y.hebrew_year_name, y.school_id, sg.name, st.name, sy.school_year_id;
 
 
-ALTER VIEW petel_schema.student_school_years_registration_summary_vw OWNER TO "PetelAdmin";
+ALTER VIEW petel_schema.student_school_years_registration_summary_vw OWNER TO postgres;
 
 --
 -- Name: students_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
@@ -1008,7 +1160,7 @@ CREATE SEQUENCE petel_schema.students_seq
 ALTER SEQUENCE petel_schema.students_seq OWNER TO "PetelAdmin";
 
 --
--- Name: students; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: students; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.students (
@@ -1020,10 +1172,10 @@ CREATE TABLE petel_schema.students (
 );
 
 
-ALTER TABLE petel_schema.students OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.students OWNER TO postgres;
 
 --
--- Name: student_school_years_registration_vw; Type: VIEW; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: student_school_years_registration_vw; Type: VIEW; Schema: petel_schema; Owner: postgres
 --
 
 CREATE VIEW petel_schema.student_school_years_registration_vw AS
@@ -1045,7 +1197,7 @@ CREATE VIEW petel_schema.student_school_years_registration_vw AS
      JOIN petel_schema.school_grades sg ON ((sg.id = sy.school_grade_id)));
 
 
-ALTER VIEW petel_schema.student_school_years_registration_vw OWNER TO "PetelAdmin";
+ALTER VIEW petel_schema.student_school_years_registration_vw OWNER TO postgres;
 
 --
 -- Name: system_actions; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
@@ -1098,7 +1250,7 @@ CREATE SEQUENCE petel_schema.teachers_seq
 ALTER SEQUENCE petel_schema.teachers_seq OWNER TO "PetelAdmin";
 
 --
--- Name: tracks_level_seq; Type: SEQUENCE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: tracks_level_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE SEQUENCE petel_schema.tracks_level_seq
@@ -1109,10 +1261,10 @@ CREATE SEQUENCE petel_schema.tracks_level_seq
     CACHE 1;
 
 
-ALTER SEQUENCE petel_schema.tracks_level_seq OWNER TO "PetelAdmin";
+ALTER SEQUENCE petel_schema.tracks_level_seq OWNER TO postgres;
 
 --
--- Name: tracks_levels; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: tracks_levels; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.tracks_levels (
@@ -1125,10 +1277,10 @@ CREATE TABLE petel_schema.tracks_levels (
 );
 
 
-ALTER TABLE petel_schema.tracks_levels OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.tracks_levels OWNER TO postgres;
 
 --
--- Name: tracks_pricing; Type: TABLE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: tracks_pricing; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.tracks_pricing (
@@ -1140,10 +1292,10 @@ CREATE TABLE petel_schema.tracks_pricing (
 );
 
 
-ALTER TABLE petel_schema.tracks_pricing OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.tracks_pricing OWNER TO postgres;
 
 --
--- Name: tracks_pricing_seq; Type: SEQUENCE; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: tracks_pricing_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE SEQUENCE petel_schema.tracks_pricing_seq
@@ -1154,10 +1306,10 @@ CREATE SEQUENCE petel_schema.tracks_pricing_seq
     CACHE 1;
 
 
-ALTER SEQUENCE petel_schema.tracks_pricing_seq OWNER TO "PetelAdmin";
+ALTER SEQUENCE petel_schema.tracks_pricing_seq OWNER TO postgres;
 
 --
--- Name: tracks_pricing_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: tracks_pricing_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: postgres
 --
 
 ALTER SEQUENCE petel_schema.tracks_pricing_seq OWNED BY petel_schema.tracks_pricing.id;
@@ -1232,6 +1384,55 @@ CREATE TABLE petel_schema.users (
 ALTER TABLE petel_schema.users OWNER TO "PetelAdmin";
 
 --
+-- Name: alert_levels id; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.alert_levels ALTER COLUMN id SET DEFAULT nextval('petel_schema.alert_levels_id_seq'::regclass);
+
+
+--
+-- Name: alert_links id; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.alert_links ALTER COLUMN id SET DEFAULT nextval('petel_schema.alert_links_id_seq'::regclass);
+
+
+--
+-- Name: alert_statuses id; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.alert_statuses ALTER COLUMN id SET DEFAULT nextval('petel_schema.alert_levels_id_seq'::regclass);
+
+
+--
+-- Name: alert_statuses created_at; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.alert_statuses ALTER COLUMN created_at SET DEFAULT now();
+
+
+--
+-- Name: alert_statuses user_id; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.alert_statuses ALTER COLUMN user_id SET DEFAULT 0;
+
+
+--
+-- Name: alert_types id; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.alert_types ALTER COLUMN id SET DEFAULT nextval('petel_schema.alert_types_id_seq'::regclass);
+
+
+--
+-- Name: alerts id; Type: DEFAULT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.alerts ALTER COLUMN id SET DEFAULT nextval('petel_schema.alerts_id_seq'::regclass);
+
+
+--
 -- Name: document_links id; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
 --
 
@@ -1239,14 +1440,14 @@ ALTER TABLE ONLY petel_schema.document_links ALTER COLUMN id SET DEFAULT nextval
 
 
 --
--- Name: document_status_types id; Type: DEFAULT; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: document_status_types id; Type: DEFAULT; Schema: petel_schema; Owner: postgres
 --
 
 ALTER TABLE ONLY petel_schema.document_status_types ALTER COLUMN id SET DEFAULT nextval('petel_schema.document_status_types_id_seq'::regclass);
 
 
 --
--- Name: document_types id; Type: DEFAULT; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: document_types id; Type: DEFAULT; Schema: petel_schema; Owner: postgres
 --
 
 ALTER TABLE ONLY petel_schema.document_types ALTER COLUMN id SET DEFAULT nextval('petel_schema.document_types_id_seq'::regclass);
@@ -1260,14 +1461,14 @@ ALTER TABLE ONLY petel_schema.documents ALTER COLUMN id SET DEFAULT nextval('pet
 
 
 --
--- Name: school_student_pricing_elements id; Type: DEFAULT; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: school_student_pricing_elements id; Type: DEFAULT; Schema: petel_schema; Owner: postgres
 --
 
 ALTER TABLE ONLY petel_schema.school_student_pricing_elements ALTER COLUMN id SET DEFAULT nextval('petel_schema.school_student_pricing_elements_id_seq'::regclass);
 
 
 --
--- Name: school_tracks id; Type: DEFAULT; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: school_tracks id; Type: DEFAULT; Schema: petel_schema; Owner: postgres
 --
 
 ALTER TABLE ONLY petel_schema.school_tracks ALTER COLUMN id SET DEFAULT nextval('petel_schema.school_tracks_seq'::regclass);
@@ -1288,12 +1489,864 @@ ALTER TABLE ONLY petel_schema.special_needs_pricing_elements ALTER COLUMN id SET
 
 
 --
--- Name: tracks_pricing id; Type: DEFAULT; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: tracks_pricing id; Type: DEFAULT; Schema: petel_schema; Owner: postgres
 --
 
 ALTER TABLE ONLY petel_schema.tracks_pricing ALTER COLUMN id SET DEFAULT nextval('petel_schema.tracks_pricing_seq'::regclass);
 
 
 --
--- Data for Name: budget_statuses; Type: TABLE DATA; Schema: petel_schema; Owner: "PetelAdmin"
+-- Name: tracks School_tracks_per_year; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
 --
+
+ALTER TABLE ONLY petel_schema.tracks
+    ADD CONSTRAINT "School_tracks_per_year" UNIQUE (year_id, external_code);
+
+
+--
+-- Name: roles_actions action_roles_PK; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.roles_actions
+    ADD CONSTRAINT "action_roles_PK" PRIMARY KEY (id);
+
+
+--
+-- Name: roles_actions action_roles_uq; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.roles_actions
+    ADD CONSTRAINT action_roles_uq UNIQUE (role_id, action_id);
+
+
+--
+-- Name: alert_levels alert_levels_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.alert_levels
+    ADD CONSTRAINT alert_levels_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: alert_links alert_links_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.alert_links
+    ADD CONSTRAINT alert_links_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: alert_statuses alert_statuses_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.alert_statuses
+    ADD CONSTRAINT alert_statuses_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: alert_types alert_types_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.alert_types
+    ADD CONSTRAINT alert_types_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: alerts alerts_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.alerts
+    ADD CONSTRAINT alerts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: budget_statuses budget_statuses_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.budget_statuses
+    ADD CONSTRAINT budget_statuses_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: councils councils_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.councils
+    ADD CONSTRAINT councils_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: document_links document_links_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.document_links
+    ADD CONSTRAINT document_links_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: document_status_types document_status_types_pk; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.document_status_types
+    ADD CONSTRAINT document_status_types_pk PRIMARY KEY (id);
+
+
+--
+-- Name: document_types document_types_name_key; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.document_types
+    ADD CONSTRAINT document_types_name_key UNIQUE (name);
+
+
+--
+-- Name: document_types document_types_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.document_types
+    ADD CONSTRAINT document_types_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: documents documents_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.documents
+    ADD CONSTRAINT documents_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: entities entities_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.entities
+    ADD CONSTRAINT entities_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: entity_types entity_types_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.entity_types
+    ADD CONSTRAINT entity_types_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: genders genders_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.genders
+    ADD CONSTRAINT genders_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: hebrew_years hebrew_years_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.hebrew_years
+    ADD CONSTRAINT hebrew_years_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: persons persons_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.persons
+    ADD CONSTRAINT persons_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: special_needs_pricing_categories pricing_element_category_uc; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.special_needs_pricing_categories
+    ADD CONSTRAINT pricing_element_category_uc UNIQUE (pricing_element, category);
+
+
+--
+-- Name: roles roles_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.roles
+    ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: school_additional_study_programs school_additional_study_programs_pk; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_additional_study_programs
+    ADD CONSTRAINT school_additional_study_programs_pk PRIMARY KEY (id);
+
+
+--
+-- Name: school_attribute_types_values school_attribute_types_values_pk; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_attribute_types_values
+    ADD CONSTRAINT school_attribute_types_values_pk PRIMARY KEY (id);
+
+
+--
+-- Name: school_attributes school_attributes_pk; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_attributes
+    ADD CONSTRAINT school_attributes_pk PRIMARY KEY (id);
+
+
+--
+-- Name: school_attributes_types school_attributes_types_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_attributes_types
+    ADD CONSTRAINT school_attributes_types_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: school_hours_budget school_budget_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_hours_budget
+    ADD CONSTRAINT school_budget_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: school_classes school_classes_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_classes
+    ADD CONSTRAINT school_classes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: school_classes school_classes_uq; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_classes
+    ADD CONSTRAINT school_classes_uq UNIQUE (school_year_id, name);
+
+
+--
+-- Name: school_grades school_grades_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_grades
+    ADD CONSTRAINT school_grades_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: school_grades school_grades_uq; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_grades
+    ADD CONSTRAINT school_grades_uq UNIQUE (name);
+
+
+--
+-- Name: school_student_pricing_elements school_student_pricing_elements_pk; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_student_pricing_elements
+    ADD CONSTRAINT school_student_pricing_elements_pk PRIMARY KEY (id);
+
+
+--
+-- Name: school_students school_students_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_students
+    ADD CONSTRAINT school_students_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tracks_levels school_tracks_level_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.tracks_levels
+    ADD CONSTRAINT school_tracks_level_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: school_tracks school_tracks_pk; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_tracks
+    ADD CONSTRAINT school_tracks_pk PRIMARY KEY (id);
+
+
+--
+-- Name: tracks school_tracks_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.tracks
+    ADD CONSTRAINT school_tracks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: tracks_pricing school_tracks_pricing_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.tracks_pricing
+    ADD CONSTRAINT school_tracks_pricing_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: school_years school_years_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_years
+    ADD CONSTRAINT school_years_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: schools schools_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.schools
+    ADD CONSTRAINT schools_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: special_needs_characterizations special_needs_characterizations_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.special_needs_characterizations
+    ADD CONSTRAINT special_needs_characterizations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: special_needs_pricing_categories special_needs_pricing_categories_pk; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.special_needs_pricing_categories
+    ADD CONSTRAINT special_needs_pricing_categories_pk PRIMARY KEY (id);
+
+
+--
+-- Name: special_needs_pricing_elements special_needs_pricing_elements_pk; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.special_needs_pricing_elements
+    ADD CONSTRAINT special_needs_pricing_elements_pk PRIMARY KEY (id);
+
+
+--
+-- Name: student_school_years student_school_years_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.student_school_years
+    ADD CONSTRAINT student_school_years_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: students students_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.students
+    ADD CONSTRAINT students_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: system_actions system_actions_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.system_actions
+    ADD CONSTRAINT system_actions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: system_attributes system_attributes_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.system_attributes
+    ADD CONSTRAINT system_attributes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: special_needs_pricing_elements unique_name_per_year_uc; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.special_needs_pricing_elements
+    ADD CONSTRAINT unique_name_per_year_uc UNIQUE (year_id, name);
+
+
+--
+-- Name: schools unique_school; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.schools
+    ADD CONSTRAINT unique_school UNIQUE (entity_id, school_year_id, version);
+
+
+--
+-- Name: school_students unique_school_student; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_students
+    ADD CONSTRAINT unique_school_student UNIQUE (id_number, school_year_id, version);
+
+
+--
+-- Name: school_years unique_school_year_per_school; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_years
+    ADD CONSTRAINT unique_school_year_per_school UNIQUE (school_id, hebrew_year_name);
+
+
+--
+-- Name: student_school_years unique_student_school_year; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.student_school_years
+    ADD CONSTRAINT unique_student_school_year UNIQUE (student_id, school_year_id);
+
+
+--
+-- Name: users unique_username_per_entity_id; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.users
+    ADD CONSTRAINT unique_username_per_entity_id UNIQUE (username, entity_id);
+
+
+--
+-- Name: user_roles user_roles_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.user_roles
+    ADD CONSTRAINT user_roles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.users
+    ADD CONSTRAINT users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: idx_unique_document_link_entity; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE UNIQUE INDEX idx_unique_document_link_entity ON petel_schema.document_links USING btree (document_id, entity_id) WHERE (entity_id IS NOT NULL);
+
+
+--
+-- Name: idx_unique_document_link_student; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE UNIQUE INDEX idx_unique_document_link_student ON petel_schema.document_links USING btree (document_id, school_student_id) WHERE (school_student_id IS NOT NULL);
+
+
+--
+-- Name: idx_unique_document_version; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE UNIQUE INDEX idx_unique_document_version ON petel_schema.documents USING btree (master_document_id, version);
+
+
+--
+-- Name: entities set_timestamp_entities; Type: TRIGGER; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TRIGGER set_timestamp_entities BEFORE UPDATE ON petel_schema.entities FOR EACH ROW EXECUTE FUNCTION petel_schema.trigger_set_timestamp();
+
+
+--
+-- Name: entity_types set_timestamp_entity_types; Type: TRIGGER; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TRIGGER set_timestamp_entity_types BEFORE UPDATE ON petel_schema.entity_types FOR EACH ROW EXECUTE FUNCTION petel_schema.trigger_set_timestamp();
+
+
+--
+-- Name: roles set_timestamp_roles; Type: TRIGGER; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TRIGGER set_timestamp_roles BEFORE UPDATE ON petel_schema.roles FOR EACH ROW EXECUTE FUNCTION petel_schema.trigger_set_timestamp();
+
+
+--
+-- Name: school_years set_timestamp_school_years; Type: TRIGGER; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TRIGGER set_timestamp_school_years BEFORE UPDATE ON petel_schema.school_years FOR EACH ROW EXECUTE FUNCTION petel_schema.trigger_set_timestamp();
+
+
+--
+-- Name: schools set_timestamp_schools; Type: TRIGGER; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TRIGGER set_timestamp_schools BEFORE UPDATE ON petel_schema.schools FOR EACH ROW EXECUTE FUNCTION petel_schema.trigger_set_timestamp();
+
+
+--
+-- Name: system_actions set_timestamp_system_actions; Type: TRIGGER; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TRIGGER set_timestamp_system_actions BEFORE UPDATE ON petel_schema.system_actions FOR EACH ROW EXECUTE FUNCTION petel_schema.trigger_set_timestamp();
+
+
+--
+-- Name: user_roles set_timestamp_user_roles; Type: TRIGGER; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TRIGGER set_timestamp_user_roles BEFORE UPDATE ON petel_schema.user_roles FOR EACH ROW EXECUTE FUNCTION petel_schema.trigger_set_timestamp();
+
+
+--
+-- Name: users set_timestamp_users; Type: TRIGGER; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TRIGGER set_timestamp_users BEFORE UPDATE ON petel_schema.users FOR EACH ROW EXECUTE FUNCTION petel_schema.trigger_set_timestamp();
+
+
+--
+-- Name: roles_actions action_roles_fk1; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.roles_actions
+    ADD CONSTRAINT action_roles_fk1 FOREIGN KEY (role_id) REFERENCES petel_schema.roles(id);
+
+
+--
+-- Name: roles_actions action_roles_fk2; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.roles_actions
+    ADD CONSTRAINT action_roles_fk2 FOREIGN KEY (action_id) REFERENCES petel_schema.system_actions(id);
+
+
+--
+-- Name: schools characterizations_id_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.schools
+    ADD CONSTRAINT characterizations_id_fk FOREIGN KEY (characterization_id) REFERENCES petel_schema.special_needs_characterizations(id) NOT VALID;
+
+
+--
+-- Name: schools contact_person_person_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.schools
+    ADD CONSTRAINT contact_person_person_fkey FOREIGN KEY (contact_person) REFERENCES petel_schema.persons(id);
+
+
+--
+-- Name: document_links document_links_document_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.document_links
+    ADD CONSTRAINT document_links_document_id_fkey FOREIGN KEY (document_id) REFERENCES petel_schema.documents(id);
+
+
+--
+-- Name: document_links document_links_entity_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.document_links
+    ADD CONSTRAINT document_links_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES petel_schema.entities(id);
+
+
+--
+-- Name: document_links document_links_school_student_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.document_links
+    ADD CONSTRAINT document_links_school_student_id_fkey FOREIGN KEY (school_student_id) REFERENCES petel_schema.school_students(id);
+
+
+--
+-- Name: documents documents_document_type_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.documents
+    ADD CONSTRAINT documents_document_type_id_fkey FOREIGN KEY (document_type_id) REFERENCES petel_schema.document_types(id);
+
+
+--
+-- Name: entities entities_entity_type_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.entities
+    ADD CONSTRAINT entities_entity_type_id_fkey FOREIGN KEY (entity_type_id) REFERENCES petel_schema.entity_types(id);
+
+
+--
+-- Name: documents fk_master_document; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.documents
+    ADD CONSTRAINT fk_master_document FOREIGN KEY (master_document_id) REFERENCES petel_schema.documents(id);
+
+
+--
+-- Name: schools inspector_person_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.schools
+    ADD CONSTRAINT inspector_person_fkey FOREIGN KEY (inspector) REFERENCES petel_schema.persons(id);
+
+
+--
+-- Name: entities owner_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.entities
+    ADD CONSTRAINT owner_fkey FOREIGN KEY (owner) REFERENCES petel_schema.entities(id) NOT VALID;
+
+
+--
+-- Name: schools owner_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.schools
+    ADD CONSTRAINT owner_fkey FOREIGN KEY (owner) REFERENCES petel_schema.entities(id);
+
+
+--
+-- Name: persons persons_user_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.persons
+    ADD CONSTRAINT persons_user_id_fkey FOREIGN KEY (user_id) REFERENCES petel_schema.users(id);
+
+
+--
+-- Name: schools principal_person_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.schools
+    ADD CONSTRAINT principal_person_fkey FOREIGN KEY (principal) REFERENCES petel_schema.persons(id);
+
+
+--
+-- Name: school_additional_study_programs school_additional_study_programs_school_year_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_additional_study_programs
+    ADD CONSTRAINT school_additional_study_programs_school_year_fk FOREIGN KEY (school_year_id) REFERENCES petel_schema.school_years(id);
+
+
+--
+-- Name: school_attribute_types_values school_attribute_type_value_attribute_type_id; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_attribute_types_values
+    ADD CONSTRAINT school_attribute_type_value_attribute_type_id FOREIGN KEY (school_attribute_id) REFERENCES petel_schema.school_attributes_types(id);
+
+
+--
+-- Name: school_attributes school_attributes_attribute_type_id; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_attributes
+    ADD CONSTRAINT school_attributes_attribute_type_id FOREIGN KEY (school_attribute_type_id) REFERENCES petel_schema.school_attributes_types(id);
+
+
+--
+-- Name: school_classes school_classes_fk1; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_classes
+    ADD CONSTRAINT school_classes_fk1 FOREIGN KEY (school_year_id) REFERENCES petel_schema.school_years(id) NOT VALID;
+
+
+--
+-- Name: school_student_pricing_elements school_student_pricing_elements_pricing_element; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_student_pricing_elements
+    ADD CONSTRAINT school_student_pricing_elements_pricing_element FOREIGN KEY (pricing_element) REFERENCES petel_schema.special_needs_pricing_elements(id);
+
+
+--
+-- Name: school_student_pricing_elements school_student_pricing_elements_school_student; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_student_pricing_elements
+    ADD CONSTRAINT school_student_pricing_elements_school_student FOREIGN KEY (school_student) REFERENCES petel_schema.school_students(id);
+
+
+--
+-- Name: school_students school_students_gender_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_students
+    ADD CONSTRAINT school_students_gender_fk FOREIGN KEY (gender) REFERENCES petel_schema.genders(id);
+
+
+--
+-- Name: school_students school_students_school_year_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_students
+    ADD CONSTRAINT school_students_school_year_id_fkey FOREIGN KEY (school_year_id) REFERENCES petel_schema.school_years(id);
+
+
+--
+-- Name: school_tracks school_tracks_class_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_tracks
+    ADD CONSTRAINT school_tracks_class_fk FOREIGN KEY (class_id) REFERENCES petel_schema.school_classes(id);
+
+
+--
+-- Name: school_additional_study_programs school_tracks_class_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_additional_study_programs
+    ADD CONSTRAINT school_tracks_class_fk FOREIGN KEY (class_id) REFERENCES petel_schema.school_classes(id);
+
+
+--
+-- Name: school_tracks school_tracks_level_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_tracks
+    ADD CONSTRAINT school_tracks_level_fk FOREIGN KEY (track_level_id) REFERENCES petel_schema.tracks_levels(id);
+
+
+--
+-- Name: tracks_levels school_tracks_levels_school_tracks_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.tracks_levels
+    ADD CONSTRAINT school_tracks_levels_school_tracks_fk FOREIGN KEY (school_track_id) REFERENCES petel_schema.tracks(id) NOT VALID;
+
+
+--
+-- Name: tracks_pricing school_tracks_pricing_school_tracks_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.tracks_pricing
+    ADD CONSTRAINT school_tracks_pricing_school_tracks_fk FOREIGN KEY (school_track_id) REFERENCES petel_schema.tracks(id) NOT VALID;
+
+
+--
+-- Name: tracks_pricing school_tracks_pricing_school_tracks_levels_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.tracks_pricing
+    ADD CONSTRAINT school_tracks_pricing_school_tracks_levels_fk FOREIGN KEY (level_id) REFERENCES petel_schema.tracks_levels(id) NOT VALID;
+
+
+--
+-- Name: school_tracks school_tracks_school_year_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_tracks
+    ADD CONSTRAINT school_tracks_school_year_fk FOREIGN KEY (school_year_id) REFERENCES petel_schema.school_years(id);
+
+
+--
+-- Name: school_tracks school_tracks_tracks_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_tracks
+    ADD CONSTRAINT school_tracks_tracks_fk FOREIGN KEY (track_id) REFERENCES petel_schema.tracks(id);
+
+
+--
+-- Name: schools school_year_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.schools
+    ADD CONSTRAINT school_year_id_fkey FOREIGN KEY (school_year_id) REFERENCES petel_schema.school_years(id);
+
+
+--
+-- Name: school_years school_years_school_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_years
+    ADD CONSTRAINT school_years_school_id_fkey FOREIGN KEY (school_id) REFERENCES petel_schema.entities(id);
+
+
+--
+-- Name: school_years school_years_update_user_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.school_years
+    ADD CONSTRAINT school_years_update_user_fkey FOREIGN KEY (update_user) REFERENCES petel_schema.users(id);
+
+
+--
+-- Name: schools schools_entity_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.schools
+    ADD CONSTRAINT schools_entity_id_fkey FOREIGN KEY (entity_id) REFERENCES petel_schema.entities(id);
+
+
+--
+-- Name: schools schools_entity_type_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.schools
+    ADD CONSTRAINT schools_entity_type_id_fkey FOREIGN KEY (entity_type_id) REFERENCES petel_schema.entity_types(id);
+
+
+--
+-- Name: special_needs_pricing_categories special_needs_pricing_categories_pricing_element_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.special_needs_pricing_categories
+    ADD CONSTRAINT special_needs_pricing_categories_pricing_element_fk FOREIGN KEY (pricing_element) REFERENCES petel_schema.special_needs_pricing_elements(id);
+
+
+--
+-- Name: special_needs_pricing_elements special_needs_pricing_elements_year_id_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.special_needs_pricing_elements
+    ADD CONSTRAINT special_needs_pricing_elements_year_id_fk FOREIGN KEY (year_id) REFERENCES petel_schema.hebrew_years(id);
+
+
+--
+-- Name: student_school_years student_school_years_school_year_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.student_school_years
+    ADD CONSTRAINT student_school_years_school_year_id_fkey FOREIGN KEY (school_year_id) REFERENCES petel_schema.school_years(id);
+
+
+--
+-- Name: students students_person_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.students
+    ADD CONSTRAINT students_person_id_fkey FOREIGN KEY (person_id) REFERENCES petel_schema.persons(id);
+
+
+--
+-- Name: students students_user_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.students
+    ADD CONSTRAINT students_user_id_fkey FOREIGN KEY (user_id) REFERENCES petel_schema.users(id);
+
+
+--
+-- Name: users users_entity_id_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.users
+    ADD CONSTRAINT users_entity_id_id_fkey FOREIGN KEY (entity_id) REFERENCES petel_schema.entities(id);
+
+
+--
+-- Name: users users_update_user_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.users
+    ADD CONSTRAINT users_update_user_fkey FOREIGN KEY (update_user) REFERENCES petel_schema.users(id);
+
+
+
+
