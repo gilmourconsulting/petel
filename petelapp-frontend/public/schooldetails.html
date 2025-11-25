@@ -159,86 +159,112 @@
 
 
 // Generic Collapsible Cards - Auto-initialize ALL cards
+
 function initializeCollapsibleCards() {
     console.log('🎴 Initializing generic collapsible cards...');
     
-    // Find all detail cards and add click handlers
     document.querySelectorAll('.detail-card').forEach(card => {
         const header = card.querySelector('.detail-card-header');
         const toggle = card.querySelector('.collapse-toggle');
         
         if (!header || !toggle) return;
 
-        // Get action buttons (excluding collapse toggle)
-        const editButton = card.querySelector('.btn-icon[id^="edit"]'); // Edit buttons have IDs starting with "edit"
-        const addButton = card.querySelector('.btn-icon[id^="add"]');   // Add buttons have IDs starting with "add"
-        
-        // Hide add buttons initially (cards start collapsed)
-        if (addButton) {
-            addButton.style.display = 'none';
+        // ✅ Check if already initialized to prevent duplicate listeners
+        if (header.dataset.initialized === 'true') {
+            console.log('⚠️ Card already initialized, skipping:', card.querySelector('.detail-card-title')?.textContent);
+            return;
         }
+
+        // ✅ Mark as initialized
+        header.dataset.initialized = 'true';
+
+        // Get action buttons
+        const editButton = card.querySelector('.btn-icon[id^="edit"]');
+        const addButton = card.querySelector('.btn-icon[id^="add"]');
         
-        // Edit buttons should always be visible when card is expanded
-        if (editButton) {
-            editButton.style.display = 'none';
-        }
+        // Hide buttons initially
+        if (addButton) addButton.style.display = 'none';
+        if (editButton) editButton.style.display = 'none';
         
-        // Click on header toggles card
+        // ✅ SEPARATE HANDLER 1: Toggle button click
+        toggle.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent bubbling to header
+            toggleCardExpansion(card, toggle, editButton, addButton);
+        });
+        
+        // ✅ SEPARATE HANDLER 2: Header click (excluding buttons)
         header.addEventListener('click', function(e) {
-            // Don't toggle if clicking action buttons
-            if (e.target.closest('.btn-icon')) return;
-            
-            const isCollapsed = card.classList.contains('collapsed');
-            
-            if (isCollapsed) {
-                // Expand
-                card.classList.remove('collapsed');
-                card.classList.add('expanded');
-                toggle.textContent = '×';
-                
-                // Show edit button when expanded
-                if (editButton) {
-                    editButton.style.display = 'inline-flex';
-                }
-                
-                // Only show add button if edit mode is active for this card
-                if (addButton) {
-                    // Check edit mode based on card type
-                    let isEditMode = false;
-                    
-                    if (addButton.id === 'addClassBtn') {
-                        isEditMode = window.schoolClassesEditMode;
-                    } else if (addButton.id === 'addTrackBtn') {
-                        isEditMode = window.schoolTracksEditMode;
-                    } else if (addButton.id === 'addAdditionalStudyBtn') {
-                        isEditMode = window.schoolAdditionalStudyEditMode;
-                    }
-                    
-                    addButton.style.display = isEditMode ? 'inline-flex' : 'none';
-                }
-            } else {
-                // Collapse
-                card.classList.remove('expanded');
-                card.classList.add('collapsed');
-                toggle.textContent = '+';
-                
-                // Hide all action buttons when collapsed
-                if (editButton) {
-                    editButton.style.display = 'none';
-                }
-                if (addButton) {
-                    addButton.style.display = 'none';
-                }
+            // Don't toggle if clicking any button
+            if (e.target.closest('.btn-icon')) {
+                console.log('🚫 Click on button - ignoring');
+                return;
             }
             
-            console.log('🎴 Card toggled:', card.querySelector('.detail-card-title')?.textContent, 
-                       'Collapsed:', !isCollapsed);
+            toggleCardExpansion(card, toggle, editButton, addButton);
         });
     });
     
     console.log('✅ Generic collapsible cards initialized');
 }
 
+// ✅ SEPARATE FUNCTION: Toggle card expansion logic
+function toggleCardExpansion(card, toggle, editButton, addButton) {
+    const isCollapsed = card.classList.contains('collapsed');
+    
+    console.log('🎴 Toggling card:', {
+        title: card.querySelector('.detail-card-title')?.textContent,
+        currentlyCollapsed: isCollapsed,
+        willExpand: isCollapsed
+    });
+    
+    if (isCollapsed) {
+        // Expand
+        card.classList.remove('collapsed');
+        card.classList.add('expanded');
+        toggle.textContent = '×';
+        
+        // Show edit button when expanded
+        if (editButton) {
+            editButton.style.display = 'inline-flex';
+        }
+        
+        // Only show add button if edit mode is active for this card
+        if (addButton) {
+            let isEditMode = false;
+            
+            if (addButton.id === 'addClassBtn') {
+                isEditMode = window.schoolClassesEditMode;
+            } else if (addButton.id === 'addTrackBtn') {
+                isEditMode = window.schoolTracksEditMode;
+            } else if (addButton.id === 'addAdditionalStudyBtn') {
+                isEditMode = window.schoolAdditionalStudyEditMode;
+            }
+            
+            addButton.style.display = isEditMode ? 'inline-flex' : 'none';
+        }
+        
+        console.log('✅ Card EXPANDED');
+    } else {
+        // Collapse
+        card.classList.remove('expanded');
+        card.classList.add('collapsed');
+        toggle.textContent = '+';
+        
+        // Hide all action buttons when collapsed
+        if (editButton) {
+            editButton.style.display = 'none';
+        }
+        if (addButton) {
+            addButton.style.display = 'none';
+        }
+        
+        console.log('✅ Card COLLAPSED');
+    }
+}
+
+// ✅ Export both functions to window
+window.initializeCollapsibleCards = initializeCollapsibleCards;
+window.toggleCardExpansion = toggleCardExpansion;
 // School Classes Management Section
     // Store school classes edit mode state globally
     window.schoolClassesEditMode = window.schoolClassesEditMode || false;
@@ -1630,7 +1656,7 @@ window.councils = window.councils || [];
         console.log('🚀 Initializing school details page...');
 
         try {
-            // Initialize collapsible cards first
+
             initializeCollapsibleCards();
 
             // Load attribute types first
@@ -1647,6 +1673,8 @@ window.councils = window.councils || [];
             setupEditAdditionalStudyButton();
             // Load all data sections
             await loadSchoolDetailsData();
+
+           
 
             console.log('✅ School details page initialized successfully');
         } catch (error) {
