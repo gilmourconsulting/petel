@@ -52,87 +52,56 @@
 
 
 </div>
-
+<script src="alerts-events-manager.js"></script>
 <script>
     console.log('🔍 Main Dashboard script loaded');
 
-    // Load dashboard card data following Project-Specific Patterns
-    function loadDashboardCardData(cardId) {
-        console.log('📊 Loading dashboard card data for:', cardId);
+async function loadDashboardCardData(cardId) {
+    console.log('📊 Loading dashboard card data for:', cardId);
 
-        const mockData = {
-            alertsCard: {
-                items: [
-                    {
-                        content: "הגיע אישור שמירה ",
-                        timestamp: "לפני 10 דקות",
-                        priority: "high"
-                    },
-                    {
-                        content: "תלמיד חדש נרשם במצבת תלמידים",
-                        timestamp: "02-09-2025 14:30",
-                        priority: "medium"
-                    }
-                ]
-            },
-            eventsCard: {
-                items: [
-                    {
-                        content: "יום אחרון לרישום ליום סייעות עירוני",
-                        timestamp: "מחר 09:00",
-                        priority: "high"
-                    }
-                ]
+    try {
+        // Get selected school ID from session
+        const session = await window.SessionState.getSession();
+        let schoolId;
+
+        if (parseInt(session.entityTypeId, 10) === 5) {
+            // Multi-school network - use SelectedSchoolId
+            const selectedSchoolId = await window.SessionState.getProperty('SelectedSchoolId');
+            if (!selectedSchoolId) {
+                console.warn('⚠️ No SelectedSchoolId in session');
+                const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
+                if (containerElement) {
+                    containerElement.innerHTML = '<div class="no-data-message">לא נמצא בית ספר נבחר</div>';
+                }
+                return;
             }
-        };
-
-        const cardData = mockData[cardId];
-        if (!cardData) {
-            console.error('❌ No data found for cardId:', cardId);
-            return;
+            schoolId = selectedSchoolId;
+        } else {
+            // Single school - use entity ID
+            schoolId = session.entityId;
         }
 
-        // Get the internal cards container
+        console.log('🏫 Loading alerts for school:', schoolId);
+
+        // Load data from backend via AlertsEventsManager
+        const data = await window.AlertsEventsManager.loadAlertEventsData(schoolId);
+
+        if (cardId === 'alertsCard') {
+            // ✅ Pass schoolId to render function
+            window.AlertsEventsManager.renderAlerts(data.alerts, 'alertsInternalCards', schoolId);
+        } else if (cardId === 'eventsCard') {
+            // ✅ Pass schoolId to render function
+            window.AlertsEventsManager.renderEvents(data.events, 'eventsInternalCards', schoolId);
+        }
+    } catch (error) {
+        console.error('❌ Error loading dashboard data:', error);
         const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
-        if (!containerElement) {
-            console.error('❌ Container not found for:', cardId.replace('Card', 'InternalCards'));
-            return;
+        if (containerElement) {
+            containerElement.innerHTML = '<div class="error-message">שגיאה בטעינת הנתונים</div>';
         }
-
-        console.log('✅ Container found, clearing and populating...');
-
-        // Clear existing content
-        containerElement.innerHTML = '';
-
-        // Create internal cards following Hebrew/RTL Specific Patterns
-        cardData.items.forEach((item, index) => {
-            const internalCard = document.createElement('div');
-            internalCard.className = 'internal-card';
-            internalCard.setAttribute('data-priority', item.priority);
-
-            internalCard.innerHTML = `
-                    <div class="internal-card-content">${item.content}</div>
-                    <div class="internal-card-timestamp">${item.timestamp}</div>
-                `;
-
-            // Add click handler following Cross-Component Communication
-            internalCard.addEventListener('click', () => {
-                console.log(`Internal card clicked: ${item.content} in ${cardId}`);
-                const cardClickEvent = new CustomEvent('internalCardClicked', {
-                    detail: {
-                        cardId: cardId,
-                        itemIndex: index,
-                        item: item
-                    }
-                });
-                window.dispatchEvent(cardClickEvent);
-            });
-
-            containerElement.appendChild(internalCard);
-        });
-
-        console.log(`✅ ${cardData.items.length} cards loaded for ${cardId}`);
     }
+}
+
     // Add navigation function following Project-Specific Patterns
     async function navigateToStudents() {
         try {

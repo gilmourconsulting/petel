@@ -444,14 +444,14 @@ namespace PetelApp.Api.Data
     {
         entity.ToTable("alerts");
         entity.HasKey(e => e.Id);
-        entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+
     });
 
     modelBuilder.Entity<AlertLink>(entity =>
     {
         entity.ToTable("alert_links");
         entity.HasKey(e => e.Id);
-        entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+
         
         entity.HasOne(e => e.Alert)
             .WithMany()
@@ -468,21 +468,21 @@ namespace PetelApp.Api.Data
     {
         entity.ToTable("alert_types");
         entity.HasKey(e => e.Id);
-        entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+        
     });
 
     modelBuilder.Entity<AlertStatus>(entity =>
     {
         entity.ToTable("alert_statuses");
         entity.HasKey(e => e.Id);
-        entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+        
     });
 
     modelBuilder.Entity<AlertLevel>(entity =>
     {
         entity.ToTable("alert_levels");
         entity.HasKey(e => e.Id);
-        entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
+        
     });
 
     }}

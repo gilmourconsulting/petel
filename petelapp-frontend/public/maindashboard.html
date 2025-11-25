@@ -49,82 +49,47 @@
 
 
     </div>
-
+<script src="alerts-events-manager.js"></script>
     <script>
         console.log('🔍 Main Dashboard script loaded');
 
-        // Load dashboard card data from backend API 
-      function loadDashboardCardData(cardId) {
+   // Load dashboard card data from backend
+    async function loadDashboardCardData(cardId) {
         console.log('📊 Loading dashboard card data for:', cardId);
 
-        const mockData = {
-            alertsCard: {
-                items: [
-                    {
-                        content: "ביום שלישי 16/11 בשעה 17:00 המערכת תעודכן ותהיה זמינה למחרת",
-                        timestamp: "לפני 10 דקות",
-                        priority: "high"
-                    }
-                ]
-            },
-            eventsCard: {
-                items: [
-                    {
-                        content: "יום אחרון לרישום ליום סייעות עירוני",
-                        timestamp: "מחר 09:00",
-                        priority: "high"
-                    }
-                ]
+        try {
+            // Get entity ID from session
+            const session = await window.SessionState.getSession();
+            const entityId = session.entityId;
+
+            if (!entityId) {
+                console.error('❌ No entity ID in session');
+                const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
+                if (containerElement) {
+                    containerElement.innerHTML = '<div class="error-message">לא נמצא מזהה ישות</div>';
+                }
+                return;
             }
-        };
 
-        const cardData = mockData[cardId];
-        if (!cardData) {
-            console.error('❌ No data found for cardId:', cardId);
-            return;
+            // Load data from backend via AlertsEventsManager
+            const data = await window.AlertsEventsManager.loadAlertEventsData(entityId);
+
+        if (cardId === 'alertsCard') {
+            // ✅ Pass entityId to render function
+            window.AlertsEventsManager.renderAlerts(data.alerts, 'alertsInternalCards', entityId);
+        } else if (cardId === 'eventsCard') {
+            // ✅ Pass entityId to render function
+            window.AlertsEventsManager.renderEvents(data.events, 'eventsInternalCards', entityId);
         }
-
-        // Get the internal cards container
-        const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
-        if (!containerElement) {
-            console.error('❌ Container not found for:', cardId.replace('Card', 'InternalCards'));
-            return;
+        } catch (error) {
+            console.error('❌ Error loading dashboard data:', error);
+            const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
+            if (containerElement) {
+                containerElement.innerHTML = '<div class="error-message">שגיאה בטעינת הנתונים</div>';
+            }
         }
-
-        console.log('✅ Container found, clearing and populating...');
-
-        // Clear existing content
-        containerElement.innerHTML = '';
-
-        // Create internal cards following Hebrew/RTL Specific Patterns
-        cardData.items.forEach((item, index) => {
-            const internalCard = document.createElement('div');
-            internalCard.className = 'internal-card';
-            internalCard.setAttribute('data-priority', item.priority);
-
-            internalCard.innerHTML = `
-                    <div class="internal-card-content">${item.content}</div>
-                    <div class="internal-card-timestamp">${item.timestamp}</div>
-                `;
-
-            // Add click handler following Cross-Component Communication
-            internalCard.addEventListener('click', () => {
-                console.log(`Internal card clicked: ${item.content} in ${cardId}`);
-                const cardClickEvent = new CustomEvent('internalCardClicked', {
-                    detail: {
-                        cardId: cardId,
-                        itemIndex: index,
-                        item: item
-                    }
-                });
-                window.dispatchEvent(cardClickEvent);
-            });
-
-            containerElement.appendChild(internalCard);
-        });
-
-        console.log(`✅ ${cardData.items.length} cards loaded for ${cardId}`);
     }
+
 
         // Update context button labels with year values following Project-Specific Patterns
         async function updateContextButtonLabels() {
@@ -296,9 +261,6 @@ async function loadSchoolDashboardPage() {
             setTimeout(async () => {
                 loadDashboardCardData('alertsCard');
                 loadDashboardCardData('eventsCard');
-               // loadSystemVersion();
-                
-                // Update context button labels with actual year values
                 await updateContextButtonLabels();
                 
                 console.log('✅ Main Dashboard initialized successfully');
@@ -311,7 +273,6 @@ async function loadSchoolDashboardPage() {
             setTimeout(async () => {
                 loadDashboardCardData('alertsCard');
                 loadDashboardCardData('eventsCard');
-              // loadSystemVersion();
                 await updateContextButtonLabels();
                 console.log('✅ Main Dashboard initialized immediately');
             }, 50);
@@ -320,7 +281,6 @@ async function loadSchoolDashboardPage() {
         // Make functions globally available following Cross-Component Communication
         window.loadDashboardCardData = loadDashboardCardData;
         window.showAddModal = showAddModal;
-      //  window.loadSystemVersion = loadSystemVersion;
         window.updateContextButtonLabels = updateContextButtonLabels;
         window.storeSelectedYearInSession = storeSelectedYearInSession;
         window.showSchoolYear = showSchoolYear;

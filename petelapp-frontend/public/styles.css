@@ -500,6 +500,36 @@ body {
     flex-shrink: 0;
 }
 
+
+/* Bold styling for new/unread alerts and events */
+.internal-card.alert-new .internal-card-content {
+    font-weight: 700;
+    color: var(--text-primary, #212529);
+}
+
+.internal-card.alert-new {
+    border-right: 3px solid var(--primary-color, #0d6efd);
+}
+
+/* Optional: Add visual indicator for unread */
+.internal-card.alert-new::before {
+    content: '';
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 8px;
+    height: 8px;
+    background-color: var(--primary-color, #0d6efd);
+    border-radius: 50%;
+}
+
+/* Ensure proper positioning for indicator */
+.internal-card {
+    position: relative;
+    padding-right: 24px; /* Make room for indicator */
+}
+
 .dashboard-card-plus:hover {
     opacity: 1;
     transform: scale(1.1);

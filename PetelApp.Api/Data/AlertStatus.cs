@@ -18,8 +18,8 @@ namespace PetelApp.Api.Data
         [MaxLength(25)]
         public string? Description { get; set; }
 
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; }
+      //  [Column("created_at")]
+      //  public TimeSpan? CreatedAt { get; set; }
 
         [Column("user_id")]
         public int UserId { get; set; }

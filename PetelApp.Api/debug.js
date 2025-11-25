@@ -57,10 +57,28 @@ async function loadSessionDebugData() {
             allProperties = await propertiesResponse.json();
         }
 
+        // ✅ Fetch alert definitions from memory cache
+        const alertDefsResponse = await fetch(AppConfig.getApiUrl('alerts/definitions'), {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        let alertDefinitions = {
+            note: "Alert definitions loaded at startup into memory cache (AlertDefinitionsCache)"
+        };
+
+        if (alertDefsResponse.ok) {
+            alertDefinitions = await alertDefsResponse.json();
+        } else {
+            alertDefinitions.error = `Failed to load: ${alertDefsResponse.status}`;
+        }
+
         // Combine all data
         const debugData = {
             sessionInfo: sessionInfo,
             allProperties: allProperties,
+            alertDefinitions: alertDefinitions,
             frontendStorage: {
                 authToken: authToken ? `${authToken.substring(0, 20)}...` : null,
                 note: "Only auth token should be stored in frontend"
