@@ -132,6 +132,7 @@ class AlertsEventsManager {
 
         // Create internal cards for each alert
         alerts.forEach((alert, index) => {
+  
             const internalCard = document.createElement('div');
             internalCard.className = 'internal-card';
             internalCard.setAttribute('data-alert-id', alert.id);

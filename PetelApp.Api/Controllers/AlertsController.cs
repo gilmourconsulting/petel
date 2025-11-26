@@ -23,158 +23,198 @@ namespace PetelApp.Api.Controllers
             _context = context;
         }
 
-        /// <summary>
-        /// Create new alert/event
-        /// Creates alert and alert_links for all active entities (system level) or specific entity
-        /// </summary>
-        [HttpPost]
-        public async Task<IActionResult> CreateAlert([FromBody] CreateAlertDto dto)
+   /// <summary>
+/// Create new alert/event with distribution logic
+/// Creates alert and alert_links based on alert level and distribution flags
+/// </summary>
+[HttpPost]
+public async Task<IActionResult> CreateAlert([FromBody] CreateAlertDto dto)
+{
+    try {
+        var session = GetCurrentSession();
+        var entityId = int.Parse(session.EntityId);
+        var entityTypeId = int.Parse(session.EntityTypeId);
+
+        _logger.LogInformation(
+            "📝 Creating alert: Type={Type}, Level={Level}, IsEvent={IsEvent}, EntityId={EntityId}, EntityTypeId={EntityTypeId}",
+            dto.AlertType, dto.AlertLevel, dto.IsEvent, entityId, entityTypeId);
+
+        // Validate alert type and level exist in cache
+        if (!AlertDefinitionsCache.IsValidAlertType(dto.AlertType))
         {
-            try
+            return BadRequest($"Invalid alert type: {dto.AlertType}");
+        }
+
+        if (!AlertDefinitionsCache.IsValidAlertLevel(dto.AlertLevel))
+        {
+            return BadRequest($"Invalid alert level: {dto.AlertLevel}");
+        }
+
+        // Validate event date requirement
+        if (dto.IsEvent && !dto.EventDate.HasValue)
+        {
+            return BadRequest("EventDate is required when IsEvent is true");
+        }
+
+        // Create alert
+        var alert = new Alert
+        {
+            AlertType = dto.AlertType,
+            AlertLevel = dto.AlertLevel,
+            Description = dto.Description,
+            Status = 1, // New status
+            UserId = int.Parse(session.UserId),
+            IsEvent = dto.IsEvent,
+            EventDate = dto.EventDate,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Alerts.Add(alert);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("✅ Alert created with Id={AlertId}", alert.Id);
+
+        // Collect entity IDs for alert links
+        var targetEntityIds = new List<int> { entityId }; // Always include current entity
+
+        // Distribution logic based on alert level
+        if (dto.AlertLevel == 2 && dto.DistributeToOwned)
+        {
+            // Level 2 (owner) - Get entities owned by current entity
+            var ownedEntities = await _context.Entities
+                .Where(e => e.OwnerId == entityId && e.IsActive)
+                .Select(e => e.Id)
+                .ToListAsync();
+
+            targetEntityIds.AddRange(ownedEntities);
+
+            _logger.LogInformation(
+                "📢 Added {Count} owned entities for owner {EntityId}",
+                ownedEntities.Count, entityId);
+        }
+
+        if (dto.DistributeToSchools)
+        {
+            if (entityTypeId == 5) // School network
             {
-                var session = GetCurrentSession();
+                // Get schools owned by this network
+                var networkSchools = await _context.Entities
+                    .Where(e => e.OwnerId == entityId 
+                             && e.EntityTypeId == 4 // School type
+                             && e.IsActive)
+                    .Select(e => e.Id)
+                    .ToListAsync();
 
-                // Validate alert type, level, and status exist in cache
-                if (!AlertDefinitionsCache.IsValidAlertType(dto.AlertType))
-                {
-                    return BadRequest($"Invalid alert type: {dto.AlertType}");
-                }
-
-                if (!AlertDefinitionsCache.IsValidAlertLevel(dto.AlertLevel))
-                {
-                    return BadRequest($"Invalid alert level: {dto.AlertLevel}");
-                }
-
-                // Validate event date requirement
-                if (dto.IsEvent && !dto.EventDate.HasValue)
-                {
-                    return BadRequest("EventDate is required when IsEvent is true");
-                }
-
-                // Create alert
-                var alert = new Alert
-                {
-                    AlertType = dto.AlertType,
-                    AlertLevel = dto.AlertLevel,
-                    Description = dto.Description,
-                    Status = 1, // New status
-                    UserId = int.Parse(session.UserId),
-                    IsEvent = dto.IsEvent,
-                    EventDate = dto.EventDate
-                };
-
-                _context.Alerts.Add(alert);
-                await _context.SaveChangesAsync();
+                targetEntityIds.AddRange(networkSchools);
 
                 _logger.LogInformation(
-                    "✅ Alert created: Id={AlertId}, Type={Type}, Level={Level}, IsEvent={IsEvent}",
-                    alert.Id, dto.AlertType, dto.AlertLevel, dto.IsEvent);
-
-                // Create alert links based on alert level
-                if (dto.AlertLevel == 1) // System level
-                {
-                    // Get all active entities
-                    var activeEntities = await _context.Entities
-                        .Where(e => e.IsActive)
-                        .Select(e => e.Id)
-                        .ToListAsync();
-
-                    var alertLinks = activeEntities.Select(entityId => new AlertLink
-                    {
-                        AlertId = alert.Id,
-                        AlertStatus = 1, // New status
-                        EntityId = entityId,
-                        IsLastVersion = true
-                    }).ToList();
-
-                    _context.AlertLinks.AddRange(alertLinks);
-                    await _context.SaveChangesAsync();
-
-                    _logger.LogInformation(
-                        "✅ Created {Count} alert links for system-level alert {AlertId}",
-                        alertLinks.Count, alert.Id);
-                }
-                else // School or schoolchain level
-                {
-                    // Create link for current entity only
-                    var alertLink = new AlertLink
-                    {
-                        AlertId = alert.Id,
-                        AlertStatus = 1, // New status
-                        EntityId = int.Parse(session.EntityId),
-                        IsLastVersion = true
-                    };
-
-                    _context.AlertLinks.Add(alertLink);
-                    await _context.SaveChangesAsync();
-
-                    _logger.LogInformation(
-                        "✅ Created alert link for entity {EntityId}, alert {AlertId}",
-                        session.EntityId, alert.Id);
-                }
-
-                return Ok(new
-                {
-                    alertId = alert.Id,
-                    message = "Alert created successfully",
-                    linksCreated = dto.AlertLevel == 1
-                        ? await _context.Entities.CountAsync(e => e.IsActive)
-                        : 1
-                });
+                    "🏫 Added {Count} schools for network {EntityId}",
+                    networkSchools.Count, entityId);
             }
-            catch (Exception ex)
+            else if (entityTypeId == 6) // Owner
             {
-                _logger.LogError(ex, "❌ Error creating alert");
-                return StatusCode(500, "Error creating alert");
+                // Get schools where the owner is an entity owned by current entity
+                // SQL equivalent: SELECT s.id FROM entities s 
+                // WHERE s.entity_type_id = 4 AND s.owner_id IN 
+                // (SELECT id FROM entities WHERE owner_id = @currentEntityId)
+                var ownerSchools = await _context.Entities
+                    .Where(school => school.EntityTypeId == 4 
+                                  && school.IsActive
+                                  && _context.Entities.Any(owner => 
+                                      owner.OwnerId == entityId 
+                                      && owner.Id == school.OwnerId
+                                      && owner.IsActive))
+                    .Select(e => e.Id)
+                    .ToListAsync();
+
+                targetEntityIds.AddRange(ownerSchools);
+
+                _logger.LogInformation(
+                    "🏫 Added {Count} schools via owned entities for owner {EntityId}",
+                    ownerSchools.Count, entityId);
             }
         }
 
-       /// <summary>
-/// Get alerts/events for specific entity
-/// Returns alerts based on entity_id parameter and is_event filter
+        // Remove duplicates
+        targetEntityIds = targetEntityIds.Distinct().ToList();
+
+        _logger.LogInformation(
+            "📊 Creating alert links for {Count} entities", 
+            targetEntityIds.Count);
+
+        // Create alert links
+        var alertLinks = targetEntityIds.Select(targetEntityId => new AlertLink
+        {
+            AlertId = alert.Id,
+            AlertStatus = 1, // New status
+            EntityId = targetEntityId,
+            IsLastVersion = true
+        }).ToList();
+
+        _context.AlertLinks.AddRange(alertLinks);
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation(
+            "✅ Alert creation complete: AlertId={AlertId}, Links={LinkCount}",
+            alert.Id, alertLinks.Count);
+
+        return Ok(new
+        {
+            alertId = alert.Id,
+            message = $"{(dto.IsEvent ? "אירוע" : "התראה")} נוצר בהצלחה",
+            linksCreated = alertLinks.Count,
+            distributedTo = targetEntityIds
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "❌ Error creating alert");
+        return StatusCode(500, "שגיאה ביצירת ההתראה");
+    }
+}
+
+
+
+/// <summary>
+/// Get alerts/events for an entity with entity-specific status from alert_links
 /// </summary>
 [HttpGet("entity/{entityId}")]
-public async Task<IActionResult> GetEntityAlerts(int entityId, [FromQuery] bool? isEvent = null)
+public async Task<IActionResult> GetAlertsByEntity(
+    int entityId,
+    [FromQuery] bool isEvent = false)
 {
     try
     {
         _logger.LogInformation(
-            "📋 Fetching alerts for EntityId={EntityId}, IsEvent={IsEvent}",
+            "📊 Getting alerts for entity {EntityId}, isEvent={IsEvent}",
             entityId, isEvent);
 
-        // Get latest alert links for this entity
-        var alertLinks = await _context.AlertLinks
+        // ✅ Join alerts with alert_links to get entity-specific status
+        var alerts = await _context.AlertLinks
             .Where(al => al.EntityId == entityId && al.IsLastVersion)
-            .Select(al => al.AlertId)
-            .ToListAsync();
-
-        if (!alertLinks.Any())
-        {
-            _logger.LogInformation("ℹ️ No alert links found for entity {EntityId}", entityId);
-            return Ok(new List<object>());
-        }
-
-        // Get alerts with optional is_event filter
-        var query = _context.Alerts
-            .Where(a => alertLinks.Contains(a.Id));
-
-        if (isEvent.HasValue)
-        {
-            query = query.Where(a => a.IsEvent == isEvent.Value);
-        }
-
-        var alerts = await query
-            .OrderByDescending(a => a.CreatedAt)
-            .Select(a => new
+            .Join(
+                _context.Alerts,
+                link => link.AlertId,
+                alert => alert.Id,
+                (link, alert) => new
+                {
+                    Alert = alert,
+                    Link = link
+                })
+            .Where(x => x.Alert.IsEvent == isEvent)
+            .OrderByDescending(x => x.Alert.CreatedAt)
+            .Select(x => new
             {
-                id = a.Id,
-                description = a.Description,
-                isEvent = a.IsEvent,
-                eventDate = a.EventDate,
-                createdAt = a.CreatedAt,
-                alertType = a.AlertType,
-                alertLevel = a.AlertLevel,
-                status = a.Status
+                id = x.Alert.Id,
+                alertType = x.Alert.AlertType,
+                alertLevel = x.Alert.AlertLevel,
+                description = x.Alert.Description,
+                status = x.Link.AlertStatus,  // ✅ Status from alert_links, not alerts
+                userId = x.Alert.UserId,
+                isEvent = x.Alert.IsEvent,
+                eventDate = x.Alert.EventDate,
+                createdAt = x.Alert.CreatedAt,
+                linkId = x.Link.Id
             })
             .ToListAsync();
 
@@ -186,8 +226,8 @@ public async Task<IActionResult> GetEntityAlerts(int entityId, [FromQuery] bool?
     }
     catch (Exception ex)
     {
-        _logger.LogError(ex, "❌ Error fetching entity alerts");
-        return StatusCode(500, "Error fetching alerts");
+        _logger.LogError(ex, "❌ Error getting alerts for entity {EntityId}", entityId);
+        return StatusCode(500, "Error loading alerts");
     }
 }
 

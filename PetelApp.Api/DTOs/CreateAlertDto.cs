@@ -9,7 +9,7 @@ namespace PetelApp.Api.DTOs
         public int AlertType { get; set; }
 
         [Required]
-        [Range(1, 3, ErrorMessage = "Alert level must be 1 (system), 2 (school), or 3 (schoolchain)")]
+        [Range(1, 7, ErrorMessage = "Alert level must be 1 (system), 2 (school), or 3 (schoolchain)")]
         public int AlertLevel { get; set; }
 
         [Required]
@@ -20,6 +20,10 @@ namespace PetelApp.Api.DTOs
         public bool IsEvent { get; set; }
 
         public DateTime? EventDate { get; set; }
+
+                // ✅ Distribution flags triggered by frontend
+        public bool DistributeToOwned { get; set; } = false;
+        public bool DistributeToSchools { get; set; } = false;
 
         public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
         {

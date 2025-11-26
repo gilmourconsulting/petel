@@ -52,6 +52,7 @@
 
 
 </div>
+<script src="alerts-modal.js"></script>
 <script src="alerts-events-manager.js"></script>
 <script>
     console.log('🔍 Main Dashboard script loaded');
@@ -101,6 +102,12 @@ async function loadDashboardCardData(cardId) {
         }
     }
 }
+
+
+    function showAddModal(cardType) {
+        const isEvent = cardType === 'eventsCard';
+        window.alertsModal.show(isEvent);
+    }
 
     // Add navigation function following Project-Specific Patterns
     async function navigateToStudents() {
@@ -267,11 +274,7 @@ async function navigateToSchoolDetails() {
 
 
 
-    // Show add modal placeholder function following Frontend Architecture Patterns
-    function showAddModal(cardType) {
-        const cardName = cardType === 'alertsCard' ? 'התראה' : 'אירוע';
-        alert(`הוספת ${cardName} חדש - תכונה זו תתווסף בעתיד`);
-    }
+
 
     // Debug function to check if elements exist
     function debugDashboardElements() {

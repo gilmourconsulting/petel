@@ -22,8 +22,8 @@ namespace PetelApp.Api.Data
         [Required]
         public int EntityId { get; set; }
 
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; }
+       // [Column("created_at")]
+       // public DateTime CreatedAt { get; set; }
 
         [Column("is_last_version")]
         [Required]
