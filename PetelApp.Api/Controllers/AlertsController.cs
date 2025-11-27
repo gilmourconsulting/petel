@@ -32,6 +32,11 @@ public async Task<IActionResult> CreateAlert([FromBody] CreateAlertDto dto)
 {
     try {
         var session = GetCurrentSession();
+        if (session == null)
+        {
+            return Unauthorized("Session not found");
+        }
+
         var entityId = int.Parse(session.EntityId);
         var entityTypeId = int.Parse(session.EntityTypeId);
 

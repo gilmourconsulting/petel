@@ -37,6 +37,6 @@ namespace PetelApp.Api.Data
         public DateTime? EventDate { get; set; }
 
         [Column("created_at")]
-        public DateTime CreatedAt { get; set; }
+        public DateTime CreatedAt { get; set; }= DateTime.UtcNow;
     }
 }

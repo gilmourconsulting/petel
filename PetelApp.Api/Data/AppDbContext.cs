@@ -105,6 +105,11 @@ namespace PetelApp.Api.Data
                       .WithMany(et => et.Entities)
                       .HasForeignKey(e => e.EntityTypeId)
                       .OnDelete(DeleteBehavior.Restrict);
+
+                                  entity.HasOne(e => e.Owner)
+                  .WithMany(e => e.OwnedEntities)
+                  .HasForeignKey(e => e.OwnerId)
+                  .OnDelete(DeleteBehavior.Restrict);
             });
 
             // EntityType configuration

@@ -69,11 +69,17 @@ window.PageLifecycleConfig = {
             cleanup: null,
             init: 'initializeSchoolYear'
         },
+        'entitydetails': {
+            file: 'entitydetails.html',
+            title: 'פרטי ישות',
+            cleanup: 'cleanupEntityDetails',
+            init: 'initializeEntityDetails'
+        },
         'councilsummary': {
             file: 'councilsummary.html',
             title: 'סיכום רשויות',
             cleanup: null,
-            init: null
+            init: ''
         }
     },
 

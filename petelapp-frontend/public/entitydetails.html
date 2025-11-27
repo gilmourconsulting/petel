@@ -1,0 +1,390 @@
+<!-- Entity Details Title Section -->
+<div class="school-title-section">
+    <h1 class="page-title">פרטי ישות</h1>
+</div>
+
+<div class="students-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section screenwithtable-context">
+        <button class="context-btn" onclick="window.navigateTo('maindashboard')">חזרה ללוח בקרה</button>
+    </div>
+
+    <!-- Main content -->
+    <div class="students-content">
+        <div class="content-card">
+            <!-- Entity Details Card -->
+            <div class="detail-card">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">פרטי ישות</h2>
+                    <div class="card-header-actions">
+                        <button id="editEntityDetailsBtn" class="btn-icon" onclick="event.stopPropagation();">
+                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                        </button>
+                    </div>
+                </div>
+                <div class="detail-card-content" id="entityDetailsContent">
+                    <!-- Content will be populated here -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    window.entityDetailsData = null;
+    window.entityTypes = [];
+    window.potentialOwners = [];
+    window.isEntityEditMode = false;
+
+    async function initializeEntityDetails() {
+        console.log('🏗️ Initializing Entity Details page...');
+        
+        // Load lookups first
+        await Promise.all([loadEntityTypes(), loadPotentialOwners()]);
+        
+        // Load entity data
+        await loadEntityDetails();
+    }
+
+    async function loadEntityTypes() {
+        try {
+            const response = await fetch(AppConfig.getApiUrl('entities/entity-types'), AppConfig.getDefaultFetchOptions());
+            if (response.ok) {
+                window.entityTypes = await response.json();
+                const select = document.getElementById('edit_entityType');
+               /* select.innerHTML = '<option value="">בחר סוג ישות...</option>';
+                window.entityTypes.forEach(type => {
+                    select.innerHTML += `<option value="${type.id}">${type.name}</option>`;
+                });*/
+            }
+        } catch (error) {
+            console.error('❌ Error loading entity types:', error);
+        }
+    }
+
+    async function loadPotentialOwners() {
+        try {
+            const response = await fetch(AppConfig.getApiUrl('entitydetails/owners'), AppConfig.getDefaultFetchOptions());
+            if (response.ok) {
+                window.potentialOwners = await response.json();
+                const select = document.getElementById('edit_owner');
+         /*       select.innerHTML = '<option value="">בחר בעלות...</option>';
+                window.potentialOwners.forEach(owner => {
+                    select.innerHTML += `<option value="${owner.id}">${owner.name}</option>`;
+                });*/
+            }
+        } catch (error) {
+            console.error('❌ Error loading owners:', error);
+        }
+    }
+
+    async function loadEntityDetails() {
+        try {
+            // Get ID from session property set by dashboard
+            const entityId = await window.SessionState.getProperty('ViewEntityId');
+            
+            if (!entityId) {
+                console.error('❌ No entity ID found in session');
+                return;
+            }
+
+            const response = await fetch(AppConfig.getApiUrl(`entitydetails/${entityId}`), AppConfig.getDefaultFetchOptions());
+            
+            if (!response.ok) throw new Error('Failed to load entity details');
+            
+            const data = await response.json();
+            window.entityDetailsData = data;
+            displayEntityDetails(data);
+            
+        } catch (error) {
+            console.error('❌ Error loading entity details:', error);
+            alert('שגיאה בטעינת פרטי הישות');
+        }
+    }
+
+    function displayEntityDetails(data) {
+            console.log('🏫 Displaying entity details:', data);
+
+            const container = document.getElementById('entityDetailsContent');
+            if (!container) return;
+            const isEditMode = window.isEntityEditMode;
+            let currentValues = {};
+        //   if (window.isEntityEditMode) {  
+                // Save current input values before re-rendering
+                currentValues = {
+                    name: data.name || '',
+                    entityTypeId: data.entityTypeId || '',
+                    address: data.address || '',
+                    phone: data.phone || '',  
+                    email: data.email || '',
+                    ownerName: data.ownerName || '',
+                    contactPerson: data.contactPerson || '',
+                    taxNumber: data.taxNumber || '', 
+                    isActive: data.isActive || false,
+                    ownerId: data.ownerId || ''
+                };
+           /* } else {
+                currentValues = {                     name: document.getElementById('name').value,
+                    entityOwnerId: document.getElementById('entityOwnerId').value,
+                    address: document.getElementById('address').value,
+                    phone: document.getElementById('phone').value,  
+                    email: document.getElementById('email').value,
+                    ownerName: document.getElementById('ownerName').value,
+                    contactPerson: document.getElementById('contactPerson').value,
+                    taxNumber: document.getElementById('taxNumber').value, 
+                    isActive: document.getElementById('isActive').checked  }; 
+            } */  
+        
+        // View Mode
+       /* document.getElementById('view_name').textContent = data.name || '-';
+        document.getElementById('view_entityType').textContent = data.entityTypeDescription || '-';
+        document.getElementById('view_address').textContent = data.address || '-';
+        document.getElementById('view_phone').textContent = data.phone || '-';
+        document.getElementById('view_email').textContent = data.email || '-';
+        document.getElementById('view_owner').textContent = data.ownerName || '-';
+        document.getElementById('view_contactPerson').textContent = data.contactPerson || '-';
+        document.getElementById('view_taxNumber').textContent = data.taxNumber || '-';
+        document.getElementById('view_isActive').textContent = data.isActive ? 'כן' : 'לא';
+*/
+        // Edit Mode Inputs
+       /* document.getElementById('edit_name').value = data.name || '';
+        document.getElementById('edit_entityType').value = data.entityTypeId || '';
+        document.getElementById('edit_address').value = data.address || '';
+        document.getElementById('edit_phone').value = data.phone || '';
+        document.getElementById('edit_email').value = data.email || '';
+        document.getElementById('edit_owner').value = data.ownerId || '';
+        document.getElementById('edit_contactPerson').value = data.contactPerson || '';
+        document.getElementById('edit_taxNumber').value = data.taxNumber || '';
+        document.getElementById('edit_isActive').checked = data.isActive;
+
+*/
+                    // Build owner options
+            const ownerOptions = window.potentialOwners.map(c =>
+                `<option value="${c.id}" ${currentValues.ownerId == c.id ? 'selected' : ''}>
+            ${c.name}
+        </option>`
+            ).join('');
+
+                        const entityTypeOptions = window.entityTypes.map(c =>
+                `<option value="${c.id}" ${currentValues.entityTypeId  == c.id ? 'selected' : ''}>
+            ${c.name}
+        </option>`
+            ).join('');
+
+const detailsHTML = `
+        <div class="detail-fields-grid">
+            <div class="detail-section">
+                <h4 class="detail-section-title">פרטים בסיסים</h4>
+                <div>
+                    <p class="detail-field">
+                        <span class="detail-field-label">שם:</span>
+                        ${isEditMode ? `
+                            <input type="text" 
+                                   id="name"
+                                   value="${currentValues.name}
+                                   style="
+                                       padding: 4px 8px;
+                                       border: 1px solid #dee2e6;
+                                       border-radius: 4px;
+                                       font-size: 14px;
+                                       direction: ltr;
+                                       text-align: left;
+                                       width: 150px;
+                                   ">
+                        ` : `
+                            <span class="detail-field-value">${data.name || 'לא זמין'}</span>
+                        `}
+                    </p>
+                    
+                    <p class="detail-field">
+                        <span class="detail-field-label">בעלות ישות:</span>
+                        ${isEditMode ? `
+                            <select id="ownerName"
+                                    style="
+                                        padding: 4px 8px;
+                                        border: 1px solid #dee2e6;
+                                        border-radius: 4px;
+                                        font-size: 14px;
+                                        direction: rtl;
+                                        min-width: 200px;
+                                    ">
+                                <option value="">בחר אפיון...</option>
+                                ${potentialOwnersOptions}
+                            </select>
+                        ` : `
+                            <span class="detail-field-value">${data.ownerName || 'לא זמין'}</span>
+                        `}
+                    </p>   
+                                         <p class="detail-field">
+                        <span class="detail-field-label">סוג ישות:</span>
+                        ${isEditMode ? `
+                            <select id="entityTypeId"
+                                    style="
+                                        padding: 4px 8px;
+                                        border: 1px solid #dee2e6;
+                                        border-radius: 4px;
+                                        font-size: 14px;
+                                        direction: rtl;
+                                        min-width: 200px;
+                                    ">
+                                <option value="">בחר אפיון...</option>
+                                ${entityTypeOptions}
+                            </select>
+                        ` : `
+                            <span class="detail-field-value">${data.entityTypeName || 'לא זמין'}</span>
+                        `}
+                    </p> 
+                </div>
+            </div>              
+            <div class="detail-section">
+                <h4 class="detail-section-title">כתובת ויצירת קשר</h4>
+                <div>
+                    <p class="detail-field">
+                        <span class="detail-field-label">כתובת:</span>
+                        <span class="detail-field-value">${data.address || 'לא זמין'}</span>
+                        ${isEditMode ? `
+                            <button class="btn-icon" onclick="editAddress()" title="עריכת כתובת">
+                                <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                            </button>
+                        ` : ''}
+                    </p>
+                    
+                    <p class="detail-field">
+                        <span class="detail-field-label">טלפון:</span>
+                        ${isEditMode ? `
+                            <input type="tel" 
+                                   id="phone" 
+                                   value="${currentValues.phone}"
+                                   placeholder="02-1234567"
+                                   style="
+                                       padding: 4px 8px;
+                                       border: 1px solid #dee2e6;
+                                       border-radius: 4px;
+                                       font-size: 14px;
+                                       direction: ltr;
+                                       text-align: left;
+                                       width: 150px;
+                                   ">
+                        ` : `
+                            <span class="detail-field-value">${data.phone || 'לא זמין'}</span>
+                        `}
+                    </p>
+                    
+                    <p class="detail-field">
+                        <span class="detail-field-label">דוא"ל:</span>
+                        ${isEditMode ? `
+                            <input type="email" 
+                                   id="schoolEmail" 
+                                   value="${currentValues.email}"
+                                   placeholder="school@example.com"
+                                   style="
+                                       padding: 4px 8px;
+                                       border: 1px solid #dee2e6;
+                                       border-radius: 4px;
+                                       font-size: 14px;
+                                       direction: ltr;
+                                       text-align: left;
+                                       width: 250px;
+                                   ">
+                        ` : `
+                            <span class="detail-field-value">${data.email || 'לא זמין'}</span>
+                        `}
+                    </p>
+                </div>
+            </div>
+            
+            <div class="detail-section">
+                <h4 class="detail-section-title">אנשי קשר</h4>
+                <div>
+
+                    <p class="detail-field">
+                        <span class="detail-field-label">איש קשר:</span>
+                        <span class="detail-field-value">${data.contactPerson || 'לא זמין'}</span>
+                        ${isEditMode ? `
+                            <button class="btn-icon" onclick="editContactPerson()" title="עריכת איש קשר">
+                                <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                            </button>
+                        ` : ''}
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+
+            container.innerHTML = detailsHTML;
+
+
+
+    }
+
+    function toggleEntityEditMode() {
+        window.isEntityEditMode = !window.isEntityEditMode;
+        const isEdit = window.isEntityEditMode;
+
+        // Toggle visibility
+        document.querySelectorAll('.view-mode').forEach(el => el.style.display = isEdit ? 'none' : 'block');
+        document.querySelectorAll('.edit-mode').forEach(el => el.style.display = isEdit ? 'block' : 'none');
+        
+        // Toggle buttons
+        document.getElementById('editEntityBtn').style.display = isEdit ? 'none' : 'block';
+        document.getElementById('saveCancelBtns').style.display = isEdit ? 'flex' : 'none';
+    }
+
+    function cancelEntityEdit() {
+        if (window.entityDetailsData) {
+            displayEntityDetails(window.entityDetailsData);
+        }
+        toggleEntityEditMode();
+    }
+
+    async function saveEntityDetails() {
+        try {
+            const entityId = window.entityDetailsData.id;
+            
+            const updateData = {
+                name: document.getElementById('edit_name').value,
+                entityTypeId: parseInt(document.getElementById('edit_entityType').value),
+                address: document.getElementById('edit_address').value,
+                phone: document.getElementById('edit_phone').value,
+                email: document.getElementById('edit_email').value,
+                ownerId: document.getElementById('edit_owner').value ? parseInt(document.getElementById('edit_owner').value) : null,
+                contactPerson: document.getElementById('edit_contactPerson').value,
+                taxNumber: document.getElementById('edit_taxNumber').value,
+                isActive: document.getElementById('edit_isActive').checked
+            };
+
+            const response = await fetch(AppConfig.getApiUrl(`entitydetails/${entityId}`), {
+                ...AppConfig.getDefaultFetchOptions(),
+                method: 'PUT',
+                body: JSON.stringify(updateData)
+            });
+
+            if (!response.ok) throw new Error('Failed to update entity');
+
+            // Reload data to confirm save and refresh view
+            await loadEntityDetails();
+            toggleEntityEditMode();
+            alert('הפרטים נשמרו בהצלחה');
+
+        } catch (error) {
+            console.error('❌ Error saving entity details:', error);
+            alert('שגיאה בשמירת הפרטים');
+        }
+    }
+
+    function cleanupEntityDetails() {
+        console.log('🧹 Cleaning up Entity Details page...');
+        window.entityDetailsData = null;
+        window.entityTypes = [];
+        window.potentialOwners = [];
+        window.isEntityEditMode = false;
+    }
+
+    // Export functions
+    window.initializeEntityDetails = initializeEntityDetails;
+    window.cleanupEntityDetails = cleanupEntityDetails;
+    window.toggleEntityEditMode = toggleEntityEditMode;
+    window.saveEntityDetails = saveEntityDetails;
+    window.cancelEntityEdit = cancelEntityEdit;
+</script>

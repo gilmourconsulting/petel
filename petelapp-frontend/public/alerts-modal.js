@@ -2,7 +2,8 @@
  * Alerts/Events Modal Component
  * Handles creation of new alerts and events
  */
-class AlertsModal {
+if (typeof window.AlertsModal === 'undefined') {
+    window.AlertsModal = class AlertsModal {
     constructor() {
         this.modalId = 'alertsModalContainer';
         this.isEvent = false;
@@ -138,77 +139,95 @@ class AlertsModal {
         document.body.insertAdjacentHTML('beforeend', modalHtml);
     }
 
-    /**
-     * Handle form submission
-     */
-    async handleSubmit(event) {
-        event.preventDefault();
+/**
+ * Handle form submission
+ */
+async handleSubmit(event) {
+    event.preventDefault();
 
-        try {
-            const formData = new FormData(event.target);
-            const description = formData.get('description');
-            let eventDate = null;
+    try {
+        const formData = new FormData(event.target);
+        const description = formData.get('description');
+        let eventDate = null;
 
-            // Combine date and time for events
-            if (this.isEvent) {
-                const dateValue = formData.get('eventDate');
-                const timeValue = formData.get('eventTime');
-                eventDate = `${dateValue}T${timeValue}:00`;
-            }
-
-            // Ask distribution questions based on alert level
-            const distributionAnswers = await this.askDistributionQuestions();
-            if (distributionAnswers === null) {
-                // User cancelled
-                return;
-            }
-
-            console.log('📤 Saving alert:', {
-                description,
-                eventDate,
-                isEvent: this.isEvent,
-                alertLevel: this.alertLevel,
-                distribution: distributionAnswers
-            });
-
-            // Show loading state
-            const submitBtn = event.target.querySelector('button[type="submit"]');
-            const originalText = submitBtn.textContent;
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'שומר...';
-
-            // Create alert
-            const result = await this.createAlert({
-                description,
-                eventDate,
-                distributeToOwned: distributionAnswers.distributeToOwned,
-                distributeToSchools: distributionAnswers.distributeToSchools
-            });
-
-            console.log('✅ Alert created:', result);
-
-            // Close modal
-            this.close();
-
-            // Show success message
-            alert(`${this.isEvent ? 'האירוע' : 'ההתראה'} נוסף בהצלחה`);
-
-            // Refresh the appropriate card
-            const cardId = this.isEvent ? 'eventsCard' : 'alertsCard';
-            if (typeof window.loadDashboardCardData === 'function') {
-                await window.loadDashboardCardData(cardId);
-            }
-
-        } catch (error) {
-            console.error('❌ Error saving alert:', error);
-            alert('שגיאה בשמירת ההתראה. אנא נסה שוב.');
+        // Combine date and time for events with proper timezone
+        if (this.isEvent) {
+            const dateValue = formData.get('eventDate');
+            const timeValue = formData.get('eventTime');
             
-            // Restore button state
-            const submitBtn = event.target.querySelector('button[type="submit"]');
+            // ✅ Create proper ISO 8601 datetime with timezone
+            // Assumes local timezone of the user's browser
+            const localDateTime = new Date(`${dateValue}T${timeValue}:00`);
+            
+            // Convert to ISO string (includes timezone)
+            eventDate = localDateTime.toISOString();
+            
+            console.log('📅 Event datetime:', {
+                date: dateValue,
+                time: timeValue,
+                combined: eventDate,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            });
+        }
+
+        // Show loading state
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'שומר...';
+
+        // ✅ Ask distribution questions BEFORE API call
+        const distributionFlags = await this.askDistributionQuestions();
+        if (distributionFlags === null) {
+            // User cancelled
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+            return;
+        }
+
+        console.log('📤 Saving alert:', {
+            description,
+            eventDate,
+            isEvent: this.isEvent,
+            alertLevel: this.alertLevel,
+            distributeToOwned: distributionFlags.distributeToOwned,
+            distributeToSchools: distributionFlags.distributeToSchools
+        });
+
+        // Create alert with distribution flags
+        const result = await this.createAlert({
+            description,
+            eventDate,
+            distributeToOwned: distributionFlags.distributeToOwned,
+            distributeToSchools: distributionFlags.distributeToSchools
+        });
+
+        console.log('✅ Alert created:', result);
+
+        // Close modal
+        this.close();
+
+        // Show success message
+        alert(`${this.isEvent ? 'האירוע' : 'ההתראה'} נוסף בהצלחה`);
+
+        // Refresh the appropriate card
+        const cardId = this.isEvent ? 'eventsCard' : 'alertsCard';
+        if (typeof window.loadDashboardCardData === 'function') {
+            await window.loadDashboardCardData(cardId);
+        }
+
+    } catch (error) {
+        console.error('❌ Error saving alert:', error);
+        alert('שגיאה בשמירת ההתראה. אנא נסה שוב.');
+        
+        // Restore button state
+        const submitBtn = event.target.querySelector('button[type="submit"]');
+        if (submitBtn) {
             submitBtn.disabled = false;
             submitBtn.textContent = 'שמור';
         }
     }
+}
 
     /**
      * Ask distribution questions based on alert level
@@ -292,9 +311,12 @@ class AlertsModal {
             modal.remove();
         }
     }
+};
 }
-
-// Create global instance
-window.alertsModal = new AlertsModal();
-
-console.log('✅ Alerts Modal loaded');
+// ✅ Create or reuse global instance
+if (!window.alertsModal) {
+    window.alertsModal = new window.AlertsModal();
+    console.log('✅ Alerts Modal instance created');
+} else {
+    console.log('✅ Alerts Modal instance already exists');
+}

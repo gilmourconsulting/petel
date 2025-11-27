@@ -33,6 +33,12 @@ namespace PetelApp.Api.Data
         [Column("address")]
         public string? Address { get; set; }
 
+                [Column("phone")]
+        public string? Phone { get; set; }
+
+        [Column("email")]
+        public string? Email { get; set; }
+
         [Column("principal_name")]
         public string? PrincipalName { get; set; }
 
@@ -56,6 +62,10 @@ public byte[]? EntityLogo { get; set; }
             [Column("owner")]
         public int? OwnerId { get; set; }
 
+        public Entity? Owner { get; set; } // Add this navigation property
+
+        public ICollection<Entity> OwnedEntities { get; set; } = new List<Entity>();
+
                 [Column("tax_number")]
         public string? TaxNumber { get; set; }
 
@@ -64,6 +74,8 @@ public byte[]? EntityLogo { get; set; }
 
         [ForeignKey("CouncilId")]
         public virtual Council? Council { get; set; }
+
+        
 
         // Navigation properties
         public virtual EntityType? EntityType { get; set; }
