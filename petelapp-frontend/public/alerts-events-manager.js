@@ -3,7 +3,8 @@
  * Handles loading and displaying alerts/events from backend
  * Used by main dashboard and school dashboard
  */
-class AlertsEventsManager {
+if (typeof window.AlertsEventsManagerClass === 'undefined') {
+    window.AlertsEventsManagerClass = class AlertsEventsManager {
     constructor() {
         this.alerts = [];
         this.events = [];
@@ -311,34 +312,50 @@ class AlertsEventsManager {
     /**
      * Format event date for display
      */
-    formatEventDate(dateString) {
-        if (!dateString) return '';
+formatEventDate(dateString) {
+    if (!dateString) return '';
 
-        try {
-            const date = new Date(dateString);
-            const now = new Date();
-            const tomorrow = new Date(now);
-            tomorrow.setDate(tomorrow.getDate() + 1);
+    try {
+        const date = new Date(dateString);
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
 
-            // Reset time parts for date comparison
-            const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-            const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-            const tomorrowOnly = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+        // Reset time parts for date comparison
+        const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const todayOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const tomorrowOnly = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
 
-            if (dateOnly.getTime() === todayOnly.getTime()) {
-                return `היום ${date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
-            } else if (dateOnly.getTime() === tomorrowOnly.getTime()) {
-                return `מחר ${date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
-            } else {
-                return date.toLocaleDateString('he-IL') + ' ' +
-                    date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        // ✅ Check if time is 00:00 (midnight)
+        const hours = date.getHours();
+        const minutes = date.getMinutes();
+        const isTimeZero = (hours === 0 && minutes === 0);
+
+        if (dateOnly.getTime() === todayOnly.getTime()) {
+            // ✅ Today - show time only if not 00:00
+            if (isTimeZero) {
+                return 'היום';
             }
-        } catch (error) {
-            console.error('Error formatting event date:', error);
-            return dateString;
+            return `היום ${date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+        } else if (dateOnly.getTime() === tomorrowOnly.getTime()) {
+            // ✅ Tomorrow - show time only if not 00:00
+            if (isTimeZero) {
+                return 'מחר';
+            }
+            return `מחר ${date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}`;
+        } else {
+            // ✅ Other dates - show time only if not 00:00
+            const dateStr = date.toLocaleDateString('he-IL');
+            if (isTimeZero) {
+                return dateStr;
+            }
+            return dateStr + ' ' + date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
         }
+    } catch (error) {
+        console.error('Error formatting event date:', error);
+        return dateString;
     }
-
+}
     /**
      * Handle alert/event click
      */
@@ -353,9 +370,13 @@ class AlertsEventsManager {
         });
         window.dispatchEvent(event);
     }
+};
 }
 
 // Create global instance
-window.AlertsEventsManager = new AlertsEventsManager();
-
-console.log('✅ Alerts/Events Manager loaded');
+if (!window.AlertsEventsManager) {
+    window.AlertsEventsManager = new window.AlertsEventsManagerClass();
+    console.log('✅ Alerts/Events Manager instance created');
+} else {
+    console.log('✅ Alerts/Events Manager instance already exists');
+}
