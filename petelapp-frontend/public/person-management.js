@@ -5,13 +5,20 @@
 
 console.log('📦 Person Management Module Loading...');
 
-// Person Management Functions
-const PersonManagement = {
-    /**
-     * Show person edit modal with option to update contact or change person
-     */
-    async showPersonEditModal(personType, currentPersonData) {
+if (typeof PersonManagement === 'undefined') {
+    class PersonManagement {
+        constructor() {
+            this.modal = null;
+            this._currentCallback = null;
+        }
+
+//console.log('📦 Person Management Module Loading...');
+
+  async showPersonEditModal(personType, currentPersonData, callback) {
         console.log('👤 Opening person edit choice modal for:', personType);
+
+        // ✅ Store callback for later use
+        this._currentCallback = callback;
 
         const modalTitle = this.getModalTitle(personType);
         const position = this.getPositionByType(personType);
@@ -77,20 +84,28 @@ const PersonManagement = {
             this.showPersonSearchModal(personType, position);
         };
 
-        // Cancel button
+        // Cancel button - call callback with null
         document.getElementById('cancelChoiceBtn').onclick = () => {
             document.body.removeChild(overlay);
+            if (this._currentCallback) {
+                this._currentCallback(null);
+                this._currentCallback = null;
+            }
         };
 
         // ESC key handler
         const escHandler = (e) => {
             if (e.key === 'Escape' && document.body.contains(overlay)) {
                 document.body.removeChild(overlay);
+                if (this._currentCallback) {
+                    this._currentCallback(null);
+                    this._currentCallback = null;
+                }
                 document.removeEventListener('keydown', escHandler);
             }
         };
         document.addEventListener('keydown', escHandler);
-    },
+    }
 
     /**
      * Show modal to update contact details only (phone/email)
@@ -227,7 +242,7 @@ const PersonManagement = {
 
         // Focus phone field
         setTimeout(() => document.getElementById('personPhonePrefix')?.focus(), 100);
-    },
+    }
 
     /**
      * Show person search modal
@@ -341,7 +356,7 @@ const PersonManagement = {
 
         // Focus first name field
         setTimeout(() => document.getElementById('searchFirstName')?.focus(), 100);
-    },
+    }
 
     /**
      * Perform person search
@@ -386,7 +401,7 @@ const PersonManagement = {
             console.error('❌ Error searching persons:', error);
             resultsContainer.innerHTML = '<div style="padding: 20px; text-align: center; color: #dc3545;">שגיאה בחיפוש</div>';
         }
-    },
+    }
 
     /**
      * Display search results
@@ -448,16 +463,15 @@ const PersonManagement = {
                 this.selectPersonFromSearch(personId);
             };
         });
-    },
+    }
     
     /**
      * Select person from search results
      */
-    async selectPersonFromSearch(personId) {
+
+  async selectPersonFromSearch(personId) {
         console.log('✅ Person selected from search:', personId);
 
-        const personType = this.getCurrentPersonType();
-        
         try {
             // Get person details
             const response = await fetch(AppConfig.getApiUrl(`persons/${personId}`), {
@@ -471,8 +485,11 @@ const PersonManagement = {
             const result = await response.json();
 
             if (response.ok && result.success && result.data) {
-                // Update school details with selected person
-                await this.updateSchoolWithPerson(personType, result.data);
+                // ✅ Call callback with selected person data
+                if (this._currentCallback) {
+                    this._currentCallback(result.data);
+                    this._currentCallback = null;
+                }
                 
                 // Close search modal
                 const overlay = document.querySelector('.dialog-overlay');
@@ -487,8 +504,7 @@ const PersonManagement = {
             console.error('❌ Error loading person details:', error);
             alert('שגיאה בטעינת פרטי איש הקשר');
         }
-    },
-
+    }
     /**
      * Show new person modal
      */
@@ -631,12 +647,12 @@ const PersonManagement = {
 
         // Focus first name field
         setTimeout(() => document.getElementById('newPersonFirstName')?.focus(), 100);
-    },
+    }  
 
     /**
      * Save contact update
      */
-    async saveContactUpdate(personType, overlay) {
+async saveContactUpdate(personType, overlay, originalPersonData) {
         const recordId = document.getElementById('personRecordId').value;
         const phonePrefix = document.getElementById('personPhonePrefix')?.value.trim() || '';
         const phone = document.getElementById('personPhone')?.value.trim() || '';
@@ -674,9 +690,10 @@ const PersonManagement = {
                 console.log('✅ Contact details updated successfully');
                 document.body.removeChild(overlay);
                 
-                // Reload school details to show updated data
-                if (typeof loadSchoolDetails === 'function') {
-                    await loadSchoolDetails();
+                // ✅ Call callback with SAME person (ID unchanged, just contact details updated)
+                if (this._currentCallback) {
+                    this._currentCallback(originalPersonData);
+                    this._currentCallback = null;
                 }
                 
                 alert('פרטי התקשרות עודכנו בהצלחה');
@@ -689,7 +706,7 @@ const PersonManagement = {
             console.error('💥 Error updating contact details:', error);
             alert('שגיאה בעדכון פרטי התקשרות');
         }
-    },
+    }
 
     /**
      * Save new person
@@ -762,7 +779,7 @@ const PersonManagement = {
             console.error('💥 Error creating new person:', error);
             alert('שגיאה ביצירת איש קשר חדש');
         }
-    },
+    }
 
     /**
      * Update school details with person
@@ -800,7 +817,7 @@ const PersonManagement = {
                 displaySchoolDetails(window.lastSchoolDetailsData);
             }
         }
-    },
+    }
 
     /**
      * Helper: Get modal title by person type
@@ -816,7 +833,7 @@ const PersonManagement = {
             default:
                 return 'עריכת איש קשר';
         }
-    },
+    }
 
     /**
      * Helper: Get position by person type
@@ -832,14 +849,14 @@ const PersonManagement = {
             default:
                 return '';
         }
-    },
+    }
 
     /**
      * Helper: Get current person type (stored temporarily)
      */
     getCurrentPersonType() {
         return window._currentPersonType || 'contactPerson';
-    },
+    }
 
     /**
      * Helper: Set current person type
@@ -847,9 +864,26 @@ const PersonManagement = {
     setCurrentPersonType(personType) {
         window._currentPersonType = personType;
     }
-};
+}
 
-// Make PersonManagement globally available
-window.PersonManagement = PersonManagement;
+    // ✅ Make class globally available
+    window.PersonManagement = PersonManagement;
+}
+
+// ✅ Create singleton instance OUTSIDE the conditional block
+if (typeof window.personManagementInstance === 'undefined') {
+    window.personManagementInstance = new window.PersonManagement();
+}
+
+// ✅ Create shorthand reference (matches usage pattern in other files)
+if (typeof window.PersonManagement.showPersonEditModal === 'undefined') {
+    window.PersonManagement.showPersonEditModal = function(personType, currentPersonData, callback) {
+        return window.personManagementInstance.showPersonEditModal(personType, currentPersonData, callback);
+    };
+    
+    window.PersonManagement.setCurrentPersonType = function(personType) {
+        return window.personManagementInstance.setCurrentPersonType(personType);
+    };
+}
 
 console.log('✅ Person Management Module Loaded');

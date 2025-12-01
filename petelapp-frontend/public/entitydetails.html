@@ -30,22 +30,25 @@
         </div>
     </div>
 </div>
-
+    <script src="person-management.js"></script>
 <script>
     window.entityDetailsData = null;
     window.entityTypes = [];
     window.potentialOwners = [];
     window.isEntityEditMode = false;
 
-    async function initializeEntityDetails() {
-        console.log('🏗️ Initializing Entity Details page...');
-        
-        // Load lookups first
-        await Promise.all([loadEntityTypes(), loadPotentialOwners()]);
-        
-        // Load entity data
-        await loadEntityDetails();
-    }
+async function initializeEntityDetails() {
+    console.log('🏗️ Initializing Entity Details page...');
+    
+    // Load lookups first
+    await Promise.all([loadEntityTypes(), loadPotentialOwners()]);
+    
+    // Setup edit button
+    setupEditEntityDetailsButton();
+    
+    // Load entity data
+    await loadEntityDetails();
+}
 
     async function loadEntityTypes() {
         try {
@@ -95,6 +98,8 @@
             
             const data = await response.json();
             window.entityDetailsData = data;
+
+            updateEntityPageTitle(data);
             displayEntityDetails(data);
             
         } catch (error) {
@@ -103,94 +108,101 @@
         }
     }
 
-    function displayEntityDetails(data) {
-            console.log('🏫 Displaying entity details:', data);
 
-            const container = document.getElementById('entityDetailsContent');
-            if (!container) return;
-            const isEditMode = window.isEntityEditMode;
-            let currentValues = {};
-        //   if (window.isEntityEditMode) {  
-                // Save current input values before re-rendering
-                currentValues = {
-                    name: data.name || '',
-                    entityTypeId: data.entityTypeId || '',
-                    address: data.address || '',
-                    phone: data.phone || '',  
-                    email: data.email || '',
-                    ownerName: data.ownerName || '',
-                    contactPerson: data.contactPerson || '',
-                    taxNumber: data.taxNumber || '', 
-                    isActive: data.isActive || false,
-                    ownerId: data.ownerId || ''
-                };
-           /* } else {
-                currentValues = {                     name: document.getElementById('name').value,
-                    entityOwnerId: document.getElementById('entityOwnerId').value,
-                    address: document.getElementById('address').value,
-                    phone: document.getElementById('phone').value,  
-                    email: document.getElementById('email').value,
-                    ownerName: document.getElementById('ownerName').value,
-                    contactPerson: document.getElementById('contactPerson').value,
-                    taxNumber: document.getElementById('taxNumber').value, 
-                    isActive: document.getElementById('isActive').checked  }; 
-            } */  
-        
-        // View Mode
-       /* document.getElementById('view_name').textContent = data.name || '-';
-        document.getElementById('view_entityType').textContent = data.entityTypeDescription || '-';
-        document.getElementById('view_address').textContent = data.address || '-';
-        document.getElementById('view_phone').textContent = data.phone || '-';
-        document.getElementById('view_email').textContent = data.email || '-';
-        document.getElementById('view_owner').textContent = data.ownerName || '-';
-        document.getElementById('view_contactPerson').textContent = data.contactPerson || '-';
-        document.getElementById('view_taxNumber').textContent = data.taxNumber || '-';
-        document.getElementById('view_isActive').textContent = data.isActive ? 'כן' : 'לא';
-*/
-        // Edit Mode Inputs
-       /* document.getElementById('edit_name').value = data.name || '';
-        document.getElementById('edit_entityType').value = data.entityTypeId || '';
-        document.getElementById('edit_address').value = data.address || '';
-        document.getElementById('edit_phone').value = data.phone || '';
-        document.getElementById('edit_email').value = data.email || '';
-        document.getElementById('edit_owner').value = data.ownerId || '';
-        document.getElementById('edit_contactPerson').value = data.contactPerson || '';
-        document.getElementById('edit_taxNumber').value = data.taxNumber || '';
-        document.getElementById('edit_isActive').checked = data.isActive;
+    // ✅ Update page title with entity name and type
+function updateEntityPageTitle(data) {
+    const titleElement = document.querySelector('.page-title');
+    if (!titleElement) return;
 
-*/
-                    // Build owner options
-            const ownerOptions = window.potentialOwners.map(c =>
-                `<option value="${c.id}" ${currentValues.ownerId == c.id ? 'selected' : ''}>
-            ${c.name}
-        </option>`
-            ).join('');
+    const entityName = data.name || 'לא ידוע';
+    const entityType = data.entityTypeDescription || 'לא ידוע';
+    
+    titleElement.textContent = `פרטי - ${entityName} - ${entityType}`;
+    console.log('✅ Page title updated:', titleElement.textContent);
+}
 
-                        const entityTypeOptions = window.entityTypes.map(c =>
-                `<option value="${c.id}" ${currentValues.entityTypeId  == c.id ? 'selected' : ''}>
-            ${c.name}
-        </option>`
-            ).join('');
+// Display entity details in the content area
+ function displayEntityDetails(data) {
+    console.log('🏫 Displaying entity details:', data);
 
-const detailsHTML = `
+    const container = document.getElementById('entityDetailsContent');
+    if (!container) return;
+
+    // Store data for re-rendering
+    window.lastEntityDetailsData = data;
+
+    const isEditMode = !!window.entityDetailsEditMode;
+    console.log('🔧 Rendering entity details in edit mode:', isEditMode);
+
+    // ✅ Capture current form values BEFORE re-rendering
+    let currentValues = {};
+    if (isEditMode) {
+        currentValues = {
+            name: document.getElementById('name')?.value || data.name || '',
+            entityTypeId: document.getElementById('entityTypeId')?.value || data.entityTypeId,
+            address: data.address || '',
+            phone: document.getElementById('phone')?.value || data.phone || '',
+            email: document.getElementById('email')?.value || data.email || '',
+            ownerId: document.getElementById('ownerId')?.value || data.ownerId,
+            taxNumber: document.getElementById('taxNumber')?.value || data.taxNumber || '',
+            street: data.street || '',
+            houseNumber: data.houseNumber || '',
+            city: data.city || '',
+            postCode: data.postCode || ''
+        };
+    } else {
+        // Read-only mode: use data from lastEntityDetailsData
+        currentValues = {
+            name: data.name || '',
+            entityTypeId: data.entityTypeId,
+            address: data.address || '',
+            phone: data.phone || '',
+            email: data.email || '',
+            ownerId: data.ownerId,
+            taxNumber: data.taxNumber || '',
+            street: data.street || '',
+            houseNumber: data.houseNumber || '',
+            city: data.city || '',
+            postCode: data.postCode || ''
+        };
+    }
+
+    // ✅ Get current user session to check if administrator (entity_type_id = 2)
+    const isAdmin = window.currentUserEntityTypeId === 2;
+
+    // Build entity type options (only 3, 5, 6)
+    const allowedEntityTypes = [3, 5, 6];
+    const entityTypeOptions = window.entityTypes
+        .filter(t => allowedEntityTypes.includes(t.id))
+        .map(t => `<option value="${t.id}" ${currentValues.entityTypeId == t.id ? 'selected' : ''}>${t.name}</option>`)
+        .join('');
+
+    // Build owner options
+    const ownerOptions = window.potentialOwners.map(o =>
+        `<option value="${o.id}" ${currentValues.ownerId == o.id ? 'selected' : ''}>${o.name}</option>`
+    ).join('');
+
+    // ✅ Simple contact person display
+    const contactPersonDisplay = data.contactPersonName || 'לא זמין';
+
+    const detailsHTML = `
         <div class="detail-fields-grid">
             <div class="detail-section">
-                <h4 class="detail-section-title">פרטים בסיסים</h4>
+                <h4 class="detail-section-title">פרטים בסיסיים</h4>
                 <div>
                     <p class="detail-field">
                         <span class="detail-field-label">שם:</span>
                         ${isEditMode ? `
                             <input type="text" 
                                    id="name"
-                                   value="${currentValues.name}
+                                   value="${currentValues.name}"
                                    style="
                                        padding: 4px 8px;
                                        border: 1px solid #dee2e6;
                                        border-radius: 4px;
                                        font-size: 14px;
-                                       direction: ltr;
-                                       text-align: left;
-                                       width: 150px;
+                                       direction: rtl;
+                                       width: 250px;
                                    ">
                         ` : `
                             <span class="detail-field-value">${data.name || 'לא זמין'}</span>
@@ -198,9 +210,10 @@ const detailsHTML = `
                     </p>
                     
                     <p class="detail-field">
-                        <span class="detail-field-label">בעלות ישות:</span>
+                        <span class="detail-field-label">בעלות:</span>
                         ${isEditMode ? `
-                            <select id="ownerName"
+                            <select id="ownerId"
+                                    ${!isAdmin ? 'disabled' : ''}
                                     style="
                                         padding: 4px 8px;
                                         border: 1px solid #dee2e6;
@@ -208,15 +221,18 @@ const detailsHTML = `
                                         font-size: 14px;
                                         direction: rtl;
                                         min-width: 200px;
+                                        ${!isAdmin ? 'background-color: #e9ecef; cursor: not-allowed;' : ''}
                                     ">
-                                <option value="">בחר אפיון...</option>
-                                ${potentialOwnersOptions}
+                                <option value="">בחר בעלות...</option>
+                                ${ownerOptions}
                             </select>
+                            ${!isAdmin ? '<span style="color: #6c757d; font-size: 0.85em; margin-right: 5px;">(נעול - דרושות הרשאות מנהל)</span>' : ''}
                         ` : `
                             <span class="detail-field-value">${data.ownerName || 'לא זמין'}</span>
                         `}
                     </p>   
-                                         <p class="detail-field">
+                    
+                    <p class="detail-field">
                         <span class="detail-field-label">סוג ישות:</span>
                         ${isEditMode ? `
                             <select id="entityTypeId"
@@ -228,15 +244,37 @@ const detailsHTML = `
                                         direction: rtl;
                                         min-width: 200px;
                                     ">
-                                <option value="">בחר אפיון...</option>
+                                <option value="">בחר סוג ישות...</option>
                                 ${entityTypeOptions}
                             </select>
                         ` : `
-                            <span class="detail-field-value">${data.entityTypeName || 'לא זמין'}</span>
+                            <span class="detail-field-value">${data.entityTypeDescription || 'לא זמין'}</span>
                         `}
-                    </p> 
+                    </p>
+                    
+                    <p class="detail-field">
+                        <span class="detail-field-label">מספר עוסק / ח.פ:</span>
+                        ${isEditMode ? `
+                            <input type="text" 
+                                   id="taxNumber"
+                                   value="${currentValues.taxNumber}"
+                                   placeholder="הזן מספר עוסק"
+                                   style="
+                                       padding: 4px 8px;
+                                       border: 1px solid #dee2e6;
+                                       border-radius: 4px;
+                                       font-size: 14px;
+                                       direction: ltr;
+                                       text-align: left;
+                                       width: 150px;
+                                   ">
+                        ` : `
+                            <span class="detail-field-value">${data.taxNumber || 'לא זמין'}</span>
+                        `}
+                    </p>
                 </div>
-            </div>              
+            </div>
+            
             <div class="detail-section">
                 <h4 class="detail-section-title">כתובת ויצירת קשר</h4>
                 <div>
@@ -244,7 +282,7 @@ const detailsHTML = `
                         <span class="detail-field-label">כתובת:</span>
                         <span class="detail-field-value">${data.address || 'לא זמין'}</span>
                         ${isEditMode ? `
-                            <button class="btn-icon" onclick="editAddress()" title="עריכת כתובת">
+                            <button class="btn-icon" onclick="editEntityAddress()" title="עריכת כתובת">
                                 <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                             </button>
                         ` : ''}
@@ -275,9 +313,9 @@ const detailsHTML = `
                         <span class="detail-field-label">דוא"ל:</span>
                         ${isEditMode ? `
                             <input type="email" 
-                                   id="schoolEmail" 
+                                   id="email" 
                                    value="${currentValues.email}"
-                                   placeholder="school@example.com"
+                                   placeholder="entity@example.com"
                                    style="
                                        padding: 4px 8px;
                                        border: 1px solid #dee2e6;
@@ -297,12 +335,11 @@ const detailsHTML = `
             <div class="detail-section">
                 <h4 class="detail-section-title">אנשי קשר</h4>
                 <div>
-
                     <p class="detail-field">
                         <span class="detail-field-label">איש קשר:</span>
-                        <span class="detail-field-value">${data.contactPerson || 'לא זמין'}</span>
+                        <span class="detail-field-value">${contactPersonDisplay}</span>
                         ${isEditMode ? `
-                            <button class="btn-icon" onclick="editContactPerson()" title="עריכת איש קשר">
+                            <button class="btn-icon" onclick="editEntityContactPerson()" title="עריכת איש קשר" style="margin-right: 10px;">
                                 <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                             </button>
                         ` : ''}
@@ -312,13 +349,393 @@ const detailsHTML = `
         </div>
     `;
 
-            container.innerHTML = detailsHTML;
+    container.innerHTML = detailsHTML;
 
-
-
+    // ✅ Re-attach change listeners after re-rendering
+    if (isEditMode) {
+        addEntityDetailsChangeListeners();
     }
 
-    function toggleEntityEditMode() {
+    console.log('✅ Entity details displayed in', isEditMode ? 'EDIT' : 'VIEW', 'mode');
+}
+
+
+// Add change listeners to input fields
+function addEntityDetailsChangeListeners() {
+    const fields = [
+        'name',
+        'ownerId',
+        'entityTypeId',
+        'phone',
+        'email',
+        'taxNumber'
+    ];
+
+    fields.forEach(fieldId => {
+        const element = document.getElementById(fieldId);
+        if (element) {
+            // ✅ Remove existing listeners first to avoid duplicates
+            element.removeEventListener('change', handleEntityDetailsChange);
+            element.removeEventListener('input', handleEntityDetailsChange);
+
+            // ✅ Add both change and input listeners
+            element.addEventListener('change', handleEntityDetailsChange);
+            element.addEventListener('input', handleEntityDetailsChange);
+
+            console.log('✅ Change listener added to:', fieldId);
+        }
+    });
+}
+
+// Separate change handler function
+function handleEntityDetailsChange(event) {
+    window.hasUnsavedEntityDetailsChanges = true;
+    updateEntityDetailsCardTitle();
+    console.log('📝 Entity details field changed:', event.target.id);
+}
+
+
+
+// Update card title to show unsaved changes indicator
+function updateEntityDetailsCardTitle() {
+    const card = document.querySelector('.detail-card');
+    const titleElement = card?.querySelector('.detail-card-title');
+
+    if (!titleElement) return;
+
+    // Remove existing indicator if present
+    const existingIndicator = titleElement.querySelector('.unsaved-indicator');
+    if (existingIndicator) {
+        existingIndicator.remove();
+    }
+
+    // Add indicator if there are unsaved changes
+    if (window.hasUnsavedEntityDetailsChanges) {
+        const indicator = document.createElement('span');
+        indicator.className = 'unsaved-indicator';
+        indicator.style.cssText = `
+            color: #dc3545;
+            font-size: 0.9em;
+            margin-right: 10px;
+            font-weight: normal;
+        `;
+        indicator.textContent = '(שינויים לא נשמרו)';
+        titleElement.appendChild(indicator);
+    }
+}
+
+// Edit entity address modal 
+async function editEntityAddress() {
+    console.log('📍 Opening edit entity address modal');
+
+    try {
+        // Load councils if not already loaded
+        if (!window.councils || window.councils.length === 0) {
+            await loadCouncils();
+        }
+
+        const data = window.lastEntityDetailsData;
+        if (!data) {
+            alert('לא נמצאו נתוני הישות');
+            return;
+        }
+
+        const street = data.street || '';
+        const houseNumber = data.houseNumber || '';
+        const city = data.city || '';
+        const postCode = data.postCode || '';
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        dialog.innerHTML = `
+            <h3 class="dialog-title">עריכת כתובת</h3>
+            <div style="margin: 20px 0;">
+                <div style="margin-bottom: 15px;">
+                    <label for="addressStreet" style="display: block; margin-bottom: 5px; font-weight: 600;">רחוב:</label>
+                    <input type="text" 
+                           id="addressStreet" 
+                           value="${street}"
+                           placeholder="הזן שם רחוב"
+                           style="
+                               width: 100%;
+                               padding: 8px;
+                               border: 1px solid #dee2e6;
+                               border-radius: 4px;
+                               font-size: 14px;
+                               direction: rtl;
+                           ">
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label for="addressHouseNumber" style="display: block; margin-bottom: 5px; font-weight: 600;">מספר בית:</label>
+                    <input type="text" 
+                           id="addressHouseNumber" 
+                           value="${houseNumber}"
+                           placeholder="הזן מספר בית"
+                           style="
+                               width: 100%;
+                               padding: 8px;
+                               border: 1px solid #dee2e6;
+                               border-radius: 4px;
+                               font-size: 14px;
+                               direction: ltr;
+                               text-align: left;
+                           ">
+                </div>
+                
+                <div style="margin-bottom: 15px; position: relative;">
+                    <label for="addressCity" style="display: block; margin-bottom: 5px; font-weight: 600;">עיר:</label>
+                    <input type="text" 
+                           id="addressCity"
+                           value="${city}"
+                           placeholder="הקלד לחיפוש..."
+                           autocomplete="off"
+                           style="
+                               width: 100%;
+                               padding: 8px;
+                               border: 1px solid #dee2e6;
+                               border-radius: 4px;
+                               font-size: 14px;
+                               direction: rtl;
+                           ">
+                    <div id="citySuggestions" style="
+                        position: absolute;
+                        top: 100%;
+                        left: 0;
+                        right: 0;
+                        background: white;
+                        border: 1px solid #dee2e6;
+                        border-top: none;
+                        border-radius: 0 0 4px 4px;
+                        max-height: 200px;
+                        overflow-y: auto;
+                        display: none;
+                        z-index: 1000;
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    "></div>
+                </div>
+                
+                <div style="margin-bottom: 15px;">
+                    <label for="addressPostCode" style="display: block; margin-bottom: 5px; font-weight: 600;">מיקוד:</label>
+                    <input type="text" 
+                           id="addressPostCode" 
+                           value="${postCode}"
+                           placeholder="הזן מיקוד"
+                           maxlength="10"
+                           style="
+                               width: 100%;
+                               padding: 8px;
+                               border: 1px solid #dee2e6;
+                               border-radius: 4px;
+                               font-size: 14px;
+                               direction: ltr;
+                               text-align: left;
+                           ">
+                </div>
+            </div>
+            <div class="dialog-buttons">
+                <button id="addressOkBtn" class="dialog-btn save">אישור</button>
+                <button id="addressCancelBtn" class="dialog-btn cancel">ביטול</button>
+            </div>
+        `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        const cityInput = document.getElementById('addressCity');
+        const citySuggestions = document.getElementById('citySuggestions');
+        let selectedCouncilId = null;
+
+        // Setup autocomplete
+        function showSuggestions(filter) {
+            if (!citySuggestions || !cityInput) return;
+
+            const filtered = window.councils.filter(c =>
+                c.councilShortName.includes(filter) ||
+                (c.councilFullName && c.councilFullName.includes(filter))
+            ).slice(0, 10);
+
+            if (filtered.length === 0 || !filter) {
+                citySuggestions.style.display = 'none';
+                return;
+            }
+
+            citySuggestions.innerHTML = filtered.map(c => `
+                <div class="city-suggestion-item" 
+                     data-council-id="${c.id}"
+                     data-council-name="${c.councilShortName}"
+                     style="
+                         padding: 8px 12px;
+                         cursor: pointer;
+                         border-bottom: 1px solid #f0f0f0;
+                         direction: rtl;
+                     "
+                     onmouseover="this.style.background='#f8f9fa'"
+                     onmouseout="this.style.background='white'">
+                    ${c.councilShortName}
+                </div>
+            `).join('');
+
+            citySuggestions.style.display = 'block';
+
+            citySuggestions.querySelectorAll('.city-suggestion-item').forEach(item => {
+                item.onclick = function () {
+                    selectedCouncilId = parseInt(this.dataset.councilId);
+                    cityInput.value = this.dataset.councilName;
+                    citySuggestions.style.display = 'none';
+                };
+            });
+        }
+
+        cityInput.oninput = function () {
+            showSuggestions(this.value.trim());
+        };
+
+        // OK button handler
+        document.getElementById('addressOkBtn').onclick = () => {
+            const newStreet = document.getElementById('addressStreet').value.trim();
+            const newHouseNumber = document.getElementById('addressHouseNumber').value.trim();
+            const newCity = document.getElementById('addressCity').value.trim();
+            const newPostCode = document.getElementById('addressPostCode').value.trim();
+
+            if (!newStreet) {
+                alert('נא להזין שם רחוב');
+                return;
+            }
+
+            if (!newCity) {
+                alert('נא להזין עיר');
+                return;
+            }
+
+            // Build formatted address
+            let formattedAddress = newStreet;
+            if (newHouseNumber) formattedAddress += ' ' + newHouseNumber;
+            formattedAddress += ', ' + newCity;
+            if (newPostCode && newPostCode !== '0000000' && newPostCode !== '0') {
+                formattedAddress += ', ' + newPostCode;
+            }
+
+            // Update cached data
+            if (window.lastEntityDetailsData) {
+                window.lastEntityDetailsData.address = formattedAddress;
+                window.lastEntityDetailsData.street = newStreet;
+                window.lastEntityDetailsData.houseNumber = newHouseNumber;
+                window.lastEntityDetailsData.city = newCity;
+                window.lastEntityDetailsData.postCode = newPostCode;
+
+                window.hasUnsavedEntityDetailsChanges = true;
+                updateEntityDetailsCardTitle();
+                displayEntityDetails(window.lastEntityDetailsData);
+            }
+
+            document.body.removeChild(overlay);
+        };
+
+        document.getElementById('addressCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+
+    } catch (error) {
+        console.error('💥 Error opening address edit modal:', error);
+        alert('שגיאה בפתיחת חלון עריכת כתובת');
+    }
+}
+
+
+
+
+
+// Edit entity contact person (using person management modal)
+function editEntityContactPerson() {
+    console.log('👤 Edit entity contact person clicked');
+    
+    if (typeof PersonManagement === 'undefined') {
+        alert('מודול ניהול אנשי קשר לא נטען');
+        return;
+    }
+
+    // ✅ Parse name from contactPersonName
+    let currentPerson = null;
+    if (window.lastEntityDetailsData?.contactPersonId) {
+        const fullName = window.lastEntityDetailsData.contactPersonName || '';
+        const nameParts = fullName.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        currentPerson = {
+            id: window.lastEntityDetailsData.contactPersonId,
+            firstName: firstName,
+            lastName: lastName,
+            position: 'איש קשר'
+        };
+    }
+
+    // ✅ Show modal with callback
+    PersonManagement.showPersonEditModal('contactPerson', currentPerson, (selectedPerson) => {
+        console.log('✅ Person management callback:', selectedPerson);
+        
+        // ✅ If null, user cancelled - do nothing
+        if (!selectedPerson) {
+            console.log('❌ Person selection cancelled');
+            return;
+        }
+        
+        // ✅ Update cached data with person ID and combined name
+        if (window.lastEntityDetailsData) {
+            window.lastEntityDetailsData.contactPersonId = selectedPerson.id;
+            window.lastEntityDetailsData.contactPersonName = `${selectedPerson.firstName || ''} ${selectedPerson.lastName || ''}`.trim();
+            
+            console.log('📝 Updated entity data:', {
+                contactPersonId: window.lastEntityDetailsData.contactPersonId,
+                contactPersonName: window.lastEntityDetailsData.contactPersonName
+            });
+            
+            // Mark as changed
+            window.hasUnsavedEntityDetailsChanges = true;
+            updateEntityDetailsCardTitle();
+            
+            // Re-render to show updated contact person
+            displayEntityDetails(window.lastEntityDetailsData);
+            
+            console.log('✅ Contact person updated in entity details - UI refreshed');
+        }
+    });
+}
+
+
+// Load councils from database
+async function loadCouncils() {
+    try {
+        console.log('📋 Loading councils...');
+
+        const response = await fetch(AppConfig.getApiUrl('systemAttributes/councils'), {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.data) {
+                window.councils = result.data;
+                console.log('✅ Councils loaded:', window.councils.length);
+            }
+        } else {
+            console.error('❌ Failed to load councils:', response.status);
+        }
+    } catch (error) {
+        console.error('💥 Error loading councils:', error);
+    }
+}
+ /*   function toggleEntityEditMode() {
         window.isEntityEditMode = !window.isEntityEditMode;
         const isEdit = window.isEntityEditMode;
 
@@ -336,55 +753,259 @@ const detailsHTML = `
             displayEntityDetails(window.entityDetailsData);
         }
         toggleEntityEditMode();
+    }*/
+
+// Setup edit button without reloading data
+function setupEditEntityDetailsButton() {
+    const editBtn = document.getElementById('editEntityDetailsBtn');
+
+    if (editBtn) {
+        editBtn.onclick = async function (event) {
+            event.stopPropagation();
+
+            if (!window.entityDetailsEditMode) {
+                // Entering edit mode
+                window.entityDetailsEditMode = true;
+                window.hasUnsavedEntityDetailsChanges = false;
+
+                // ✅ Store current user entity type for owner field lock check
+                const session = await window.SessionState.getSession();
+                window.currentUserEntityTypeId = parseInt(session.entityTypeId, 10);
+
+                // ✅ Store a DEEP COPY of original data
+                window.originalEntityDetailsData = JSON.parse(JSON.stringify(window.lastEntityDetailsData));
+                console.log('💾 Original data stored:', window.originalEntityDetailsData);
+
+                // Load dropdown data ONCE
+                await loadCouncils();
+
+                // Re-render with edit mode
+                displayEntityDetails(window.lastEntityDetailsData);
+
+                // Add change listeners
+                addEntityDetailsChangeListeners();
+
+                const btnImg = editBtn.querySelector('img');
+                if (btnImg) {
+                    btnImg.alt = 'סגור עריכה';
+                }
+
+                console.log('✏️ Entity details edit mode: ON');
+            } else {
+                // Exiting edit mode
+                if (window.hasUnsavedEntityDetailsChanges) {
+                    const confirmed = await confirmSaveEntityDetails();
+
+                    if (!confirmed) {
+                        console.log('❌ Save cancelled by user');
+                        return;
+                    }
+
+                    const saveSuccess = await saveEntityDetails();
+
+                    if (saveSuccess) {
+                        window.entityDetailsEditMode = false;
+                        window.hasUnsavedEntityDetailsChanges = false;
+                        window.originalEntityDetailsData = null;
+
+                        // ✅ Reload fresh data from server
+                        await loadEntityDetails();
+
+                        const btnImg = editBtn.querySelector('img');
+                        if (btnImg) {
+                            btnImg.alt = 'עריכה';
+                        }
+
+                        console.log('✏️ Entity details edit mode: OFF (saved)');
+                    }
+                } else {
+                    // No changes - just exit edit mode
+                    window.entityDetailsEditMode = false;
+                    window.originalEntityDetailsData = null;
+
+                    // Re-render in read-only mode with current data
+                    displayEntityDetails(window.lastEntityDetailsData);
+                    const btnImg = editBtn.querySelector('img');
+                    if (btnImg) {
+                        btnImg.alt = 'עריכה';
+                    }
+
+                    console.log('✏️ Entity details edit mode: OFF (no changes)');
+                }
+            }
+        };
+        console.log('✅ Edit entity details button initialized');
+    } else {
+        console.warn('⚠️ Edit entity details button not found');
     }
+}
 
-    async function saveEntityDetails() {
-        try {
-            const entityId = window.entityDetailsData.id;
-            
-            const updateData = {
-                name: document.getElementById('edit_name').value,
-                entityTypeId: parseInt(document.getElementById('edit_entityType').value),
-                address: document.getElementById('edit_address').value,
-                phone: document.getElementById('edit_phone').value,
-                email: document.getElementById('edit_email').value,
-                ownerId: document.getElementById('edit_owner').value ? parseInt(document.getElementById('edit_owner').value) : null,
-                contactPerson: document.getElementById('edit_contactPerson').value,
-                taxNumber: document.getElementById('edit_taxNumber').value,
-                isActive: document.getElementById('edit_isActive').checked
-            };
+// ✅ Add confirmation dialog before saving
+async function confirmSaveEntityDetails() {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
 
-            const response = await fetch(AppConfig.getApiUrl(`entitydetails/${entityId}`), {
-                ...AppConfig.getDefaultFetchOptions(),
-                method: 'PUT',
-                body: JSON.stringify(updateData)
-            });
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
 
-            if (!response.ok) throw new Error('Failed to update entity');
+        dialog.innerHTML = `
+            <h3 class="dialog-title">אישור שמירת שינויים</h3>
+            <p class="dialog-message">האם אתה בטוח שברצונך לשמור את השינויים בפרטי הישות?</p>
+            <div class="dialog-buttons">
+                <button id="confirmSaveBtn" class="dialog-btn save">כן, שמור</button>
+                <button id="cancelSaveBtn" class="dialog-btn cancel">ביטול</button>
+            </div>
+        `;
 
-            // Reload data to confirm save and refresh view
-            await loadEntityDetails();
-            toggleEntityEditMode();
-            alert('הפרטים נשמרו בהצלחה');
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
 
-        } catch (error) {
-            console.error('❌ Error saving entity details:', error);
-            alert('שגיאה בשמירת הפרטים');
+        document.getElementById('confirmSaveBtn').onclick = () => {
+            document.body.removeChild(overlay);
+            resolve(true);
+        };
+
+        document.getElementById('cancelSaveBtn').onclick = () => {
+            document.body.removeChild(overlay);
+            resolve(false);
+        };
+    });
+}
+
+
+// Save entity details to server
+
+
+async function saveEntityDetails() {
+    console.log('💾 Saving entity details...');
+
+    try {
+        const entityId = window.entityDetailsData.id;
+
+        // ✅ Get values from form fields
+        const name = document.getElementById('name')?.value.trim();
+        const entityTypeId = document.getElementById('entityTypeId')?.value;
+        const ownerId = document.getElementById('ownerId')?.value;
+        const phone = document.getElementById('phone')?.value.trim();
+        const email = document.getElementById('email')?.value.trim();
+        const taxNumber = document.getElementById('taxNumber')?.value.trim();
+
+        // ✅ Get address and person data from cached data
+        const currentData = window.lastEntityDetailsData;
+        const street = currentData.street || '';
+        const houseNumber = currentData.houseNumber || '';
+        const city = currentData.city || '';
+        const postCode = currentData.postCode || '';
+        const contactPersonId = currentData.contactPersonId || null;  // ✅ Only ID needed
+
+        // Validate required fields
+        if (!name) {
+            alert('נא להזין שם ישות');
+            document.getElementById('name')?.focus();
+            return false;
         }
+
+        if (!entityTypeId) {
+            alert('נא לבחור סוג ישות');
+            document.getElementById('entityTypeId')?.focus();
+            return false;
+        }
+
+        if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            alert('כתובת דוא"ל לא תקינה');
+            document.getElementById('email')?.focus();
+            return false;
+        }
+
+        // ✅ Build complete payload (simplified - no person details)
+        const payload = {
+            name: name,
+            entityTypeId: parseInt(entityTypeId),
+            ownerId: ownerId ? parseInt(ownerId) : null,
+            phone: phone || '',
+            email: email || '',
+            taxNumber: taxNumber || '',
+            contactPersonId: contactPersonId,  // ✅ Only person ID
+            isActive: true,
+            // ✅ Send address components - backend will format
+            street: street || '',
+            houseNumber: houseNumber || '',
+            city: city || '',
+            postCode: postCode || ''
+        };
+
+        console.log('📝 Sending entity details update:', payload);
+
+        const response = await fetch(AppConfig.getApiUrl(`entitydetails/${entityId}`), {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Server response:', errorText);
+            throw new Error('Failed to update entity');
+        }
+
+        const result = await response.json();
+
+        if (result.success) {
+            console.log('✅ Entity details saved successfully');
+
+            // Reset flags
+            window.hasUnsavedEntityDetailsChanges = false;
+            updateEntityDetailsCardTitle();
+
+            alert('פרטי הישות עודכנו בהצלחה');
+            return true;
+        } else {
+            console.error('❌ Failed to save entity details:', result);
+            alert(result.message || 'שגיאה בשמירת פרטי הישות');
+            return false;
+        }
+
+    } catch (error) {
+        console.error('💥 Error saving entity details:', error);
+        alert('שגיאה בשמירת פרטי הישות');
+        return false;
     }
+}
+
+
 
     function cleanupEntityDetails() {
         console.log('🧹 Cleaning up Entity Details page...');
-        window.entityDetailsData = null;
-        window.entityTypes = [];
-        window.potentialOwners = [];
-        window.isEntityEditMode = false;
+    window.entityDetailsData = null;
+    window.entityTypes = [];
+    window.potentialOwners = [];
+    window.isEntityEditMode = false;
+    window.lastEntityDetailsData = null;
+    window.entityDetailsEditMode = false;
+    window.hasUnsavedEntityDetailsChanges = false;
+    window.originalEntityDetailsData = null;
+    window.currentUserEntityTypeId = null;
+    window.councils = [];
+    
+    console.log('✅ Entity Details cleanup complete');
     }
 
     // Export functions
-    window.initializeEntityDetails = initializeEntityDetails;
-    window.cleanupEntityDetails = cleanupEntityDetails;
-    window.toggleEntityEditMode = toggleEntityEditMode;
-    window.saveEntityDetails = saveEntityDetails;
-    window.cancelEntityEdit = cancelEntityEdit;
+window.initializeEntityDetails = initializeEntityDetails;
+window.cleanupEntityDetails = cleanupEntityDetails;
+window.setupEditEntityDetailsButton = setupEditEntityDetailsButton;
+window.saveEntityDetails = saveEntityDetails;
+window.updateEntityPageTitle = updateEntityPageTitle;
+window.displayEntityDetails = displayEntityDetails;
+window.addEntityDetailsChangeListeners = addEntityDetailsChangeListeners;
+window.handleEntityDetailsChange = handleEntityDetailsChange;
+window.updateEntityDetailsCardTitle = updateEntityDetailsCardTitle;
+window.editEntityAddress = editEntityAddress;
+window.editEntityContactPerson = editEntityContactPerson;
+window.loadCouncils = loadCouncils;
+window.confirmSaveEntityDetails = confirmSaveEntityDetails;
 </script>

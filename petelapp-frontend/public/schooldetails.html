@@ -2575,47 +2575,103 @@
                 position: 'מנהל'
             } : null;
 
-            PersonManagement.showPersonEditModal('principal', currentPerson);
+            PersonManagement.showPersonEditModal('principal', currentPerson, (selectedPerson) => {
+                console.log('✅ Principal callback:', selectedPerson);
+
+                if (!selectedPerson) {
+                    console.log('❌ Principal selection cancelled');
+                    return;
+                }
+
+                if (window.lastSchoolDetailsData) {
+                    window.lastSchoolDetailsData.principalId = selectedPerson.id;
+                    window.lastSchoolDetailsData.principalName = `${selectedPerson.firstName || ''} ${selectedPerson.lastName || ''}`.trim();
+
+                    window.hasUnsavedSchoolDetailsChanges = true;
+                    updateSchoolDetailsCardTitle();
+                    displaySchoolDetails(window.lastSchoolDetailsData);
+
+                    console.log('✅ Principal updated in school details');
+                }
+            });
         }
 
-        function editInspector() {
-            console.log('👤 Edit inspector clicked');
-            PersonManagement.setCurrentPersonType('inspector');
+            function editInspector() {
+                console.log('👤 Edit inspector clicked');
+                PersonManagement.setCurrentPersonType('inspector');
 
-            const currentPerson = window.lastSchoolDetailsData ? {
-                id: window.lastSchoolDetailsData.inspectorId,
-                firstName: window.lastSchoolDetailsData.inspectorName ? window.lastSchoolDetailsData.inspectorName.split(' ')[0] : '',
-                lastName: window.lastSchoolDetailsData.inspectorName ? window.lastSchoolDetailsData.inspectorName.split(' ').slice(1).join(' ') : '',
-                position: 'מפקח'
-            } : null;
+                const currentPerson = window.lastSchoolDetailsData ? {
+                    id: window.lastSchoolDetailsData.inspectorId,
+                    firstName: window.lastSchoolDetailsData.inspectorName ? window.lastSchoolDetailsData.inspectorName.split(' ')[0] : '',
+                    lastName: window.lastSchoolDetailsData.inspectorName ? window.lastSchoolDetailsData.inspectorName.split(' ').slice(1).join(' ') : '',
+                    position: 'מפקח'
+                } : null;
 
-            PersonManagement.showPersonEditModal('inspector', currentPerson);
+                PersonManagement.showPersonEditModal('inspector', currentPerson, (selectedPerson) => {
+                    console.log('✅ Inspector callback:', selectedPerson);
+
+                    console.log('✅ Inspector callback:', selectedPerson);
+
+                    if (!selectedPerson) {
+                        console.log('❌ Inspector selection cancelled');
+                        return;
+                    }
+
+                    if (window.lastSchoolDetailsData) {
+                        window.lastSchoolDetailsData.inspectorId = selectedPerson.id;
+                        window.lastSchoolDetailsData.inspectorName = `${selectedPerson.firstName || ''} ${selectedPerson.lastName || ''}`.trim();
+
+                        window.hasUnsavedSchoolDetailsChanges = true;
+                        updateSchoolDetailsCardTitle();
+                        displaySchoolDetails(window.lastSchoolDetailsData);
+
+                        console.log('✅ Inspector updated in school details');
+                    }
+            });
         }
 
-        function editContactPerson() {
-            console.log('👤 Edit contact person clicked');
-            PersonManagement.setCurrentPersonType('contactPerson');
+                function editContactPerson() {
+                    console.log('👤 Edit contact person clicked');
+                    PersonManagement.setCurrentPersonType('contactPerson');
 
-            const currentPerson = window.lastSchoolDetailsData ? {
-                id: window.lastSchoolDetailsData.contactPersonId,
-                firstName: window.lastSchoolDetailsData.contactPersonName ? window.lastSchoolDetailsData.contactPersonName.split(' ')[0] : '',
-                lastName: window.lastSchoolDetailsData.contactPersonName ? window.lastSchoolDetailsData.contactPersonName.split(' ').slice(1).join(' ') : '',
-                position: 'איש קשר'
-            } : null;
+                    const currentPerson = window.lastSchoolDetailsData ? {
+                        id: window.lastSchoolDetailsData.contactPersonId,
+                        firstName: window.lastSchoolDetailsData.contactPersonName ? window.lastSchoolDetailsData.contactPersonName.split(' ')[0] : '',
+                        lastName: window.lastSchoolDetailsData.contactPersonName ? window.lastSchoolDetailsData.contactPersonName.split(' ').slice(1).join(' ') : '',
+                        position: 'איש קשר'
+                    } : null;
 
-            PersonManagement.showPersonEditModal('contactPerson', currentPerson);
+                    PersonManagement.showPersonEditModal('contactPerson', currentPerson, (selectedPerson) => {
+                        console.log('✅ Contact person callback:', selectedPerson);
+
+                        if (!selectedPerson) {
+                            console.log('❌ Contact person selection cancelled');
+                            return;
+                        }
+
+                        if (window.lastSchoolDetailsData) {
+                            window.lastSchoolDetailsData.contactPersonId = selectedPerson.id;
+                            window.lastSchoolDetailsData.contactPersonName = `${selectedPerson.firstName || ''} ${selectedPerson.lastName || ''}`.trim();
+
+                            window.hasUnsavedSchoolDetailsChanges = true;
+                            updateSchoolDetailsCardTitle();
+                            displaySchoolDetails(window.lastSchoolDetailsData);
+
+                            console.log('✅ Contact person updated in school details');
+                        }
+            });
         }
 
-        // ✅ Add confirmation dialog before saving
-        async function confirmSaveSchoolDetails() {
-            return new Promise((resolve) => {
-                const overlay = document.createElement('div');
-                overlay.className = 'dialog-overlay';
+                    // ✅ Add confirmation dialog before saving
+                    async function confirmSaveSchoolDetails() {
+                        return new Promise((resolve) => {
+                            const overlay = document.createElement('div');
+                            overlay.className = 'dialog-overlay';
 
-                const dialog = document.createElement('div');
-                dialog.className = 'dialog-box';
+                            const dialog = document.createElement('div');
+                            dialog.className = 'dialog-box';
 
-                dialog.innerHTML = `
+                            dialog.innerHTML = `
             <h3 class="dialog-title">אישור שמירת שינויים</h3>
             <p class="dialog-message">האם אתה בטוח שברצונך לשמור את השינויים בפרטי בית הספר?</p>
             <p style="color: #6c757d; font-size: 0.9em; margin-top: 10px;">שינויים אלה יישמרו כגרסה חדשה.</p>
@@ -2625,279 +2681,279 @@
             </div>
         `;
 
-                overlay.appendChild(dialog);
-                document.body.appendChild(overlay);
+                            overlay.appendChild(dialog);
+                            document.body.appendChild(overlay);
 
-                document.getElementById('confirmSaveBtn').onclick = () => {
-                    document.body.removeChild(overlay);
-                    resolve(true);
-                };
+                            document.getElementById('confirmSaveBtn').onclick = () => {
+                                document.body.removeChild(overlay);
+                                resolve(true);
+                            };
 
-                document.getElementById('cancelSaveBtn').onclick = () => {
-                    document.body.removeChild(overlay);
-                    resolve(false);
-                };
+                            document.getElementById('cancelSaveBtn').onclick = () => {
+                                document.body.removeChild(overlay);
+                                resolve(false);
+                            };
 
-                // ESC key handler
-                const escHandler = (e) => {
-                    if (e.key === 'Escape' && document.body.contains(overlay)) {
-                        document.body.removeChild(overlay);
-                        document.removeEventListener('keydown', escHandler);
-                        resolve(false);
+                            // ESC key handler
+                            const escHandler = (e) => {
+                                if (e.key === 'Escape' && document.body.contains(overlay)) {
+                                    document.body.removeChild(overlay);
+                                    document.removeEventListener('keydown', escHandler);
+                                    resolve(false);
+                                }
+                            };
+                            document.addEventListener('keydown', escHandler);
+                        });
                     }
-                };
-                document.addEventListener('keydown', escHandler);
-            });
-        }
 
-        //  Save school details without reloading data including address and person references
-        async function saveSchoolDetails() {
-            console.log('💾 Saving school details with versioning...');
+                    //  Save school details without reloading data including address and person references
+                    async function saveSchoolDetails() {
+                        console.log('💾 Saving school details with versioning...');
 
-            try {
-                const schoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
+                        try {
+                            const schoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
 
-                if (!schoolYearId) {
-                    alert('לא נמצא מזהה שנת לימודים');
-                    return false;
-                }
+                            if (!schoolYearId) {
+                                alert('לא נמצא מזהה שנת לימודים');
+                                return false;
+                            }
 
-                // ✅ Get values from form fields
-                const symbol = document.getElementById('schoolSymbol')?.value.trim();
-                const characterizationId = document.getElementById('schoolCharacterization')?.value;
-                const educationStage = document.getElementById('schoolEducationStage')?.value;
-                const councilId = document.getElementById('schoolCouncil')?.value;
-                const phone = document.getElementById('schoolPhone')?.value.trim();
-                const email = document.getElementById('schoolEmail')?.value.trim();
+                            // ✅ Get values from form fields
+                            const symbol = document.getElementById('schoolSymbol')?.value.trim();
+                            const characterizationId = document.getElementById('schoolCharacterization')?.value;
+                            const educationStage = document.getElementById('schoolEducationStage')?.value;
+                            const councilId = document.getElementById('schoolCouncil')?.value;
+                            const phone = document.getElementById('schoolPhone')?.value.trim();
+                            const email = document.getElementById('schoolEmail')?.value.trim();
 
-                // ✅ Get address and person references from CURRENT cached data
-                const currentData = window.lastSchoolDetailsData;
+                            // ✅ Get address and person references from CURRENT cached data
+                            const currentData = window.lastSchoolDetailsData;
 
-                const street = currentData.street || null;
-                const houseNumber = currentData.houseNumber || null;
-                const city = currentData.city || null;
-                const postCode = currentData.postCode || null;
+                            const street = currentData.street || null;
+                            const houseNumber = currentData.houseNumber || null;
+                            const city = currentData.city || null;
+                            const postCode = currentData.postCode || null;
 
-                const principalId = currentData.principalId || null;
-                const inspectorId = currentData.inspectorId || null;
-                const contactPersonId = currentData.contactPersonId || null;
+                            const principalId = currentData.principalId || null;
+                            const inspectorId = currentData.inspectorId || null;
+                            const contactPersonId = currentData.contactPersonId || null;
 
-                // ✅ Compare against ORIGINAL data (not current cached data)
-                const originalData = window.originalSchoolDetailsData || currentData;
+                            // ✅ Compare against ORIGINAL data (not current cached data)
+                            const originalData = window.originalSchoolDetailsData || currentData;
 
-                console.log('🔍 Comparing for changes:', {
-                    current: {
-                        symbol,
-                        characterizationId: characterizationId ? parseInt(characterizationId) : null,
-                        educationStage,
-                        councilId: councilId ? parseInt(councilId) : null,
-                        phone,
-                        email,
-                        street,
-                        houseNumber,
-                        city,
-                        postCode,
-                        principalId,
-                        inspectorId,
-                        contactPersonId
-                    },
-                    original: {
-                        symbol: originalData.symbol,
-                        characterizationId: originalData.characterizationId,
-                        educationStage: originalData.educationStage,
-                        councilId: originalData.councilId,
-                        phone: originalData.phone,
-                        email: originalData.email,
-                        street: originalData.street,
-                        houseNumber: originalData.houseNumber,
-                        city: originalData.city,
-                        postCode: originalData.postCode,
-                        principalId: originalData.principalId,
-                        inspectorId: originalData.inspectorId,
-                        contactPersonId: originalData.contactPersonId
+                            console.log('🔍 Comparing for changes:', {
+                                current: {
+                                    symbol,
+                                    characterizationId: characterizationId ? parseInt(characterizationId) : null,
+                                    educationStage,
+                                    councilId: councilId ? parseInt(councilId) : null,
+                                    phone,
+                                    email,
+                                    street,
+                                    houseNumber,
+                                    city,
+                                    postCode,
+                                    principalId,
+                                    inspectorId,
+                                    contactPersonId
+                                },
+                                original: {
+                                    symbol: originalData.symbol,
+                                    characterizationId: originalData.characterizationId,
+                                    educationStage: originalData.educationStage,
+                                    councilId: originalData.councilId,
+                                    phone: originalData.phone,
+                                    email: originalData.email,
+                                    street: originalData.street,
+                                    houseNumber: originalData.houseNumber,
+                                    city: originalData.city,
+                                    postCode: originalData.postCode,
+                                    principalId: originalData.principalId,
+                                    inspectorId: originalData.inspectorId,
+                                    contactPersonId: originalData.contactPersonId
+                                }
+                            });
+
+                            const hasChanges =
+                                symbol !== (originalData.symbol || '') ||
+                                (characterizationId ? parseInt(characterizationId) : null) !== originalData.characterizationId ||
+                                (educationStage || null) !== originalData.educationStage ||
+                                (councilId ? parseInt(councilId) : null) !== originalData.councilId ||
+                                (phone || null) !== originalData.phone ||
+                                (email || null) !== originalData.email ||
+                                street !== originalData.street ||
+                                houseNumber !== originalData.houseNumber ||
+                                city !== originalData.city ||
+                                postCode !== originalData.postCode ||
+                                principalId !== originalData.principalId ||
+                                inspectorId !== originalData.inspectorId ||
+                                contactPersonId !== originalData.contactPersonId;
+
+                            console.log('📊 Has changes:', hasChanges);
+
+                            if (!hasChanges) {
+                                console.log('ℹ️ No changes detected - skipping save');
+                                return true;
+                            }
+
+                            // Validate required fields
+                            if (!symbol) {
+                                alert('נא להזין סמל בית ספר');
+                                document.getElementById('schoolSymbol')?.focus();
+                                return false;
+                            }
+
+                            if (!/^\d{1,8}$/.test(symbol)) {
+                                alert('סמל בית ספר חייב להכיל ספרות בלבד (עד 8 ספרות)');
+                                document.getElementById('schoolSymbol')?.focus();
+                                return false;
+                            }
+
+                            if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                                alert('כתובת דוא"ל לא תקינה');
+                                document.getElementById('schoolEmail')?.focus();
+                                return false;
+                            }
+
+                            // ✅ Build complete payload
+                            const payload = {
+                                schoolYearId: parseInt(schoolYearId),
+                                symbol: symbol,
+                                characterizationId: characterizationId ? parseInt(characterizationId) : null,
+                                educationStage: educationStage || null,
+                                councilId: councilId ? parseInt(councilId) : null,
+                                phone: phone || null,
+                                email: email || null,
+                                street: street,
+                                houseNumber: houseNumber,
+                                city: city,
+                                postCode: postCode,
+                                principalId: principalId,
+                                inspectorId: inspectorId,
+                                contactPersonId: contactPersonId
+                            };
+
+                            console.log('📝 Sending school details update with versioning:', payload);
+
+                            const response = await fetch(AppConfig.getApiUrl('school/update-details'), {
+                                method: 'PUT',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                                },
+                                body: JSON.stringify(payload)
+                            });
+
+                            const result = await response.json();
+
+                            if (response.ok && result.success) {
+                                console.log('✅ School details saved successfully with new version:', result.data.newVersion);
+
+                                // Reset flags
+                                window.hasUnsavedSchoolDetailsChanges = false;
+                                updateSchoolDetailsCardTitle();
+
+                                alert('פרטי בית הספר עודכנו בהצלחה');
+                                return true;
+                            } else {
+                                console.error('❌ Failed to save school details:', result);
+                                alert(result.message || 'שגיאה בשמירת פרטי בית הספר');
+                                return false;
+                            }
+
+                        } catch (error) {
+                            console.error('💥 Error saving school details:', error);
+                            alert('שגיאה בשמירת פרטי בית הספר');
+                            return false;
+                        }
                     }
-                });
 
-                const hasChanges =
-                    symbol !== (originalData.symbol || '') ||
-                    (characterizationId ? parseInt(characterizationId) : null) !== originalData.characterizationId ||
-                    (educationStage || null) !== originalData.educationStage ||
-                    (councilId ? parseInt(councilId) : null) !== originalData.councilId ||
-                    (phone || null) !== originalData.phone ||
-                    (email || null) !== originalData.email ||
-                    street !== originalData.street ||
-                    houseNumber !== originalData.houseNumber ||
-                    city !== originalData.city ||
-                    postCode !== originalData.postCode ||
-                    principalId !== originalData.principalId ||
-                    inspectorId !== originalData.inspectorId ||
-                    contactPersonId !== originalData.contactPersonId;
+                    // Load school attributes following API Communication Pattern
+                    async function loadSchoolAttributes() {
+                        console.log('🏢 Loading school attributes...');
 
-                console.log('📊 Has changes:', hasChanges);
+                        const container = document.getElementById('schoolattributesContent');
+                        if (!container) {
+                            console.error('❌ schoolattributesContent container not found');
+                            return;
+                        }
 
-                if (!hasChanges) {
-                    console.log('ℹ️ No changes detected - skipping save');
-                    return true;
-                }
+                        try {
+                            const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
 
-                // Validate required fields
-                if (!symbol) {
-                    alert('נא להזין סמל בית ספר');
-                    document.getElementById('schoolSymbol')?.focus();
-                    return false;
-                }
+                            if (!selectedSchoolYearId) {
+                                console.error('❌ No school year ID in session');
+                                container.innerHTML = '<p style="color: #721c24; padding: 20px;">לא נמצא מזהה שנת לימודים</p>';
+                                return;
+                            }
 
-                if (!/^\d{1,8}$/.test(symbol)) {
-                    alert('סמל בית ספר חייב להכיל ספרות בלבד (עד 8 ספרות)');
-                    document.getElementById('schoolSymbol')?.focus();
-                    return false;
-                }
+                            const authToken = sessionStorage.getItem('authToken');
+                            if (!authToken) {
+                                console.error('❌ No auth token found');
+                                container.innerHTML = '<p style="color: #721c24; padding: 20px;">נדרש אימות. אנא התחבר מחדש.</p>';
+                                return;
+                            }
 
-                if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                    alert('כתובת דוא"ל לא תקינה');
-                    document.getElementById('schoolEmail')?.focus();
-                    return false;
-                }
+                            // Show loading state
+                            container.innerHTML = '<p style="padding: 20px;">טוען שירותי בית ספר...</p>';
 
-                // ✅ Build complete payload
-                const payload = {
-                    schoolYearId: parseInt(schoolYearId),
-                    symbol: symbol,
-                    characterizationId: characterizationId ? parseInt(characterizationId) : null,
-                    educationStage: educationStage || null,
-                    councilId: councilId ? parseInt(councilId) : null,
-                    phone: phone || null,
-                    email: email || null,
-                    street: street,
-                    houseNumber: houseNumber,
-                    city: city,
-                    postCode: postCode,
-                    principalId: principalId,
-                    inspectorId: inspectorId,
-                    contactPersonId: contactPersonId
-                };
+                            // API call following API Communication Pattern
+                            const apiUrl = AppConfig.getApiUrl(`schoolAttributes/by-school-year/${selectedSchoolYearId}`);
+                            console.log('🌐 Making API call to:', apiUrl);
 
-                console.log('📝 Sending school details update with versioning:', payload);
+                            const response = await fetch(apiUrl, {
+                                method: 'GET',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${authToken}`
+                                }
+                            });
 
-                const response = await fetch(AppConfig.getApiUrl('school/update-details'), {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-                    },
-                    body: JSON.stringify(payload)
-                });
+                            console.log('📥 Response:', response.status, response.ok);
 
-                const result = await response.json();
+                            if (response.ok) {
+                                const result = await response.json();
+                                console.log('🏢 School attributes received:', result);
 
-                if (response.ok && result.success) {
-                    console.log('✅ School details saved successfully with new version:', result.data.newVersion);
-
-                    // Reset flags
-                    window.hasUnsavedSchoolDetailsChanges = false;
-                    updateSchoolDetailsCardTitle();
-
-                    alert('פרטי בית הספר עודכנו בהצלחה');
-                    return true;
-                } else {
-                    console.error('❌ Failed to save school details:', result);
-                    alert(result.message || 'שגיאה בשמירת פרטי בית הספר');
-                    return false;
-                }
-
-            } catch (error) {
-                console.error('💥 Error saving school details:', error);
-                alert('שגיאה בשמירת פרטי בית הספר');
-                return false;
-            }
-        }
-
-        // Load school attributes following API Communication Pattern
-        async function loadSchoolAttributes() {
-            console.log('🏢 Loading school attributes...');
-
-            const container = document.getElementById('schoolattributesContent');
-            if (!container) {
-                console.error('❌ schoolattributesContent container not found');
-                return;
-            }
-
-            try {
-                const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
-
-                if (!selectedSchoolYearId) {
-                    console.error('❌ No school year ID in session');
-                    container.innerHTML = '<p style="color: #721c24; padding: 20px;">לא נמצא מזהה שנת לימודים</p>';
-                    return;
-                }
-
-                const authToken = sessionStorage.getItem('authToken');
-                if (!authToken) {
-                    console.error('❌ No auth token found');
-                    container.innerHTML = '<p style="color: #721c24; padding: 20px;">נדרש אימות. אנא התחבר מחדש.</p>';
-                    return;
-                }
-
-                // Show loading state
-                container.innerHTML = '<p style="padding: 20px;">טוען שירותי בית ספר...</p>';
-
-                // API call following API Communication Pattern
-                const apiUrl = AppConfig.getApiUrl(`schoolAttributes/by-school-year/${selectedSchoolYearId}`);
-                console.log('🌐 Making API call to:', apiUrl);
-
-                const response = await fetch(apiUrl, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
+                                if (result.success && result.data) {
+                                    displaySchoolAttributes(result.data);
+                                } else {
+                                    throw new Error('Invalid response format');
+                                }
+                            } else {
+                                const errorText = await response.text();
+                                console.error('❌ API Error:', response.status, errorText);
+                                container.innerHTML = `<p style="color: #721c24; padding: 20px;">שגיאה בטעינת שירותי בית הספר: ${response.status}</p>`;
+                            }
+                        } catch (error) {
+                            console.error('💥 Exception in loadSchoolAttributes:', error);
+                            container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה בטעינת שירותי בית הספר</p>';
+                        }
                     }
-                });
 
-                console.log('📥 Response:', response.status, response.ok);
+                    // Update displaySchoolAttributes to capture original values and add onchange handlers
+                    function displaySchoolAttributes(attributes) {
+                        console.log('🏢 Displaying school attributes:', attributes);
 
-                if (response.ok) {
-                    const result = await response.json();
-                    console.log('🏢 School attributes received:', result);
+                        const container = document.getElementById('schoolattributesContent');
+                        if (!container) return;
 
-                    if (result.success && result.data) {
-                        displaySchoolAttributes(result.data);
-                    } else {
-                        throw new Error('Invalid response format');
-                    }
-                } else {
-                    const errorText = await response.text();
-                    console.error('❌ API Error:', response.status, errorText);
-                    container.innerHTML = `<p style="color: #721c24; padding: 20px;">שגיאה בטעינת שירותי בית הספר: ${response.status}</p>`;
-                }
-            } catch (error) {
-                console.error('💥 Exception in loadSchoolAttributes:', error);
-                container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה בטעינת שירותי בית הספר</p>';
-            }
-        }
+                        // Map existing attributes by attributeId
+                        const attrMap = {};
+                        (attributes || []).forEach(attr => {
+                            attrMap[attr.attributeTypeId] = attr;
+                        });
 
-        // Update displaySchoolAttributes to capture original values and add onchange handlers
-        function displaySchoolAttributes(attributes) {
-            console.log('🏢 Displaying school attributes:', attributes);
-
-            const container = document.getElementById('schoolattributesContent');
-            if (!container) return;
-
-            // Map existing attributes by attributeId
-            const attrMap = {};
-            (attributes || []).forEach(attr => {
-                attrMap[attr.attributeTypeId] = attr;
-            });
-
-            // Save for re-rendering when edit mode changes
-            window.lastSchoolAttributesData = attributes || [];
+                        // Save for re-rendering when edit mode changes
+                        window.lastSchoolAttributesData = attributes || [];
 
 
-            const isEditMode = !!window.schoolAttributesEditMode;
-            console.log('🔧 Rendering attributes in edit mode:', isEditMode);
+                        const isEditMode = !!window.schoolAttributesEditMode;
+                        console.log('🔧 Rendering attributes in edit mode:', isEditMode);
 
-            // Create attributes display with editable fields following Hebrew/RTL patterns
-            // Create attributes display dynamically from database types
-            const attributesHTML = `
+                        // Create attributes display with editable fields following Hebrew/RTL patterns
+                        // Create attributes display dynamically from database types
+                        const attributesHTML = `
         <div class="attributes-grid" style="
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -2905,39 +2961,39 @@
             direction: rtl;
         ">
             ${window.schoolAttributeTypes.map(attrType => {
-                // Get existing attribute data or use defaults
-                const existingAttr = attrMap[attrType.id] || {};
+                            // Get existing attribute data or use defaults
+                            const existingAttr = attrMap[attrType.id] || {};
 
-                // Capture all required fields for update
-                const recordId = existingAttr.id || null;
-                const version = existingAttr.version || 0;
+                            // Capture all required fields for update
+                            const recordId = existingAttr.id || null;
+                            const version = existingAttr.version || 0;
 
-                let value = existingAttr.value;
-                let displayValue = existingAttr.displayValue;
+                            let value = existingAttr.value;
+                            let displayValue = existingAttr.displayValue;
 
-                // Set default values if missing
-                if (attrType.attributeValueType === 'Boolean') {
-                    const boolValue = value === 'true' ||
-                        value === '1' ||
-                        value === 'True' ||
-                        value === 'TRUE' ||
-                        value === true ||
-                        value === 1;
-                    value = boolValue;
-                    displayValue = boolValue ? 'כן' : 'לא';
-                } else if (attrType.attributeValueType === 'Integer') {
-                    value = value || '0';
-                    displayValue = value;
-                } else if (attrType.attributeValueType === 'List') {
-                    value = value || '';
-                }
+                            // Set default values if missing
+                            if (attrType.attributeValueType === 'Boolean') {
+                                const boolValue = value === 'true' ||
+                                    value === '1' ||
+                                    value === 'True' ||
+                                    value === 'TRUE' ||
+                                    value === true ||
+                                    value === 1;
+                                value = boolValue;
+                                displayValue = boolValue ? 'כן' : 'לא';
+                            } else if (attrType.attributeValueType === 'Integer') {
+                                value = value || '0';
+                                displayValue = value;
+                            } else if (attrType.attributeValueType === 'List') {
+                                value = value || '';
+                            }
 
-                // Render based on attribute type
-                let inputField = '';
+                            // Render based on attribute type
+                            let inputField = '';
 
-                if (attrType.attributeValueType === 'Boolean') {
-                    const isChecked = !!value;
-                    inputField = `
+                            if (attrType.attributeValueType === 'Boolean') {
+                                const isChecked = !!value;
+                                inputField = `
                         <div class="attribute-checkbox-container">
                             <input type="checkbox" 
                                    class="attribute-checkbox"
@@ -2952,8 +3008,8 @@
                             </label>
                         </div>
                     `;
-                } else if (attrType.attributeValueType === 'Integer') {
-                    inputField = `
+                            } else if (attrType.attributeValueType === 'Integer') {
+                                inputField = `
                         <div style="display: flex; align-items: center; gap: 4px;">
                             <input type="number" 
                                    class="attribute-input"
@@ -2968,11 +3024,11 @@
                             <span class="attribute-suffix">שעות</span>
                         </div>
                     `;
-                } else if (attrType.attributeValueType === 'List') {
-                    const currentValueId = value || '';
-                    const possibleValues = attrType.possibleValues || [];
+                            } else if (attrType.attributeValueType === 'List') {
+                                const currentValueId = value || '';
+                                const possibleValues = attrType.possibleValues || [];
 
-                    inputField = `
+                                inputField = `
                         <select class="attribute-select"
                                 id="attr_${attrType.id}"
                                 data-attribute-id="${attrType.id}"
@@ -2987,9 +3043,9 @@
                             `).join('')}
                         </select>
                     `;
-                }
+                            }
 
-                return `
+                            return `
                     <div class="attribute-item"
                          data-record-id="${recordId || ''}"
                          data-version="${version}">
@@ -2999,274 +3055,274 @@
                         ${inputField}
                     </div>
                 `;
-            }).join('')}
+                        }).join('')}
         </div>
     `;
 
-            container.innerHTML = attributesHTML;
+                        container.innerHTML = attributesHTML;
 
-            // Update checkbox labels dynamically when changed
-            document.querySelectorAll('.attribute-checkbox').forEach(checkbox => {
-                checkbox.addEventListener('change', function () {
-                    const label = this.nextElementSibling;
-                    if (label && label.classList.contains('attribute-checkbox-label')) {
-                        label.textContent = this.checked ? 'כן' : 'לא';
-                    }
-                });
-            });
-
-
-            console.log('✅ School attributes displayed (Edit mode:', isEditMode, ')');
-        }
-
-        async function saveSchoolAttributes() {
-            console.log('💾 Saving school attributes...');
-
-            try {
-                const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
-
-                if (!schoolYearId) {
-                    alert('לא נבחרה שנת לימודים');
-                    return;
-                }
-
-                const changes = [];
+                        // Update checkbox labels dynamically when changed
+                        document.querySelectorAll('.attribute-checkbox').forEach(checkbox => {
+                            checkbox.addEventListener('change', function () {
+                                const label = this.nextElementSibling;
+                                if (label && label.classList.contains('attribute-checkbox-label')) {
+                                    label.textContent = this.checked ? 'כן' : 'לא';
+                                }
+                            });
+                        });
 
 
-                for (const attrType of window.schoolAttributeTypes) {
-                    const element = document.getElementById(`attr_${attrType.id}`);
-                    if (!element) continue;
-
-                    const container = element.closest('.attribute-item');
-                    const recordId = container?.dataset.recordId ? parseInt(container.dataset.recordId) : null;
-                    const version = parseInt(container?.dataset.version || '0', 10);
-
-                    let newValue;
-
-                    if (attrType.attributeValueType === 'Boolean') {
-                        newValue = element.checked ? 'true' : 'false';
-                    } else if (attrType.attributeValueType === 'List') {
-                        newValue = element.value;
-                    } else {
-                        newValue = element.value;
+                        console.log('✅ School attributes displayed (Edit mode:', isEditMode, ')');
                     }
 
-                    changes.push({
-                        id: recordId,
-                        attributeTypeId: attrType.id,
-                        value: newValue,
-                        version: version
-                    });
-                }
+                    async function saveSchoolAttributes() {
+                        console.log('💾 Saving school attributes...');
 
-                console.log('📝 Sending changes to server:', {
-                    schoolYearId: schoolYearId,
-                    attributes: changes
-                });
+                        try {
+                            const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
 
-                const response = await fetch(AppConfig.getApiUrl('schoolAttributes/update'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        schoolYearId: parseInt(schoolYearId),
-                        attributes: changes
-                    })
-                });
+                            if (!schoolYearId) {
+                                alert('לא נבחרה שנת לימודים');
+                                return;
+                            }
 
-                const result = await response.json();
+                            const changes = [];
 
-                if (response.ok && result.success) {
-                    console.log('✅ Attributes saved successfully:', result.data);
 
-                    // Reload fresh data from server
-                    await loadSchoolAttributes();
+                            for (const attrType of window.schoolAttributeTypes) {
+                                const element = document.getElementById(`attr_${attrType.id}`);
+                                if (!element) continue;
 
-                    // Reset flags
-                    window.hasUnsavedAttributeChanges = false;
+                                const container = element.closest('.attribute-item');
+                                const recordId = container?.dataset.recordId ? parseInt(container.dataset.recordId) : null;
+                                const version = parseInt(container?.dataset.version || '0', 10);
 
-                    alert('שירותי בית הספר עודכנו בהצלחה');
-                } else {
-                    console.error('❌ Failed to save attributes:', result);
-                    alert(result.message || 'שגיאה בשמירת השירותים');
-                }
+                                let newValue;
 
-            } catch (error) {
-                console.error('💥 Error saving school attributes:', error);
-                alert('שגיאה בשמירת שירותי בית הספר');
-            }
-        }
+                                if (attrType.attributeValueType === 'Boolean') {
+                                    newValue = element.checked ? 'true' : 'false';
+                                } else if (attrType.attributeValueType === 'List') {
+                                    newValue = element.value;
+                                } else {
+                                    newValue = element.value;
+                                }
 
-        function cleanupSchoolDetailsScreen() {
-            // Remove school details content from DOM
-            const contentCard = document.querySelector('.content-card');
-            if (contentCard) {
-                contentCard.remove();
-            }
-            // Clear global state if needed
-            schoolAttributeTypes = [];
-            // Optionally remove event listeners or timers here
-        }
+                                changes.push({
+                                    id: recordId,
+                                    attributeTypeId: attrType.id,
+                                    value: newValue,
+                                    version: version
+                                });
+                            }
 
-        // School Additional Study Programs Management Section
+                            console.log('📝 Sending changes to server:', {
+                                schoolYearId: schoolYearId,
+                                attributes: changes
+                            });
 
-        // Store edit mode state globally
-        window.schoolAdditionalStudyEditMode = window.schoolAdditionalStudyEditMode || false;
+                            const response = await fetch(AppConfig.getApiUrl('schoolAttributes/update'), {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    schoolYearId: parseInt(schoolYearId),
+                                    attributes: changes
+                                })
+                            });
 
-        // Store last additional study data for re-rendering
-        window.lastSchoolAdditionalStudyData = window.lastSchoolAdditionalStudyData || [];
+                            const result = await response.json();
 
-        // Setup edit additional study button - TOGGLE ACTIONS COLUMN VISIBILITY
-        function setupEditAdditionalStudyButton() {
-            const editBtn = document.getElementById('editAdditionalStudyBtn');
-            const addBtn = document.getElementById('addAdditionalStudyBtn');
+                            if (response.ok && result.success) {
+                                console.log('✅ Attributes saved successfully:', result.data);
 
-            if (editBtn) {
-                editBtn.onclick = function (event) {
-                    event.stopPropagation();
-                    window.schoolAdditionalStudyEditMode = !window.schoolAdditionalStudyEditMode;
+                                // Reload fresh data from server
+                                await loadSchoolAttributes();
 
-                    // Toggle actions column visibility
-                    const actionsColumn = document.querySelectorAll('#additionalStudyTableContainer [data-column="actions"]');
-                    actionsColumn.forEach(cell => {
-                        cell.style.display = window.schoolAdditionalStudyEditMode ? '' : 'none';
-                    });
+                                // Reset flags
+                                window.hasUnsavedAttributeChanges = false;
 
-                    // Toggle add button ONLY if card is expanded
-                    if (addBtn) {
-                        const card = editBtn.closest('.detail-card');
-                        const isExpanded = card && card.classList.contains('expanded');
-                        addBtn.style.display = (window.schoolAdditionalStudyEditMode && isExpanded) ? 'inline-flex' : 'none';
-                    }
-                    // Update button icon/text
-                    const btnImg = editBtn.querySelector('img');
-                    if (btnImg) {
-                        btnImg.alt = window.schoolAdditionalStudyEditMode ? 'סגור עריכה' : 'עריכה';
+                                alert('שירותי בית הספר עודכנו בהצלחה');
+                            } else {
+                                console.error('❌ Failed to save attributes:', result);
+                                alert(result.message || 'שגיאה בשמירת השירותים');
+                            }
+
+                        } catch (error) {
+                            console.error('💥 Error saving school attributes:', error);
+                            alert('שגיאה בשמירת שירותי בית הספר');
+                        }
                     }
 
-                    console.log('✏️ Additional study edit mode toggled:', window.schoolAdditionalStudyEditMode);
-                };
-                console.log('✅ Edit additional study button initialized');
-            } else {
-                console.warn('⚠️ Edit additional study button not found');
-            }
-        }
-
-        // Load school additional study programs
-        async function loadSchoolAdditionalStudyPrograms() {
-            console.log('📚 Loading school additional study programs...');
-
-            const container = document.getElementById('additionalStudyProgramContent');
-            if (!container) {
-                console.error('❌ additionalStudyProgramContent container not found');
-                return;
-            }
-
-            try {
-                const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
-
-                if (!selectedSchoolYearId) {
-                    console.error('❌ No school year ID in session');
-                    container.innerHTML = '<p style="color: #721c24; padding: 20px;">לא נמצא מזהה שנת לימודים</p>';
-                    return;
-                }
-
-                const authToken = sessionStorage.getItem('authToken');
-                if (!authToken) {
-                    console.error('❌ No auth token found');
-                    container.innerHTML = '<p style="color: #721c24; padding: 20px;">נדרש אימות. אנא התחבר מחדש.</p>';
-                    return;
-                }
-
-                container.innerHTML = '<p style="padding: 20px;">טוען תל"ן...</p>';
-
-                const apiUrl = AppConfig.getApiUrl(`schoolAdditionalStudyPrograms/by-school-year/${selectedSchoolYearId}`);
-                console.log('🌐 Making API call to:', apiUrl);
-
-                const response = await fetch(apiUrl, {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${authToken}`
+                    function cleanupSchoolDetailsScreen() {
+                        // Remove school details content from DOM
+                        const contentCard = document.querySelector('.content-card');
+                        if (contentCard) {
+                            contentCard.remove();
+                        }
+                        // Clear global state if needed
+                        schoolAttributeTypes = [];
+                        // Optionally remove event listeners or timers here
                     }
-                });
 
-                if (response.ok) {
-                    const result = await response.json();
-                    console.log('📚 Additional study programs received:', result);
+                    // School Additional Study Programs Management Section
 
-                    if (result.success && result.data) {
-                        window.lastSchoolAdditionalStudyData = result.data;
-                        displaySchoolAdditionalStudyPrograms(result.data);
-                    } else {
-                        throw new Error('Invalid response format');
+                    // Store edit mode state globally
+                    window.schoolAdditionalStudyEditMode = window.schoolAdditionalStudyEditMode || false;
+
+                    // Store last additional study data for re-rendering
+                    window.lastSchoolAdditionalStudyData = window.lastSchoolAdditionalStudyData || [];
+
+                    // Setup edit additional study button - TOGGLE ACTIONS COLUMN VISIBILITY
+                    function setupEditAdditionalStudyButton() {
+                        const editBtn = document.getElementById('editAdditionalStudyBtn');
+                        const addBtn = document.getElementById('addAdditionalStudyBtn');
+
+                        if (editBtn) {
+                            editBtn.onclick = function (event) {
+                                event.stopPropagation();
+                                window.schoolAdditionalStudyEditMode = !window.schoolAdditionalStudyEditMode;
+
+                                // Toggle actions column visibility
+                                const actionsColumn = document.querySelectorAll('#additionalStudyTableContainer [data-column="actions"]');
+                                actionsColumn.forEach(cell => {
+                                    cell.style.display = window.schoolAdditionalStudyEditMode ? '' : 'none';
+                                });
+
+                                // Toggle add button ONLY if card is expanded
+                                if (addBtn) {
+                                    const card = editBtn.closest('.detail-card');
+                                    const isExpanded = card && card.classList.contains('expanded');
+                                    addBtn.style.display = (window.schoolAdditionalStudyEditMode && isExpanded) ? 'inline-flex' : 'none';
+                                }
+                                // Update button icon/text
+                                const btnImg = editBtn.querySelector('img');
+                                if (btnImg) {
+                                    btnImg.alt = window.schoolAdditionalStudyEditMode ? 'סגור עריכה' : 'עריכה';
+                                }
+
+                                console.log('✏️ Additional study edit mode toggled:', window.schoolAdditionalStudyEditMode);
+                            };
+                            console.log('✅ Edit additional study button initialized');
+                        } else {
+                            console.warn('⚠️ Edit additional study button not found');
+                        }
                     }
-                } else {
-                    const errorText = await response.text();
-                    console.error('❌ API Error:', response.status, errorText);
-                    container.innerHTML = `<p style="color: #721c24; padding: 20px;">שגיאה בטעינת תל"ן: ${response.status}</p>`;
-                }
-            } catch (error) {
-                console.error('💥 Exception in loadSchoolAdditionalStudyPrograms:', error);
-                container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה בטעינת תל"ן</p>';
-            }
-        }
 
-        // Display school additional study programs - READ-ONLY TABLE with HIDDEN ACTIONS COLUMN
-        function displaySchoolAdditionalStudyPrograms(programs) {
-            console.log('📚 Displaying school additional study programs:', programs);
+                    // Load school additional study programs
+                    async function loadSchoolAdditionalStudyPrograms() {
+                        console.log('📚 Loading school additional study programs...');
 
-            const container = document.getElementById('additionalStudyProgramContent');
-            if (!container) return;
+                        const container = document.getElementById('additionalStudyProgramContent');
+                        if (!container) {
+                            console.error('❌ additionalStudyProgramContent container not found');
+                            return;
+                        }
 
-            if (!programs || programs.length === 0) {
-                container.innerHTML = '<p style="padding: 20px; color: #6c757d;">אין תל"ן להצגה</p>';
-                return;
-            }
+                        try {
+                            const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
 
-            // Clear container
-            container.innerHTML = '';
+                            if (!selectedSchoolYearId) {
+                                console.error('❌ No school year ID in session');
+                                container.innerHTML = '<p style="color: #721c24; padding: 20px;">לא נמצא מזהה שנת לימודים</p>';
+                                return;
+                            }
 
-            // Create table container
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = `<div id="additionalStudyTableContainer"></div>`;
-            container.appendChild(wrapper);
+                            const authToken = sessionStorage.getItem('authToken');
+                            if (!authToken) {
+                                console.error('❌ No auth token found');
+                                container.innerHTML = '<p style="color: #721c24; padding: 20px;">נדרש אימות. אנא התחבר מחדש.</p>';
+                                return;
+                            }
 
-            // Define columns - actions column hidden by default
-            const columns = [
-                {
-                    key: 'className',
-                    label: 'כיתה',
-                    sortable: true,
-                    readOnly: true
-                },
-                {
-                    key: 'name',
-                    label: 'שם',
-                    sortable: true,
-                    readOnly: true
-                },
-                {
-                    key: 'weeklyHours',
-                    label: 'שעות שבועיות',
-                    sortable: true,
-                    readOnly: true,
-                    render: (item) => `<span style="font-weight: 600; color: #C15A16;">${item.weeklyHours || '0'}</span>`
-                },
-                {
-                    key: 'numberOfStudents',
-                    label: 'מספר תלמידים בכיתה',
-                    sortable: true,
-                    readOnly: true,
-                    render: (item) => `<span style="font-weight: 600; color: #28a745;">${item.numberOfStudents || '0'}</span>`
-                },
-                {
-                    key: 'actions',
-                    label: 'פעולות',
-                    sortable: false,
-                    readOnly: true,
-                    render: (item) => `
+                            container.innerHTML = '<p style="padding: 20px;">טוען תל"ן...</p>';
+
+                            const apiUrl = AppConfig.getApiUrl(`schoolAdditionalStudyPrograms/by-school-year/${selectedSchoolYearId}`);
+                            console.log('🌐 Making API call to:', apiUrl);
+
+                            const response = await fetch(apiUrl, {
+                                method: 'GET',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${authToken}`
+                                }
+                            });
+
+                            if (response.ok) {
+                                const result = await response.json();
+                                console.log('📚 Additional study programs received:', result);
+
+                                if (result.success && result.data) {
+                                    window.lastSchoolAdditionalStudyData = result.data;
+                                    displaySchoolAdditionalStudyPrograms(result.data);
+                                } else {
+                                    throw new Error('Invalid response format');
+                                }
+                            } else {
+                                const errorText = await response.text();
+                                console.error('❌ API Error:', response.status, errorText);
+                                container.innerHTML = `<p style="color: #721c24; padding: 20px;">שגיאה בטעינת תל"ן: ${response.status}</p>`;
+                            }
+                        } catch (error) {
+                            console.error('💥 Exception in loadSchoolAdditionalStudyPrograms:', error);
+                            container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה בטעינת תל"ן</p>';
+                        }
+                    }
+
+                    // Display school additional study programs - READ-ONLY TABLE with HIDDEN ACTIONS COLUMN
+                    function displaySchoolAdditionalStudyPrograms(programs) {
+                        console.log('📚 Displaying school additional study programs:', programs);
+
+                        const container = document.getElementById('additionalStudyProgramContent');
+                        if (!container) return;
+
+                        if (!programs || programs.length === 0) {
+                            container.innerHTML = '<p style="padding: 20px; color: #6c757d;">אין תל"ן להצגה</p>';
+                            return;
+                        }
+
+                        // Clear container
+                        container.innerHTML = '';
+
+                        // Create table container
+                        const wrapper = document.createElement('div');
+                        wrapper.innerHTML = `<div id="additionalStudyTableContainer"></div>`;
+                        container.appendChild(wrapper);
+
+                        // Define columns - actions column hidden by default
+                        const columns = [
+                            {
+                                key: 'className',
+                                label: 'כיתה',
+                                sortable: true,
+                                readOnly: true
+                            },
+                            {
+                                key: 'name',
+                                label: 'שם',
+                                sortable: true,
+                                readOnly: true
+                            },
+                            {
+                                key: 'weeklyHours',
+                                label: 'שעות שבועיות',
+                                sortable: true,
+                                readOnly: true,
+                                render: (item) => `<span style="font-weight: 600; color: #C15A16;">${item.weeklyHours || '0'}</span>`
+                            },
+                            {
+                                key: 'numberOfStudents',
+                                label: 'מספר תלמידים בכיתה',
+                                sortable: true,
+                                readOnly: true,
+                                render: (item) => `<span style="font-weight: 600; color: #28a745;">${item.numberOfStudents || '0'}</span>`
+                            },
+                            {
+                                key: 'actions',
+                                label: 'פעולות',
+                                sortable: false,
+                                readOnly: true,
+                                render: (item) => `
                 <button class="btn-icon" onclick="showEditAdditionalStudyModal(${item.id})" title="עריכת תל״ן">
                     <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                 </button>
@@ -3274,105 +3330,105 @@
                     <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
                 </button>
             `
-                }
-            ];
+                            }
+                        ];
 
-            // Create ReusableTable
-            try {
-                window.additionalStudyTable = new ReusableTable('additionalStudyTableContainer', {
-                    tableName: 'schoolAdditionalStudy',
-                    isReadOnly: true,
-                    allowAdd: false,
-                    allowEdit: false,
-                    allowDelete: false
-                });
+                        // Create ReusableTable
+                        try {
+                            window.additionalStudyTable = new ReusableTable('additionalStudyTableContainer', {
+                                tableName: 'schoolAdditionalStudy',
+                                isReadOnly: true,
+                                allowAdd: false,
+                                allowEdit: false,
+                                allowDelete: false
+                            });
 
-                window.additionalStudyTable.init(programs, columns);
+                            window.additionalStudyTable.init(programs, columns);
 
-                // Hide actions column initially
-                const actionsHeaders = document.querySelectorAll('#additionalStudyTableContainer th:last-child');
-                const actionsCells = document.querySelectorAll('#additionalStudyTableContainer td:last-child');
+                            // Hide actions column initially
+                            const actionsHeaders = document.querySelectorAll('#additionalStudyTableContainer th:last-child');
+                            const actionsCells = document.querySelectorAll('#additionalStudyTableContainer td:last-child');
 
-                actionsHeaders.forEach(th => {
-                    th.style.display = 'none';
-                    th.setAttribute('data-column', 'actions');
-                });
+                            actionsHeaders.forEach(th => {
+                                th.style.display = 'none';
+                                th.setAttribute('data-column', 'actions');
+                            });
 
-                actionsCells.forEach(td => {
-                    td.style.display = 'none';
-                    td.setAttribute('data-column', 'actions');
-                });
+                            actionsCells.forEach(td => {
+                                td.style.display = 'none';
+                                td.setAttribute('data-column', 'actions');
+                            });
 
-                console.log('✅ ReusableTable created with hidden actions column for additional study programs');
+                            console.log('✅ ReusableTable created with hidden actions column for additional study programs');
 
-            } catch (error) {
-                console.error('❌ Error creating ReusableTable for additional study programs:', error);
-                container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה ביצירת טבלת תל"ן</p>';
-            }
-        }
-
-        // Show add additional study program modal
-        async function showAddAdditionalStudyModal() {
-            console.log('➕ Opening add additional study program modal');
-            await showAdditionalStudyModal(null);
-        }
-
-        // Show edit additional study program modal
-        async function showEditAdditionalStudyModal(programId) {
-            console.log('✏️ Opening edit additional study program modal for program:', programId);
-            const program = window.lastSchoolAdditionalStudyData.find(p => p.id === programId);
-            if (!program) {
-                console.error('❌ Additional study program not found:', programId);
-                alert('תל״ן לא נמצא');
-                return;
-            }
-            await showAdditionalStudyModal(program);
-        }
-
-        // Generic additional study program modal (add or edit)
-        async function showAdditionalStudyModal(programData) {
-            console.log('📋 Opening additional study program modal:', programData ? 'EDIT' : 'ADD');
-
-            try {
-                // Get school year ID from session
-                const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
-
-                if (!selectedSchoolYearId) {
-                    alert('לא נמצא מזהה שנת לימודים');
-                    return;
-                }
-
-                // Load classes for the school year
-                const classesResponse = await fetch(AppConfig.getApiUrl(`schoolClasses/by-school-year/${selectedSchoolYearId}`), {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                        } catch (error) {
+                            console.error('❌ Error creating ReusableTable for additional study programs:', error);
+                            container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה ביצירת טבלת תל"ן</p>';
+                        }
                     }
-                });
 
-                if (!classesResponse.ok) {
-                    throw new Error('Failed to load classes');
-                }
+                    // Show add additional study program modal
+                    async function showAddAdditionalStudyModal() {
+                        console.log('➕ Opening add additional study program modal');
+                        await showAdditionalStudyModal(null);
+                    }
 
-                const classesResult = await classesResponse.json();
-                const classes = classesResult.success ? classesResult.data : [];
+                    // Show edit additional study program modal
+                    async function showEditAdditionalStudyModal(programId) {
+                        console.log('✏️ Opening edit additional study program modal for program:', programId);
+                        const program = window.lastSchoolAdditionalStudyData.find(p => p.id === programId);
+                        if (!program) {
+                            console.error('❌ Additional study program not found:', programId);
+                            alert('תל״ן לא נמצא');
+                            return;
+                        }
+                        await showAdditionalStudyModal(program);
+                    }
 
-                // Create modal
-                const overlay = document.createElement('div');
-                overlay.className = 'dialog-overlay';
+                    // Generic additional study program modal (add or edit)
+                    async function showAdditionalStudyModal(programData) {
+                        console.log('📋 Opening additional study program modal:', programData ? 'EDIT' : 'ADD');
 
-                const dialog = document.createElement('div');
-                dialog.className = 'dialog-box';
-                dialog.style.minWidth = '500px';
+                        try {
+                            // Get school year ID from session
+                            const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
 
-                const classOptions = classes.map(c =>
-                    `<option value="${c.id}" ${programData && programData.classId === c.id ? 'selected' : ''}>
+                            if (!selectedSchoolYearId) {
+                                alert('לא נמצא מזהה שנת לימודים');
+                                return;
+                            }
+
+                            // Load classes for the school year
+                            const classesResponse = await fetch(AppConfig.getApiUrl(`schoolClasses/by-school-year/${selectedSchoolYearId}`), {
+                                method: 'GET',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                                }
+                            });
+
+                            if (!classesResponse.ok) {
+                                throw new Error('Failed to load classes');
+                            }
+
+                            const classesResult = await classesResponse.json();
+                            const classes = classesResult.success ? classesResult.data : [];
+
+                            // Create modal
+                            const overlay = document.createElement('div');
+                            overlay.className = 'dialog-overlay';
+
+                            const dialog = document.createElement('div');
+                            dialog.className = 'dialog-box';
+                            dialog.style.minWidth = '500px';
+
+                            const classOptions = classes.map(c =>
+                                `<option value="${c.id}" ${programData && programData.classId === c.id ? 'selected' : ''}>
                 ${c.level} ${c.classNumber}
             </option>`
-                ).join('');
+                            ).join('');
 
-                dialog.innerHTML = `
+                            dialog.innerHTML = `
             <h3 class="dialog-title">${programData ? 'עריכת תל״ן' : 'הוספת תל״ן חדש'}</h3>
             <div style="margin: 20px 0;">
                 <div style="margin-bottom: 15px;">
@@ -3440,290 +3496,290 @@
             </div>
         `;
 
-                overlay.appendChild(dialog);
-                document.body.appendChild(overlay);
+                            overlay.appendChild(dialog);
+                            document.body.appendChild(overlay);
 
-                // OK button handler with validation and save
-                document.getElementById('programOkBtn').onclick = async () => {
-                    const classId = document.getElementById('programClass').value;
-                    const name = document.getElementById('programName').value.trim();
-                    const hours = parseFloat(document.getElementById('programHours').value);
-                    const students = parseInt(document.getElementById('programStudents').value);
-                    const recordId = document.getElementById('programRecordId').value;
+                            // OK button handler with validation and save
+                            document.getElementById('programOkBtn').onclick = async () => {
+                                const classId = document.getElementById('programClass').value;
+                                const name = document.getElementById('programName').value.trim();
+                                const hours = parseFloat(document.getElementById('programHours').value);
+                                const students = parseInt(document.getElementById('programStudents').value);
+                                const recordId = document.getElementById('programRecordId').value;
 
-                    // Validate required fields
-                    if (!classId || !name || isNaN(hours) || isNaN(students)) {
-                        alert('נא למלא את כל השדות הנדרשים');
-                        return;
-                    }
+                                // Validate required fields
+                                if (!classId || !name || isNaN(hours) || isNaN(students)) {
+                                    alert('נא למלא את כל השדות הנדרשים');
+                                    return;
+                                }
 
-                    if (hours < 0) {
-                        alert('מספר השעות חייב להיות חיובי');
-                        return;
-                    }
+                                if (hours < 0) {
+                                    alert('מספר השעות חייב להיות חיובי');
+                                    return;
+                                }
 
-                    if (students < 0) {
-                        alert('מספר התלמידים חייב להיות חיובי');
-                        return;
-                    }
+                                if (students < 0) {
+                                    alert('מספר התלמידים חייב להיות חיובי');
+                                    return;
+                                }
 
-                    console.log('📝 Saving additional study program:', {
-                        recordId: recordId || null,
-                        schoolYearId: selectedSchoolYearId,
-                        classId,
-                        name,
-                        weeklyHours: hours,
-                        numberOfStudents: students,
-                        isEdit: !!recordId
-                    });
+                                console.log('📝 Saving additional study program:', {
+                                    recordId: recordId || null,
+                                    schoolYearId: selectedSchoolYearId,
+                                    classId,
+                                    name,
+                                    weeklyHours: hours,
+                                    numberOfStudents: students,
+                                    isEdit: !!recordId
+                                });
 
-                    try {
-                        const url = recordId
-                            ? AppConfig.getApiUrl(`schoolAdditionalStudyPrograms/${recordId}`)
-                            : AppConfig.getApiUrl('schoolAdditionalStudyPrograms');
+                                try {
+                                    const url = recordId
+                                        ? AppConfig.getApiUrl(`schoolAdditionalStudyPrograms/${recordId}`)
+                                        : AppConfig.getApiUrl('schoolAdditionalStudyPrograms');
 
-                        const method = recordId ? 'PUT' : 'POST';
+                                    const method = recordId ? 'PUT' : 'POST';
 
-                        const payload = {
-                            schoolYearId: parseInt(selectedSchoolYearId),
-                            classId: parseInt(classId),
-                            name: name,
-                            weeklyHours: hours,
-                            numberOfStudents: students
-                        };
+                                    const payload = {
+                                        schoolYearId: parseInt(selectedSchoolYearId),
+                                        classId: parseInt(classId),
+                                        name: name,
+                                        weeklyHours: hours,
+                                        numberOfStudents: students
+                                    };
 
-                        if (recordId) {
-                            payload.id = parseInt(recordId);
+                                    if (recordId) {
+                                        payload.id = parseInt(recordId);
+                                    }
+
+                                    const response = await fetch(url, {
+                                        method: method,
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                                        },
+                                        body: JSON.stringify(payload)
+                                    });
+
+                                    const result = await response.json();
+
+                                    if (response.ok && result.success) {
+                                        console.log('✅ Additional study program saved successfully');
+                                        document.body.removeChild(overlay);
+
+                                        // Refresh table
+                                        await loadSchoolAdditionalStudyPrograms();
+
+                                        // Restore edit mode if was active
+                                        if (window.schoolAdditionalStudyEditMode) {
+                                            setTimeout(() => {
+                                                const actionsColumn = document.querySelectorAll('#additionalStudyTableContainer [data-column="actions"]');
+                                                actionsColumn.forEach(cell => cell.style.display = '');
+                                                const addBtn = document.getElementById('addAdditionalStudyBtn');
+                                                if (addBtn) addBtn.style.display = 'inline-flex';
+                                            }, 100);
+                                        }
+
+                                        alert(recordId ? 'התל"ן עודכן בהצלחה' : 'התל"ן נוסף בהצלחה');
+                                    } else {
+                                        console.error('❌ Failed to save additional study program:', result);
+                                        alert(result.message || 'שגיאה בשמירת התל"ן');
+                                    }
+
+                                } catch (error) {
+                                    console.error('💥 Error saving additional study program:', error);
+                                    alert('שגיאה בשמירת התל"ן');
+                                }
+                            };
+
+                            // Cancel button handler
+                            document.getElementById('programCancelBtn').onclick = () => {
+                                document.body.removeChild(overlay);
+                            };
+
+                            // ESC key handler
+                            const escHandler = (e) => {
+                                if (e.key === 'Escape' && document.body.contains(overlay)) {
+                                    document.body.removeChild(overlay);
+                                    document.removeEventListener('keydown', escHandler);
+                                }
+                            };
+                            document.addEventListener('keydown', escHandler);
+
+                        } catch (error) {
+                            console.error('💥 Error opening additional study program modal:', error);
+                            alert('שגיאה בפתיחת חלון עריכה');
                         }
+                    }
 
-                        const response = await fetch(url, {
-                            method: method,
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-                            },
-                            body: JSON.stringify(payload)
-                        });
+                    // Delete additional study program with confirmation
+                    async function deleteAdditionalStudyProgram(programId) {
+                        console.log('🗑️ Attempting to delete additional study program:', programId);
 
-                        const result = await response.json();
+                        try {
+                            // Show confirmation dialog
+                            const confirmed = await showDeleteConfirmationDialog();
 
-                        if (response.ok && result.success) {
-                            console.log('✅ Additional study program saved successfully');
-                            document.body.removeChild(overlay);
-
-                            // Refresh table
-                            await loadSchoolAdditionalStudyPrograms();
-
-                            // Restore edit mode if was active
-                            if (window.schoolAdditionalStudyEditMode) {
-                                setTimeout(() => {
-                                    const actionsColumn = document.querySelectorAll('#additionalStudyTableContainer [data-column="actions"]');
-                                    actionsColumn.forEach(cell => cell.style.display = '');
-                                    const addBtn = document.getElementById('addAdditionalStudyBtn');
-                                    if (addBtn) addBtn.style.display = 'inline-flex';
-                                }, 100);
+                            if (!confirmed) {
+                                console.log('❌ Delete cancelled by user');
+                                return;
                             }
 
-                            alert(recordId ? 'התל"ן עודכן בהצלחה' : 'התל"ן נוסף בהצלחה');
+                            // Delete from database via backend API
+                            const response = await fetch(AppConfig.getApiUrl(`schoolAdditionalStudyPrograms/${programId}`), {
+                                method: 'DELETE',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                                }
+                            });
+
+                            const result = await response.json();
+
+                            if (response.ok && result.success) {
+                                console.log('✅ Additional study program deleted successfully');
+
+                                // Refresh table
+                                await loadSchoolAdditionalStudyPrograms();
+
+                                // Re-show actions column and add button if in edit mode
+                                if (window.schoolAdditionalStudyEditMode) {
+                                    setTimeout(() => {
+                                        const actionsColumn = document.querySelectorAll('#additionalStudyTableContainer [data-column="actions"]');
+                                        actionsColumn.forEach(cell => cell.style.display = '');
+
+                                        const addBtn = document.getElementById('addAdditionalStudyBtn');
+                                        if (addBtn) {
+                                            addBtn.style.display = 'inline-flex';
+                                        }
+                                    }, 100);
+                                }
+
+                                alert('התל"ן נמחק בהצלחה');
+                            } else {
+                                console.error('❌ Failed to delete additional study program:', result);
+                                alert(result.message || 'שגיאה במחיקת התל"ן');
+                            }
+
+                        } catch (error) {
+                            console.error('💥 Error deleting additional study program:', error);
+                            alert('שגיאה במחיקת התל"ן');
+                        }
+                    }
+
+
+
+
+
+                    // Context button navigation functions following Single-Page Application with Module Loading
+                    async function navigateBackToSchoolDashboard() {
+                        if ((window.schoolAttributesEditMode && window.hasUnsavedAttributeChanges)) {
+                            const canLeave = await showNavigationWarningDialog();
+                            if (!canLeave) {
+                                console.log('❌ Navigation cancelled - unsaved changes');
+                                return;
+                            }
+                        }
+                        window.schoolClassesEditMode = false;
+                        window.schoolAttributesEditMode = false;
+                        console.log('🏫 Navigating back to school dashboard...');
+                        cleanupSchoolDetailsScreen();
+                        // Store navigation context following Authentication & Session Management
+                        sessionStorage.setItem('navigationSource', 'schooldetails');
+                        sessionStorage.setItem('navigationTimestamp', new Date().toISOString());
+
+                        // Check if navigateTo function is available from main app following Cross-Component Communication
+                        if (typeof navigateTo === 'function') {
+                            navigateTo('schooldashboard');
+                        } else if (typeof window.navigateTo === 'function') {
+                            window.navigateTo('schooldashboard');
                         } else {
-                            console.error('❌ Failed to save additional study program:', result);
-                            alert(result.message || 'שגיאה בשמירת התל"ן');
+                            // Fallback: Load school dashboard page directly following Frontend Architecture Patterns
+                            loadPageDirectly('schooldashboard.html', 'schooldashboard', 'לוח הבקרה של בית הספר');
+                        }
+                    }
+
+                    async function navigateBackToDashboard() {
+                        if ((window.schoolAttributesEditMode && window.hasUnsavedAttributeChanges)) {
+                            const canLeave = await showNavigationWarningDialog();
+                            if (!canLeave) {
+                                console.log('❌ Navigation cancelled - unsaved changes');
+                                return;
+                            }
+                        }
+                        window.schoolClassesEditMode = false;
+                        window.schoolAttributesEditMode = false;
+                        console.log('📊 Navigating back to main dashboard...');
+                        cleanupSchoolDetailsScreen();
+                        // Store navigation context following Authentication & Session Management
+                        sessionStorage.setItem('navigationSource', 'schooldetails');
+                        sessionStorage.setItem('returnToDashboard', 'true');
+
+                        // Check if navigateTo function is available from main app following Cross-Component Communication
+                        if (typeof navigateTo === 'function') {
+                            navigateTo('dashboard');
+                        } else if (typeof window.navigateTo === 'function') {
+                            window.navigateTo('dashboard');
+                        } else {
+                            // Fallback: Load dashboard page directly following Frontend Architecture Patterns
+                            loadPageDirectly('dashboard.html', 'dashboard', 'לוח הבקרה הראשי');
+                        }
+                    }
+
+                    // Generic page loading function following Frontend Architecture Patterns
+                    function loadPageDirectly(filename, section, displayName) {
+                        console.log(`🔄 Loading ${filename} page directly...`);
+
+                        // Find the main content container following Project-Specific Patterns
+                        const mainContainer = document.getElementById('dynamicContent') ||
+                            document.getElementById('mainContent') ||
+                            document.querySelector('.main-content') ||
+                            document.querySelector('main') ||
+                            document.body;
+
+                        if (!mainContainer) {
+                            console.error('❌ Could not find main content container');
+                            return;
                         }
 
-                    } catch (error) {
-                        console.error('💥 Error saving additional study program:', error);
-                        alert('שגיאה בשמירת התל"ן');
-                    }
-                };
-
-                // Cancel button handler
-                document.getElementById('programCancelBtn').onclick = () => {
-                    document.body.removeChild(overlay);
-                };
-
-                // ESC key handler
-                const escHandler = (e) => {
-                    if (e.key === 'Escape' && document.body.contains(overlay)) {
-                        document.body.removeChild(overlay);
-                        document.removeEventListener('keydown', escHandler);
-                    }
-                };
-                document.addEventListener('keydown', escHandler);
-
-            } catch (error) {
-                console.error('💥 Error opening additional study program modal:', error);
-                alert('שגיאה בפתיחת חלון עריכה');
-            }
-        }
-
-        // Delete additional study program with confirmation
-        async function deleteAdditionalStudyProgram(programId) {
-            console.log('🗑️ Attempting to delete additional study program:', programId);
-
-            try {
-                // Show confirmation dialog
-                const confirmed = await showDeleteConfirmationDialog();
-
-                if (!confirmed) {
-                    console.log('❌ Delete cancelled by user');
-                    return;
-                }
-
-                // Delete from database via backend API
-                const response = await fetch(AppConfig.getApiUrl(`schoolAdditionalStudyPrograms/${programId}`), {
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-                    }
-                });
-
-                const result = await response.json();
-
-                if (response.ok && result.success) {
-                    console.log('✅ Additional study program deleted successfully');
-
-                    // Refresh table
-                    await loadSchoolAdditionalStudyPrograms();
-
-                    // Re-show actions column and add button if in edit mode
-                    if (window.schoolAdditionalStudyEditMode) {
-                        setTimeout(() => {
-                            const actionsColumn = document.querySelectorAll('#additionalStudyTableContainer [data-column="actions"]');
-                            actionsColumn.forEach(cell => cell.style.display = '');
-
-                            const addBtn = document.getElementById('addAdditionalStudyBtn');
-                            if (addBtn) {
-                                addBtn.style.display = 'inline-flex';
-                            }
-                        }, 100);
-                    }
-
-                    alert('התל"ן נמחק בהצלחה');
-                } else {
-                    console.error('❌ Failed to delete additional study program:', result);
-                    alert(result.message || 'שגיאה במחיקת התל"ן');
-                }
-
-            } catch (error) {
-                console.error('💥 Error deleting additional study program:', error);
-                alert('שגיאה במחיקת התל"ן');
-            }
-        }
-
-
-
-
-
-        // Context button navigation functions following Single-Page Application with Module Loading
-        async function navigateBackToSchoolDashboard() {
-            if ((window.schoolAttributesEditMode && window.hasUnsavedAttributeChanges)) {
-                const canLeave = await showNavigationWarningDialog();
-                if (!canLeave) {
-                    console.log('❌ Navigation cancelled - unsaved changes');
-                    return;
-                }
-            }
-            window.schoolClassesEditMode = false;
-            window.schoolAttributesEditMode = false;
-            console.log('🏫 Navigating back to school dashboard...');
-            cleanupSchoolDetailsScreen();
-            // Store navigation context following Authentication & Session Management
-            sessionStorage.setItem('navigationSource', 'schooldetails');
-            sessionStorage.setItem('navigationTimestamp', new Date().toISOString());
-
-            // Check if navigateTo function is available from main app following Cross-Component Communication
-            if (typeof navigateTo === 'function') {
-                navigateTo('schooldashboard');
-            } else if (typeof window.navigateTo === 'function') {
-                window.navigateTo('schooldashboard');
-            } else {
-                // Fallback: Load school dashboard page directly following Frontend Architecture Patterns
-                loadPageDirectly('schooldashboard.html', 'schooldashboard', 'לוח הבקרה של בית הספר');
-            }
-        }
-
-        async function navigateBackToDashboard() {
-            if ((window.schoolAttributesEditMode && window.hasUnsavedAttributeChanges)) {
-                const canLeave = await showNavigationWarningDialog();
-                if (!canLeave) {
-                    console.log('❌ Navigation cancelled - unsaved changes');
-                    return;
-                }
-            }
-            window.schoolClassesEditMode = false;
-            window.schoolAttributesEditMode = false;
-            console.log('📊 Navigating back to main dashboard...');
-            cleanupSchoolDetailsScreen();
-            // Store navigation context following Authentication & Session Management
-            sessionStorage.setItem('navigationSource', 'schooldetails');
-            sessionStorage.setItem('returnToDashboard', 'true');
-
-            // Check if navigateTo function is available from main app following Cross-Component Communication
-            if (typeof navigateTo === 'function') {
-                navigateTo('dashboard');
-            } else if (typeof window.navigateTo === 'function') {
-                window.navigateTo('dashboard');
-            } else {
-                // Fallback: Load dashboard page directly following Frontend Architecture Patterns
-                loadPageDirectly('dashboard.html', 'dashboard', 'לוח הבקרה הראשי');
-            }
-        }
-
-        // Generic page loading function following Frontend Architecture Patterns
-        function loadPageDirectly(filename, section, displayName) {
-            console.log(`🔄 Loading ${filename} page directly...`);
-
-            // Find the main content container following Project-Specific Patterns
-            const mainContainer = document.getElementById('dynamicContent') ||
-                document.getElementById('mainContent') ||
-                document.querySelector('.main-content') ||
-                document.querySelector('main') ||
-                document.body;
-
-            if (!mainContainer) {
-                console.error('❌ Could not find main content container');
-                return;
-            }
-
-            // Show loading state following Hebrew/RTL Specific Patterns
-            mainContainer.innerHTML = `
+                        // Show loading state following Hebrew/RTL Specific Patterns
+                        mainContainer.innerHTML = `
                 <div class="loading-spinner" style="text-align: center; padding: 40px; direction: rtl;">
                     <div style="font-size: 1.2em; margin-bottom: 15px;">טוען ${displayName}...</div>
                     <div style="color: #6c757d;">אנא המתן...</div>
                 </div>
             `;
 
-            // Fetch and load page following API Communication Pattern
-            fetch(filename)
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        // Fetch and load page following API Communication Pattern
+                        fetch(filename)
+                            .then(response => {
+                                if (!response.ok) {
+                                    throw new Error(`HTTP error! status: ${response.status}`);
+                                }
+                                return response.text();
+                            })
+                            .then(html => {
+                                console.log(`✅ ${filename} page loaded successfully`);
+                                mainContainer.innerHTML = html;
+
+                                // Execute scripts safely following Critical Development Workflows
+                                executeScriptsInContainer(mainContainer);
+
+                                // Update browser history following Single-Page Application patterns
+                                history.pushState({ section: section }, '', `#${section}`);
+
+                                console.log(`✅ ${displayName} page loaded and initialized`);
+                            })
+                            .catch(error => {
+                                console.error(`❌ Error loading ${filename} page:`, error);
+                                showNavigationError(mainContainer, `שגיאה בטעינת ${displayName}`);
+                            });
                     }
-                    return response.text();
-                })
-                .then(html => {
-                    console.log(`✅ ${filename} page loaded successfully`);
-                    mainContainer.innerHTML = html;
-
-                    // Execute scripts safely following Critical Development Workflows
-                    executeScriptsInContainer(mainContainer);
-
-                    // Update browser history following Single-Page Application patterns
-                    history.pushState({ section: section }, '', `#${section}`);
-
-                    console.log(`✅ ${displayName} page loaded and initialized`);
-                })
-                .catch(error => {
-                    console.error(`❌ Error loading ${filename} page:`, error);
-                    showNavigationError(mainContainer, `שגיאה בטעינת ${displayName}`);
-                });
-        }
 
 
 
-        function showNavigationError(container, message) {
-            container.innerHTML = `
+                    function showNavigationError(container, message) {
+                        container.innerHTML = `
                 <div class="error-message" style="
                     text-align: center; 
                     padding: 40px; 
@@ -3761,12 +3817,12 @@
                     </button>
                 </div>
             `;
-        }
+                    }
 
-        function showError(message) {
-            const contentCard = document.querySelector('.content-card');
-            if (contentCard) {
-                contentCard.innerHTML = `
+                    function showError(message) {
+                        const contentCard = document.querySelector('.content-card');
+                        if (contentCard) {
+                            contentCard.innerHTML = `
                     <div class="error-message" style="
                         text-align: center; 
                         padding: 40px; 
@@ -3792,81 +3848,81 @@
                         </button>
                     </div>
                 `;
-            }
-        }
+                        }
+                    }
 
-        // Initialize page following Critical Development Workflows
-        document.addEventListener('DOMContentLoaded', function () {
-            console.log('🏁 DOMContentLoaded event fired!');
-            initializeSchoolDetails();
-        });
+                    // Initialize page following Critical Development Workflows
+                    document.addEventListener('DOMContentLoaded', function () {
+                        console.log('🏁 DOMContentLoaded event fired!');
+                        initializeSchoolDetails();
+                    });
 
-        // Also try immediate call if DOM is already ready
-        if (document.readyState !== 'loading') {
-            console.log('📄 Document already ready, calling initializeSchoolDetails immediately');
-            initializeSchoolDetails();
-        }
+                    // Also try immediate call if DOM is already ready
+                    if (document.readyState !== 'loading') {
+                        console.log('📄 Document already ready, calling initializeSchoolDetails immediately');
+                        initializeSchoolDetails();
+                    }
 
-        // Make functions globally available following Cross-Component Communication
-        window.initializeCollapsibleCards = initializeCollapsibleCards;
-        window.setupEditSchoolDetailsButton = setupEditSchoolDetailsButton;
-        window.confirmSaveSchoolDetails = confirmSaveSchoolDetails;
+                    // Make functions globally available following Cross-Component Communication
+                    window.initializeCollapsibleCards = initializeCollapsibleCards;
+                    window.setupEditSchoolDetailsButton = setupEditSchoolDetailsButton;
+                    window.confirmSaveSchoolDetails = confirmSaveSchoolDetails;
 
-        window.handleSchoolDetailsChange = handleSchoolDetailsChange;
-        window.loadCharacterizations = loadCharacterizations;
-        window.loadCouncils = loadCouncils;
-        window.saveSchoolDetails = saveSchoolDetails;
-        window.initializeSchoolDetails = initializeSchoolDetails;
-        window.loadSchoolDetailsData = loadSchoolDetailsData;
-        window.loadSchoolDetails = loadSchoolDetails;
-        window.loadSchoolAttributes = loadSchoolAttributes;
+                    window.handleSchoolDetailsChange = handleSchoolDetailsChange;
+                    window.loadCharacterizations = loadCharacterizations;
+                    window.loadCouncils = loadCouncils;
+                    window.saveSchoolDetails = saveSchoolDetails;
+                    window.initializeSchoolDetails = initializeSchoolDetails;
+                    window.loadSchoolDetailsData = loadSchoolDetailsData;
+                    window.loadSchoolDetails = loadSchoolDetails;
+                    window.loadSchoolAttributes = loadSchoolAttributes;
 
-        window.loadAttributeTypes = loadAttributeTypes;
-
-
-        window.navigateBackToSchoolDashboard = navigateBackToSchoolDashboard;
-        window.navigateBackToDashboard = navigateBackToDashboard;
-        window.loadPageDirectly = loadPageDirectly;
-        window.showNavigationError = showNavigationError;
-        window.showError = showError;
-        // Make functions globally available following Cross-Component Communication
-        window.setupEditClassesButton = setupEditClassesButton;
-        window.loadSchoolClasses = loadSchoolClasses;
-        window.displaySchoolClasses = displaySchoolClasses;
-        window.addClassToDatabase = addClassToDatabase;
-        window.deleteClassWithConfirmation = deleteClassWithConfirmation;
-        window.showDeleteConfirmationDialog = showDeleteConfirmationDialog;
-        window.deleteClassFromDatabase = deleteClassFromDatabase;
-
-        // Make school tracks functions globally available following Cross-Component Communication
-        window.setupEditTracksButton = setupEditTracksButton;
-        window.loadSchoolTracks = loadSchoolTracks;
-        window.displaySchoolTracks = displaySchoolTracks;
-        window.showAddTrackModal = showAddTrackModal;
-        window.showEditTrackModal = showEditTrackModal;
-        window.showTrackModal = showTrackModal;
-        window.deleteTrack = deleteTrack;
-
-        window.setupEditAdditionalStudyButton = setupEditAdditionalStudyButton;
-        window.loadSchoolAdditionalStudyPrograms = loadSchoolAdditionalStudyPrograms;
-        window.displaySchoolAdditionalStudyPrograms = displaySchoolAdditionalStudyPrograms;
-        window.showAddAdditionalStudyModal = showAddAdditionalStudyModal;
-        window.showEditAdditionalStudyModal = showEditAdditionalStudyModal;
-        window.showAdditionalStudyModal = showAdditionalStudyModal;
-        window.deleteAdditionalStudyProgram = deleteAdditionalStudyProgram;
+                    window.loadAttributeTypes = loadAttributeTypes;
 
 
-        window.editAddress = editAddress;
-        window.editPrincipal = editPrincipal;
-        window.editInspector = editInspector;
-        window.editContactPerson = editContactPerson;
+                    window.navigateBackToSchoolDashboard = navigateBackToSchoolDashboard;
+                    window.navigateBackToDashboard = navigateBackToDashboard;
+                    window.loadPageDirectly = loadPageDirectly;
+                    window.showNavigationError = showNavigationError;
+                    window.showError = showError;
+                    // Make functions globally available following Cross-Component Communication
+                    window.setupEditClassesButton = setupEditClassesButton;
+                    window.loadSchoolClasses = loadSchoolClasses;
+                    window.displaySchoolClasses = displaySchoolClasses;
+                    window.addClassToDatabase = addClassToDatabase;
+                    window.deleteClassWithConfirmation = deleteClassWithConfirmation;
+                    window.showDeleteConfirmationDialog = showDeleteConfirmationDialog;
+                    window.deleteClassFromDatabase = deleteClassFromDatabase;
+
+                    // Make school tracks functions globally available following Cross-Component Communication
+                    window.setupEditTracksButton = setupEditTracksButton;
+                    window.loadSchoolTracks = loadSchoolTracks;
+                    window.displaySchoolTracks = displaySchoolTracks;
+                    window.showAddTrackModal = showAddTrackModal;
+                    window.showEditTrackModal = showEditTrackModal;
+                    window.showTrackModal = showTrackModal;
+                    window.deleteTrack = deleteTrack;
+
+                    window.setupEditAdditionalStudyButton = setupEditAdditionalStudyButton;
+                    window.loadSchoolAdditionalStudyPrograms = loadSchoolAdditionalStudyPrograms;
+                    window.displaySchoolAdditionalStudyPrograms = displaySchoolAdditionalStudyPrograms;
+                    window.showAddAdditionalStudyModal = showAddAdditionalStudyModal;
+                    window.showEditAdditionalStudyModal = showEditAdditionalStudyModal;
+                    window.showAdditionalStudyModal = showAdditionalStudyModal;
+                    window.deleteAdditionalStudyProgram = deleteAdditionalStudyProgram;
 
 
-        //    window.captureOriginalAttributeValues = captureOriginalAttributeValues;
-        //  window.checkForAttributeChanges = checkForAttributeChanges;
-        window.showAttributeSaveDialog = showAttributeSaveDialog;
-        window.showNavigationWarningDialog = showNavigationWarningDialog;
-        window.setupEditAttributesButton = setupEditAttributesButton;
-        window.saveSchoolAttributes = saveSchoolAttributes;
-        console.log('✅ School details functions registered globally');
+                    window.editAddress = editAddress;
+                    window.editPrincipal = editPrincipal;
+                    window.editInspector = editInspector;
+                    window.editContactPerson = editContactPerson;
+
+
+                    //    window.captureOriginalAttributeValues = captureOriginalAttributeValues;
+                    //  window.checkForAttributeChanges = checkForAttributeChanges;
+                    window.showAttributeSaveDialog = showAttributeSaveDialog;
+                    window.showNavigationWarningDialog = showNavigationWarningDialog;
+                    window.setupEditAttributesButton = setupEditAttributesButton;
+                    window.saveSchoolAttributes = saveSchoolAttributes;
+                    console.log('✅ School details functions registered globally');
     </script>
