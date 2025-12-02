@@ -1,32 +1,4 @@
 
---
--- Name: petel_schema; Type: SCHEMA; Schema: -; Owner: PetelAdmin
---
-
-CREATE SCHEMA petel_schema;
-
-
-ALTER SCHEMA petel_schema OWNER TO "PetelAdmin";
-
---
--- Name: trigger_set_timestamp(); Type: FUNCTION; Schema: petel_schema; Owner: PetelAdmin
---
-
-CREATE FUNCTION petel_schema.trigger_set_timestamp() RETURNS trigger
-    LANGUAGE plpgsql
-    AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$;
-
-
-ALTER FUNCTION petel_schema.trigger_set_timestamp() OWNER TO "PetelAdmin";
-
-SET default_tablespace = '';
-
-SET default_table_access_method = heap;
 
 --
 -- Name: alert_levels; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
@@ -103,15 +75,33 @@ ALTER SEQUENCE petel_schema.alert_links_id_seq OWNED BY petel_schema.alert_links
 
 
 --
--- Name: alert_statuses; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
+-- Name: alert_statuses_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
+--
+
+CREATE SEQUENCE petel_schema.alert_statuses_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    MAXVALUE 32767
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.alert_statuses_id_seq OWNER TO postgres;
+
+--
+-- Name: alert_statuses; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
 CREATE TABLE petel_schema.alert_statuses (
-)
-INHERITS (petel_schema.alert_levels);
+    id smallint DEFAULT nextval('petel_schema.alert_statuses_id_seq'::regclass) NOT NULL,
+    name character varying(25),
+    description character varying(25),
+    created_at time with time zone DEFAULT now(),
+    user_id integer DEFAULT 0
+);
 
 
-ALTER TABLE petel_schema.alert_statuses OWNER TO "PetelAdmin";
+ALTER TABLE petel_schema.alert_statuses OWNER TO postgres;
 
 --
 -- Name: alert_types; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
@@ -162,8 +152,8 @@ CREATE TABLE petel_schema.alerts (
     status integer,
     user_id integer DEFAULT 0,
     is_event boolean DEFAULT false,
-    event_date time with time zone,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    event_date timestamp without time zone
 );
 
 
@@ -453,7 +443,11 @@ CREATE TABLE petel_schema.entities (
     education_stage character varying(25),
     symbol character(8),
     characterization_id integer,
-    tax_number character varying(20)
+    tax_number character varying(20),
+    street character varying(50),
+    house_number character varying(6),
+    city character varying(50),
+    post_code character varying(10)
 );
 
 
@@ -1398,27 +1392,6 @@ ALTER TABLE ONLY petel_schema.alert_links ALTER COLUMN id SET DEFAULT nextval('p
 
 
 --
--- Name: alert_statuses id; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
---
-
-ALTER TABLE ONLY petel_schema.alert_statuses ALTER COLUMN id SET DEFAULT nextval('petel_schema.alert_levels_id_seq'::regclass);
-
-
---
--- Name: alert_statuses created_at; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
---
-
-ALTER TABLE ONLY petel_schema.alert_statuses ALTER COLUMN created_at SET DEFAULT now();
-
-
---
--- Name: alert_statuses user_id; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
---
-
-ALTER TABLE ONLY petel_schema.alert_statuses ALTER COLUMN user_id SET DEFAULT 0;
-
-
---
 -- Name: alert_types id; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
 --
 
@@ -1536,7 +1509,7 @@ ALTER TABLE ONLY petel_schema.alert_links
 
 
 --
--- Name: alert_statuses alert_statuses_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+-- Name: alert_statuses alert_statuses_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
 --
 
 ALTER TABLE ONLY petel_schema.alert_statuses
@@ -2348,5 +2321,9 @@ ALTER TABLE ONLY petel_schema.users
     ADD CONSTRAINT users_update_user_fkey FOREIGN KEY (update_user) REFERENCES petel_schema.users(id);
 
 
+--
+-- PostgreSQL database dump complete
+--
 
+\unrestrict zrt21EAsCoq6oReba2prgzpU1yPtYo4sOXZ4vYZiNZol5Nld8Be3IxDQDQGyvTr
 

@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
 using PetelApp.Api.DTOs;
 using PetelApp.Api.Session;
+using PetelApp.Api.Services;
+
 
 namespace PetelApp.Api.Controllers
 {
@@ -99,13 +101,13 @@ public async Task<IActionResult> GetSchoolByYear(int schoolYearId)
             Email = school.Email,
             
             PrincipalId = school.Principal,
-            PrincipalName = FormatPersonName(school.PrincipalPerson),
+            PrincipalName = GlobalFunctions.FormatPersonName(school.PrincipalPerson),
             
             InspectorId = school.Inspector,
-            InspectorName = FormatPersonName(school.InspectorPerson),
+            InspectorName = GlobalFunctions.FormatPersonName(school.InspectorPerson),
             
             ContactPersonId = school.ContactPerson,
-            ContactPersonName = FormatPersonName(school.ContactPersonPerson),
+            ContactPersonName = GlobalFunctions.FormatPersonName(school.ContactPersonPerson),
             
             CharacterizationId = school.CharacterizationId,
             CharacterizationName = school.Characterization?.Name,
@@ -171,21 +173,6 @@ public async Task<IActionResult> GetSchoolByYear(int schoolYearId)
             return !string.IsNullOrWhiteSpace(value) && value.Trim().All(c => c == '0');
         }
 
-        /// <summary>
-        /// Format person name from Person entity
-        /// </summary>
-        private string FormatPersonName(Person? person)
-        {
-            if (person == null)
-            {
-                return string.Empty;
-            }
-
-            var firstName = person.FirstName?.Trim() ?? string.Empty;
-            var lastName = person.LastName?.Trim() ?? string.Empty;
-
-            return $"{firstName} {lastName}".Trim();
-        }
 
         /// <summary>
         /// Get all special needs characterizations

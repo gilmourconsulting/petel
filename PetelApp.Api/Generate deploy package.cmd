@@ -40,3 +40,6 @@ if ($LASTEXITCODE -eq 0) {
     Set-Location -Path ".."
     exit 1
 }
+
+
+Host=petel-test-db.postgres.database.azure.com;Database=petelappdb;Username=PetelAdmin;Password=PetelAdmin2025!;Port=5432;SSL Mode=Require;Trust Server Certificate=true;

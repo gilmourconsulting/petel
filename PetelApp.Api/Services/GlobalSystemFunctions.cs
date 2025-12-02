@@ -145,5 +145,21 @@ namespace PetelApp.Api.Services
                 .Replace("(", "\u200F(") // Add RTL mark before opening parenthesis
                 .Replace(")", ")\u200F"); // Add RTL mark after closing parenthesis
         }
+
+                /// <summary>
+        /// Format person name from Person entity
+        /// </summary>
+        public static string FormatPersonName(Person? person)
+        {
+            if (person == null)
+            {
+                return string.Empty;
+            }
+
+            var firstName = person.FirstName?.Trim() ?? string.Empty;
+            var lastName = person.LastName?.Trim() ?? string.Empty;
+
+            return $"{firstName} {lastName}".Trim();
+        }
     }
 }
