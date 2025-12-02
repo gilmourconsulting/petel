@@ -7,6 +7,7 @@ namespace PetelApp.Api.DTOs
         public string? Name { get; set; }
         public string? Level { get; set; }
         public string? ClassNumber { get; set; }
+        public TimeOnly? EndHour { get; set; }
 
     }
 
@@ -15,6 +16,8 @@ namespace PetelApp.Api.DTOs
         public int? Id { get; set; }
         public string? Level { get; set; }
         public string? ClassNumber { get; set; }
+                public TimeOnly? EndHour { get; set; }
+
 
     }
 
@@ -29,5 +32,6 @@ namespace PetelApp.Api.DTOs
         public int SchoolYearId { get; set; }
         public string Level { get; set; } = string.Empty;
         public string ClassNumber { get; set; } = string.Empty;
+        public TimeOnly? EndHour { get; set; }
     }
 }

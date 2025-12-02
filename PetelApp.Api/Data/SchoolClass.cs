@@ -32,6 +32,9 @@ namespace PetelApp.Api.Data
         [Column("class_number")]
         [MaxLength(3)]
         public string ClassNumber { get; set; } = string.Empty;
+        
+        [Column("end_hour")]
+        public TimeOnly? EndHour { get; set; }
 
         [Column("created_at")]
         public DateTime? CreatedAt { get; set; }

@@ -27,7 +27,13 @@ namespace PetelApp.Api.Controllers
             try
             {
                 var session = GetCurrentSession();
-                _logger.LogInformation("Loading school classes for school year {SchoolYearId}, Entity: {EntityId}", 
+
+                if (session == null)
+                {
+                    _logger.LogWarning("GetClasses called with no valid session");
+                    return Unauthorized(new { message = "No valid session found" });
+                }
+                _logger.LogInformation("Loading school classes for school year {SchoolYearId}, Entity: {EntityId}",
                     schoolYearId, session.EntityId);
 
                 var classes = await _context.SchoolClasses
@@ -40,7 +46,8 @@ namespace PetelApp.Api.Controllers
                         SchoolYearId = c.SchoolYearId,
                         Name = c.Name,
                         Level = c.Level,
-                        ClassNumber = c.ClassNumber
+                        ClassNumber = c.ClassNumber,
+                        EndHour = c.EndHour
                     })
                     .ToListAsync();
 
@@ -60,7 +67,13 @@ namespace PetelApp.Api.Controllers
             try
             {
                 var session = GetCurrentSession();
-                _logger.LogInformation("Checking if class {ClassId} is in use, Entity: {EntityId}", 
+
+                if (session == null)
+                {
+                    _logger.LogWarning("GetClasses called with no valid session");
+                    return Unauthorized(new { message = "No valid session found" });
+                }
+                _logger.LogInformation("Checking if class {ClassId} is in use, Entity: {EntityId}",
                     classId, session.EntityId);
 
                 var studentCount = await _context.SchoolStudents
@@ -68,12 +81,14 @@ namespace PetelApp.Api.Controllers
 
                 var inUse = studentCount > 0;
 
-                return Ok(new { 
-                    success = true, 
-                    data = new { 
-                        inUse = inUse, 
-                        studentCount = studentCount 
-                    } 
+                return Ok(new
+                {
+                    success = true,
+                    data = new
+                    {
+                        inUse = inUse,
+                        studentCount = studentCount
+                    }
                 });
             }
             catch (Exception ex)
@@ -95,11 +110,11 @@ namespace PetelApp.Api.Controllers
                     return Unauthorized(new { success = false, message = "שגיאה בזיהוי המשתמש" });
                 }
 
-                _logger.LogInformation("Adding class for school year {SchoolYearId}, Entity: {EntityId}", 
+                _logger.LogInformation("Adding class for school year {SchoolYearId}, Entity: {EntityId}",
                     request.SchoolYearId, session.EntityId);
 
                 // Validate required fields
-                if (string.IsNullOrWhiteSpace(request.Level) || 
+                if (string.IsNullOrWhiteSpace(request.Level) ||
                     string.IsNullOrWhiteSpace(request.ClassNumber))
                 {
                     return BadRequest(new { success = false, message = "שדות חובה חסרים" });
@@ -107,6 +122,7 @@ namespace PetelApp.Api.Controllers
 
                 var levelTrimmed = request.Level.Trim();
                 var numberTrimmed = request.ClassNumber.Trim();
+                //var endHourTrimmed = request.EndHour?.Trim();
 
                 // Check if class already exists
                 var exists = await _context.SchoolClasses
@@ -116,9 +132,10 @@ namespace PetelApp.Api.Controllers
 
                 if (exists)
                 {
-                    return BadRequest(new { 
-                        success = false, 
-                        message = $"כיתה {levelTrimmed} {numberTrimmed} כבר קיימת" 
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"כיתה {levelTrimmed} {numberTrimmed} כבר קיימת"
                     });
                 }
 
@@ -127,13 +144,14 @@ namespace PetelApp.Api.Controllers
                     SchoolYearId = request.SchoolYearId,
                     Name = $"{levelTrimmed} {numberTrimmed}",
                     Level = levelTrimmed,
-                    ClassNumber = numberTrimmed
+                    ClassNumber = numberTrimmed,
+                    EndHour = request.EndHour
                 };
 
                 _context.SchoolClasses.Add(newClass);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Created class {ClassId}: {ClassName}", 
+                _logger.LogInformation("Created class {ClassId}: {ClassName}",
                     newClass.Id, newClass.Name);
 
                 var result = new SchoolClassDto
@@ -160,7 +178,13 @@ namespace PetelApp.Api.Controllers
             try
             {
                 var session = GetCurrentSession();
-                _logger.LogInformation("Attempting to delete class {ClassId}, Entity: {EntityId}", 
+
+                if (session == null)
+                {
+                    _logger.LogWarning("GetClasses called with no valid session");
+                    return Unauthorized(new { message = "No valid session found" });
+                }
+                _logger.LogInformation("Attempting to delete class {ClassId}, Entity: {EntityId}",
                     classId, session.EntityId);
 
                 var classToDelete = await _context.SchoolClasses
@@ -179,17 +203,18 @@ namespace PetelApp.Api.Controllers
                 {
                     var studentCount = await _context.SchoolStudents
                         .CountAsync(s => s.ClassId == classId);
-                    
-                    return BadRequest(new { 
-                        success = false, 
-                        message = $"לא ניתן למחוק כיתה זו. יש {studentCount} תלמידים המשויכים לכיתה." 
+
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"לא ניתן למחוק כיתה זו. יש {studentCount} תלמידים המשויכים לכיתה."
                     });
                 }
 
                 _context.SchoolClasses.Remove(classToDelete);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Deleted class {ClassId}: {ClassName}", 
+                _logger.LogInformation("Deleted class {ClassId}: {ClassName}",
                     classId, classToDelete.Name);
 
                 return Ok(new { success = true, message = "הכיתה נמחקה בהצלחה" });
@@ -207,7 +232,14 @@ namespace PetelApp.Api.Controllers
             try
             {
                 var session = GetCurrentSession();
-                _logger.LogInformation("Updating school classes for school year {SchoolYearId}, Entity: {EntityId}", 
+
+                if (session == null)
+                {
+                    _logger.LogWarning("GetClasses called with no valid session");
+                    return Unauthorized(new { message = "No valid session found" });
+                }
+
+                _logger.LogInformation("Updating school classes for school year {SchoolYearId}, Entity: {EntityId}",
                     request.SchoolYearId, session.EntityId);
 
                 var updatedClasses = new List<SchoolClassDto>();
@@ -215,7 +247,7 @@ namespace PetelApp.Api.Controllers
 
                 foreach (var classUpdate in request.Classes)
                 {
-                    if (string.IsNullOrWhiteSpace(classUpdate.Level) || 
+                    if (string.IsNullOrWhiteSpace(classUpdate.Level) ||
                         string.IsNullOrWhiteSpace(classUpdate.ClassNumber))
                     {
                         continue;
@@ -230,19 +262,28 @@ namespace PetelApp.Api.Controllers
                         {
                             var levelTrimmed = classUpdate.Level?.Trim();
                             var numberTrimmed = classUpdate.ClassNumber?.Trim();
-                            
+
+                            if (levelTrimmed == null || numberTrimmed == null)
+                            {
+                                _logger.LogWarning("Null value for level or class number in update for class ID {ClassId}",
+                                    existingClass.Id);
+                                return BadRequest(new { success = false, message = "שדות חובה חסרים בעדכון הכיתה" });
+                            }
+
                             bool hasChanges = existingClass.Level != levelTrimmed ||
-                                            existingClass.ClassNumber != numberTrimmed;
+                                            existingClass.ClassNumber != numberTrimmed ||
+                                            existingClass.EndHour != classUpdate.EndHour;
 
                             if (hasChanges)
                             {
-                                _logger.LogInformation("Updating class {ClassId}: '{OldName}' → '{NewName}'", 
+                                _logger.LogInformation("Updating class {ClassId}: '{OldName}' → '{NewName}'",
                                     existingClass.Id, existingClass.Name, $"{levelTrimmed} {numberTrimmed}");
-                                            
+
                                 existingClass.Level = levelTrimmed;
                                 existingClass.ClassNumber = numberTrimmed;
                                 existingClass.Name = $"{levelTrimmed} {numberTrimmed}";
-                                
+                                existingClass.EndHour = classUpdate.EndHour;
+
                                 updateCount++;
                             }
                         }
@@ -251,7 +292,7 @@ namespace PetelApp.Api.Controllers
 
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Updated {Count} school classes for school year {SchoolYearId}", 
+                _logger.LogInformation("Updated {Count} school classes for school year {SchoolYearId}",
                     updateCount, request.SchoolYearId);
 
                 return Ok(new { success = true, data = updatedClasses });
@@ -262,5 +303,83 @@ namespace PetelApp.Api.Controllers
                 return StatusCode(500, new { success = false, message = "שגיאה בעדכון כיתות בית הספר" });
             }
         }
+    
+       
+    
+    [HttpPut("{id}")]
+    public async Task<IActionResult> UpdateClass(int id, [FromBody] SchoolClassUpdateDto request)
+    {
+        try
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+            {
+                _logger.LogWarning("UpdateClass called with no valid session");
+                return Unauthorized(new { message = "No valid session found" });
+            }
+    
+            _logger.LogInformation("Updating class {ClassId}, Entity: {EntityId}", id, session.EntityId);
+    
+            // Validate required fields
+            if (string.IsNullOrWhiteSpace(request.Level) || string.IsNullOrWhiteSpace(request.ClassNumber))
+            {
+                return BadRequest(new { success = false, message = "שדות חובה חסרים" });
+            }
+    
+            var classToUpdate = await _context.SchoolClasses.FirstOrDefaultAsync(c => c.Id == id);
+    
+            if (classToUpdate == null)
+            {
+                return NotFound(new { success = false, message = "הכיתה לא נמצאה" });
+            }
+    
+            var levelTrimmed = request.Level.Trim();
+            var numberTrimmed = request.ClassNumber.Trim();
+    
+            // Check if another class exists with same level and number (exclude current class)
+            var exists = await _context.SchoolClasses
+                .AnyAsync(c => c.Id != id &&
+                              c.SchoolYearId == classToUpdate.SchoolYearId &&
+                              c.Level == levelTrimmed &&
+                              c.ClassNumber == numberTrimmed);
+    
+            if (exists)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = $"כיתה {levelTrimmed} {numberTrimmed} כבר קיימת"
+                });
+            }
+    
+            classToUpdate.Level = levelTrimmed;
+            classToUpdate.ClassNumber = numberTrimmed;
+            classToUpdate.Name = $"{levelTrimmed} {numberTrimmed}";
+            classToUpdate.EndHour = request.EndHour; // Can be null
+    
+            await _context.SaveChangesAsync();
+    
+            _logger.LogInformation("Updated class {ClassId}: {ClassName}, EndHour: {EndHour}",
+                classToUpdate.Id, classToUpdate.Name, classToUpdate.EndHour?.ToString() ?? "null");
+    
+            var result = new SchoolClassDto
+            {
+                Id = classToUpdate.Id,
+                SchoolYearId = classToUpdate.SchoolYearId,
+                Name = classToUpdate.Name,
+                Level = classToUpdate.Level,
+                ClassNumber = classToUpdate.ClassNumber,
+                EndHour = classToUpdate.EndHour
+            };
+    
+            return Ok(new { success = true, data = result });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error updating class {ClassId}", id);
+            return StatusCode(500, new { success = false, message = "שגיאה בעדכון הכיתה" });
+        }
     }
-}
+    
+    
+}}
