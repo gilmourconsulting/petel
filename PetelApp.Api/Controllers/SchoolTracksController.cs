@@ -34,42 +34,42 @@ namespace PetelApp.Api.Controllers
             try
             {
                 _logger.LogInformation(
-                    "Loading school tracks for school year {SchoolYearId}", 
+                    "Loading school tracks for school year {SchoolYearId}",
                     schoolYearId
                 );
 
-        // ✅ Get data from database WITHOUT calling GlobalFunctions
-        var tracksFromDb = await _context.SchoolTracks
-            .AsNoTracking()
-            .Include(st => st.Track)
-            .Include(st => st.TrackLevel)
-            .Include(st => st.SchoolClass)
-            .Where(st => st.SchoolYearId == schoolYearId)
-            .OrderBy(st => st.Track.TrackName) // ✅ Order by database field
-            .ThenBy(st => st.TrackLevel.LevelName)
-            .ThenBy(st => st.SchoolClass.Level)
-            .ThenBy(st => st.SchoolClass.ClassNumber)
-            .ToListAsync(); // ✅ Execute query FIRST
+                // ✅ Get data from database WITHOUT calling GlobalFunctions
+                var tracksFromDb = await _context.SchoolTracks
+                    .AsNoTracking()
+                    .Include(st => st.Track)
+                    .Include(st => st.TrackLevel)
+                    .Include(st => st.SchoolClass)
+                    .Where(st => st.SchoolYearId == schoolYearId)
+                    .OrderBy(st => st.Track.TrackName) // ✅ Order by database field
+                    .ThenBy(st => st.TrackLevel.LevelName)
+                    .ThenBy(st => st.SchoolClass.Level)
+                    .ThenBy(st => st.SchoolClass.ClassNumber)
+                    .ToListAsync(); // ✅ Execute query FIRST
 
-        // ✅ THEN apply RTL text processing in memory
-        var tracks = tracksFromDb
-            .Select(st => new
-            {
-                id = st.Id,
-                trackId = st.TrackId,
-                track = st.Track != null ? GlobalFunctions.ToRtlText(st.Track.TrackName) : "",
-                trackLevelId = st.TrackLevelId,
-                trackLevel = st.TrackLevel != null ? GlobalFunctions.ToRtlText(st.TrackLevel.LevelName) ?? "" : "",
-                classId = st.ClassId,
-                className = st.SchoolClass != null ? 
-                    st.SchoolClass.Level + " " + st.SchoolClass.ClassNumber : "",
-                weeklyHours = st.WeeklyHours ?? 0
-            })
-            .ToList();
+                // ✅ THEN apply RTL text processing in memory
+                var tracks = tracksFromDb
+                    .Select(st => new
+                    {
+                        id = st.Id,
+                        trackId = st.TrackId,
+                        track = st.Track != null ? GlobalFunctions.ToRtlText(st.Track.TrackName) : "",
+                        trackLevelId = st.TrackLevelId,
+                        trackLevel = st.TrackLevel != null ? GlobalFunctions.ToRtlText(st.TrackLevel.LevelName) ?? "" : "",
+                        classId = st.ClassId,
+                        className = st.SchoolClass != null ?
+                            st.SchoolClass.Level + " " + st.SchoolClass.ClassNumber : "",
+                        weeklyHours = st.WeeklyHours ?? 0
+                    })
+                    .ToList();
 
                 _logger.LogInformation(
-                    "Found {Count} school tracks for school year {SchoolYearId}", 
-                    tracks.Count, 
+                    "Found {Count} school tracks for school year {SchoolYearId}",
+                    tracks.Count,
                     schoolYearId
                 );
 
@@ -91,7 +91,7 @@ namespace PetelApp.Api.Controllers
                 });
             }
         }
-       /// <summary>
+        /// <summary>
         /// Create new school track with hours validation
         /// Validates hours against track level min/max constraints
         /// </summary>
@@ -101,7 +101,14 @@ namespace PetelApp.Api.Controllers
             try
             {
                 var session = GetCurrentSession();
-                
+
+                // ✅ Check for null session
+                if (session == null)
+                {
+                    _logger.LogError("No valid session found");
+                    return Unauthorized(new { success = false, message = "לא נמצאה הפעלה פעילה. אנא התחבר מחדש." });
+                }
+
                 _logger.LogInformation("Creating school track for school year {SchoolYearId}", dto.SchoolYearId);
 
                 // ✅ Validate hours against track level constraints if level is specified
@@ -193,7 +200,14 @@ namespace PetelApp.Api.Controllers
             try
             {
                 var session = GetCurrentSession();
-                
+
+                // ✅ Check for null session
+                if (session == null)
+                {
+                    _logger.LogError("No valid session found");
+                    return Unauthorized(new { success = false, message = "לא נמצאה הפעלה פעילה. אנא התחבר מחדש." });
+                }
+
                 _logger.LogInformation("Updating school track {Id}", id);
 
                 var track = await _context.SchoolTracks.FindAsync(id);

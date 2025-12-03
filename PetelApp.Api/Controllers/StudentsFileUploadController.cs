@@ -32,7 +32,7 @@ namespace PetelApp.Api.Controllers
         {
             _context = context;
             _fileProcessor = fileProcessor;
-                _globalFunctions = globalFunctions;
+            _globalFunctions = globalFunctions;
         }
 
         /// <summary>
@@ -51,6 +51,13 @@ namespace PetelApp.Api.Controllers
         {
             var session = GetCurrentSession();
 
+            // ✅ Check for null session
+            if (session == null)
+            {
+                _logger.LogError("No valid session found");
+                return Unauthorized(new { success = false, message = "לא נמצאה הפעלה פעילה. אנא התחבר מחדש." });
+            }
+
             if (file == null || file.Length == 0)
                 return BadRequest(new { success = false, message = "No file uploaded." });
 
@@ -60,6 +67,8 @@ namespace PetelApp.Api.Controllers
 
             if (!string.IsNullOrEmpty(error))
                 return BadRequest(new { success = false, message = error });
+
+
 
             // Parse mapping if provided
             Dictionary<string, string>? mapping = null;
@@ -89,6 +98,13 @@ namespace PetelApp.Api.Controllers
                  "ResolveSchoolAndYearAsync  returned with: schoolId={SchoolId}, schoolYearId={SchoolYearId}",
                  resolvedSchoolId, resolvedYearId);
 
+
+            if (!resolvedSchoolId.HasValue || !resolvedYearId.HasValue)
+            {
+                _logger.LogError("Failed to resolve school or year IDs. SchoolId={SchoolId}, YearId={YearId}",
+                    resolvedSchoolId, resolvedYearId);
+                return BadRequest(new { success = false, message = "Failed to resolve school or year information." });
+            }
 
             // Process student data
             var result = await _fileProcessor.ProcessStudentRowsAsync(
@@ -122,6 +138,13 @@ namespace PetelApp.Api.Controllers
         {
             var session = GetCurrentSession();
 
+            // ✅ Check for null session
+            if (session == null)
+            {
+                _logger.LogError("No valid session found");
+                return Unauthorized(new { success = false, message = "לא נמצאה הפעלה פעילה. אנא התחבר מחדש." });
+            }
+
             if (dto == null || string.IsNullOrEmpty(dto.FileBase64))
                 return BadRequest(new { success = false, message = "No file data provided." });
 
@@ -131,6 +154,13 @@ namespace PetelApp.Api.Controllers
 
             if (!string.IsNullOrEmpty(error))
                 return BadRequest(new { success = false, message = error });
+
+            if (!resolvedSchoolId.HasValue || !resolvedYearId.HasValue)
+            {
+                _logger.LogError("Failed to resolve school or year IDs. SchoolId={SchoolId}, YearId={YearId}",
+                    resolvedSchoolId, resolvedYearId);
+                return BadRequest(new { success = false, message = "Failed to resolve school or year information." });
+            }
 
             // Decode base64 and create temporary file stream
             byte[] fileBytes = Convert.FromBase64String(dto.FileBase64);
