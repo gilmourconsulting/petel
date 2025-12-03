@@ -8,11 +8,11 @@ namespace PetelApp.Api.Data
 {
     public class AppDbContext : DbContext
     {
-                private readonly string _schemaName;
+        private readonly string _schemaName;
 
         public AppDbContext(
             DbContextOptions<AppDbContext> options,
-            IOptions<DatabaseSettings> dbSettings) 
+            IOptions<DatabaseSettings> dbSettings)
             : base(options)
         {
             _schemaName = dbSettings.Value.SchemaName;
@@ -75,7 +75,7 @@ namespace PetelApp.Api.Data
 
         public DbSet<SchoolStudentPricingElement> SchoolStudentPricingElements { get; set; }
         public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set; }
-        
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -106,10 +106,10 @@ namespace PetelApp.Api.Data
                       .HasForeignKey(e => e.EntityTypeId)
                       .OnDelete(DeleteBehavior.Restrict);
 
-                                  entity.HasOne(e => e.Owner)
-                  .WithMany(e => e.OwnedEntities)
-                  .HasForeignKey(e => e.OwnerId)
-                  .OnDelete(DeleteBehavior.Restrict);
+                entity.HasOne(e => e.Owner)
+.WithMany(e => e.OwnedEntities)
+.HasForeignKey(e => e.OwnerId)
+.OnDelete(DeleteBehavior.Restrict);
             });
 
             // EntityType configuration
@@ -328,6 +328,45 @@ namespace PetelApp.Api.Data
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
+
+
+            modelBuilder.Entity<SchoolAdditionalStudyProgram>(entity =>
+                {
+                    entity.ToTable("school_additional_study_programs");
+                    entity.HasKey(e => e.Id);
+
+                    // Configure relationships
+                    entity.HasOne(e => e.SchoolYear)
+                        .WithMany()
+                        .HasForeignKey(e => e.SchoolYearId)
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    entity.HasOne(e => e.SchoolClass)
+                        .WithMany()
+                        .HasForeignKey(e => e.ClassId)
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    // ✅ Self-referencing relationship for version history
+                    entity.HasOne(e => e.MasterProgram)
+                        .WithMany(e => e.VersionHistory)
+                        .HasForeignKey(e => e.MasterId)
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    // ✅ Decimal precision for financial fields
+                    entity.Property(e => e.Cost).HasPrecision(10, 2);
+                    entity.Property(e => e.ApprovedAmount).HasPrecision(10, 2);
+
+                    // ✅ Indexes for performance
+                    entity.HasIndex(e => e.SchoolYearId);
+                    entity.HasIndex(e => e.ClassId);
+                    entity.HasIndex(e => e.IsLastVersion);
+                    entity.HasIndex(e => e.MasterId);
+
+                    // ✅ Default values
+                    entity.Property(e => e.Version).HasDefaultValue(1);
+                    entity.Property(e => e.IsLastVersion).HasDefaultValue(true);
+                });
+
             modelBuilder.Entity<Document>(entity =>
             {
                 entity.ToTable("documents"); // ✅ Lowercase table name with schema
@@ -442,54 +481,55 @@ namespace PetelApp.Api.Data
                     .IsRequired();
             });
 
-        
-    
-      // Alert entities configuration
-    modelBuilder.Entity<Alert>(entity =>
-    {
-        entity.ToTable("alerts");
-        entity.HasKey(e => e.Id);
 
-    });
 
-    modelBuilder.Entity<AlertLink>(entity =>
-    {
-        entity.ToTable("alert_links");
-        entity.HasKey(e => e.Id);
+            // Alert entities configuration
+            modelBuilder.Entity<Alert>(entity =>
+            {
+                entity.ToTable("alerts");
+                entity.HasKey(e => e.Id);
 
-        
-        entity.HasOne(e => e.Alert)
-            .WithMany()
-            .HasForeignKey(e => e.AlertId)
-            .OnDelete(DeleteBehavior.Restrict);
+            });
 
-        entity.HasOne(e => e.Entity)
-            .WithMany()
-            .HasForeignKey(e => e.EntityId)
-            .OnDelete(DeleteBehavior.Restrict);
-    });
+            modelBuilder.Entity<AlertLink>(entity =>
+            {
+                entity.ToTable("alert_links");
+                entity.HasKey(e => e.Id);
 
-    modelBuilder.Entity<AlertType>(entity =>
-    {
-        entity.ToTable("alert_types");
-        entity.HasKey(e => e.Id);
-        
-    });
 
-    modelBuilder.Entity<AlertStatus>(entity =>
-    {
-        entity.ToTable("alert_statuses");
-        entity.HasKey(e => e.Id);
-        
-    });
+                entity.HasOne(e => e.Alert)
+                    .WithMany()
+                    .HasForeignKey(e => e.AlertId)
+                    .OnDelete(DeleteBehavior.Restrict);
 
-    modelBuilder.Entity<AlertLevel>(entity =>
-    {
-        entity.ToTable("alert_levels");
-        entity.HasKey(e => e.Id);
-        
-    });
+                entity.HasOne(e => e.Entity)
+                    .WithMany()
+                    .HasForeignKey(e => e.EntityId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
 
-    }}
+            modelBuilder.Entity<AlertType>(entity =>
+            {
+                entity.ToTable("alert_types");
+                entity.HasKey(e => e.Id);
+
+            });
+
+            modelBuilder.Entity<AlertStatus>(entity =>
+            {
+                entity.ToTable("alert_statuses");
+                entity.HasKey(e => e.Id);
+
+            });
+
+            modelBuilder.Entity<AlertLevel>(entity =>
+            {
+                entity.ToTable("alert_levels");
+                entity.HasKey(e => e.Id);
+
+            });
+
+        }
+    }
 
 }

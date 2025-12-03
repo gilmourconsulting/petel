@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Controllers;
 using PetelApp.Api.Data;
 using PetelApp.Api.DTOs;
-using PetelApp.Api.Models;
 using PetelApp.Api.Session;
 
 namespace PetelApp.Api.Controllers
@@ -24,8 +23,7 @@ namespace PetelApp.Api.Controllers
         }
 
         /// <summary>
-        /// Get school additional study programs for a specific school year
-        /// NO AUTHENTICATION REQUIRED - Similar to school tracks pattern
+        /// Get ONLY latest versions for a school year
         /// </summary>
         [HttpGet("by-school-year/{schoolYearId}")]
         public async Task<IActionResult> GetBySchoolYear(int schoolYearId)
@@ -33,31 +31,45 @@ namespace PetelApp.Api.Controllers
             try
             {
                 _logger.LogInformation(
-                    "Loading additional study programs for school year {SchoolYearId}",
+                    "Loading latest additional study programs for school year {SchoolYearId}",
                     schoolYearId
                 );
 
+                // ✅ Query only IsLastVersion = true records
                 var programs = await _context.SchoolAdditionalStudyPrograms
                     .AsNoTracking()
                     .Include(p => p.SchoolClass)
-                    .Where(p => p.SchoolYearId == schoolYearId)
-                    .Select(p => new
+                    .Where(p => p.SchoolYearId == schoolYearId && p.IsLastVersion) // ✅ Filter by last version
+                    .Select(p => new SchoolAdditionalStudyProgramDto
                     {
-                        id = p.Id,
-                        schoolYearId = p.SchoolYearId,
-                        classId = p.ClassId,
-                        className = p.SchoolClass != null ?
+                        Id = p.Id,
+                        SchoolYearId = p.SchoolYearId,
+                        ClassId = p.ClassId,
+                        ClassName = p.SchoolClass != null ?
                             p.SchoolClass.Level + " " + p.SchoolClass.ClassNumber : "",
-                        name = p.Name,
-                        weeklyHours = p.WeeklyHours,
-                        numberOfStudents = p.NumberOfStudents
+                        Name = p.Name,
+                        WeeklyHours = p.WeeklyHours,
+                        NumberOfStudents = p.NumberOfStudents,
+                        Version = p.Version,              // ✅ Include version
+                        IsLastVersion = p.IsLastVersion,  // ✅ Include flag
+                        MasterId = p.MasterId,          // ✅ Include MasterId
+                        Cost = p.Cost,                    // ✅ Include cost
+                        ApprovedAmount = p.ApprovedAmount, // ✅ Include approved amount
+                        CreatedAt = p.CreatedAt,
+                        UpdatedAt = p.UpdatedAt,
+                        UserId = p.UserId,
+
+                        UserName = _context.Users
+                            .Where(u => u.Id == p.UserId)
+                            .Select(u => u.FullName ?? u.Username)
+                            .FirstOrDefault() ?? "לא ידוע"
                     })
-                    .OrderBy(p => p.className)
-                    .ThenBy(p => p.name)
+                    .OrderBy(p => p.ClassName)
+                    .ThenBy(p => p.Name)
                     .ToListAsync();
 
                 _logger.LogInformation(
-                    "Found {Count} additional study programs for school year {SchoolYearId}",
+                    "Found {Count} latest additional study programs for school year {SchoolYearId}",
                     programs.Count,
                     schoolYearId
                 );
@@ -82,7 +94,60 @@ namespace PetelApp.Api.Controllers
         }
 
         /// <summary>
-        /// Create new additional study program with validation
+        /// ✅ NEW: Get version history for a program
+        /// </summary>
+        [HttpGet("{masterId}/history")]
+        public async Task<IActionResult> GetVersionHistory(int masterId)
+        {
+            try
+            {
+                _logger.LogInformation("Loading version history for master {MasterId}", masterId);
+
+                var history = await _context.SchoolAdditionalStudyPrograms
+                    .AsNoTracking()
+                    .Include(p => p.SchoolClass)
+                    .Where(p => p.MasterId == masterId)
+                    .OrderByDescending(p => p.Version)
+                    .Select(p => new SchoolAdditionalStudyProgramDto
+                    {
+                        Id = p.Id,
+                        SchoolYearId = p.SchoolYearId,
+                        ClassId = p.ClassId,
+                        ClassName = p.SchoolClass != null ?
+                            p.SchoolClass.Level + " " + p.SchoolClass.ClassNumber : "",
+                        Name = p.Name,
+                        WeeklyHours = p.WeeklyHours,
+                        NumberOfStudents = p.NumberOfStudents,
+                        Version = p.Version,
+                        IsLastVersion = p.IsLastVersion,
+                        Cost = p.Cost,
+                        ApprovedAmount = p.ApprovedAmount,
+                        CreatedAt = p.CreatedAt,
+                        UpdatedAt = p.UpdatedAt,
+                        UserId = p.UserId,
+
+                        UserName = _context.Users
+                            .Where(u => u.Id == p.UserId)
+                            .Select(u => u.FullName ?? u.Username)
+                            .FirstOrDefault() ?? "לא ידוע"
+                    })
+                    .ToListAsync();
+
+                return Ok(new { success = true, data = history });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading version history for master {MasterId}", masterId);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בטעינת היסטוריית גרסאות"
+                });
+            }
+        }
+
+        /// <summary>
+        /// Create new program - Version 1 with MasterId = own ID
         /// </summary>
         [HttpPost]
         public async Task<IActionResult> CreateProgram([FromBody] CreateSchoolAdditionalStudyProgramDto dto)
@@ -90,35 +155,27 @@ namespace PetelApp.Api.Controllers
             try
             {
                 var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "שגיאה בזיהוי המשתמש" });
+                }
 
                 _logger.LogInformation("Creating additional study program for school year {SchoolYearId}", dto.SchoolYearId);
 
                 // Validate required fields
                 if (string.IsNullOrWhiteSpace(dto.Name))
                 {
-                    return BadRequest(new
-                    {
-                        success = false,
-                        message = "שם התל\"ן הוא שדה חובה"
-                    });
+                    return BadRequest(new { success = false, message = "שם התל\"ן הוא שדה חובה" });
                 }
 
                 if (dto.WeeklyHours < 0)
                 {
-                    return BadRequest(new
-                    {
-                        success = false,
-                        message = "מספר השעות חייב להיות חיובי"
-                    });
+                    return BadRequest(new { success = false, message = "מספר השעות חייב להיות חיובי" });
                 }
 
                 if (dto.NumberOfStudents < 0)
                 {
-                    return BadRequest(new
-                    {
-                        success = false,
-                        message = "מספר התלמידים חייב להיות חיובי"
-                    });
+                    return BadRequest(new { success = false, message = "מספר התלמידים חייב להיות חיובי" });
                 }
 
                 // Verify class exists and belongs to school year
@@ -134,41 +191,59 @@ namespace PetelApp.Api.Controllers
                     });
                 }
 
-                // Check for duplicate (same name/class combination)
-                var exists = await _context.SchoolAdditionalStudyPrograms
-                    .AnyAsync(p => p.SchoolYearId == dto.SchoolYearId &&
-                                  p.ClassId == dto.ClassId &&
-                                  p.Name == dto.Name);
-
-                if (exists)
-                {
-                    return BadRequest(new
-                    {
-                        success = false,
-                        message = "תל\"ן זה כבר קיים עבור כיתה זו"
-                    });
-                }
-
+                // ✅ Create version 1 with temporary MasterId
                 var program = new SchoolAdditionalStudyProgram
                 {
                     SchoolYearId = dto.SchoolYearId,
                     ClassId = dto.ClassId,
-                    Name = dto.Name,
+                    Name = dto.Name.Trim(),
                     WeeklyHours = dto.WeeklyHours,
                     NumberOfStudents = dto.NumberOfStudents,
+                    Cost = dto.Cost,              // ✅ Include cost
+                    ApprovedAmount = dto.ApprovedAmount, // ✅ Include approved amount
                     UserId = int.Parse(session.UserId),
-                    CreatedAt = DateTime.UtcNow
+                    Version = 1,                   // ✅ First version
+                    IsLastVersion = true,          // ✅ Latest version
+                    MasterId = 0,                  // ✅ Temporary - will update after save
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
                 };
 
                 _context.SchoolAdditionalStudyPrograms.Add(program);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Additional study program created successfully with ID {Id}", program.Id);
+                // ✅ CRITICAL: Set MasterId to own ID for first version
+                program.MasterId = program.Id;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Additional study program created with ID {Id} (v1, MasterId: {MasterId})",
+                    program.Id,
+                    program.MasterId
+                );
+
+                // ✅ Return full DTO
+                var result = new SchoolAdditionalStudyProgramDto
+                {
+                    Id = program.Id,
+                    SchoolYearId = program.SchoolYearId,
+                    ClassId = program.ClassId,
+                    ClassName = (await _context.SchoolClasses.FindAsync(program.ClassId))?.Name ?? "",
+                    Name = program.Name,
+                    WeeklyHours = program.WeeklyHours,
+                    NumberOfStudents = program.NumberOfStudents,
+                    Version = program.Version,
+                    IsLastVersion = program.IsLastVersion,
+                    Cost = program.Cost,
+                    ApprovedAmount = program.ApprovedAmount,
+                    CreatedAt = program.CreatedAt,
+                    UpdatedAt = program.UpdatedAt
+                };
 
                 return Ok(new
                 {
                     success = true,
-                    data = new { id = program.Id },
+                    data = result,
                     message = "תל\"ן נוסף בהצלחה"
                 });
             }
@@ -185,7 +260,7 @@ namespace PetelApp.Api.Controllers
         }
 
         /// <summary>
-        /// Update existing additional study program with validation
+        /// ✅ UPDATE: Creates new version instead of modifying existing record
         /// </summary>
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateProgram(int id, [FromBody] UpdateSchoolAdditionalStudyProgramDto dto)
@@ -193,94 +268,134 @@ namespace PetelApp.Api.Controllers
             try
             {
                 var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { message = "No valid session found" });
+                }
 
                 _logger.LogInformation("Updating additional study program {Id}", id);
 
-                var program = await _context.SchoolAdditionalStudyPrograms.FindAsync(id);
+                // ✅ Find current version
+                var currentProgram = await _context.SchoolAdditionalStudyPrograms
+                    .FirstOrDefaultAsync(p => p.Id == id && p.IsLastVersion);
 
-                if (program == null)
+                if (currentProgram == null)
                 {
                     return NotFound(new
                     {
                         success = false,
-                        message = "תל\"ן לא נמצא"
+                        message = "תל\"ן לא נמצא או שאינו הגרסה האחרונה"
                     });
                 }
 
                 // Validate required fields
                 if (string.IsNullOrWhiteSpace(dto.Name))
                 {
-                    return BadRequest(new
-                    {
-                        success = false,
-                        message = "שם התל\"ן הוא שדה חובה"
-                    });
+                    return BadRequest(new { success = false, message = "שם התל\"ן הוא שדה חובה" });
                 }
 
                 if (dto.WeeklyHours < 0)
                 {
-                    return BadRequest(new
-                    {
-                        success = false,
-                        message = "מספר השעות חייב להיות חיובי"
-                    });
+                    return BadRequest(new { success = false, message = "מספר השעות חייב להיות חיובי" });
                 }
 
                 if (dto.NumberOfStudents < 0)
                 {
-                    return BadRequest(new
-                    {
-                        success = false,
-                        message = "מספר התלמידים חייב להיות חיובי"
-                    });
+                    return BadRequest(new { success = false, message = "מספר התלמידים חייב להיות חיובי" });
                 }
 
-                // Verify class exists and belongs to school year
-                var classExists = await _context.SchoolClasses
-                    .AnyAsync(sc => sc.Id == dto.ClassId && sc.SchoolYearId == dto.SchoolYearId);
+                // ✅ Check if any data actually changed
+                bool hasChanges =
+                    currentProgram.ClassId != dto.ClassId ||
+                    currentProgram.Name != dto.Name.Trim() ||
+                    currentProgram.WeeklyHours != dto.WeeklyHours ||
+                    currentProgram.NumberOfStudents != dto.NumberOfStudents ||
+                    currentProgram.Cost != dto.Cost ||
+                    currentProgram.ApprovedAmount != dto.ApprovedAmount;
 
-                if (!classExists)
+                if (!hasChanges)
                 {
-                    return BadRequest(new
+                    _logger.LogInformation("No changes detected for program {Id} - skipping version creation", id);
+
+                    var unchangedResult = new SchoolAdditionalStudyProgramDto
                     {
-                        success = false,
-                        message = "כיתה לא נמצאה או לא שייכת לשנת הלימודים"
+                        Id = currentProgram.Id,
+                        SchoolYearId = currentProgram.SchoolYearId,
+                        ClassId = currentProgram.ClassId,
+                        ClassName = (await _context.SchoolClasses.FindAsync(currentProgram.ClassId))?.Name ?? "",
+                        Name = currentProgram.Name,
+                        WeeklyHours = currentProgram.WeeklyHours,
+                        NumberOfStudents = currentProgram.NumberOfStudents,
+                        Version = currentProgram.Version,
+                        IsLastVersion = currentProgram.IsLastVersion,
+                        Cost = currentProgram.Cost,
+                        ApprovedAmount = currentProgram.ApprovedAmount,
+                        CreatedAt = currentProgram.CreatedAt,
+                        UpdatedAt = currentProgram.UpdatedAt
+                    };
+
+                    return Ok(new
+                    {
+                        success = true,
+                        data = unchangedResult,
+                        message = "אין שינויים לשמירה"
                     });
                 }
 
-                // Check for duplicate (excluding current record)
-                var duplicateExists = await _context.SchoolAdditionalStudyPrograms
-                    .AnyAsync(p => p.Id != id &&
-                                  p.SchoolYearId == dto.SchoolYearId &&
-                                  p.ClassId == dto.ClassId &&
-                                  p.Name == dto.Name);
+                // ✅ VERSIONING STRATEGY: Mark current as not last version
+                currentProgram.IsLastVersion = false;
+                currentProgram.UpdatedAt = DateTime.UtcNow;
 
-                if (duplicateExists)
+                // ✅ Create new version with incremented version number
+                var newVersion = new SchoolAdditionalStudyProgram
                 {
-                    return BadRequest(new
-                    {
-                        success = false,
-                        message = "תל\"ן זה כבר קיים עבור כיתה זו"
-                    });
-                }
+                    SchoolYearId = currentProgram.SchoolYearId,
+                    ClassId = dto.ClassId,
+                    Name = dto.Name.Trim(),
+                    WeeklyHours = dto.WeeklyHours,
+                    NumberOfStudents = dto.NumberOfStudents,
+                    Cost = dto.Cost,
+                    ApprovedAmount = dto.ApprovedAmount,
+                    UserId = int.Parse(session.UserId),
+                    Version = currentProgram.Version + 1,  // ✅ Increment version
+                    IsLastVersion = true,                  // ✅ New latest version
+                    MasterId = currentProgram.MasterId,    // ✅ Same master for version chain
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                };
 
-                // Update fields
-                program.ClassId = dto.ClassId;
-                program.Name = dto.Name;
-                program.WeeklyHours = dto.WeeklyHours;
-                program.NumberOfStudents = dto.NumberOfStudents;
-                program.UserId = int.Parse(session.UserId);
-                // CreatedAt will be updated automatically by database timestamp
-
+                _context.SchoolAdditionalStudyPrograms.Add(newVersion);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Additional study program {Id} updated successfully", id);
+                _logger.LogInformation(
+                    "Created new version {Version} (ID: {NewId}) for program master {MasterId}",
+                    newVersion.Version,
+                    newVersion.Id,
+                    newVersion.MasterId
+                );
+
+                var result = new SchoolAdditionalStudyProgramDto
+                {
+                    Id = newVersion.Id,
+                    SchoolYearId = newVersion.SchoolYearId,
+                    ClassId = newVersion.ClassId,
+                    ClassName = (await _context.SchoolClasses.FindAsync(newVersion.ClassId))?.Name ?? "",
+                    Name = newVersion.Name,
+                    WeeklyHours = newVersion.WeeklyHours,
+                    NumberOfStudents = newVersion.NumberOfStudents,
+                    Version = newVersion.Version,
+                    IsLastVersion = newVersion.IsLastVersion,
+                    Cost = newVersion.Cost,
+                    ApprovedAmount = newVersion.ApprovedAmount,
+                    CreatedAt = newVersion.CreatedAt,
+                    UpdatedAt = newVersion.UpdatedAt
+                };
 
                 return Ok(new
                 {
                     success = true,
-                    data = new { id = program.Id },
-                    message = "תל\"ן עודכן בהצלחה"
+                    data = result,
+                    message = $"תל\"ן עודכן בהצלחה (גרסה {newVersion.Version})"
                 });
             }
             catch (Exception ex)
@@ -296,7 +411,7 @@ namespace PetelApp.Api.Controllers
         }
 
         /// <summary>
-        /// Delete additional study program
+        /// ✅ UPDATE: Logical delete - mark as not last version (keeps history)
         /// </summary>
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteProgram(int id)
@@ -305,21 +420,29 @@ namespace PetelApp.Api.Controllers
             {
                 _logger.LogInformation("Deleting additional study program {Id}", id);
 
-                var program = await _context.SchoolAdditionalStudyPrograms.FindAsync(id);
+                var program = await _context.SchoolAdditionalStudyPrograms
+                    .FirstOrDefaultAsync(p => p.Id == id && p.IsLastVersion);
 
                 if (program == null)
                 {
                     return NotFound(new
                     {
                         success = false,
-                        message = "תל\"ן לא נמצא"
+                        message = "תל\"ן לא נמצא או כבר נמחק"
                     });
                 }
 
-                _context.SchoolAdditionalStudyPrograms.Remove(program);
+                // ✅ LOGICAL DELETE: Mark as not last version
+                program.IsLastVersion = false;
+                program.UpdatedAt = DateTime.UtcNow;
+
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("Additional study program {Id} deleted successfully", id);
+                _logger.LogInformation(
+                    "Logically deleted additional study program {Id} (master {MasterId})",
+                    program.Id,
+                    program.MasterId
+                );
 
                 return Ok(new
                 {

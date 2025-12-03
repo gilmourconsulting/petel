@@ -219,6 +219,12 @@ public async Task<IActionResult> UpdateSchoolDetails([FromBody] UpdateSchoolDeta
     {
         var session = GetCurrentSession();
         
+        if (session == null)
+        {
+            _logger.LogWarning("No valid session found for school update request");
+            return Unauthorized(new { success = false, message = "Authentication required" });
+        }
+
         if (!int.TryParse(session.EntityId, out int sessionEntityId))
         {
             return BadRequest(new

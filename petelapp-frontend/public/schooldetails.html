@@ -375,126 +375,51 @@
         }
 
 
-        // Display school classes - READ-ONLY TABLE with HIDDEN ACTIONS COLUMN
-        /*    function displaySchoolClasses(classes) {
-                console.log('📚 Displaying school classes:', classes);
-    
-                const container = document.getElementById('schoolClassesContent');
-                if (!container) return;
-    
-                window.lastSchoolClassesData = classes || [];
-    
-                // Clear container
-                container.innerHTML = '';
-    
-                // ✅ Just create table container (no add button here)
-                const wrapper = document.createElement('div');
-                wrapper.innerHTML = `<div id="classesTableContainer"></div>`;
-                container.appendChild(wrapper);
-    
-                // Define columns - actions column hidden by default
-                const columns = [
-                    {
-                        key: 'level',
-                        label: 'שכבה',
-                        sortable: true,
-                        readOnly: true
-                    },
-                    {
-                        key: 'classNumber',
-                        label: 'מספר כיתה',
-                        sortable: true,
-                        readOnly: true
-                    },
-                    {
-                        key: 'endHour',
-                        label: 'שעת סיום',
-                        sortable: true,
-                        readOnly: true,
-                        render: (item) => {
-                            if (!item.endHour) {
-                                return '<span style="color: #6c757d; font-style: italic;">לא הוגדר</span>';
-                            }
-                            return `<span style="font-weight: 600; color: #007bff;">${item.endHour}</span>`;
-                        }
-                    },
-                    {
-                        key: 'actions',
-                        label: 'פעולות',
-                        sortable: false,
-                        readOnly: true,
-                        render: (item) => `
-                    <button class="btn-icon" onclick="deleteClassWithConfirmation(${item.id})" title="מחיקת כיתה">
-                        <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
-                    </button>
-                `
-                    }
-                ];
-    
-                // Create ReusableTable
-                try {
-                    window.classesTable = new ReusableTable('classesTableContainer', {
-                        tableName: 'schoolClasses',
-                        isReadOnly: true,
-                        allowAdd: false,
-                        allowEdit: false,
-                        allowDelete: false
-                    });
-    
-                    window.classesTable.init(classes, columns);
-    
-                    // ✅ HIDE actions column initially
-                    const actionsHeaders = document.querySelectorAll('#classesTableContainer th:last-child');
-                    const actionsCells = document.querySelectorAll('#classesTableContainer td:last-child');
-    
-                    actionsHeaders.forEach(th => {
-                        th.style.display = 'none';
-                        th.setAttribute('data-column', 'actions');
-                    });
-    
-                    actionsCells.forEach(td => {
-                        td.style.display = 'none';
-                        td.setAttribute('data-column', 'actions');
-                    });
-    
-                    console.log('✅ ReusableTable created with hidden actions column');
-    
-                } catch (error) {
-                    console.error('❌ Error creating ReusableTable for classes:', error);
-                }
+
+        window.adjustTime = function (field, delta) {
+            const hourInput = document.getElementById('endHour');
+            const minuteInput = document.getElementById('endMinute');
+
+            if (!hourInput || !minuteInput) return;
+
+            let hour = parseInt(hourInput.value) || 0;
+            let minute = parseInt(minuteInput.value) || 0;
+
+            if (field === 'hour') {
+                hour += delta;
+                if (hour < 0) hour = 23;
+                if (hour > 23) hour = 0;
+                hourInput.value = hour.toString().padStart(2, '0');
+            } else if (field === 'minute') {
+                minute += delta;
+                if (minute < 0) minute = 59;
+                if (minute > 59) minute = 0;
+                minuteInput.value = minute.toString().padStart(2, '0');
             }
-    
-            // ...existing code...*/
+        };
 
-            window.adjustTime = function(field, delta) {
-    const hourInput = document.getElementById('endHour');
-    const minuteInput = document.getElementById('endMinute');
-    
-    if (!hourInput || !minuteInput) return;
-    
-    let hour = parseInt(hourInput.value) || 0;
-    let minute = parseInt(minuteInput.value) || 0;
-    
-    if (field === 'hour') {
-        hour += delta;
-        if (hour < 0) hour = 23;
-        if (hour > 23) hour = 0;
-        hourInput.value = hour.toString().padStart(2, '0');
-    } else if (field === 'minute') {
-        minute += delta;
-        if (minute < 0) minute = 59;
-        if (minute > 59) minute = 0;
-        minuteInput.value = minute.toString().padStart(2, '0');
-    }
-};
+        window.clearEndTime = function () {
+            const hourInput = document.getElementById('endHour');
+            const minuteInput = document.getElementById('endMinute');
 
-window.clearEndTime = function() {
-    const hourInput = document.getElementById('endHour');
-    const minuteInput = document.getElementById('endMinute');
-    
-    if (hourInput) hourInput.value = '12';
-    if (minuteInput) minuteInput.value = '00';
-};
+            if (hourInput) hourInput.value = '12';
+            if (minuteInput) minuteInput.value = '00';
+        };
+
+        function getDefaultEndHour() {
+            // Find attribute type 8 from loaded school attributes
+            const endHourAttribute = window.lastSchoolAttributesData?.find(
+                attr => attr.attributeTypeId === 8
+            );
+
+            if (endHourAttribute && endHourAttribute.value) {
+                console.log('✅ Found end hour attribute:', endHourAttribute.value);
+                return endHourAttribute.value; // Format: "HH:MM:SS" or "HH:MM"
+            }
+
+            console.log('ℹ️ No end hour attribute found, using default 13:00');
+            return '13:00:00';
+        }
 
         // unified add/edit class modal with time spinners
         async function showClassModal(classData = null) {
@@ -506,16 +431,26 @@ window.clearEndTime = function() {
             ];
 
             // ✅ Parse existing endHour from TimeOnly (HH:MM:SS format from backend)
-            let initialHour = 12;
+            let initialHour = 13;
             let initialMinute = 0;
 
             if (classData && classData.endHour) {
                 // Backend returns TimeOnly as string "HH:MM:SS"
                 const timeParts = classData.endHour.split(':');
                 if (timeParts.length >= 2) {
-                    initialHour = parseInt(timeParts[0]) || 12;
+                    initialHour = parseInt(timeParts[0]) || 13;
                     initialMinute = parseInt(timeParts[1]) || 0;
                 }
+                console.log('✏️ Using existing class end hour:', classData.endHour);
+            } else {
+                // ADD MODE: Use default from attribute type 8
+                const defaultEndHour = getDefaultEndHour();
+                const timeParts = defaultEndHour.split(':');
+                if (timeParts.length >= 2) {
+                    initialHour = parseInt(timeParts[0]) || 13;
+                    initialMinute = parseInt(timeParts[1]) || 0;
+                }
+                console.log('➕ Using default end hour from attributes:', defaultEndHour);
             }
 
             const overlay = document.createElement('div');
@@ -686,7 +621,7 @@ window.clearEndTime = function() {
             overlay.appendChild(dialog);
             document.body.appendChild(overlay);
 
-  
+
             setTimeout(() => document.getElementById('classLevel')?.focus(), 100);
 
             // OK button handler
@@ -824,6 +759,7 @@ window.clearEndTime = function() {
         window.updateClassInDatabase = updateClassInDatabase;
         window.adjustTime = adjustTime;
         window.clearEndTime = clearEndTime;
+        window.getDefaultEndHour = getDefaultEndHour;
 
         // ✅  displaySchoolClasses - READ-ONLY TABLE with HIDDEN ACTIONS COLUMN
         function displaySchoolClasses(classes) {
@@ -3422,6 +3358,18 @@ window.clearEndTime = function() {
                             `).join('')}
                         </select>
                     `;
+                } else {
+                    // Default to text input
+                    inputField = `
+                        <input type="text" 
+                               class="attribute-input"
+                               id="attr_${attrType.id}"
+                               data-attribute-id="${attrType.id}"
+                               data-value-type="String"
+                               value="${value || ''}"
+                               ${isEditMode ? '' : 'disabled'}
+                               onchange="window.hasUnsavedAttributeChanges = true;">
+                    `;
                 }
 
                 return `
@@ -3696,20 +3644,66 @@ window.clearEndTime = function() {
                     readOnly: true,
                     render: (item) => `<span style="font-weight: 600; color: #28a745;">${item.numberOfStudents || '0'}</span>`
                 },
+                // ✅ NEW: Cost column
                 {
-                    key: 'actions',
-                    label: 'פעולות',
-                    sortable: false,
+                    key: 'cost',
+                    label: 'עלות',
+                    sortable: true,
                     readOnly: true,
-                    render: (item) => `
-                <button class="btn-icon" onclick="showEditAdditionalStudyModal(${item.id})" title="עריכת תל״ן">
-                    <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
-                </button>
-                <button class="btn-icon" onclick="deleteAdditionalStudyProgram(${item.id})" title="מחיקת תל״ן">
-                    <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
-                </button>
-            `
-                }
+                    render: (item) => {
+                        if (!item.cost) {
+                            return '<span style="color: #6c757d; font-style: italic;">לא הוגדר</span>';
+                        }
+                        return `<span style="font-weight: 600; color: #dc3545;">₪${item.cost.toFixed(2)}</span>`;
+                    }
+                },
+                // ✅ NEW: Approved Amount column
+                {
+                    key: 'approvedAmount',
+                    label: 'סכום מאושר',
+                    sortable: true,
+                    readOnly: true,
+                    render: (item) => {
+                        if (!item.approvedAmount) {
+                            return '<span style="color: #6c757d; font-style: italic;">לא הוגדר</span>';
+                        }
+                        return `<span style="font-weight: 600; color: #007bff;">₪${item.approvedAmount.toFixed(2)}</span>`;
+                    }
+                },
+                // ✅ Optional: Version column (can be hidden by default)
+                {
+                    key: 'version',
+                    label: 'גרסה',
+                    sortable: true,
+                    readOnly: true,
+                    render: (item) => `<span style="font-size: 0.9em; color: #6c757d;">v${item.version}</span>`
+                },
+    {
+        key: 'history',
+        label: 'היסטוריה',
+        sortable: false,
+        readOnly: true,
+        render: (item) => `
+            <button class="btn-icon" onclick="showProgramVersionHistory(${item.masterId || item.id})" title="היסטוריית גרסאות">
+                <img src="stats_icon.png" alt="היסטוריה" class="action-icon-natural">
+            </button>
+        `
+    },
+    // ✅ UPDATED: Actions column - ONLY edit and delete (hidden by default)
+    {
+        key: 'actions',
+        label: 'פעולות',
+        sortable: false,
+        readOnly: true,
+        render: (item) => `
+            <button class="btn-icon" onclick="showEditAdditionalStudyModal(${item.id})" title="עריכת תל״ן">
+                <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+            </button>
+            <button class="btn-icon" onclick="deleteAdditionalStudyProgram(${item.id})" title="מחיקת תל״ן">
+                <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+            </button>
+        `
+    }
             ];
 
             // Create ReusableTable
@@ -3808,85 +3802,141 @@ window.clearEndTime = function() {
                 ).join('');
 
                 dialog.innerHTML = `
-            <h3 class="dialog-title">${programData ? 'עריכת תל״ן' : 'הוספת תל״ן חדש'}</h3>
-            <div style="margin: 20px 0;">
-                <div style="margin-bottom: 15px;">
-                    <label for="programClass" style="display: block; margin-bottom: 5px; font-weight: 600;">כיתה:</label>
-                    <select id="programClass" style="
-                        width: 100%;
-                        padding: 8px;
-                        border: 1px solid #dee2e6;
-                        border-radius: 4px;
-                        font-size: 14px;
-                        direction: rtl;
-                    ">
-                        <option value="">בחר כיתה...</option>
-                        ${classOptions}
-                    </select>
-                </div>
-                
-                <div style="margin-bottom: 15px;">
-                    <label for="programName" style="display: block; margin-bottom: 5px; font-weight: 600;">שם:</label>
-                    <input type="text" id="programName" placeholder="הזן שם תל״ן"
-                        value="${programData ? programData.name : ''}"
-                        style="
-                        width: 100%;
-                        padding: 8px;
-                        border: 1px solid #dee2e6;
-                        border-radius: 4px;
-                        font-size: 14px;
-                        direction: rtl;
-                    ">
-                </div>
-                
-                <div style="margin-bottom: 15px;">
-                    <label for="programHours" style="display: block; margin-bottom: 5px; font-weight: 600;">שעות שבועיות:</label>
-                    <input type="number" id="programHours" placeholder="הזן מספר שעות" min="0" step="0.5"
-                        value="${programData ? programData.weeklyHours : ''}"
-                        style="
-                        width: 100%;
-                        padding: 8px;
-                        border: 1px solid #dee2e6;
-                        border-radius: 4px;
-                        font-size: 14px;
-                        direction: rtl;
-                    ">
-                </div>
-                
-                <div style="margin-bottom: 15px;">
-                    <label for="programStudents" style="display: block; margin-bottom: 5px; font-weight: 600;">מספר תלמידים בכיתה:</label>
-                    <input type="number" id="programStudents" placeholder="הזן מספר תלמידים" min="0" step="1"
-                        value="${programData ? programData.numberOfStudents : ''}"
-                        style="
-                        width: 100%;
-                        padding: 8px;
-                        border: 1px solid #dee2e6;
-                        border-radius: 4px;
-                        font-size: 14px;
-                        direction: rtl;
-                    ">
-                </div>
-                
-                <input type="hidden" id="programRecordId" value="${programData ? programData.id : ''}">
-            </div>
-            <div class="dialog-buttons">
-                <button id="programOkBtn" class="dialog-btn save">אישור</button>
-                <button id="programCancelBtn" class="dialog-btn cancel">ביטול</button>
-            </div>
-        `;
+    <h3 class="dialog-title">${programData ? `עריכת תל״ן (גרסה ${programData.version || 1})` : 'הוספת תל״ן חדש'}</h3>
+    <div style="margin: 20px 0;">
+        <div style="margin-bottom: 15px;">
+            <label for="programClass" style="display: block; margin-bottom: 5px; font-weight: 600;">כיתה:</label>
+            <select id="programClass" style="
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                font-size: 14px;
+                direction: rtl;
+            ">
+                <option value="">בחר כיתה...</option>
+                ${classOptions}
+            </select>
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <label for="programName" style="display: block; margin-bottom: 5px; font-weight: 600;">שם:</label>
+            <input type="text" id="programName" placeholder="הזן שם תל״ן"
+                value="${programData ? programData.name : ''}"
+                style="
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                font-size: 14px;
+                direction: rtl;
+            ">
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <label for="programHours" style="display: block; margin-bottom: 5px; font-weight: 600;">שעות שבועיות:</label>
+            <input type="number" id="programHours" placeholder="הזן מספר שעות" min="0" step="0.5"
+                value="${programData ? programData.weeklyHours : ''}"
+                style="
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                font-size: 14px;
+                direction: rtl;
+            ">
+        </div>
+        
+        <div style="margin-bottom: 15px;">
+            <label for="programStudents" style="display: block; margin-bottom: 5px; font-weight: 600;">מספר תלמידים בכיתה:</label>
+            <input type="number" id="programStudents" placeholder="הזן מספר תלמידים" min="0" step="1"
+                value="${programData ? programData.numberOfStudents : ''}"
+                style="
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                font-size: 14px;
+                direction: rtl;
+            ">
+        </div>
+        
+        <!-- ✅ NEW: Cost field -->
+        <div style="margin-bottom: 15px;">
+            <label for="programCost" style="display: block; margin-bottom: 5px; font-weight: 600;">
+                עלות:
+                <span style="color: #6c757d; font-size: 0.85em;">(אופציונלי)</span>
+            </label>
+            <input type="number" id="programCost" placeholder="הזן עלות" min="0" step="0.01"
+                value="${programData && programData.cost ? programData.cost : ''}"
+                style="
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                font-size: 14px;
+                direction: ltr;
+                text-align: left;
+            ">
+            <small style="color: #6c757d; display: block; margin-top: 4px;">סכום בש"ח</small>
+        </div>
+        
+        <!-- ✅ NEW: Approved Amount field -->
+        <div style="margin-bottom: 15px;">
+            <label for="programApproved" style="display: block; margin-bottom: 5px; font-weight: 600;">
+                סכום מאושר:
+                <span style="color: #6c757d; font-size: 0.85em;">(אופציונלי)</span>
+            </label>
+            <input type="number" id="programApproved" placeholder="הזן סכום מאושר" min="0" step="0.01"
+                value="${programData && programData.approvedAmount ? programData.approvedAmount : ''}"
+                style="
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                font-size: 14px;
+                direction: ltr;
+                text-align: left;
+            ">
+            <small style="color: #6c757d; display: block; margin-top: 4px;">סכום בש"ח</small>
+        </div>
+        
+        <input type="hidden" id="programRecordId" value="${programData ? programData.id : ''}">
+        <input type="hidden" id="programVersion" value="${programData ? programData.version : '1'}">
+        <input type="hidden" id="programMasterId" value="${programData ? programData.masterId : ''}">
+    </div>
+    <div class="dialog-buttons">
+        ${programData ? `
+            <button id="programHistoryBtn" class="dialog-btn" style="background: #17a2b8; margin-left: auto;">
+                היסטוריית גרסאות
+            </button>
+        ` : ''}
+        <button id="programOkBtn" class="dialog-btn save">אישור</button>
+        <button id="programCancelBtn" class="dialog-btn cancel">ביטול</button>
+    </div>
+`;
 
                 overlay.appendChild(dialog);
                 document.body.appendChild(overlay);
 
-                // OK button handler with validation and save
+
+                // ✅ Version history button handler
+                if (programData) {
+                    document.getElementById('programHistoryBtn').onclick = async () => {
+                        await showProgramVersionHistory(programData.masterId || programData.id);
+                    };
+                }
+
+                // OK button handler
                 document.getElementById('programOkBtn').onclick = async () => {
                     const classId = document.getElementById('programClass').value;
                     const name = document.getElementById('programName').value.trim();
-                    const hours = parseFloat(document.getElementById('programHours').value);
+                    const hours = parseInt(document.getElementById('programHours').value);
                     const students = parseInt(document.getElementById('programStudents').value);
+                    const cost = document.getElementById('programCost').value.trim();
+                    const approved = document.getElementById('programApproved').value.trim();
                     const recordId = document.getElementById('programRecordId').value;
 
-                    // Validate required fields
                     if (!classId || !name || isNaN(hours) || isNaN(students)) {
                         alert('נא למלא את כל השדות הנדרשים');
                         return;
@@ -3902,16 +3952,6 @@ window.clearEndTime = function() {
                         return;
                     }
 
-                    console.log('📝 Saving additional study program:', {
-                        recordId: recordId || null,
-                        schoolYearId: selectedSchoolYearId,
-                        classId,
-                        name,
-                        weeklyHours: hours,
-                        numberOfStudents: students,
-                        isEdit: !!recordId
-                    });
-
                     try {
                         const url = recordId
                             ? AppConfig.getApiUrl(`schoolAdditionalStudyPrograms/${recordId}`)
@@ -3924,7 +3964,9 @@ window.clearEndTime = function() {
                             classId: parseInt(classId),
                             name: name,
                             weeklyHours: hours,
-                            numberOfStudents: students
+                            numberOfStudents: students,
+                            cost: cost ? parseFloat(cost) : null,           // ✅ Include cost
+                            approvedAmount: approved ? parseFloat(approved) : null // ✅ Include approved amount
                         };
 
                         if (recordId) {
@@ -3946,10 +3988,8 @@ window.clearEndTime = function() {
                             console.log('✅ Additional study program saved successfully');
                             document.body.removeChild(overlay);
 
-                            // Refresh table
                             await loadSchoolAdditionalStudyPrograms();
 
-                            // Restore edit mode if was active
                             if (window.schoolAdditionalStudyEditMode) {
                                 setTimeout(() => {
                                     const actionsColumn = document.querySelectorAll('#additionalStudyTableContainer [data-column="actions"]');
@@ -3959,7 +3999,7 @@ window.clearEndTime = function() {
                                 }, 100);
                             }
 
-                            alert(recordId ? 'התל"ן עודכן בהצלחה' : 'התל"ן נוסף בהצלחה');
+                            alert(result.message || (recordId ? 'התל"ן עודכן בהצלחה' : 'התל"ן נוסף בהצלחה'));
                         } else {
                             console.error('❌ Failed to save additional study program:', result);
                             alert(result.message || 'שגיאה בשמירת התל"ן');
@@ -3970,7 +4010,6 @@ window.clearEndTime = function() {
                         alert('שגיאה בשמירת התל"ן');
                     }
                 };
-
                 // Cancel button handler
                 document.getElementById('programCancelBtn').onclick = () => {
                     document.body.removeChild(overlay);
@@ -3990,6 +4029,97 @@ window.clearEndTime = function() {
                 alert('שגיאה בפתיחת חלון עריכה');
             }
         }
+
+
+        // Show version history modal
+        async function showProgramVersionHistory(masterId) {
+            console.log('📜 Loading version history for master:', masterId);
+
+            try {
+                const response = await fetch(
+                    AppConfig.getApiUrl(`schoolAdditionalStudyPrograms/${masterId}/history`),
+                    {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                        }
+                    }
+                );
+
+                if (!response.ok) {
+                    throw new Error('Failed to load version history');
+                }
+
+                const result = await response.json();
+                if (!result.success || !result.data) {
+                    throw new Error('Invalid response format');
+                }
+
+                const versions = result.data;
+
+                const overlay = document.createElement('div');
+                overlay.className = 'dialog-overlay';
+
+                const dialog = document.createElement('div');
+                dialog.className = 'dialog-box';
+                dialog.style.minWidth = '700px';
+                dialog.style.maxHeight = '80vh';
+                dialog.style.overflow = 'auto';
+
+                const versionsHtml = versions.map(v => `
+                    <div style="
+                        border: 1px solid #dee2e6;
+                        border-radius: 4px;
+                        padding: 15px;
+                        margin-bottom: 10px;
+                        background: ${v.isLastVersion ? '#e7f3ff' : '#f8f9fa'};
+                        direction: rtl;
+                    ">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <strong style="font-size: 1.1em;">גרסה ${v.version}</strong>
+                            ${v.isLastVersion ? '<span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">גרסה נוכחית</span>' : ''}
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div><strong>כיתה:</strong> ${v.className}</div>
+                            <div><strong>שם:</strong> ${v.name}</div>
+                            <div><strong>שעות שבועיות:</strong> ${v.weeklyHours}</div>
+                            <div><strong>מספר תלמידים:</strong> ${v.numberOfStudents}</div>
+                            <div><strong>עלות:</strong> ${v.cost ? `₪${v.cost.toFixed(2)}` : 'לא הוגדר'}</div>
+                            <div><strong>סכום מאושר:</strong> ${v.approvedAmount ? `₪${v.approvedAmount.toFixed(2)}` : 'לא הוגדר'}</div>
+                            <div><strong>נוצר:</strong> ${new Date(v.createdAt).toLocaleString('he-IL')}</div>
+                        <div><strong>נוצר על ידי:</strong> ${v.userName || 'לא ידוע'}</div>
+                    </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                dialog.innerHTML = `
+                    <h3 class="dialog-title">היסטוריית גרסאות - תל״ן</h3>
+                    <div style="margin: 20px 0;">
+                        ${versionsHtml}
+                    </div>
+                    <div class="dialog-buttons">
+                        <button id="historyCloseBtn" class="dialog-btn cancel">סגור</button>
+                    </div>
+                `;
+
+                overlay.appendChild(dialog);
+                document.body.appendChild(overlay);
+
+                document.getElementById('historyCloseBtn').onclick = () => {
+                    document.body.removeChild(overlay);
+                };
+
+            } catch (error) {
+                console.error('💥 Error loading version history:', error);
+                alert('שגיאה בטעינת היסטוריית גרסאות');
+            }
+        }
+
+        // ✅ Export new function
+        window.showProgramVersionHistory = showProgramVersionHistory;
+
 
         // Delete additional study program with confirmation
         async function deleteAdditionalStudyProgram(programId) {

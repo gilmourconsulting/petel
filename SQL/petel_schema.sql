@@ -1,4 +1,8 @@
+ALTER FUNCTION petel_schema.trigger_set_timestamp() OWNER TO "PetelAdmin";
 
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
 
 --
 -- Name: alert_levels; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
@@ -439,7 +443,7 @@ CREATE TABLE petel_schema.entities (
     council integer,
     inspector_name character varying(50),
     characterization character varying(24),
-    contact_person character varying(50),
+    contact_person_old character varying(50),
     education_stage character varying(25),
     symbol character(8),
     characterization_id integer,
@@ -447,7 +451,8 @@ CREATE TABLE petel_schema.entities (
     street character varying(50),
     house_number character varying(6),
     city character varying(50),
-    post_code character varying(10)
+    post_code character varying(10),
+    contact_person integer
 );
 
 
@@ -607,11 +612,51 @@ CREATE TABLE petel_schema.school_additional_study_programs (
     number_of_class_students integer NOT NULL,
     created_at time with time zone DEFAULT now() NOT NULL,
     updated_at time with time zone DEFAULT now() NOT NULL,
-    user_id integer DEFAULT 0 NOT NULL
+    user_id integer DEFAULT 0 NOT NULL,
+    version integer DEFAULT 1 NOT NULL,
+    is_last_version boolean DEFAULT true NOT NULL,
+    master_id integer NOT NULL,
+    cost numeric(10,2),
+    approved_amount numeric(10,2)
 );
 
 
 ALTER TABLE petel_schema.school_additional_study_programs OWNER TO postgres;
+
+--
+-- Name: COLUMN school_additional_study_programs.version; Type: COMMENT; Schema: petel_schema; Owner: postgres
+--
+
+COMMENT ON COLUMN petel_schema.school_additional_study_programs.version IS 'Version number for this record (1 = first version, increments on update)';
+
+
+--
+-- Name: COLUMN school_additional_study_programs.is_last_version; Type: COMMENT; Schema: petel_schema; Owner: postgres
+--
+
+COMMENT ON COLUMN petel_schema.school_additional_study_programs.is_last_version IS 'Flag indicating if this is the most recent version of the record';
+
+
+--
+-- Name: COLUMN school_additional_study_programs.master_id; Type: COMMENT; Schema: petel_schema; Owner: postgres
+--
+
+COMMENT ON COLUMN petel_schema.school_additional_study_programs.master_id IS 'Reference to the original (first version) record ID for version history tracking';
+
+
+--
+-- Name: COLUMN school_additional_study_programs.cost; Type: COMMENT; Schema: petel_schema; Owner: postgres
+--
+
+COMMENT ON COLUMN petel_schema.school_additional_study_programs.cost IS 'Estimated or budgeted cost for the program';
+
+
+--
+-- Name: COLUMN school_additional_study_programs.approved_amount; Type: COMMENT; Schema: petel_schema; Owner: postgres
+--
+
+COMMENT ON COLUMN petel_schema.school_additional_study_programs.approved_amount IS 'Approved budget amount for the program';
+
 
 --
 -- Name: school_attribute_types_values_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
@@ -703,7 +748,8 @@ CREATE TABLE petel_schema.school_classes (
     level character varying(3) NOT NULL,
     class_number character varying(3) NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    end_hour time without time zone
 );
 
 
@@ -1901,6 +1947,20 @@ ALTER TABLE ONLY petel_schema.users
 
 
 --
+-- Name: idx_additional_study_is_last_version; Type: INDEX; Schema: petel_schema; Owner: postgres
+--
+
+CREATE INDEX idx_additional_study_is_last_version ON petel_schema.school_additional_study_programs USING btree (is_last_version);
+
+
+--
+-- Name: idx_additional_study_master_id; Type: INDEX; Schema: petel_schema; Owner: postgres
+--
+
+CREATE INDEX idx_additional_study_master_id ON petel_schema.school_additional_study_programs USING btree (master_id);
+
+
+--
 -- Name: idx_unique_document_link_entity; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
 --
 
@@ -2042,11 +2102,27 @@ ALTER TABLE ONLY petel_schema.documents
 
 
 --
+-- Name: entities entites_contact_person_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.entities
+    ADD CONSTRAINT entites_contact_person_fk FOREIGN KEY (contact_person) REFERENCES petel_schema.persons(id) NOT VALID;
+
+
+--
 -- Name: entities entities_entity_type_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
 --
 
 ALTER TABLE ONLY petel_schema.entities
     ADD CONSTRAINT entities_entity_type_id_fkey FOREIGN KEY (entity_type_id) REFERENCES petel_schema.entity_types(id);
+
+
+--
+-- Name: school_additional_study_programs fk_additional_study_master; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.school_additional_study_programs
+    ADD CONSTRAINT fk_additional_study_master FOREIGN KEY (master_id) REFERENCES petel_schema.school_additional_study_programs(id);
 
 
 --
@@ -2322,8 +2398,4 @@ ALTER TABLE ONLY petel_schema.users
 
 
 --
--- PostgreSQL database dump complete
---
-
-\unrestrict zrt21EAsCoq6oReba2prgzpU1yPtYo4sOXZ4vYZiNZol5Nld8Be3IxDQDQGyvTr
 
