@@ -81,16 +81,12 @@ public class AppDbContext : DbContext
         {
             entity.ToTable("users");  // Schema from HasDefaultSchema
             entity.HasIndex(e => e.Username).IsUnique();
-            // ... relationships
         });
 
         modelBuilder.Entity<School>(entity =>
         {
             entity.ToTable("schools");  // Schema from HasDefaultSchema
-            // ... relationships
         });
-
-        // Continue for all entities - NO schema in ToTable()
     }
 }
 ```
@@ -105,8 +101,6 @@ public class School
     [Key]
     [Column("id")]
     public int Id { get; set; }
-    
-    // ... properties
 }
 
 // ❌ WRONG - DO NOT include schema in attribute
@@ -196,7 +190,7 @@ const ENV_CONFIG = window.ENV_CONFIG || {
 };
 
 const AppConfig = {
-    apiBaseUrl: ENV_CONFIG.API_BASE_URL,  // ✅ From environment
+    apiBaseUrl: ENV_CONFIG.API_BASE_URL,
     environment: ENV_CONFIG.ENVIRONMENT,
     
     getApiUrl(endpoint) {
@@ -236,11 +230,8 @@ const apiUrl = 'http://localhost:5082/api';  // NO!
 
 // ❌ WRONG - Duplicate AppConfig declaration
 const AppConfig = {
-    apiBaseUrl: 'http://localhost:5082/api'  // NO! - Use centralized config
+    apiBaseUrl: 'http://localhost:5082/api'  // NO!
 };
-
-// ❌ WRONG - Missing environment configuration
-// Every page must use window.AppConfig, not define its own
 
 // ✅ CORRECT - Use centralized configuration
 const response = await fetch(AppConfig.getApiUrl('schools'));
@@ -276,20 +267,12 @@ Environment-specific `appsettings.json` files:
 - `appsettings.Staging.json` - Staging environment
 - `appsettings.Production.json` - Production environment
 
-Each can override:
-- Connection strings
-- Schema names
-- API keys
-- Feature flags
-
 **2. Frontend Deployment**
 
 Deployment script pattern:
 
 ```bash
 #!/bin/bash
-# deploy.sh
-
 ENVIRONMENT=$1
 
 if [ -z "$ENVIRONMENT" ]; then
@@ -299,7 +282,6 @@ fi
 
 echo "🚀 Deploying for environment: $ENVIRONMENT"
 
-# Copy environment-specific config
 if [ -f "public/env-config.$ENVIRONMENT.js" ]; then
     cp "public/env-config.$ENVIRONMENT.js" "public/env-config.js"
     echo "✅ Using env-config.$ENVIRONMENT.js"
@@ -307,8 +289,6 @@ else
     echo "❌ Environment config file not found"
     exit 1
 fi
-
-# Continue with deployment...
 ```
 
 ### Common Configuration Errors and Fixes
@@ -355,7 +335,6 @@ fi
 - `menu.html` loaded into `#sideMenuContainer` on page load
 - Navigation via `navigateTo(section)` function with browser history support
 - School year context retrieved from backend session data
-
 
 ### Page Lifecycle Management
 
@@ -641,12 +620,6 @@ let myComponent = null;  // NO! - Use window.myComponent
 // ❌ Missing cleanup function export
 function cleanupMyPage() { /* ... */ }
 // Missing: window.cleanupMyPage = cleanupMyPage;  // REQUIRED!
-
-// ❌ Session data in frontend storage
-sessionStorage.setItem('studentId', id);  // NO! - Use backend session
-
-// ❌ Page configuration missing from page-lifecycle-config.js
-// Every page must be registered in configuration
 ```
 
 #### Adding a New Page - Checklist
@@ -695,27 +668,8 @@ sessionStorage.setItem('studentId', id);  // NO! - Use backend session
 - **Browser history** - Full back/forward button support
 - **Maintainable** - Changes in one place affect all pages consistently
 
-#### Debugging Page Lifecycle
+### Standard Components
 
-**Console logging shows lifecycle flow**:
-```
-🔄 PageLifecycleManager: Navigating from student to students
-🧹 Cleaning up page: student
-✅ cleanupStudentPage() executed successfully
-🧹 Clearing table component instances...
-🗑️ Clearing session data for navigation student → students: ['SelectedStudentId', 'SelectedStudentData']
-📄 Loading students.html...
-✅ Successfully navigated to students
-🚀 Explicitly initializing page: students
-✅ loadStudentsData() executed successfully
-```
-
-**Common Issues**:
-- "Identifier already declared" → Use `window` scope for variables
-- "Cleanup function not found" → Export to window: `window.cleanupPage = cleanupPage`
-- Session not clearing → Add navigation rule to `page-lifecycle-config.js`
-- Page not initializing → Check `selfInitializing` flag and init function export
-- Component still in memory → Implement proper cleanup function
 **Standard Table Component**:
 - **ALL tables must use ReusableTable component** from `table-component.js`
 - Constructor: `new ReusableTable(containerId, options)`
@@ -797,27 +751,6 @@ table.init(data, columns);
     </div>
 </div>
 ```
-- CSS positioning example:
-```css
-.context-buttons-section {
-    position: fixed;
-    left: 280px; /* Menu width (260px) + margin (20px) */
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    z-index: 1000;
-    width: 200px;
-}
-
-.content-card {
-    margin-left: 500px; /* Menu + Context buttons + margins */
-    margin-right: 20px;
-}
-```
-- **Mobile responsive**: Switch to bottom positioning when screen width < 768px
-- **Responsive breakpoints**: Adjust left positioning for tablet (240px) and large screens (300px)
 
 **Table Horizontal Scrolling**:
 - **All table containers must support horizontal scrolling for wide content**
@@ -837,1210 +770,806 @@ table.init(data, columns);
     min-width: 1200px; /* Minimum width to trigger scroll */
     white-space: nowrap;
 }
-
-.data-table th,
-.data-table td {
-    min-width: 120px; /* Minimum column width */
-    white-space: nowrap;
-}
-```
-- **Custom scrollbar styling**: Use webkit scrollbar styles for better UX
-- **Mobile adjustments**: Reduce font size and padding on mobile devices
-- **ReusableTable integration**: Ensure table component containers have scroll capability
-
-### Authentication & Session Management
-
-#### Session Data Architecture
-
-**Two Types of Session Data**:
-1. **Identity Data** (immutable during session)
-   - UserId, Username, UserFullName
-   - EntityId, EntityName, EntityTypeId
-   - Set at login, never modified
-   - Stored as UserSession class properties
-
-2. **Session Parameters** (mutable during session)
-   - CurrentSchoolYearId, SelectedSchoolId, filter states, etc.
-   - Can change during session
-   - Stored generically via `SetProperty(key, value)`
-   - **No code changes needed when adding new parameters**
-
-#### Backend Implementation
-
-**CRITICAL**: Controllers must inherit from `BaseController` and inject `UserSessionService` from `PetelApp.Api.Session` namespace.
-
-```csharp
-using PetelApp.Api.Session;  // ✅ REQUIRED - UserSessionService is in Session namespace
-
-// UserSession structure
-public class UserSession
-{
-    // IDENTITY DATA - Properties set at login
-    public string UserId { get; set; }
-    public string UserFullName { get; set; }
-    public string EntityId { get; set; }
-    public string EntityName { get; set; }
-    public string EntityTypeId { get; set; }
-    
-    // GENERIC STORAGE - For session parameters
-    private readonly Dictionary<string, string> _properties = new();
-    
-    public void SetProperty(string key, string value);
-    public string? GetProperty(string key);
-    public Dictionary<string, string> GetAllProperties();
-}
-
-// Controller usage - MUST inherit from BaseController
-public class MyController : BaseController 
-{
-    private readonly AppDbContext _context;
-    
-    // ✅ CORRECT - Inject UserSessionService and pass to base
-    public MyController(
-        AppDbContext context,
-        UserSessionService userSessionService,  // From PetelApp.Api.Session
-        ILogger<MyController> logger)
-        : base(userSessionService, logger)
-    {
-        _context = context;
-    }
-    
-    public IActionResult GetData()
-    {
-        var session = GetCurrentSession();  // Inherited from BaseController
-        
-        // Access identity data (properties)
-        var entityId = session.EntityId;
-        var userId = session.UserId;
-        
-        // Access session parameters (generic storage)
-        var schoolYearId = session.GetProperty("CurrentSchoolYearId");
-        var selectedSchool = session.GetProperty("SelectedSchoolId");
-        
-        // Set session parameters
-        session.SetProperty("LastViewedPage", "Dashboard");
-        
-        return Ok(data);
-    }
-}
 ```
 
-**Required Namespaces**:
-- `using PetelApp.Api.Session;` - For `UserSessionService`
-- `using PetelApp.Api.Controllers;` - For `BaseController`
+### Excel Import/Export Pattern
 
-**Controller Inheritance Pattern**:
+**Standard Implementation**: All Excel operations use EPPlus library with consistent error handling and validation.
+
+**Required Package**: 
+```xml
+<PackageReference Include="EPPlus" Version="7.0.0" />
+```
+
+#### Import Pattern (Backend)
+
 ```csharp
-// ✅ CORRECT
+[HttpPost("import")]
+public async Task<IActionResult> ImportFromExcel(IFormFile file)
+{
+    if (file == null || file.Length == 0)
+        return BadRequest("No file uploaded");
+
+    if (!file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+        return BadRequest("Only .xlsx files are supported");
+
+    if (file.Length > 10 * 1024 * 1024)  // 10MB limit
+        return BadRequest("File too large (max 10MB)");
+
+    var session = GetCurrentSession();
+    var errors = new List<string>();
+    var importedCount = 0;
+
+    try
+    {
+        using var stream = new MemoryStream();
+        await file.CopyToAsync(stream);
+        
+        using var package = new ExcelPackage(stream);
+        var worksheet = package.Workbook.Worksheets[0];
+        var rowCount = worksheet.Dimension.Rows;
+
+        // Stage 1: Header validation
+        var expectedHeaders = new Dictionary<int, string>
+        {
+            { 1, "מזהה" },
+            { 2, "שם" },
+            { 3, "כיתה" }
+        };
+
+        for (int col = 1; col <= expectedHeaders.Count; col++)
+        {
+            var header = worksheet.Cells[1, col].Text.Trim();
+            if (header != expectedHeaders[col])
+            {
+                return BadRequest($"Invalid header in column {col}. Expected '{expectedHeaders[col]}', got '{header}'");
+            }
+        }
+
+        // Stage 2: Duplicate detection in file
+        var duplicateIds = new HashSet<string>();
+        var existingIds = await _context.Students
+            .Where(s => s.SchoolYearId == schoolYearId)
+            .Select(s => s.StudentId)
+            .ToListAsync();
+
+        // Stage 3: Row processing with validation
+        for (int row = 2; row <= rowCount; row++)
+        {
+            try
+            {
+                var id = worksheet.Cells[row, 1].Text.Trim();
+                var name = worksheet.Cells[row, 2].Text.Trim();
+                var className = worksheet.Cells[row, 3].Text.Trim();
+
+                // Required field validation
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    errors.Add($"Row {row}: Missing required ID");
+                    continue;
+                }
+
+                // Duplicate in file check
+                if (duplicateIds.Contains(id))
+                {
+                    errors.Add($"Row {row}: Duplicate ID '{id}' in import file");
+                    continue;
+                }
+                duplicateIds.Add(id);
+
+                // Duplicate in database check
+                if (existingIds.Contains(id))
+                {
+                    errors.Add($"Row {row}: ID '{id}' already exists in database");
+                    continue;
+                }
+
+                // Use GlobalFunctions for entity resolution
+                var classId = await _globalFunctions.GetClassIdByName(className, schoolYearId);
+                if (classId == null)
+                {
+                    errors.Add($"Row {row}: Class '{className}' not found");
+                    continue;
+                }
+
+                // Create entity
+                var entity = new MyEntity
+                {
+                    Id = id,
+                    Name = name,
+                    ClassId = classId.Value
+                };
+
+                _context.MyEntities.Add(entity);
+                importedCount++;
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"Row {row}: {ex.Message}");
+            }
+        }
+
+        if (importedCount > 0)
+        {
+            await _context.SaveChangesAsync();
+        }
+
+        return Ok(new
+        {
+            ImportedCount = importedCount,
+            ErrorCount = errors.Count,
+            Errors = errors.Take(50).ToList(),  // Limit to first 50
+            HasMoreErrors = errors.Count > 50
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error importing Excel file");
+        return StatusCode(500, $"Error processing file: {ex.Message}");
+    }
+}
+```
+
+#### Export Pattern (Backend)
+
+```csharp
+[HttpGet("export")]
+public async Task<IActionResult> ExportToExcel()
+{
+    var session = GetCurrentSession();
+    
+    try
+    {
+        var data = await _context.MyEntities
+            .Where(e => e.EntityId == int.Parse(session.EntityId))
+            .Include(e => e.RelatedEntity)  // Use navigation properties
+            .ToListAsync();
+
+        using var package = new ExcelPackage();
+        var worksheet = package.Workbook.Worksheets.Add("נתונים");
+
+        // Headers with RTL support
+        var headers = new[] { "מזהה", "שם", "תיאור" };
+        for (int i = 0; i < headers.Length; i++)
+        {
+            var cell = worksheet.Cells[1, i + 1];
+            cell.Value = headers[i];
+            cell.Style.Font.Bold = true;
+            cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+            cell.Style.Fill.BackgroundColor.SetColor(Color.LightBlue);
+        }
+
+        // Data rows
+        for (int i = 0; i < data.Count; i++)
+        {
+            var item = data[i];
+            var row = i + 2;
+            
+            worksheet.Cells[row, 1].Value = item.Id;
+            worksheet.Cells[row, 2].Value = item.Name;
+            worksheet.Cells[row, 3].Value = item.Description;
+        }
+
+        // Formatting
+        worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
+        worksheet.View.RightToLeft = true;
+
+        var stream = new MemoryStream(package.GetAsByteArray());
+        var fileName = $"Export_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+        
+        return File(stream, 
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", 
+            fileName);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error exporting to Excel");
+        return StatusCode(500, "Error generating Excel file");
+    }
+}
+```
+
+#### Frontend Integration
+
+```javascript
+// Upload Excel file
+async function uploadExcel() {
+    const fileInput = document.getElementById('excelFileInput');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('אנא בחר קובץ');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const response = await fetch(AppConfig.getApiUrl('myentities/import'), {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+            },
+            body: formData
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+            let message = `יובאו ${result.importedCount} רשומות בהצלחה`;
+            if (result.errorCount > 0) {
+                message += `\n${result.errorCount} שגיאות התרחשו`;
+                console.error('Import errors:', result.errors);
+            }
+            alert(message);
+            await loadData();  // Refresh page data
+        } else {
+            alert(`שגיאה: ${result}`);
+        }
+    } catch (error) {
+        console.error('Error uploading file:', error);
+        alert('שגיאה בהעלאת הקובץ');
+    }
+}
+
+// Download Excel file
+async function downloadExcel() {
+    try {
+        const response = await fetch(AppConfig.getApiUrl('myentities/export'), {
+            headers: {
+                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+            }
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `export_${new Date().toISOString().slice(0,10)}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } else {
+            alert('שגיאה בהורדת הקובץ');
+        }
+    } catch (error) {
+        console.error('Error downloading file:', error);
+        alert('שגיאה בהורדת הקובץ');
+    }
+}
+```
+
+#### Import Validation Best Practices
+
+**Multi-Stage Validation**:
+1. ✅ File format validation (extension, size)
+2. ✅ Structure validation (headers, column count)
+3. ✅ Data type validation (per column)
+4. ✅ Business logic validation (required fields, duplicates)
+5. ✅ Reference validation (foreign keys exist)
+
+**Error Collection**:
+- ✅ Collect ALL errors, don't stop on first error
+- ✅ Include row number and column in error messages
+- ✅ Return summary with counts and detailed error list
+- ✅ Log errors for debugging
+
+**Best Practices**:
+```csharp
+// ✅ CORRECT - Collect errors and continue
+if (string.IsNullOrWhiteSpace(value))
+{
+    errors.Add($"Row {row}: Invalid value in column {col}");
+    continue;
+}
+
+// ❌ WRONG - Throwing on first error
+if (string.IsNullOrWhiteSpace(value))
+    throw new Exception("Invalid value");  // NO!
+
+// ✅ CORRECT - Use GlobalFunctions for lookups
+var classId = await _globalFunctions.GetClassIdByName(className, yearId);
+
+// ❌ WRONG - Direct database query
+var classId = _context.SchoolClasses
+    .FirstOrDefault(c => c.ClassName == className)?.Id;  // NO!
+```
+
+## Authentication & Session Management
+
+### Authentication Flow
+1. User logs in via `/api/auth/login` with username/password
+2. Backend validates credentials, creates JWT token
+3. Frontend stores token in `sessionStorage`
+4. All subsequent API calls include `Authorization: Bearer {token}` header
+5. Backend validates token and retrieves user session from `UserSessionService`
+
+### Session Properties Pattern
+**Backend**: Properties stored in `UserSession` object via `UserSessionService`
+**Frontend**: Use `SessionState` object for temporary client-side state
+
+```javascript
+// Set session property
+await window.SessionState.setProperty('SelectedStudentId', studentId);
+
+// Get session property
+const studentId = await window.SessionState.getProperty('SelectedStudentId');
+
+// Clear specific property
+await window.SessionState.setProperty('SelectedStudentId', '');
+
+// Clear multiple properties (via navigationRules)
+navigationRules: [
+    { from: 'student', to: '*', clearSession: ['SelectedStudentId', 'SelectedStudentData'] }
+]
+```
+
+### BaseController Pattern
+All API controllers inherit from `BaseController` which provides:
+- `GetCurrentSession()` - Retrieves full user session
+- `GetSessionProperty(key)` - Gets specific session property
+- Automatic EntityId scoping for all queries
+
+```csharp
 public class MyController : BaseController
 {
-    public MyController(
-        UserSessionService userSessionService,  // Must inject
-        ILogger<MyController> logger)           // Must inject
-        : base(userSessionService, logger)      // Must pass to base
+    public async Task<IActionResult> GetData()
     {
-    }
-}
-
-// ❌ WRONG - Missing BaseController inheritance
-public class MyController : ControllerBase  // NO!
-
-// ❌ WRONG - Missing UserSessionService injection
-public MyController(ILogger<MyController> logger)  // NO!
-
-// ❌ WRONG - Not passing to base constructor
-public MyController(UserSessionService service, ILogger logger)
-{
-    // Missing: : base(service, logger)
-}
-```
-**Session API Endpoints**:
-- `GET /api/session` - Get identity data + all properties
-- `POST /api/session/property` - Set: `{ "key": "CurrentSchoolYearId", "value": "123" }`
-- `GET /api/session/property/{key}` - Get specific parameter
-- `GET /api/session/properties` - Get all parameters
-- `DELETE /api/session/property/{key}` - Remove parameter
-
-#### Frontend Token-Only Storage
-
-**CRITICAL**: Frontend stores **ONLY** the auth token in sessionStorage.
-
-```javascript
-// ✅ CORRECT - Only auth token
-sessionStorage.setItem('authToken', token);
-const token = sessionStorage.getItem('authToken');
-
-// ❌ WRONG - No session data in frontend
-localStorage.setItem('userId', userId);              // DON'T DO THIS
-sessionStorage.setItem('schoolYearId', yearId);      // DON'T DO THIS
-sessionStorage.setItem('entityId', entityId);        // DON'T DO THIS
-
-// ✅ CORRECT - Get from backend
-const session = await sessionManager.getSessionInfo();
-const userId = session.userId;
-const entityId = await sessionManager.getSessionProperty('CurrentSchoolYearId');
-
-// ✅ CORRECT - Set parameter in backend
-await sessionManager.setSessionProperty('CurrentSchoolYearId', yearId);
-
-// ✅ CORRECT - Get parameter from backend
-const yearId = await sessionManager.getSessionProperty('CurrentSchoolYearId');
-```
-
-**SessionManager API** (`session-manager.js`):
-```javascript
-class SessionManager {
-    // Token management (frontend storage)
-    setToken(token)
-    getToken()
-    clearToken()
-    isAuthenticated()
-    
-    // Session data (backend API calls)
-    async getSessionInfo()                    // Identity + all properties
-    async setSessionProperty(key, value)      // Set parameter
-    async getSessionProperty(key)             // Get parameter
-    async getAllSessionProperties()           // Get all parameters
-    
-    logout()
-}
-```
-
-**Common Session Parameters**:
-- `CurrentSchoolYearId` - Active school year
-- `SelectedSchoolId` - For multi-school entities
-- `FilterSettings_{PageName}` - Page filters
-- `LastViewedPage` - Navigation state
-- Custom parameters (add without code changes)
-
-#### When to Use Properties vs Generic Storage
-
-**Use Direct Properties** (UserSession class):
-- User identity: UserId, Username, UserFullName
-- User's entity: EntityId, EntityName, EntityTypeId
-- Session metadata: SessionId, CreatedAt, LastAccessedAt
-- **These NEVER change during session**
-
-**Use Generic Storage** (SetProperty/GetProperty):
-- School year selection
-- School selection (multi-school entities)
-- Page filters and view state
-- Report parameters
-- **Any data that can change during session**
-- **Prevents code changes for new parameters**
-
-### System Attributes vs Session Data
-
-**CRITICAL DISTINCTION**: System Attributes and Session Data are completely separate concepts.
-
-#### System Attributes (Global Configuration)
-- **Scope**: Application-wide, shared by ALL users and sessions
-- **Storage**: In-memory cache (`SystemAttributeCache`), loaded from database at startup
-- **Lifecycle**: Loaded once, persists for application lifetime
-- **Access**: Available without authentication (`[AllowAnonymous]`)
-- **Purpose**: System configuration, dropdown values, feature flags, constants
-- **Examples**: 
-  - School types list
-  - Grade levels
-  - Subject codes
-  - Feature toggles
-  - System-wide settings
-
-```csharp
-// Backend: Access system attributes
-public class MyController : BaseController 
-{
-    private readonly SystemAttributeCache _systemCache;
-    
-    public IActionResult GetData()
-    {
-        // System attributes - global configuration
-        var schoolTypes = _systemCache.GetAttributesByCategory(1);
-        
-        // User session - user-specific data
         var session = GetCurrentSession();
-        var entityId = session.EntityId;
+        var entityId = int.Parse(session.EntityId);
         
+        var data = await _context.MyEntities
+            .Where(e => e.EntityId == entityId)
+            .ToListAsync();
+            
         return Ok(data);
     }
 }
 ```
 
-```javascript
-// Frontend: System attributes available without session
-const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
-const systemAttrs = await response.json();
-```
+## Entity Framework Patterns
 
-#### Session Data (User Context)
-- **Scope**: User-specific, isolated per session
-- **Storage**: In-memory per session (`UserSessionService`)
-- **Lifecycle**: Created at login, destroyed at logout
-- **Access**: Requires authentication token
-- **Purpose**: User identity, current selections, navigation state
-- **Types**:
-  1. **Identity Data** (immutable): UserId, EntityId, UserFullName
-  2. **Session Parameters** (mutable): CurrentSchoolYearId, SelectedFilters
+### Database Context Configuration
 
-```javascript
-// Frontend: Session data requires authentication
-const session = await sessionManager.getSessionInfo(); // Needs auth token
-const userId = session.userId;
-const schoolYearId = await sessionManager.getSessionProperty('CurrentSchoolYearId');
-```
-
-#### When to Use Each
-
-**Use System Attributes When:**
-- Data is the same for ALL users (dropdown options, system config)
-- Data rarely changes (loaded at startup)
-- No authentication needed to access
-- Data comes from system configuration tables
-
-**Use Session Data When:**
-- Data is user-specific (current selections, preferences)
-- Data changes during user's session
-- Requires user authentication
-- Related to user's current context/state
-
-#### Anti-Patterns to Avoid
-
-```javascript
-// ❌ WRONG - Storing system config in session
-await sessionManager.setSessionProperty('SchoolTypes', JSON.stringify(types)); // NO!
-
-// ✅ CORRECT - Get system config from system attributes
-const types = await fetch(AppConfig.getApiUrl('systemAttributes/by-category/1'));
-
-// ❌ WRONG - Storing user selections in system attributes
-systemCache.SetAttribute('CurrentUserSchoolYear', yearId); // NO!
-
-// ✅ CORRECT - Store user selections in session
-await sessionManager.setSessionProperty('CurrentSchoolYearId', yearId);
-```
-
-#### Access Patterns
-
-**System Attributes**:
-- Endpoint: `/api/systemAttributes` (no auth required)
-- Frontend: `config.js` AppConfig helper
-- Backend: Inject `SystemAttributeCache` service
-- Refresh: Rarely (admin action or app restart)
-
-**Session Data**:
-- Endpoint: `/api/session` (requires auth token)
-- Frontend: `session-manager.js` SessionManager helper
-- Backend: Inherit from `BaseController`, use `GetCurrentSession()`
-- Refresh: Per request or on-demand
-
-### System Attributes Pattern
-Dynamic configuration via `SystemAttributes` table loaded at startup:
-```csharp
-// Backend: SystemAttributeLoaderHostedService loads into memory at startup
-// SystemAttributeCache provides singleton access
-// Frontend: AppConfig.getApiUrl('systemAttributes') for runtime access
-// NO AUTHENTICATION REQUIRED - these are global configuration values
-```
-
-### Global Helper Functions
-
-**Backend Utility Service**: `GlobalFunctions` provides reusable helper methods for common data operations and text processing.
-
-**File Location**: `PetelApp.Api/Services/GlobalSystemFunctions.cs`
-
-#### Service Registration and Usage
+**CRITICAL**: Always use `HasDefaultSchema()` - never hardcode schema names in entity configurations.
 
 ```csharp
-// Service is registered in Program.cs as scoped service
-builder.Services.AddScoped<GlobalFunctions>();
+public class AppDbContext : DbContext
+{
+    private readonly string _schemaName;
 
-// Inject into controllers or other services
+    public AppDbContext(
+        DbContextOptions<AppDbContext> options,
+        IOptions<DatabaseSettings> dbSettings) 
+        : base(options)
+    {
+        _schemaName = dbSettings.Value.SchemaName;
+    }
+    
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+
+        // ✅ Set default schema ONCE
+        modelBuilder.HasDefaultSchema(_schemaName);
+
+        // ✅ Configure entities WITHOUT schema parameter
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.ToTable("users");
+            entity.HasIndex(e => e.Username).IsUnique();
+        });
+    }
+}
+```
+
+### Entity Class Patterns
+
+**Standard entity attributes**:
+```csharp
+[Table("table_name")]  // ✅ Table name only - NO schema
+public class MyEntity
+{
+    [Key]
+    [Column("id")]
+    public int Id { get; set; }
+    
+    [Required]
+    [Column("name")]
+    [MaxLength(100)]
+    public string Name { get; set; } = string.Empty;
+    
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+```
+
+### Navigation Properties (CRITICAL)
+
+**All relationships MUST include navigation properties** for proper EF Core functionality:
+
+```csharp
+// Entity with foreign key relationship
+public class SchoolStudent
+{
+    [Key]
+    [Column("id")]
+    public int Id { get; set; }
+    
+    // ✅ REQUIRED: Foreign key property
+    [ForeignKey("SchoolYear")]
+    [Column("school_year_id")]
+    public int SchoolYearId { get; set; }
+    
+    // ✅ REQUIRED: Navigation property (never null)
+    public virtual SchoolYear SchoolYear { get; set; } = null!;
+    
+    // ✅ Optional relationship
+    [ForeignKey("SchoolClass")]
+    [Column("class_id")]
+    public int? ClassId { get; set; }
+    
+    // ✅ Nullable navigation property
+    public virtual SchoolClass? SchoolClass { get; set; }
+}
+
+// Parent entity with collection
+public class SchoolYear
+{
+    [Key]
+    [Column("id")]
+    public int Id { get; set; }
+    
+    [Column("year_name")]
+    public string YearName { get; set; } = string.Empty;
+    
+    // ✅ REQUIRED: Collection navigation property
+    public virtual ICollection<SchoolStudent> Students { get; set; } = new List<SchoolStudent>();
+}
+```
+
+**Configuration in AppDbContext**:
+
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder)
+{
+    base.OnModelCreating(modelBuilder);
+    modelBuilder.HasDefaultSchema(_schemaName);
+    
+    modelBuilder.Entity<SchoolStudent>(entity =>
+    {
+        entity.ToTable("school_students");
+        
+        // ✅ Configure required relationship
+        entity.HasOne(s => s.SchoolYear)
+            .WithMany(y => y.Students)
+            .HasForeignKey(s => s.SchoolYearId)
+            .OnDelete(DeleteBehavior.Restrict);
+            
+        // ✅ Configure optional relationship
+        entity.HasOne(s => s.SchoolClass)
+            .WithMany(c => c.Students)
+            .HasForeignKey(s => s.ClassId)
+            .OnDelete(DeleteBehavior.SetNull);
+    });
+}
+```
+
+**Benefits of Navigation Properties**:
+- ✅ Enables eager loading: `.Include(s => s.SchoolYear)`
+- ✅ Prevents N+1 query problems
+- ✅ Provides IntelliSense for related data
+- ✅ Enforces referential integrity
+- ✅ Simplifies projection queries
+
+**Loading Strategies**:
+
+```csharp
+// ✅ Eager loading (small related data)
+var students = await _context.SchoolStudents
+    .Include(s => s.SchoolYear)
+    .Include(s => s.SchoolClass)
+    .Where(s => s.SchoolYearId == yearId)
+    .ToListAsync();
+
+// ✅ Projection (large datasets, specific fields only)
+var studentDtos = await _context.SchoolStudents
+    .Where(s => s.SchoolYearId == yearId)
+    .Select(s => new StudentDto
+    {
+        Id = s.Id,
+        Name = s.Name,
+        YearName = s.SchoolYear.YearName,
+        ClassName = s.SchoolClass != null ? s.SchoolClass.ClassName : null
+    })
+    .ToListAsync();
+
+// ❌ WRONG - Lazy loading causes N+1 queries
+var students = await _context.SchoolStudents.ToListAsync();
+foreach (var student in students)
+{
+    var yearName = student.SchoolYear.YearName;  // Separate query per student!
+}
+```
+
+**Anti-Patterns**:
+```csharp
+// ❌ WRONG - Missing navigation property
+public class SchoolStudent
+{
+    public int SchoolYearId { get; set; }
+    // Missing: public virtual SchoolYear SchoolYear { get; set; }
+}
+
+// ❌ WRONG - Accessing navigation without Include
+var students = await _context.SchoolStudents.ToListAsync();
+var yearName = students[0].SchoolYear.YearName;  // NullReferenceException!
+
+// ✅ CORRECT - Include navigation property
+var students = await _context.SchoolStudents
+    .Include(s => s.SchoolYear)
+    .ToListAsync();
+var yearName = students[0].SchoolYear.YearName;  // Works!
+```
+
+### Query Patterns
+
+**Entity Scoping**: Always filter by user's EntityId
+```csharp
+var session = GetCurrentSession();
+var entityId = int.Parse(session.EntityId);
+
+var data = await _context.Students
+    .Where(s => s.EntityId == entityId)
+    .ToListAsync();
+```
+
+**Async/Await**: Always use async methods
+```csharp
+// ✅ CORRECT
+var students = await _context.Students.ToListAsync();
+
+// ❌ WRONG
+var students = _context.Students.ToList();  // Blocks thread
+```
+
+**Projections for Performance**:
+```csharp
+// ✅ CORRECT - Only select needed fields
+var data = await _context.Students
+    .Select(s => new { s.Id, s.Name, s.ClassName })
+    .ToListAsync();
+
+// ❌ WRONG - Loading entire entity when not needed
+var data = await _context.Students
+    .ToListAsync()
+    .Select(s => new { s.Id, s.Name, s.ClassName });
+```
+
+## Global Helper Functions
+
+### GlobalFunctions Service
+Provides centralized lookup and normalization functions:
+
+```csharp
+// Get entity IDs by name (with Hebrew normalization)
+var schoolId = await _globalFunctions.GetSchoolIdByName(schoolName);
+var classId = await _globalFunctions.GetClassIdByName(className, schoolYearId);
+var yearId = await _globalFunctions.GetSchoolYearIdByName(yearName);
+
+// Hebrew text normalization
+var normalized = GlobalFunctions.PureHebrewText(input);  // Static method
+```
+
+**Usage in Controllers**:
+```csharp
 public class MyController : BaseController
 {
     private readonly GlobalFunctions _globalFunctions;
-
-    public MyController(GlobalFunctions globalFunctions)
+    
+    public MyController(AppDbContext context, GlobalFunctions globalFunctions)
+        : base(context)
     {
         _globalFunctions = globalFunctions;
     }
     
-    public async Task<IActionResult> ProcessData()
+    public async Task<IActionResult> GetByName(string name)
     {
-        // Use instance methods
-        var classId = await _globalFunctions.GetClassIdByName("א-1", schoolYearId);
-        
-        // Use static methods (no injection needed)
-        var pureText = GlobalFunctions.PureHebrewText("א-1");
-        
-        return Ok();
+        var id = await _globalFunctions.GetEntityIdByName(name);
+        if (id == null)
+            return NotFound($"Entity '{name}' not found");
+            
+        // Use resolved ID...
     }
 }
 ```
 
-#### Available Functions
-
-**1. Pure Hebrew Text and Numbers** (Static Method)
-- **Purpose**: Extract only Hebrew letters (א-ת) and digits (0-9) from text
-- **Removes**: Spaces, dashes, punctuation, Latin letters, special characters
-- **Use Case**: Normalizing text for comparison (class names, council names, IDs with formatting)
+**Hebrew Normalization Pattern**:
 ```csharp
-// Static - no injection needed
-var pure = GlobalFunctions.PureHebrewText("א-1");      // Returns: "א1"
-var pure = GlobalFunctions.PureHebrewText("ב׳ 2");     // Returns: "ב2"
-var pure = GlobalFunctions.PureHebrewText("כיתה 12");  // Returns: "כיתה12"
-var pure = GlobalFunctions.PureHebrewText("3rd ג");    // Returns: "3ג"
-```
-
-**2. Get School Year by IDs**
-- **Purpose**: Find school_year ID by year_id and school_id
-- **Database**: Queries `SchoolYears` table
-- **Returns**: `int?` (null if not found)
-```csharp
-var schoolYearId = await _globalFunctions.GetSchoolYearByIds(
-    yearId: 5,      // Hebrew year ID from hebrew_years.id
-    schoolId: 123   // School entity ID from entities.id
-);
-```
-
-**3. Get School Year by Hebrew Year and Symbol**
-- **Purpose**: Multi-step lookup: Hebrew year text → school symbol → school_year ID
-- **Steps**: 
-  1. Find year_id from `HebrewYears` by year_name
-  2. Find school_id from `Entities` by symbol
-  3. Call `GetSchoolYearByIds()`
-- **Returns**: `int?` (null if any step fails)
-```csharp
-var schoolYearId = await _globalFunctions.GetSchoolYearByHebrewYearAndSymbol(
-    hebrewYear: "תשפ״ה",     // Hebrew year text from hebrew_years.year_name
-    schoolSymbol: "1234"     // School symbol from entities.symbol
-);
-```
-
-**4. Get Class ID by Name**
-- **Purpose**: Find class ID by comparing pure Hebrew/numeric text of class names
-- **Comparison**: Uses `PureHebrewText()` to normalize both input and database names
-- **Database**: Queries `SchoolClasses` filtered by school_year_id
-- **Returns**: `int?` (null if not found)
-```csharp
-var classId = await _globalFunctions.GetClassIdByName(
-    className: "א-1",        // Class name (with or without punctuation/spaces)
-    schoolYearId: 42         // School year context from school_years.id
-);
-// Matches against normalized class names: "א-1", "א 1", "א1" all become "א1"
-```
-
-**5. Get Council by Name**
-- **Purpose**: Find council ID by comparing pure Hebrew/numeric text of council short names
-- **Comparison**: Uses `PureHebrewText()` to normalize against `council_short_name` field
-- **Database**: Queries `Councils` table
-- **Returns**: `int?` (null if not found)
-```csharp
-var councilId = await _globalFunctions.GetCouncilByName(
-    councilName: "ירושלים"  // Council name (compares to councils.council_short_name)
-);
-```
-
-**6. Get Council by Code**
-- **Purpose**: Find council ID by exact council code match
-- **Database**: Queries `Councils` table by `council_code` field
-- **Returns**: `int?` (null if not found)
-```csharp
-var councilId = await _globalFunctions.GetCouncilByCode(
-    councilCode: "3000"      // Council code from councils.council_code
-);
-```
-
-#### Best Practices
-
-**When to Use GlobalFunctions**:
-- ✅ Text normalization for Hebrew/numeric comparisons
-- ✅ Common lookup patterns used across multiple controllers
-- ✅ Entity resolution by name/code/symbol
-- ✅ Multi-step data retrieval workflows
-- ✅ Import/export operations requiring fuzzy matching
-
-**Error Handling**:
-- All async methods return `null` on failure (not throwing exceptions)
-- Always check for null before using results
-- Log context when null is returned for debugging
-```csharp
-var classId = await _globalFunctions.GetClassIdByName(className, yearId);
-if (classId == null)
-{
-    _logger.LogWarning("Class not found: {ClassName} in year {YearId}", className, yearId);
-    return NotFound($"Class '{className}' not found");
-}
-```
-
-**Combining Functions**:
-```csharp
-// Example: Process student import by class name and Hebrew year
-var schoolYearId = await _globalFunctions.GetSchoolYearByHebrewYearAndSymbol(
-    hebrewYear: "תשפ״ה",
-    schoolSymbol: "1234"
-);
-
-if (schoolYearId == null)
-{
-    return NotFound("School year not found for תשפ״ה at school 1234");
-}
-
-var classId = await _globalFunctions.GetClassIdByName(
-    className: studentData.ClassName,
-    schoolYearId: schoolYearId.Value
-);
-
-if (classId == null)
-{
-    return NotFound($"Class '{studentData.ClassName}' not found in school year {schoolYearId}");
-}
-
-// Process student with resolved IDs
-var student = new SchoolStudent
-{
-    ClassId = classId.Value,
-    SchoolYearId = schoolYearId.Value,
-    // ... other fields
-};
-```
-
-**Static vs Instance Methods**:
-- **Static**: `PureHebrewText()` - Text processing only, no database access
-  - Call directly: `GlobalFunctions.PureHebrewText(text)`
-  - No dependency injection needed
-  - Can be used in static contexts
-  
-- **Instance**: All other methods - Require database access via `AppDbContext`
-  - Require injection: `_globalFunctions.GetSchoolYearByIds(...)`
-  - Must be registered as scoped service
-  - Participate in EF Core change tracking
-
-**Performance Considerations**:
-- Name-based lookups load all records into memory for comparison
-  - `GetClassIdByName()` loads all classes for the school year
-  - `GetCouncilByName()` loads all councils
-- Use code-based lookups when possible for better performance
-  - `GetCouncilByCode()` uses indexed database query
-- Consider caching results for frequently-called lookups
-
-**Integration with File Imports**:
-```csharp
-// Example: Excel import with fuzzy matching
-foreach (var row in excelRows)
-{
-    // Normalize input data
-    var normalizedClass = GlobalFunctions.PureHebrewText(row["כיתה"]);
-    var normalizedCouncil = GlobalFunctions.PureHebrewText(row["רשות"]);
-    
-    // Resolve IDs using global functions
-    var classId = await _globalFunctions.GetClassIdByName(row["כיתה"], schoolYearId);
-    var councilId = await _globalFunctions.GetCouncilByName(row["רשות"]);
-    
-    if (classId == null || councilId == null)
-    {
-        // Log validation error with original and normalized values
-        errors.Add($"Row {rowNum}: Class '{row["כיתה"]}' (normalized: '{normalizedClass}') " +
-                   $"or Council '{row["רשות"]}' (normalized: '{normalizedCouncil}') not found");
-        continue;
-    }
-    
-    // Create record with resolved IDs
-}
+// Use for comparing Excel input to database values
+var normalizedInput = GlobalFunctions.PureHebrewText(excelValue);
+var match = await _context.Entities
+    .Where(e => GlobalFunctions.PureHebrewText(e.Name) == normalizedInput)
+    .FirstOrDefaultAsync();
 ```
 
 ## Hebrew/RTL Specific Patterns
 
-- HTML `lang="he" dir="rtl"` on all pages
-- CSS variables in `theme.css` for RTL-aware spacing
-- Date formatting: `new Date().toLocaleDateString('he-IL')`
-- Form layouts use CSS Grid with `grid-template-areas` for RTL compatibility
-- **Hebrew text normalization**: Always use `GlobalFunctions.PureHebrewText()` for comparisons
-- **Mixed Hebrew/numeric content**: `PureHebrewText()` preserves both Hebrew letters and digits
-
-## Integration Points
-
-### API Communication Pattern
-```javascript
-// All API calls through AppConfig helper
-fetch(AppConfig.getApiUrl('systemAttributes'))
-    .then(response => response.json())
-    .then(data => /* handle response */);
-```
-
-### Cross-Component Communication
-- School year changes dispatch `schoolYearChanged` CustomEvent
-- Components listen via `window.addEventListener('schoolYearChanged', handler)`
-- Global functions exposed on `window` object for inter-module access
-
-## Security Patterns
-
-- **Frontend**: Session storage for auth tokens, automatic logout on token expiry
-- **Backend**: Session-based auth with entity validation middleware
-- **CORS**: Development allows localhost, production requires explicit domain configuration
-- **SQL**: Entity Framework prevents injection, parameterized queries only
-
-## Common Gotchas
-
-- Frontend scripts in loaded HTML must be re-executed manually via DOM manipulation
-- Entity ID must be present in session for most API endpoints (except `/api/systemattributes`)
-- PostgreSQL connection strings in `appsettings.json` use specific database names
-- Hebrew text requires UTF-8 encoding and RTL CSS considerations
-- **All tables MUST use ReusableTable component** - no manual table HTML
-- **All icons MUST use provided PNG set** - no emoji, Unicode symbols, or custom icons
-- **Context buttons MUST be positioned to the left of main section** - use fixed/sticky positioning
-- **GlobalFunctions must be injected** - except for static `PureHebrewText()` method
-- **Always normalize Hebrew text before comparison** - use `PureHebrewText()` for fuzzy matching
-- **Check for null after GlobalFunctions calls** - all lookup methods return `int?`
-
-### Documents Table Component
-
-**Specialized Component**: `DocumentsTableComponent` from `documents-table.js` provides a complete document management interface with upload, download, delete, and filtering capabilities.
-
-**Purpose**: Manage entity-specific documents (school documents, student documents, etc.) with type categorization, file upload/download, and CRUD operations.
-
-#### Component Architecture
-
-**File Location**: `petelapp-frontend/public/documents-table.js`
-
-**Key Features**:
-- Document type filtering (dropdown + pills)
-- File upload with drag-and-drop support
-- Download/delete actions per document
-- Automatic refresh after operations
-- Entity-scoped document lists (school, student, etc.)
-- Backend session integration for context
-
-#### Basic Usage Pattern
-
-```javascript
-// ✅ CORRECT - Use window scope to prevent redeclaration
-window.documentsComponent = window.documentsComponent || null;
-
-/**
- * Initialize documents table component
- */
-async function initializeDocuments() {
-    try {
-        console.log('📄 Initializing documents table...');
-
-        // Get entity context from backend session
-        const entityId = await window.SessionState.getProperty('SelectedStudentId');
-        const selectedYearId = await window.SessionState.getProperty('SelectedYearId');
-
-        if (!entityId) {
-            console.error('❌ No entity ID in session');
-            const container = document.getElementById('documentsTableContainer');
-            if (container) {
-                container.innerHTML = `<div class="table-error">לא נמצא מזהה ישות</div>`;
-            }
-            return;
-        }
-
-        // ✅ Create component instance
-        window.documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
-            showUploadForm: false,          // Show upload UI inline (false = use modal)
-            allowDelete: false,             // Enable delete buttons
-            allowDownload: true,            // Enable download buttons
-            allowUpload: true,              // Enable upload functionality
-            entityId: entityId,             // Entity ID (student, school, etc.)
-            entityType: 'student',          // Entity type: 'student', 'school', etc.
-            yearId: selectedYearId,         // School year context (optional)
-            onUploadSuccess: (result) => {
-                console.log('📄 Document uploaded:', result);
-                // Optional: Show success message, refresh data
-            },
-            onDeleteSuccess: (documentId) => {
-                console.log('🗑 Document deleted:', documentId);
-                // Optional: Show success message
-            },
-            onError: (error) => {
-                console.error('❌ Document operation error:', error);
-                alert('שגיאה בפעולה על המסמך');
-            }
-        });
-
-        // ✅ Create global reference for button onclick handlers
-        window['documentsTableInstance_documentsTableContainer'] = window.documentsComponent;
-
-        // ✅ Initialize component (loads document types and documents)
-        await window.documentsComponent.init();
-
-        console.log('✅ Documents table initialized');
-    } catch (error) {
-        console.error('❌ Error initializing documents:', error);
-        const container = document.getElementById('documentsTableContainer');
-        if (container) {
-            container.innerHTML = `<div class="table-error">שגיאה בטעינת רשימת המסמכים</div>`;
-        }
-    }
-}
-
-// ✅ Export to window for PageLifecycleManager
-window.initializeDocuments = initializeDocuments;
-```
-
-#### Configuration Options
-
-```javascript
-new DocumentsTableComponent(containerId, {
-    // UI Controls
-    showUploadForm: false,        // true = inline upload form, false = modal dialog
-    allowDelete: true,            // Show/hide delete buttons
-    allowDownload: true,          // Show/hide download buttons
-    allowUpload: true,            // Enable upload functionality
-    
-    // Entity Context
-    entityId: '123',              // Required: Entity ID (student_id, school_id, etc.)
-    entityType: 'student',        // Required: 'student', 'school', etc.
-    yearId: '5',                  // Optional: School year context for filtering
-    
-    // Callbacks
-    onUploadSuccess: (result) => {
-        // Called after successful upload
-        // result contains: { documentId, fileName, message }
-    },
-    onDeleteSuccess: (documentId) => {
-        // Called after successful delete
-        // documentId: ID of deleted document
-    },
-    onDownloadSuccess: (documentId, fileName) => {
-        // Called after successful download
-        // Optional: Track downloads, show notifications
-    },
-    onError: (error) => {
-        // Called on any operation error
-        // error contains: { message, operation, details }
-    },
-    onFilterChange: (documentTypeId) => {
-        // Called when document type filter changes
-        // documentTypeId: Selected type ID (null = all types)
-    }
-});
-```
-
-#### Entity Type Values
-
-**Standard Entity Types**:
-- `'student'` - Student documents (assignments, reports, etc.)
-- `'school'` - School-level documents (policies, forms, etc.)
-- `'class'` - Class-specific documents (syllabi, schedules, etc.)
-- `'teacher'` - Teacher documents (certifications, etc.)
-
-#### HTML Container Structure
-
-```html
-<!-- Document management section in page -->
-<div class="section-card">
-    <div class="section-header">
-        <h2>מסמכים</h2>
-        <div class="section-actions">
-            <button onclick="documentsComponent.showUploadDialog()" class="btn-primary">
-                <img src="upload_icon.png" alt="העלאה" class="action-icon-natural">
-                העלאת מסמך
-            </button>
-        </div>
-    </div>
-    
-    <!-- ✅ Container for DocumentsTableComponent -->
-    <div id="documentsTableContainer">
-        <div class="loading-spinner">טוען מסמכים...</div>
-    </div>
-</div>
-```
-
-#### Component Methods
-
-**Public Methods** (after initialization):
-
-```javascript
-// Refresh document list
-await documentsComponent.refresh();
-
-// Show upload dialog (if modal mode)
-documentsComponent.showUploadDialog();
-
-// Filter by document type
-documentsComponent.filterByType(documentTypeId);  // null = show all
-
-// Get current filter state
-const currentFilter = documentsComponent.getCurrentFilter();
-
-// Get all loaded documents
-const documents = documentsComponent.getDocuments();
-
-// Get available document types
-const types = documentsComponent.getDocumentTypes();
-```
-
-#### Cleanup Pattern
-
-**CRITICAL**: Always cleanup component when leaving page:
-
-```javascript
-/**
- * Cleanup documents component when leaving page
- */
-function cleanupDocuments() {
-    try {
-        console.log('🧹 Cleaning up documents component...');
-
-        if (window.documentsComponent) {
-            // Call component cleanup if it has one
-            if (typeof window.documentsComponent.cleanup === 'function') {
-                window.documentsComponent.cleanup();
-            }
-            
-            // Clear table reference
-            if (window.documentsComponent.documentsTable) {
-                window.documentsComponent.documentsTable = null;
-            }
-            
-            // Clear document types
-            if (window.documentsComponent.documentTypes) {
-                window.documentsComponent.documentTypes = [];
-            }
-            
-            // Null the component
-            window.documentsComponent = null;
-        }
-
-        // Remove global reference
-        if (window['documentsTableInstance_documentsTableContainer']) {
-            delete window['documentsTableInstance_documentsTableContainer'];
-        }
-
-        // Clear container HTML
-        const container = document.getElementById('documentsTableContainer');
-        if (container) {
-            container.innerHTML = '<div class="loading-spinner">טוען מסמכים...</div>';
-        }
-
-        console.log('✅ Documents component cleanup complete');
-    } catch (error) {
-        console.error('❌ Error during documents cleanup:', error);
-    }
-}
-
-// ✅ Export cleanup function
-window.cleanupDocuments = cleanupDocuments;
-```
-
-#### Integration with Page Lifecycle
-
-**In page cleanup function**:
-
-```javascript
-function cleanupStudentPage() {
-    console.log('🧹 Cleaning up student page...');
-    
-    try {
-        // ✅ Call documents cleanup
-        if (typeof cleanupDocuments === 'function') {
-            cleanupDocuments();
-        }
-        
-        // Other page cleanup...
-        
-        console.log('✅ Student page cleanup complete');
-    } catch (error) {
-        console.error('❌ Error during student page cleanup:', error);
-    }
-}
-
-window.cleanupStudentPage = cleanupStudentPage;
-```
-
-#### Backend API Endpoints
-
-**Documents API** (`/api/documents`):
-
-```csharp
-// GET /api/documents/entity/{entityType}/{entityId}
-// Get all documents for entity
-// Optional query param: ?yearId=5
-
-// POST /api/documents/upload
-// Upload document (multipart/form-data)
-// Body: { file, documentTypeId, entityType, entityId, yearId? }
-
-// GET /api/documents/{id}/download
-// Download document by ID
-// Returns: File stream with content-disposition header
-
-// DELETE /api/documents/{id}
-// Delete document by ID
-// Returns: 200 OK or 404 Not Found
-```
-
-**Document Types API** (`/api/documenttypes`):
-
-```csharp
-// GET /api/documenttypes
-// Get all document types for dropdowns
-// Returns: [{ id, typeName, categoryId, isActive }]
-
-// GET /api/documenttypes/by-category/{categoryId}
-// Get document types filtered by category
-```
-
-#### Styling and Customization
-
-**CSS Classes** (defined in `documents-table.js`):
-
+### CSS RTL Support
 ```css
-/* Document table container */
-.documents-table-container {
-    width: 100%;
-    overflow-x: auto;
+/* Apply to containers with Hebrew text */
+.rtl-content {
+    direction: rtl;
+    text-align: right;
 }
 
-/* Document type filter pills */
-.document-type-filters {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 15px;
-    flex-wrap: wrap;
-}
-
-.filter-pill {
-    padding: 6px 12px;
-    border-radius: 20px;
-    background-color: #f0f0f0;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.filter-pill.active {
-    background-color: var(--primary-color);
-    color: white;
-}
-
-/* Upload dialog modal */
-.upload-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    z-index: 2000;
-}
-
-.upload-modal-content {
-    background-color: white;
-    border-radius: 8px;
-    padding: 20px;
-    max-width: 500px;
-    margin: 50px auto;
-}
-
-/* Document action buttons */
-.doc-action-btn {
-    padding: 4px 8px;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    background-color: transparent;
-    cursor: pointer;
-    margin-left: 5px;
-}
-
-.doc-action-btn:hover {
-    background-color: #f8f9fa;
-}
+/* Excel worksheets automatically get RTL in export code */
+worksheet.View.RightToLeft = true;
 ```
 
-#### Common Use Cases
+### Hebrew Text Input
+- Use `GlobalFunctions.PureHebrewText()` for normalization
+- Handles diacritics, whitespace, and special characters
+- Essential for matching user input to database values
 
-**1. Student Documents Page**:
-```javascript
-// In student.html
-window.documentsComponent = window.documentsComponent || null;
+### Form Labels and Buttons
+- All labels in Hebrew (right-aligned)
+- Button text in Hebrew
+- Use consistent terminology across the application
 
-async function initializeStudentDocuments() {
-    const studentId = await window.SessionState.getProperty('SelectedStudentId');
-    const yearId = await window.SessionState.getProperty('SelectedYearId');
-    
-    window.documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
-        entityId: studentId,
-        entityType: 'student',
-        yearId: yearId,
-        allowUpload: true,
-        allowDelete: false,
-        allowDownload: true
-    });
-    
-    await window.documentsComponent.init();
-}
+## Common Development Issues & Solutions
+
+### Navigation Property Null Reference
+
+**Problem**: `NullReferenceException` when accessing navigation property
+
+```csharp
+var yearName = student.SchoolYear.YearName;  // ❌ NullReferenceException
 ```
 
-**2. School Documents Page**:
-```javascript
-// In schooldocuments.html
-window.documentsComponent = window.documentsComponent || null;
+**Solution**: Use eager loading or projection
 
-async function initializeSchoolDocuments() {
-    const schoolId = await window.SessionState.getProperty('SelectedSchoolId');
-    const yearId = await window.SessionState.getProperty('SelectedYearId');
-    
-    window.documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
-        entityId: schoolId,
-        entityType: 'school',
-        yearId: yearId,
-        allowUpload: true,
-        allowDelete: true,  // School admins can delete
-        allowDownload: true,
-        showUploadForm: false  // Use modal for upload
-    });
-    
-    await window.documentsComponent.init();
-}
+```csharp
+// ✅ Option 1: Eager loading
+var students = await _context.Students
+    .Include(s => s.SchoolYear)
+    .ToListAsync();
+
+// ✅ Option 2: Projection
+var data = await _context.Students
+    .Select(s => new { s.Id, YearName = s.SchoolYear.YearName })
+    .ToListAsync();
 ```
 
-**3. Read-Only Document List**:
+### Excel Import Text Mismatch
+
+**Problem**: Hebrew/numeric text from Excel doesn't match database despite appearing identical
+
+**Solution**: Use `GlobalFunctions.PureHebrewText()` for normalization
+
+```csharp
+// ❌ WRONG - Direct comparison
+var classId = classes.FirstOrDefault(c => c.ClassName == excelClassName)?.Id;
+
+// ✅ CORRECT - Normalized comparison
+var normalizedInput = GlobalFunctions.PureHebrewText(excelClassName);
+var classId = classes
+    .FirstOrDefault(c => GlobalFunctions.PureHebrewText(c.ClassName) == normalizedInput)
+    ?.Id;
+```
+
+### Component Redeclaration Error
+
+**Problem**: `Identifier 'myComponent' has already been declared` when returning to page
+
+**Solution**: Use `window` scope for all component variables
+
 ```javascript
-// View-only mode for students/parents
-window.documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
-    entityId: studentId,
-    entityType: 'student',
-    allowUpload: false,
-    allowDelete: false,
-    allowDownload: true
+// ❌ WRONG - Page scope
+let myComponent = null;
+
+// ✅ CORRECT - Window scope
+window.myComponent = window.myComponent || null;
+```
+
+### Session Property Returns Null
+
+**Problem**: `session.GetProperty("Key")` returns null unexpectedly
+
+**Solution**: Verify property was set and check navigation rules
+
+```javascript
+// Frontend: Set property with exact key
+await window.SessionState.setProperty('MyKey', value);
+
+// Backend: Get with exact key (case-sensitive)
+var value = session.GetProperty("MyKey");
+
+// Check page-lifecycle-config.js - property might be cleared on navigation
+navigationRules: [
+    { from: 'page1', to: 'page2', clearSession: ['MyKey'] }
+]
+```
+
+### Schema Not Applied to Queries
+
+**Problem**: `relation "table_name" does not exist` error
+
+**Solution**: Verify `HasDefaultSchema()` configuration
+
+```csharp
+// ✅ In AppDbContext.OnModelCreating()
+modelBuilder.HasDefaultSchema(_schemaName);
+
+// ❌ Remove hardcoded schema from ToTable()
+entity.ToTable("users");  // Correct
+entity.ToTable("users", "petel_schema");  // Wrong!
+```
+
+### Import Validation Fails Silently
+
+**Problem**: Import succeeds but some rows are skipped without explanation
+
+**Solution**: Check error collection and response
+
+```csharp
+// ✅ Return detailed error information
+return Ok(new
+{
+    ImportedCount = importedCount,
+    ErrorCount = errors.Count,
+    Errors = errors.Take(50).ToList(),  // First 50 errors
+    HasMoreErrors = errors.Count > 50
 });
 ```
 
-#### Error Handling
-
-**Component errors are handled via callbacks**:
-
 ```javascript
-window.documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
-    entityId: studentId,
-    entityType: 'student',
-    onError: (error) => {
-        console.error('❌ Document error:', error);
-        
-        // Show user-friendly message based on error type
-        switch (error.operation) {
-            case 'upload':
-                alert('שגיאה בהעלאת המסמך. אנא נסה שוב.');
-                break;
-            case 'download':
-                alert('שגיאה בהורדת המסמך. אנא נסה שוב.');
-                break;
-            case 'delete':
-                alert('שגיאה במחיקת המסמך. אנא נסה שוב.');
-                break;
-            default:
-                alert('שגיאה בטעינת המסמכים. אנא רענן את העמוד.');
-        }
-    }
-});
+// ✅ Display errors to user
+if (result.errorCount > 0) {
+    console.error('Import errors:', result.errors);
+    alert(`יובאו ${result.importedCount} רשומות\n${result.errorCount} שגיאות`);
+}
 ```
 
-#### Performance Considerations
+### N+1 Query Problem
 
-**Component is optimized for**:
-- ✅ Lazy loading of documents (loads on init)
-- ✅ File size validation before upload
-- ✅ Progress indication for uploads
-- ✅ Efficient filtering (client-side after initial load)
-- ✅ Debounced search/filter operations
+**Problem**: Application slow when loading lists with related data
 
-**Best practices**:
-- Always cleanup component when leaving page
-- Use `yearId` filter to limit initial document load
-- Implement file size limits (handled by backend)
-- Show loading states during operations
+**Solution**: Use eager loading or projection
 
-#### Anti-Patterns to Avoid
-
-```javascript
-// ❌ WRONG - Not using window scope
-let documentsComponent = new DocumentsTableComponent(...);  // Will cause redeclaration error
-
-// ❌ WRONG - Missing cleanup
-function cleanupPage() {
-    // Missing: cleanupDocuments()
+```csharp
+// ❌ WRONG - N+1 queries
+var students = await _context.Students.ToListAsync();
+foreach (var s in students)
+{
+    var className = s.SchoolClass.ClassName;  // Separate query!
 }
 
-// ❌ WRONG - Not handling errors
-new DocumentsTableComponent('container', {
-    entityId: id,
-    entityType: 'student'
-    // Missing: onError callback
-});
-
-// ❌ WRONG - Creating multiple instances for same container
-window.documentsComponent = new DocumentsTableComponent('container', {...});
-window.documentsComponent = new DocumentsTableComponent('container', {...});  // NO!
-
-// ❌ WRONG - Not checking for entity ID
-const entityId = await window.SessionState.getProperty('SelectedStudentId');
-// Missing: if (!entityId) return;
-window.documentsComponent = new DocumentsTableComponent('container', {
-    entityId: entityId  // Could be null!
-});
+// ✅ CORRECT - Single query with Include
+var students = await _context.Students
+    .Include(s => s.SchoolClass)
+    .ToListAsync();
 ```
 
-#### Integration Checklist
+### Duplicate Key Errors on Import
 
-When adding documents to a page:
+**Problem**: Import fails with duplicate key violations
 
-1. ✅ Use `window` scope for component variable
-2. ✅ Add HTML container with unique ID
-3. ✅ Get entity ID from backend session
-4. ✅ Validate entity ID exists before creating component
-5. ✅ Provide all required configuration options
-6. ✅ Implement error handling via `onError` callback
-7. ✅ Create global reference for onclick handlers
-8. ✅ Implement cleanup function that:
-   - Calls component cleanup method
-   - Nulls the component instance
-   - Removes global references
-   - Clears container HTML
-9. ✅ Export cleanup to window
-10. ✅ Call cleanup in page lifecycle cleanup function
-11. ✅ Add upload button in UI if needed
-12. ✅ Test navigation away and return (no redeclaration errors)
+**Solution**: Check for duplicates before inserting
 
-#### Complete Example
+```csharp
+// ✅ Check existing IDs first
+var existingIds = await _context.Students
+    .Select(s => s.StudentId)
+    .ToListAsync();
 
-**student.html** (complete implementation):
-
-```html
-<!-- HTML -->
-<div class="section-card">
-    <div class="section-header">
-        <h2>מסמכי תלמיד</h2>
-        <div class="section-actions">
-            <button onclick="documentsComponent.showUploadDialog()" class="btn-primary">
-                <img src="upload_icon.png" alt="העלאה" class="action-icon-natural">
-                העלאת מסמך
-            </button>
-        </div>
-    </div>
-    <div id="documentsTableContainer">
-        <div class="loading-spinner">טוען מסמכים...</div>
-    </div>
-</div>
-
-<script src="documents-table.js"></script>
-<script>
-// ✅ Use window scope
-window.documentsComponent = window.documentsComponent || null;
-
-/**
- * Initialize student documents table
- */
-async function initializeStudentDocuments() {
-    try {
-        console.log('📄 Initializing student documents...');
-
-        const studentId = await window.SessionState.getProperty('SelectedStudentId');
-        const yearId = await window.SessionState.getProperty('SelectedYearId');
-
-        if (!studentId) {
-            console.error('❌ No student ID in session');
-            const container = document.getElementById('documentsTableContainer');
-            if (container) {
-                container.innerHTML = `<div class="table-error">לא נמצא מזהה תלמיד</div>`;
-            }
-            return;
-        }
-
-        window.documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
-            showUploadForm: false,
-            allowDelete: false,
-            allowDownload: true,
-            allowUpload: true,
-            entityId: studentId,
-            entityType: 'student',
-            yearId: yearId,
-            onUploadSuccess: (result) => {
-                console.log('📄 Document uploaded:', result);
-                alert('המסמך הועלה בהצלחה');
-            },
-            onDeleteSuccess: (documentId) => {
-                console.log('🗑 Document deleted:', documentId);
-                alert('המסמך נמחק בהצלחה');
-            },
-            onError: (error) => {
-                console.error('❌ Document error:', error);
-                alert('שגיאה בפעולה על המסמך');
-            }
-        });
-
-        window['documentsTableInstance_documentsTableContainer'] = window.documentsComponent;
-        await window.documentsComponent.init();
-
-        console.log('✅ Student documents initialized');
-    } catch (error) {
-        console.error('❌ Error initializing documents:', error);
-        const container = document.getElementById('documentsTableContainer');
-        if (container) {
-            container.innerHTML = `<div class="table-error">שגיאה בטעינת המסמכים</div>`;
-        }
-    }
+// Then validate during import
+if (existingIds.Contains(studentId))
+{
+    errors.Add($"Row {row}: ID '{studentId}' already exists");
+    continue;
 }
-
-/**
- * Cleanup documents component
- */
-function cleanupStudentDocuments() {
-    try {
-        console.log('🧹 Cleaning up student documents...');
-
-        if (window.documentsComponent) {
-            if (typeof window.documentsComponent.cleanup === 'function') {
-                window.documentsComponent.cleanup();
-            }
-            
-            if (window.documentsComponent.documentsTable) {
-                window.documentsComponent.documentsTable = null;
-            }
-            
-            if (window.documentsComponent.documentTypes) {
-                window.documentsComponent.documentTypes = [];
-            }
-            
-            window.documentsComponent = null;
-        }
-
-        if (window['documentsTableInstance_documentsTableContainer']) {
-            delete window['documentsTableInstance_documentsTableContainer'];
-        }
-
-        const container = document.getElementById('documentsTableContainer');
-        if (container) {
-            container.innerHTML = '<div class="loading-spinner">טוען מסמכים...</div>';
-        }
-
-        console.log('✅ Student documents cleanup complete');
-    } catch (error) {
-        console.error('❌ Error during documents cleanup:', error);
-    }
-}
-
-/**
- * Page cleanup
- */
-function cleanupStudentPage() {
-    console.log('🧹 Cleaning up student page...');
-    
-    try {
-        cleanupStudentDocuments();
-        // Other cleanup...
-        console.log('✅ Student page cleanup complete');
-    } catch (error) {
-        console.error('❌ Error during page cleanup:', error);
-    }
-}
-
-// Export functions
-window.initializeStudentDocuments = initializeStudentDocuments;
-window.cleanupStudentDocuments = cleanupStudentDocuments;
-window.cleanupStudentPage = cleanupStudentPage;
-</script>
 ```
-
-This provides a complete, production-ready documents management implementation following all coding standards and lifecycle patterns.
