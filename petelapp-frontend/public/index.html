@@ -365,16 +365,14 @@
                             const logoBlob = await logoResponse.blob();
                             const logoObjectUrl = URL.createObjectURL(logoBlob);
                             entityLogoElement.innerHTML = `<img src="${logoObjectUrl}" alt="לוגו הישות" style="width: 40px; height: 40px; object-fit: contain; border-radius: 4px;">`;
-                        } else {
-                            // Keep default emoji if logo not found
-                            console.log('Entity logo not found, using default');
+                            console.log('✅ Entity logo loaded successfully');
                         }
+                        // ✅ Silently ignore 404 - keep default emoji
                     } catch (logoError) {
-                        console.warn('Could not load entity logo:', logoError);
-                        // Keep default emoji
+                        // ✅ Silently ignore errors - keep default emoji
+                        console.log('ℹ️ Using default entity icon (no custom logo available)');
                     }
                 }
-
 
                 console.log('✅ User info loaded from SessionState cache');
 
@@ -382,7 +380,6 @@
                 console.error('❌ Error loading user info:', error);
             }
         }
-
         // Get current entity type ID following Entity-Based Request Flow
         async function getCurrentEntityTypeId() {
             const session = await sessionManager.getSessionInfo();
@@ -537,7 +534,7 @@
             window.location.href = 'login.html';
         }
 
-   
+
         // Add session validation for API calls following API Communication Pattern
         function makeAuthenticatedApiCall(url, options = {}) {
             if (!checkAuthentication()) {

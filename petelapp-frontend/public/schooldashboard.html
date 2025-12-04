@@ -214,6 +214,42 @@ async function navigateToSchoolDetails() {
         }
     }
 
+/**
+ * Configure context buttons visibility based on entity type
+ * Hide "Back to School List" button for single-school entities
+ * Following Entity-Based Request Flow pattern
+ */
+async function configureContextButtons() {
+    console.log('🔧 Configuring context buttons based on entity type...');
+
+    try {
+        const session = await window.SessionState.getSession();
+        const entityTypeId = parseInt(session.entityTypeId, 10);
+
+        console.log('📋 Entity type ID:', entityTypeId);
+
+        // Find the "Back to School List" button
+        const backButton = document.querySelector('button[onclick*="navigateBackToSchoolList"]');
+
+        if (!backButton) {
+            console.warn('⚠️ Back to school list button not found');
+            return;
+        }
+
+        // Hide button for single-school entities (1 = school, 4 = external school)
+        if (entityTypeId === 1 || entityTypeId === 4) {
+            backButton.style.display = 'none';
+            console.log('✅ Hid "Back to School List" button for single-school entity');
+        } else {
+            backButton.style.display = '';
+            console.log('✅ Showing "Back to School List" button for multi-school entity');
+        }
+
+    } catch (error) {
+        console.error('❌ Error configuring context buttons:', error);
+    }
+}
+
     function cleanupSchoolDashboardPage() {
         console.log('🧹 Cleaning up school dashboard page...');
         // Add any school dashboard specific cleanup
@@ -293,6 +329,7 @@ async function navigateToSchoolDetails() {
 
         // Load dashboard data and context buttons
         setTimeout(async () => {
+            await configureContextButtons();
             loadSchoolTitle(); // Load school name and year
             loadDashboardCardData('alertsCard');
             loadDashboardCardData('eventsCard');
@@ -308,6 +345,7 @@ async function navigateToSchoolDetails() {
     if (document.readyState !== 'loading') {
         console.log('📄 Document already ready, calling initialization immediately');
         setTimeout(async () => {
+            await configureContextButtons();
             loadSchoolTitle(); // Load school name and year
             loadDashboardCardData('alertsCard');
             loadDashboardCardData('eventsCard');
@@ -323,6 +361,7 @@ async function navigateToSchoolDetails() {
     window.showAddModal = showAddModal;
 
     window.loadSchoolTitle = loadSchoolTitle;
+    window.configureContextButtons = configureContextButtons;
     window.resolveSelectedSchoolYearId = resolveSelectedSchoolYearId;
     window.navigateToStudents = navigateToStudents;
     window.navigateToSchoolDetails = navigateToSchoolDetails;

@@ -80,6 +80,12 @@ window.PageLifecycleConfig = {
             title: 'סיכום רשויות',
             cleanup: null,
             init: ''
+        },
+        'entities': {
+            file: 'entities.html',
+            title: 'ישויות',
+            cleanup: 'cleanupEntitiesPage',
+            init: 'initEntitiesPage'
         }
     },
 

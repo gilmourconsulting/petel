@@ -1,8 +1,8 @@
 // PetelApp.Api/Data/AppDbContext.cs
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;  // ✅ ADD THIS - Required for IOptions<T>
-using PetelApp.Api.Configuration;  // ✅ ADD THIS - Required for DatabaseSettings
-using PetelApp.Api.Data;
+using Microsoft.Extensions.Options;
+using PetelApp.Api.Configuration;
+using PetelApp.Api.Models;
 
 namespace PetelApp.Api.Data
 {
@@ -35,6 +35,7 @@ namespace PetelApp.Api.Data
         // DbSets following Entity-Based Request Flow
         public DbSet<SchoolStudent> SchoolStudents { get; set; }
 
+            public DbSet<MenuItem> MenuItems { get; set; }
         public DbSet<HebrewYear> HebrewYears { get; set; }
 
         //  DbSets for Council and SchoolClass
@@ -116,6 +117,13 @@ namespace PetelApp.Api.Data
             modelBuilder.Entity<EntityType>(entity =>
             {
                 entity.ToTable("entity_types");
+            });
+
+
+            modelBuilder.Entity<MenuItem>(entity =>
+            {
+                entity.ToTable("menu_items");
+                entity.HasIndex(e => e.SortOrder);
             });
 
             // Role configuration

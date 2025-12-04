@@ -296,15 +296,15 @@
         }
     }
 
-    function editSchool(schoolId) {
+   /* function editSchool(schoolId) {
         console.log('Editing school:', schoolId);
         const school = allSchools.find(s => s.id === schoolId);
         if (school) {
             alert(`עריכת בית ספר: ${school.name}`);
         }
-    }
+    }*/
 
-    function manageSchoolYear(schoolId) {
+    /*function manageSchoolYear(schoolId) {
         console.log('Managing school year for school:', schoolId);
         const school = allSchools.find(s => s.id === schoolId);
         if (school) {
@@ -312,7 +312,7 @@
             sessionStorage.setItem('selectedSchoolName', school.name);
             alert(`ניהול שנת לימודים עבור: ${school.name}`);
         }
-    }
+    }*/
 
     // Context button navigation functions following Single-Page Application with Module Loading
     async function navigateToCouncilsList() {
@@ -365,7 +365,7 @@
 
     window.cleanupSchoolListPage = cleanupSchoolListPage;
 
-    function showNavigationError(container, message) {
+  /*  function showNavigationError(container, message) {
         container.innerHTML = `
                 <div class="error-message" style="
                     text-align: center; 
@@ -405,6 +405,8 @@
                 </div>
             `;
     }
+*/
+
 
     // Initialize page following Critical Development Workflows
     document.addEventListener('DOMContentLoaded', function () {
@@ -426,8 +428,6 @@
     window.initializeReusableTable = initializeReusableTable;
     window.viewSchool = viewSchool;
     window.navigateToSchoolDashboard = navigateToSchoolDashboard;
-    //window.onContextCouncilsClick = onContextCouncilsClick;
-    //window.onContextStartSchoollist = onContextStartSchoollist;
     window.navigateToCouncilsList = navigateToCouncilsList;
 
 

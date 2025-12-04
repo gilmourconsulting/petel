@@ -136,56 +136,169 @@
         }
     }
 
-    // Update context button labels with year values following Project-Specific Patterns
-    async function updateContextButtonLabels() {
-        console.log('Updating context button labels with year values...');
+// Update the updateContextButtonLabels function to call checkSchoolYearAvailability
+async function updateContextButtonLabels() {
+    console.log('Updating context button labels with year values...');
+    try {
+        const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
+        if (!response.ok) {
+            throw new Error('Failed to load system attributes');
+        }
+        const attributes = await response.json();
+        if (!Array.isArray(attributes)) {
+            console.error('System attributes response is not an array:', attributes);
+            return;
+        }
+
+        // Find year attributes by name
+        const previousYearAttr = attributes.find(attr => attr.name === "Previous Year");
+        const currentYearAttr = attributes.find(attr => attr.name === "Current Year");
+        const nextYearAttr = attributes.find(attr => attr.name === "Next Year");
+
+        // ✅ Store in backend session via SessionState instead of sessionStorage
+        if (previousYearAttr) {
+            window.previousYearId = previousYearAttr.foreignId;
+            await window.SessionState.setProperty('PreviousYearId', previousYearAttr.foreignId.toString());
+            await window.SessionState.setProperty('PreviousYearValue', previousYearAttr.value);
+            const prevButton = document.querySelector('.context-btn[onclick*="previous"]');
+            if (prevButton) prevButton.textContent = previousYearAttr.value;
+        }
+
+        if (currentYearAttr) {
+            window.currentYearId = currentYearAttr.foreignId;
+            await window.SessionState.setProperty('CurrentYearId', currentYearAttr.foreignId.toString());
+            await window.SessionState.setProperty('CurrentYearValue', currentYearAttr.value);
+            const currentButton = document.querySelector('.context-btn[onclick*="current"]');
+            if (currentButton) currentButton.textContent = currentYearAttr.value;
+        }
+
+        if (nextYearAttr) {
+            window.nextYearId = nextYearAttr.foreignId;
+            await window.SessionState.setProperty('NextYearId', nextYearAttr.foreignId.toString());
+            await window.SessionState.setProperty('NextYearValue', nextYearAttr.value);
+            const nextButton = document.querySelector('.context-btn[onclick*="next"]');
+            if (nextButton) nextButton.textContent = nextYearAttr.value;
+        }
+
+        console.log('✅ Context button labels updated and stored in backend session via SessionState');
+        
+        // ✅ Check school year availability AFTER loading year data
+        await checkSchoolYearAvailability();
+        
+        await setupEntityDetailsButton();
+    } catch (error) {
+        console.error('Error loading context button data:', error);
+    }
+}
+
+
+    /**
+ * Check school year availability and disable buttons for missing years
+ * Only runs for school entities (entityTypeId = 1 or 4)
+ * Following Entity-Based Request Flow pattern
+ */
+    async function checkSchoolYearAvailability() {
+        console.log('🔍 Checking school year availability...');
+
         try {
-            const response = await fetch(AppConfig.getApiUrl('systemAttributes'));
-            if (!response.ok) {
-                throw new Error('Failed to load system attributes');
-            }
-            const attributes = await response.json();
-            if (!Array.isArray(attributes)) {
-                console.error('System attributes response is not an array:', attributes);
+            const session = await window.SessionState.getSession();
+            const entityTypeId = parseInt(session.entityTypeId, 10);
+
+            // Only check for school entities
+            if (entityTypeId !== 1 && entityTypeId !== 4) {
+                console.log('⏭️ Not a school entity, skipping year availability check');
                 return;
             }
 
-            // Find year attributes by name
-            const previousYearAttr = attributes.find(attr => attr.name === "Previous Year");
-            const currentYearAttr = attributes.find(attr => attr.name === "Current Year");
-            const nextYearAttr = attributes.find(attr => attr.name === "Next Year");
+            const schoolId = parseInt(session.entityId, 10);
+            console.log('🏫 School entity detected, checking years for schoolId:', schoolId);
 
-            // ✅ Store in backend session via SessionState instead of sessionStorage
-            if (previousYearAttr) {
-                window.previousYearId = previousYearAttr.foreignId;
-                await window.SessionState.setProperty('PreviousYearId', previousYearAttr.foreignId.toString());
-                await window.SessionState.setProperty('PreviousYearValue', previousYearAttr.value);
-                const prevButton = document.querySelector('.context-btn[onclick*="previous"]');
-                if (prevButton) prevButton.textContent = previousYearAttr.value;
+            // Get year IDs from session
+            const previousYearId = await window.SessionState.getProperty('PreviousYearId');
+            const currentYearId = await window.SessionState.getProperty('CurrentYearId');
+            const nextYearId = await window.SessionState.getProperty('NextYearId');
+
+            console.log('📅 Year IDs:', { previousYearId, currentYearId, nextYearId });
+
+            const authToken = sessionStorage.getItem('authToken');
+
+            // Check each year
+            const yearChecks = [
+                { yearId: previousYearId, sessionKey: 'PreviousSchoolYearId', buttonSelector: '[onclick*="previous"]', yearType: 'previous' },
+                { yearId: currentYearId, sessionKey: 'CurrentSchoolYearId', buttonSelector: '[onclick*="current"]', yearType: 'current' },
+                { yearId: nextYearId, sessionKey: 'NextSchoolYearId', buttonSelector: '[onclick*="next"]', yearType: 'next' }
+            ];
+
+            for (const check of yearChecks) {
+                if (!check.yearId) {
+                    console.log(`⚠️ No ${check.yearType} year ID found, skipping`);
+                    continue;
+                }
+
+                try {
+                    const apiUrl = AppConfig.getApiUrl(`schoolYears/by-year-and-school?yearId=${check.yearId}&schoolId=${schoolId}`);
+                    console.log(`🌐 Checking ${check.yearType} year:`, apiUrl);
+
+                    const response = await fetch(apiUrl, {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+
+                    const button = document.querySelector(check.buttonSelector);
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log(`✅ ${check.yearType} year exists, school_year.id:`, data.id);
+
+                        // Store school_year.id in session
+                        await window.SessionState.setProperty(check.sessionKey, data.id.toString());
+
+                        // Enable button
+                        if (button) {
+                            button.disabled = false;
+                            button.style.opacity = '1';
+                            button.style.cursor = 'pointer';
+                            button.title = '';
+                        }
+                    } else {
+                        console.log(`❌ ${check.yearType} year does NOT exist in school_years table`);
+
+                        // Clear session property
+                        await window.SessionState.setProperty(check.sessionKey, '');
+
+                        // Disable button
+                        if (button) {
+                            button.disabled = true;
+                            button.style.opacity = '0.5';
+                            button.style.cursor = 'not-allowed';
+                            button.title = 'שנה זו לא קיימת עבור בית הספר';
+                            console.log(`🚫 Disabled ${check.yearType} year button`);
+                        }
+                    }
+                } catch (error) {
+                    console.error(`❌ Error checking ${check.yearType} year:`, error);
+
+                    // Disable button on error
+                    const button = document.querySelector(check.buttonSelector);
+                    if (button) {
+                        button.disabled = true;
+                        button.style.opacity = '0.5';
+                        button.style.cursor = 'not-allowed';
+                        button.title = 'שגיאה בבדיקת זמינות השנה';
+                    }
+                }
             }
 
-            if (currentYearAttr) {
-                window.currentYearId = currentYearAttr.foreignId;
-                await window.SessionState.setProperty('CurrentYearId', currentYearAttr.foreignId.toString());
-                await window.SessionState.setProperty('CurrentYearValue', currentYearAttr.value);
-                const currentButton = document.querySelector('.context-btn[onclick*="current"]');
-                if (currentButton) currentButton.textContent = currentYearAttr.value;
-            }
+            console.log('✅ School year availability check complete');
 
-            if (nextYearAttr) {
-                window.nextYearId = nextYearAttr.foreignId;
-                await window.SessionState.setProperty('NextYearId', nextYearAttr.foreignId.toString());
-                await window.SessionState.setProperty('NextYearValue', nextYearAttr.value);
-                const nextButton = document.querySelector('.context-btn[onclick*="next"]');
-                if (nextButton) nextButton.textContent = nextYearAttr.value;
-            }
-
-            console.log('✅ Context button labels updated and stored in backend session via SessionState');
-            await setupEntityDetailsButton();
         } catch (error) {
-            console.error('Error loading context button data:', error);
+            console.error('❌ Error in checkSchoolYearAvailability:', error);
         }
     }
+
 
     // Update the storeSelectedYearInSession function to use direct API calls
 
@@ -282,7 +395,7 @@
 
             console.log('📋 Entity type:', entityTypeId);
 
-            if (entityTypeId === 5) {
+            if (entityTypeId === 5 || entityTypeId === 6) {
                 console.log('🏫 Multi-school network - navigating to school list');
                 await loadSchoolListPage();
             } else {
@@ -309,31 +422,67 @@
     }
 
 
-    // Load school dashboard page for single school entities
-    async function loadSchoolDashboardPage() {
-        console.log('🔄 Navigating to school dashboard...');
+// Load school dashboard page for single school entities
+async function loadSchoolDashboardPage() {
+    console.log('🔄 Navigating to school dashboard...');
 
+    try {
+        // ✅ Get the selected year type from session
+        const selectedYearType = await window.SessionState.getProperty('SelectedYearType');
+        
+        console.log('📅 Selected year type:', selectedYearType);
+
+        // ✅ Get the corresponding school_year.id based on year type
+        let schoolYearId = '';
+        
+        if (selectedYearType === 'previous') {
+            schoolYearId = await window.SessionState.getProperty('PreviousSchoolYearId');
+            console.log('📚 Using Previous School Year ID:', schoolYearId);
+        } else if (selectedYearType === 'current') {
+            schoolYearId = await window.SessionState.getProperty('CurrentSchoolYearId');
+            console.log('📚 Using Current School Year ID:', schoolYearId);
+        } else if (selectedYearType === 'next') {
+            schoolYearId = await window.SessionState.getProperty('NextSchoolYearId');
+            console.log('📚 Using Next School Year ID:', schoolYearId);
+        }
+
+        // ✅ Validate school year ID exists
+        if (!schoolYearId) {
+            console.error('❌ No school year ID found for selected year type:', selectedYearType);
+            alert('שגיאה: שנת לימודים לא נמצאה עבור בית הספר');
+            return;
+        }
+
+        // ✅ Store SelectedSchoolYearId in session
+        await window.SessionState.setProperty('SelectedSchoolYearId', schoolYearId);
+        console.log('✅ SelectedSchoolYearId set to:', schoolYearId);
+
+        // ✅ Navigate to school dashboard
         if (typeof window.navigateTo === 'function') {
             await window.navigateTo('schooldashboard');
         } else {
             console.error('❌ window.navigateTo not available');
             alert('שגיאה בטעינת לוח בקרה של בית הספר');
         }
+    } catch (error) {
+        console.error('❌ Error in loadSchoolDashboardPage:', error);
+        alert('שגיאה בטעינת לוח הבקרה');
     }
+}
 
 
 
 
     // Debug function to check if elements exist
-    function debugDashboardElements() {
-        console.log('🔍 Dashboard Debug:', {
-            alertsContainer: document.getElementById('alertsInternalCards'),
-            eventsContainer: document.getElementById('eventsInternalCards'),
-            systemVersionElement: document.getElementById('systemVersion'),
-            contextButtons: document.querySelectorAll('.context-btn'),
-            documentReady: document.readyState
-        });
-    }
+    /*  function debugDashboardElements() {
+          console.log('🔍 Dashboard Debug:', {
+              alertsContainer: document.getElementById('alertsInternalCards'),
+              eventsContainer: document.getElementById('eventsInternalCards'),
+              systemVersionElement: document.getElementById('systemVersion'),
+              contextButtons: document.querySelectorAll('.context-btn'),
+              documentReady: document.readyState
+          });
+      }*/
 
     // Initialize dashboard following Critical Development Workflows
     document.addEventListener('DOMContentLoaded', async function () {
@@ -375,9 +524,12 @@
     window.updateContextButtonLabels = updateContextButtonLabels;
     window.storeSelectedYearInSession = storeSelectedYearInSession;
     window.showSchoolYear = showSchoolYear;
+    window.loadSchoolListPage = loadSchoolListPage;
+    window.loadSchoolDashboardPage = loadSchoolDashboardPage;
 
-    window.debugDashboardElements = debugDashboardElements;
+    //  window.debugDashboardElements = debugDashboardElements;
     window.setupEntityDetailsButton = setupEntityDetailsButton;
+    window.checkSchoolYearAvailability = checkSchoolYearAvailability;
 
     console.log('✅ Main Dashboard functions registered globally');
 </script>

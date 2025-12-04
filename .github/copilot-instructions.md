@@ -328,11 +328,252 @@ fi
 3. Database queries are scoped by user's EntityId
 4. Session data is stored in memory with the UserSessionService
 
+### Database-Driven Menu System
+
+**Architecture**: Navigation menu items are stored in the database and loaded dynamically based on user permissions.
+
+#### Menu Database Schema
+
+```sql
+-- menu_items table
+CREATE TABLE petel_schema.menu_items (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL,              -- Used in navigateTo() function
+    reference VARCHAR(100) NOT NULL,         -- HTML href attribute
+    text VARCHAR(100) NOT NULL,              -- Display text (Hebrew)
+    action_id INTEGER NULL,                  -- For permission-based filtering
+    sort_order INTEGER NOT NULL DEFAULT 0,   -- Display order
+    is_active BOOLEAN NOT NULL DEFAULT true  -- Enable/disable items
+);
+```
+
+#### Menu Entity Model
+
+```csharp
+// Models/MenuItem.cs
+[Table("menu_items")]
+public class MenuItem
+{
+    [Key]
+    [Column("id")]
+    public int Id { get; set; }
+
+    [Required]
+    [Column("name")]
+    [MaxLength(50)]
+    public string Name { get; set; } = string.Empty;
+
+    [Required]
+    [Column("reference")]
+    [MaxLength(100)]
+    public string Reference { get; set; } = string.Empty;
+
+    [Required]
+    [Column("text")]
+    [MaxLength(100)]
+    public string Text { get; set; } = string.Empty;
+
+    [Column("action_id")]
+    public int? ActionId { get; set; }
+
+    [Column("sort_order")]
+    public int SortOrder { get; set; }
+
+    [Column("is_active")]
+    public bool IsActive { get; set; } = true;
+}
+```
+
+#### Menu Controller Pattern
+
+```csharp
+// Controllers/MenuController.cs
+public class MenuController : BaseController
+{
+    private readonly AppDbContext _context;
+
+    public MenuController(
+        AppDbContext context,
+        UserSessionService userSessionService,
+        ILogger<MenuController> logger)
+        : base(userSessionService, logger)
+    {
+        _context = context;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetMenuItems()
+    {
+        try
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+            {
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+            }
+
+            // TODO: Filter by user privileges when implementing security
+            // For now, return all active items with null action_id
+            var menuItems = await _context.MenuItems
+                .AsNoTracking()
+                .Where(m => m.IsActive && m.ActionId == null)
+                .OrderBy(m => m.SortOrder)
+                .Select(m => new
+                {
+                    id = m.Id,
+                    name = m.Name,
+                    reference = m.Reference,
+                    text = m.Text,
+                    sortOrder = m.SortOrder
+                })
+                .ToListAsync();
+
+            return Ok(menuItems);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error loading menu items");
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "שגיאה בטעינת תפריט",
+                error = ex.Message
+            });
+        }
+    }
+}
+```
+
+#### Frontend Menu Integration
+
+```javascript
+// menu.html - Load menu items from backend
+async function loadMenuItems() {
+    console.log('📋 Loading menu items from backend...');
+    
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            console.error('❌ No auth token found');
+            return;
+        }
+
+        const response = await fetch(AppConfig.getApiUrl('menu'), {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to load menu items: ${response.status}`);
+        }
+
+        const menuItems = await response.json();
+        console.log(`✅ Loaded ${menuItems.length} menu items`);
+
+        renderMenuItems(menuItems);
+
+    } catch (error) {
+        console.error('❌ Error loading menu items:', error);
+        showMenuError();
+    }
+}
+
+function renderMenuItems(menuItems) {
+    const container = document.getElementById('menuItemsContainer');
+    if (!container || menuItems.length === 0) return;
+
+    let menuHtml = '';
+    menuItems.forEach((item, index) => {
+        const isActive = index === 0 ? 'active' : '';
+        menuHtml += `
+            <a href="${item.reference}" 
+               class="menu-item ${isActive}" 
+               onclick="navigateTo('${item.name}'); return false;">
+                <span class="menu-item-text">${item.text}</span>
+            </a>
+        `;
+    });
+
+    container.innerHTML = menuHtml;
+}
+```
+
+#### Menu Management Workflow
+
+**Adding a New Menu Item**:
+
+1. Insert into database:
+```sql
+INSERT INTO petel_schema.menu_items (name, reference, text, action_id, sort_order, is_active)
+VALUES ('newpage', '#newpage', 'עמוד חדש', NULL, 100, true);
+```
+
+2. Create corresponding page: `newpage.html`
+
+3. Register in `page-lifecycle-config.js`:
+```javascript
+'newpage': {
+    file: 'newpage.html',
+    title: 'עמוד חדש',
+    cleanup: 'cleanupNewPage',
+    init: null,
+    selfInitializing: true
+}
+```
+4. Menu item automatically appears for all users (if `action_id` is NULL)
+
+**Permission-Based Menu Items** (Future Implementation):
+
+```csharp
+// When implementing security:
+var userPrivileges = await GetUserPrivileges(session.UserId);
+
+var menuItems = await _context.MenuItems
+    .AsNoTracking()
+    .Where(m => m.IsActive && 
+        (m.ActionId == null || userPrivileges.Contains(m.ActionId.Value)))
+    .OrderBy(m => m.SortOrder)
+    .ToListAsync();
+```
+
+#### Menu Best Practices
+
+✅ **All menu items in database** - No hardcoded menu arrays in frontend
+✅ **Permission ready** - `action_id` field prepared for future security
+✅ **Ordered by sort_order** - Easy to reorder via database updates
+✅ **Active flag** - Disable items without deletion
+✅ **Session validation** - Menu endpoint requires authentication
+✅ **Error handling** - Graceful fallback if menu loading fails
+✅ **Hebrew text** - All display text in Hebrew following RTL patterns
+
+#### Anti-Patterns to Avoid
+
+```javascript
+// ❌ WRONG - Hardcoded menu items in frontend
+const menuItems = [
+    { name: 'dashboard', text: 'עמוד ראשי' },
+    { name: 'users', text: 'משתמשים' }
+];
+
+// ❌ WRONG - Manual menu HTML construction without backend
+document.getElementById('menu').innerHTML = `
+    <a href="#dashboard">עמוד ראשי</a>
+    <a href="#users">משתמשים</a>
+`;
+
+// ✅ CORRECT - Load from backend
+await loadMenuItems();
+```
+
 ### Frontend Architecture Patterns
 
 **Single-Page Application with Module Loading**:
 - `index.html` is the shell, loads sections dynamically via `fetch('section.html')`
 - `menu.html` loaded into `#sideMenuContainer` on page load
+- Menu items loaded from backend database via `MenuController`
 - Navigation via `navigateTo(section)` function with browser history support
 - School year context retrieved from backend session data
 
@@ -635,24 +876,29 @@ function cleanupMyPage() { /* ... */ }
        selfInitializing: false
    }
    ```
-3. ✅ Add navigation rules if page clears session data:
+3. ✅ Add to database menu_items table:
+   ```sql
+   INSERT INTO petel_schema.menu_items (name, reference, text, sort_order)
+   VALUES ('newpage', '#newpage', 'עמוד חדש', 100);
+   ```
+4. ✅ Add navigation rules if page clears session data:
    ```javascript
    { from: 'newpage', to: '*', clearSession: ['Key1', 'Key2'] }
    ```
-4. ✅ Implement cleanup function in page:
+5. ✅ Implement cleanup function in page:
    ```javascript
    function cleanupNewPage() { /* ... */ }
    window.cleanupNewPage = cleanupNewPage;
    ```
-5. ✅ Use `window` scope for all component variables:
+6. ✅ Use `window` scope for all component variables:
    ```javascript
    window.myComponent = window.myComponent || null;
    ```
-6. ✅ Export init function to window (if needed):
+7. ✅ Export init function to window (if needed):
    ```javascript
    window.initNewPage = initNewPage;
    ```
-7. ✅ Navigate using `window.navigateTo('newpage')`
+8. ✅ Navigate using `window.navigateTo('newpage')`
 
 **That's it!** No changes to `index.html` or `PageLifecycleManager` needed.
 
@@ -667,6 +913,7 @@ function cleanupMyPage() { /* ... */ }
 - **Session management** - Automatic session data clearing per rules
 - **Browser history** - Full back/forward button support
 - **Maintainable** - Changes in one place affect all pages consistently
+- **Database-driven menu** - Menu items managed via database
 
 ### Standard Components
 
@@ -1112,6 +1359,7 @@ All API controllers inherit from `BaseController` which provides:
 - `GetCurrentSession()` - Retrieves full user session
 - `GetSessionProperty(key)` - Gets specific session property
 - Automatic EntityId scoping for all queries
+- **NO `[Authorize]` attribute** - uses manual session validation
 
 ```csharp
 public class MyController : BaseController
@@ -1119,6 +1367,11 @@ public class MyController : BaseController
     public async Task<IActionResult> GetData()
     {
         var session = GetCurrentSession();
+        if (session == null)
+        {
+            return Unauthorized(new { success = false, message = "נדרש אימות" });
+        }
+        
         var entityId = int.Parse(session.EntityId);
         
         var data = await _context.MyEntities
@@ -1129,6 +1382,8 @@ public class MyController : BaseController
     }
 }
 ```
+
+**IMPORTANT**: Controllers do NOT use `[Authorize]` attribute. Session validation is done manually via `GetCurrentSession()` in each endpoint.
 
 ## Entity Framework Patterns
 

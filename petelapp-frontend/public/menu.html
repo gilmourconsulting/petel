@@ -4,37 +4,114 @@
         <button class="menu-toggle" id="menuToggleBtn" type="button" onclick="toggleMenu()">▶</button>
     </div>
     
-    <div class="menu-items">
-        <a href="#dashboard" class="menu-item active" onclick="navigateTo('dashboard')">
-            <span class="menu-item-text">עמוד ראשי</span>
-        </a>
-        <a href="#users" class="menu-item" onclick="navigateTo('users')">
-            <span class="menu-item-text">ניהול משתמשים</span>
-        </a>
-        <a href="#tasks" class="menu-item" onclick="navigateTo('tasks')">
-            <span class="menu-item-text">משימות</span>
-        </a>
-        
-        <a href="#reports" class="menu-item" onclick="navigateTo('reports')">
-            <span class="menu-item-text">דוחות</span>
-        </a>
-        <a href="#analytics" class="menu-item" onclick="navigateTo('analytics')">
-            <span class="menu-item-text">ניתוח נתונים</span>
-        </a>
-        
-        <a href="#settings" class="menu-item" onclick="navigateTo('settings')">
-            <span class="menu-item-text">הגדרות מערכת</span>
-        </a>
-        <a href="#help" class="menu-item" onclick="navigateTo('help')">
-            <span class="menu-item-text">עזרה ותמיכה</span>
-        </a>
-        <a href="#system-attributes" class="menu-item" onclick="navigateTo('systemAttributes')">
-            <span class="menu-item-text">מאפייני מערכת</span>
-        </a>
-        
-        <!-- Add sessions menu item following Hebrew/RTL Specific Patterns -->
-        <a href="#sessions" class="menu-item" onclick="navigateTo('sessions')">
-            <span class="menu-item-text">משתמשים פעילים</span>
-        </a>
+    <div class="menu-items" id="menuItemsContainer">
+        <!-- Menu items will be loaded dynamically -->
+        <div style="padding: 20px; text-align: center; color: #666;">
+            טוען תפריט...
+        </div>
     </div>
 </div>
+
+<script>
+    /**
+     * Load menu items from backend
+     * Following Authentication & Session Management pattern
+     */
+    async function loadMenuItems() {
+        console.log('📋 Loading menu items from backend...');
+        
+        try {
+            const authToken = sessionStorage.getItem('authToken');
+            if (!authToken) {
+                console.error('❌ No auth token found');
+                return;
+            }
+
+            const response = await fetch(AppConfig.getApiUrl('menu'), {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load menu items: ${response.status}`);
+            }
+
+            const menuItems = await response.json();
+            console.log(`✅ Loaded ${menuItems.length} menu items`);
+
+            renderMenuItems(menuItems);
+
+        } catch (error) {
+            console.error('❌ Error loading menu items:', error);
+            
+            // Show error in menu
+            const container = document.getElementById('menuItemsContainer');
+            if (container) {
+                container.innerHTML = `
+                    <div style="padding: 20px; text-align: center; color: #dc3545;">
+                        שגיאה בטעינת התפריט
+                    </div>
+                `;
+            }
+        }
+    }
+
+    /**
+     * Render menu items in the menu container
+     * Following Hebrew/RTL Specific Patterns
+     */
+    function renderMenuItems(menuItems) {
+        const container = document.getElementById('menuItemsContainer');
+        if (!container) {
+            console.error('❌ Menu container not found');
+            return;
+        }
+
+        if (!menuItems || menuItems.length === 0) {
+            container.innerHTML = `
+                <div style="padding: 20px; text-align: center; color: #666;">
+                    אין פריטי תפריט זמינים
+                </div>
+            `;
+            return;
+        }
+
+        // Build menu HTML
+        let menuHtml = '';
+        
+        menuItems.forEach((item, index) => {
+            const isActive = index === 0 ? 'active' : '';  // First item active by default
+            
+            menuHtml += `
+                <a href="${item.reference}" 
+                   class="menu-item ${isActive}" 
+                   onclick="navigateTo('${item.name}'); return false;">
+                    <span class="menu-item-text">${item.text}</span>
+                </a>
+            `;
+        });
+
+        container.innerHTML = menuHtml;
+        console.log('✅ Menu items rendered successfully');
+    }
+
+    /**
+     * Initialize menu on load
+     * Following Critical Development Workflows
+     */
+    (function initializeMenu() {
+        console.log('🚀 Initializing menu...');
+        
+        // Load menu items after a short delay to ensure auth token is available
+        setTimeout(() => {
+            loadMenuItems();
+        }, 100);
+    })();
+
+    // Export functions for external use
+    window.loadMenuItems = loadMenuItems;
+    window.renderMenuItems = renderMenuItems;
+</script>
