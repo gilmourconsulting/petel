@@ -395,10 +395,10 @@ async function updateContextButtonLabels() {
 
             console.log('📋 Entity type:', entityTypeId);
 
-            if (entityTypeId === 5 || entityTypeId === 6) {
+            if (entityTypeId !== 1 && entityTypeId !== 4) {
                 console.log('🏫 Multi-school network - navigating to school list');
                 await loadSchoolListPage();
-            } else {
+            } else {    
                 console.log('🏫 Single school - navigating to school dashboard');
                 await loadSchoolDashboardPage();
             }

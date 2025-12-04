@@ -13,6 +13,7 @@ namespace PetelApp.Api.Models
         public string? ContactPerson { get; set; }
         public string? EducationStage { get; set; }
         public int? OwnerId { get; set; }
+        public string? OwnerName { get; set; }
         public int EntityTypeId { get; set; }
         public string EntityTypeName { get; set; } = string.Empty;
         public bool IsActive { get; set; }

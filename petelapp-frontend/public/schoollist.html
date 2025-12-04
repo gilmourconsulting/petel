@@ -186,6 +186,12 @@
             { key: 'contactPerson', label: 'איש קשר במוסד', sortable: true },
             { key: 'educationStage', label: 'שלב חינוך', sortable: true },
             {
+                key: 'ownerName',
+                label: 'בעלים',
+                sortable: true,
+                readOnly: true
+            },
+            {
                 key: 'actions',
                 label: 'פעולות',
                 sortable: false,
@@ -296,13 +302,13 @@
         }
     }
 
-   /* function editSchool(schoolId) {
-        console.log('Editing school:', schoolId);
-        const school = allSchools.find(s => s.id === schoolId);
-        if (school) {
-            alert(`עריכת בית ספר: ${school.name}`);
-        }
-    }*/
+    /* function editSchool(schoolId) {
+         console.log('Editing school:', schoolId);
+         const school = allSchools.find(s => s.id === schoolId);
+         if (school) {
+             alert(`עריכת בית ספר: ${school.name}`);
+         }
+     }*/
 
     /*function manageSchoolYear(schoolId) {
         console.log('Managing school year for school:', schoolId);
@@ -317,16 +323,16 @@
     // Context button navigation functions following Single-Page Application with Module Loading
     async function navigateToCouncilsList() {
 
-            console.log('🏛️ Navigating to council summary...');
-    
-    if (typeof window.navigateTo === 'function') {
-        await window.navigateTo('councilsummary');
-    } else {
-        console.error('❌ window.navigateTo not available');
+        console.log('🏛️ Navigating to council summary...');
+
+        if (typeof window.navigateTo === 'function') {
+            await window.navigateTo('councilsummary');
+        } else {
+            console.error('❌ window.navigateTo not available');
             alert('שגיאה בניווט לרשימת רשויות');
+        }
     }
-}
-        
+
 
 
 
@@ -365,47 +371,47 @@
 
     window.cleanupSchoolListPage = cleanupSchoolListPage;
 
-  /*  function showNavigationError(container, message) {
-        container.innerHTML = `
-                <div class="error-message" style="
-                    text-align: center; 
-                    padding: 40px; 
-                    direction: rtl;
-                    background: #f8d7da;
-                    color: #721c24;
-                    border: 1px solid #f5c6cb;
-                    border-radius: 8px;
-                    margin: 20px;
-                ">
-                    <h3 style="margin-bottom: 15px;">${message}</h3>
-                    <p style="margin-bottom: 20px;">לא ניתן לטעון את הדף המבוקש. אנא נסה שוב.</p>
-                    <button onclick="window.history.back()" style="
-                        background: #007bff;
-                        color: white;
-                        border: none;
-                        padding: 8px 16px;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        font-size: 14px;
-                        margin-left: 10px;
-                    ">
-                        חזרה
-                    </button>
-                    <button onclick="window.location.reload()" style="
-                        background: #28a745;
-                        color: white;
-                        border: none;
-                        padding: 8px 16px;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        font-size: 14px;
-                    ">
-                        רענן דף
-                    </button>
-                </div>
-            `;
-    }
-*/
+    /*  function showNavigationError(container, message) {
+          container.innerHTML = `
+                  <div class="error-message" style="
+                      text-align: center; 
+                      padding: 40px; 
+                      direction: rtl;
+                      background: #f8d7da;
+                      color: #721c24;
+                      border: 1px solid #f5c6cb;
+                      border-radius: 8px;
+                      margin: 20px;
+                  ">
+                      <h3 style="margin-bottom: 15px;">${message}</h3>
+                      <p style="margin-bottom: 20px;">לא ניתן לטעון את הדף המבוקש. אנא נסה שוב.</p>
+                      <button onclick="window.history.back()" style="
+                          background: #007bff;
+                          color: white;
+                          border: none;
+                          padding: 8px 16px;
+                          border-radius: 4px;
+                          cursor: pointer;
+                          font-size: 14px;
+                          margin-left: 10px;
+                      ">
+                          חזרה
+                      </button>
+                      <button onclick="window.location.reload()" style="
+                          background: #28a745;
+                          color: white;
+                          border: none;
+                          padding: 8px 16px;
+                          border-radius: 4px;
+                          cursor: pointer;
+                          font-size: 14px;
+                      ">
+                          רענן דף
+                      </button>
+                  </div>
+              `;
+      }
+  */
 
 
     // Initialize page following Critical Development Workflows
