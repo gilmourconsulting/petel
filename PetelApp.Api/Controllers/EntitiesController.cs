@@ -13,9 +13,7 @@ namespace PetelApp.Api.Controllers
     public class EntitiesController : BaseController
     {
         private readonly AppDbContext _context;
-        //  private readonly ILogger<EntitiesController> _logger;
-
-
+   
         public EntitiesController(
             AppDbContext context,
             UserSessionService userSessionService,
@@ -23,7 +21,7 @@ namespace PetelApp.Api.Controllers
             : base(userSessionService, logger)
         {
             _context = context;
-            //  _logger = logger;
+     
         }
 
         /// <summary>

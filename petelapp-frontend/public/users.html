@@ -1,0 +1,531 @@
+<div class="school-title-section">
+  <h1 class="page-title">ניהול משתמשים</h1>
+</div>
+
+<div class="students-container">
+    <!-- Context buttons - LEFT SIDE POSITIONING -->
+    <div class="context-buttons-section screenwithtable-context">
+        <button class="context-btn" onclick="refreshUsersData()">
+            רענן נתונים
+        </button>
+        <button class="context-btn" onclick="showCreateUserDialog()">
+            הוסף משתמש חדש
+        </button>
+        <button class="context-btn" onclick="navigateToMainDashboard()">
+            חזרה לדף ראשי
+        </button>
+    </div>
+
+    <!-- Main content area -->
+    <div class="students-content">
+        <div class="content-card">
+            <h2 id="usersTitle" class="page-title">ניהול משתמשים</h2>
+            
+            <!-- Users summary info -->
+            <div class="users-summary">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <div class="summary-icon">👥</div>
+                        <div class="summary-info">
+                            <div class="summary-value" id="totalUsers">0</div>
+                            <div class="summary-label">סה"כ משתמשים</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">✅</div>
+                        <div class="summary-info">
+                            <div class="summary-value" id="activeUsers">0</div>
+                            <div class="summary-label">משתמשים פעילים</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">🚫</div>
+                        <div class="summary-info">
+                            <div class="summary-value" id="inactiveUsers">0</div>
+                            <div class="summary-label">משתמשים לא פעילים</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users table - ReusableTable component -->
+            <div class="users-table-section">
+                <h3>רשימת משתמשים</h3>
+                <div id="usersTableContainer">
+                    <div class="loading-spinner">
+                        טוען נתוני משתמשים...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit User Dialog -->
+<div id="userDialog" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="userDialogTitle">משתמש חדש</h3>
+            <button class="modal-close" onclick="closeUserDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="userForm" onsubmit="handleUserFormSubmit(event)">
+                <input type="hidden" id="userId" name="userId">
+                <input type="hidden" id="isEditMode" name="isEditMode" value="false">
+                
+                <div class="form-group">
+                    <label for="userUsername">שם משתמש *</label>
+                    <input type="text" id="userUsername" name="username" required readonly>
+                    <small>שם משתמש לא ניתן לעדכון</small>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group form-col">
+                        <label for="userFirstName">שם פרטי *</label>
+                        <input type="text" id="userFirstName" name="firstName" required>
+                    </div>
+                    <div class="form-group form-col">
+                        <label for="userLastName">שם משפחה *</label>
+                        <input type="text" id="userLastName" name="lastName" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="userEmail">דוא"ל</label>
+                    <input type="email" id="userEmail" name="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="userPhone">טלפון</label>
+                    <input type="tel" id="userPhone" name="phone">
+                </div>
+
+                <div id="passwordGroup" class="form-group">
+                    <label for="userPassword">סיסמה *</label>
+                    <input type="password" id="userPassword" name="password" required>
+                    <small>סיסמה חובה לחשבון חדש</small>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="userIsActive" name="isActive" checked>
+                        משתמש פעיל
+                    </label>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeUserDialog()">ביטול</button>
+            <button type="submit" form="userForm" class="btn-primary">שמור</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ✅ Window-scoped variables to prevent redeclaration errors
+window.usersTableInstance = window.usersTableInstance || null;
+window.currentEditingUserId = null;
+window.allUsersData = [];
+
+/**
+ * Load and display all users
+ */
+/**
+ * Load and display all users
+ */
+async function loadUsersData() {
+    console.log('📋 Loading users data...');
+    
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            console.error('❌ No auth token found');
+            showLoadingError('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        console.log('🔗 Fetching from:', AppConfig.getApiUrl('users'));
+        
+        const response = await fetch(AppConfig.getApiUrl('users'), {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        console.log('📨 Response status:', response.status);
+
+        if (!response.ok) {
+            throw new Error(`Failed to load users: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('📦 Raw response:', result);
+        console.log('📊 Users data received:', result.data);
+        console.log(`✅ Loaded ${result.data?.length || 0} users`);
+
+        if (!result.data || !Array.isArray(result.data)) {
+            console.error('❌ Invalid data format:', result.data);
+            showLoadingError('פורמט נתונים לא תקין מהשרת');
+            return;
+        }
+
+        window.allUsersData = result.data;
+        updateUsersSummary(result.data);
+        renderUsersTable(result.data);
+
+    } catch (error) {
+        console.error('❌ Error loading users:', error);
+        showLoadingError('שגיאה בטעינת נתוני המשתמשים');
+    }
+}
+/**
+ * Update summary statistics
+ */
+function updateUsersSummary(users) {
+    const totalUsers = users.length;
+    const activeUsers = users.filter(u => u.isActive).length;
+    const inactiveUsers = totalUsers - activeUsers;
+
+    document.getElementById('totalUsers').textContent = totalUsers;
+    document.getElementById('activeUsers').textContent = activeUsers;
+    document.getElementById('inactiveUsers').textContent = inactiveUsers;
+
+    console.log(`📊 Summary: Total=${totalUsers}, Active=${activeUsers}, Inactive=${inactiveUsers}`);
+}
+
+/**
+ * Render users table using ReusableTable component
+ */
+function renderUsersTable(usersData) {
+    console.log('🎨 Rendering users table...');
+
+    const columns = [
+        {
+            key: 'id',
+            label: 'מזהה',
+            sortable: true,
+            readOnly: true,
+            hidden: true
+        },
+        {
+            key: 'username',
+            label: 'שם משתמש',
+            sortable: true,
+            readOnly: true
+        },
+        {
+            key: 'fullName',
+            label: 'שם מלא',
+            sortable: true,
+            readOnly: true
+        },
+        {
+            key: 'email',
+            label: 'דוא"ל',
+            sortable: true,
+            readOnly: true
+        },
+        {
+            key: 'phone',
+            label: 'טלפון',
+            sortable: true,
+            readOnly: true
+        },
+        {
+            key: 'isActive',
+            label: 'סטטוס',
+            sortable: true,
+            readOnly: true,
+            render: (data) => {
+                return data.isActive 
+                    ? '<span class="status-badge active">פעיל</span>' 
+                    : '<span class="status-badge inactive">לא פעיל</span>';
+            }
+        },
+        {
+            key: 'lastLogin',
+            label: 'כניסה אחרונה',
+            sortable: true,
+            readOnly: true,
+            render: (data) => {
+                if (!data.lastLogin) return '-';
+                const date = new Date(data.lastLogin);
+                return date.toLocaleDateString('he-IL') + ' ' + date.toLocaleTimeString('he-IL');
+            }
+        },
+        {
+            key: 'actions',
+            label: 'פעולות',
+            sortable: false,
+            readOnly: true,
+            render: (data) => `
+                <button class="btn-icon" onclick="editUser(${data.id})" title="עדכן משתמש">
+                    <img src="edit_icon.png" alt="עדכן" class="action-icon-natural">
+                </button>
+                <button class="btn-icon" onclick="deleteUser(${data.id})" title="הסר משתמש">
+                    <img src="delete_icon.png" alt="הסר" class="action-icon-natural">
+                </button>
+            `
+        }
+    ];
+
+    // Cleanup previous instance
+    if (window.usersTableInstance) {
+        console.log('🧹 Cleaning up previous table instance');
+        window.usersTableInstance = null;
+    }
+
+    // Create new table instance
+    window.usersTableInstance = new ReusableTable('usersTableContainer', {
+        tableName: 'users',
+        isReadOnly: true,
+        allowAdd: false,
+        allowEdit: false,
+        allowDelete: false
+    });
+
+    window.usersTableInstance.init(usersData, columns);
+    console.log('✅ Users table rendered');
+}
+
+/**
+ * Refresh users data from server
+ */
+async function refreshUsersData() {
+    console.log('🔄 Refreshing users data...');
+    await loadUsersData();
+}
+
+/**
+ * Navigate to main dashboard
+ */
+async function navigateToMainDashboard() {
+    console.log('🔄 Navigating to main dashboard...');
+    await window.navigateTo('maindashboard');
+}
+
+/**
+ * Show create user dialog
+ */
+function showCreateUserDialog() {
+    console.log('📝 Opening create user dialog...');
+    
+    document.getElementById('userDialogTitle').textContent = 'משתמש חדש';
+    document.getElementById('isEditMode').value = 'false';
+    
+    // Clear form
+    document.getElementById('userForm').reset();
+    document.getElementById('userId').value = '';
+    document.getElementById('userUsername').value = '';
+    document.getElementById('userUsername').removeAttribute('readonly');
+    
+    // Show password field for new users
+    document.getElementById('passwordGroup').style.display = 'block';
+    document.getElementById('userPassword').required = true;
+    
+    // Show dialog
+    document.getElementById('userDialog').style.display = 'flex';
+}
+
+/**
+ * Edit user - load user data and show dialog
+ */
+async function editUser(userId) {
+    console.log(`✏️ Editing user ${userId}...`);
+    
+    try {
+        const user = window.allUsersData.find(u => u.id === userId);
+        if (!user) {
+            alert('משתמש לא נמצא');
+            return;
+        }
+
+        document.getElementById('userDialogTitle').textContent = 'עדכון משתמש';
+        document.getElementById('isEditMode').value = 'true';
+        
+        // Populate form
+        document.getElementById('userId').value = user.id;
+        document.getElementById('userUsername').value = user.username;
+        document.getElementById('userUsername').setAttribute('readonly', 'readonly');
+        document.getElementById('userFirstName').value = user.firstName;
+        document.getElementById('userLastName').value = user.lastName;
+        document.getElementById('userEmail').value = user.email || '';
+        document.getElementById('userPhone').value = user.phone || '';
+        document.getElementById('userIsActive').checked = user.isActive;
+        
+        // Hide password field for existing users
+        document.getElementById('passwordGroup').style.display = 'none';
+        document.getElementById('userPassword').required = false;
+        
+        // Show dialog
+        document.getElementById('userDialog').style.display = 'flex';
+    } catch (error) {
+        console.error('❌ Error editing user:', error);
+        alert('שגיאה בטעינת פרטי המשתמש');
+    }
+}
+
+/**
+ * Delete user
+ */
+async function deleteUser(userId) {
+    console.log(`🗑️ Deleting user ${userId}...`);
+    
+    if (!confirm('האם אתה בטוח שברצונך להסיר את המשתמש הזה?')) {
+        return;
+    }
+
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        const response = await fetch(AppConfig.getApiUrl(`users/${userId}`), {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            console.log('✅ User deleted successfully');
+            alert('המשתמש הוסר בהצלחה');
+            await refreshUsersData();
+        } else {
+            console.error('❌ Delete failed:', result.message);
+            alert(`שגיאה: ${result.message}`);
+        }
+    } catch (error) {
+        console.error('❌ Error deleting user:', error);
+        alert('שגיאה בהסרת המשתמש');
+    }
+}
+
+/**
+ * Handle user form submission
+ */
+async function handleUserFormSubmit(event) {
+    event.preventDefault();
+    
+    const isEditMode = document.getElementById('isEditMode').value === 'true';
+    const userId = document.getElementById('userId').value;
+    
+    const formData = {
+        firstName: document.getElementById('userFirstName').value,
+        lastName: document.getElementById('userLastName').value,
+        email: document.getElementById('userEmail').value || null,
+        phone: document.getElementById('userPhone').value || null,
+        isActive: document.getElementById('userIsActive').checked
+    };
+
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        let url, method, body;
+
+        if (isEditMode) {
+            // Update existing user
+            console.log(`📝 Updating user ${userId}...`);
+            url = AppConfig.getApiUrl(`users/${userId}`);
+            method = 'PUT';
+            body = JSON.stringify(formData);
+        } else {
+            // Create new user
+            console.log('📝 Creating new user...');
+            url = AppConfig.getApiUrl('users');
+            method = 'POST';
+            body = JSON.stringify({
+                username: document.getElementById('userUsername').value,
+                password: document.getElementById('userPassword').value,
+                ...formData
+            });
+        }
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: body
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            console.log('✅ User saved successfully');
+            alert(result.message || 'נשמרו הנתונים בהצלחה');
+            closeUserDialog();
+            await refreshUsersData();
+        } else {
+            console.error('❌ Save failed:', result.message);
+            alert(`שגיאה: ${result.message}`);
+        }
+    } catch (error) {
+        console.error('❌ Error saving user:', error);
+        alert('שגיאה בשמירת הנתונים');
+    }
+}
+
+/**
+ * Close user dialog
+ */
+function closeUserDialog() {
+    console.log('🔐 Closing user dialog');
+    document.getElementById('userDialog').style.display = 'none';
+    document.getElementById('userForm').reset();
+}
+
+/**
+ * Show loading error message
+ */
+function showLoadingError(message) {
+    const container = document.getElementById('usersTableContainer');
+    container.innerHTML = `
+        <div class="error-message">
+            <p>❌ ${message}</p>
+            <button class="btn-primary" onclick="refreshUsersData()">נסה שנית</button>
+        </div>
+    `;
+}
+
+
+
+/**
+ * Export cleanup function for PageLifecycleManager
+ */
+function cleanupUsersPage() {
+    console.log('🧹 Cleaning up users page...');
+    
+    try {
+        if (window.usersTableInstance) {
+            window.usersTableInstance = null;
+        }
+        
+        window.allUsersData = [];
+        
+        const container = document.getElementById('usersTableContainer');
+        if (container) {
+            container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+        }
+        
+        console.log('✅ Users page cleanup complete');
+    } catch (error) {
+        console.error('❌ Error during cleanup:', error);
+    }
+}
+
+window.cleanupUsersPage = cleanupUsersPage;
+window.loadUsersData = loadUsersData;
+</script>

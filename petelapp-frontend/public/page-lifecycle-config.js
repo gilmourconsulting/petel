@@ -87,6 +87,13 @@ window.PageLifecycleConfig = {
             cleanup: 'cleanupEntitiesPage',
             init: 'initEntitiesPage'
         }
+        ,
+        'users': {
+            file: 'users.html',
+            title: 'משתמשים',
+            cleanup: 'cleanupUsersPage',
+            init: 'loadUsersData'
+        }
     },
 
     /**
