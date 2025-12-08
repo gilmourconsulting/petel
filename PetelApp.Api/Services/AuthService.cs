@@ -17,15 +17,18 @@ namespace PetelApp.Api.Services
     {
         private readonly AppDbContext _context;
         private readonly UserSessionService _sessionService;
+        private readonly ActionAuthorizationService _actionAuthService;
         private readonly ILogger<AuthService> _logger;
 
         public AuthService(
             AppDbContext context,
             UserSessionService sessionService,
+            ActionAuthorizationService actionAuthService,
             ILogger<AuthService> logger)
         {
             _context = context;
             _sessionService = sessionService;
+            _actionAuthService = actionAuthService;
             _logger = logger;
         }
 
@@ -106,8 +109,7 @@ namespace PetelApp.Api.Services
                 // Create UserFullName from FirstName + LastName
                 var userFullName = $"{user.FirstName} {user.LastName}".Trim();
 
-                // ✅ FIX: Use _sessionService (not _userSessionService)
-                // Create session following Entity-Based Request Flow
+                 // Create session following Entity-Based Request Flow
                 var sessionId = _sessionService.CreateSessionWithFullData(
                     userId: user.Id.ToString(),
                     username: user.Username,
@@ -118,6 +120,45 @@ namespace PetelApp.Api.Services
                     entityTypeName: userEntity.EntityType?.Name ?? "",
                     lastLogin: user.LastLogin
                 );
+
+                // Load user roles into session
+
+                  _logger.LogInformation("Getting roles for user {UserId}", user.Id);
+
+// ✅ DIAGNOSTIC VERSION - Load full UserRole objects to see what's happening
+var userRoles = await _context.UserRoles
+    .AsNoTracking()
+    .Where(ur => ur.UserId == user.Id && ur.IsActive)
+    .ToListAsync();
+
+_logger.LogInformation("Found {Count} user_roles records", userRoles.Count);
+
+// Log each role record
+foreach (var ur in userRoles)
+{
+    _logger.LogInformation("UserRole: Id={Id}, UserId={UserId}, RoleId={RoleId}, IsActive={IsActive}", 
+        ur.Id, ur.UserId, ur.RoleId, ur.IsActive);
+}
+
+// Extract role IDs
+var userRoleIds = userRoles.Select(ur => ur.RoleId).ToArray().ToList();
+
+_logger.LogInformation("Extracted {Count} role IDs: {RoleIds}", 
+    userRoleIds.Count, 
+    string.Join(", ", userRoleIds));
+
+                    
+
+                var session = _sessionService.GetUserSession(sessionId);
+                if (session != null)
+                {
+                    session.Roles = userRoleIds;
+                    _logger.LogInformation("Loaded {RoleCount} roles for user {UserId}", userRoleIds.Count, user.Id);
+                    // Load user actions into session
+                    var userActions = await _actionAuthService.GetUserActionsAsync(user.Id);
+                    session.SetProperty("UserActions", System.Text.Json.JsonSerializer.Serialize(userActions));
+                    _logger.LogInformation("Loaded {ActionCount} actions for user {UserId}", userActions.Count, user.Id);
+                }
 
                 _logger.LogInformation("User {Username} (ID: {UserId}) logged in successfully to entity {EntityId}",
                     loginRequest.Username, user.Id, user.EntityId);

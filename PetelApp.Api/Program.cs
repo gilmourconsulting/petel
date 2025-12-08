@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;  // ✅ ADD THIS - Required for IOptions<T>
-using PetelApp.Api.Configuration;  // ✅ ADD THIS - Required for DatabaseSettings
+using Microsoft.Extensions.Options; 
+using PetelApp.Api.Configuration;  
 
 using PetelApp.Api.Data;
 using PetelApp.Api.Services;
@@ -103,6 +103,8 @@ builder.Services.AddScoped<UserRoleService>();
 // Register file processor service
 builder.Services.AddScoped<StudentsFileProcessor>();
 
+builder.Services.AddSingleton<ActionAuthorizationService>();
+
 // Hangfire (if used)
 var hangfireConnectionString = builder.Configuration.GetConnectionString("HangfireConnection");
 if (!string.IsNullOrEmpty(hangfireConnectionString))
@@ -115,6 +117,9 @@ if (!string.IsNullOrEmpty(hangfireConnectionString))
 builder.Services.AddLogging();
 
 var app = builder.Build();
+
+var authService = app.Services.GetRequiredService<ActionAuthorizationService>();
+await authService.InitializeAsync();
 
 app.UseStaticFiles();
 

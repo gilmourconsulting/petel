@@ -53,14 +53,39 @@ async function loadSessionDebugData() {
         });
 
         let allProperties = {};
-        if (propertiesResponse.ok) {
-            allProperties = await propertiesResponse.json();
+      //  if (propertiesResponse.ok) {
+    //        allProperties = await propertiesResponse.json();
+    //    }
+
+            // Fetch user actions (roles are included in the action authorization cache)
+        let userActions = [];
+        let userActionsError = null;
+        try {
+            const actionsResponse = await fetch(AppConfig.getApiUrl('security/user-actions'), {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`
+                }
+            });
+
+            if (actionsResponse.ok) {
+                userActions = await actionsResponse.json();
+            } else {
+                userActionsError = `HTTP ${actionsResponse.status}`;
+            }
+        } catch (error) {
+            userActionsError = error.message;
         }
 
         // Combine all data
         const debugData = {
             sessionInfo: sessionInfo,
-            allProperties: allProperties,
+         //   allProperties: allProperties,
+            userRoles: sessionInfo.roles || [],
+            userActions: {
+                count: userActions.length,
+                actions: userActions,
+                error: userActionsError
+            },
             frontendStorage: {
                 authToken: authToken ? `${authToken.substring(0, 20)}...` : null,
                 note: "Only auth token should be stored in frontend"

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
+using PetelApp.Api.Services;
 using PetelApp.Api.Session;
 
 namespace PetelApp.Api.Controllers
@@ -11,20 +12,23 @@ namespace PetelApp.Api.Controllers
     public class MenuController : BaseController
     {
         private readonly AppDbContext _context;
+        private readonly ActionAuthorizationService _actionAuthService;
 
         public MenuController(
             AppDbContext context,
+            ActionAuthorizationService actionAuthService,
             UserSessionService userSessionService,
             ILogger<MenuController> logger)
             : base(userSessionService, logger)
         {
             _context = context;
+            _actionAuthService = actionAuthService;
         }
 
         /// <summary>
         /// Get menu items for current user based on permissions
-        /// Returns all active menu items with null action_id or action_id user has privileges for
-        /// Following Authentication & Session Management pattern
+        /// NOW: Filters menu items based on user's role-based action permissions
+        /// Following Authentication & Session Management + Action-Based Security patterns
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetMenuItems()
@@ -43,12 +47,49 @@ namespace PetelApp.Api.Controllers
                     session.Username, 
                     session.UserId);
 
-                // TODO: When implementing security, filter by user privileges
-                // For now, return all active items with null action_id
-                var menuItems = await _context.MenuItems
+                var userId = int.Parse(session.UserId);
+
+                // Get all user's permitted actions (from security cache)
+                var userActions = await _actionAuthService.GetUserActionsAsync(userId);
+                var permittedActionNames = userActions
+                    .Select(a => ((dynamic)a).name.ToString().ToLower())
+                    .ToHashSet();
+
+                _logger.LogInformation(
+                    "User {Username} has {ActionCount} permitted actions", 
+                    session.Username, 
+                    permittedActionNames.Count);
+
+                // Get all active menu items
+                var allMenuItems = await _context.MenuItems
                     .AsNoTracking()
-                    .Where(m => m.IsActive && m.ActionId == null)
+                    .Where(m => m.IsActive)
                     .OrderBy(m => m.SortOrder)
+                    .ToListAsync();
+
+                // Filter menu items based on user permissions
+                var filteredMenuItems = allMenuItems
+                    .Where(m => {
+                        // Menu items with null action_id are always visible (no security check)
+                        if (m.ActionId == null)
+                        {
+                            _logger.LogDebug("Menu item '{Name}' has no action restriction (visible to all)", m.Name);
+                            return true;
+                        }
+
+                        // Check if user has permission for this menu item's action
+                        // Menu item name should match action name in actions table
+                        var hasPermission = permittedActionNames.Contains(m.Name.ToLower());
+                        
+                        if (!hasPermission)
+                        {
+                            _logger.LogDebug(
+                                "Menu item '{Name}' filtered out - user lacks permission", 
+                                m.Name);
+                        }
+                        
+                        return hasPermission;
+                    })
                     .Select(m => new
                     {
                         id = m.Id,
@@ -57,14 +98,15 @@ namespace PetelApp.Api.Controllers
                         text = m.Text,
                         sortOrder = m.SortOrder
                     })
-                    .ToListAsync();
+                    .ToList();
 
                 _logger.LogInformation(
-                    "Loaded {Count} menu items for user {Username}", 
-                    menuItems.Count, 
+                    "Loaded {FilteredCount} menu items (filtered from {TotalCount} total) for user {Username}", 
+                    filteredMenuItems.Count, 
+                    allMenuItems.Count,
                     session.Username);
 
-                return Ok(menuItems);
+                return Ok(filteredMenuItems);
             }
             catch (Exception ex)
             {
@@ -97,8 +139,6 @@ namespace PetelApp.Api.Controllers
                     .AsNoTracking()
                     .OrderBy(m => m.SortOrder)
                     .ToListAsync();
-
-                _logger.LogInformation("Loaded all {Count} menu items", menuItems.Count);
 
                 return Ok(menuItems);
             }

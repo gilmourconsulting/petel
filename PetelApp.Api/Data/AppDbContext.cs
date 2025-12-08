@@ -59,6 +59,9 @@ namespace PetelApp.Api.Data
         public DbSet<SpecialNeedsCharacterization> SpecialNeedsCharacterizations { get; set; } = null!;
 
 
+        public DbSet<ActionType> ActionTypes { get; set; }
+        public DbSet<SystemAction> SystemActions { get; set; }
+
         public DbSet<Alert> Alerts { get; set; }
         public DbSet<AlertLink> AlertLinks { get; set; }
         public DbSet<AlertType> AlertTypes { get; set; }
@@ -82,6 +85,8 @@ namespace PetelApp.Api.Data
             base.OnModelCreating(modelBuilder);
 
             modelBuilder.HasDefaultSchema(_schemaName);
+
+            
 
             // User entity configuration following Authentication & Session Management
             modelBuilder.Entity<User>(entity =>
@@ -132,11 +137,11 @@ namespace PetelApp.Api.Data
                 entity.ToTable("roles");
             });
 
-            // UserRole configuration - fix to match actual UserRole.cs file
+            // UserRole configuration 
             modelBuilder.Entity<UserRole>(entity =>
             {
                 entity.ToTable("user_roles");
-                entity.HasIndex(e => new { e.UserId }).IsUnique();
+                entity.HasIndex(e => new { e.UserId, e.RoleId }).IsUnique();
 
                 entity.HasOne(ur => ur.User)
                       .WithMany(u => u.UserRoles)
@@ -147,14 +152,25 @@ namespace PetelApp.Api.Data
             });
 
             // RolesAction configuration
-            modelBuilder.Entity<RolesAction>(entity =>
-            {
-                entity.ToTable("roles_actions");
-                entity.HasOne(ra => ra.Role)
-                      .WithMany(r => r.RolesActions)
-                      .HasForeignKey(ra => ra.RoleId)
-                      .OnDelete(DeleteBehavior.Cascade);
-            });
+// Update RolesAction configuration - ADD SystemAction navigation
+modelBuilder.Entity<RolesAction>(entity =>
+{
+    entity.ToTable("roles_actions");
+    entity.HasKey(e => e.Id);
+    entity.HasIndex(e => new { e.RoleId, e.ActionId }).IsUnique();
+
+    // Role navigation
+    entity.HasOne(ra => ra.Role)
+        .WithMany(r => r.RolesActions)
+        .HasForeignKey(ra => ra.RoleId)
+        .OnDelete(DeleteBehavior.Cascade);
+
+    // ✅  SystemAction navigation
+    entity.HasOne(ra => ra.SystemAction)
+        .WithMany(a => a.RolesActions)
+        .HasForeignKey(ra => ra.ActionId)
+        .OnDelete(DeleteBehavior.Cascade);
+});
 
             // HoursBudget configuration following Entity-Based Request Flow
             modelBuilder.Entity<HoursBudget>(entity =>
@@ -535,6 +551,82 @@ namespace PetelApp.Api.Data
                 entity.ToTable("alert_levels");
                 entity.HasKey(e => e.Id);
 
+            });
+
+             
+            // Action security entities configuration
+modelBuilder.Entity<ActionType>(entity =>
+{
+    entity.ToTable("action_types");
+    entity.HasKey(e => e.Id);
+    
+    entity.Property(e => e.Name)
+        .IsRequired()
+        .HasMaxLength(50);
+    
+    entity.Property(e => e.Description)
+        .HasMaxLength(255);
+    
+    entity.HasIndex(e => e.Name).IsUnique();
+
+    entity.HasMany(at => at.Actions)
+        .WithOne(a => a.ActionType)
+        .HasForeignKey(a => a.ActionTypeId)
+        .OnDelete(DeleteBehavior.Restrict);
+});
+
+modelBuilder.Entity<SystemAction>(entity =>
+{
+    entity.ToTable("actions");
+    entity.HasKey(e => e.Id);
+    
+    entity.Property(e => e.Name)
+        .IsRequired()
+        .HasMaxLength(100);
+    
+    entity.Property(e => e.DisplayName)
+        .HasMaxLength(150);
+    
+    entity.Property(e => e.Description)
+        .HasMaxLength(255);
+    
+    entity.Property(e => e.OnclickName)
+        .HasMaxLength(100);
+    
+    entity.Property(e => e.Reference)
+        .HasMaxLength(200);
+
+    entity.HasIndex(e => e.Name).IsUnique();
+    entity.HasIndex(e => e.ActionTypeId);
+    entity.HasIndex(e => e.Reference);
+    entity.HasIndex(e => e.IsActive);
+
+    entity.HasOne(a => a.ActionType)
+        .WithMany(at => at.Actions)
+        .HasForeignKey(a => a.ActionTypeId)
+        .OnDelete(DeleteBehavior.Restrict);
+
+    entity.HasMany(a => a.RolesActions)
+        .WithOne(ra => ra.SystemAction)
+        .HasForeignKey(ra => ra.ActionId)
+        .OnDelete(DeleteBehavior.Cascade);
+});
+            
+            // Update RolesAction to include SystemAction navigation
+            modelBuilder.Entity<RolesAction>(entity =>
+            {
+                entity.ToTable("roles_actions");
+                entity.HasKey(e => e.Id);
+            
+                entity.HasOne(ra => ra.Role)
+                    .WithMany(r => r.RolesActions)
+                    .HasForeignKey(ra => ra.RoleId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            
+                entity.HasOne(ra => ra.SystemAction)
+                    .WithMany(a => a.RolesActions)
+                    .HasForeignKey(ra => ra.ActionId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
         }
