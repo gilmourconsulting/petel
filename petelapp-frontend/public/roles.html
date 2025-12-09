@@ -1,0 +1,371 @@
+<!-- petelapp-frontend/public/roles.html -->
+<div class="school-title-section">
+    <h1 class="page-title">ניהול תפקידים</h1>
+</div>
+
+<div class="students-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section screenwithtable-context">
+        <button class="context-btn" onclick="refreshRolesData()">
+            רענן נתונים
+        </button>
+        <button class="context-btn" onclick="showCreateRoleDialog()">
+            הוסף תפקיד חדש
+        </button>
+        <button class="context-btn" onclick="navigateToUsers()">
+            חזרה לניהול משתמשים
+        </button>
+    </div>
+
+    <!-- Main content area -->
+    <div class="students-content">
+        <div class="content-card">
+            <h2 class="page-title">רשימת תפקידים</h2>
+            
+            <!-- Roles table -->
+            <div class="users-table-section">
+                <div id="rolesTableContainer">
+                    <div class="loading-spinner">
+                        טוען נתוני תפקידים...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Role Dialog -->
+<div id="roleDialog" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="roleDialogTitle">תפקיד חדש</h3>
+            <button class="modal-close" onclick="closeRoleDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="roleForm" onsubmit="handleRoleFormSubmit(event)">
+                <input type="hidden" id="roleId" name="roleId">
+                <input type="hidden" id="isEditMode" name="isEditMode" value="false">
+                
+                <div class="form-group">
+                    <label for="roleName">שם התפקיד *</label>
+                    <input type="text" id="roleName" name="name" required>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeRoleDialog()">ביטול</button>
+            <button type="submit" form="roleForm" class="btn-primary">שמור</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ✅ Window-scoped variables to prevent redeclaration errors
+window.rolesTableInstance = window.rolesTableInstance || null;
+window.allRolesData = [];
+
+/**
+ * Load and display all roles
+ */
+async function loadRolesData() {
+    console.log('📋 Loading roles data...');
+    
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            console.error('❌ No auth token found');
+            showLoadingError('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        const response = await fetch(AppConfig.getApiUrl('roles'), {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to load roles: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log(`✅ Loaded ${result.data?.length || 0} roles`);
+
+        if (!result.data || !Array.isArray(result.data)) {
+            console.error('❌ Invalid data format:', result.data);
+            showLoadingError('פורמט נתונים לא תקין מהשרת');
+            return;
+        }
+
+        window.allRolesData = result.data;
+        renderRolesTable(result.data);
+
+    } catch (error) {
+        console.error('❌ Error loading roles:', error);
+        showLoadingError('שגיאה בטעינת נתוני התפקידים');
+    }
+}
+
+/**
+ * Render roles table using ReusableTable component
+ */
+function renderRolesTable(rolesData) {
+    console.log('🎨 Rendering roles table...');
+
+    const columns = [
+        {
+            key: 'id',
+            label: 'מזהה',
+            sortable: true,
+            readOnly: true,
+            hidden: true
+        },
+        {
+            key: 'name',
+            label: 'שם התפקיד',
+            sortable: true,
+            readOnly: true
+        },
+        {
+            key: 'userCount',
+            label: 'משתמשים',
+            sortable: true,
+            readOnly: true
+        },
+        {
+            key: 'actionCount',
+            label: 'פעולות',
+            sortable: true,
+            readOnly: true
+        },
+        {
+            key: 'actions',
+            label: 'פעולות',
+            sortable: false,
+            readOnly: true,
+            render: (data) => `
+                <button class="btn-icon" onclick="editRole(${data.id})" title="ערוך תפקיד">
+                    <img src="edit_icon.png" alt="ערוך" class="action-icon-natural">
+                </button>
+                <button class="btn-icon" onclick="deleteRole(${data.id})" title="מחק תפקיד">
+                    <img src="delete_icon.png" alt="מחק" class="action-icon-natural">
+                </button>
+            `
+        }
+    ];
+
+    // Cleanup previous instance
+    if (window.rolesTableInstance) {
+        console.log('🧹 Cleaning up previous table instance');
+        window.rolesTableInstance = null;
+    }
+
+    // Create new table instance
+    window.rolesTableInstance = new ReusableTable('rolesTableContainer', {
+        tableName: 'roles',
+        isReadOnly: true,
+        allowAdd: false,
+        allowEdit: false,
+        allowDelete: false
+    });
+
+    window.rolesTableInstance.init(rolesData, columns);
+    console.log('✅ Roles table rendered');
+}
+
+/**
+ * Refresh roles data from server
+ */
+async function refreshRolesData() {
+    console.log('🔄 Refreshing roles data...');
+    await loadRolesData();
+}
+
+/**
+ * Navigate to users page
+ */
+async function navigateToUsers() {
+    console.log('🔄 Navigating to users...');
+    await window.navigateTo('users');
+}
+
+/**
+ * Show create role dialog
+ */
+function showCreateRoleDialog() {
+    console.log('📝 Opening create role dialog...');
+    
+    document.getElementById('roleDialogTitle').textContent = 'תפקיד חדש';
+    document.getElementById('isEditMode').value = 'false';
+    
+    // Clear form
+    document.getElementById('roleForm').reset();
+    document.getElementById('roleId').value = '';
+    
+    // Show dialog
+    document.getElementById('roleDialog').style.display = 'flex';
+}
+
+/**
+ * Edit role - navigate to role details page
+ */
+async function editRole(roleId) {
+    console.log(`✏️ Editing role ${roleId}...`);
+    
+    try {
+        // Store role ID in session
+        await window.SessionState.setProperty('SelectedRoleId', roleId.toString());
+        
+        // Navigate to role details page
+        await window.navigateTo('roledetails');
+    } catch (error) {
+        console.error('❌ Error navigating to role details:', error);
+        alert('שגיאה בטעינת פרטי התפקיד');
+    }
+}
+
+/**
+ * Delete role
+ */
+async function deleteRole(roleId) {
+    console.log(`🗑️ Deleting role ${roleId}...`);
+    
+    if (!confirm('האם אתה בטוח שברצונך למחוק את התפקיד הזה?')) {
+        return;
+    }
+
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        const response = await fetch(AppConfig.getApiUrl(`roles/${roleId}`), {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            console.log('✅ Role deleted successfully');
+            alert('התפקיד נמחק בהצלחה');
+            await refreshRolesData();
+        } else {
+            console.error('❌ Delete failed:', result.message);
+            alert(`שגיאה: ${result.message}`);
+        }
+    } catch (error) {
+        console.error('❌ Error deleting role:', error);
+        alert('שגיאה במחיקת התפקיד');
+    }
+}
+
+/**
+ * Handle role form submission
+ */
+async function handleRoleFormSubmit(event) {
+    event.preventDefault();
+    
+    const isEditMode = document.getElementById('isEditMode').value === 'true';
+    const roleId = document.getElementById('roleId').value;
+    const roleName = document.getElementById('roleName').value;
+
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        let url, method;
+
+        if (isEditMode) {
+            url = AppConfig.getApiUrl(`roles/${roleId}`);
+            method = 'PUT';
+        } else {
+            url = AppConfig.getApiUrl('roles');
+            method = 'POST';
+        }
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name: roleName })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            console.log('✅ Role saved successfully');
+            alert(result.message || 'נשמרו הנתונים בהצלחה');
+            closeRoleDialog();
+            await refreshRolesData();
+        } else {
+            console.error('❌ Save failed:', result.message);
+            alert(`שגיאה: ${result.message}`);
+        }
+    } catch (error) {
+        console.error('❌ Error saving role:', error);
+        alert('שגיאה בשמירת הנתונים');
+    }
+}
+
+/**
+ * Close role dialog
+ */
+function closeRoleDialog() {
+    console.log('🔐 Closing role dialog');
+    document.getElementById('roleDialog').style.display = 'none';
+    document.getElementById('roleForm').reset();
+}
+
+/**
+ * Show loading error message
+ */
+function showLoadingError(message) {
+    const container = document.getElementById('rolesTableContainer');
+    container.innerHTML = `
+        <div class="error-message">
+            <p>❌ ${message}</p>
+            <button class="btn-primary" onclick="refreshRolesData()">נסה שנית</button>
+        </div>
+    `;
+}
+
+/**
+ * Export cleanup function for PageLifecycleManager
+ */
+function cleanupRolesPage() {
+    console.log('🧹 Cleaning up roles page...');
+    
+    try {
+        if (window.rolesTableInstance) {
+            window.rolesTableInstance = null;
+        }
+        
+        window.allRolesData = [];
+        
+        const container = document.getElementById('rolesTableContainer');
+        if (container) {
+            container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+        }
+        
+        console.log('✅ Roles page cleanup complete');
+    } catch (error) {
+        console.error('❌ Error during cleanup:', error);
+    }
+}
+
+window.cleanupRolesPage = cleanupRolesPage;
+window.loadRolesData = loadRolesData;
+</script>

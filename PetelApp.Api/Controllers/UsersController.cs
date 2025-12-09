@@ -46,7 +46,7 @@ namespace PetelApp.Api.Controllers
 
                 var users = await _context.Users
                     .AsNoTracking()
-                    .Where(u => u.EntityId == sessionEntityId)
+                    .Include(u => u.Entity)
                     .Select(u => new
                     {
                         u.Id,
@@ -59,7 +59,9 @@ namespace PetelApp.Api.Controllers
                         u.IsActive,
                         u.LastLogin,
                         u.CreatedAt,
-                        u.UpdatedAt
+                        u.UpdatedAt,
+                        EntityId = u.EntityId,  // ✅ Show entity ID
+                        EntityName = u.Entity != null ? u.Entity.Name : "לא משויך"  // ✅ Show entity name
                     })
                     .OrderBy(u => u.LastName)
                     .ThenBy(u => u.FirstName)

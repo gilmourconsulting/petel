@@ -1775,3 +1775,49 @@ body {
     padding: 20px;
     border-top: 1px solid #dee2e6;
 }
+
+.action-item {
+    padding: 10px;
+    margin: 5px 0;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    cursor: move;
+    transition: all 0.2s;
+    direction: rtl;
+    text-align: right;
+}
+
+.action-item:hover {
+    border-color: #007bff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
+}
+
+.action-item.dragging {
+    opacity: 0.5;
+    transform: rotate(2deg);
+}
+
+.action-item-type {
+    font-size: 11px;
+    color: #6c757d;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.action-item-name {
+    font-size: 14px;
+    font-weight: 500;
+    margin: 4px 0;
+}
+
+.action-item-reference {
+    font-size: 12px;
+    color: #495057;
+}
+
+.drop-zone-active {
+    background-color: #e7f3ff !important;
+    border-color: #007bff !important;
+}

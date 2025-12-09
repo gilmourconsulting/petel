@@ -74,6 +74,20 @@ window.PageLifecycleConfig = {
             title: 'סיכום רשויות',
             cleanup: null,
             init: null
+        }, 
+        'roles': {
+            file: 'roles.html',
+            title: 'ניהול תפקידים',
+            cleanup: 'cleanupRolesPage',
+            init: null,
+            selfInitializing: true
+        },
+        'roledetails': {
+            file: 'roledetails.html',
+            title: 'פרטי תפקיד',
+            cleanup: 'cleanupRoleDetailsPage',
+            init: null,
+            selfInitializing: true
         }
     },
 
@@ -157,6 +171,12 @@ window.PageLifecycleConfig = {
         {
             from: 'schooldocuments',
             to: 'schooldashboard',
+            clearSession: []
+        },
+        // ✅  Users to roles management
+        {
+            from: 'users',
+            to: 'roles',    
             clearSession: []
         }
     ],

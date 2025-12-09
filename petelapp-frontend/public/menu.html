@@ -3,7 +3,7 @@
         <div class="menu-title">תפריט</div>
         <button class="menu-toggle" id="menuToggleBtn" type="button" onclick="toggleMenu()">▶</button>
     </div>
-    
+
     <div class="menu-items" id="menuItemsContainer">
         <!-- Menu items will be loaded dynamically -->
         <div style="padding: 20px; text-align: center; color: #666;">
@@ -19,7 +19,7 @@
      */
     async function loadMenuItems() {
         console.log('📋 Loading menu items from backend...');
-        
+
         try {
             const authToken = sessionStorage.getItem('authToken');
             if (!authToken) {
@@ -46,7 +46,7 @@
 
         } catch (error) {
             console.error('❌ Error loading menu items:', error);
-            
+
             // Show error in menu
             const container = document.getElementById('menuItemsContainer');
             if (container) {
@@ -63,6 +63,8 @@
      * Render menu items in the menu container
      * Following Hebrew/RTL Specific Patterns
      */
+
+
     function renderMenuItems(menuItems) {
         const container = document.getElementById('menuItemsContainer');
         if (!container) {
@@ -81,14 +83,18 @@
 
         // Build menu HTML
         let menuHtml = '';
-        
+
         menuItems.forEach((item, index) => {
-            const isActive = index === 0 ? 'active' : '';  // First item active by default
+            const isActive = index === 0 ? 'active' : '';
             
+            // ✅ Use data attributes for menu info - action-security.js will handle authorization
             menuHtml += `
                 <a href="${item.reference}" 
                    class="menu-item ${isActive}" 
-                   onclick="navigateTo('${item.name}'); return false;">
+                   data-menu-name="${item.name}"
+                   data-menu-reference="${item.reference}"
+                   data-menu-action="true"
+                   onclick="navigateToMenu('${item.name}'); return false;">
                     <span class="menu-item-text">${item.text}</span>
                 </a>
             `;
@@ -99,12 +105,54 @@
     }
 
     /**
+     * Simple navigation function - authorization is handled by action-security.js
+     * This function only executes if authorization passes
+     */
+    function navigateToMenu(menuName) {
+        console.log('📋 Navigating to menu:', menuName);
+        
+        if (typeof window.navigateTo === 'function') {
+            window.navigateTo(menuName);
+        } else {
+            console.error('❌ window.navigateTo not available');
+        }
+    }
+
+
+    /**
+  * Handle menu click with secure backend verification
+  * Backend performs authorization check + audit logging
+  */
+    async function handleMenuClick(menuName, menuReference) {
+        console.log('📋 Menu clicked:', menuName, menuReference);
+
+        try {
+            // ✅ Verify with backend (includes audit logging server-side)
+            const allowed = await window.ActionSecurity.verifyMenuNavigation(menuName, menuReference);
+
+            if (!allowed) {
+                alert('אין לך הרשאה לגשת לעמוד זה');
+                return;
+            }
+
+            // Navigate if allowed
+            if (typeof window.navigateTo === 'function') {
+                await window.navigateTo(menuName);
+            }
+        } catch (error) {
+            console.error('❌ Error in menu navigation:', error);
+            alert('שגיאה בניווט. אנא נסה שוב.');
+        }
+    }
+
+
+    /**
      * Initialize menu on load
      * Following Critical Development Workflows
      */
     (function initializeMenu() {
         console.log('🚀 Initializing menu...');
-        
+
         // Load menu items after a short delay to ensure auth token is available
         setTimeout(() => {
             loadMenuItems();
@@ -114,4 +162,7 @@
     // Export functions for external use
     window.loadMenuItems = loadMenuItems;
     window.renderMenuItems = renderMenuItems;
+    window.handleMenuClick = handleMenuClick;
+
+    window.navigateToMenu = navigateToMenu;
 </script>

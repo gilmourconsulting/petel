@@ -8,6 +8,7 @@
         <button class="context-btn" onclick="showSchoolYear(window.previousYearId, 'previous')">שנה קודמת</button>
         <button class="context-btn" onclick="showSchoolYear(window.currentYearId, 'current')">שנה נוכחית</button>
         <button class="context-btn" onclick="showSchoolYear(window.nextYearId, 'next')">שנה הבאה</button>
+        <button id="btnEntityDetails" class="context-btn" onclick="navigateToEntityDetails()" style="display: none;">פרטי ישות</button>
     </div>
     <!-- Navigation Link to Main Page -->
     <div class="dashboard-flex-row">
@@ -300,48 +301,56 @@ async function updateContextButtonLabels() {
     }
 
 
-    // Update the storeSelectedYearInSession function to use direct API calls
 
 
-    // ✅ Setup Entity Details Button
+    // ✅ Setup Entity Details Button visibility
     async function setupEntityDetailsButton() {
         try {
             const session = await window.SessionState.getSession();
             const entityTypeId = parseInt(session.entityTypeId, 10);
 
-            // If the current entity is a school (entity type 1 or 4) then the button will not appear.
-            if (entityTypeId === 1 || entityTypeId === 4) {
-                console.log('🏫 Entity is a school, skipping Entity Details button');
+            const btn = document.getElementById('btnEntityDetails');
+            if (!btn) {
+                console.error('❌ Entity Details button not found in HTML');
                 return;
             }
 
-            const container = document.querySelector('.context-buttons-section');
-            if (!container) return;
-
-            // Check if button already exists
-            if (document.getElementById('btnEntityDetails')) return;
-
-            const btn = document.createElement('button');
-            btn.id = 'btnEntityDetails';
-            btn.className = 'context-btn';
-            btn.textContent = 'פרטי ישות';
-            btn.onclick = async () => {
-                console.log('🔄 Navigating to Entity Details...');
-                // Send the entity id from the user session
-                await window.SessionState.setProperty('ViewEntityId', session.entityId);
-                if (window.navigateTo) {
-                    await window.navigateTo('entitydetails');
-                }
-            };
-
-            container.appendChild(btn);
-            console.log('✅ Entity Details button added');
+            // Show button only for NON-school entities (entityTypeId !== 1 and !== 4)
+            if (entityTypeId === 1 || entityTypeId === 4) {
+                console.log('🏫 Entity is a school, hiding Entity Details button');
+                btn.style.display = 'none';
+            } else {
+                console.log('🏢 Non-school entity, showing Entity Details button');
+                btn.style.display = 'inline-block';
+            }
 
         } catch (error) {
             console.error('❌ Error setting up entity details button:', error);
         }
     }
 
+    // ✅ Navigate to Entity Details screen
+    async function navigateToEntityDetails() {
+        console.log('🔄 Navigating to Entity Details...');
+
+        try {
+            const session = await window.SessionState.getSession();
+            
+            // Store the entity ID from session
+            await window.SessionState.setProperty('ViewEntityId', session.entityId);
+            
+            // Navigate to entity details page
+            if (typeof window.navigateTo === 'function') {
+                await window.navigateTo('entitydetails');
+            } else {
+                console.error('❌ window.navigateTo not available');
+                alert('שגיאה בניווט לפרטי ישות');
+            }
+        } catch (error) {
+            console.error('❌ Error navigating to entity details:', error);
+            alert('שגיאה בניווט לפרטי ישות');
+        }
+    }
 
     async function storeSelectedYearInSession(yearId, yearType) {
         console.log('Storing selected year in session:', yearId, yearType);
@@ -526,6 +535,7 @@ async function loadSchoolDashboardPage() {
     window.showSchoolYear = showSchoolYear;
     window.loadSchoolListPage = loadSchoolListPage;
     window.loadSchoolDashboardPage = loadSchoolDashboardPage;
+    window.navigateToEntityDetails = navigateToEntityDetails;
 
     //  window.debugDashboardElements = debugDashboardElements;
     window.setupEntityDetailsButton = setupEntityDetailsButton;

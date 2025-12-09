@@ -80,6 +80,8 @@ namespace PetelApp.Api.Data
         public DbSet<SchoolStudentPricingElement> SchoolStudentPricingElements { get; set; }
         public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set; }
 
+        public DbSet<ActionAuditLog> ActionAuditLogs { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -628,6 +630,20 @@ modelBuilder.Entity<SystemAction>(entity =>
                     .HasForeignKey(ra => ra.ActionId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
+
+            modelBuilder.Entity<ActionAuditLog>(entity =>
+{
+    entity.ToTable("action_audit_logs");
+    entity.HasIndex(e => e.UserId);
+    entity.HasIndex(e => e.Timestamp);
+    entity.HasIndex(e => e.Result);
+    entity.HasIndex(e => new { e.UserId, e.Timestamp });
+
+    entity.HasOne(a => a.User)
+        .WithMany()
+        .HasForeignKey(a => a.UserId)
+        .OnDelete(DeleteBehavior.Restrict);
+});
 
         }
     }

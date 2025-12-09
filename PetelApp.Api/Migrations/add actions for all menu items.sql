@@ -103,3 +103,28 @@ LEFT JOIN petel_schema.actions a ON a.name = mi.name AND a.action_type_id = 6
 LEFT JOIN petel_schema.roles_actions ra ON ra.action_id = a.id AND ra.role_id = 1
 WHERE mi.is_active = true
 ORDER BY mi.sort_order;
+
+ALTER TABLE petel_schema.action_audit_logs
+ADD COLUMN IF NOT EXISTS action_params VARCHAR(500),
+ADD COLUMN IF NOT EXISTS description VARCHAR(1000);
+
+-- Drop user_agent column (not needed)
+ALTER TABLE petel_schema.action_audit_logs
+DROP COLUMN IF EXISTS user_agent;
+
+-- Add index on event_type for filtering by authorization type
+CREATE INDEX IF NOT EXISTS idx_action_audit_logs_event_type 
+ON petel_schema.action_audit_logs(event_type);
+
+-- Add composite index for common queries
+CREATE INDEX IF NOT EXISTS idx_action_audit_logs_user_result 
+ON petel_schema.action_audit_logs(user_id, result, timestamp DESC);
+
+COMMENT ON COLUMN petel_schema.action_audit_logs.event_type IS 
+'Authorization type: ONCLICK_BUTTON, MENU_NAVIGATION, API_CALL, FILE_UPLOAD, etc.';
+
+COMMENT ON COLUMN petel_schema.action_audit_logs.action_params IS 
+'Parameters passed to action (e.g., yearId, schoolId, file name)';
+
+COMMENT ON COLUMN petel_schema.action_audit_logs.description IS 
+'Optional human-readable description of the action';

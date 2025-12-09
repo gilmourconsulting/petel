@@ -255,6 +255,59 @@ namespace PetelApp.Api.Services
                 return false;
             }
         }
+
+
+        
+                /// <summary>
+                /// Verify action access by action name (generic)
+                /// Used for API calls, file uploads, and other non-button actions
+                /// </summary>
+                public async Task<bool> VerifyActionByNameAsync(int userId, string actionName)
+                {
+                    try
+                    {
+                        _logger.LogDebug("🔍 Verifying action by name: user {UserId}, action '{ActionName}'", userId, actionName);
+        
+                        // Load user's roles if not cached
+                        if (!_userRoleCache.ContainsKey(userId))
+                        {
+                            await LoadUserRolesAsync(userId);
+                        }
+        
+                        if (!_userRoleCache.TryGetValue(userId, out var userRoles) || userRoles.Count == 0)
+                        {
+                            _logger.LogWarning("❌ User {UserId} has no roles assigned", userId);
+                            return false;
+                        }
+        
+                        lock (_cacheLock)
+                        {
+                            if (!_actionsCache.TryGetValue(actionName.ToLower(), out var action))
+                            {
+                                _logger.LogInformation("ℹ️ Action not registered: {ActionName} (allowed by default)", actionName);
+                                return true; // Allow if not registered
+                            }
+        
+                            foreach (var roleId in userRoles)
+                            {
+                                if (_roleActionsCache.TryGetValue(roleId, out var roleActions) &&
+                                    roleActions.Contains(action.Id))
+                                {
+                                    _logger.LogInformation("✅ Action access GRANTED - User: {UserId}, Action: {ActionName}", userId, actionName);
+                                    return true;
+                                }
+                            }
+        
+                            _logger.LogWarning("🚫 Action access DENIED - User: {UserId}, Action: {ActionName}", userId, actionName);
+                            return false;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "❌ Error verifying action access for user {UserId}", userId);
+                        return false;
+                    }
+                }
         
         /// <summary>
         /// Load user's roles into cache for faster lookups

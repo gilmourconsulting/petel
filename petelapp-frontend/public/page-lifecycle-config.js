@@ -93,6 +93,18 @@ window.PageLifecycleConfig = {
             title: 'משתמשים',
             cleanup: 'cleanupUsersPage',
             init: 'loadUsersData'
+        },
+        'roles': {
+            file: 'roles.html',
+            title: 'ניהול תפקידים',
+            cleanup: 'cleanupRolesPage',
+            init: 'loadRolesData'
+        },
+        'roledetails': {
+            file: 'roledetails.html',
+            title: 'פרטי תפקיד',
+            cleanup: 'cleanupRoleDetailsPage',
+            init: 'loadRoleDetails'
         }
     },
 

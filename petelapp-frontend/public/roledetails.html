@@ -1,0 +1,852 @@
+<!-- petelapp-frontend/public/roledetails.html -->
+<div class="school-title-section">
+    <h1 class="page-title" id="roleTitle">פרטי תפקיד</h1>
+</div>
+
+<div class="students-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section screenwithtable-context">
+        <button class="context-btn" onclick="refreshRoleDetails()">
+            רענן נתונים
+        </button>
+        <button class="context-btn" onclick="navigateToRoles()">
+            חזרה לרשימת תפקידים
+        </button>
+    </div>
+
+    <!-- Main content area -->
+    <div class="students-content">
+        <div class="content-card">
+            <!-- Section 1: Role Details -->
+            <div class="detail-card collapsed">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">פרטי התפקיד</h2>
+                    <div class="card-header-actions">
+                        <button class="btn-icon" onclick="event.stopPropagation(); editRoleName();" title="ערוך שם">
+                            <img src="edit_icon.png" alt="ערוך" class="action-icon-natural">
+                        </button>
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                    </div>
+                </div>
+                <div class="detail-card-content" id="roleDetailsContent">
+                    <div class="loading-spinner">טוען פרטים...</div>
+                </div>
+            </div>
+
+            <!-- Section 2: Users with this Role -->
+            <div class="detail-card collapsed">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">משתמשים בעלי תפקיד זה</h2>
+                    <div class="card-header-actions">
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                    </div>
+                </div>
+                <div class="detail-card-content">
+                    <div id="roleUsersTableContainer">
+                        <div class="loading-spinner">טוען משתמשים...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 3: Actions for this Role -->
+            <div class="detail-card collapsed">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">פעולות המותרות לתפקיד</h2>
+                    <div class="card-header-actions">
+                        <button class="btn-icon" onclick="event.stopPropagation(); showAddActionDialog();"
+                            title="הוסף פעולה">
+                            <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
+                        </button>
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                    </div>
+                </div>
+                <div class="detail-card-content">
+                    <div id="roleActionsTableContainer">
+                        <div class="loading-spinner">טוען פעולות...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Role Name Dialog -->
+<div id="editRoleNameDialog" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>ערוך שם תפקיד</h3>
+            <button class="modal-close" onclick="closeEditRoleNameDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editRoleNameForm" onsubmit="handleEditRoleNameSubmit(event)">
+                <div class="form-group">
+                    <label for="editRoleName">שם התפקיד *</label>
+                    <input type="text" id="editRoleName" name="name" required>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeEditRoleNameDialog()">ביטול</button>
+            <button type="submit" form="editRoleNameForm" class="btn-primary">שמור</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Action Dialog -->
+<!-- Add Action Dialog -->
+<div id="addActionDialog" class="modal-overlay" style="display: none;">
+    <div class="modal-content" style="min-width: 800px; max-width: 90%;">
+        <div class="modal-header">
+            <h3>הוסף פעולות לתפקיד</h3>
+            <button class="modal-close" onclick="closeAddActionDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="display: flex; gap: 20px; direction: rtl;">
+                <!-- Available Actions -->
+                <div style="flex: 1;">
+                    <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">פעולות זמינות</h4>
+                    <input type="text" id="searchAvailableActions" placeholder="חיפוש פעולה..."
+                        style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #dee2e6; border-radius: 4px; direction: rtl;"
+                        oninput="filterAvailableActions()">
+                    <div id="availableActionsList"
+                        style="border: 2px dashed #dee2e6; border-radius: 8px; min-height: 400px; max-height: 400px; overflow-y: auto; padding: 10px; background-color: #f8f9fa;">
+                        <p style="text-align: center; color: #6c757d; padding: 20px;">טוען פעולות...</p>
+                    </div>
+                    <small style="display: block; margin-top: 5px; color: #6c757d;">
+                        גרור פעולות לצד ימין כדי לבחור
+                    </small>
+                </div>
+
+                <!-- Selected Actions -->
+                <div style="flex: 1;">
+                    <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">פעולות נבחרות (<span
+                            id="selectedCount">0</span>)</h4>
+                    <div style="height: 34px; margin-bottom: 10px;"></div>
+                    <div id="selectedActionsList"
+                        style="border: 2px solid #28a745; border-radius: 8px; min-height: 400px; max-height: 400px; overflow-y: auto; padding: 10px; background-color: #f8f9fa;">
+                        <p style="text-align: center; color: #6c757d; padding: 20px;">גרור פעולות לכאן</p>
+                    </div>
+                    <small style="display: block; margin-top: 5px; color: #6c757d;">
+                        גרור חזרה לשמאל כדי להסיר
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeAddActionDialog()">ביטול</button>
+            <button type="button" class="btn-primary" onclick="submitSelectedActions()">הוסף פעולות (<span
+                    id="submitCount">0</span>)</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ✅ Window-scoped variables
+    window.roleUsersTableInstance = window.roleUsersTableInstance || null;
+    window.roleActionsTableInstance = window.roleActionsTableInstance || null;
+    window.currentRoleId = null;
+    window.currentRoleData = null;
+
+    /**
+     * Initialize collapsible cards
+     */
+    function initializeCollapsibleCards() {
+        console.log('🎴 Initializing collapsible cards...');
+
+        document.querySelectorAll('.detail-card').forEach(card => {
+            const header = card.querySelector('.detail-card-header');
+            const toggle = card.querySelector('.collapse-toggle');
+
+            if (!header || !toggle) return;
+
+            // Check if already initialized
+            if (header.dataset.initialized === 'true') {
+                return;
+            }
+
+            // Mark as initialized
+            header.dataset.initialized = 'true';
+
+            // Toggle button click
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleCardExpansion(card, toggle);
+            });
+
+            // Header click (excluding buttons)
+            header.addEventListener('click', function (e) {
+                if (e.target.closest('.btn-icon')) {
+                    return;
+                }
+                toggleCardExpansion(card, toggle);
+            });
+        });
+
+        console.log('✅ Collapsible cards initialized');
+    }
+
+    /**
+     * Toggle card expansion
+     */
+    function toggleCardExpansion(card, toggle) {
+        const isCollapsed = card.classList.contains('collapsed');
+
+        if (isCollapsed) {
+            card.classList.remove('collapsed');
+            card.classList.add('expanded');
+            toggle.textContent = '×';
+        } else {
+            card.classList.add('collapsed');
+            card.classList.remove('expanded');
+            toggle.textContent = '+';
+        }
+    }
+
+    /**
+     * Load role details with all sections
+     */
+    async function loadRoleDetails() {
+        console.log('📋 Loading role details...');
+
+        try {
+            const authToken = sessionStorage.getItem('authToken');
+            if (!authToken) {
+                console.error('❌ No auth token found');
+                alert('נדרש אימות. אנא התחבר מחדש.');
+                return;
+            }
+
+            // Get role ID from session
+            const roleId = await window.SessionState.getProperty('SelectedRoleId');
+            if (!roleId) {
+                console.error('❌ No role ID found');
+                alert('לא נמצא מזהה תפקיד');
+                await window.navigateTo('roles');
+                return;
+            }
+
+            window.currentRoleId = parseInt(roleId);
+
+            const response = await fetch(AppConfig.getApiUrl(`roles/${roleId}`), {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load role details: ${response.status}`);
+            }
+
+            const result = await response.json();
+            console.log('✅ Loaded role details:', result.data);
+
+            if (!result.data) {
+                console.error('❌ Invalid data format');
+                alert('פורמט נתונים לא תקין מהשרת');
+                return;
+            }
+
+            window.currentRoleData = result.data;
+
+            // Render all sections
+            renderRoleDetails(result.data.role);
+            renderUsersTable(result.data.users);
+            renderActionsTable(result.data.actions);
+
+            // Initialize collapsible cards
+            initializeCollapsibleCards();
+
+        } catch (error) {
+            console.error('❌ Error loading role details:', error);
+            alert('שגיאה בטעינת פרטי התפקיד');
+        }
+    }
+
+    /**
+     * Render role details section
+     */
+    function renderRoleDetails(role) {
+        const container = document.getElementById('roleDetailsContent');
+        if (!container) return;
+
+        const createdDate = new Date(role.createdAt).toLocaleString('he-IL', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        const updatedDate = new Date(role.updatedAt).toLocaleString('he-IL', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        document.getElementById('roleTitle').textContent = `תפקיד: ${role.name}`;
+
+        container.innerHTML = `
+        <div class="detail-fields-grid">
+            <div class="detail-section">
+                <h4 class="detail-section-title">פרטים בסיסיים</h4>
+                <div>
+                    <p class="detail-field">
+                        <span class="detail-field-label">שם התפקיד:</span>
+                        <span class="detail-field-value">${role.name}</span>
+                    </p>
+                    <p class="detail-field">
+                        <span class="detail-field-label">נוצר בתאריך:</span>
+                        <span class="detail-field-value">${createdDate}</span>
+                    </p>
+                    <p class="detail-field">
+                        <span class="detail-field-label">עודכן בתאריך:</span>
+                        <span class="detail-field-value">${updatedDate}</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    `;
+    }
+
+    /**
+     * Render users table
+     */
+    function renderUsersTable(users) {
+        console.log('🎨 Rendering users table...');
+
+        const columns = [
+            {
+                key: 'username',
+                label: 'שם משתמש',
+                sortable: true,
+                readOnly: true
+            },
+            {
+                key: 'fullName',
+                label: 'שם מלא',
+                sortable: true,
+                readOnly: true
+            },
+            {
+                key: 'isActive',
+                label: 'סטטוס',
+                sortable: true,
+                readOnly: true,
+                render: (data) => {
+                    return data.isActive
+                        ? '<span class="status-badge active">פעיל</span>'
+                        : '<span class="status-badge inactive">לא פעיל</span>';
+                }
+            }
+        ];
+
+        if (window.roleUsersTableInstance) {
+            window.roleUsersTableInstance = null;
+        }
+
+        window.roleUsersTableInstance = new ReusableTable('roleUsersTableContainer', {
+            tableName: 'roleUsers',
+            isReadOnly: true,
+            allowAdd: false,
+            allowEdit: false,
+            allowDelete: false
+        });
+
+        window.roleUsersTableInstance.init(users, columns);
+        console.log('✅ Users table rendered');
+    }
+
+    /**
+     * Render actions table with reference column
+     */
+    function renderActionsTable(actions) {
+        console.log('🎨 Rendering actions table...');
+
+        const columns = [
+            {
+                key: 'displayName',
+                label: 'שם הפעולה',
+                sortable: true,
+                readOnly: true
+            },
+            {
+                key: 'reference',
+                label: 'הפניה',
+                sortable: true,
+                readOnly: true
+            },
+            {
+                key: 'actionTypeName',
+                label: 'סוג',
+                sortable: true,
+                readOnly: true
+            },
+            {
+                key: 'actions',
+                label: 'פעולות',
+                sortable: false,
+                readOnly: true,
+                render: (data) => `
+                <button class="btn-icon" onclick="removeAction(${data.actionId})" title="הסר פעולה">
+                    <img src="delete_icon.png" alt="הסר" class="action-icon-natural">
+                </button>
+            `
+            }
+        ];
+
+        if (window.roleActionsTableInstance) {
+            window.roleActionsTableInstance = null;
+        }
+
+        window.roleActionsTableInstance = new ReusableTable('roleActionsTableContainer', {
+            tableName: 'roleActions',
+            isReadOnly: true,
+            allowAdd: false,
+            allowEdit: false,
+            allowDelete: false
+        });
+
+        window.roleActionsTableInstance.init(actions, columns);
+        console.log('✅ Actions table rendered');
+    }
+
+    /**
+     * Refresh role details
+     */
+    async function refreshRoleDetails() {
+        console.log('🔄 Refreshing role details...');
+        await loadRoleDetails();
+    }
+
+    /**
+     * Navigate back to roles list
+     */
+    async function navigateToRoles() {
+        console.log('🔄 Navigating to roles...');
+        await window.navigateTo('roles');
+    }
+
+    /**
+     * Edit role name
+     */
+    function editRoleName() {
+        if (!window.currentRoleData) return;
+
+        document.getElementById('editRoleName').value = window.currentRoleData.role.name;
+        document.getElementById('editRoleNameDialog').style.display = 'flex';
+    }
+
+    /**
+     * Handle edit role name submit
+     */
+    async function handleEditRoleNameSubmit(event) {
+        event.preventDefault();
+
+        const newName = document.getElementById('editRoleName').value;
+
+        try {
+            const authToken = sessionStorage.getItem('authToken');
+            if (!authToken) {
+                alert('נדרש אימות. אנא התחבר מחדש.');
+                return;
+            }
+
+            const response = await fetch(AppConfig.getApiUrl(`roles/${window.currentRoleId}`), {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ name: newName })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                alert('שם התפקיד עודכן בהצלחה');
+                closeEditRoleNameDialog();
+                await refreshRoleDetails();
+            } else {
+                alert(`שגיאה: ${result.message}`);
+            }
+        } catch (error) {
+            console.error('❌ Error updating role name:', error);
+            alert('שגיאה בעדכון שם התפקיד');
+        }
+    }
+
+    /**
+     * Close edit role name dialog
+     */
+    function closeEditRoleNameDialog() {
+        document.getElementById('editRoleNameDialog').style.display = 'none';
+    }
+
+  // Store available actions data
+let availableActionsData = [];
+let selectedActionsData = [];
+
+/**
+ * Show add action dialog with drag-and-drop interface
+ */
+async function showAddActionDialog() {
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        // Reset drop zone listeners flag
+        dropZoneListenersInitialized = false;
+
+        // Load available actions
+        const response = await fetch(AppConfig.getApiUrl(`roles/available-actions?roleId=${window.currentRoleId}`), {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to load available actions');
+        }
+
+        const result = await response.json();
+        availableActionsData = result.data || [];
+        selectedActionsData = [];
+
+        renderAvailableActions();
+        renderSelectedActions();
+
+        document.getElementById('addActionDialog').style.display = 'flex';
+    } catch (error) {
+        console.error('❌ Error loading available actions:', error);
+        alert('שגיאה בטעינת רשימת הפעולות');
+    }
+}
+
+/**
+ * Filter available actions based on search
+ */
+function filterAvailableActions() {
+    const searchTerm = document.getElementById('searchAvailableActions').value.toLowerCase();
+    const filtered = availableActionsData.filter(action => {
+        // Only filter actions not in selected list
+        if (selectedActionsData.find(a => a.id === action.id)) {
+            return false;
+        }
+        const displayName = (action.displayName || '').toLowerCase();
+        const reference = (action.reference || '').toLowerCase();
+        const typeName = (action.actionTypeName || '').toLowerCase();
+        return displayName.includes(searchTerm) || reference.includes(searchTerm) || typeName.includes(searchTerm);
+    });
+    renderAvailableActions(filtered);
+}
+
+/**
+ * Render available actions list
+ */
+function renderAvailableActions(actions = null) {
+    const container = document.getElementById('availableActionsList');
+    
+    // Filter out actions that are already selected
+    let actionsToRender = actions || availableActionsData;
+    actionsToRender = actionsToRender.filter(action => !selectedActionsData.find(a => a.id === action.id));
+
+    if (actionsToRender.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">אין פעולות זמינות</p>';
+        return;
+    }
+
+    container.innerHTML = actionsToRender.map(action => {
+        const referenceText = action.reference || 'ללא הפניה';
+        // Concatenate type and reference
+        const headerText = `${action.actionTypeName} - ${referenceText}`;
+        return `
+        <div class="action-item" draggable="true" data-action-id="${action.id}">
+            <div class="action-item-header">${headerText}</div>
+            <div class="action-item-name">${action.displayName}</div>
+        </div>
+    `;
+    }).join('');
+
+    // Add drag event listeners
+    setupDragAndDrop();
+}
+
+/**
+ * Render selected actions list
+ */
+function renderSelectedActions() {
+    const container = document.getElementById('selectedActionsList');
+    const countElements = document.querySelectorAll('#selectedCount, #submitCount');
+
+    if (selectedActionsData.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">גרור פעולות לכאן</p>';
+        countElements.forEach(el => el.textContent = '0');
+        return;
+    }
+
+    container.innerHTML = selectedActionsData.map(action => {
+        const referenceText = action.reference || 'ללא הפניה';
+        // Concatenate type and reference
+        const headerText = `${action.actionTypeName} - ${referenceText}`;
+        return `
+        <div class="action-item" draggable="true" data-action-id="${action.id}">
+            <div class="action-item-header">${headerText}</div>
+            <div class="action-item-name">${action.displayName}</div>
+        </div>
+    `;
+    }).join('');
+
+    countElements.forEach(el => el.textContent = selectedActionsData.length);
+
+    // Add drag event listeners
+    setupDragAndDrop();
+}
+
+// Track if drop zone listeners have been initialized
+let dropZoneListenersInitialized = false;
+
+/**
+ * Setup drag and drop functionality - optimized to prevent duplicate listeners
+ */
+function setupDragAndDrop() {
+    const actionItems = document.querySelectorAll('.action-item');
+    
+    // Add dragstart and dragend to items (these are recreated each render, so no duplicates)
+    actionItems.forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+            item.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('actionId', item.dataset.actionId);
+        });
+
+        item.addEventListener('dragend', (e) => {
+            item.classList.remove('dragging');
+        });
+    });
+
+    // Only initialize drop zone listeners once
+    if (!dropZoneListenersInitialized) {
+        const availableZone = document.getElementById('availableActionsList');
+        const selectedZone = document.getElementById('selectedActionsList');
+        
+        setupDropZone(availableZone, false);
+        setupDropZone(selectedZone, true);
+        
+        dropZoneListenersInitialized = true;
+        console.log('✅ Drop zone listeners initialized');
+    }
+}
+
+/**
+ * Setup drop zone with event listeners
+ */
+function setupDropZone(zone, isSelectedZone) {
+    zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        zone.classList.add('drop-zone-active');
+    });
+
+    zone.addEventListener('dragleave', (e) => {
+        // Only remove highlight if leaving the zone itself
+        const rect = zone.getBoundingClientRect();
+        if (e.clientX < rect.left || e.clientX >= rect.right ||
+            e.clientY < rect.top || e.clientY >= rect.bottom) {
+            zone.classList.remove('drop-zone-active');
+        }
+    });
+
+    zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('drop-zone-active');
+
+        const actionId = parseInt(e.dataTransfer.getData('actionId'));
+        handleActionMove(actionId, isSelectedZone);
+    });
+}
+
+/**
+ * Handle moving action between lists
+ */
+function handleActionMove(actionId, moveToSelected) {
+    if (moveToSelected) {
+        // Move from available to selected
+        const action = availableActionsData.find(a => a.id === actionId);
+        if (action && !selectedActionsData.find(a => a.id === actionId)) {
+            selectedActionsData.push(action);
+        }
+    } else {
+        // Move from selected to available (remove from selected)
+        selectedActionsData = selectedActionsData.filter(a => a.id !== actionId);
+    }
+
+    // Re-render both lists (items will be filtered out of the source list)
+    const searchTerm = document.getElementById('searchAvailableActions').value;
+    if (searchTerm) {
+        filterAvailableActions();
+    } else {
+        renderAvailableActions();
+    }
+    renderSelectedActions();
+}
+
+/**
+ * Submit selected actions
+ */
+async function submitSelectedActions() {
+    if (selectedActionsData.length === 0) {
+        alert('אנא בחר לפחות פעולה אחת');
+        return;
+    }
+
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        let successCount = 0;
+        let failCount = 0;
+        const errors = [];
+
+        // Add each action sequentially
+        for (const action of selectedActionsData) {
+            try {
+                const response = await fetch(AppConfig.getApiUrl(`roles/${window.currentRoleId}/actions`), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ actionId: action.id })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    successCount++;
+                } else {
+                    failCount++;
+                    errors.push(`${action.displayName}: ${result.message}`);
+                }
+            } catch (error) {
+                failCount++;
+                errors.push(`${action.displayName}: ${error.message}`);
+            }
+        }
+
+        // Show summary
+        let message = '';
+        if (successCount > 0) {
+            message += `✅ ${successCount} פעולות נוספו בהצלחה\n`;
+        }
+        if (failCount > 0) {
+            message += `❌ ${failCount} פעולות נכשלו\n`;
+            if (errors.length > 0) {
+                message += '\nשגיאות:\n' + errors.slice(0, 5).join('\n');
+                if (errors.length > 5) {
+                    message += `\n... ועוד ${errors.length - 5} שגיאות`;
+                }
+            }
+        }
+
+        alert(message);
+
+        if (successCount > 0) {
+            closeAddActionDialog();
+            await refreshRoleDetails();
+        }
+    } catch (error) {
+        console.error('❌ Error adding actions:', error);
+        alert('שגיאה כללית בהוספת הפעולות');
+    }
+}
+
+/**
+ * Close add action dialog
+ */
+function closeAddActionDialog() {
+    document.getElementById('addActionDialog').style.display = 'none';
+    const searchInput = document.getElementById('searchAvailableActions');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    availableActionsData = [];
+    selectedActionsData = [];
+}
+
+
+    /**
+     * Remove action from role
+     */
+    async function removeAction(actionId) {
+        if (!confirm('האם אתה בטוח שברצונך להסיר את הפעולה הזו מהתפקיד?')) {
+            return;
+        }
+
+        try {
+            const authToken = sessionStorage.getItem('authToken');
+            if (!authToken) {
+                alert('נדרש אימות. אנא התחבר מחדש.');
+                return;
+            }
+
+            const response = await fetch(AppConfig.getApiUrl(`roles/${window.currentRoleId}/actions/${actionId}`), {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                alert('הפעולה הוסרה בהצלחה');
+                await refreshRoleDetails();
+            } else {
+                alert(`שגיאה: ${result.message}`);
+            }
+        } catch (error) {
+            console.error('❌ Error removing action:', error);
+            alert('שגיאה בהסרת הפעולה');
+        }
+    }
+
+    /**
+     * Export cleanup function for PageLifecycleManager
+     */
+    function cleanupRoleDetailsPage() {
+        console.log('🧹 Cleaning up role details page...');
+
+        try {
+            if (window.roleUsersTableInstance) {
+                window.roleUsersTableInstance = null;
+            }
+
+            if (window.roleActionsTableInstance) {
+                window.roleActionsTableInstance = null;
+            }
+
+            window.currentRoleId = null;
+            window.currentRoleData = null;
+
+            console.log('✅ Role details page cleanup complete');
+        } catch (error) {
+            console.error('❌ Error during cleanup:', error);
+        }
+    }
+
+    window.cleanupRoleDetailsPage = cleanupRoleDetailsPage;
+    window.loadRoleDetails = loadRoleDetails;
+</script>
