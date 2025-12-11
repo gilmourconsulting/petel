@@ -6,8 +6,8 @@ class ReusableTable {
         this.columns = [];
         this.isReadOnly = options.isReadOnly !== false; // ✅ Store as instance property
         this.isEditing = false;
-        this.sortColumn = null;
-        this.sortDirection = 'asc';
+        this.sortColumn = options.defaultSortColumn || null;  // ✅ Accept from options
+        this.sortDirection = options.defaultSortDirection || 'asc';  // ✅ Accept from options
         this.multiSort = [];
         this.filters = {};
         this.filteredData = [];
@@ -15,80 +15,93 @@ class ReusableTable {
         this.sessionToken = sessionStorage.getItem('authToken'); // Security token
         this.allowedUpdates = new Set(); // Track server-approved updatable fields
         this.columnVisibility = new Map(); // columnKey -> boolean (true = visible, false = hidden)
- 
+
     }
 
     // Initialize the table with server validation
 
-async init(data, columns) {
-    console.log('🔵 ReusableTable.init() called');
-    console.log('Data received:', data.length, 'rows');
-    console.log('First row:', data[0]);
-    console.log('Columns received:', columns);
-    
-    this.data = data;
-    this.originalData = JSON.parse(JSON.stringify(data)); // Deep copy
-    this.columns = columns.map(col => ({
-        key: col.key,
-        label: col.label,
-        readOnly: col.readOnly || false,
-        filterAllowed: col.filterAllowed !== false,
-        sortable: col.sortable !== false,
-        hidden: col.hidden || false,
-        render: col.render || null,
-        ...col
-    }));
-    
-    console.log('Processed columns:', this.columns);
-    
-    // Skip server validation for read-only tables or when no auth token
-    if (this.isReadOnly || !this.sessionToken || this.sessionToken === 'undefined') {
-        console.log('✅ Skipping server validation for read-only table');
-        this.filteredData = [...this.data];
-        console.log('Filtered data set:', this.filteredData.length, 'rows');
-        this.render();
-        return;
-    }
-    
-    // Get server-side column permissions only for editable tables
-    await this.validateColumnPermissions();
-    
-    this.filteredData = [...this.data];
-    this.render();
-}
+    async init(data, columns) {
+        console.log('🔵 ReusableTable.init() called');
+        console.log('Data received:', data.length, 'rows');
+        console.log('First row:', data[0]);
+        console.log('Columns received:', columns);
 
-    // ✅ NEW METHOD: Toggle between read-only and edit modes
+        this.data = data;
+        this.originalData = JSON.parse(JSON.stringify(data)); // Deep copy
+        this.columns = columns.map(col => ({
+            key: col.key,
+            label: col.label,
+            readOnly: col.readOnly || false,
+            filterAllowed: col.filterAllowed !== false,
+            sortable: col.sortable !== false,
+            hidden: col.hidden || false,
+            render: col.render || null,
+            ...col
+        }));
+
+        console.log('Processed columns:', this.columns);
+
+        // Skip server validation for read-only tables or when no auth token
+        if (this.isReadOnly || !this.sessionToken || this.sessionToken === 'undefined') {
+            console.log('✅ Skipping server validation for read-only table');
+            this.filteredData = [...this.data];
+
+            // ✅ Apply default sort if sortColumn is set
+            if (this.sortColumn) {
+                console.log(`🔽 Applying default sort: ${this.sortColumn} ${this.sortDirection}`);
+                this.applySort();
+            }
+
+            console.log('Filtered data set:', this.filteredData.length, 'rows');
+            this.render();
+            return;
+        }
+
+        // Get server-side column permissions only for editable tables
+        await this.validateColumnPermissions();
+
+        this.filteredData = [...this.data];
+
+        // ✅ Apply default sort if sortColumn is set
+        if (this.sortColumn) {
+            console.log(`🔽 Applying default sort: ${this.sortColumn} ${this.sortDirection}`);
+            this.applySort();
+        }
+        this.render();
+    }
+
+    // ✅  Toggle between read-only and edit modes
     toggleMode(isReadOnly) {
         console.log(`🔄 Toggling table mode from ${this.isReadOnly ? 'READ-ONLY' : 'EDIT'} to ${isReadOnly ? 'READ-ONLY' : 'EDIT'}`);
-        
+
         this.isReadOnly = isReadOnly;
         this.options.isReadOnly = isReadOnly;
-        
+
         // Re-render with current data
         this.render();
-        
+
         console.log(`✅ Table mode toggled successfully`);
     }
 
-    // ✅ NEW METHOD: Update data without full re-initialization
-updateData(newData, newColumns = null) {
-    console.log(`🔄 Updating table data: ${newData?.length || 0} rows`);
-    
-    this.data = newData || [];
-    this.originalData = JSON.parse(JSON.stringify(newData || []));
-    this.filteredData = [...this.data];
-    
-    // ✅ Update columns if provided
-    if (newColumns) {
-        console.log('📋 Updating columns with new render functions');
-        this.columns = newColumns;
+    // Update data without full re-initialization
+    updateData(newData, newColumns = null) {
+        console.log(`🔄 Updating table data: ${newData?.length || 0} rows`);
+
+        this.data = newData || [];
+        this.originalData = JSON.parse(JSON.stringify(newData || []));
+        this.filteredData = [...this.data];
+
+        // ✅ Update columns if provided
+        if (newColumns) {
+            console.log('📋 Updating columns with new render functions');
+            this.columns = newColumns;
+        }
+
+        // Re-render with updated data and columns
+        this.render();
+
+        console.log(`✅ Table data updated successfully`);
     }
-    
-    // Re-render with updated data and columns
-    this.render();
-    
-    console.log(`✅ Table data updated successfully`);
-}
     // Validate column permissions with server
     async validateColumnPermissions() {
         try {
@@ -109,7 +122,7 @@ updateData(newData, newColumns = null) {
 
             if (response.ok) {
                 const permissions = await response.json();
-                
+
                 // Update column permissions based on server response
                 this.columns.forEach(col => {
                     const serverPermission = permissions.find(p => p.columnKey === col.key);
@@ -151,7 +164,7 @@ updateData(newData, newColumns = null) {
         if (originalRowIndex === -1) return;
 
         const oldValue = this.data[originalRowIndex][columnKey];
-        
+
         // Prepare update data for server validation
         const updateData = {
             rowId: this.data[originalRowIndex].id || originalRowIndex,
@@ -179,7 +192,7 @@ updateData(newData, newColumns = null) {
                     // Server approved the update
                     this.data[originalRowIndex][columnKey] = newValue;
                     this.filteredData[rowIndex][columnKey] = newValue;
-                    
+
                     // Show success indicator
                     this.showUpdateStatus('success', `עודכן בהצלחה: ${columnKey}`);
                 } else {
@@ -196,6 +209,21 @@ updateData(newData, newColumns = null) {
             this.render(); // Reset to original values
         }
     }
+
+    applySort() {
+    if (!this.sortColumn) return;
+    
+    this.filteredData.sort((a, b) => {
+        const aVal = a[this.sortColumn] || '';
+        const bVal = b[this.sortColumn] || '';
+        
+        if (this.sortDirection === 'asc') {
+            return aVal.toString().localeCompare(bVal.toString(), 'he');
+        } else {
+            return bVal.toString().localeCompare(aVal.toString(), 'he');
+        }
+    });
+}
 
     // Show update status to user
     showUpdateStatus(type, message) {
@@ -214,9 +242,9 @@ updateData(newData, newColumns = null) {
             direction: rtl;
             background: ${type === 'success' ? '#4caf50' : '#f44336'};
         `;
-        
+
         document.body.appendChild(statusDiv);
-        
+
         setTimeout(() => {
             statusDiv.remove();
         }, 3000);
@@ -265,11 +293,11 @@ updateData(newData, newColumns = null) {
     // Get changes for server validation
     getChanges() {
         const changes = [];
-        
+
         this.data.forEach((row, index) => {
             const originalRow = this.originalData[index];
             if (!originalRow) return;
-            
+
             this.columns.forEach(col => {
                 if (this.allowedUpdates.has(col.key) && row[col.key] !== originalRow[col.key]) {
                     changes.push({
@@ -281,7 +309,7 @@ updateData(newData, newColumns = null) {
                 }
             });
         });
-        
+
         return changes;
     }
 
@@ -308,7 +336,7 @@ updateData(newData, newColumns = null) {
             this.showUpdateStatus('error', 'אין הרשאה לייצוא נתונים');
             return;
         }
-        
+
         const csvData = this.generateCsvData();
         const blob = new Blob([csvData], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         this.downloadFile(blob, 'table-export.xlsx');
@@ -319,7 +347,7 @@ updateData(newData, newColumns = null) {
             this.showUpdateStatus('error', 'אין הרשאה לייצוא נתונים');
             return;
         }
-        
+
         const csvData = this.generateCsvData();
         const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8;' });
         this.downloadFile(blob, 'table-export.csv');
@@ -354,43 +382,43 @@ updateData(newData, newColumns = null) {
 
 
 
-render() {
-    console.log('🟢 ReusableTable.render() called');
-    const container = document.getElementById(this.containerId);
-    if (!container) {
-        console.error('❌ Container not found:', this.containerId);
-        return;
-    }
+    render() {
+        console.log('🟢 ReusableTable.render() called');
+        const container = document.getElementById(this.containerId);
+        if (!container) {
+            console.error('❌ Container not found:', this.containerId);
+            return;
+        }
 
-    console.log('Rendering', this.filteredData.length, 'rows with', this.columns.length, 'columns');
-    
-    // Ensure we have data to render
-    if (!this.filteredData || this.filteredData.length === 0) {
-        container.innerHTML = '<p style="text-align: center; padding: 20px; color: #666;">אין נתונים להצגה</p>';
-        return;
-    }
+        console.log('Rendering', this.filteredData.length, 'rows with', this.columns.length, 'columns');
 
-    //  BEFORE re-rendering, save current visibility states from DOM
+        // Ensure we have data to render
+        if (!this.filteredData || this.filteredData.length === 0) {
+            container.innerHTML = '<p style="text-align: center; padding: 20px; color: #666;">אין נתונים להצגה</p>';
+            return;
+        }
+
+        //  BEFORE re-rendering, save current visibility states from DOM
         this.saveColumnVisibilityStates();
 
-    // Filter out hidden columns for rendering
-    const visibleColumns = this.columns.filter(col => !col.hidden);
-    console.log('Visible columns:', visibleColumns.length, 'out of', this.columns.length);
+        // Filter out hidden columns for rendering
+        const visibleColumns = this.columns.filter(col => !col.hidden);
+        console.log('Visible columns:', visibleColumns.length, 'out of', this.columns.length);
 
-    // Create table HTML following Hebrew/RTL Specific Patterns
-      const tableHTML = `
+        // Create table HTML following Hebrew/RTL Specific Patterns
+        const tableHTML = `
         <div class="table-container" dir="rtl">
             <table class="data-table">
                 <thead>
                     <tr>
                         ${visibleColumns.map(col => {
-                            console.log('Rendering header for column:', col.key, col.label);
+            console.log('Rendering header for column:', col.key, col.label);
 
-                            // Check if frontend has hidden this column
-                            const isHiddenByFrontend = this.columnVisibility.get(col.key) === false;
-                            const hideStyle = isHiddenByFrontend ? 'display: none;' : '';
+            // Check if frontend has hidden this column
+            const isHiddenByFrontend = this.columnVisibility.get(col.key) === false;
+            const hideStyle = isHiddenByFrontend ? 'display: none;' : '';
 
-                           return `
+            return `
                                 <th data-column="${col.key}" 
                                     style="${hideStyle}${col.sortable ? 'cursor: pointer;' : ''}"
                                     ${col.sortable ? '' : ''}>
@@ -398,55 +426,55 @@ render() {
                                     ${col.sortable ? '<span class="sort-indicator"></span>' : ''}
                                 </th>
                             `;
-                        }).join('')}
+        }).join('')}
                     </tr>
                 </thead>
                 <tbody>
                     ${this.filteredData.map((row, rowIndex) => {
-                        if (rowIndex === 0) {
-                            console.log('First row data:', row);
-                        }
-                        return `
+            if (rowIndex === 0) {
+                console.log('First row data:', row);
+            }
+            return `
                             <tr>
                                 ${visibleColumns.map(col => {
-                                    const cellValue = row[col.key];
-                                    const renderedValue = col.render ? col.render(row) : (cellValue !== undefined && cellValue !== null ? cellValue : '');
-                                    
-                                    if (rowIndex === 0) {
-                                        console.log(`Column ${col.key}:`, cellValue, '→', renderedValue);
-                                    }
-                                    
-                                     // Check if frontend has hidden this column
-                                    const isHiddenByFrontend = this.columnVisibility.get(col.key) === false;
-                                    const hideStyle = isHiddenByFrontend ? 'display: none;' : '';
-                                    return `
+                const cellValue = row[col.key];
+                const renderedValue = col.render ? col.render(row) : (cellValue !== undefined && cellValue !== null ? cellValue : '');
+
+                if (rowIndex === 0) {
+                    console.log(`Column ${col.key}:`, cellValue, '→', renderedValue);
+                }
+
+                // Check if frontend has hidden this column
+                const isHiddenByFrontend = this.columnVisibility.get(col.key) === false;
+                const hideStyle = isHiddenByFrontend ? 'display: none;' : '';
+                return `
                                         <td data-column="${col.key}" style="${hideStyle}">
                                             ${renderedValue}
                                         </td>
                                     `;
-                                }).join('')}
+            }).join('')}
                             </tr>
                         `;
-                    }).join('')}
+        }).join('')}
                 </tbody>
             </table>
         </div>
     `;
 
-    container.innerHTML = tableHTML;
+        container.innerHTML = tableHTML;
 
-    // Add sort listeners for sortable AND visible columns
-    visibleColumns.forEach(col => {
-        if (col.sortable) {
-            const header = container.querySelector(`th[data-column="${col.key}"]`);
-            if (header) {
-                header.addEventListener('click', () => this.sort(col.key));
+        // Add sort listeners for sortable AND visible columns
+        visibleColumns.forEach(col => {
+            if (col.sortable) {
+                const header = container.querySelector(`th[data-column="${col.key}"]`);
+                if (header) {
+                    header.addEventListener('click', () => this.sort(col.key));
+                }
             }
-        }
-    });
+        });
 
-    console.log('✅ Table rendered successfully');
-}
+        console.log('✅ Table rendered successfully');
+    }
     // Add sort method
     sort(columnKey) {
         if (this.sortColumn === columnKey) {
@@ -456,21 +484,22 @@ render() {
             this.sortDirection = 'asc';
         }
 
-        this.filteredData.sort((a, b) => {
+   /*     this.filteredData.sort((a, b) => {
             const aVal = a[columnKey] || '';
             const bVal = b[columnKey] || '';
-            
+
             if (this.sortDirection === 'asc') {
                 return aVal.toString().localeCompare(bVal.toString(), 'he');
             } else {
                 return bVal.toString().localeCompare(aVal.toString(), 'he');
             }
-        });
+        });*/
 
+        this.applySort();
         this.render();
     }
 
-       //  Save current column visibility states from DOM before re-render
+    //  Save current column visibility states from DOM before re-render
     saveColumnVisibilityStates() {
         const container = document.getElementById(this.containerId);
         if (!container) return;
@@ -489,7 +518,7 @@ render() {
     //  Allow frontend to explicitly set column visibility
     setColumnVisibility(columnKey, isVisible) {
         this.columnVisibility.set(columnKey, isVisible);
-        
+
         const container = document.getElementById(this.containerId);
         if (!container) return;
 

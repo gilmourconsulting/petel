@@ -226,7 +226,9 @@
             // Create ReusableTable with correct constructor following Standard Table Component
             schoolsTable = new ReusableTable('schoolsTableContainer', {
                 tableName: 'schools',
-                isReadOnly: true
+                isReadOnly: true,
+                defaultSortColumn: 'name',
+                defaultSortDirection: 'asc'
             });
 
             console.log('📋 ReusableTable created successfully');
