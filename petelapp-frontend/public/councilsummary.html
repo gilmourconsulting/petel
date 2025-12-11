@@ -10,11 +10,10 @@
         </button>
     </div>
 
-
     <!-- Main content positioned after menu and context buttons -->
     <div class="students-content">
         <div class="content-header">
-            <h1 class="page-title">סיכום לפי רשויות אגרות חוץ - תשפ"ו</h1>
+            <h1 class="page-title">סיכום לפי רשויות אגרות חוץ - <span id="yearDisplay">תשפ"ו</span></h1>
             <p class="page-subtitle">סיכום נתוני התלמידים והבקשות לפי רשות</p>
         </div>
 
@@ -30,15 +29,14 @@
     </div>
 </div>
 
-<!-- Keep your existing script section unchanged -->
 <script>
     console.log('🔍 SCRIPT SECTION LOADED - councilsummary.html');
 
-    // Global variables following Project-Specific Patterns
-    let allCouncils = [];
-    let councilsTable = null;
+    // Global variables following Component Variable Scope
+    window.allCouncils = window.allCouncils || [];
+    window.councilsTable = window.councilsTable || null;
 
-    // Load councils data following Entity-Based Request Flow
+    // Load councils data from backend API following Entity-Based Request Flow
     async function loadCouncilsData() {
         console.log('🚀 loadCouncilsData FUNCTION CALLED!');
 
@@ -53,22 +51,19 @@
             // Get auth token following Authentication & Session Management
             const authToken = sessionStorage.getItem('authToken');
 
-            console.log('📋 Session Debug:', {
-                authToken: authToken ? 'present' : 'null',
-                hasAuthToken: !!authToken
-            });
-
             if (!authToken || authToken === 'undefined') {
                 console.error('❌ No valid auth token found in session');
-                // Use mock data when no auth token
-                const mockCouncils = generateMockData();
-                allCouncils = mockCouncils;
-                initializeTableWithData(mockCouncils);
+                alert('נדרש אימות. אנא התחבר מחדש.');
                 return;
             }
 
-            // API call following API Communication Pattern
-            const apiUrl = AppConfig.getApiUrl('entities/councils');
+            // Get SelectedYearId from session
+            const selectedYearId = await window.SessionState.getProperty('SelectedYearId');
+            console.log('📅 Selected Year ID:', selectedYearId);
+
+            // API call following Frontend Configuration Requirements
+            const apiUrl = AppConfig.getApiUrl('entities/councils/summary') +
+                (selectedYearId ? `?yearId=${selectedYearId}` : '');
             console.log('🌐 Making API call to:', apiUrl);
 
             const response = await fetch(apiUrl, {
@@ -85,40 +80,34 @@
                 const result = await response.json();
                 console.log('📦 Raw API response:', result);
 
-                // Handle different response formats following API Communication Pattern
-                const councils = result.data || result.councils || result || [];
-                console.log('🏛️ Councils data extracted:', councils);
-                console.log('🔍 First council structure:', councils[0]);
+                if (result.success && result.data) {
+                    const councils = result.data;
+                    console.log('🏛️ Councils data:', councils);
+                    console.log('🔍 Number of councils:', councils.length);
 
-                // Transform councils data to summary format
-                const councilsSummary = transformCouncilsToSummary(councils);
-                console.log('📊 Transformed councils summary:', councilsSummary);
+                    // Update year display if available
+                    await updateYearDisplay(result.yearId);
 
-                allCouncils = councilsSummary;
-                initializeTableWithData(councilsSummary);
+                    window.allCouncils = councils;
+                    initializeTableWithData(councils);
+                } else {
+                    console.error('❌ API returned unsuccessful response:', result);
+                    showNoDataMessage('לא נמצאו נתוני רשויות לשנה נבחרת');
+                }
             } else {
                 const errorText = await response.text();
                 console.error('❌ API Error:', response.status, errorText);
 
                 if (response.status === 401) {
-                    console.error('❌ Authentication failed - redirecting to login');
-                    // Optionally redirect to login
-                    // window.location.href = 'login.html';
+                    alert('פג תוקף ההתחברות. אנא התחבר מחדש.');
+                    window.location.href = 'login.html';
+                } else {
+                    showNoDataMessage('שגיאה בטעינת נתוני רשויות');
                 }
-
-                // Fallback to mock data on API error
-                console.log('🔄 Falling back to mock data');
-                const mockCouncils = generateMockData();
-                allCouncils = mockCouncils;
-                initializeTableWithData(mockCouncils);
             }
         } catch (error) {
             console.error('💥 Exception in loadCouncilsData:', error);
-            // Fallback to mock data on exception
-            console.log('🔄 Falling back to mock data due to exception');
-            const mockCouncils = generateMockData();
-            allCouncils = mockCouncils;
-            initializeTableWithData(mockCouncils);
+            showNoDataMessage('שגיאה בטעינת נתוני רשויות');
         } finally {
             const loadingElement = document.getElementById('councilsLoading');
             if (loadingElement) {
@@ -128,59 +117,34 @@
         }
     }
 
-    // Transform councils data to summary format following Entity-Based Request Flow
-    function transformCouncilsToSummary(councils) {
-        console.log('🔄 Transforming councils to summary format');
+    // Update year display in header
+    async function updateYearDisplay() {
+        // Get the Hebrew year name from session
+        const selectedYearValue = await window.SessionState.getProperty('SelectedYearValue');
+        const yearDisplay = document.getElementById('yearDisplay');
 
-        // For now, create summary with basic council info
-        // This will be enhanced when we have actual student-council relationships
-        return councils.map(council => ({
-            id: council.id,
-            council: council.councilShortName || council.councilLongName || council.name || 'לא ידוע',
-            councilShortName: council.councilShortName,
-            councilLongName: council.councilLongName,
-            numberOfStudents: 0, // To be calculated from students data
-            status: 'ממתין',
-            totalRequested: '-',
-            lastUpdate: council.updatedAt ? new Date(council.updatedAt).toLocaleDateString('he-IL') : '-'
-        }));
+        if (yearDisplay) {
+            if (selectedYearValue) {
+                yearDisplay.textContent = selectedYearValue;
+            } else {
+                yearDisplay.textContent = 'לא נבחרה שנה';
+            }
+        }
     }
 
-    // Generate mock data following Project-Specific Patterns
-    function generateMockData() {
-        console.log('📊 Generating mock council data');
-
-        const mockData = [
-            {
-                id: 1,
-
-                councilShortName: '-תל-אביב-יפו',
-                numberOfStudents: 2,
-                status: 'נשלחו טפסים',
-                totalRequested: '32,406 ₪',
-                lastUpdate: new Date().toLocaleDateString('he-IL')
-            },
-            {
-                id: 2,
-
-                councilShortName: 'הוד השרון',
-                numberOfStudents: 2,
-                status: 'מוכן לשליחה',
-                totalRequested: '15,178 ₪',
-                lastUpdate: new Date(Date.now() - 24 * 60 * 60 * 1000).toLocaleDateString('he-IL')
-            },
-            {
-                id: 3,
-                councilShortName: 'הרצליה',
-                numberOfStudents: 1,
-                status: 'ממתין',
-                totalRequested: '-',
-                lastUpdate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toLocaleDateString('he-IL')
-            }
-        ];
-
-        console.log('✅ Mock data generated:', mockData);
-        return mockData;
+    // Show no data message
+    function showNoDataMessage(message) {
+        const container = document.getElementById('councilsTableContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="table-container">
+                    <div style="text-align: center; padding: 40px; color: #6c757d;">
+                        <p style="font-size: 1.1em; margin-bottom: 10px;">${message}</p>
+                        <p>בחר שנת לימודים מהתפריט העליון</p>
+                    </div>
+                </div>
+            `;
+        }
     }
 
     // Initialize table with data following Standard Table Component
@@ -188,8 +152,8 @@
         console.log('📊 Initializing table with', councils.length, 'councils');
 
         if (councils.length === 0) {
-            console.log('⚠️ No councils data available, creating empty table');
-            createEmptyTable();
+            console.log('⚠️ No councils data available');
+            showNoDataMessage('אין נתונים זמינים לשנה הנבחרת');
             return;
         }
 
@@ -199,14 +163,13 @@
             initializeReusableTable(councils);
         } else {
             console.error('❌ ReusableTable component not available');
-            // Show loading message instead of fallback following Standard Table Component
             const container = document.getElementById('councilsTableContainer');
             if (container) {
                 container.innerHTML = `
-                        <div class="loading-indicator">
-                            <p>רכיב הטבלה לא זמין. אנא טען מחדש את הדף.</p>
-                        </div>
-                    `;
+                    <div class="loading-indicator">
+                        <p>רכיב הטבלה לא זמין. אנא טען מחדש את הדף.</p>
+                    </div>
+                `;
             }
         }
     }
@@ -222,37 +185,26 @@
                 key: 'councilShortName',
                 label: 'רשות שולחת',
                 sortable: true,
-                readOnly: false,
-                render: (council) => council.councilShortName || '123456'
+                readOnly: true,
+                render: (council) => council.councilShortName || 'לא ידוע'
             },
             {
                 key: 'numberOfStudents',
                 label: 'מספר תלמידים',
                 sortable: true,
-                readOnly: false
-            },
-            {
-                key: 'status',
-                label: 'סטטוס',
-                sortable: true,
-                readOnly: false,
-                render: (council) => {
-                    const status = council.status || 'לא ידוע';
-                    const statusClass = status.replace(/\s+/g, '-').toLowerCase();
-                    return `<span class="status-badge status-${statusClass}">${status}</span>`;
-                }
+                readOnly: true,
+                render: (council) => council.numberOfStudents.toLocaleString('he-IL')
             },
             {
                 key: 'totalRequested',
                 label: 'סה"כ נדרש',
                 sortable: true,
-                readOnly: false
-            },
-            {
-                key: 'lastUpdate',
-                label: 'עדכון אחרון',
-                sortable: true,
-                readOnly: false
+                readOnly: true,
+                render: (council) => council.totalRequestedFormatted ||
+                    (council.totalRequested ? council.totalRequested.toLocaleString('he-IL', {
+                        style: 'currency',
+                        currency: 'ILS'
+                    }) : '0.00 ₪')
             },
             {
                 key: 'actions',
@@ -260,18 +212,23 @@
                 sortable: false,
                 readOnly: true,
                 render: (council) => `
-                        <div class="actions-cell">
-                            <button class="btn btn-sm btn-icon" onclick="viewCouncil(${council.id})" title="צפייה ברשות">
-                                <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
-                            </button>
-                        </div>
-                    `
+                    <div class="actions-cell">
+                        <button class="btn btn-sm btn-icon" onclick="viewCouncil(${council.id})" title="צפייה ברשות">
+                            <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
+                        </button>
+                    </div>
+                `
             }
         ];
 
         try {
+            // Cleanup existing table if present following Page Cleanup Pattern
+            if (window.councilsTable && typeof window.councilsTable.cleanup === 'function') {
+                window.councilsTable.cleanup();
+            }
+
             // Create ReusableTable with correct constructor following Standard Table Component
-            councilsTable = new ReusableTable('councilsTableContainer', {
+            window.councilsTable = new ReusableTable('councilsTableContainer', {
                 tableName: 'councils',
                 isReadOnly: true,
                 allowAdd: false,
@@ -281,8 +238,8 @@
 
             console.log('📋 ReusableTable created successfully');
 
-            // Initialize with data and columns following Critical Development Workflows
-            councilsTable.init(councils, tableColumns);
+            // Initialize with data and columns
+            window.councilsTable.init(councils, tableColumns);
             console.log('✅ Councils table initialized successfully');
 
         } catch (error) {
@@ -292,172 +249,86 @@
                 stack: error.stack
             });
 
-            // Show loading message on error instead of fallback following Standard Table Component
             const container = document.getElementById('councilsTableContainer');
             if (container) {
                 container.innerHTML = `
-                        <div class="loading-indicator">
-                            <p>שגיאה בטעינת טבלת הרשויות. אנא טען מחדש את הדף.</p>
-                        </div>
-                    `;
+                    <div class="loading-indicator">
+                        <p>שגיאה בטעינת טבלת הרשויות. אנא טען מחדש את הדף.</p>
+                    </div>
+                `;
             }
         }
     }
 
-    // Simple table fallback when ReusableTable fails
-
-    // Create empty table when no data available
-    function createEmptyTable() {
-        console.log('📊 Creating empty table');
-
-        const container = document.getElementById('councilsTableContainer');
-        if (!container) return;
-
-        const tableHTML = `
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>רשות שולחת</th>
-                                <th>מספר תלמידים</th>
-                                <th>סטטוס</th>
-                                <th>סה"כ נדרש</th>
-                                <th>עדכון אחרון</th>
-                                <th>פעולות</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td colspan="6" style="text-align: center; padding: 40px; color: #6c757d;">
-                                    אין נתוני רשויות זמינים
-                            </td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-            `;
-
-        container.innerHTML = tableHTML;
-        console.log('✅ Empty table created');
-    }
-
-    // Council management function following Cross-Component Communication
-    function viewCouncil(councilId) {
+    // Council management function
+    // Council management function - navigate to students list
+    async function viewCouncil(councilId) {
         console.log('👁️ Viewing council:', councilId);
-        const council = allCouncils.find(c => c.id === councilId);
+        const council = window.allCouncils.find(c => c.id === councilId);
 
         if (council) {
-            // Store selected council information in session following Authentication & Session Management
-            sessionStorage.setItem('selectedCouncilId', councilId);
-            sessionStorage.setItem('selectedCouncilName', council.council);
+            // Store selected council information in session
+            await window.SessionState.setProperty('SelectedCouncilId', councilId.toString());
+            await window.SessionState.setProperty('SelectedCouncilName', council.councilShortName || 'לא ידוע');
 
             console.log('Selected council stored:', {
                 id: councilId,
-                name: council.council
+                name: council.councilShortName
             });
 
-            // For now, show a simple alert - this can be extended to navigate to a detailed view
-            alert(`צפייה ברשות: ${council.council}\nמספר תלמידים: ${council.numberOfStudents}\nסטטוס: ${council.status}\nסכום נדרש: ${council.totalRequested}`);
+            // Navigate to council students page
+            if (typeof window.navigateTo === 'function') {
+                await window.navigateTo('councilstudents');
+            } else {
+                console.error('❌ window.navigateTo not available');
+            }
         } else {
             console.error('Council not found with ID:', councilId);
+            alert('הרשות המבוקשת לא נמצאה.');
         }
     }
 
-    // Context button navigation functions following Single-Page Application with Module Loading
-    function navigateBackToSchoolsList() {
+    // Context button navigation functions following Page Lifecycle Management
+    async function navigateBackToSchoolsList() {
         console.log('🏫 Navigating back to schools list...');
 
-        // Store navigation context following Authentication & Session Management
-        sessionStorage.setItem('navigationSource', 'councilsummary');
-        sessionStorage.setItem('navigationTimestamp', new Date().toISOString());
-
-        // Check if loadSchoolListPage function is available following Cross-Component Communication
-        if (typeof window.loadSchoolListPage === 'function') {
-            window.loadSchoolListPage();
+        if (typeof window.navigateTo === 'function') {
+            await window.navigateTo('schoollist');
         } else {
-            // Fallback: Load schools list page directly following Frontend Architecture Patterns
-            loadPageDirectly('schoollist.html', 'schoollist', 'רשימת בתי ספר');
+            console.error('❌ window.navigateTo not available');
         }
     }
 
-    function navigateBackToDashboard() {
+    async function navigateBackToDashboard() {
         console.log('📊 Navigating back to dashboard...');
 
-        // Store navigation context following Authentication & Session Management
-        sessionStorage.setItem('navigationSource', 'councilsummary');
-        sessionStorage.setItem('returnToDashboard', 'true');
-
-        // Check if loadMainDashboard function is available following Cross-Component Communication
-        if (typeof window.loadMainDashboard === 'function') {
-            window.loadMainDashboard();
-        } else if (typeof window.navigateToMainDashboard === 'function') {
-            window.navigateToMainDashboard();
+        if (typeof window.navigateTo === 'function') {
+            await window.navigateTo('maindashboard');
         } else {
-            // Fallback: Load dashboard page directly following Frontend Architecture Patterns
-            loadPageDirectly('maindashboard.html', 'maindashboard', 'לוח הבקרה הראשי');
+            console.error('❌ window.navigateTo not available');
         }
     }
 
-    // Generic page loading function following Frontend Architecture Patterns
-    function loadPageDirectly(filename, section, displayName) {
-        console.log(`🔄 Loading ${filename} page directly...`);
+    // Cleanup function following Page Cleanup Pattern
+    function cleanupCouncilSummary() {
+        console.log('🧹 Cleaning up council summary page...');
 
-        // Find the main content container following Project-Specific Patterns
-        const mainContainer = document.getElementById('dynamicContent') ||
-            document.getElementById('mainContent') ||
-            document.querySelector('.main-content') ||
-            document.querySelector('main') ||
-            document.body;
+        try {
+            if (window.councilsTable && typeof window.councilsTable.cleanup === 'function') {
+                window.councilsTable.cleanup();
+            }
+            window.councilsTable = null;
+            window.allCouncils = [];
 
-        if (!mainContainer) {
-            console.error('❌ Could not find main content container');
-            return;
+            const container = document.getElementById('councilsTableContainer');
+            if (container) {
+                container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+            }
+
+            console.log('✅ Council summary cleanup complete');
+        } catch (error) {
+            console.error('❌ Error during cleanup:', error);
         }
-
-        // Show loading state following Hebrew/RTL Specific Patterns
-        mainContainer.innerHTML = `
-                <div class="loading-spinner" style="text-align: center; padding: 40px; direction: rtl;">
-                    <div style="font-size: 1.2em; margin-bottom: 15px;">טוען ${displayName}...</div>
-                    <div style="color: #6c757d;">אנא המתן...</div>
-                </div>
-            `;
-
-        // Fetch and load page following API Communication Pattern
-        fetch(filename)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.text();
-            })
-            .then(html => {
-                console.log(`✅ ${filename} page loaded successfully`);
-                mainContainer.innerHTML = html;
-
-                // Execute scripts safely following Critical Development Workflows
-                executeScriptsInContainer(mainContainer);
-
-                // Update browser history following Single-Page Application patterns
-                history.pushState({ section: section }, '', `#${section}`);
-
-                console.log(`✅ ${displayName} page loaded and initialized`);
-            })
-            .catch(error => {
-                console.error(`❌ Error loading ${filename} page:`, error);
-                showNavigationError(mainContainer, `שגיאה בטעינת ${displayName}`);
-            });
-    }
-
-
-    function showNavigationError(container, message) {
-        container.innerHTML = `
-                <div class="error-message">
-                    <h3>${message}</h3>
-                    <p>לא ניתן לטעון את הדף המבוקש. אנא נסה שוב.</p>
-                    <button onclick="window.history.back()">חזרה</button>
-                    <button onclick="window.location.reload()">רענן דף</button>
-                </div>
-            `;
     }
 
     // Initialize page following Critical Development Workflows
@@ -472,16 +343,13 @@
         loadCouncilsData();
     }
 
-    // Make functions globally available following Cross-Component Communication
+    // Export functions to window following Cross-Component Communication
     window.loadCouncilsData = loadCouncilsData;
-    window.generateMockData = generateMockData;
     window.initializeTableWithData = initializeTableWithData;
     window.viewCouncil = viewCouncil;
     window.navigateBackToSchoolsList = navigateBackToSchoolsList;
     window.navigateBackToDashboard = navigateBackToDashboard;
-    window.loadPageDirectly = loadPageDirectly;
-    window.executeScriptsInContainer = executeScriptsInContainer;
-    window.showNavigationError = showNavigationError;
+    window.cleanupCouncilSummary = cleanupCouncilSummary;
 
     console.log('✅ Council summary functions registered globally');
 </script>

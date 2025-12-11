@@ -78,8 +78,16 @@ window.PageLifecycleConfig = {
         'councilsummary': {
             file: 'councilsummary.html',
             title: 'סיכום רשויות',
-            cleanup: null,
-            init: ''
+            cleanup: 'cleanupCouncilSummary',
+            init: null,
+            selfInitializing: true
+        },
+        'councilstudents': {
+            file: 'councilstudents.html',
+            title: 'תלמידי רשות',
+            cleanup: 'cleanupCouncilStudents',
+            init: null,
+            selfInitializing: true
         },
         'entities': {
             file: 'entities.html',

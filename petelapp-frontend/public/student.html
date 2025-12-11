@@ -51,9 +51,9 @@
 
     <!-- Simplified context buttons -->
     <div class="context-buttons-section students-context">
-        <button class="context-btn" onclick="navigateToStudents()">
-            חזרה לרשימת תלמידים
-        </button>
+    <button class="context-btn" id="backToSourceBtn" onclick="navigateBackToSource()">
+        חזרה לרשימה
+    </button>
         <button class="context-btn" onclick="navigateToSchoolDashboard()">
             חזרה לבית ספר
         </button>
@@ -572,7 +572,50 @@ async function navigateToStudents() {
         }
     }
 }
-
+// Navigate back to source (dynamic based on where we came from)
+async function navigateBackToSource() {
+    console.log('🔙 Navigating back to source...');
+    
+    try {
+        // Get navigation source
+        const navigationSource = await window.SessionState.getProperty('NavigationSource');
+        
+        console.log('📍 Navigation source:', navigationSource);
+        
+        // Clear student selection from backend session
+        await window.SessionState.setProperty('SelectedStudentId', '');
+        await window.SessionState.setProperty('SelectedStudentData', '');
+        
+        // Navigate based on source
+        if (navigationSource === 'councilstudents') {
+            console.log('🏛️ Returning to council students page');
+            // Clear navigation context for next time
+            await window.SessionState.setProperty('NavigationSource', '');
+            await window.SessionState.setProperty('NavigationSourceTitle', '');
+            
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('councilstudents');
+            } else {
+                console.error('❌ window.navigateTo not available');
+                window.history.back();
+            }
+        } else {
+            // Default: return to students list
+            console.log('👥 Returning to students list');
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('students');
+            } else {
+                console.error('❌ window.navigateTo not available');
+                window.history.back();
+            }
+        }
+        
+    } catch (error) {
+        console.error('💥 Error navigating back to source:', error);
+        // Fallback to history back
+        window.history.back();
+    }
+}
 async function navigateToSchoolDashboard() {
     console.log('🏫 Navigating to school dashboard...');
     
@@ -645,10 +688,15 @@ async function loadStudentData() {
         const selectedStudentId = await window.SessionState.getProperty('SelectedStudentId');
         const selectedStudentDataStr = await window.SessionState.getProperty('SelectedStudentData');
         
+        // ✅ Get navigation context
+        const navigationSource = await window.SessionState.getProperty('NavigationSource');
+        const navigationSourceTitle = await window.SessionState.getProperty('NavigationSourceTitle');
+        
         console.log('📋 Session check:', {
             hasStudentId: !!selectedStudentId,
             hasStudentData: !!selectedStudentDataStr,
-            studentId: selectedStudentId
+            studentId: selectedStudentId,
+            navigationSource: navigationSource
         });
         
         if (!selectedStudentId || !selectedStudentDataStr) {
@@ -668,9 +716,20 @@ async function loadStudentData() {
 
         window.currentStudentsData = [selectedStudent];
         
+        // ✅ Update title with student name and school name
         const titleElement = document.getElementById('studentTitle');
         if (titleElement) {
-            titleElement.textContent = `מסמכי התלמיד - ${selectedStudent.name}`;
+            let titleText = `מסמכי התלמיד - ${selectedStudent.name}`;
+            if (selectedStudent.schoolName) {
+                titleText += ` - ${selectedStudent.schoolName}`;
+            }
+            titleElement.textContent = titleText;
+        }
+        
+        // ✅ Update back button text based on navigation source
+        const backBtn = document.getElementById('backToSourceBtn');
+        if (backBtn && navigationSourceTitle) {
+            backBtn.textContent = `חזרה ל${navigationSourceTitle}`;
         }
         
         createStudentsTable([selectedStudent]);
@@ -680,6 +739,7 @@ async function loadStudentData() {
         showStudentsTableError('שגיאה בטעינת נתוני התלמיד. אנא נסה שוב.');
     }
 }
+
 
 // Create students table using ReusableTable component - EXACT SAME as students.html
 function createStudentsTable(data) {
@@ -943,6 +1003,7 @@ window.initializePage = initializePage;
 window.navigateToStudents = navigateToStudents;
 window.navigateToSchoolDashboard = navigateToSchoolDashboard;
 window.navigateToSchoolList = navigateToSchoolList;
+window.navigateBackToSource = navigateBackToSource;
 //window.viewDocumentDetails = viewDocumentDetails;
 //window.downloadDocument = downloadDocument;
 //window.closeDocumentModal = closeDocumentModal;

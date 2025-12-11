@@ -72,9 +72,10 @@ window.PageLifecycleConfig = {
         'councilsummary': {
             file: 'councilsummary.html',
             title: 'סיכום רשויות',
-            cleanup: null,
-            init: null
-        }, 
+            cleanup: 'cleanupCouncilSummary',
+            init: null,
+            selfInitializing: true
+        },
         'roles': {
             file: 'roles.html',
             title: 'ניהול תפקידים',
@@ -176,7 +177,7 @@ window.PageLifecycleConfig = {
         // ✅  Users to roles management
         {
             from: 'users',
-            to: 'roles',    
+            to: 'roles',
             clearSession: []
         }
     ],

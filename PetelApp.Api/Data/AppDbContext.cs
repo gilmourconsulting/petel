@@ -31,7 +31,7 @@ namespace PetelApp.Api.Data
 
         // Views
         public DbSet<StudentSchoolYearsRegistrationSummaryVw> StudentSchoolYearsRegistrationSummaryVw { get; set; }
-
+        public DbSet<CouncilSummaryVw> CouncilSummaryVw { get; set; }
         // DbSets following Entity-Based Request Flow
         public DbSet<SchoolStudent> SchoolStudents { get; set; }
 
@@ -211,6 +211,12 @@ modelBuilder.Entity<RolesAction>(entity =>
                 entity.Property(s => s.SchoolTrack).HasColumnName("school_track");
                 entity.Property(s => s.Registered).HasColumnName("registered");
             });
+
+            modelBuilder.Entity<CouncilSummaryVw>(entity =>
+                    {
+                        entity.ToView("council_summary_vw");
+                        entity.HasNoKey(); // Views typically don't have a single key
+                    });
 
             // Council entity configuration following Database Conventions
             modelBuilder.Entity<Council>(entity =>

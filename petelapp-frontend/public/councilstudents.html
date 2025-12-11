@@ -1,0 +1,389 @@
+<!-- petelapp-frontend/public/councilstudents.html -->
+<div class="students-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section screenwithtable-context">
+        <button class="context-btn" onclick="refreshCouncilStudentsData()">
+            רענן נתונים
+        </button>
+        <button class="context-btn" onclick="navigateBackToCouncilSummary()">
+            חזרה לסיכום רשויות
+        </button>
+    </div>
+
+    <!-- Main content area -->
+    <div class="students-content">
+        <div class="content-card">
+            <h2 id="councilStudentsTitle" class="page-title">תלמידי רשות - <span id="councilNameDisplay"></span></h2>
+            
+            <!-- Students summary info -->
+            <div class="students-summary">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <div class="summary-icon">👥</div>
+                        <div class="summary-info">
+                            <div class="summary-value" id="totalCouncilStudents">0</div>
+                            <div class="summary-label">סה"כ תלמידים</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">🏫</div>
+                        <div class="summary-info">
+                            <div class="summary-value" id="totalSchools">0</div>
+                            <div class="summary-label">בתי ספר</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">💰</div>
+                        <div class="summary-info">
+                            <div class="summary-value" id="totalCouncilAmount">0 ₪</div>
+                            <div class="summary-label">סה"כ סכום</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">📊</div>
+                        <div class="summary-info">
+                            <div class="summary-value" id="avgCouncilAmount">0 ₪</div>
+                            <div class="summary-label">ממוצע לתלמיד</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Students table -->
+            <div class="students-table-section">
+                <h3>רשימת תלמידים מהרשות</h3>
+                <div id="councilStudentsTableContainer">
+                    <div class="loading-spinner">
+                        טוען נתוני תלמידים...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+console.log('🔍 SCRIPT SECTION LOADED - councilstudents.html');
+
+// Global variables following Component Variable Scope
+window.currentCouncilStudentsData = window.currentCouncilStudentsData || [];
+window.councilStudentsTable = window.councilStudentsTable || null;
+
+// Load council students data from backend API
+async function loadCouncilStudentsData() {
+    console.log('🚀 loadCouncilStudentsData FUNCTION CALLED!');
+    
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken || authToken === 'undefined') {
+            console.error('❌ No valid auth token found in session');
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        // Get council info from session
+        const councilId = await window.SessionState.getProperty('SelectedCouncilId');
+        const councilName = await window.SessionState.getProperty('SelectedCouncilName');
+        const selectedYearId = await window.SessionState.getProperty('SelectedYearId');
+
+        if (!councilId) {
+            console.error('❌ No council ID in session');
+            showTableError('לא נבחרה רשות');
+            return;
+        }
+
+        console.log('📅 Council context:', { councilId, councilName, selectedYearId });
+
+        // Update page title
+        const councilNameDisplay = document.getElementById('councilNameDisplay');
+        if (councilNameDisplay) {
+            councilNameDisplay.textContent = councilName || councilId;
+        }
+
+        // Show loading indicator
+        const container = document.getElementById('councilStudentsTableContainer');
+        if (container) {
+            container.innerHTML = `
+                <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
+                    טוען נתוני תלמידים...
+                </div>
+            `;
+        }
+
+        // API call
+        const apiUrl = AppConfig.getApiUrl(`students/by-council?councilId=${councilId}` + 
+            (selectedYearId ? `&yearId=${selectedYearId}` : ''));
+        console.log('🌐 Making API call to:', apiUrl);
+
+        const response = await fetch(apiUrl, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        console.log('📥 Response:', response.status, response.ok);
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('📦 Raw API response:', result);
+
+            if (result.success && result.data) {
+                const students = result.data;
+                console.log('👥 Students data:', students.length, 'students');
+
+                // Transform data
+                const transformedData = students.map(student => ({
+                    id: student.id,
+                    idNumber: student.idNumber || '',
+                    name: `${student.firstName || ''} ${student.lastName || ''}`.trim(),
+                    gender: student.gender === 1 ? 'זכר' : student.gender === 2 ? 'נקבה' : '',
+                    address: [
+                        student.street,
+                        student.houseNumber,
+                        student.city,
+                        student.postCode
+                    ].filter(Boolean).join(', '),
+                    schoolName: student.schoolName || '',
+                    class: student.className || student.classId?.toString() || '',
+                    startDate: student.startDate ? new Date(student.startDate).toLocaleDateString('he-IL') : '',
+                    endDate: student.endDate ? new Date(student.endDate).toLocaleDateString('he-IL') : '',
+                    category: student.disabilityCategory || '',
+                    totalAmount: student.cost != null ? student.cost.toString() : '0',
+                    sendingCouncil: student.councilShortName || ''
+                }));
+
+                console.log('🔄 Transformed students data:', transformedData);
+
+                window.currentCouncilStudentsData = transformedData;
+                updateCouncilStudentsSummary(transformedData);
+                createCouncilStudentsTable(transformedData);
+            } else {
+                console.error('❌ Invalid response format:', result);
+                showTableError('לא נמצאו תלמידים לרשות זו');
+            }
+        } else {
+            const errorText = await response.text();
+            console.error('❌ API Error:', response.status, errorText);
+
+            if (response.status === 401) {
+                alert('פג תוקף ההתחברות. אנא התחבר מחדש.');
+                window.location.href = 'login.html';
+            } else {
+                showTableError('שגיאה בטעינת נתוני תלמידים');
+            }
+        }
+    } catch (error) {
+        console.error('💥 Exception in loadCouncilStudentsData:', error);
+        showTableError('שגיאה בטעינת נתוני תלמידים');
+    }
+}
+
+// Update summary statistics
+function updateCouncilStudentsSummary(data) {
+    const totalStudents = data.length;
+    const totalSchools = [...new Set(data.map(s => s.schoolName).filter(Boolean))].length;
+    const totalAmount = data.reduce((sum, s) => sum + (parseFloat(s.totalAmount) || 0), 0);
+    const avgAmount = totalStudents > 0 ? totalAmount / totalStudents : 0;
+
+    document.getElementById('totalCouncilStudents').textContent = totalStudents;
+    document.getElementById('totalSchools').textContent = totalSchools;
+    document.getElementById('totalCouncilAmount').textContent = 
+        totalAmount.toLocaleString('he-IL', { style: 'currency', currency: 'ILS' });
+    document.getElementById('avgCouncilAmount').textContent = 
+        avgAmount.toLocaleString('he-IL', { style: 'currency', currency: 'ILS' });
+
+    console.log('✅ Summary updated:', { totalStudents, totalSchools, totalAmount, avgAmount });
+}
+
+// Create students table using ReusableTable
+function createCouncilStudentsTable(data) {
+    console.log('📊 Creating council students table');
+    
+    if (typeof ReusableTable === 'undefined') {
+        console.error('❌ ReusableTable component not available');
+        showTableError('רכיב הטבלה לא זמין. אנא טען מחדש את הדף.');
+        return;
+    }
+    
+    initializeCouncilStudentsTable(data);
+}
+
+// Initialize the ReusableTable
+function initializeCouncilStudentsTable(data) {
+    console.log('🔧 Initializing ReusableTable with', data.length, 'students');
+    
+    const columns = [
+        { key: 'id', label: 'מזהה', sortable: true, readOnly: true, hidden: true },
+        { key: 'idNumber', label: 'תז', sortable: true, readOnly: true },
+        { key: 'name', label: 'שם', sortable: true, readOnly: true },
+        { key: 'gender', label: 'מין', sortable: true, readOnly: true },
+        { key: 'schoolName', label: 'בית ספר', sortable: true, readOnly: true },
+        { key: 'class', label: 'כיתה', sortable: true, readOnly: true },
+        { key: 'address', label: 'כתובת', sortable: false, readOnly: true },
+        { key: 'startDate', label: 'התחלה', sortable: true, readOnly: true },
+        { key: 'endDate', label: 'סיום', sortable: true, readOnly: true },
+        { key: 'category', label: 'קטגוריה', sortable: true, readOnly: true },
+        { 
+            key: 'totalAmount', 
+            label: 'סכום', 
+            sortable: true, 
+            readOnly: true,
+            render: (student) => {
+                const amount = parseFloat(student.totalAmount) || 0;
+                return amount.toLocaleString('he-IL', { style: 'currency', currency: 'ILS' });
+            }
+        },
+        {
+            key: 'actions',
+            label: 'פעולות',
+            sortable: false,
+            readOnly: true,
+            render: (student) => `
+                <div class="actions-cell">
+                    <button class="btn btn-sm btn-icon" onclick="viewStudentFromCouncil('${student.id}')" title="צפייה">
+                        <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
+                    </button>
+                </div>
+            `
+        }
+    ];
+
+    try {
+        // Cleanup existing table if present
+        if (window.councilStudentsTable && typeof window.councilStudentsTable.cleanup === 'function') {
+            window.councilStudentsTable.cleanup();
+        }
+
+        window.councilStudentsTable = new ReusableTable('councilStudentsTableContainer', {
+            tableName: 'councilStudents',
+            isReadOnly: true,
+            allowAdd: false,
+            allowEdit: false,
+            allowDelete: false
+        });
+
+        console.log('✅ ReusableTable instance created');
+
+        window.councilStudentsTable.init(data, columns);
+        console.log('✅ Council students table initialized successfully');
+
+    } catch (error) {
+        console.error('❌ Error creating ReusableTable:', error);
+        showTableError('שגיאה ביצירת טבלת התלמידים');
+    }
+}
+
+// Show error message
+function showTableError(message) {
+    const container = document.getElementById('councilStudentsTableContainer');
+    if (container) {
+        container.innerHTML = `
+            <div class="table-error" style="
+                padding: 20px; 
+                background: #f8d7da; 
+                color: #721c24; 
+                border: 1px solid #f5c6cb; 
+                border-radius: 8px;
+                text-align: center;
+                direction: rtl;
+            ">
+                <h4>${message}</h4>
+                <button onclick="refreshCouncilStudentsData()" class="btn btn-primary" style="margin-top: 10px;">
+                    נסה שוב
+                </button>
+            </div>
+        `;
+    }
+}
+
+// Refresh data
+function refreshCouncilStudentsData() {
+    console.log('🔄 Refreshing council students data...');
+    loadCouncilStudentsData();
+}
+
+// Navigate back to council summary
+async function navigateBackToCouncilSummary() {
+    console.log('🔙 Navigating back to council summary...');
+    
+    if (typeof window.navigateTo === 'function') {
+        await window.navigateTo('councilsummary');
+    } else {
+        console.error('❌ window.navigateTo not available');
+    }
+}
+
+// View student details
+async function viewStudentFromCouncil(studentId) {
+    console.log('👁️ Viewing student from council:', studentId);
+    
+    const student = window.currentCouncilStudentsData.find(s => String(s.id) === String(studentId));
+    if (student) {
+        // Store student data
+        await window.SessionState.setProperty('SelectedStudentId', studentId);
+        await window.SessionState.setProperty('SelectedStudentData', JSON.stringify(student));
+        
+        // ✅ Store navigation context so student.html knows where to return
+        await window.SessionState.setProperty('NavigationSource', 'councilstudents');
+        await window.SessionState.setProperty('NavigationSourceTitle', 'תלמידי רשות');
+        
+        console.log('✅ Navigation context stored:', {
+            source: 'councilstudents',
+            studentId: studentId,
+            studentName: student.name,
+            schoolName: student.schoolName
+        });
+        
+        if (typeof window.navigateTo === 'function') {
+            await window.navigateTo('student');
+        }
+    } else {
+        console.error('❌ Student not found:', studentId);
+        alert('התלמיד המבוקש לא נמצא.');
+    }
+}
+
+// Cleanup function
+function cleanupCouncilStudents() {
+    console.log('🧹 Cleaning up council students page...');
+    
+    try {
+        if (window.councilStudentsTable && typeof window.councilStudentsTable.cleanup === 'function') {
+            window.councilStudentsTable.cleanup();
+        }
+        window.councilStudentsTable = null;
+        window.currentCouncilStudentsData = [];
+        
+        const container = document.getElementById('councilStudentsTableContainer');
+        if (container) {
+            container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+        }
+        
+        console.log('✅ Council students cleanup complete');
+    } catch (error) {
+        console.error('❌ Error during cleanup:', error);
+    }
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🏁 DOMContentLoaded event fired - councilstudents.html');
+    loadCouncilStudentsData();
+});
+
+if (document.readyState !== 'loading') {
+    console.log('📄 Document already ready, calling loadCouncilStudentsData immediately');
+    loadCouncilStudentsData();
+}
+
+// Export functions to window
+window.loadCouncilStudentsData = loadCouncilStudentsData;
+window.refreshCouncilStudentsData = refreshCouncilStudentsData;
+window.navigateBackToCouncilSummary = navigateBackToCouncilSummary;
+window.viewStudentFromCouncil = viewStudentFromCouncil;
+window.cleanupCouncilStudents = cleanupCouncilStudents;
+
+console.log('✅ Council students functions registered globally');
+</script>

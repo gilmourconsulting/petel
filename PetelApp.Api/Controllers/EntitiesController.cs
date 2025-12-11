@@ -658,6 +658,76 @@ private static bool IsAllZeros(string value)
             }
         }
 
+        /// <summary>
+        /// Get council summary by year - shows number of students and total requested amount per council
+        /// </summary>
+        [HttpGet("councils/summary")]
+        public async Task<IActionResult> GetCouncilSummary([FromQuery] int? yearId = null)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    _logger.LogWarning("No valid session found for council summary request");
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+        
+                // Get SelectedYearId from session if not provided
+                if (!yearId.HasValue)
+                {
+                    var selectedYearIdStr = session.GetProperty("SelectedYearId");
+                    if (!string.IsNullOrEmpty(selectedYearIdStr) && int.TryParse(selectedYearIdStr, out int selectedYearId))
+                    {
+                        yearId = selectedYearId;
+                    }
+                }
+        
+                if (!yearId.HasValue)
+                {
+                    _logger.LogError("No year ID provided or found in session");
+                    return BadRequest(new { success = false, message = "נדרש מזהה שנה" });
+                }
+        
+                _logger.LogInformation("Loading council summary for year {YearId}", yearId.Value);
+        
+                var councilSummary = await _context.CouncilSummaryVw
+                    .AsNoTracking()
+                    .Where(cs => cs.YearId == yearId.Value)
+                    .OrderBy(cs => cs.CouncilShortName)
+                    .Select(cs => new
+                    {
+                        id = cs.CouncilId,
+                        councilShortName = cs.CouncilShortName ?? cs.CouncilLongName ?? "לא ידוע",
+                        councilLongName = cs.CouncilLongName,
+                        numberOfStudents = cs.NumberOfStudents,
+                        totalRequested = cs.TotalRequestedAmount,
+                        totalRequestedFormatted = cs.TotalRequestedAmount.ToString("N2") + " ₪"
+                    })
+                    .ToListAsync();
+        
+                _logger.LogInformation("Found {Count} councils with students for year {YearId}", 
+                    councilSummary.Count, yearId.Value);
+        
+                return Ok(new
+                {
+                    success = true,
+                    yearId = yearId.Value,
+                    data = councilSummary
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading council summary");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בטעינת סיכום רשויות",
+                    error = ex.Message
+                });
+            }
+        }
+
 
     }
 
