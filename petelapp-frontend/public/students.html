@@ -64,84 +64,396 @@
     </div>
 </div>
 
-<!-- Replace the upload dialog div with modal styling -->
+<!-- Upload Modal with Column Mapping -->
 <div id="uploadDialog" class="modal-overlay" style="display: none;">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 800px; width: 90%;">
         <div class="modal-header">
-            <h3>העלאת קובץ תלמידים</h3>
+            <h3 id="uploadModalTitle">העלאת קובץ תלמידים</h3>
             <button class="modal-close" onclick="closeUploadDialog()">&times;</button>
         </div>
         <div class="modal-body">
-            <form id="uploadForm" onsubmit="handleFileUpload(event)">
+            <!-- Step 1: File Selection -->
+            <div id="fileSelectionStep">
                 <div class="form-group">
                     <label for="studentFile">בחר קובץ (CSV, XLS, XLSX) *</label>
-                    <input type="file" id="studentFile" name="file" accept=".csv,.xls,.xlsx" required>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="studentFile" name="file" accept=".csv,.xls,.xlsx" required style="display: none;">
+                        <button type="button" class="btn-file-select" onclick="document.getElementById('studentFile').click()">
+                            <span id="fileNameDisplay">לא נבחר קובץ</span>
+                        </button>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="mappingJson">מיפוי עמודות (אופציונלי - JSON)</label>
-                    <textarea id="mappingJson" name="mappingJson" rows="4" placeholder='{"id_number": "ת.ז", "first_name": "שם פרטי"}'></textarea>
+                <div class="upload-status" id="fileSelectionStatus" style="display: none;"></div>
+            </div>
+
+            <!-- Step 2: Column Mapping -->
+            <div id="columnMappingStep" style="display: none;">
+                <p style="margin-bottom: 15px; color: #666; direction: rtl;">
+                    התאם את העמודות בקובץ לשדות המערכת. המערכת זיהתה אוטומטית את השדות המתאימים, אך ניתן לשנות את המיפוי.
+                </p>
+                <div style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px;">
+                    <table class="mapping-table" style="width: 100%; border-collapse: collapse;">
+                        <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                            <tr style="border-bottom: 2px solid #dee2e6;">
+                                <th style="padding: 12px; text-align: right; font-weight: bold;">עמודה בקובץ</th>
+                                <th style="padding: 12px; text-align: right; font-weight: bold;">שדה במערכת</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mappingTableBody" style="direction: rtl;">
+                            <!-- Mapping rows will be inserted here -->
+                        </tbody>
+                    </table>
                 </div>
-               
-            </form>
+                <div class="upload-status" id="mappingStatus" style="display: none; margin-top: 15px;"></div>
+            </div>
+
+            <!-- Upload Status -->
+            <div class="upload-status" id="uploadStatus" style="display: none;"></div>
         </div>
-         <div class="upload-status" id="uploadStatus" style="display: none;"></div>
-        <div class="modal-footer">
-            <button type="button" class="btn-secondary" onclick="closeUploadDialog()">ביטול</button>
-            <button type="submit" form="uploadForm" class="btn-primary">העלה קובץ</button>
-        </div>
+<div class="modal-footer">
+    <button type="button" class="btn-secondary" onclick="closeUploadDialog()">ביטול</button>
+    <button type="button" id="backToFileBtn" class="btn-secondary" style="display: none;" onclick="backToFileSelection()">חזרה</button>
+    <button type="button" id="submitFileBtn" class="btn-primary" onclick="handleFileSelection()">המשך</button>
+    <button type="button" id="uploadFileBtn" class="btn-primary" style="display: none;" onclick="handleFileUpload()">העלה קובץ</button>
+</div>
     </div>
 </div>
 
-
-
 <script>
-async function handleFileUpload(event) {
-    event.preventDefault();
+// Global variable to store selected file
+let selectedFile = null;
+let columnMappings = {};
+let availableFields = {};
+let currentHeaders = []; // Store headers to preserve mappings
+
+// Attach file input change listener after page loads
+function initializeFileInputListener() {
+    const fileInput = document.getElementById('studentFile');
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            const fileNameDisplay = document.getElementById('fileNameDisplay');
+            if (this.files && this.files.length > 0) {
+                fileNameDisplay.textContent = this.files[0].name;
+                console.log('📄 File selected:', this.files[0].name);
+            } else {
+                fileNameDisplay.textContent = 'לא נבחר קובץ';
+            }
+        });
+        console.log('✅ File input listener attached');
+    } else {
+        console.warn('⚠️ File input not found, retrying...');
+        setTimeout(initializeFileInputListener, 100);
+    }
+}
+
+// Call on page load
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeFileInputListener);
+} else {
+    initializeFileInputListener();
+}
+
+// Update buildMappingTable function - remove inline styles, use CSS classes
+// Go back to file selection step - preserve mappings if same file
+function buildMappingTable(headers, suggestedMappings, availableFields) {
+    const tbody = document.getElementById('mappingTableBody');
+    tbody.innerHTML = '';
     
-    const statusDiv = document.getElementById('uploadStatus');
-    statusDiv.style.display = 'none';
+    // ✅ Store headers for later use
+    currentHeaders = headers;
     
-    // Disable submit button during upload
-    const submitBtn = document.querySelector('#uploadDialog .btn-primary');
-    const originalText = submitBtn.textContent;
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'מעלה...';
+    headers.forEach((header, index) => {
+        const row = document.createElement('tr');
+        row.style.borderBottom = '1px solid #dee2e6';
+        
+        // File column name
+        const fileColCell = document.createElement('td');
+        fileColCell.style.padding = '12px';
+        fileColCell.style.fontWeight = 'bold';
+        fileColCell.textContent = header;
+        
+        // System field dropdown
+        const systemFieldCell = document.createElement('td');
+        systemFieldCell.style.padding = '12px';
+        
+        const select = document.createElement('select');
+        select.className = 'form-control mapping-select';
+        select.dataset.fileColumn = header;
+        
+        // Add options
+        const emptyOption = document.createElement('option');
+        emptyOption.value = '';
+        emptyOption.textContent = '-- לא ממופה --';
+        select.appendChild(emptyOption);
+        
+        Object.entries(availableFields).forEach(([key, label]) => {
+            const option = document.createElement('option');
+            option.value = key;
+            option.textContent = label;
+            
+            // ✅ Use existing mapping if available, otherwise use suggestion
+            const existingMapping = columnMappings[header];
+            if (existingMapping === key || (!existingMapping && suggestedMappings[header] === key)) {
+                option.selected = true;
+                // Make sure to update columnMappings with the selected value
+                if (!existingMapping) {
+                    columnMappings[header] = key;
+                }
+            }
+            select.appendChild(option);
+        });
+        
+        // Update mapping on change
+        select.addEventListener('change', function() {
+            if (this.value) {
+                columnMappings[header] = this.value;
+            } else {
+                delete columnMappings[header];
+            }
+            console.log('📋 Updated mapping:', header, '->', this.value);
+        });
+        
+        systemFieldCell.appendChild(select);
+        
+        row.appendChild(fileColCell);
+        row.appendChild(systemFieldCell);
+        tbody.appendChild(row);
+    });
+    
+    console.log('✅ Mapping table built with', headers.length, 'columns');
+    console.log('📋 Current mappings:', columnMappings);
+}
+
+// Update showUploadDialog to reset file input display
+function showUploadDialog() {
+    const modal = document.getElementById('uploadDialog');
+    if (modal) {
+        // Reset to step 1
+        document.getElementById('fileSelectionStep').style.display = 'block';
+        document.getElementById('columnMappingStep').style.display = 'none';
+        document.getElementById('uploadStatus').style.display = 'none';
+        document.getElementById('submitFileBtn').style.display = 'inline-block';
+        document.getElementById('uploadFileBtn').style.display = 'none';
+        document.getElementById('backToFileBtn').style.display = 'none';
+        document.getElementById('uploadModalTitle').textContent = 'העלאת קובץ תלמידים';
+        
+        // Reset file input
+        const fileInput = document.getElementById('studentFile');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        if (fileInput) fileInput.value = '';
+        if (fileNameDisplay) fileNameDisplay.textContent = 'לא נבחר קובץ';
+        selectedFile = null;
+        columnMappings = {}; // ✅ Clear mappings on fresh open
+        currentHeaders = [];
+        
+        modal.style.display = 'flex';
+    }
+}
+
+// Go back to file selection step - preserve mappings if same file
+function backToFileSelection() {
+    // Hide mapping step, show file selection
+    document.getElementById('columnMappingStep').style.display = 'none';
+    document.getElementById('fileSelectionStep').style.display = 'block';
+    document.getElementById('uploadModalTitle').textContent = 'העלאת קובץ תלמידים';
+    
+    // Update buttons
+    document.getElementById('backToFileBtn').style.display = 'none';
+    document.getElementById('uploadFileBtn').style.display = 'none';
+    document.getElementById('submitFileBtn').style.display = 'inline-block';
+    document.getElementById('submitFileBtn').disabled = false;
+    
+    // Clear mapping status
+    document.getElementById('mappingStatus').style.display = 'none';
+    
+    // ✅ Keep columnMappings - will be reused if same file is selected
+    console.log('🔙 Returned to file selection step (mappings preserved)');
+}
+
+// Close upload dialog
+function closeUploadDialog() {
+    const modal = document.getElementById('uploadDialog');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    // Reset everything
+    document.getElementById('fileSelectionStep').style.display = 'block';
+    document.getElementById('columnMappingStep').style.display = 'none';
+    document.getElementById('uploadStatus').style.display = 'none';
+    document.getElementById('fileSelectionStatus').style.display = 'none';
+    document.getElementById('mappingStatus').style.display = 'none';
+    document.getElementById('studentFile').value = '';
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    if (fileNameDisplay) fileNameDisplay.textContent = 'לא נבחר קובץ';
+    selectedFile = null;
+    columnMappings = {};
+    currentHeaders = [];
+}
+
+// Handle file selection and preview
+async function handleFileSelection() {
+    const fileInput = document.getElementById('studentFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        showFileSelectionStatus('אנא בחר קובץ', 'error');
+        return;
+    }
+    
+    selectedFile = file;
+    
+    // Show loading
+    showFileSelectionStatus('קורא קובץ...', 'loading');
+    document.getElementById('submitFileBtn').disabled = true;
     
     try {
-        // Show loading status
-        showUploadStatus('מעלה קובץ...', 'loading');
-        
         const token = window.sessionManager.getToken();
         if (!token) {
-            showUploadStatus('נדרש אימות. אנא התחבר מחדש.', 'error');
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
-            return;
-        }
-        
-        const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
-        
-        const schoolId = await window.SessionState.getProperty('SelectedSchoolId');
-        const hebrewYear = await window.SessionState.getProperty('SelectedYearValue');
-        
-        if (!schoolYearId) {
-            showUploadStatus('לא נבחרה שנת לימודים. אנא בחר שנת לימודים ונסה שנית.', 'error');
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
+            showFileSelectionStatus('נדרש אימות. אנא התחבר מחדש.', 'error');
+            document.getElementById('submitFileBtn').disabled = false;
             return;
         }
         
         const formData = new FormData();
-        const fileInput = document.getElementById('studentFile');
-        formData.append('file', fileInput.files[0]);
+        formData.append('file', file);
+        
+        const response = await fetch(AppConfig.getApiUrl('studentsfileupload/preview'), {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            availableFields = result.availableFields;
+            
+            // ✅ Only update suggested mappings if columnMappings is empty (first time)
+            // This preserves user's previous selections when going back
+            const suggestedMappings = result.suggestedMappings || {};
+            if (Object.keys(columnMappings).length === 0) {
+                columnMappings = { ...suggestedMappings };
+            }
+            
+            // Show mapping step
+            document.getElementById('fileSelectionStep').style.display = 'none';
+            document.getElementById('columnMappingStep').style.display = 'block';
+            document.getElementById('submitFileBtn').style.display = 'none';
+            document.getElementById('uploadFileBtn').style.display = 'inline-block';
+            document.getElementById('backToFileBtn').style.display = 'inline-block';
+            document.getElementById('uploadModalTitle').textContent = 'מיפוי עמודות';
+            
+            // Build mapping table with preserved or suggested mappings
+            buildMappingTable(result.headers, columnMappings, result.availableFields);
+            
+        } else {
+            showFileSelectionStatus(`❌ שגיאה: ${result.message || 'לא ניתן לקרוא את הקובץ'}`, 'error');
+            document.getElementById('submitFileBtn').disabled = false;
+        }
+    } catch (error) {
+        console.error('Error previewing file:', error);
+        showFileSelectionStatus('❌ שגיאה בקריאת הקובץ. אנא נסה שנית.', 'error');
+        document.getElementById('submitFileBtn').disabled = false;
+    }
+}
+
+
+// Class field validation logic
+async function handleFileUpload() {
+    if (!selectedFile) {
+        showMappingStatus('לא נבחר קובץ', 'error');
+        return;
+    }
+    
+    // Create reverse mapping FIRST (system field -> file column)
+    const reverseMapping = {};
+    Object.entries(columnMappings).forEach(([fileCol, sysField]) => {
+        if (sysField && sysField !== 'ignore') {
+            reverseMapping[sysField] = fileCol;
+        }
+    });
+    
+    console.log('📋 Reverse mapping (system field -> file column):', reverseMapping);
+    
+    // Validate required fields are mapped - check reverseMapping keys
+    const requiredFields = ['id_number', 'first_name', 'last_name', 'gender', 'start_date', 'end_date', 'street', 'house_number', 'city', 'post_code', 'sending_counsil'];
+    const mappedSystemFields = Object.keys(reverseMapping); // System fields that have been mapped
+    
+    console.log('📋 Mapped system fields:', mappedSystemFields);
+    
+    // Check if class is mapped either as full name OR as level+number
+    const hasClassName = mappedSystemFields.includes('class');
+    const hasClassLevel = mappedSystemFields.includes('class_level');
+    const hasClassNumber = mappedSystemFields.includes('class_number');
+    const hasClassParts = hasClassLevel && hasClassNumber;
+    
+    console.log('🔍 Class mapping check:', {
+        hasClassName,
+        hasClassLevel,
+        hasClassNumber,
+        hasClassParts
+    });
+    
+    // ✅ Either 'class' alone OR both 'class_level' and 'class_number'
+    if (!hasClassName && !hasClassParts) {
+        let errorMsg = '❌ שגיאה: יש למפות כיתה בדרך אחת מהאפשרויות הבאות:\n';
+        errorMsg += '• כיתה (שם מלא) - לדוגמה: "א1", "ב2"\n';
+        errorMsg += '• שכבה + מספר כיתה - לדוגמה: שכבה="א", מספר="1"';
+        
+        if (hasClassLevel && !hasClassNumber) {
+            errorMsg += '\n\n⚠️ מופתה רק שכבה, חסר מספר כיתה';
+        } else if (!hasClassLevel && hasClassNumber) {
+            errorMsg += '\n\n⚠️ מופה רק מספר כיתה, חסרה שכבה';
+        }
+        
+        showMappingStatus(errorMsg, 'error');
+        return;
+    }
+    
+    const missingFields = requiredFields.filter(field => !mappedSystemFields.includes(field));
+    
+    if (missingFields.length > 0) {
+        const fieldLabels = missingFields.map(f => availableFields[f] || f).join(', ');
+        showMappingStatus(`❌ שגיאה: שדות חובה לא ממופים: ${fieldLabels}`, 'error');
+        return;
+    }
+    
+    // Show loading
+    showMappingStatus('מעלה קובץ...', 'loading');
+    document.getElementById('uploadFileBtn').disabled = true;
+    document.getElementById('uploadFileBtn').textContent = 'מעלה...';
+    
+    try {
+        const token = window.sessionManager.getToken();
+        if (!token) {
+            showMappingStatus('נדרש אימות. אנא התחבר מחדש.', 'error');
+            document.getElementById('uploadFileBtn').disabled = false;
+            document.getElementById('uploadFileBtn').textContent = 'העלה קובץ';
+            return;
+        }
+        
+        const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
+        const schoolId = await window.SessionState.getProperty('SelectedSchoolId');
+        const hebrewYear = await window.SessionState.getProperty('SelectedYearValue');
+        
+        if (!schoolYearId) {
+            showMappingStatus('לא נבחרה שנת לימודים. אנא בחר שנת לימודים ונסה שנית.', 'error');
+            document.getElementById('uploadFileBtn').disabled = false;
+            document.getElementById('uploadFileBtn').textContent = 'העלה קובץ';
+            return;
+        }
+        
+        console.log('📤 Uploading with mapping:', reverseMapping);
+        
+        const formData = new FormData();
+        formData.append('file', selectedFile);
         formData.append('schoolYearId', schoolYearId);
         formData.append('schoolId', schoolId);
         formData.append('hebrewYear', hebrewYear);
-        
-        const mappingJson = document.getElementById('mappingJson').value.trim();
-        if (mappingJson) {
-            formData.append('mappingJson', mappingJson);
-        }
+        formData.append('mappingJson', JSON.stringify(reverseMapping));
         
         const response = await fetch(AppConfig.getApiUrl('studentsfileupload/upload'), {
             method: 'POST',
@@ -162,7 +474,6 @@ async function handleFileUpload(event) {
                 `➖ ללא שינוי: ${result.unchanged}\n` +
                 `❌ שגיאות: ${result.errors}`;
             
-            // Show detailed errors if any
             let finalMessage = summaryMessage;
             if (result.errors > 0 && result.details?.errorList) {
                 console.log('Upload errors:', result.details.errorList);
@@ -173,10 +484,11 @@ async function handleFileUpload(event) {
                 }
             }
             
-            showUploadStatus(finalMessage, 'success');
-            
-            // Hide form, show only status and OK button
-            document.getElementById('uploadForm').style.display = 'none';
+            // Hide mapping step, show final status
+            document.getElementById('columnMappingStep').style.display = 'none';
+            document.getElementById('uploadStatus').style.display = 'block';
+            document.getElementById('uploadStatus').innerHTML = finalMessage.replace(/\n/g, '<br>');
+            document.getElementById('uploadStatus').className = 'upload-status upload-status-success';
             
             // Update footer to show only OK button
             const modalFooter = document.querySelector('#uploadDialog .modal-footer');
@@ -184,34 +496,38 @@ async function handleFileUpload(event) {
                 <button type="button" class="btn-primary" onclick="closeUploadDialogAndRefresh()">אישור</button>
             `;
         } else {
-            showUploadStatus(`❌ שגיאה: ${result.message || 'העלאת הקובץ נכשלה'}`, 'error');
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
+            showMappingStatus(`❌ שגיאה: ${result.message || 'העלאת הקובץ נכשלה'}`, 'error');
+            document.getElementById('uploadFileBtn').disabled = false;
+            document.getElementById('uploadFileBtn').textContent = 'העלה קובץ';
         }
     } catch (error) {
         console.error('Upload error:', error);
-        showUploadStatus('❌ שגיאה בהעלאת הקובץ. אנא נסה שנית.', 'error');
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+        showMappingStatus('❌ שגיאה בהעלאת הקובץ. אנא נסה שנית.', 'error');
+        document.getElementById('uploadFileBtn').disabled = false;
+        document.getElementById('uploadFileBtn').textContent = 'העלה קובץ';
     }
 }
 
-// Show upload dialog as modal popup
-function showUploadDialog() {
-    const modal = document.getElementById('uploadDialog');
-    if (modal) {
-        modal.style.display = 'flex'; // ✅ Use flex to center content
-    }
+// Show status helpers
+function showFileSelectionStatus(message, type) {
+    const statusDiv = document.getElementById('fileSelectionStatus');
+    statusDiv.innerHTML = message.replace(/\n/g, '<br>');
+    statusDiv.className = `upload-status upload-status-${type}`;
+    statusDiv.style.display = 'block';
 }
 
-// Close upload dialog
-function closeUploadDialog() {
-    const modal = document.getElementById('uploadDialog');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-    document.getElementById('uploadForm').reset();
-    document.getElementById('uploadStatus').style.display = 'none';
+function showMappingStatus(message, type) {
+    const statusDiv = document.getElementById('mappingStatus');
+    statusDiv.innerHTML = message.replace(/\n/g, '<br>');
+    statusDiv.className = `upload-status upload-status-${type}`;
+    statusDiv.style.display = 'block';
+}
+
+// Close upload dialog and refresh
+function closeUploadDialogAndRefresh() {
+    closeUploadDialog();
+    console.log('🔄 Refreshing students data after upload...');
+    window.refreshStudentsData();
 }
 
 // Close modal when clicking on overlay (outside modal content)
@@ -661,10 +977,6 @@ async function navigateToStudentDetails() {
     }
 }
 
-// Show upload dialog
-function showUploadDialog() {
-    document.getElementById('uploadDialog').style.display = 'block';
-}
 
 // Close upload dialog
 function closeUploadDialog() {
@@ -674,41 +986,6 @@ function closeUploadDialog() {
 }
 
 
-// Show upload status message
-function showUploadStatus(message, type) {
-    const statusDiv = document.getElementById('uploadStatus');
-    statusDiv.textContent = message;
-    statusDiv.className = `upload-status upload-status-${type}`;
-    statusDiv.style.display = 'block';
-}
-
-
-// Close upload dialog and refresh students list
-function closeUploadDialogAndRefresh() {
-    const modal = document.getElementById('uploadDialog');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-    
-    // Reset form and status
-    const form = document.getElementById('uploadForm');
-    form.reset();
-    form.style.display = 'block';
-    
-    const statusDiv = document.getElementById('uploadStatus');
-    statusDiv.style.display = 'none';
-    
-    // Reset modal footer to original state
-    const modalFooter = document.querySelector('#uploadDialog .modal-footer');
-    modalFooter.innerHTML = `
-        <button type="button" class="btn-secondary" onclick="closeUploadDialog()">ביטול</button>
-        <button type="submit" form="uploadForm" class="btn-primary">העלה קובץ</button>
-    `;
-    
-    // Refresh students data
-    console.log('🔄 Refreshing students data after upload...');
-    window.refreshStudentsData();
-}
 
 // Close modal when clicking outside
 window.onclick = function(event) {
@@ -726,9 +1003,11 @@ window.navigateToStudentDetails = navigateToStudentDetails;
 window.refreshStudentsData = refreshStudentsData;
 window.navigateToSchoolDashboard = navigateToSchoolDashboard;
 window.showUploadDialog = showUploadDialog;
+window.handleFileSelection = handleFileSelection;
 window.closeUploadDialog = closeUploadDialog;
 window.closeUploadDialogAndRefresh = closeUploadDialogAndRefresh;
 window.handleFileUpload = handleFileUpload;
+window.backToFileSelection = backToFileSelection;
 
 // Initialize on page load following Critical Development Workflows
 document.addEventListener('DOMContentLoaded', async () => {

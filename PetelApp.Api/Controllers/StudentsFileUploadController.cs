@@ -215,6 +215,14 @@ namespace PetelApp.Api.Controllers
                 csv.Read();
                 csv.ReadHeader();
                 var headers = csv.HeaderRecord;
+                // ✅ Return empty list on error - let caller handle error response
+                if (headers == null || headers.Length == 0)
+                {
+                    _logger.LogWarning("אין שורת כותרות בקובץ ה-CSV");
+                    return new List<StudentFileRow>();  // Return empty list
+                }
+
+
 
                 while (csv.Read())
                 {
@@ -229,6 +237,12 @@ namespace PetelApp.Api.Controllers
                 var worksheet = workbook.Worksheets.First();
 
                 var firstRow = worksheet.FirstRowUsed();
+                // ✅ Return empty list on error - let caller handle error response
+                if (firstRow == null || firstRow.CellsUsed().Count() == 0)
+                {
+                    _logger.LogWarning("Excel file has no rows or headers");
+                    return new List<StudentFileRow>();  // Return empty list
+                }
                 var headers = firstRow.CellsUsed()
                     .Select(cell => cell.Value.ToString()?.Trim() ?? "")
                     .ToList();
@@ -244,17 +258,35 @@ namespace PetelApp.Api.Controllers
             return rows;
         }
 
+        // handle class_level and class_number
+
         private StudentFileRow? ExtractRowData(CsvReader csv, string[] headers, Dictionary<string, string>? mapping)
         {
+
+            if (headers == null || headers.Length == 0)
+            {
+                _logger.LogWarning("ExtractRowData called with null or empty headers");
+                return null;
+            }
             try
             {
+                var className = GetFieldValue(csv, headers, "class", mapping);
+                var classLevel = GetFieldValue(csv, headers, "class_level", mapping);
+                var classNumber = GetFieldValue(csv, headers, "class_number", mapping);
+
+                // If class_level and class_number provided, combine them
+                if (!string.IsNullOrWhiteSpace(classLevel) && !string.IsNullOrWhiteSpace(classNumber))
+                {
+                    className = $"{classLevel}{classNumber}";
+                }
+
                 return new StudentFileRow
                 {
                     IdNumber = GetFieldValue(csv, headers, "id_number", mapping),
                     FirstName = GetFieldValue(csv, headers, "first_name", mapping),
                     LastName = GetFieldValue(csv, headers, "last_name", mapping),
                     Gender = GetFieldValue(csv, headers, "gender", mapping),
-                    Class = GetFieldValue(csv, headers, "class", mapping),
+                    Class = className,
                     StartDate = GetFieldValue(csv, headers, "start_date", mapping),
                     EndDate = GetFieldValue(csv, headers, "end_date", mapping),
                     DisabilityCategory = GetFieldValue(csv, headers, "disability_category", mapping),
@@ -275,13 +307,23 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
+                var className = GetFieldValue(row, headers, "class", mapping);
+                var classLevel = GetFieldValue(row, headers, "class_level", mapping);
+                var classNumber = GetFieldValue(row, headers, "class_number", mapping);
+
+                // If class_level and class_number provided, combine them
+                if (!string.IsNullOrWhiteSpace(classLevel) && !string.IsNullOrWhiteSpace(classNumber))
+                {
+                    className = $"{classLevel}{classNumber}";
+                }
+
                 return new StudentFileRow
                 {
                     IdNumber = GetFieldValue(row, headers, "id_number", mapping),
                     FirstName = GetFieldValue(row, headers, "first_name", mapping),
                     LastName = GetFieldValue(row, headers, "last_name", mapping),
                     Gender = GetFieldValue(row, headers, "gender", mapping),
-                    Class = GetFieldValue(row, headers, "class", mapping),
+                    Class = className,
                     StartDate = GetFieldValue(row, headers, "start_date", mapping),
                     EndDate = GetFieldValue(row, headers, "end_date", mapping),
                     DisabilityCategory = GetFieldValue(row, headers, "disability_category", mapping),
@@ -297,7 +339,6 @@ namespace PetelApp.Api.Controllers
                 return null;
             }
         }
-
         private string GetFieldValue(CsvReader csv, string[] headers, string fieldName, Dictionary<string, string>? mapping)
         {
             var headerName = mapping != null && mapping.ContainsKey(fieldName) ? mapping[fieldName] : fieldName;
@@ -393,6 +434,146 @@ namespace PetelApp.Api.Controllers
 
             // No way to resolve schoolYearId
             return (null, null, "School year ID or Hebrew year must be provided.");
+        }
+
+
+        /// <summary>
+        /// Preview file and get column headers for mapping
+        /// </summary>
+        [HttpPost("preview")]
+        [RequestSizeLimit(10_000_000)]
+        public async Task<IActionResult> PreviewFile([FromForm] IFormFile file)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+            {
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+            }
+
+            if (file == null || file.Length == 0)
+                return BadRequest(new { success = false, message = "No file uploaded." });
+
+            try
+            {
+                var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+                var headers = new List<string>();
+
+                using var stream = file.OpenReadStream();
+
+                if (ext == ".csv")
+                {
+                    using var reader = new StreamReader(stream);
+                    using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+                    csv.Read();
+                    csv.ReadHeader();
+                    headers = csv.HeaderRecord?.ToList() ?? new List<string>();
+                }
+                else if (ext == ".xls" || ext == ".xlsx")
+                {
+                    using var workbook = new XLWorkbook(stream);
+                    var worksheet = workbook.Worksheets.First();
+                    var firstRow = worksheet.FirstRowUsed();
+                            if (firstRow == null || firstRow.CellsUsed().Count() == 0)
+                                   return BadRequest(new 
+        { 
+            success = false, 
+            message = "לא נמצאו נתוני תלמידים תקינים בקובץ או הקובץ ריק" 
+        });
+                    headers = firstRow.CellsUsed()
+                        .Select(cell => cell.Value.ToString()?.Trim() ?? "")
+                        .ToList();
+                }
+                else
+                {
+                    return BadRequest(new { success = false, message = "Unsupported file format. Please use CSV, XLS, or XLSX." });
+                }
+
+                // Generate suggested mappings
+                var suggestedMappings = GenerateSuggestedMappings(headers);
+
+                return Ok(new
+                {
+                    success = true,
+                    headers = headers,
+                    suggestedMappings = suggestedMappings,
+                    availableFields = GetAvailableStudentFields()
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error previewing file");
+                return StatusCode(500, new { success = false, message = "Error reading file: " + ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Generate suggested field mappings based on header names
+        /// </summary>
+        private Dictionary<string, string> GenerateSuggestedMappings(List<string> headers)
+        {
+            var mappings = new Dictionary<string, string>();
+            var fieldMappings = new Dictionary<string, string[]>
+            {
+                { "id_number", new[] { "תעודת זהות", "ת.ז", "תז", "מספר זהות", "id", "id_number", "מזהה" } },
+                { "first_name", new[] { "שם פרטי", "שם", "first_name", "firstname", "שם התלמיד" } },
+                { "last_name", new[] { "שם משפחה", "משפחה", "last_name", "lastname", "שם משפחת התלמיד" } },
+                { "gender", new[] { "מין", "gender", "מגדר" } },
+                { "class", new[] { "כיתה", "class", "שם כיתה", "כיתה שם" } },
+                { "class_level", new[] { "שכבה", "רמה", "level", "class_level", "מס' שכבה" } },
+                { "class_number", new[] { "מספר כיתה", "class_number", "מס' כיתה" } },
+                { "start_date", new[] { "תאריך התחלה", "התחלה", "start_date", "start", "תאריך כניסה" } },
+                { "end_date", new[] { "תאריך סיום", "סיום", "end_date", "end", "תאריך יציאה" } },
+                { "disability_category", new[] { "קטגוריית נכות", "נכות", "disability", "disability_category", "קטגוריה" } },
+                { "street", new[] { "רחוב", "street", "שם רחוב" } },
+                { "house_number", new[] { "מספר בית", "בית", "house_number", "מס' בית" } },
+                { "city", new[] { "עיר", "city", "יישוב" } },
+                { "post_code", new[] { "מיקוד", "postcode", "post_code", "מספר מיקוד" } },
+                { "sending_counsil", new[] { "רשות שולחת", "מועצה", "council", "sending_counsil", "רשות" } }
+            };
+
+            foreach (var header in headers)
+            {
+                var normalizedHeader = header.Trim().ToLower();
+
+                foreach (var field in fieldMappings)
+                {
+                    if (field.Value.Any(pattern =>
+                        normalizedHeader.Contains(pattern.ToLower()) ||
+                        pattern.ToLower().Contains(normalizedHeader)))
+                    {
+                        mappings[header] = field.Key;
+                        break;
+                    }
+                }
+            }
+
+            return mappings;
+        }
+
+        /// <summary>
+        /// Get list of available student fields for mapping
+        /// </summary>
+        private Dictionary<string, string> GetAvailableStudentFields()
+        {
+            return new Dictionary<string, string>
+            {
+                { "id_number", "תעודת זהות" },
+                { "first_name", "שם פרטי" },
+                { "last_name", "שם משפחה" },
+                { "gender", "מין" },
+                { "class", "כיתה (שם מלא)" },
+                { "class_level", "שכבה" },
+                { "class_number", "מספר כיתה" },
+                { "start_date", "תאריך התחלה" },
+                { "end_date", "תאריך סיום" },
+                { "disability_category", "קטגוריית נכות" },
+                { "street", "רחוב" },
+                { "house_number", "מספר בית" },
+                { "city", "עיר" },
+                { "post_code", "מיקוד" },
+                { "sending_counsil", "רשות שולחת" },
+                { "ignore", "התעלם" }
+            };
         }
     }
 
