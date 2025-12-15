@@ -19,6 +19,7 @@
      */
     async function loadMenuItems() {
         console.log('📋 Loading menu items from backend...');
+            console.log('🔍 API URL:', AppConfig.getApiUrl('menu'));
 
         try {
             const authToken = sessionStorage.getItem('authToken');

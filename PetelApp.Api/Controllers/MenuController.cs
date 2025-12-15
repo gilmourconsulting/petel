@@ -64,23 +64,9 @@ namespace PetelApp.Api.Controllers
     
                     foreach (var menuItem in allMenuItems)
                     {
-                        // ✅ Menu items with null action_id are always visible (no security check)
-                        if (menuItem.ActionId == null)
-                        {
-                            _logger.LogDebug("Menu item '{Name}' has no action restriction (visible to all)", menuItem.Name);
-                            
-                            filteredMenuItems.Add(new
-                            {
-                                id = menuItem.Id,
-                                name = menuItem.Name,
-                                reference = menuItem.Reference,
-                                text = menuItem.Text,
-                                sortOrder = menuItem.SortOrder
-                            });
-                            continue;
-                        }
+
     
-                        // ✅ Check authorization for menu items with action_id
+
                         // Use the menu item NAME as the action identifier
                         var hasPermission = await _actionAuthService.VerifyMenuItemAccessAsync(userId, menuItem.Name);
     
