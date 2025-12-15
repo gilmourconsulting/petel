@@ -163,6 +163,19 @@ _logger.LogInformation("Extracted {Count} role IDs: {RoleIds}",
                 _logger.LogInformation("User {Username} (ID: {UserId}) logged in successfully to entity {EntityId}",
                     loginRequest.Username, user.Id, user.EntityId);
 
+                // After password verification:
+                if (user.OtpEnabled && user.OtpVerified)
+                {
+                    // Return requires OTP
+                    return new LoginResponseDto
+                    {
+                        Success = false,
+                        RequiresOtp = true,
+                        TempToken = GenerateTempToken(user.Id),
+                        Message = "נדרש קוד אימות דו-שלבי"
+                    };
+                }
+
                 // Return token only (Frontend Token-Only Storage pattern)
                 return new LoginResponseDto
                 {
@@ -233,6 +246,17 @@ _logger.LogInformation("Extracted {Count} role IDs: {RoleIds}",
                 return null;
 
             return user;
+        }
+
+                /// <summary>
+        /// Generate temporary token for OTP verification
+        /// </summary>
+        private string GenerateTempToken(int userId)
+        {
+            // Simple temporary token: userId + timestamp + random guid
+            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var guid = Guid.NewGuid().ToString("N");
+            return $"{userId}_{timestamp}_{guid}";
         }
     }
 }

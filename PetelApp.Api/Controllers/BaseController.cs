@@ -17,7 +17,7 @@ namespace PetelApp.Api.Controllers
         // Constructor to allow controllers to pass their ILogger<T> and the shared UserSessionService
         public BaseController(UserSessionService userSessionService, ILogger logger)
         {
-            _userSession_service_check:
+            //_userSession_service_check:
             _userSessionService = userSessionService;
             _logger = logger;
         }

@@ -24,6 +24,9 @@ namespace PetelApp.Api.DTOs
         
         public UserDto? User { get; set; }
         public EntityDto? Entity { get; set; }
+
+        public bool RequiresOtp { get; set; }
+        public string? TempToken { get; set; }
     }
     
     /// <summary>

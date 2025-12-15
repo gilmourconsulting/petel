@@ -49,6 +49,15 @@ namespace PetelApp.Api.Data
         [Column("updated_at")]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+        [Column("otp_secret")]
+        public string? OtpSecret { get; set; }
+
+        [Column("otp_enabled")]
+        public bool OtpEnabled { get; set; } = false;
+
+        [Column("otp_verified")]
+        public bool OtpVerified { get; set; } = false;
+
         // Navigation properties following Entity-Based Request Flow
         public virtual Entity Entity { get; set; } = null!;
         public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();

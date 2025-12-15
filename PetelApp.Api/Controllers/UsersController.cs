@@ -370,6 +370,257 @@ namespace PetelApp.Api.Controllers
                 });
             }
         }
+
+        /// <summary>
+        /// Get roles for a specific user
+        /// </summary>
+        [HttpGet("{id}/roles")]
+        public async Task<IActionResult> GetUserRoles(int id)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                if (!int.TryParse(session.EntityId, out int sessionEntityId))
+                {
+                    return BadRequest(new { success = false, message = "מזהה ישות לא תקין בסשן" });
+                }
+
+                var user = await _context.Users
+                    .Where(u => u.Id == id)// && u.EntityId == sessionEntityId)
+                    .FirstOrDefaultAsync();
+
+                if (user == null)
+                {
+                    return NotFound(new { success = false, message = "משתמש לא נמצא" });
+                }
+
+                var roles = await _context.UserRoles
+                    .AsNoTracking()
+                    .Where(ur => ur.UserId == id && ur.IsActive)
+                    .Include(ur => ur.Role)
+                    .Select(ur => new
+                    {
+                        ur.Role!.Id,
+                        ur.Role.Name,
+                        ur.CreatedAt
+                    })
+                    .OrderBy(r => r.Name)
+                    .ToListAsync();
+
+                return Ok(new { success = true, data = roles });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading roles for user {UserId}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בטעינת תפקידי המשתמש",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Add role to user
+        /// </summary>
+        [HttpPost("{id}/roles")]
+        public async Task<IActionResult> AddRoleToUser(int id, [FromBody] AddRoleToUserRequest request)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                if (!int.TryParse(session.EntityId, out int sessionEntityId))
+                {
+                    return BadRequest(new { success = false, message = "מזהה ישות לא תקין בסשן" });
+                }
+
+                var user = await _context.Users
+                    .Where(u => u.Id == id )//&& u.EntityId == sessionEntityId)
+                    .FirstOrDefaultAsync();
+
+                if (user == null)
+                {
+                    return NotFound(new { success = false, message = "משתמש לא נמצא" });
+                }
+
+                // Check if role exists
+                var roleExists = await _context.Roles.AnyAsync(r => r.Id == request.RoleId);
+                if (!roleExists)
+                {
+                    return NotFound(new { success = false, message = "תפקיד לא נמצא" });
+                }
+
+                // Check if user already has this role
+                var existingUserRole = await _context.UserRoles
+                    .FirstOrDefaultAsync(ur => ur.UserId == id && ur.RoleId == request.RoleId);
+
+                if (existingUserRole != null)
+                {
+                    if (existingUserRole.IsActive)
+                    {
+                        return BadRequest(new { success = false, message = "משתמש כבר משויך לתפקיד זה" });
+                    }
+                    else
+                    {
+                        // Re-activate existing role
+                        existingUserRole.IsActive = true;
+                        existingUserRole.UpdatedAt = DateTime.UtcNow;
+                        existingUserRole.UpdateUserId = int.Parse(session.UserId);
+                    }
+                }
+                else
+                {
+                    // Create new user-role assignment
+                    var userRole = new UserRole
+                    {
+                        UserId = id,
+                        RoleId = request.RoleId,
+                        IsActive = true,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow,
+                        UpdateUserId = int.Parse(session.UserId)
+                    };
+
+                    _context.UserRoles.Add(userRole);
+                }
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Added role {RoleId} to user {UserId}", request.RoleId, id);
+
+                return Ok(new { success = true, message = "התפקיד נוסף למשתמש בהצלחה" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding role to user {UserId}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בהוספת התפקיד למשתמש",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Remove role from user
+        /// </summary>
+        [HttpDelete("{id}/roles/{roleId}")]
+        public async Task<IActionResult> RemoveRoleFromUser(int id, int roleId)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                if (!int.TryParse(session.EntityId, out int sessionEntityId))
+                {
+                    return BadRequest(new { success = false, message = "מזהה ישות לא תקין בסשן" });
+                }
+
+                var user = await _context.Users
+                    .Where(u => u.Id == id && u.EntityId == sessionEntityId)
+                    .FirstOrDefaultAsync();
+
+                if (user == null)
+                {
+                    return NotFound(new { success = false, message = "משתמש לא נמצא" });
+                }
+
+                var userRole = await _context.UserRoles
+                    .FirstOrDefaultAsync(ur => ur.UserId == id && ur.RoleId == roleId && ur.IsActive);
+
+                if (userRole == null)
+                {
+                    return NotFound(new { success = false, message = "משתמש לא משויך לתפקיד זה" });
+                }
+
+                // Soft delete - set IsActive to false
+                userRole.IsActive = false;
+                userRole.UpdatedAt = DateTime.UtcNow;
+                userRole.UpdateUserId = int.Parse(session.UserId);
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Removed role {RoleId} from user {UserId}", roleId, id);
+
+                return Ok(new { success = true, message = "התפקיד הוסר מהמשתמש בהצלחה" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error removing role from user {UserId}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בהסרת התפקיד מהמשתמש",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Get all available roles (for adding to user)
+        /// </summary>
+        [HttpGet("available-roles")]
+        public async Task<IActionResult> GetAvailableRoles([FromQuery] int? userId = null)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                var query = _context.Roles.AsNoTracking();
+
+                // If userId provided, exclude roles already assigned to that user
+                if (userId.HasValue)
+                {
+                    var assignedRoleIds = await _context.UserRoles
+                        .Where(ur => ur.UserId == userId.Value && ur.IsActive)
+                        .Select(ur => ur.RoleId)
+                        .ToListAsync();
+
+                    query = query.Where(r => !assignedRoleIds.Contains(r.Id));
+                }
+
+                var roles = await query
+                    .Select(r => new
+                    {
+                        r.Id,
+                        r.Name
+                    })
+                    .OrderBy(r => r.Name)
+                    .ToListAsync();
+
+                return Ok(new { success = true, data = roles });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading available roles");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בטעינת רשימת התפקידים",
+                    error = ex.Message
+                });
+            }
+        }
     }
 
     /// <summary>
@@ -395,5 +646,13 @@ namespace PetelApp.Api.Controllers
         public string? Email { get; set; }
         public string? Phone { get; set; }
         public bool? IsActive { get; set; }
+    }
+
+    /// <summary>
+    /// Request model for adding role to user
+    /// </summary>
+    public class AddRoleToUserRequest
+    {
+        public int RoleId { get; set; }
     }
 }

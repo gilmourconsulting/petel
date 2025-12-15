@@ -7,6 +7,7 @@ const ENV_CONFIG = window.ENV_CONFIG || {
 const AppConfig = {
     apiBaseUrl: ENV_CONFIG.API_BASE_URL, // ✅ Use from environment
     environment: ENV_CONFIG.ENVIRONMENT,
+    otpEnabled: ENV_CONFIG.OTP_ENABLED,
     
     /**
      * Get full API URL for endpoint

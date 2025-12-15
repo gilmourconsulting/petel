@@ -85,6 +85,28 @@
         <div class="form-footer">
             מערכת ניהול - גרסה <span id="systemVersion">טוען...</span>
         </div>
+
+        <!-- OTP Modal -->
+        <div class="modal-overlay" id="otpModalOverlay" style="display: none;">
+            <div class="modal-content otp-modal">
+                <div class="modal-header">
+                    <h2>אימות דו-שלבי</h2>
+                    <p class="modal-subtitle">הזן את קוד האימות מאפליקציית האימות שלך</p>
+                </div>
+                <div class="modal-body">
+                    <div class="otp-input-container">
+                        <input type="text" id="otpCode" class="otp-input" maxlength="6" pattern="[0-9]{6}"
+                            placeholder="000000" autocomplete="off" inputmode="numeric">
+                        <small>הזן 6 ספרות מאפליקציית האימות</small>
+                    </div>
+                    <div class="otp-error" id="otpError" style="display: none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="cancelOtpVerification()">ביטול</button>
+                    <button type="button" class="btn-primary" id="verifyOtpButton" onclick="verifyOtp()">אמת</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -254,6 +276,7 @@
 
         // Initialize autocomplete
         let entityAutocomplete;
+        let tempToken = null;
 
         // Elements
         const entitySelect = document.getElementById('entity');
@@ -275,6 +298,25 @@
             // Listen for entity selection
             document.getElementById('entityAutocomplete').addEventListener('entitySelected', (e) => {
                 handleEntitySelection(e.detail.id);
+            });
+
+            //  Auto-focus OTP input and handle input
+            const otpInput = document.getElementById('otpCode');
+            otpInput.addEventListener('input', (e) => {
+                // Only allow digits
+                e.target.value = e.target.value.replace(/[^0-9]/g, '');
+
+                // Auto-submit when 6 digits entered
+                if (e.target.value.length === 6) {
+                    setTimeout(() => verifyOtp(), 300);
+                }
+            });
+
+            //  Enter key in OTP input
+            otpInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && otpInput.value.length === 6) {
+                    verifyOtp();
+                }
             });
 
 
@@ -527,10 +569,17 @@
                     }
                 }
 
-                if (data.success && data.token) {
-                    // ✅ Store ONLY auth token (Frontend Token-Only Storage pattern)
-                    sessionStorage.setItem('authToken', data.token);
+                // Check if OTP is required
+                if (data.requiresOtp) {
+                    console.log('OTP required for this user');
+                    tempToken = data.tempToken;
+                    showOtpModal();
+                    return;
+                }
 
+                // ✅ Standard login success (no OTP or OTP disabled)
+                if (data.success && data.token) {
+                    sessionStorage.setItem('authToken', data.token);
                     console.log('Login successful, token stored, redirecting to dashboard');
                     window.location.href = 'index.html';
                 } else {
@@ -549,6 +598,104 @@
                 loginButton.innerHTML = 'התחבר';
             }
         });
+
+                //Show OTP modal
+        function showOtpModal() {
+            const modal = document.getElementById('otpModalOverlay');
+            modal.style.display = 'flex';
+            
+            // Clear and focus OTP input
+            const otpInput = document.getElementById('otpCode');
+            otpInput.value = '';
+            setTimeout(() => otpInput.focus(), 100);
+
+            // Hide any previous errors
+            document.getElementById('otpError').style.display = 'none';
+        }
+
+        // Hide OTP modal
+        function hideOtpModal() {
+            document.getElementById('otpModalOverlay').style.display = 'none';
+            document.getElementById('otpCode').value = '';
+            document.getElementById('otpError').style.display = 'none';
+        }
+
+        // Cancel OTP verification
+        function cancelOtpVerification() {
+            hideOtpModal();
+            tempToken = null;
+            
+            // Reset steps
+            document.getElementById('step3').classList.remove('active');
+            document.getElementById('step2').classList.add('active');
+            
+            // Focus back to password
+            document.getElementById('password').focus();
+        }
+
+        // Verify OTP code
+        async function verifyOtp() {
+            const otpCode = document.getElementById('otpCode').value.trim();
+            const otpError = document.getElementById('otpError');
+            const verifyButton = document.getElementById('verifyOtpButton');
+
+            // Validate OTP format
+            if (!/^\d{6}$/.test(otpCode)) {
+                otpError.textContent = 'יש להזין 6 ספרות בדיוק';
+                otpError.style.display = 'block';
+                return;
+            }
+
+            verifyButton.disabled = true;
+            verifyButton.textContent = 'מאמת...';
+            otpError.style.display = 'none';
+
+            try {
+                const response = await fetch(AppConfig.getApiUrl('otp/verify-login'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        tempToken: tempToken,
+                        otpCode: otpCode
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok || !data.success) {
+                    throw new Error(data.message || 'קוד אימות שגוי');
+                }
+
+                // ✅ OTP verified successfully
+                console.log('OTP verified, completing login');
+                sessionStorage.setItem('authToken', data.token);
+                
+                // Show success briefly before redirect
+                otpError.style.display = 'block';
+                otpError.style.backgroundColor = '#d4edda';
+                otpError.style.borderColor = '#c3e6cb';
+                otpError.style.color = '#155724';
+                otpError.textContent = '✓ אומת בהצלחה!';
+                
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 500);
+
+            } catch (error) {
+                console.error('OTP verification error:', error);
+                otpError.textContent = error.message || 'קוד אימות שגוי. אנא נסה שוב.';
+                otpError.style.display = 'block';
+                
+                // Clear input and focus
+                document.getElementById('otpCode').value = '';
+                document.getElementById('otpCode').focus();
+            } finally {
+                verifyButton.disabled = false;
+                verifyButton.textContent = 'אמת';
+            }
+        }
     </script>
 </body>
 
