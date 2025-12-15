@@ -113,6 +113,13 @@ window.PageLifecycleConfig = {
             title: 'פרטי תפקיד',
             cleanup: 'cleanupRoleDetailsPage',
             init: 'loadRoleDetails'
+        },
+        'sessions': {
+            file: 'sessions.html',
+            title: 'משתמשים פעילים',
+            cleanup: null,
+            init: null,
+            selfInitializing: true
         }
     },
 
