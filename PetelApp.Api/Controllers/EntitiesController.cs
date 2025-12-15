@@ -658,6 +658,136 @@ private static bool IsAllZeros(string value)
             }
         }
 
+/// <summary>
+/// Get filtered entities for owner dropdown based on user permissions
+/// - Admin (userId = 1): All active entities with types 2,3,5,6
+/// - School entity (types 1,4): Only current entity (locked dropdown)
+/// - Network entity (types 2,3,5,6): Only networks owned by current entity
+/// Used by: school creation modal, entity details editing
+/// </summary>
+[HttpGet("owner-options")]
+public async Task<IActionResult> GetOwnerOptions()
+{
+    try
+    {
+        var session = GetCurrentSession();
+        if (session == null)
+        {
+            _logger.LogWarning("No session found for owner options request");
+            return Unauthorized(new { success = false, message = "נדרש אימות" });
+        }
+
+        if (!int.TryParse(session.EntityId, out int sessionEntityId))
+        {
+            _logger.LogError("Invalid EntityId in session: {EntityId}", session.EntityId);
+            return BadRequest(new { success = false, message = "Invalid session entity ID" });
+        }
+
+        if (!int.TryParse(session.EntityTypeId, out int entityTypeId))
+        {
+            _logger.LogError("Invalid EntityTypeId in session: {EntityTypeId}", session.EntityTypeId);
+            return BadRequest(new { success = false, message = "Invalid entity type ID" });
+        }
+
+        bool isAdmin = session.UserId == "1";
+        
+        _logger.LogInformation("GetOwnerOptions - UserId: {UserId}, IsAdmin: {IsAdmin}, EntityId: {EntityId}, EntityTypeId: {EntityTypeId}", 
+            session.UserId, isAdmin, sessionEntityId, entityTypeId);
+
+        List<object> ownerOptions;
+        bool isLocked = false;
+
+        if (isAdmin)
+        {
+            // Admin: Return all active entities with network types (2,3,5,6)
+            var allowedTypes = new[] { 2, 3, 5, 6 };
+            
+            ownerOptions = await _context.Entities
+                .AsNoTracking()
+                .Where(e => e.IsActive && allowedTypes.Contains(e.EntityTypeId))
+                .OrderBy(e => e.Name)
+                .Select(e => new
+                {
+                    id = e.Id,
+                    name = e.Name,
+                    entityTypeId = e.EntityTypeId
+                })
+                .Cast<object>()
+                .ToListAsync();
+
+            _logger.LogInformation("Admin user: returning {Count} network entities", ownerOptions.Count);
+        }
+        else if (entityTypeId == 1 || entityTypeId == 4)
+        {
+            // School entity: Only return current entity (locked)
+            var currentEntity = await _context.Entities
+                .AsNoTracking()
+                .Where(e => e.Id == sessionEntityId)
+                .Select(e => new
+                {
+                    id = e.Id,
+                    name = e.Name,
+                    entityTypeId = e.EntityTypeId
+                })
+                .FirstOrDefaultAsync();
+
+            if (currentEntity == null)
+            {
+                return BadRequest(new { success = false, message = "גוף נוכחי לא נמצא" });
+            }
+
+            ownerOptions = new List<object> { currentEntity };
+            isLocked = true;
+            
+            _logger.LogInformation("School entity: returning locked current entity {EntityId}", sessionEntityId);
+        }
+        else if (entityTypeId == 2 || entityTypeId == 3 || entityTypeId == 5 || entityTypeId == 6)
+        {
+            // Network entity: Return networks owned by current entity (types 2,3,5,6)
+            var allowedTypes = new[] { 2, 3, 5, 6 };
+            
+            ownerOptions = await _context.Entities
+                .AsNoTracking()
+                .Where(e => e.IsActive && 
+                           e.OwnerId == sessionEntityId && 
+                           allowedTypes.Contains(e.EntityTypeId))
+                .OrderBy(e => e.Name)
+                .Select(e => new
+                {
+                    id = e.Id,
+                    name = e.Name,
+                    entityTypeId = e.EntityTypeId
+                })
+                .Cast<object>()
+                .ToListAsync();
+
+            _logger.LogInformation("Network entity: returning {Count} owned networks", ownerOptions.Count);
+        }
+        else
+        {
+            // Unknown entity type: return empty list
+            ownerOptions = new List<object>();
+            _logger.LogWarning("Unknown entity type {EntityTypeId}, returning empty list", entityTypeId);
+        }
+
+        return Ok(new
+        {
+            success = true,
+            ownerOptions = ownerOptions,
+            isLocked = isLocked
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error loading owner options");
+        return StatusCode(500, new
+        {
+            success = false,
+            message = "שגיאה בטעינת אפשרויות בעלים",
+            error = ex.Message
+        });
+    }
+}
         /// <summary>
         /// Get council summary by year - shows number of students and total requested amount per council
         /// </summary>

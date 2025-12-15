@@ -150,7 +150,7 @@ namespace PetelApp.Api.Controllers
         }
     
 
-        [HttpGet("owners")]
+      /*  [HttpGet("owners")]
         public async Task<IActionResult> GetPotentialOwners()
         {
             // Look up entities that are of entity type 2, 3, 5 or 6
@@ -160,7 +160,7 @@ namespace PetelApp.Api.Controllers
                 .OrderBy(e => e.Name)
                 .ToListAsync();
             return Ok(owners);
-        }
+        }*/
     }
 
 

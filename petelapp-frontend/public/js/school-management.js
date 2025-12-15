@@ -6,112 +6,139 @@
 
 if (typeof window.SchoolManagement === 'undefined') {
     window.SchoolManagement = class SchoolManagement {
-    constructor() {
-        this.modal = null;
-    }
+        constructor() {
+            this.modal = null;
+        }
 
-    /**
-     * Show add new school modal
-     */
-    async showAddSchoolModal() {
-        console.log('🚀 showAddSchoolModal called');
-        
-        try {
-            // Check auth token (only thing stored in frontend)
-            const authToken = sessionStorage.getItem('authToken');
-            console.log('🔑 Auth token check:', { exists: !!authToken });
-            
-            if (!authToken) {
-                console.error('❌ No auth token found');
-                alert('נדרשת התחברות למערכת');
-                return;
-            }
+        /**
+         * Show add new school modal
+         */
+        async showAddSchoolModal() {
+            console.log('🚀 showAddSchoolModal called');
 
-            // Get entity types for dropdown
-            const entityTypesUrl = AppConfig.getApiUrl('entities/entity-types');
-            console.log('🌐 Fetching entity types from:', entityTypesUrl);
-            
-            const entityTypesResponse = await fetch(entityTypesUrl, {
-                headers: {
-                    'Authorization': `Bearer ${authToken}`
-                }
-            });
+            try {
+                // Check auth token (only thing stored in frontend)
+                const authToken = sessionStorage.getItem('authToken');
+                console.log('🔑 Auth token check:', { exists: !!authToken });
 
-            console.log('📥 Entity types response:', {
-                status: entityTypesResponse.status,
-                ok: entityTypesResponse.ok
-            });
-
-            if (!entityTypesResponse.ok) {
-                const errorText = await entityTypesResponse.text();
-                console.error('❌ Entity types error:', errorText);
-                
-                if (entityTypesResponse.status === 401) {
-                    alert('פג תוקף ההתחברות. נא להתחבר מחדש.');
-                    if (typeof window.sessionManager !== 'undefined') {
-                        window.sessionManager.logout();
-                    }
+                if (!authToken) {
+                    console.error('❌ No auth token found');
+                    alert('נדרשת התחברות למערכת');
                     return;
                 }
-                
-                throw new Error(`Failed to load entity types: ${entityTypesResponse.status}`);
-            }
 
-            const entityTypes = await entityTypesResponse.json();
-            console.log('📋 Entity types loaded:', entityTypes);
+                // Get entity types for dropdown
+                const entityTypesUrl = AppConfig.getApiUrl('entities/entity-types');
+                console.log('🌐 Fetching entity types from:', entityTypesUrl);
 
-            if (!Array.isArray(entityTypes) || entityTypes.length === 0) {
-                console.warn('⚠️ No entity types returned');
-                alert('לא נמצאו סוגי גופים במערכת');
-                return;
-            }
+                const entityTypesResponse = await fetch(entityTypesUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
 
-            // Get all entities for owner dropdown
-            console.log('🏢 Loading entities...');
-            const entitiesUrl = AppConfig.getApiUrl('entities/login');
-            const entitiesResponse = await fetch(entitiesUrl);
-            
-            console.log('📥 Entities response:', {
-                status: entitiesResponse.status,
-                ok: entitiesResponse.ok
-            });
+                console.log('📥 Entity types response:', {
+                    status: entityTypesResponse.status,
+                    ok: entityTypesResponse.ok
+                });
 
-            if (!entitiesResponse.ok) {
-                const errorText = await entitiesResponse.text();
-                console.error('❌ Entities error:', errorText);
-                throw new Error(`Failed to load entities: ${entitiesResponse.status}`);
-            }
+                if (!entityTypesResponse.ok) {
+                    const errorText = await entityTypesResponse.text();
+                    console.error('❌ Entity types error:', errorText);
 
-            const entities = await entitiesResponse.json();
-            console.log('🏢 Entities loaded:', entities);
+                    if (entityTypesResponse.status === 401) {
+                        alert('פג תוקף ההתחברות. נא להתחבר מחדש.');
+                        if (typeof window.sessionManager !== 'undefined') {
+                            window.sessionManager.logout();
+                        }
+                        return;
+                    }
 
-            if (!Array.isArray(entities) || entities.length === 0) {
-                console.warn('⚠️ No entities returned');
-                alert('לא נמצאו גופים במערכת');
-                return;
-            }
+                    throw new Error(`Failed to load entity types: ${entityTypesResponse.status}`);
+                }
 
-            // ✅ CORRECT: Get current entity ID from backend session via SessionState
-            console.log('👤 Getting session info via SessionState...');
-            
-            if (typeof window.SessionState === 'undefined') {
-                console.error('❌ SessionState not available');
-                alert('שגיאה: מערכת הסשן לא זמינה');
-                return;
-            }
+                const entityTypes = await entityTypesResponse.json();
+                console.log('📋 Entity types loaded:', entityTypes);
 
-            // ✅ CORRECT: Get identity data from backend session
-         //   const sessionInfo = await window.SessionState.getSessionInfo();
-        //    console.log('✅ Session info retrieved:', sessionInfo);
+                if (!Array.isArray(entityTypes) || entityTypes.length === 0) {
+                    console.warn('⚠️ No entity types returned');
+                    alert('לא נמצאו סוגי גופים במערכת');
+                    return;
+                }
 
-            const sessionInfo = await window.SessionState.getSession();
-            console.log('✅ Session info retrieved:', sessionInfo);
+                // Get all entities for owner dropdown
+                console.log('🏢 Loading entities...');
+                const entitiesUrl = AppConfig.getApiUrl('entities/login');
+                const entitiesResponse = await fetch(entitiesUrl);
 
-            const currentEntityId = parseInt(sessionInfo.entityId);
-            console.log('👤 Current entity ID:', currentEntityId);
+                console.log('📥 Entities response:', {
+                    status: entitiesResponse.status,
+                    ok: entitiesResponse.ok
+                });
 
-            // Build modal HTML
-            const modalHtml = `
+                if (!entitiesResponse.ok) {
+                    const errorText = await entitiesResponse.text();
+                    console.error('❌ Entities error:', errorText);
+                    throw new Error(`Failed to load entities: ${entitiesResponse.status}`);
+                }
+
+                const entities = await entitiesResponse.json();
+                console.log('🏢 Entities loaded:', entities);
+
+                if (!Array.isArray(entities) || entities.length === 0) {
+                    console.warn('⚠️ No entities returned');
+                    alert('לא נמצאו גופים במערכת');
+                    return;
+                }
+
+                // Get filtered owner options based on user permissions
+                console.log('🏢 Loading owner options...');
+                const ownerOptionsUrl = AppConfig.getApiUrl('entities/owner-options');
+                const ownerOptionsResponse = await fetch(ownerOptionsUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                console.log('📥 Owner options response:', {
+                    status: ownerOptionsResponse.status,
+                    ok: ownerOptionsResponse.ok
+                });
+
+                if (!ownerOptionsResponse.ok) {
+                    const errorText = await ownerOptionsResponse.text();
+                    console.error('❌ Owner options error:', errorText);
+
+                    if (ownerOptionsResponse.status === 401) {
+                        alert('פג תוקף ההתחברות. נא להתחבר מחדש.');
+                        if (typeof window.sessionManager !== 'undefined') {
+                            window.sessionManager.logout();
+                        }
+                        return;
+                    }
+
+                    throw new Error(`Failed to load owner options: ${ownerOptionsResponse.status}`);
+                }
+
+                const ownerOptionsData = await ownerOptionsResponse.json();
+                console.log('🏢 Owner options loaded:', ownerOptionsData);
+
+                if (!ownerOptionsData.success || !Array.isArray(ownerOptionsData.ownerOptions) || ownerOptionsData.ownerOptions.length === 0) {
+                    console.warn('⚠️ No owner options returned');
+                    alert('לא נמצאו אפשרויות בעלים');
+                    return;
+                }
+
+                const ownerOptions = ownerOptionsData.ownerOptions;
+                const isLocked = ownerOptionsData.isLocked;
+
+                // Get session info for default selection
+                const sessionInfo = await window.SessionState.getSession();
+                const currentEntityId = parseInt(sessionInfo.entityId);
+                console.log('👤 Current entity ID:', currentEntityId);
+
+                // Build modal HTML
+                const modalHtml = `
                 <div class="modal-overlay" id="addSchoolModal">
                     <div class="modal-content" style="max-width: 500px;">
                         <div class="modal-header">
@@ -152,13 +179,15 @@ if (typeof window.SchoolManagement === 'undefined') {
                                     <select id="owner" 
                                             name="owner" 
                                             class="form-control" 
+                                            ${isLocked ? 'disabled' : ''}
                                             required>
-                                        ${entities.map(e => `
-                                            <option value="${e.id}" ${e.id === currentEntityId ? 'selected' : ''}>
+                                        ${ownerOptions.map(e => `
+                                            <option value="${e.id}" ${ownerOptions.length === 1 || e.id === currentEntityId ? 'selected' : ''}>
                                                 ${e.name}
                                             </option>
                                         `).join('')}
                                     </select>
+                                    ${isLocked ? '<p class="form-help-text" style="margin-top: 5px; font-size: 0.9em; color: #666;">הבעלות נעולה לגוף הנוכחי</p>' : ''}
                                 </div>
 
                                 <div class="form-actions" style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
@@ -178,164 +207,165 @@ if (typeof window.SchoolManagement === 'undefined') {
                 </div>
             `;
 
-            // Add modal to page
-            const modalContainer = document.createElement('div');
-            modalContainer.innerHTML = modalHtml;
-            document.body.appendChild(modalContainer.firstElementChild);
+                // Add modal to page
+                const modalContainer = document.createElement('div');
+                modalContainer.innerHTML = modalHtml;
+                document.body.appendChild(modalContainer.firstElementChild);
 
-            this.modal = document.getElementById('addSchoolModal');
+                this.modal = document.getElementById('addSchoolModal');
 
-            // Add form submit handler
-            document.getElementById('addSchoolForm').addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.handleAddSchool();
-            });
+                // Add form submit handler
+                document.getElementById('addSchoolForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleAddSchool();
+                });
 
-            // Focus on school name input
-            setTimeout(() => {
-                document.getElementById('schoolName').focus();
-            }, 100);
+                // Focus on school name input
+                setTimeout(() => {
+                    document.getElementById('schoolName').focus();
+                }, 100);
 
-            console.log('✅ Modal displayed successfully');
+                console.log('✅ Modal displayed successfully');
 
-        } catch (error) {
-            console.error('❌ Error showing add school modal:', error);
-            console.error('Error stack:', error.stack);
-            alert('שגיאה בטעינת טופס הוספת בית ספר:\n' + error.message);
+            } catch (error) {
+                console.error('❌ Error showing add school modal:', error);
+                console.error('Error stack:', error.stack);
+                alert('שגיאה בטעינת טופס הוספת בית ספר:\n' + error.message);
+            }
         }
-    }
 
-    /**
-     * Handle add school form submission
-     */
-    async handleAddSchool() {
-        console.log('📝 handleAddSchool called');
-        
-        try {
-            const form = document.getElementById('addSchoolForm');
-            const submitBtn = form.querySelector('button[type="submit"]');
-            
-            // Disable submit button
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'שומר...';
+        /**
+         * Handle add school form submission
+         */
+        async handleAddSchool() {
+            console.log('📝 handleAddSchool called');
 
-            // Get form values
-            const schoolName = document.getElementById('schoolName').value.trim();
-            const entityTypeId = parseInt(document.getElementById('entityTypeValue').value);
-            const ownerId = parseInt(document.getElementById('owner').value);
+            try {
+                const form = document.getElementById('addSchoolForm');
+                const submitBtn = form.querySelector('button[type="submit"]');
 
-            if (!schoolName) {
-                alert('נא להזין שם בית ספר');
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'אישור';
-                return;
-            }
+                // Disable submit button
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'שומר...';
 
-            console.log('📝 Creating school:', { schoolName, entityTypeId, ownerId });
+                // Get form values
+                const schoolName = document.getElementById('schoolName').value.trim();
+                const entityTypeId = parseInt(document.getElementById('entityTypeValue').value);
+                const ownerId = parseInt(document.getElementById('owner').value);
 
-            // Get auth token (only thing stored in frontend sessionStorage)
-            const authToken = sessionStorage.getItem('authToken');
-            console.log('🔑 Using auth token:', authToken ? 'present' : 'missing');
-
-            if (!authToken) {
-                alert('נדרשת התחברות למערכת');
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'אישור';
-                return;
-            }
-
-            const createUrl = AppConfig.getApiUrl('entities/create-school');
-            console.log('🌐 Calling:', createUrl);
-
-            // Call API to create school
-            const response = await fetch(createUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${authToken}`
-                },
-                body: JSON.stringify({
-                    name: schoolName,
-                    entityTypeId: entityTypeId,
-                    ownerId: ownerId
-                })
-            });
-
-            console.log('📥 Create school response:', {
-                status: response.status,
-                ok: response.ok
-            });
-
-            const result = await response.json();
-            console.log('📋 Create school result:', result);
-
-            if (response.ok && result.success) {
-                console.log('✅ School created successfully:', result.data);
-
-                // Close modal first
-                this.closeModal();
-
-                // Show success message
-                alert('בית הספר נוצר בהצלחה!');
-
-                // ✅ CORRECT: Clear session school properties using SessionState
-                console.log('🧹 Clearing session school properties...');
-                await window.SessionState.setProperty('SelectedSchoolId', '');
-                await window.SessionState.setProperty('SelectedSchoolName', '');
-                await window.SessionState.setProperty('SelectedSchoolType', '');
-                await window.SessionState.setProperty('SelectedSchoolOwner', '');
-                await window.SessionState.setProperty('SelectedSchoolYearId', '');
-
-                console.log('✅ Session school properties cleared');
-
-                // Reload school list
-                if (typeof window.loadSchoolsData === 'function') {
-                    console.log('🔄 Reloading school list...');
-                    await window.loadSchoolsData();
-                } else {
-                    console.warn('⚠️ loadSchoolsData function not found');
-                }
-
-            } else {
-                console.error('❌ Failed to create school:', result);
-                
-                // Check for auth error
-                if (response.status === 401) {
-                    alert('פג תוקף ההתחברות. נא להתחבר מחדש.');
-                    if (typeof window.sessionManager !== 'undefined') {
-                        window.sessionManager.logout();
-                    }
+                if (!schoolName) {
+                    alert('נא להזין שם בית ספר');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'אישור';
                     return;
                 }
-                
-                alert(result.message || 'שגיאה ביצירת בית הספר');
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'אישור';
-            }
 
-        } catch (error) {
-            console.error('❌ Error creating school:', error);
-            console.error('Error stack:', error.stack);
-            alert('שגיאה ביצירת בית הספר:\n' + error.message);
-            const submitBtn = document.getElementById('addSchoolForm')?.querySelector('button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'אישור';
+                console.log('📝 Creating school:', { schoolName, entityTypeId, ownerId });
+
+                // Get auth token (only thing stored in frontend sessionStorage)
+                const authToken = sessionStorage.getItem('authToken');
+                console.log('🔑 Using auth token:', authToken ? 'present' : 'missing');
+
+                if (!authToken) {
+                    alert('נדרשת התחברות למערכת');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'אישור';
+                    return;
+                }
+
+                const createUrl = AppConfig.getApiUrl('entities/create-school');
+                console.log('🌐 Calling:', createUrl);
+
+                // Call API to create school
+                const response = await fetch(createUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify({
+                        name: schoolName,
+                        entityTypeId: entityTypeId,
+                        ownerId: ownerId
+                    })
+                });
+
+                console.log('📥 Create school response:', {
+                    status: response.status,
+                    ok: response.ok
+                });
+
+                const result = await response.json();
+                console.log('📋 Create school result:', result);
+
+                if (response.ok && result.success) {
+                    console.log('✅ School created successfully:', result.data);
+
+                    // Close modal first
+                    this.closeModal();
+
+                    // Show success message
+                    alert('בית הספר נוצר בהצלחה!');
+
+                    // ✅ CORRECT: Clear session school properties using SessionState
+                    console.log('🧹 Clearing session school properties...');
+                    await window.SessionState.setProperty('SelectedSchoolId', '');
+                    await window.SessionState.setProperty('SelectedSchoolName', '');
+                    await window.SessionState.setProperty('SelectedSchoolType', '');
+                    await window.SessionState.setProperty('SelectedSchoolOwner', '');
+                    await window.SessionState.setProperty('SelectedSchoolYearId', '');
+
+                    console.log('✅ Session school properties cleared');
+
+                    // Reload school list
+                    if (typeof window.loadSchoolsData === 'function') {
+                        console.log('🔄 Reloading school list...');
+                        await window.loadSchoolsData();
+                    } else {
+                        console.warn('⚠️ loadSchoolsData function not found');
+                    }
+
+                } else {
+                    console.error('❌ Failed to create school:', result);
+
+                    // Check for auth error
+                    if (response.status === 401) {
+                        alert('פג תוקף ההתחברות. נא להתחבר מחדש.');
+                        if (typeof window.sessionManager !== 'undefined') {
+                            window.sessionManager.logout();
+                        }
+                        return;
+                    }
+
+                    alert(result.message || 'שגיאה ביצירת בית הספר');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'אישור';
+                }
+
+            } catch (error) {
+                console.error('❌ Error creating school:', error);
+                console.error('Error stack:', error.stack);
+                alert('שגיאה ביצירת בית הספר:\n' + error.message);
+                const submitBtn = document.getElementById('addSchoolForm')?.querySelector('button[type="submit"]');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'אישור';
+                }
+            }
+        }
+
+        /**
+         * Close and remove modal
+         */
+        closeModal() {
+            console.log('🔒 Closing modal');
+            if (this.modal) {
+                this.modal.remove();
+                this.modal = null;
             }
         }
     }
-
-    /**
-     * Close and remove modal
-     */
-    closeModal() {
-        console.log('🔒 Closing modal');
-        if (this.modal) {
-            this.modal.remove();
-            this.modal = null;
-        }
-    }
-}}
+}
 
 // Create global instance
 window.schoolManagement = new SchoolManagement();
