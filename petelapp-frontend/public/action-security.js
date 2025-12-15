@@ -191,7 +191,8 @@ window.ActionSecurity = {
                 .trim()
                 .replace(/window\./, '');
 
-            const match = cleaned.match(/^(\w+)/);
+          //  const match = cleaned.match(/^(\w+)/);
+            const match = cleaned.match(/^(?:\w+\.)?(\w+)/);
             return match ? match[1] : null;
         } catch (error) {
             console.error('Error extracting function name:', error);
