@@ -1754,3 +1754,103 @@ navigationRules: [
 **Problem**: `relation "table_name" does not exist` error
 
 **Solution**: Verify `HasDefaultSchema`
+
+### Collapsible Card Pattern
+
+**Standard Implementation**: All detail cards use consistent collapsible pattern with CSS-based animations.
+
+#### HTML Structure
+
+```html
+<div class="content-card">
+    <!-- Collapsible Card -->
+    <div class="detail-card collapsed">
+        <div class="detail-card-header">
+            <h2 class="detail-card-title">כותרת הכרטיס</h2>
+            <div class="card-header-actions">
+                <!-- Optional: Edit button -->
+                <button id="editBtn" class="btn-icon" onclick="event.stopPropagation();">
+                    <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                </button>
+                <!-- Optional: Add button (hidden when collapsed) -->
+                <button id="addBtn" class="btn-icon" onclick="event.stopPropagation(); showAddModal();" title="הוסף פריט" style="display: none;">
+                    <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
+                </button>
+                <!-- Required: Collapse toggle -->
+                <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+            </div>
+        </div>
+        <div class="detail-card-content">
+            <!-- Card content here -->
+        </div>
+    </div>
+</div>
+
+#### JavaScript Structure
+
+// Initialize collapsible cards (call once per page)
+function initializeCollapsibleCards() {
+    console.log('🎴 Initializing collapsible cards...');
+
+    document.querySelectorAll('.detail-card').forEach(card => {
+        const header = card.querySelector('.detail-card-header');
+        const toggle = card.querySelector('.collapse-toggle');
+
+        if (!header || !toggle) return;
+
+        // Prevent duplicate initialization
+        if (header.dataset.initialized === 'true') {
+            return;
+        }
+        header.dataset.initialized = 'true';
+
+        // Get action buttons
+        const addButton = card.querySelector('.btn-icon[id^="add"]');
+
+        // Hide add buttons initially (cards start collapsed)
+        if (addButton) addButton.style.display = 'none';
+
+        // Toggle button click handler
+        toggle.addEventListener('click', function (e) {
+            e.stopPropagation();
+            toggleCardExpansion(card, toggle, addButton);
+        });
+
+        // Header click handler (excluding buttons)
+        header.addEventListener('click', function (e) {
+            if (e.target.closest('.btn-icon')) {
+                return;
+            }
+            toggleCardExpansion(card, toggle, addButton);
+        });
+    });
+
+    console.log('✅ Collapsible cards initialized');
+}
+
+// Toggle card expansion
+function toggleCardExpansion(card, toggle, addButton) {
+    const isCollapsed = card.classList.contains('collapsed');
+
+    if (isCollapsed) {
+        // Expand
+        card.classList.remove('collapsed');
+        card.classList.add('expanded');
+        toggle.textContent = '×';
+
+        // Show add button when expanded
+        if (addButton) {
+            addButton.style.display = 'inline-flex';
+        }
+    } else {
+        // Collapse
+        card.classList.remove('expanded');
+        card.classList.add('collapsed');
+        toggle.textContent = '+';
+
+        // Hide add button when collapsed
+        if (addButton) {
+            addButton.style.display = 'none';
+        }
+    }
+}

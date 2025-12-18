@@ -12,40 +12,57 @@
 
     <!-- Main content -->
     <div class="students-content">
-        <!-- Year Selection Section -->
-        <div class="content-card" style="margin-bottom: 20px;">
+        <div class="content-card">
+            <!-- Year Selection Card -->
             <div class="detail-card">
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">בחירת שנה</h2>
+             <!--       <div class="card-header-actions">
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                    </div>-->
                 </div>
                 <div class="detail-card-content">
                     <div style="padding: 15px;">
-                        <label for="yearSelect" style="display: block; margin-bottom: 8px; font-weight: 600;">שנה
-                            עברית:</label>
+                        <label for="yearSelect" style="display: block; margin-bottom: 8px; font-weight: 600;">שנה עברית:</label>
                         <select id="yearSelect" onchange="handleYearChange()" style="
                                     padding: 8px 12px;
                                     border: 1px solid #dee2e6;
                                     border-radius: 4px;
                                     font-size: 14px;
+                                    width: 300px;
                                     direction: rtl;
-                                    min-width: 200px;
+                                    cursor: pointer;
                                 ">
-                            <option value="">בחר שנה...</option>
+                            <option value="">טוען...</option>
                         </select>
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Pricing Elements Section -->
-        <div class="content-card" id="pricingElementsCard" style="display: none; margin-bottom: 20px;">
-            <div class="detail-card">
+                     <!-- Document Types Card -->
+            <div class="detail-card collapsed" id="documentTypesCard" style="display: none;">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">סוגי מסמכים</h2>
+                    <div class="card-header-actions">
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                    </div>
+                </div>
+                <div class="detail-card-content">
+                    <div id="documentTypesTableContainer" class="table-container">
+                        <div class="loading-spinner">טוען...</div>
+                    </div>
+                </div>
+            </div>
+         
+            <!-- Pricing Elements Card -->
+            <div class="detail-card collapsed" id="pricingElementsCard" style="display: none;">
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">רכיבי תמחור</h2>
                     <div class="card-header-actions">
-                        <button class="btn-icon" onclick="showAddPricingElementModal()" title="הוסף רכיב תמחור">
+                        <button id="addPricingElementBtn" class="btn-icon" onclick="event.stopPropagation(); showAddPricingElementModal();" title="הוסף רכיב תמחור" style="display: none;">
                             <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
                         </button>
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
                     </div>
                 </div>
                 <div class="detail-card-content">
@@ -54,17 +71,18 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Pricing Categories Section -->
-        <div class="content-card" id="pricingCategoriesCard" style="display: none;">
-            <div class="detail-card">
+
+
+            <!-- Pricing Categories Card -->
+            <div class="detail-card collapsed" id="pricingCategoriesCard" style="display: none;">
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">קטגוריות תמחור - <span id="selectedElementName"></span></h2>
                     <div class="card-header-actions">
-                        <button class="btn-icon" onclick="showAddPricingCategoryModal()" title="הוסף קטגוריה">
+                        <button id="addPricingCategoryBtn" class="btn-icon" onclick="event.stopPropagation(); showAddPricingCategoryModal();" title="הוסף קטגוריה" style="display: none;">
                             <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
                         </button>
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
                     </div>
                 </div>
                 <div class="detail-card-content">
@@ -85,14 +103,89 @@
         selectedElementName: '',
         hebrewYears: [],
         pricingElements: [],
+        documentTypes: [],
         pricingCategories: []
     };
+
+    // Initialize collapsible cards
+    function initializeCollapsibleCards() {
+        console.log('🎴 Initializing collapsible cards for school year config...');
+
+        document.querySelectorAll('.detail-card').forEach(card => {
+            const header = card.querySelector('.detail-card-header');
+            const toggle = card.querySelector('.collapse-toggle');
+
+            if (!header || !toggle) return;
+
+            // Check if already initialized
+            if (header.dataset.initialized === 'true') {
+                console.log('⚠️ Card already initialized, skipping');
+                return;
+            }
+
+            // Mark as initialized
+            header.dataset.initialized = 'true';
+
+            // Get action buttons
+            const addButton = card.querySelector('.btn-icon[id^="add"]');
+
+            // Hide add buttons initially (cards start collapsed)
+            if (addButton) addButton.style.display = 'none';
+
+            // Toggle button click handler
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleCardExpansion(card, toggle, addButton);
+            });
+
+            // Header click handler (excluding buttons)
+            header.addEventListener('click', function (e) {
+                if (e.target.closest('.btn-icon')) {
+                    return;
+                }
+                toggleCardExpansion(card, toggle, addButton);
+            });
+        });
+
+        console.log('✅ Collapsible cards initialized');
+    }
+
+    // Toggle card expansion
+    function toggleCardExpansion(card, toggle, addButton) {
+        const isCollapsed = card.classList.contains('collapsed');
+
+        if (isCollapsed) {
+            // Expand
+            card.classList.remove('collapsed');
+            card.classList.add('expanded');
+            toggle.textContent = '×';
+
+            // Show add button when expanded
+            if (addButton) {
+                addButton.style.display = 'inline-flex';
+            }
+        } else {
+            // Collapse
+            card.classList.remove('expanded');
+            card.classList.add('collapsed');
+            toggle.textContent = '+';
+
+            // Hide add button when collapsed
+            if (addButton) {
+                addButton.style.display = 'none';
+            }
+        }
+    }
 
     // Initialize page
     async function initializeSchoolYearConfig() {
         console.log('🏗️ Initializing School Year Config page...');
 
         try {
+            // Initialize collapsible cards first
+            initializeCollapsibleCards();
+
+            // Load data
             await loadHebrewYears();
         } catch (error) {
             console.error('❌ Error initializing school year config:', error);
@@ -138,26 +231,37 @@
 
             console.log(`✅ Loaded ${years.length} Hebrew years`);
 
-            // If a year is selected (current year), automatically load its pricing elements
+            // If a year is selected (current year), automatically load its data
             if (currentYearId) {
                 console.log(`📌 Auto-selecting current year ID: ${currentYearId}`);
                 window.schoolYearConfigState.selectedYearId = parseInt(currentYearId);
                 document.getElementById('pricingElementsCard').style.display = 'block';
-                await loadPricingElements(parseInt(currentYearId));
+                document.getElementById('documentTypesCard').style.display = 'block';
+
+                // Initialize collapsible cards for newly shown cards
+                initializeCollapsibleCards();
+
+                // Load both pricing elements and document types in parallel
+                await Promise.all([
+                    loadPricingElements(parseInt(currentYearId)),
+                    loadDocumentTypes(parseInt(currentYearId))
+                ]);
             }
         } catch (error) {
             console.error('❌ Error loading Hebrew years:', error);
             alert('שגיאה בטעינת שנים עבריות');
         }
     }
+
     // Handle year selection change
     async function handleYearChange() {
         const yearSelect = document.getElementById('yearSelect');
         const selectedYearId = parseInt(yearSelect.value);
 
         if (!selectedYearId) {
-            // Hide both cards if no year selected
+            // Hide all cards if no year selected
             document.getElementById('pricingElementsCard').style.display = 'none';
+            document.getElementById('documentTypesCard').style.display = 'none';
             document.getElementById('pricingCategoriesCard').style.display = 'none';
             window.schoolYearConfigState.selectedYearId = null;
             window.schoolYearConfigState.selectedElementId = null;
@@ -167,12 +271,19 @@
         window.schoolYearConfigState.selectedYearId = selectedYearId;
         window.schoolYearConfigState.selectedElementId = null;
 
-        // Show pricing elements card
+        // Show pricing elements and document types cards
         document.getElementById('pricingElementsCard').style.display = 'block';
+        document.getElementById('documentTypesCard').style.display = 'block';
         document.getElementById('pricingCategoriesCard').style.display = 'none';
 
-        // Load pricing elements
-        await loadPricingElements(selectedYearId);
+        // Initialize collapsible cards for newly shown cards
+        initializeCollapsibleCards();
+
+        // Load both pricing elements and document types in parallel
+        await Promise.all([
+            loadPricingElements(selectedYearId),
+            loadDocumentTypes(selectedYearId)
+        ]);
     }
 
     // Load pricing elements for selected year
@@ -205,6 +316,36 @@
         }
     }
 
+    // Load document types for selected year
+    async function loadDocumentTypes(yearId) {
+        try {
+            console.log(`📋 Loading document types for year ${yearId}...`);
+
+            const container = document.getElementById('documentTypesTableContainer');
+            container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+
+            const response = await fetch(
+                AppConfig.getApiUrl(`documents/document-types/${yearId}`),
+                AppConfig.getDefaultFetchOptions()
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to load document types: ${response.status}`);
+            }
+
+            const documentTypes = await response.json();
+            window.schoolYearConfigState.documentTypes = documentTypes;
+
+            renderDocumentTypesTable(documentTypes);
+
+            console.log(`✅ Loaded ${documentTypes.length} document types`);
+        } catch (error) {
+            console.error('❌ Error loading document types:', error);
+            document.getElementById('documentTypesTableContainer').innerHTML =
+                '<div style="padding: 20px; text-align: center; color: #dc3545;">שגיאה בטעינת סוגי מסמכים</div>';
+        }
+    }
+
     // Render pricing elements table
     function renderPricingElementsTable(elements) {
         const container = document.getElementById('pricingElementsTableContainer');
@@ -230,17 +371,60 @@
 
         elements.forEach(element => {
             const createdAt = new Date(element.createdAt).toLocaleDateString('he-IL');
+            const description = element.description || '';
+            const name = element.name || '';
+            const title = element.title || '';
+            
             tableHtml += `
             <tr>
-                <td>${element.name}</td>
-                <td>${element.title}</td>
-                <td>${element.description || ''}</td>
+                <td>${name}</td>
+                <td>${title}</td>
+                <td>${description}</td>
                 <td>${createdAt}</td>
                 <td>
-                    <button class="btn-icon" onclick="selectPricingElement(${element.id}, '${element.name}')" title="הצג קטגוריות">
+                    <button class="btn-icon" onclick="selectPricingElement(${element.id}, '${name.replace(/'/g, "\\'")}')"; title="הצג קטגוריות">
                         <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
                     </button>
                 </td>
+            </tr>
+        `;
+        });
+
+        tableHtml += `
+            </tbody>
+        </table>
+    `;
+
+        container.innerHTML = tableHtml;
+    }
+
+    // Render document types table
+    function renderDocumentTypesTable(documentTypes) {
+        const container = document.getElementById('documentTypesTableContainer');
+
+        if (documentTypes.length === 0) {
+            container.innerHTML = '<div style="padding: 20px; text-align: center;">אין סוגי מסמכים לשנה זו</div>';
+            return;
+        }
+
+        let tableHtml = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>מזהה</th>
+                    <th>שם</th>
+                    <th>רמה</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+        documentTypes.forEach(dt => {
+            tableHtml += `
+            <tr>
+                <td>${dt.id}</td>
+                <td>${dt.name}</td>
+                <td>${dt.level}</td>
             </tr>
         `;
         });
@@ -262,6 +446,9 @@
 
         document.getElementById('selectedElementName').textContent = elementName;
         document.getElementById('pricingCategoriesCard').style.display = 'block';
+
+        // Initialize collapsible card for newly shown card
+        initializeCollapsibleCards();
 
         await loadPricingCategories(elementId);
     }
@@ -741,6 +928,7 @@
             selectedElementName: '',
             hebrewYears: [],
             pricingElements: [],
+            documentTypes: [],
             pricingCategories: []
         };
 
@@ -756,7 +944,4 @@
     window.showAddPricingCategoryModal = showAddPricingCategoryModal;
     window.editPricingCategory = editPricingCategory;
     window.deletePricingCategory = deletePricingCategory;
-
-    // Auto-initialize on load
-    //document.addEventListener('DOMContentLoaded', initializeSchoolYearConfig);
 </script>
