@@ -260,6 +260,48 @@ namespace PetelApp.Api.Controllers
             }
         }
 
+                /// <summary>
+        /// Get document types for selected year
+        /// </summary>
+        [HttpGet("document-types/{yearId}")]
+        public async Task<IActionResult> GetDocumentTypesByYear(int yearId)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+        
+                var documentTypes = await _context.DocumentTypes
+                    .AsNoTracking()
+                    .Where(dt => dt.YearId == yearId)
+                    .OrderBy(dt => dt.Name)
+                    .Select(dt => new
+                    {
+                        id = dt.Id,
+                        name = dt.Name,
+                        level = dt.Level,
+                        yearId = dt.YearId
+                    })
+                    .ToListAsync();
+        
+                _logger.LogInformation("Retrieved {Count} document types for year {YearId}", documentTypes.Count, yearId);
+                return Ok(documentTypes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving document types for year {YearId}", yearId);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בטעינת סוגי מסמכים",
+                    error = ex.Message
+                });
+            }
+        }
+
         /// <summary>
         /// Get document status types
         /// </summary>
