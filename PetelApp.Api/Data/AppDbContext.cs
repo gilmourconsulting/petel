@@ -82,6 +82,9 @@ namespace PetelApp.Api.Data
 
         public DbSet<SpecialNeedsPricingCategory> SpecialNeedsPricingCategories { get; set; }   
 
+        public DbSet<SignLanguageTranslator> SignLanguageTranslators { get; set; } = null!;
+
+
         public DbSet<ActionAuditLog> ActionAuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -386,6 +389,26 @@ modelBuilder.Entity<SpecialNeedsPricingCategory>(entity =>
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
+
+               // Sign Language Translators configuration
+    modelBuilder.Entity<SignLanguageTranslator>(entity =>
+    {
+        entity.ToTable("sign_language_translators");
+        
+        entity.HasOne(t => t.SchoolYear)
+            .WithMany()
+            .HasForeignKey(t => t.SchoolYearId)
+            .OnDelete(DeleteBehavior.Cascade);
+            
+        entity.HasOne(t => t.Person)
+            .WithMany()
+            .HasForeignKey(t => t.PersonId)
+            .OnDelete(DeleteBehavior.Restrict);
+            
+        entity.HasIndex(e => e.SchoolYearId);
+        entity.HasIndex(e => e.PersonId);
+        entity.HasIndex(e => new { e.SchoolYearId, e.PersonId }).IsUnique();
+    });
 
 
             modelBuilder.Entity<SchoolAdditionalStudyProgram>(entity =>

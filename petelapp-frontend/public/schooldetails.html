@@ -70,6 +70,27 @@
                 </div>
             </div>
 
+            <!-- Sign Language Translators Card (conditionally visible) -->
+            <div id="signLanguageTranslatorsCard" class="detail-card collapsed" style="display: none;">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">מתורגמני שפת סימנים</h2>
+                    <div class="card-header-actions">
+                        <button id="editTranslatorsBtn" class="btn-icon" onclick="event.stopPropagation();">
+                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                        </button>
+                        <button id="addTranslatorBtn" class="btn-icon"
+                            onclick="event.stopPropagation(); showAddTranslatorModal();" title="הוספת מתורגמן"
+                            style="display: none;">
+                            <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
+                        </button>
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                    </div>
+                </div>
+                <div class="detail-card-content" id="signLanguageTranslatorsContent">
+                    <!-- Content will be populated here -->
+                </div>
+            </div>
+
             <!-- School Tracks Card -->
             <div class="detail-card collapsed">
                 <div class="detail-card-header">
@@ -1056,6 +1077,8 @@
         // Store last attributes data for re-rendering
         window.lastSchoolAttributesData = window.lastSchoolAttributesData || [];
 
+
+
         // ✅ Simple flag - set to true when ANY field changes
         window.hasUnsavedAttributeChanges = false;
 
@@ -1152,6 +1175,505 @@
                 };
             });
         }
+
+        // ===================================================================
+        // Sign Language Translators Management Section
+        // ===================================================================
+
+        window.signLanguageTranslatorsEditMode = window.signLanguageTranslatorsEditMode || false;
+        window.lastSignLanguageTranslatorsData = window.lastSignLanguageTranslatorsData || [];
+
+        // Setup edit translators button
+        function setupEditTranslatorsButton() {
+            const editBtn = document.getElementById('editTranslatorsBtn');
+            const addBtn = document.getElementById('addTranslatorBtn');
+
+            if (editBtn) {
+                editBtn.onclick = function (event) {
+                    event.stopPropagation();
+                    window.signLanguageTranslatorsEditMode = !window.signLanguageTranslatorsEditMode;
+
+                    // Toggle actions column visibility
+                    const actionsColumn = document.querySelectorAll('#translatorsTableContainer [data-column="actions"]');
+                    actionsColumn.forEach(cell => {
+                        cell.style.display = window.signLanguageTranslatorsEditMode ? '' : 'none';
+                    });
+
+                    // Toggle add button ONLY if card is expanded
+                    if (addBtn) {
+                        const card = editBtn.closest('.detail-card');
+                        const isExpanded = card && card.classList.contains('expanded');
+                        addBtn.style.display = (window.signLanguageTranslatorsEditMode && isExpanded) ? 'inline-flex' : 'none';
+                    }
+
+                    console.log('✏️ Translators edit mode toggled:', window.signLanguageTranslatorsEditMode);
+                };
+                console.log('✅ Edit translators button initialized');
+            }
+        }
+
+        // Check if Sign Language Translator attribute is enabled
+        async function shouldShowTranslatorsCard() {
+            console.log('🔍 Checking if sign language translator attribute is enabled...');
+            console.log('📊 Current attributes:', window.lastSchoolAttributesData);
+
+            // Find attribute by name property (backend returns "name", not "attributeTypeName")
+            const signLangAttribute = window.lastSchoolAttributesData?.find(
+                attr => attr.name === 'Sign Language Translator'
+            );
+
+            console.log('🔍 Found Sign Language Translator attribute:', signLangAttribute);
+
+            // Check if value is 'true' (backend stores boolean as string)
+            const isEnabled = signLangAttribute &&
+                (signLangAttribute.value === 'true' ||
+                    signLangAttribute.value === '1' ||
+                    signLangAttribute.value === 'True');
+
+            console.log('✅ Sign language translator enabled:', isEnabled);
+
+            return isEnabled;
+        }
+
+        // Toggle visibility of translators card
+        async function toggleTranslatorsCardVisibility() {
+            console.log('🔄 Toggling translators card visibility...');
+
+            const card = document.getElementById('signLanguageTranslatorsCard');
+            if (!card) {
+                console.warn('⚠️ Translators card not found in DOM');
+                return;
+            }
+
+            const shouldShow = await shouldShowTranslatorsCard();
+
+            if (shouldShow) {
+                console.log('✅ Showing translators card');
+                card.style.display = 'block';
+                // Always load translators when showing
+                await loadSignLanguageTranslators();
+            } else {
+                console.log('❌ Hiding translators card');
+                card.style.display = 'none';
+            }
+        }
+
+        // Load sign language translators for current school year
+        async function loadSignLanguageTranslators() {
+            console.log('📚 Loading sign language translators...');
+
+            const container = document.getElementById('signLanguageTranslatorsContent');
+            if (!container) {
+                console.error('❌ signLanguageTranslatorsContent container not found');
+                return;
+            }
+
+            try {
+                const selectedSchoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
+
+                if (!selectedSchoolYearId) {
+                    console.error('❌ No school year ID in session');
+                    container.innerHTML = '<p style="color: #721c24; padding: 20px;">לא נמצא מזהה שנת לימודים</p>';
+                    return;
+                }
+
+                const authToken = sessionStorage.getItem('authToken');
+                if (!authToken) {
+                    console.error('❌ No auth token found');
+                    container.innerHTML = '<p style="color: #721c24; padding: 20px;">נדרש אימות. אנא התחבר מחדש.</p>';
+                    return;
+                }
+
+                container.innerHTML = '<p style="padding: 20px;">טוען מתורגמנים...</p>';
+
+                const apiUrl = AppConfig.getApiUrl(`signLanguageTranslators/by-school-year/${selectedSchoolYearId}`);
+                console.log('🌐 Making API call to:', apiUrl);
+
+                const response = await fetch(apiUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('📚 Translators received:', result);
+
+                    if (result.success && result.data) {
+                        displaySignLanguageTranslators(result.data);
+                    } else {
+                        throw new Error('Invalid response format');
+                    }
+                } else {
+                    const errorText = await response.text();
+                    console.error('❌ API Error:', response.status, errorText);
+                    container.innerHTML = `<p style="color: #721c24; padding: 20px;">שגיאה בטעינת מתורגמנים: ${response.status}</p>`;
+                }
+            } catch (error) {
+                console.error('💥 Exception in loadSignLanguageTranslators:', error);
+                container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה בטעינת מתורגמני שפת סימנים</p>';
+            }
+        }
+
+        // Display translators in table
+        function displaySignLanguageTranslators(translators) {
+            console.log('📚 Displaying sign language translators:', translators);
+
+            const container = document.getElementById('signLanguageTranslatorsContent');
+            if (!container) return;
+
+            window.lastSignLanguageTranslatorsData = translators || [];
+
+            container.innerHTML = '';
+
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = `<div id="translatorsTableContainer"></div>`;
+            container.appendChild(wrapper);
+
+            // ✅ Show message if no translators, but still show table structure
+            if (!translators || translators.length === 0) {
+                container.innerHTML = `
+            <div style="padding: 20px; text-align: center; color: #6c757d; direction: rtl;">
+                <p>לא הוגדרו מתורגמני שפת סימנים לשנת לימודים זו</p>
+                <p style="font-size: 0.9em; margin-top: 10px;">לחץ על כפתור העריכה ולאחר מכן על כפתור ההוספה כדי להוסיף מתורגמן</p>
+            </div>
+        `;
+                return;
+            }
+
+            const columns = [
+                { 
+                    key: 'nationalId', 
+                    label: 'תעודת זהות', 
+                    sortable: true, 
+                    readOnly: true },
+
+                {
+                    key: 'name',
+                    label: 'שם',
+                    sortable: true,
+                    readOnly: true,
+                    render: (data) => `${data.firstName} ${data.lastName}`
+                },
+                {
+                    key: 'hoursEmployed',
+                    label: 'מספר שעות',
+                    sortable: true,
+                    readOnly: false,
+                    render: (data) => data.hoursEmployed.toFixed(2)
+                },
+                {
+                    key: 'actions',
+                    label: 'פעולות',
+                    sortable: false,
+                    readOnly: true,
+                    render: (data) => `
+                        <div style="display: flex; gap: 8px; justify-content: center;">
+                            <button onclick="editTranslatorHours(${data.id})" class="btn-icon" title="עריכת שעות">
+                                <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                            </button>
+                            <button onclick="deleteTranslatorWithConfirmation(${data.id})" class="btn-icon" title="מחיקה">
+                                <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                            </button>
+                        </div>
+                    `
+                }
+            ];
+
+            try {
+                const tableContainer = document.getElementById('translatorsTableContainer');
+
+                if (window.translatorsTableInstance) {
+                    if (typeof window.translatorsTableInstance.cleanup === 'function') {
+                        window.translatorsTableInstance.cleanup();
+                    }
+                    window.translatorsTableInstance = null;
+                }
+
+                window.translatorsTableInstance = new ReusableTable('translatorsTableContainer', {
+                    tableName: 'translators',
+                    isReadOnly: true,
+                    allowAdd: false,
+                    allowEdit: false,
+                    allowDelete: false
+                });
+
+                window.translatorsTableInstance.init(translators, columns);
+
+                // Hide actions column initially
+                const actionsColumn = tableContainer.querySelectorAll('[data-column="actions"]');
+                actionsColumn.forEach(cell => {
+                    cell.style.display = 'none';
+                });
+
+                console.log('✅ Translators table displayed successfully');
+
+            } catch (error) {
+                console.error('❌ Error displaying translators table:', error);
+                container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה בהצגת טבלת מתורגמנים</p>';
+            }
+        }
+
+        // Show add translator modal
+        async function showAddTranslatorModal() {
+            console.log('➕ Opening add translator modal');
+
+            // Use PersonManagement to select/create person
+            window.PersonManagement.showPersonEditModal(
+                'signLanguageTranslator',
+                null,
+                async (personData) => {
+                    if (!personData) {
+                        console.log('❌ Person selection cancelled');
+                        return;
+                    }
+
+                    console.log('✅ Person selected:', personData);
+
+                    // Now prompt for hours
+                    showHoursInputModal(personData, null);
+                }
+            );
+        }
+
+        // Show hours input modal (for add or edit)
+        async function showHoursInputModal(personData, translatorId = null) {
+            const isEdit = translatorId !== null;
+            const title = isEdit ? 'עריכת שעות' : 'הוספת מתורגמן';
+
+            const existingHours = isEdit
+                ? window.lastSignLanguageTranslatorsData.find(t => t.id === translatorId)?.hoursEmployed || 0
+                : 0;
+
+            const overlay = document.createElement('div');
+            overlay.className = 'dialog-overlay';
+
+            const dialog = document.createElement('div');
+            dialog.className = 'dialog-box';
+            dialog.style.minWidth = '400px';
+
+            dialog.innerHTML = `
+                <h3 class="dialog-title">${title}</h3>
+                <div style="margin: 20px 0;">
+                    ${!isEdit ? `
+                        <div style="margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 4px; direction: rtl;">
+                            <div style="font-weight: 600; margin-bottom: 5px;">מתורגמן נבחר:</div>
+                            <div style="color: #495057;">${personData.firstName} ${personData.lastName}</div>
+                        </div>
+                    ` : ''}
+                    
+                    <div style="margin-bottom: 15px;">
+                        <label for="translatorHours" style="display: block; margin-bottom: 5px; font-weight: 600;">
+                            מספר שעות: *
+                        </label>
+                        <input type="number" 
+                               id="translatorHours" 
+                               placeholder="הזן מספר שעות"
+                               value="${existingHours}"
+                               min="0"
+                               step="0.5"
+                               style="
+                                   width: 100%;
+                                   padding: 8px;
+                                   border: 1px solid #dee2e6;
+                                   border-radius: 4px;
+                                   font-size: 14px;
+                                   direction: ltr;
+                                   text-align: right;
+                               ">
+                    </div>
+                </div>
+                <div class="dialog-buttons">
+                    <button id="hoursOkBtn" class="dialog-btn save">אישור</button>
+                    <button id="hoursCancelBtn" class="dialog-btn cancel">ביטול</button>
+                </div>
+            `;
+
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+
+            // OK button handler
+            document.getElementById('hoursOkBtn').onclick = async () => {
+                const hours = parseFloat(document.getElementById('translatorHours').value);
+
+                if (isNaN(hours) || hours <= 0) {
+                    alert('נא להזין מספר שעות תקין');
+                    return;
+                }
+
+                document.body.removeChild(overlay);
+
+                if (isEdit) {
+                    await updateTranslatorHours(translatorId, hours);
+                } else {
+                    await addTranslatorToDatabase(personData.id, hours);
+                }
+            };
+
+            // Cancel button
+            document.getElementById('hoursCancelBtn').onclick = () => {
+                document.body.removeChild(overlay);
+            };
+
+            // ESC key handler
+            const escHandler = (e) => {
+                if (e.key === 'Escape' && document.body.contains(overlay)) {
+                    document.body.removeChild(overlay);
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+
+            setTimeout(() => document.getElementById('translatorHours')?.focus(), 100);
+        }
+
+        // Add translator to database
+        async function addTranslatorToDatabase(personId, hours) {
+            console.log('💾 Adding translator to database:', { personId, hours });
+
+            try {
+                const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
+
+                if (!schoolYearId) {
+                    alert('לא נמצא מזהה שנת לימודים');
+                    return;
+                }
+
+                const response = await fetch(AppConfig.getApiUrl('signLanguageTranslators'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                        schoolYearId: parseInt(schoolYearId),
+                        personId: personId,
+                        hoursEmployed: hours
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    console.log('✅ Translator added successfully');
+                    alert('מתורגמן נוסף בהצלחה');
+                    await loadSignLanguageTranslators();
+                } else {
+                    console.error('❌ Error adding translator:', result);
+                    alert(result.message || 'שגיאה בהוספת מתורגמן');
+                }
+
+            } catch (error) {
+                console.error('❌ Exception adding translator:', error);
+                alert('שגיאה בהוספת מתורגמן');
+            }
+        }
+
+        // Edit translator hours
+        function editTranslatorHours(translatorId) {
+            console.log('✏️ Editing translator hours:', translatorId);
+
+            const translator = window.lastSignLanguageTranslatorsData.find(t => t.id === translatorId);
+            if (!translator) {
+                console.error('❌ Translator not found:', translatorId);
+                alert('מתורגמן לא נמצא');
+                return;
+            }
+
+            showHoursInputModal(null, translatorId);
+        }
+
+        // Update translator hours in database
+        async function updateTranslatorHours(translatorId, hours) {
+            console.log('💾 Updating translator hours:', { translatorId, hours });
+
+            try {
+                const response = await fetch(AppConfig.getApiUrl(`signLanguageTranslators/${translatorId}`), {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                        hoursEmployed: hours
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    console.log('✅ Translator hours updated successfully');
+                    alert('שעות עודכנו בהצלחה');
+                    await loadSignLanguageTranslators();
+                } else {
+                    console.error('❌ Error updating hours:', result);
+                    alert(result.message || 'שגיאה בעדכון שעות');
+                }
+
+            } catch (error) {
+                console.error('❌ Exception updating hours:', error);
+                alert('שגיאה בעדכון שעות');
+            }
+        }
+
+        // Delete translator with confirmation
+        async function deleteTranslatorWithConfirmation(translatorId) {
+            console.log('🗑️ Requesting delete confirmation for translator:', translatorId);
+
+            const translator = window.lastSignLanguageTranslatorsData.find(t => t.id === translatorId);
+            if (!translator) {
+                alert('מתורגמן לא נמצא');
+                return;
+            }
+
+            const confirmed = confirm(`האם למחוק את המתורגמן ${translator.firstName} ${translator.lastName}?`);
+
+            if (confirmed) {
+                await deleteTranslatorFromDatabase(translatorId);
+            }
+        }
+
+        // Delete translator from database
+        async function deleteTranslatorFromDatabase(translatorId) {
+            console.log('💾 Deleting translator from database:', translatorId);
+
+            try {
+                const response = await fetch(AppConfig.getApiUrl(`signLanguageTranslators/${translatorId}`), {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    }
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    console.log('✅ Translator deleted successfully');
+                    alert('מתורגמן הוסר בהצלחה');
+                    await loadSignLanguageTranslators();
+                } else {
+                    console.error('❌ Error deleting translator:', result);
+                    alert(result.message || 'שגיאה במחיקת מתורגמן');
+                }
+
+            } catch (error) {
+                console.error('❌ Exception deleting translator:', error);
+                alert('שגיאה במחיקת מתורגמן');
+            }
+        }
+
+        // Export functions to window
+        window.setupEditTranslatorsButton = setupEditTranslatorsButton;
+        window.shouldShowTranslatorsCard = shouldShowTranslatorsCard;
+        window.toggleTranslatorsCardVisibility = toggleTranslatorsCardVisibility;
+        window.loadSignLanguageTranslators = loadSignLanguageTranslators;
+        window.displaySignLanguageTranslators = displaySignLanguageTranslators;
+        window.showAddTranslatorModal = showAddTranslatorModal;
+        window.editTranslatorHours = editTranslatorHours;
+        window.deleteTranslatorWithConfirmation = deleteTranslatorWithConfirmation;
 
         // Show navigation warning dialog
         function showNavigationWarningDialog() {
@@ -1969,37 +2491,49 @@
         // Store councils for dropdown
         window.councils = window.councils || [];
 
-        // Initialize page following Critical Development Workflows
         async function initializeSchoolDetails() {
             console.log('🚀 Initializing school details page...');
 
             try {
+                // Load title following Project-Specific Patterns
+                await loadSchoolTitle();
 
+                // Initialize collapsible cards following Configuration Management
                 initializeCollapsibleCards();
 
                 // Load attribute types first
                 await loadAttributeTypes();
 
-                // Then load school title
-                await loadSchoolTitle();
-
-                // Setup edit button event listener
+                // Setup edit buttons following Entity-Based Request Flow
                 setupEditSchoolDetailsButton();
-                setupEditAttributesButton();
                 setupEditClassesButton();
+                setupEditAttributesButton();
                 setupEditTracksButton();
                 setupEditAdditionalStudyButton();
-                // Load all data sections
-                await loadSchoolDetailsData();
 
+                // ✅ NEW: Setup translators button
+                setupEditTranslatorsButton();
 
+                // Load all data sections following API Communication Pattern
+                await Promise.all([
+                    loadCharacterizations(),
+                    loadCouncils(),
+                    loadSchoolDetails(),
+                    loadSchoolClasses(),
+                    loadSchoolAttributes(),
+                    loadSchoolTracks(),
+                    loadSchoolAdditionalStudyPrograms(),
+                    loadSignLanguageTranslators()
+                ]);
+
+                // Check translator card visibility after attributes loaded
+                await toggleTranslatorsCardVisibility();
 
                 console.log('✅ School details page initialized successfully');
             } catch (error) {
-                console.error('💥 Error initializing school details:', error);
+                console.error('❌ Error initializing school details:', error);
             }
         }
-
 
         window.hasUnsavedSchoolDetailsChanges = false;
         window.originalSchoolDetailsData = null;
@@ -2176,6 +2710,9 @@
                 await loadSchoolDetails();
                 await loadSchoolClasses();
                 await loadSchoolAttributes();
+
+                setupEditTranslatorsButton();
+                await toggleTranslatorsCardVisibility();
                 await loadSchoolTracks();
                 await loadSchoolAdditionalStudyPrograms(); // ✅ REPLACE loadAdditionalStudyProgramTable with this
 
@@ -3232,6 +3769,9 @@
 
                     if (result.success && result.data) {
                         displaySchoolAttributes(result.data);
+
+                        // ✅ Check translator card visibility after loading attributes
+                        await toggleTranslatorsCardVisibility();
                     } else {
                         throw new Error('Invalid response format');
                     }
@@ -3391,14 +3931,35 @@
             // Update checkbox labels dynamically when changed
             document.querySelectorAll('.attribute-checkbox').forEach(checkbox => {
                 checkbox.addEventListener('change', function () {
+                    // Update label text
                     const label = this.nextElementSibling;
                     if (label && label.classList.contains('attribute-checkbox-label')) {
                         label.textContent = this.checked ? 'כן' : 'לא';
                     }
+
+                    // Check if this is the Sign Language Translator attribute
+                    const attrId = parseInt(this.dataset.attributeId);
+                    const attrType = window.schoolAttributeTypes.find(t => t.id === attrId);
+
+                    if (attrType && attrType.name === 'Sign Language Translator') {
+                        console.log('🔄 Sign Language Translator checkbox changed:', this.checked);
+
+                        // Update the stored attribute value IMMEDIATELY so shouldShowTranslatorsCard() can read it
+                        const existingAttr = window.lastSchoolAttributesData?.find(
+                            attr => attr.attributeTypeId === attrId
+                        );
+
+                        if (existingAttr) {
+                            existingAttr.value = this.checked ? 'true' : 'false';
+                        }
+
+                        // Trigger visibility check
+                        setTimeout(() => toggleTranslatorsCardVisibility(), 50);
+                    }
                 });
             });
 
-
+            setTimeout(() => toggleTranslatorsCardVisibility(), 100);
             console.log('✅ School attributes displayed (Edit mode:', isEditMode, ')');
         }
 
@@ -3465,6 +4026,10 @@
 
                     // Reload fresh data from server
                     await loadSchoolAttributes();
+
+                    // ✅ Update translator card visibility
+                    await toggleTranslatorsCardVisibility();
+
 
                     // Reset flags
                     window.hasUnsavedAttributeChanges = false;
@@ -3678,24 +4243,24 @@
                     readOnly: true,
                     render: (item) => `<span style="font-size: 0.9em; color: #6c757d;">v${item.version}</span>`
                 },
-    {
-        key: 'history',
-        label: 'היסטוריה',
-        sortable: false,
-        readOnly: true,
-        render: (item) => `
+                {
+                    key: 'history',
+                    label: 'היסטוריה',
+                    sortable: false,
+                    readOnly: true,
+                    render: (item) => `
             <button class="btn-icon" onclick="showProgramVersionHistory(${item.masterId || item.id})" title="היסטוריית גרסאות">
                 <img src="stats_icon.png" alt="היסטוריה" class="action-icon-natural">
             </button>
         `
-    },
-    // ✅ UPDATED: Actions column - ONLY edit and delete (hidden by default)
-    {
-        key: 'actions',
-        label: 'פעולות',
-        sortable: false,
-        readOnly: true,
-        render: (item) => `
+                },
+                // ✅ UPDATED: Actions column - ONLY edit and delete (hidden by default)
+                {
+                    key: 'actions',
+                    label: 'פעולות',
+                    sortable: false,
+                    readOnly: true,
+                    render: (item) => `
             <button class="btn-icon" onclick="showEditAdditionalStudyModal(${item.id})" title="עריכת תל״ן">
                 <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
             </button>
@@ -3703,7 +4268,7 @@
                 <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
             </button>
         `
-    }
+                }
             ];
 
             // Create ReusableTable

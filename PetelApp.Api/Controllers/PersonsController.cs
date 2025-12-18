@@ -79,6 +79,8 @@ namespace PetelApp.Api.Controllers
 
                 var person = new Person
                 {
+                    IdNumber = string.IsNullOrWhiteSpace(dto.IdNumber) ? "0" : dto.IdNumber,
+                    IdType = dto.IdType,
                     FirstName = dto.FirstName,
                     LastName = dto.LastName,
                     PhoneNumberPrefix = dto.PhoneNumberPrefix,
@@ -97,9 +99,14 @@ namespace PetelApp.Api.Controllers
                     message = "אדם נוצר בהצלחה",
                     data = new
                     {
-                        id = person.Id,
-                        firstName = person.FirstName,
-                        lastName = person.LastName
+                            id = person.Id,
+                            idNumber = person.IdNumber,
+                            idType = person.IdType,
+                            firstName = person.FirstName,
+                            lastName = person.LastName,
+                            phoneNumberPrefix = person.PhoneNumberPrefix,
+                            phoneNumber = person.PhoneNumber,
+                            email = person.Email
                     }
                 });
             }
@@ -136,6 +143,8 @@ namespace PetelApp.Api.Controllers
                 }
 
                 // Update only editable fields
+                person.IdNumber = string.IsNullOrWhiteSpace(dto.IdNumber) ? person.IdNumber : dto.IdNumber;
+                person.IdType = dto.IdType;
                 person.PhoneNumberPrefix = dto.PhoneNumberPrefix;
                 person.PhoneNumber = dto.PhoneNumber;
                 person.Email = dto.Email;
@@ -225,6 +234,8 @@ namespace PetelApp.Api.Controllers
 
     public class CreatePersonDto
     {
+        public string? IdNumber { get; set; }
+        public int IdType { get; set; } = 0;
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
         public string? PhoneNumberPrefix { get; set; }
@@ -237,7 +248,10 @@ namespace PetelApp.Api.Controllers
 
     public class UpdatePersonDto
     {
+
         public int Id { get; set; }
+        public string? IdNumber { get; set; }
+        public int IdType { get; set; } 
         public string? PhoneNumberPrefix { get; set; }
         public string? PhoneNumber { get; set; }
         public string? Email { get; set; }
