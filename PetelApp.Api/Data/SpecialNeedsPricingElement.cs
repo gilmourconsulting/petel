@@ -10,9 +10,35 @@ namespace PetelApp.Api.Data
         [Column("id")]
         public int Id { get; set; }
 
+        // ✅ Keep existing property name for backward compatibility
+        [Required]
         [Column("name")]
+        [MaxLength(50)]
         public string ElementName { get; set; } = string.Empty;
 
+        // ✅ Add missing columns from database
+        [Required]
+        [Column("year_id")]
+        public int YearId { get; set; }
 
+        [Required]
+        [Column("title")]
+        [MaxLength(25)]
+        public string Title { get; set; } = string.Empty;
+
+        [Column("description")]
+        public string? Description { get; set; }
+
+        [Column("user_id")]
+        public int? UserId { get; set; }
+
+        [Column("created_at")]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        // ✅ Navigation property to HebrewYear
+        public virtual HebrewYear? Year { get; set; }
+
+        // ✅ Collection navigation to categories
+        public virtual ICollection<SpecialNeedsPricingCategory> Categories { get; set; } = new List<SpecialNeedsPricingCategory>();
     }
 }

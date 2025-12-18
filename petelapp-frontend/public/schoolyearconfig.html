@@ -1,0 +1,762 @@
+<!-- petelapp-frontend/public/schoolyearconfig.html -->
+<!-- School Year Config Title Section -->
+<div class="school-title-section">
+    <h1 class="page-title">הגדרות שנת לימודים</h1>
+</div>
+
+<div class="students-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section screenwithtable-context">
+        <button class="context-btn" onclick="window.navigateTo('maindashboard')">חזרה ללוח בקרה</button>
+    </div>
+
+    <!-- Main content -->
+    <div class="students-content">
+        <!-- Year Selection Section -->
+        <div class="content-card" style="margin-bottom: 20px;">
+            <div class="detail-card">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">בחירת שנה</h2>
+                </div>
+                <div class="detail-card-content">
+                    <div style="padding: 15px;">
+                        <label for="yearSelect" style="display: block; margin-bottom: 8px; font-weight: 600;">שנה
+                            עברית:</label>
+                        <select id="yearSelect" onchange="handleYearChange()" style="
+                                    padding: 8px 12px;
+                                    border: 1px solid #dee2e6;
+                                    border-radius: 4px;
+                                    font-size: 14px;
+                                    direction: rtl;
+                                    min-width: 200px;
+                                ">
+                            <option value="">בחר שנה...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pricing Elements Section -->
+        <div class="content-card" id="pricingElementsCard" style="display: none; margin-bottom: 20px;">
+            <div class="detail-card">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">רכיבי תמחור</h2>
+                    <div class="card-header-actions">
+                        <button class="btn-icon" onclick="showAddPricingElementModal()" title="הוסף רכיב תמחור">
+                            <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
+                        </button>
+                    </div>
+                </div>
+                <div class="detail-card-content">
+                    <div id="pricingElementsTableContainer" class="table-container">
+                        <div class="loading-spinner">טוען...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pricing Categories Section -->
+        <div class="content-card" id="pricingCategoriesCard" style="display: none;">
+            <div class="detail-card">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">קטגוריות תמחור - <span id="selectedElementName"></span></h2>
+                    <div class="card-header-actions">
+                        <button class="btn-icon" onclick="showAddPricingCategoryModal()" title="הוסף קטגוריה">
+                            <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
+                        </button>
+                    </div>
+                </div>
+                <div class="detail-card-content">
+                    <div id="pricingCategoriesTableContainer" class="table-container">
+                        <div class="loading-spinner">טוען...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Global state
+    window.schoolYearConfigState = {
+        selectedYearId: null,
+        selectedElementId: null,
+        selectedElementName: '',
+        hebrewYears: [],
+        pricingElements: [],
+        pricingCategories: []
+    };
+
+    // Initialize page
+    async function initializeSchoolYearConfig() {
+        console.log('🏗️ Initializing School Year Config page...');
+
+        try {
+            await loadHebrewYears();
+        } catch (error) {
+            console.error('❌ Error initializing school year config:', error);
+            alert('שגיאה באתחול הגדרות שנת לימודים');
+        }
+    }
+
+    // Load Hebrew years dropdown
+    async function loadHebrewYears() {
+        try {
+            console.log('📋 Loading Hebrew years...');
+
+            const response = await fetch(
+                AppConfig.getApiUrl('schoolyearconfig/hebrew-years'),
+                AppConfig.getDefaultFetchOptions()
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to load Hebrew years: ${response.status}`);
+            }
+
+            const years = await response.json();
+            window.schoolYearConfigState.hebrewYears = years;
+
+            // Get current year from system attributes cache
+            const currentYearId = await window.SessionState.getProperty('CurrentYearId');
+
+            const select = document.getElementById('yearSelect');
+            select.innerHTML = '<option value="">בחר שנה...</option>';
+
+            years.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year.id;
+                option.textContent = year.hebrewYear;
+
+                // Set as selected if it matches the current year from system attributes
+                if (currentYearId && year.id == currentYearId) {
+                    option.selected = true;
+                }
+
+                select.appendChild(option);
+            });
+
+            console.log(`✅ Loaded ${years.length} Hebrew years`);
+
+            // If a year is selected (current year), automatically load its pricing elements
+            if (currentYearId) {
+                console.log(`📌 Auto-selecting current year ID: ${currentYearId}`);
+                window.schoolYearConfigState.selectedYearId = parseInt(currentYearId);
+                document.getElementById('pricingElementsCard').style.display = 'block';
+                await loadPricingElements(parseInt(currentYearId));
+            }
+        } catch (error) {
+            console.error('❌ Error loading Hebrew years:', error);
+            alert('שגיאה בטעינת שנים עבריות');
+        }
+    }
+    // Handle year selection change
+    async function handleYearChange() {
+        const yearSelect = document.getElementById('yearSelect');
+        const selectedYearId = parseInt(yearSelect.value);
+
+        if (!selectedYearId) {
+            // Hide both cards if no year selected
+            document.getElementById('pricingElementsCard').style.display = 'none';
+            document.getElementById('pricingCategoriesCard').style.display = 'none';
+            window.schoolYearConfigState.selectedYearId = null;
+            window.schoolYearConfigState.selectedElementId = null;
+            return;
+        }
+
+        window.schoolYearConfigState.selectedYearId = selectedYearId;
+        window.schoolYearConfigState.selectedElementId = null;
+
+        // Show pricing elements card
+        document.getElementById('pricingElementsCard').style.display = 'block';
+        document.getElementById('pricingCategoriesCard').style.display = 'none';
+
+        // Load pricing elements
+        await loadPricingElements(selectedYearId);
+    }
+
+    // Load pricing elements for selected year
+    async function loadPricingElements(yearId) {
+        try {
+            console.log(`📋 Loading pricing elements for year ${yearId}...`);
+
+            const container = document.getElementById('pricingElementsTableContainer');
+            container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/pricing-elements/${yearId}`),
+                AppConfig.getDefaultFetchOptions()
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to load pricing elements: ${response.status}`);
+            }
+
+            const elements = await response.json();
+            window.schoolYearConfigState.pricingElements = elements;
+
+            renderPricingElementsTable(elements);
+
+            console.log(`✅ Loaded ${elements.length} pricing elements`);
+        } catch (error) {
+            console.error('❌ Error loading pricing elements:', error);
+            document.getElementById('pricingElementsTableContainer').innerHTML =
+                '<div style="padding: 20px; text-align: center; color: #dc3545;">שגיאה בטעינת רכיבי תמחור</div>';
+        }
+    }
+
+    // Render pricing elements table
+    function renderPricingElementsTable(elements) {
+        const container = document.getElementById('pricingElementsTableContainer');
+
+        if (elements.length === 0) {
+            container.innerHTML = '<div style="padding: 20px; text-align: center;">אין רכיבי תמחור לשנה זו</div>';
+            return;
+        }
+
+        let tableHtml = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>שם</th>
+                    <th>כותרת</th>
+                    <th>תיאור</th>
+                    <th>תאריך יצירה</th>
+                    <th>פעולות</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+        elements.forEach(element => {
+            const createdAt = new Date(element.createdAt).toLocaleDateString('he-IL');
+            tableHtml += `
+            <tr>
+                <td>${element.name}</td>
+                <td>${element.title}</td>
+                <td>${element.description || ''}</td>
+                <td>${createdAt}</td>
+                <td>
+                    <button class="btn-icon" onclick="selectPricingElement(${element.id}, '${element.name}')" title="הצג קטגוריות">
+                        <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
+                    </button>
+                </td>
+            </tr>
+        `;
+        });
+
+        tableHtml += `
+            </tbody>
+        </table>
+    `;
+
+        container.innerHTML = tableHtml;
+    }
+
+    // Select pricing element to show categories
+    async function selectPricingElement(elementId, elementName) {
+        console.log(`📋 Selected pricing element: ${elementId} - ${elementName}`);
+
+        window.schoolYearConfigState.selectedElementId = elementId;
+        window.schoolYearConfigState.selectedElementName = elementName;
+
+        document.getElementById('selectedElementName').textContent = elementName;
+        document.getElementById('pricingCategoriesCard').style.display = 'block';
+
+        await loadPricingCategories(elementId);
+    }
+
+    // Load pricing categories for selected element
+    async function loadPricingCategories(elementId) {
+        try {
+            console.log(`📋 Loading pricing categories for element ${elementId}...`);
+
+            const container = document.getElementById('pricingCategoriesTableContainer');
+            container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/pricing-categories/${elementId}`),
+                AppConfig.getDefaultFetchOptions()
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to load pricing categories: ${response.status}`);
+            }
+
+            const categories = await response.json();
+            window.schoolYearConfigState.pricingCategories = categories;
+
+            renderPricingCategoriesTable(categories);
+
+            console.log(`✅ Loaded ${categories.length} pricing categories`);
+        } catch (error) {
+            console.error('❌ Error loading pricing categories:', error);
+            document.getElementById('pricingCategoriesTableContainer').innerHTML =
+                '<div style="padding: 20px; text-align: center; color: #dc3545;">שגיאה בטעינת קטגוריות תמחור</div>';
+        }
+    }
+
+    // Render pricing categories table
+    function renderPricingCategoriesTable(categories) {
+        const container = document.getElementById('pricingCategoriesTableContainer');
+
+        if (categories.length === 0) {
+            container.innerHTML = '<div style="padding: 20px; text-align: center;">אין קטגוריות תמחור לרכיב זה</div>';
+            return;
+        }
+
+        let tableHtml = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>קטגוריה</th>
+                    <th>רמה נמוכה ביותר</th>
+                    <th>מחיר</th>
+                    <th>פעולות</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+        categories.forEach(category => {
+            const isLowestLevel = category.isLowestLevel ? 'כן' : category.isLowestLevel === false ? 'לא' : '';
+            const price = category.price ? category.price.toFixed(2) : '';
+
+            tableHtml += `
+            <tr>
+                <td>${category.category}</td>
+                <td>${isLowestLevel}</td>
+                <td>${price}</td>
+                <td>
+                    <button class="btn-icon" onclick="editPricingCategory(${category.id})" title="עריכה">
+                        <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
+                    <button class="btn-icon" onclick="deletePricingCategory(${category.id})" title="מחיקה">
+                        <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                    </button>
+                </td>
+            </tr>
+        `;
+        });
+
+        tableHtml += `
+            </tbody>
+        </table>
+    `;
+
+        container.innerHTML = tableHtml;
+    }
+
+    // Show add pricing element modal
+    function showAddPricingElementModal() {
+        if (!window.schoolYearConfigState.selectedYearId) {
+            alert('אנא בחר שנה תחילה');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">הוסף רכיב תמחור</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label for="elementName" style="display: block; margin-bottom: 5px; font-weight: 600;">שם: *</label>
+                <input type="text" 
+                       id="elementName" 
+                       maxlength="50"
+                       placeholder="הזן שם רכיב"
+                       style="
+                           width: 100%;
+                           padding: 8px;
+                           border: 1px solid #dee2e6;
+                           border-radius: 4px;
+                           font-size: 14px;
+                           direction: rtl;
+                       ">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="elementTitle" style="display: block; margin-bottom: 5px; font-weight: 600;">כותרת: *</label>
+                <input type="text" 
+                       id="elementTitle" 
+                       maxlength="25"
+                       placeholder="הזן כותרת"
+                       style="
+                           width: 100%;
+                           padding: 8px;
+                           border: 1px solid #dee2e6;
+                           border-radius: 4px;
+                           font-size: 14px;
+                           direction: rtl;
+                       ">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="elementDescription" style="display: block; margin-bottom: 5px; font-weight: 600;">תיאור:</label>
+                <textarea 
+                       id="elementDescription" 
+                       rows="3"
+                       placeholder="הזן תיאור (אופציונלי)"
+                       style="
+                           width: 100%;
+                           padding: 8px;
+                           border: 1px solid #dee2e6;
+                           border-radius: 4px;
+                           font-size: 14px;
+                           direction: rtl;
+                           resize: vertical;
+                       "></textarea>
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="addElementOkBtn" class="dialog-btn save">הוסף</button>
+            <button id="addElementCancelBtn" class="dialog-btn cancel">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('addElementOkBtn').onclick = async () => {
+            await addPricingElement(overlay);
+        };
+
+        document.getElementById('addElementCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Add pricing element
+    async function addPricingElement(overlay) {
+        const name = document.getElementById('elementName').value.trim();
+        const title = document.getElementById('elementTitle').value.trim();
+        const description = document.getElementById('elementDescription').value.trim();
+
+        if (!name) {
+            alert('נא להזין שם רכיב');
+            return;
+        }
+
+        if (!title) {
+            alert('נא להזין כותרת');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl('schoolyearconfig/pricing-elements'),
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                        yearId: window.schoolYearConfigState.selectedYearId,
+                        name: name,
+                        title: title,
+                        description: description || null
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('רכיב התמחור נוסף בהצלחה');
+                document.body.removeChild(overlay);
+                await loadPricingElements(window.schoolYearConfigState.selectedYearId);
+            } else {
+                alert(result.message || 'שגיאה בהוספת רכיב תמחור');
+            }
+        } catch (error) {
+            console.error('❌ Error adding pricing element:', error);
+            alert('שגיאה בהוספת רכיב תמחור');
+        }
+    }
+
+    // Show add pricing category modal
+    function showAddPricingCategoryModal() {
+        if (!window.schoolYearConfigState.selectedElementId) {
+            alert('אנא בחר רכיב תמחור תחילה');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '400px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">הוסף קטגוריית תמחור</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label for="categoryNumber" style="display: block; margin-bottom: 5px; font-weight: 600;">קטגוריה (1-9): *</label>
+                <input type="number" 
+                       id="categoryNumber" 
+                       min="1"
+                       max="9"
+                       placeholder="הזן מספר קטגוריה"
+                       style="
+                           width: 100%;
+                           padding: 8px;
+                           border: 1px solid #dee2e6;
+                           border-radius: 4px;
+                           font-size: 14px;
+                           direction: ltr;
+                           text-align: left;
+                       ">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: flex; align-items: center; font-weight: 600;">
+                    <input type="checkbox" id="isLowestLevel" style="margin-left: 8px;">
+                    רמה נמוכה ביותר
+                </label>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="categoryPrice" style="display: block; margin-bottom: 5px; font-weight: 600;">מחיר:</label>
+                <input type="number" 
+                       id="categoryPrice" 
+                       step="0.01"
+                       placeholder="הזן מחיר (אופציונלי)"
+                       style="
+                           width: 100%;
+                           padding: 8px;
+                           border: 1px solid #dee2e6;
+                           border-radius: 4px;
+                           font-size: 14px;
+                           direction: ltr;
+                           text-align: left;
+                       ">
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="addCategoryOkBtn" class="dialog-btn save">הוסף</button>
+            <button id="addCategoryCancelBtn" class="dialog-btn cancel">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('addCategoryOkBtn').onclick = async () => {
+            await addPricingCategory(overlay);
+        };
+
+        document.getElementById('addCategoryCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Add pricing category
+    async function addPricingCategory(overlay) {
+        const categoryNumber = parseInt(document.getElementById('categoryNumber').value);
+        const isLowestLevel = document.getElementById('isLowestLevel').checked;
+        const priceValue = document.getElementById('categoryPrice').value.trim();
+        const price = priceValue ? parseFloat(priceValue) : null;
+
+        if (!categoryNumber || categoryNumber < 1 || categoryNumber > 9) {
+            alert('נא להזין מספר קטגוריה בין 1 ל-9');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl('schoolyearconfig/pricing-categories'),
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                        pricingElement: window.schoolYearConfigState.selectedElementId,
+                        category: categoryNumber,
+                        isLowestLevel: isLowestLevel,
+                        price: price
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('קטגוריית התמחור נוספה בהצלחה');
+                document.body.removeChild(overlay);
+                await loadPricingCategories(window.schoolYearConfigState.selectedElementId);
+            } else {
+                alert(result.message || 'שגיאה בהוספת קטגוריית תמחור');
+            }
+        } catch (error) {
+            console.error('❌ Error adding pricing category:', error);
+            alert('שגיאה בהוספת קטגוריית תמחור');
+        }
+    }
+
+    // Edit pricing category
+    async function editPricingCategory(categoryId) {
+        const category = window.schoolYearConfigState.pricingCategories.find(c => c.id === categoryId);
+        if (!category) {
+            alert('קטגוריה לא נמצאה');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '400px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">עריכת קטגוריית תמחור - קטגוריה ${category.category}</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: flex; align-items: center; font-weight: 600;">
+                    <input type="checkbox" id="editIsLowestLevel" ${category.isLowestLevel ? 'checked' : ''} style="margin-left: 8px;">
+                    רמה נמוכה ביותר
+                </label>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="editCategoryPrice" style="display: block; margin-bottom: 5px; font-weight: 600;">מחיר:</label>
+                <input type="number" 
+                       id="editCategoryPrice" 
+                       value="${category.price || ''}"
+                       step="0.01"
+                       placeholder="הזן מחיר (אופציונלי)"
+                       style="
+                           width: 100%;
+                           padding: 8px;
+                           border: 1px solid #dee2e6;
+                           border-radius: 4px;
+                           font-size: 14px;
+                           direction: ltr;
+                           text-align: left;
+                       ">
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="updateCategoryBtn" class="dialog-btn save">עדכן</button>
+            <button id="cancelEditBtn" class="dialog-btn cancel">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('updateCategoryBtn').onclick = async () => {
+            await updatePricingCategory(categoryId, overlay);
+        };
+
+        document.getElementById('cancelEditBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Update pricing category
+    async function updatePricingCategory(categoryId, overlay) {
+        const isLowestLevel = document.getElementById('editIsLowestLevel').checked;
+        const priceValue = document.getElementById('editCategoryPrice').value.trim();
+        const price = priceValue ? parseFloat(priceValue) : null;
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/pricing-categories/${categoryId}`),
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                        isLowestLevel: isLowestLevel,
+                        price: price
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('קטגוריית התמחור עודכנה בהצלחה');
+                document.body.removeChild(overlay);
+                await loadPricingCategories(window.schoolYearConfigState.selectedElementId);
+            } else {
+                alert(result.message || 'שגיאה בעדכון קטגוריית תמחור');
+            }
+        } catch (error) {
+            console.error('❌ Error updating pricing category:', error);
+            alert('שגיאה בעדכון קטגוריית תמחור');
+        }
+    }
+
+    // Delete pricing category
+    async function deletePricingCategory(categoryId) {
+        if (!confirm('האם אתה בטוח שברצונך למחוק קטגוריית תמחור זו?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/pricing-categories/${categoryId}`),
+                {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    }
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('קטגוריית התמחור נמחקה בהצלחה');
+                await loadPricingCategories(window.schoolYearConfigState.selectedElementId);
+            } else {
+                alert(result.message || 'שגיאה במחיקת קטגוריית תמחור');
+            }
+        } catch (error) {
+            console.error('❌ Error deleting pricing category:', error);
+            alert('שגיאה במחיקת קטגוריית תמחור');
+        }
+    }
+
+    // Cleanup function
+    function cleanupSchoolYearConfig() {
+        console.log('🧹 Cleaning up School Year Config page...');
+
+        window.schoolYearConfigState = {
+            selectedYearId: null,
+            selectedElementId: null,
+            selectedElementName: '',
+            hebrewYears: [],
+            pricingElements: [],
+            pricingCategories: []
+        };
+
+        console.log('✅ School Year Config cleanup complete');
+    }
+
+    // Export functions
+    window.initializeSchoolYearConfig = initializeSchoolYearConfig;
+    window.cleanupSchoolYearConfig = cleanupSchoolYearConfig;
+    window.handleYearChange = handleYearChange;
+    window.selectPricingElement = selectPricingElement;
+    window.showAddPricingElementModal = showAddPricingElementModal;
+    window.showAddPricingCategoryModal = showAddPricingCategoryModal;
+    window.editPricingCategory = editPricingCategory;
+    window.deletePricingCategory = deletePricingCategory;
+
+    // Auto-initialize on load
+    //document.addEventListener('DOMContentLoaded', initializeSchoolYearConfig);
+</script>

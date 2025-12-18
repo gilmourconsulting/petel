@@ -120,6 +120,13 @@ window.PageLifecycleConfig = {
             cleanup: null,
             init: null,
             selfInitializing: true
+        },
+        'schoolyearconfig': {
+            file: 'schoolyearconfig.html',
+            title: 'הגדרות שנת לימודים',
+            cleanup: 'cleanupSchoolYearConfig',
+            init: 'initializeSchoolYearConfig'
+            //selfInitializing: true
         }
     },
 

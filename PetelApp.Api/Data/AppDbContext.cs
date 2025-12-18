@@ -80,6 +80,8 @@ namespace PetelApp.Api.Data
         public DbSet<SchoolStudentPricingElement> SchoolStudentPricingElements { get; set; }
         public DbSet<SpecialNeedsPricingElement> SpecialNeedsPricingElements { get; set; }
 
+        public DbSet<SpecialNeedsPricingCategory> SpecialNeedsPricingCategories { get; set; }   
+
         public DbSet<ActionAuditLog> ActionAuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -211,6 +213,30 @@ modelBuilder.Entity<RolesAction>(entity =>
                 entity.Property(s => s.SchoolTrack).HasColumnName("school_track");
                 entity.Property(s => s.Registered).HasColumnName("registered");
             });
+
+            // Configure SpecialNeedsPricingElement
+modelBuilder.Entity<SpecialNeedsPricingElement>(entity =>
+{
+    entity.ToTable("special_needs_pricing_elements");
+    
+    // Configure relationship to HebrewYear
+    entity.HasOne(e => e.Year)
+        .WithMany()
+        .HasForeignKey(e => e.YearId)
+        .OnDelete(DeleteBehavior.Restrict);
+});
+
+// Configure SpecialNeedsPricingCategory
+modelBuilder.Entity<SpecialNeedsPricingCategory>(entity =>
+{
+    entity.ToTable("special_needs_pricing_categories");
+    
+    // Configure relationship to SpecialNeedsPricingElement
+    entity.HasOne(c => c.PricingElementNavigation)
+        .WithMany(e => e.Categories)
+        .HasForeignKey(c => c.PricingElement)
+        .OnDelete(DeleteBehavior.Restrict);
+});
 
             modelBuilder.Entity<CouncilSummaryVw>(entity =>
                     {
