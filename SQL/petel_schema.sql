@@ -1035,7 +1035,8 @@ CREATE TABLE petel_schema.special_needs_pricing_categories (
     category integer NOT NULL,
     is_lowest_level boolean,
     price numeric(10,2),
-    user_id integer
+    user_id integer,
+    calculation_level CHARACTER VARYING(50)
 );
 
 
@@ -1101,6 +1102,37 @@ ALTER SEQUENCE petel_schema.special_needs_pricing_elements_id_seq OWNER TO "Pete
 
 ALTER SEQUENCE petel_schema.special_needs_pricing_elements_id_seq OWNED BY petel_schema.special_needs_pricing_elements.id;
 
+
+CREATE SEQUENCE IF NOT EXISTS petel_schema.special_needs_pricing_steps_id_seq
+    INCREMENT 1
+    START 1
+    MINVALUE 1
+    MAXVALUE 2147483647
+    CACHE 1;
+
+ALTER SEQUENCE petel_schema.special_needs_pricing_steps_id_seq
+    OWNED BY petel_schema.special_needs_pricing_steps.id;
+
+ALTER SEQUENCE petel_schema.special_needs_pricing_steps_id_seq
+    OWNER TO "PetelAdmin";
+
+CREATE TABLE IF NOT EXISTS petel_schema.special_needs_pricing_steps
+(
+    id integer NOT NULL DEFAULT nextval('petel_schema.special_needs_pricing_steps_id_seq'::regclass),
+    pricing_element integer NOT NULL,
+    category integer NOT NULL,
+    object_check character varying(50) COLLATE pg_catalog."default" NOT NULL,
+    object_element_check character varying(50) COLLATE pg_catalog."default" NOT NULL,
+    object_element_value character varying(50) COLLATE pg_catalog."default" NOT NULL,
+    price numeric(10,2),
+    user_id integer,
+    CONSTRAINT special_needs_pricing_steps_pk PRIMARY KEY (id),
+    CONSTRAINT special_needs_pricing_steps_uc UNIQUE (pricing_element, category, object_check, object_element_check, object_element_value),
+    CONSTRAINT special_needs_pricing_steps_pricing_element_fk FOREIGN KEY (pricing_element)
+        REFERENCES petel_schema.special_needs_pricing_elements (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+)
 
 --
 -- Name: student_school_years_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres

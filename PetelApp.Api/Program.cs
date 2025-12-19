@@ -88,6 +88,8 @@ builder.Services.AddHostedService<SystemAttributeLoaderHostedService>();
 builder.Services.AddScoped<SystemAttributeService>();
 builder.Services.AddScoped<GlobalFunctions>();
 
+builder.Services.AddScoped<StudentPricingService>();
+
 
 // Register school attribute services
 builder.Services.AddSingleton<SchoolAttributeCache>();

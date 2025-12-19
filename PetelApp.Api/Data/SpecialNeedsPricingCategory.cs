@@ -29,7 +29,10 @@ namespace PetelApp.Api.Data
         [Column("user_id")]
         public int? UserId { get; set; }
 
+
+
         // Navigation property
+        [ForeignKey("PricingElement")]
         public virtual SpecialNeedsPricingElement PricingElementNavigation { get; set; } = null!;
     }
 }

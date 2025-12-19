@@ -35,6 +35,11 @@ namespace PetelApp.Api.Data
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+                // ✅ NEW: Calculation level field
+        [Column("calculation_level")]
+        [MaxLength(50)]
+        public string? CalculationLevel { get; set; }
+
         // ✅ Navigation property to HebrewYear
         public virtual HebrewYear? Year { get; set; }
 

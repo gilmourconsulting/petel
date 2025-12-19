@@ -33,7 +33,7 @@ namespace PetelApp.Api.Data
         [Column("updated_at")]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
         [Column("status")]
-        public int Status { get; set; }
+        public int? Status { get; set; }
 
         [Column("year_id")]
         public int YearId { get; set; }

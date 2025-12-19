@@ -82,6 +82,9 @@ namespace PetelApp.Api.Data
 
         public DbSet<SpecialNeedsPricingCategory> SpecialNeedsPricingCategories { get; set; }   
 
+        public DbSet<SpecialNeedsPricingStep> SpecialNeedsPricingSteps { get; set; }
+
+
         public DbSet<SignLanguageTranslator> SignLanguageTranslators { get; set; } = null!;
 
 
@@ -240,6 +243,22 @@ modelBuilder.Entity<SpecialNeedsPricingCategory>(entity =>
         .HasForeignKey(c => c.PricingElement)
         .OnDelete(DeleteBehavior.Restrict);
 });
+
+
+            modelBuilder.Entity<SpecialNeedsPricingStep>(entity =>
+            {
+                entity.ToTable("special_needs_pricing_steps");
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(e => e.PricingElementNavigation)
+                    .WithMany()
+                    .HasForeignKey(e => e.PricingElement)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(e => new { e.PricingElement, e.Category, e.ObjectCheck, e.ObjectElementCheck, e.ObjectElementValue })
+                    .IsUnique()
+                    .HasDatabaseName("special_needs_pricing_steps_uc");
+            });
 
             modelBuilder.Entity<CouncilSummaryVw>(entity =>
                     {
