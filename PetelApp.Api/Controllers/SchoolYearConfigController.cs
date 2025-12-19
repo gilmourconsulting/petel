@@ -76,14 +76,16 @@ namespace PetelApp.Api.Controllers
                 var elements = await _context.SpecialNeedsPricingElements
                     .AsNoTracking()
                     .Where(e => e.YearId == yearId)
-                    .OrderBy(e => e.ElementName)
+                    .OrderBy(e => e.SortOrder)
+                    .ThenBy(e => e.ElementName)
                     .Select(e => new
                     {
                         id = e.Id,
                         yearId = e.YearId,
-                        name = e.ElementName,  // ✅ Use ElementName property
+                        name = e.ElementName,
                         title = e.Title,
                         description = e.Description,
+                        sortOrder = e.SortOrder,
                         createdAt = e.CreatedAt
                     })
                     .ToListAsync();
@@ -134,9 +136,10 @@ namespace PetelApp.Api.Controllers
                 var element = new SpecialNeedsPricingElement
                 {
                     YearId = request.YearId,
-                    ElementName = request.Name.Trim(),  // ✅ Use ElementName property
+                    ElementName = request.Name.Trim(),
                     Title = request.Title.Trim(),
                     Description = request.Description?.Trim(),
+                    SortOrder = request.SortOrder ?? 0,
                     UserId = int.Parse(session.UserId),
                     CreatedAt = DateTime.UtcNow
                 };
@@ -362,6 +365,7 @@ namespace PetelApp.Api.Controllers
         public string Name { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string? Description { get; set; }
+        public int? SortOrder { get; set; }
     }
 
     public class AddPricingCategoryRequest

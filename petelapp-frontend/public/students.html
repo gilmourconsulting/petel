@@ -10,6 +10,9 @@
      <button class="context-btn" onclick="showUploadDialog()">
             העלאת קובץ תלמידים
         </button>
+            <button class="context-btn" onclick="calculateBulkStudentPricing()" style="background-color: #28a745; border-color: #28a745;">
+        תמחור לכל התלמידים
+    </button>
     </div>
 
     <!-- Main content area -->
@@ -994,6 +997,340 @@ window.onclick = function(event) {
         closeUploadDialog();
     }
 }
+
+// Bulk pricing calculation for all students
+async function calculateBulkStudentPricing() {
+    try {
+        console.log('💰 Starting bulk pricing calculation...');
+        
+        // Check if we have students data
+        if (!window.currentStudentsData || window.currentStudentsData.length === 0) {
+            alert('אין תלמידים לחישוב תמחור');
+            return;
+        }
+        
+        const totalStudents = window.currentStudentsData.length;
+        
+        // Show confirmation dialog with warning
+        const confirmMsg = `⚠️ אזהרה: חישוב תמחור לכל התלמידים\n\n` +
+            `פעולה זו תחשב רכיבי תמחור עבור ${totalStudents} תלמידים.\n` +
+            `רכיבי התמחור הקיימים יוחלפו.\n\n` +
+            `הפעולה עשויה לקחת מספר דקות.\n\n` +
+            `האם להמשיך?`;
+        
+        if (!confirm(confirmMsg)) {
+            console.log('⚠️ Bulk pricing calculation cancelled by user');
+            return;
+        }
+        
+        // Create progress modal
+        const progressModal = createProgressModal();
+        document.body.appendChild(progressModal);
+        
+        // Get auth token
+        const token = window.sessionManager.getToken();
+        if (!token) {
+            throw new Error('No authentication token found');
+        }
+        
+        // Initialize counters
+        let successCount = 0;
+        let failCount = 0;
+        let processedCount = 0;
+        const errors = [];
+        
+        // Update progress
+        function updateProgress() {
+            const percentage = Math.round((processedCount / totalStudents) * 100);
+            const progressBar = document.getElementById('bulkPricingProgressBar');
+            const progressText = document.getElementById('bulkPricingProgressText');
+            const progressStats = document.getElementById('bulkPricingProgressStats');
+            
+            if (progressBar) progressBar.style.width = `${percentage}%`;
+            if (progressText) progressText.textContent = `${percentage}%`;
+            if (progressStats) {
+                progressStats.innerHTML = `
+                    <div style="direction: rtl; text-align: center;">
+                        <div>עובד: ${processedCount} / ${totalStudents}</div>
+                        <div style="color: #28a745;">✅ הצליחו: ${successCount}</div>
+                        <div style="color: #dc3545;">❌ נכשלו: ${failCount}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        console.log(`🔄 Processing ${totalStudents} students...`);
+        
+        // Process students one by one
+        for (const student of window.currentStudentsData) {
+            try {
+                console.log(`📊 Calculating pricing for student ${student.id}: ${student.name}`);
+                
+                const response = await fetch(AppConfig.getApiUrl(`studentpricing/calculate/${student.id}?save=true`), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    successCount++;
+                    console.log(`✅ Success for student ${student.id}: ${result.data.elementsCount} elements calculated`);
+                } else {
+                    failCount++;
+                    const errorMsg = `${student.name} (${student.idNumber}): ${result.message || 'חישוב נכשל'}`;
+                    errors.push(errorMsg);
+                    console.warn(`⚠️ Failed for student ${student.id}:`, result.message);
+                }
+            } catch (error) {
+                failCount++;
+                const errorMsg = `${student.name} (${student.idNumber}): ${error.message}`;
+                errors.push(errorMsg);
+                console.error(`❌ Error for student ${student.id}:`, error);
+            }
+            
+            processedCount++;
+            updateProgress();
+            
+            // Small delay to prevent overwhelming the server
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        
+        console.log('✅ Bulk pricing calculation complete', {
+            total: totalStudents,
+            success: successCount,
+            failed: failCount
+        });
+        
+        // Remove progress modal
+        document.body.removeChild(progressModal);
+        
+        // Show summary
+        showBulkPricingSummary(totalStudents, successCount, failCount, errors);
+        
+    } catch (error) {
+        console.error('❌ Error in bulk pricing calculation:', error);
+        
+        // Remove progress modal if exists
+        const progressModal = document.getElementById('bulkPricingProgressModal');
+        if (progressModal) {
+            document.body.removeChild(progressModal);
+        }
+        
+        alert(`❌ שגיאה בחישוב תמחור המוני:\n${error.message}`);
+    }
+}
+
+// Create progress modal for bulk pricing
+function createProgressModal() {
+    const modal = document.createElement('div');
+    modal.id = 'bulkPricingProgressModal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        direction: rtl;
+    `;
+    
+    modal.innerHTML = `
+        <div style="
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            min-width: 400px;
+            max-width: 90%;
+        ">
+            <h3 style="margin: 0 0 20px 0; text-align: center; color: #333;">
+                מחשב תמחור לכל התלמידים
+            </h3>
+            
+            <div id="bulkPricingProgressStats" style="margin-bottom: 20px; font-size: 14px; color: #666;">
+                <div style="text-align: center;">מתחיל...</div>
+            </div>
+            
+            <div style="
+                width: 100%;
+                height: 30px;
+                background: #e9ecef;
+                border-radius: 15px;
+                overflow: hidden;
+                margin-bottom: 10px;
+            ">
+                <div id="bulkPricingProgressBar" style="
+                    width: 0%;
+                    height: 100%;
+                    background: linear-gradient(90deg, #28a745, #20c997);
+                    transition: width 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-weight: bold;
+                ">
+                    <span id="bulkPricingProgressText">0%</span>
+                </div>
+            </div>
+            
+            <div style="text-align: center; color: #666; font-size: 12px;">
+                אנא המתן... הפעולה עשויה לקחת מספר דקות
+            </div>
+        </div>
+    `;
+    
+    return modal;
+}
+
+// Show bulk pricing summary
+function showBulkPricingSummary(total, success, failed, errors) {
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        direction: rtl;
+    `;
+    
+    let errorsList = '';
+    if (errors.length > 0) {
+        const displayErrors = errors.slice(0, 10);
+        errorsList = `
+            <div style="
+                margin-top: 20px;
+                padding: 15px;
+                background: #f8d7da;
+                border: 1px solid #f5c6cb;
+                border-radius: 8px;
+                max-height: 200px;
+                overflow-y: auto;
+            ">
+                <h4 style="margin: 0 0 10px 0; color: #721c24;">שגיאות (${errors.length}):</h4>
+                <ul style="margin: 0; padding-right: 20px; color: #721c24; font-size: 13px;">
+                    ${displayErrors.map(e => `<li>${e}</li>`).join('')}
+                </ul>
+                ${errors.length > 10 ? `<div style="margin-top: 10px; font-style: italic;">...ו-${errors.length - 10} שגיאות נוספות</div>` : ''}
+            </div>
+        `;
+    }
+    
+    const successRate = total > 0 ? Math.round((success / total) * 100) : 0;
+    
+    modal.innerHTML = `
+        <div style="
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            min-width: 500px;
+            max-width: 90%;
+        ">
+            <h2 style="margin: 0 0 20px 0; text-align: center; color: #333;">
+                🎉 סיכום חישוב תמחור
+            </h2>
+            
+            <div style="
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 15px;
+                margin-bottom: 20px;
+            ">
+                <div style="
+                    padding: 15px;
+                    background: #e7f3ff;
+                    border-radius: 8px;
+                    text-align: center;
+                ">
+                    <div style="font-size: 32px; font-weight: bold; color: #0066cc;">
+                        ${total}
+                    </div>
+                    <div style="font-size: 14px; color: #666;">סה"כ תלמידים</div>
+                </div>
+                
+                <div style="
+                    padding: 15px;
+                    background: #d4edda;
+                    border-radius: 8px;
+                    text-align: center;
+                ">
+                    <div style="font-size: 32px; font-weight: bold; color: #28a745;">
+                        ${success}
+                    </div>
+                    <div style="font-size: 14px; color: #666;">הצליחו</div>
+                </div>
+                
+                <div style="
+                    padding: 15px;
+                    background: #f8d7da;
+                    border-radius: 8px;
+                    text-align: center;
+                ">
+                    <div style="font-size: 32px; font-weight: bold; color: #dc3545;">
+                        ${failed}
+                    </div>
+                    <div style="font-size: 14px; color: #666;">נכשלו</div>
+                </div>
+            </div>
+            
+            <div style="
+                padding: 15px;
+                background: ${successRate >= 90 ? '#d4edda' : successRate >= 70 ? '#fff3cd' : '#f8d7da'};
+                border-radius: 8px;
+                text-align: center;
+                margin-bottom: 20px;
+            ">
+                <div style="font-size: 24px; font-weight: bold;">
+                    ${successRate}% הצלחה
+                </div>
+            </div>
+            
+            ${errorsList}
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="this.closest('div[style*=fixed]').remove()" style="
+                    padding: 12px 30px;
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    font-weight: bold;
+                ">
+                    סגור
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Close on overlay click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            document.body.removeChild(modal);
+        }
+    });
+}
+
+// Export the new function
+window.calculateBulkStudentPricing = calculateBulkStudentPricing;
 
 // Make functions globally available following Cross-Component Communication
 window.loadStudentsData = loadStudentsData;

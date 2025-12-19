@@ -125,9 +125,11 @@ namespace PetelApp.Api.Controllers
                             spe.StudentId,
                             spe.PricingElementId,
                             PricingElementName = snpe.ElementName,
-                            spe.Price
+                            spe.Price,
+                            SortOrder = snpe.SortOrder
                         })
-                    .OrderBy(pe => pe.PricingElementName)
+                    .OrderBy(pe => pe.SortOrder)
+                    .ThenBy(pe => pe.PricingElementName)
                     .ToListAsync();
 
                 _logger.LogInformation("✅ Found {Count} pricing elements for student {StudentId}", 

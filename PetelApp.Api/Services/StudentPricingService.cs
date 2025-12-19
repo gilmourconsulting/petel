@@ -88,10 +88,12 @@ namespace PetelApp.Api.Services
 
                 _logger.LogInformation("✅ School found with {AttributeCount} attributes", schoolAttributes.Count);
 
-                // Step 4: Get all pricing elements for this year
+                // Step 4: Get all pricing elements for this year (sorted by sort_order)
                 var pricingElements = await _context.SpecialNeedsPricingElements
                     .AsNoTracking()
                     .Where(pe => pe.YearId == yearId)
+                    .OrderBy(pe => pe.SortOrder)
+                    .ThenBy(pe => pe.ElementName)
                     .ToListAsync();
 
                 _logger.LogInformation("📋 Found {Count} pricing elements for year {YearId}", 

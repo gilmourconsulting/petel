@@ -359,6 +359,7 @@
         <table class="data-table">
             <thead>
                 <tr>
+                    <th>סדר</th>
                     <th>שם</th>
                     <th>כותרת</th>
                     <th>תיאור</th>
@@ -374,9 +375,11 @@
             const description = element.description || '';
             const name = element.name || '';
             const title = element.title || '';
+            const sortOrder = element.sortOrder !== undefined ? element.sortOrder : 0;
             
             tableHtml += `
             <tr>
+                <td>${sortOrder}</td>
                 <td>${name}</td>
                 <td>${title}</td>
                 <td>${description}</td>
@@ -599,6 +602,23 @@
                            resize: vertical;
                        "></textarea>
             </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="elementSortOrder" style="display: block; margin-bottom: 5px; font-weight: 600;">סדר מיון:</label>
+                <input type="number" 
+                       id="elementSortOrder" 
+                       value="0"
+                       min="0"
+                       placeholder="0"
+                       style="
+                           width: 100%;
+                           padding: 8px;
+                           border: 1px solid #dee2e6;
+                           border-radius: 4px;
+                           font-size: 14px;
+                           direction: rtl;
+                       ">
+            </div>
         </div>
         <div class="dialog-buttons">
             <button id="addElementOkBtn" class="dialog-btn save">הוסף</button>
@@ -647,7 +667,8 @@
                         yearId: window.schoolYearConfigState.selectedYearId,
                         name: name,
                         title: title,
-                        description: description || null
+                        description: description || null,
+                        sortOrder: parseInt(document.getElementById('elementSortOrder').value) || 0
                     })
                 }
             );
