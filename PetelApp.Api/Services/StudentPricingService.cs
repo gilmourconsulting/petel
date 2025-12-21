@@ -123,11 +123,42 @@ namespace PetelApp.Api.Services
                             }
                         }
 
+                        // ✅ Special handling for "Tracks" elements - may return multiple items
+                        if (element.Title?.Contains("Tracks", StringComparison.OrdinalIgnoreCase) == true ||
+                            element.Title?.Contains("מגמות", StringComparison.OrdinalIgnoreCase) == true)
+                        {
+                            if (student.ClassId > 0 && student.ClassId.HasValue)
+                            {
+                                var trackElements = await CalculateAllTrackPrices(
+                                    element,
+                                    disabilityCategory,
+                                    student.ClassId.Value);
+
+                                if (trackElements.Count > 0)
+                                {
+                                    result.CalculatedElements.AddRange(trackElements);
+                                    _logger.LogInformation("✅ Added {Count} track prices for element '{Name}'",
+                                        trackElements.Count, element.ElementName);
+                                }
+                                else
+                                {
+                                    _logger.LogDebug("⏭️ No track pricing found for element '{Name}'", element.ElementName);
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogWarning("⚠️ Student has no class assigned, cannot calculate track pricing");
+                            }
+                            continue; // Move to next element
+                        }
+
+                        // Regular element processing
                         var calculatedElement = await CalculatePriceForElement(
                             element,
                             disabilityCategory,
                             school,
-                            schoolAttributes);
+                            schoolAttributes,
+                            student);
 
                         if (calculatedElement != null)
                         {
@@ -259,7 +290,8 @@ namespace PetelApp.Api.Services
             SpecialNeedsPricingElement element,
             int disabilityCategory,
             School school,
-            List<SchoolAttribute> schoolAttributes)
+            List<SchoolAttribute> schoolAttributes,
+            SchoolStudent student)
         {
             // Find pricing category for this element and disability category
             var pricingCategory = await _context.SpecialNeedsPricingCategories
@@ -294,7 +326,7 @@ namespace PetelApp.Api.Services
                 if (element.Title?.Contains("school help", StringComparison.OrdinalIgnoreCase) == true)
                 {
                     // Set determining factor to the original price
-                   calculatedElement.DeterminingFactor = $"{calculatedElement.Price.ToString("F2")} ש\"ח";
+                    calculatedElement.DeterminingFactor = $"{calculatedElement.Price.ToString("F2")} ש\"ח";
                     // Look up "Helpers Hours" attribute
                     var schoolHoursAttr = schoolAttributes
                         .FirstOrDefault(sa => sa.SchoolAttributeType?.Name?.Equals("Helpers Hours", StringComparison.OrdinalIgnoreCase) == true);
@@ -435,6 +467,116 @@ namespace PetelApp.Api.Services
 
             _logger.LogDebug("⏭️ No matching step found for element {ElementId}", element.Id);
             return null;
+        }
+
+
+        /// <summary>
+        /// Calculate prices for ALL tracks associated with a class
+        /// Returns a list of CalculatedPricingElement, one for each track found
+        /// </summary>
+        private async Task<List<CalculatedPricingElement>> CalculateAllTrackPrices(
+            SpecialNeedsPricingElement element,
+            int category,
+            int classId)
+        {
+            var results = new List<CalculatedPricingElement>();
+
+            try
+            {
+                _logger.LogDebug("🛤️ Starting track-based pricing for element {ElementId}, class {ClassId}, category {Category}",
+                    element.Id, classId, category);
+
+                // Step 1: Find all tracks for the student's class
+                var schoolTracks = await _context.SchoolTracks
+                    .AsNoTracking()
+                    .Where(st => st.ClassId == classId)
+                    .ToListAsync();
+
+                if (schoolTracks.Count == 0)
+                {
+                    _logger.LogDebug("⚠️ No school tracks found for class {ClassId}", classId);
+                    return results;
+                }
+
+                _logger.LogDebug("✅ Found {Count} school tracks for class {ClassId}",
+                    schoolTracks.Count, classId);
+
+                // Step 2: Process EACH track and collect all pricing results
+                foreach (var schoolTrack in schoolTracks)
+                {
+                    var trackPricing = await _context.TracksPricing
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(tp =>
+                            tp.SchoolTrackId == schoolTrack.TrackId &&
+                            tp.Category == category);
+
+                    if (trackPricing != null && trackPricing.Price.HasValue)
+                    {
+                        _logger.LogDebug("✅ Found track pricing: Track ID {TrackId}, Price {Price:C}",
+                            schoolTrack.Id, trackPricing.Price.Value);
+
+                        // Step 3: Get track name
+                        var track = await _context.Tracks
+                            .AsNoTracking()
+                            .FirstOrDefaultAsync(t => t.Id == schoolTrack.TrackId);
+
+                        string trackName = track?.TrackName ?? "לא ידוע";
+
+                        // Step 4: Get level name if level_id exists
+                        string levelName = "";
+                        if (schoolTrack.TrackLevelId.HasValue)
+                        {
+                            var level = await _context.TrackLevels
+                                .AsNoTracking()
+                                .FirstOrDefaultAsync(tl => tl.Id == schoolTrack.TrackLevelId.Value);
+
+                            levelName = level?.LevelName ?? "";
+                        }
+
+                        // Step 5: Build determining factor (track name + level name)
+                        string determiningFactor = !string.IsNullOrWhiteSpace(levelName)
+                            ? $"{trackName} - {levelName}"
+                            : trackName;
+
+                        _logger.LogDebug("✅ Track pricing calculated: {Track}, Price: {Price:C}",
+                            determiningFactor, trackPricing.Price.Value);
+
+                        // Add to results list instead of returning immediately
+                        results.Add(new CalculatedPricingElement
+                        {
+                            PricingElementId = element.Id,
+                            PricingElementName = element.ElementName,
+                            Price = trackPricing.Price.Value,
+                            DisabilityCategory = category,
+                            DeterminingFactor = determiningFactor,
+                            Hours = null
+                        });
+                    }
+                    else
+                    {
+                        _logger.LogDebug("⚠️ No pricing found for track {TrackId}, category {Category}",
+                            schoolTrack.TrackId, category);
+                    }
+                }
+
+                if (results.Count == 0)
+                {
+                    _logger.LogDebug("⚠️ No matching track pricing found for class {ClassId}, category {Category}",
+                        classId, category);
+                }
+                else
+                {
+                    _logger.LogInformation("✅ Calculated pricing for {Count} tracks in class {ClassId}",
+                        results.Count, classId);
+                }
+
+                return results;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error calculating track-based prices for element {ElementId}", element.Id);
+                return results;
+            }
         }
 
         /// <summary>

@@ -20,7 +20,7 @@ namespace PetelApp.Api.Data
         public decimal Price { get; set; }
 
         [Column("determining_factor")]
-        [MaxLength(30)]
+        [MaxLength(100)]
         public string? DeterminingFactor { get; set; }
 
         [Column("hours")]

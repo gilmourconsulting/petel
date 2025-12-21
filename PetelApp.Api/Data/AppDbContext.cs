@@ -54,6 +54,8 @@ namespace PetelApp.Api.Data
         public DbSet<Track> Tracks { get; set; }
         public DbSet<TrackLevel> TrackLevels { get; set; }
         public DbSet<SchoolTrack> SchoolTracks { get; set; }
+       
+       public DbSet<TrackPricing> TracksPricing { get; set; }
 
         public DbSet<SchoolAdditionalStudyProgram> SchoolAdditionalStudyPrograms { get; set; }
         public DbSet<SpecialNeedsCharacterization> SpecialNeedsCharacterizations { get; set; } = null!;
