@@ -41,7 +41,7 @@ namespace PetelApp.Api.Data
         public int UserId { get; set; }
 
         [Column("created_at")]
-        public DateTime CreatedAt { get; set; } 
+        public DateTime CreatedAt { get; set; }
 
         [Column("updated_at")]
         public DateTime UpdatedAt { get; set; }
@@ -65,7 +65,7 @@ namespace PetelApp.Api.Data
         /// </summary>
         [Required]
         [Column("master_id")]
-        public int MasterId { get; set; }
+        public int? MasterId { get; set; }
 
         /// <summary>
         /// Estimated or budgeted cost for the program
@@ -78,6 +78,9 @@ namespace PetelApp.Api.Data
         /// </summary>
         [Column("approved_amount")]
         public decimal? ApprovedAmount { get; set; }
+
+        [Column("hourly_cost")]
+        public decimal? HourlyCost { get; set; }
 
         // Navigation properties
         [ForeignKey(nameof(SchoolYearId))]

@@ -55,6 +55,7 @@ namespace PetelApp.Api.Controllers
                         MasterId = p.MasterId,          // ✅ Include MasterId
                         Cost = p.Cost,                    // ✅ Include cost
                         ApprovedAmount = p.ApprovedAmount, // ✅ Include approved amount
+                        HourlyCost = p.HourlyCost,         // ✅ Include hourly cost
                         CreatedAt = p.CreatedAt,
                         UpdatedAt = p.UpdatedAt,
                         UserId = p.UserId,
@@ -121,6 +122,7 @@ namespace PetelApp.Api.Controllers
                         Version = p.Version,
                         IsLastVersion = p.IsLastVersion,
                         Cost = p.Cost,
+                        HourlyCost = p.HourlyCost,
                         ApprovedAmount = p.ApprovedAmount,
                         CreatedAt = p.CreatedAt,
                         UpdatedAt = p.UpdatedAt,
@@ -201,10 +203,11 @@ namespace PetelApp.Api.Controllers
                     NumberOfStudents = dto.NumberOfStudents,
                     Cost = dto.Cost,              // ✅ Include cost
                     ApprovedAmount = dto.ApprovedAmount, // ✅ Include approved amount
+                    HourlyCost = dto.HourlyCost,         // ✅ Include hourly cost
                     UserId = int.Parse(session.UserId),
                     Version = 1,                   // ✅ First version
                     IsLastVersion = true,          // ✅ Latest version
-                    MasterId = 0,                  // ✅ Temporary - will update after save
+                    //MasterId = 0,                  // ✅ Temporary - will update after save
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -234,8 +237,10 @@ namespace PetelApp.Api.Controllers
                     NumberOfStudents = program.NumberOfStudents,
                     Version = program.Version,
                     IsLastVersion = program.IsLastVersion,
+                    MasterId = program.MasterId ?? program.Id,
                     Cost = program.Cost,
                     ApprovedAmount = program.ApprovedAmount,
+                    HourlyCost = program.HourlyCost,
                     CreatedAt = program.CreatedAt,
                     UpdatedAt = program.UpdatedAt
                 };
@@ -311,7 +316,8 @@ namespace PetelApp.Api.Controllers
                     currentProgram.WeeklyHours != dto.WeeklyHours ||
                     currentProgram.NumberOfStudents != dto.NumberOfStudents ||
                     currentProgram.Cost != dto.Cost ||
-                    currentProgram.ApprovedAmount != dto.ApprovedAmount;
+                    currentProgram.ApprovedAmount != dto.ApprovedAmount ||
+                    currentProgram.HourlyCost != dto.HourlyCost;
 
                 if (!hasChanges)
                 {
@@ -330,6 +336,7 @@ namespace PetelApp.Api.Controllers
                         IsLastVersion = currentProgram.IsLastVersion,
                         Cost = currentProgram.Cost,
                         ApprovedAmount = currentProgram.ApprovedAmount,
+                        HourlyCost = currentProgram.HourlyCost,
                         CreatedAt = currentProgram.CreatedAt,
                         UpdatedAt = currentProgram.UpdatedAt
                     };
@@ -356,6 +363,7 @@ namespace PetelApp.Api.Controllers
                     NumberOfStudents = dto.NumberOfStudents,
                     Cost = dto.Cost,
                     ApprovedAmount = dto.ApprovedAmount,
+                    HourlyCost = dto.HourlyCost,
                     UserId = int.Parse(session.UserId),
                     Version = currentProgram.Version + 1,  // ✅ Increment version
                     IsLastVersion = true,                  // ✅ New latest version
@@ -387,6 +395,7 @@ namespace PetelApp.Api.Controllers
                     IsLastVersion = newVersion.IsLastVersion,
                     Cost = newVersion.Cost,
                     ApprovedAmount = newVersion.ApprovedAmount,
+                    HourlyCost = newVersion.HourlyCost,
                     CreatedAt = newVersion.CreatedAt,
                     UpdatedAt = newVersion.UpdatedAt
                 };

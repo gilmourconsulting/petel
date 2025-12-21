@@ -617,7 +617,8 @@ CREATE TABLE petel_schema.school_additional_study_programs (
     is_last_version boolean DEFAULT true NOT NULL,
     master_id integer NOT NULL,
     cost numeric(10,2),
-    approved_amount numeric(10,2)
+    approved_amount numeric(10,2),
+    hourly_cost numeric(10,2),
 );
 
 

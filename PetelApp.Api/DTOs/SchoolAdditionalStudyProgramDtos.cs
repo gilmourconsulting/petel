@@ -18,9 +18,11 @@ namespace PetelApp.Api.DTOs
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
 
+        public decimal? HourlyCost { get; set; }
+
         public int UserId { get; set; }
         public string UserName { get; set; } = string.Empty;
-        public int MasterId { get; set; } // Reference to original record
+        public int? MasterId { get; set; } // Reference to original record
     }
     public class CreateSchoolAdditionalStudyProgramDto
     {
@@ -32,6 +34,8 @@ namespace PetelApp.Api.DTOs
 
         public decimal? Cost { get; set; }
         public decimal? ApprovedAmount { get; set; }
+
+        public decimal? HourlyCost { get; set; }
     }
 
     public class UpdateSchoolAdditionalStudyProgramDto
@@ -44,5 +48,7 @@ namespace PetelApp.Api.DTOs
         public int NumberOfStudents { get; set; }
         public decimal? Cost { get; set; }
         public decimal? ApprovedAmount { get; set; }
+
+        public decimal? HourlyCost { get; set; }
     }
 }

@@ -424,9 +424,19 @@ namespace PetelApp.Api.Services
                     case "pool_size":
                         // Find pool_size attribute from school attributes
                         matchedAttribute = schoolAttributes
-                            .FirstOrDefault(sa => sa.SchoolAttributeType?.Name?.ToLower() == "pool_size"
-                                               || sa.SchoolAttributeType?.Name?.ToLower() == "pool size");
-                        valueToCheck = matchedAttribute?.Value;
+                            .FirstOrDefault(sa => sa.SchoolAttributeType?.Name?.ToLower().Contains("pool") == true);
+
+                        if (matchedAttribute != null && !string.IsNullOrWhiteSpace(matchedAttribute.Value))
+                        {
+                            // ✅ Resolve text value from school_attribute_types_values table
+                            valueToCheck = await ResolveAttributeTextValue(matchedAttribute.Value);
+
+                            // ✅ Treat 'אין' as null
+                            if (valueToCheck?.Trim() == "אין")
+                            {
+                                valueToCheck = null;
+                            }
+                        }
                         break;
 
                     default:
@@ -469,6 +479,42 @@ namespace PetelApp.Api.Services
             return null;
         }
 
+
+        /// <summary>
+        /// Resolve attribute text value from school_attribute_types_values table
+        /// If value is an integer ID, look up the text value; otherwise return as-is
+        /// </summary>
+        private async Task<string?> ResolveAttributeTextValue(string? storedValue)
+        {
+            if (string.IsNullOrWhiteSpace(storedValue))
+            {
+                return null;
+            }
+
+            // Check if the stored value is an integer ID
+            if (int.TryParse(storedValue.Trim(), out int valueId))
+            {
+                // Look up the text value from school_attribute_types_values
+                var attributeTypeValue = await _context.SchoolAttributeTypeValues
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(atv => atv.Id == valueId && atv.IsValid);
+
+                if (attributeTypeValue != null)
+                {
+                    _logger.LogDebug("✅ Resolved attribute ID {Id} to text value: {Value}",
+                        valueId, attributeTypeValue.Value);
+                    return attributeTypeValue.Value;
+                }
+                else
+                {
+                    _logger.LogWarning("⚠️ Could not resolve attribute type value ID: {Id}", valueId);
+                    return null;
+                }
+            }
+
+            // Not an integer, return the value as-is (direct text value)
+            return storedValue;
+        }
 
         /// <summary>
         /// Calculate prices for ALL tracks associated with a class

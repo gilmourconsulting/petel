@@ -213,5 +213,25 @@ namespace PetelApp.Api.Controllers
                 });
             }
         }
+
+                [HttpGet("count-by-class/{classId}")]
+        public async Task<IActionResult> GetStudentCountByClass(int classId)
+        {
+            try
+            {
+                var count = await _context.SchoolStudents
+                    .Where(s => s.ClassId == classId && s.IsLastVersion)
+                    .CountAsync();
+                
+                return Ok(new { success = true, count = count });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error counting students for class {ClassId}", classId);
+                return StatusCode(500, new { success = false, message = "Error counting students" });
+            }
+        }
     }
+
+    
 }
