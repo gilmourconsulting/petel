@@ -4046,15 +4046,23 @@
             }
         }
 
-        function cleanupSchoolDetailsScreen() {
-            // Remove school details content from DOM
-            const contentCard = document.querySelector('.content-card');
-            if (contentCard) {
-                contentCard.remove();
+        function cleanupSchoolDetailsPage() {
+            console.log('🧹 Cleaning up school details page...');
+            
+            try {
+                // Remove school details content from DOM
+                const contentCard = document.querySelector('.content-card');
+                if (contentCard) {
+                    contentCard.remove();
+                }
+                // Clear global state if needed
+                schoolAttributeTypes = [];
+                // Optionally remove event listeners or timers here
+                
+                console.log('✅ School details page cleanup complete');
+            } catch (error) {
+                console.error('❌ Error during school details cleanup:', error);
             }
-            // Clear global state if needed
-            schoolAttributeTypes = [];
-            // Optionally remove event listeners or timers here
         }
 
         // School Additional Study Programs Management Section
@@ -4757,7 +4765,7 @@
             window.schoolClassesEditMode = false;
             window.schoolAttributesEditMode = false;
             console.log('🏫 Navigating back to school dashboard...');
-            cleanupSchoolDetailsScreen();
+            //cleanupSchoolDetailsScreen();
             // Store navigation context following Authentication & Session Management
             sessionStorage.setItem('navigationSource', 'schooldetails');
             sessionStorage.setItem('navigationTimestamp', new Date().toISOString());
@@ -4784,7 +4792,7 @@
             window.schoolClassesEditMode = false;
             window.schoolAttributesEditMode = false;
             console.log('📊 Navigating back to main dashboard...');
-            cleanupSchoolDetailsScreen();
+           // cleanupSchoolDetailsScreen();
             // Store navigation context following Authentication & Session Management
             sessionStorage.setItem('navigationSource', 'schooldetails');
             sessionStorage.setItem('returnToDashboard', 'true');
@@ -4998,5 +5006,6 @@
         window.showNavigationWarningDialog = showNavigationWarningDialog;
         window.setupEditAttributesButton = setupEditAttributesButton;
         window.saveSchoolAttributes = saveSchoolAttributes;
+         window.cleanupSchoolDetailsPage = cleanupSchoolDetailsPage;
         console.log('✅ School details functions registered globally');
     </script>

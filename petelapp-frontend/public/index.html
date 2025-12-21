@@ -18,6 +18,7 @@
     <script src="debug.js"></script>
     <script src="page-lifecycle-config.js"></script>
     <script src="page-lifecycle-manager.js"></script>
+    <script src="action-security.js"></script>
 
     <script>
         // Global Session State Manager - Centralized session data cache
@@ -183,7 +184,7 @@
         console.log('✅ SessionState initialized');
     </script>
 </head>
-<script src="action-security.js"></script>
+
 <body>
     <div class="app-container">
         <!-- Top Bar -->
@@ -321,6 +322,10 @@
 
                     // Use PageLifecycleManager for initial load
                     await window.PageLifecycleManager.navigateTo('maindashboard');
+
+                    if (window.ActionSecurity && typeof window.ActionSecurity.initialize === 'function') {
+                        await window.ActionSecurity.initialize();
+                    }
 
                     console.log('✅ Application initialization completed');
 

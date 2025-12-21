@@ -386,6 +386,15 @@ async function calculateStudentPricingFromSection() {
         if (result.success) {
             console.log('✅ Pricing calculation successful:', result.data);
             
+            // ✅ NEW: Update session with the new student version ID
+            if (result.data.newStudentId) {
+                console.log(`📝 Updating session with new student ID: ${result.data.newStudentId} (was: ${studentId})`);
+                await window.SessionState.setProperty('SelectedStudentId', result.data.newStudentId.toString());
+                
+                // ✅ Reload student data to get the new version with updated cost
+                await refreshStudentDataAfterPricing(result.data.newStudentId);
+            }
+            
             // Show success message with details
             let message = `✅ חישוב התמחור הושלם בהצלחה!\n\n`;
             message += `📊 ${result.data.elementsCount} רכיבי תמחור חושבו\n`;
@@ -406,7 +415,9 @@ async function calculateStudentPricingFromSection() {
             // Optionally, auto-open the pricing view to show calculated elements
             const showResults = confirm('האם להציג את רכיבי התמחור שחושבו?');
             if (showResults) {
-                await viewStudentPricing(studentId, studentName);
+                // ✅ Use the NEW student ID for viewing pricing
+                const newStudentId = result.data.newStudentId || studentId;
+                await viewStudentPricing(newStudentId, studentName);
             }
             
         } else {
@@ -425,6 +436,84 @@ async function calculateStudentPricingFromSection() {
         alert(`❌ שגיאה בחישוב תמחור:\n${error.message}`);
     }
 }
+
+// ✅ NEW: Refresh student data after pricing calculation
+async function refreshStudentDataAfterPricing(newStudentId) {
+    try {
+        console.log('🔄 Refreshing student data for new version:', newStudentId);
+        
+        const token = window.sessionManager.getToken();
+        if (!token) {
+            console.error('❌ No auth token found');
+            return;
+        }
+        
+        const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
+        
+        // Fetch the new student version data
+        const response = await fetch(AppConfig.getApiUrl(`students?schoolYearId=${schoolYearId}`), {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                // Find the new student version in the response
+                const newStudentData = result.data.find(s => s.id === newStudentId);
+                
+                if (newStudentData) {
+                    // Transform the data
+                    const transformedStudent = {
+                        id: newStudentData.id,
+                        idNumber: newStudentData.idNumber || '',
+                        name: `${newStudentData.firstName || ''} ${newStudentData.lastName || ''}`.trim(),
+                        gender: newStudentData.gender === 1 ? 'זכר' : newStudentData.gender === 2 ? 'נקבה' : '',
+                        address: [
+                            newStudentData.street,
+                            newStudentData.houseNumber,
+                            newStudentData.city,
+                            newStudentData.postCode
+                        ].filter(Boolean).join(', '),
+                        class: newStudentData.className || newStudentData.classId?.toString() || '',
+                        classId: newStudentData.classId,
+                        startDate: newStudentData.startDate ? new Date(newStudentData.startDate).toLocaleDateString('he-IL') : '',
+                        endDate: newStudentData.endDate ? new Date(newStudentData.endDate).toLocaleDateString('he-IL') : '',
+                        status: 'איסוף נתונים',
+                        category: newStudentData.disabilityCategory || '',
+                        totalAmount: newStudentData.cost != null ? newStudentData.cost.toString() : '0',
+                        sendingCouncil: newStudentData.councilShortName || newStudentData.sendingCouncil?.toString() || '',
+                        sendingCouncilId: newStudentData.sendingCouncil
+                    };
+                    
+                    // Update current students data
+                    window.currentStudentsData = [transformedStudent];
+                    
+                    // Update session with new student data
+                    await window.SessionState.setProperty('SelectedStudentData', JSON.stringify(transformedStudent));
+                    
+                    // Refresh the table display
+                    createStudentsTable([transformedStudent]);
+                    
+                    console.log('✅ Student data refreshed with new version:', transformedStudent);
+                } else {
+                    console.warn('⚠️ New student version not found in API response');
+                }
+            }
+        } else {
+            console.error('❌ Failed to refresh student data:', response.status);
+        }
+    } catch (error) {
+        console.error('❌ Error refreshing student data:', error);
+    }
+}
+
+window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
+window.refreshStudentDataAfterPricing = refreshStudentDataAfterPricing;
 
 window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
 
@@ -1096,7 +1185,7 @@ window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
     // Ensure initialization happens when the page loads
     console.log('📄 student.html script loaded, setting up initialization...');
 
-    // Try multiple initialization methods to ensure it runs
+   /* // Try multiple initialization methods to ensure it runs
     if (document.readyState === 'loading') {
         console.log('⏳ Document still loading, waiting for DOMContentLoaded...');
         document.addEventListener('DOMContentLoaded', initializePage);
@@ -1120,7 +1209,7 @@ window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
             console.log('⚠️ Documents table still showing loading spinner, attempting re-initialization...');
             loadDocumentsData();
         }
-    }, 500);
+    }, 500);*/
 
     // Export functions to window for cross-component access
     window.initializePage = initializePage;

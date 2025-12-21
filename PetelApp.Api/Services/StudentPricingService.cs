@@ -8,18 +8,21 @@ namespace PetelApp.Api.Services
     {
         private readonly AppDbContext _context;
         private readonly ILogger<StudentPricingService> _logger;
+        private readonly StudentService _studentService;  // ✅ NEW
 
-        public StudentPricingService(AppDbContext context, ILogger<StudentPricingService> logger)
+        public StudentPricingService(
+            AppDbContext context, 
+            ILogger<StudentPricingService> logger,
+            StudentService studentService)  // ✅ NEW
         {
             _context = context;
             _logger = logger;
+            _studentService = studentService;  // ✅ NEW
         }
 
         /// <summary>
         /// Calculate pricing elements for a student
         /// </summary>
-        /// <param name="schoolStudentId">ID of the school_students record</param>
-        /// <returns>List of calculated pricing elements with prices</returns>
         public async Task<PricingCalculationResult> CalculateStudentPricing(int schoolStudentId)
         {
             var result = new PricingCalculationResult
@@ -138,6 +141,33 @@ namespace PetelApp.Api.Services
                 }
 
                 result.Success = result.CalculatedElements.Count > 0;
+                
+                // ✅ NEW: Create new student version with calculated cost
+                if (result.Success)
+                {
+                    var totalCost = result.CalculatedElements.Sum(e => e.Price);
+                    
+                    var newStudentId = await _studentService.CreateNewStudentVersionAsync(
+                        schoolStudentId,
+                        newVersion =>
+                        {
+                            // Only update the Cost field
+                            newVersion.Cost = totalCost;
+                        });
+                    
+                    if (newStudentId.HasValue)
+                    {
+                        result.NewStudentId = newStudentId.Value;
+                        _logger.LogInformation("✅ Created new student version {NewId} with cost {Cost:C}", 
+                            newStudentId.Value, totalCost);
+                    }
+                    else
+                    {
+                        result.Errors.Add("Failed to create new student version");
+                        result.Success = false;
+                    }
+                }
+                
                 return result;
             }
             catch (Exception ex)
@@ -267,28 +297,21 @@ namespace PetelApp.Api.Services
 
         /// <summary>
         /// Save calculated pricing elements to database
+        /// Linked to the NEW student version
         /// </summary>
-        public async Task<bool> SavePricingElements(int schoolStudentId, List<CalculatedPricingElement> elements)
+        public async Task<bool> SavePricingElements(int newStudentId, List<CalculatedPricingElement> elements)
         {
             try
             {
-                // Remove existing pricing elements for this student
-                var existingElements = await _context.SchoolStudentPricingElements
-                    .Where(pe => pe.StudentId == schoolStudentId)
-                    .ToListAsync();
+                _logger.LogInformation("💾 Saving {Count} pricing elements for student version {StudentId}", 
+                    elements.Count, newStudentId);
 
-                if (existingElements.Any())
-                {
-                    _context.SchoolStudentPricingElements.RemoveRange(existingElements);
-                    _logger.LogInformation("🗑️ Removed {Count} existing pricing elements", existingElements.Count);
-                }
-
-                // Add new pricing elements
+                // Add pricing elements linked to the new student version
                 foreach (var element in elements)
                 {
                     var pricingElement = new SchoolStudentPricingElement
                     {
-                        StudentId = schoolStudentId,
+                        StudentId = newStudentId,  // ✅ Link to NEW version
                         PricingElementId = element.PricingElementId,
                         Price = element.Price
                     };
@@ -298,22 +321,23 @@ namespace PetelApp.Api.Services
 
                 await _context.SaveChangesAsync();
                 _logger.LogInformation("✅ Saved {Count} pricing elements for student {StudentId}", 
-                    elements.Count, schoolStudentId);
+                    elements.Count, newStudentId);
 
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Error saving pricing elements for student {StudentId}", schoolStudentId);
+                _logger.LogError(ex, "❌ Error saving pricing elements for student {StudentId}", newStudentId);
                 return false;
             }
         }
     }
 
-    // DTO Classes for pricing calculation results
+    // DTO Classes
     public class PricingCalculationResult
     {
         public int SchoolStudentId { get; set; }
+        public int? NewStudentId { get; set; }  // ✅ ID of newly created version
         public bool Success { get; set; }
         public List<CalculatedPricingElement> CalculatedElements { get; set; } = new();
         public List<string> Errors { get; set; } = new();

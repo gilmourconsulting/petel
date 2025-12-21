@@ -26,7 +26,7 @@ window.ActionSecurity = {
 
         try {
             // Get current screen name
-            this._updateCurrentScreenName();
+            //this._updateCurrentScreenName();
 
             // Setup global click interceptor
             this.setupClickInterceptor();

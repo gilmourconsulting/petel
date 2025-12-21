@@ -57,8 +57,18 @@ namespace PetelApp.Api.Controllers
                 // Save if requested
                 if (save && result.CalculatedElements.Count > 0)
                 {
+                    // ✅ Use the NEW student version ID, not the old one
+                    if (!result.NewStudentId.HasValue)
+                    {
+                        return StatusCode(500, new
+                        {
+                            success = false,
+                            message = "נכשל ביצירת גרסת תלמיד חדשה"
+                        });
+                    }
+
                     var saved = await _pricingService.SavePricingElements(
-                        schoolStudentId, 
+                        result.NewStudentId.Value,  // ✅ Use NEW version ID
                         result.CalculatedElements);
 
                     if (!saved)
@@ -78,6 +88,7 @@ namespace PetelApp.Api.Controllers
                     data = new
                     {
                         schoolStudentId = result.SchoolStudentId,
+                        newStudentId = result.NewStudentId, 
                         elementsCount = result.CalculatedElements.Count,
                         totalPrice = result.CalculatedElements.Sum(e => e.Price),
                         elements = result.CalculatedElements,
@@ -186,12 +197,15 @@ namespace PetelApp.Api.Controllers
                     
                     if (result.Success && save)
                     {
-                        await _pricingService.SavePricingElements(studentId, result.CalculatedElements);
+                                await _pricingService.SavePricingElements(
+                                    result.NewStudentId.Value,  // ✅ Use NEW version ID
+                                    result.CalculatedElements);
                     }
 
                     results.Add(new
                     {
                         studentId,
+                        newStudentId = result.NewStudentId,
                         success = result.Success,
                         elementsCount = result.CalculatedElements.Count,
                         totalPrice = result.CalculatedElements.Sum(e => e.Price),

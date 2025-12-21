@@ -89,6 +89,7 @@ builder.Services.AddScoped<SystemAttributeService>();
 builder.Services.AddScoped<GlobalFunctions>();
 
 builder.Services.AddScoped<StudentPricingService>();
+builder.Services.AddScoped<StudentService>();
 
 
 // Register school attribute services
