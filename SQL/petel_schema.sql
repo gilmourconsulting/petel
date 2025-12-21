@@ -1074,8 +1074,10 @@ CREATE TABLE petel_schema.special_needs_pricing_elements (
     name character varying(50) NOT NULL,
     title character varying(25) NOT NULL,
     description text,
-    user_id integer,
-    created_at timestamp with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now(),
+    calculation_level character varying(25) COLLATE pg_catalog."default",
+    sort_order integer NOT NULL DEFAULT 10,
+    attribute_to_check character varying(50) COLLATE pg_catalog."default";
 );
 
 

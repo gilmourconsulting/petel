@@ -137,6 +137,8 @@ namespace PetelApp.Api.Controllers
                             spe.PricingElementId,
                             PricingElementName = snpe.ElementName,
                             spe.Price,
+                            spe.DeterminingFactor,       
+                            spe.Hours,     
                             SortOrder = snpe.SortOrder
                         })
                     .OrderBy(pe => pe.SortOrder)
@@ -195,7 +197,7 @@ namespace PetelApp.Api.Controllers
                 {
                     var result = await _pricingService.CalculateStudentPricing(studentId);
                     
-                    if (result.Success && save)
+                    if (result.Success && save && result.NewStudentId.HasValue)
                     {
                                 await _pricingService.SavePricingElements(
                                     result.NewStudentId.Value,  // ✅ Use NEW version ID

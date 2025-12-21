@@ -47,6 +47,10 @@ namespace PetelApp.Api.Data
         // ✅ Navigation property to HebrewYear
         public virtual HebrewYear? Year { get; set; }
 
+        [Column("attribute_to_check")]
+        [MaxLength(50)]
+        public string? AttributeToCheck { get; set; }
+
         // ✅ Collection navigation to categories
         public virtual ICollection<SpecialNeedsPricingCategory> Categories { get; set; } = new List<SpecialNeedsPricingCategory>();
     }

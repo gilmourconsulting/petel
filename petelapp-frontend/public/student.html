@@ -16,10 +16,10 @@
                     <img src="stats_icon.png" alt="תמחור" class="action-icon-natural">
                     <span style="margin-right: 5px;">רכיבי תמחור</span>
                 </button>
-                                    <button class="btn-icon" onclick="calculateStudentPricingFromSection()" title="חישוב רכיבי תמחור">
-                        <img src="Plus icon.png" alt="חשב" class="action-icon-natural">
-                        <span style="margin-right: 5px;">חשב תמחור</span>
-                    </button>
+                <button class="btn-icon" onclick="calculateStudentPricingFromSection()" title="חישוב רכיבי תמחור">
+                    <img src="Plus icon.png" alt="חשב" class="action-icon-natural">
+                    <span style="margin-right: 5px;">חשב תמחור</span>
+                </button>
                 <div id="studentsTableContainer">
                     <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
                         טוען נתוני תלמידים...
@@ -306,38 +306,38 @@
     window.viewStudentPricingFromSection = viewStudentPricingFromSection;
 
 
-// Calculate student pricing from section header
-async function calculateStudentPricingFromSection() {
-    try {
-        console.log('🔢 Starting pricing calculation from section...');
-        
-        // Get student ID from backend session
-        const studentId = await window.SessionState.getProperty('SelectedStudentId');
-        
-        if (!studentId) {
-            console.error('❌ No student ID in session');
-            alert('לא נמצא מזהה תלמיד');
-            return;
-        }
-        
-        // Get student name from current data
-        let studentName = 'תלמיד';
-        if (window.currentStudentsData && window.currentStudentsData.length > 0) {
-            studentName = window.currentStudentsData[0].name || 'תלמיד';
-        }
-        
-        // Confirm calculation
-        const confirmCalc = confirm(`האם לחשב רכיבי תמחור עבור ${studentName}?\n\nפעולה זו תחליף את רכיבי התמחור הקיימים.`);
-        
-        if (!confirmCalc) {
-            console.log('⚠️ Pricing calculation cancelled by user');
-            return;
-        }
-        
-        // Show loading indicator
-        const loadingDiv = document.createElement('div');
-        loadingDiv.id = 'calculatingIndicator';
-        loadingDiv.style.cssText = `
+    // Calculate student pricing from section header
+    async function calculateStudentPricingFromSection() {
+        try {
+            console.log('🔢 Starting pricing calculation from section...');
+
+            // Get student ID from backend session
+            const studentId = await window.SessionState.getProperty('SelectedStudentId');
+
+            if (!studentId) {
+                console.error('❌ No student ID in session');
+                alert('לא נמצא מזהה תלמיד');
+                return;
+            }
+
+            // Get student name from current data
+            let studentName = 'תלמיד';
+            if (window.currentStudentsData && window.currentStudentsData.length > 0) {
+                studentName = window.currentStudentsData[0].name || 'תלמיד';
+            }
+
+            // Confirm calculation
+            const confirmCalc = confirm(`האם לחשב רכיבי תמחור עבור ${studentName}?\n\nפעולה זו תחליף את רכיבי התמחור הקיימים.`);
+
+            if (!confirmCalc) {
+                console.log('⚠️ Pricing calculation cancelled by user');
+                return;
+            }
+
+            // Show loading indicator
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = 'calculatingIndicator';
+            loadingDiv.style.cssText = `
             position: fixed;
             top: 50%;
             left: 50%;
@@ -350,172 +350,172 @@ async function calculateStudentPricingFromSection() {
             text-align: center;
             direction: rtl;
         `;
-        loadingDiv.innerHTML = `
+            loadingDiv.innerHTML = `
             <div class="loading-spinner" style="margin-bottom: 15px;">⏳</div>
             <div style="font-size: 16px; font-weight: bold;">מחשב רכיבי תמחור...</div>
             <div style="font-size: 14px; color: #666; margin-top: 10px;">אנא המתן</div>
         `;
-        document.body.appendChild(loadingDiv);
-        
-        // Call calculation API
-        const token = window.sessionManager.getToken();
-        if (!token) {
-            throw new Error('No authentication token found');
-        }
-        
-        console.log(`📡 Calling calculation API for student ${studentId}...`);
-        
-        const response = await fetch(AppConfig.getApiUrl(`studentpricing/calculate/${studentId}?save=true`), {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+            document.body.appendChild(loadingDiv);
+
+            // Call calculation API
+            const token = window.sessionManager.getToken();
+            if (!token) {
+                throw new Error('No authentication token found');
             }
-        });
-        
-        // Remove loading indicator
-        document.body.removeChild(loadingDiv);
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            console.log('✅ Pricing calculation successful:', result.data);
-            
-            // ✅ NEW: Update session with the new student version ID
-            if (result.data.newStudentId) {
-                console.log(`📝 Updating session with new student ID: ${result.data.newStudentId} (was: ${studentId})`);
-                await window.SessionState.setProperty('SelectedStudentId', result.data.newStudentId.toString());
-                
-                // ✅ Reload student data to get the new version with updated cost
-                await refreshStudentDataAfterPricing(result.data.newStudentId);
-            }
-            
-            // Show success message with details
-            let message = `✅ חישוב התמחור הושלם בהצלחה!\n\n`;
-            message += `📊 ${result.data.elementsCount} רכיבי תמחור חושבו\n`;
-            message += `💰 סכום כולל: ₪${result.data.totalPrice.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
-            
-            if (result.data.warnings && result.data.warnings.length > 0) {
-                message += `\n⚠️ אזהרות:\n`;
-                result.data.warnings.slice(0, 3).forEach(warning => {
-                    message += `  • ${warning}\n`;
-                });
-                if (result.data.warnings.length > 3) {
-                    message += `  ... ו-${result.data.warnings.length - 3} אזהרות נוספות\n`;
+
+            console.log(`📡 Calling calculation API for student ${studentId}...`);
+
+            const response = await fetch(AppConfig.getApiUrl(`studentpricing/calculate/${studentId}?save=true`), {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
-            }
-            
-            alert(message);
-            
-            // Optionally, auto-open the pricing view to show calculated elements
-            const showResults = confirm('האם להציג את רכיבי התמחור שחושבו?');
-            if (showResults) {
-                // ✅ Use the NEW student ID for viewing pricing
-                const newStudentId = result.data.newStudentId || studentId;
-                await viewStudentPricing(newStudentId, studentName);
-            }
-            
-        } else {
-            throw new Error(result.message || 'Calculation failed');
-        }
-        
-    } catch (error) {
-        console.error('❌ Error calculating pricing:', error);
-        
-        // Remove loading indicator if still present
-        const loadingDiv = document.getElementById('calculatingIndicator');
-        if (loadingDiv) {
+            });
+
+            // Remove loading indicator
             document.body.removeChild(loadingDiv);
-        }
-        
-        alert(`❌ שגיאה בחישוב תמחור:\n${error.message}`);
-    }
-}
 
-// ✅ NEW: Refresh student data after pricing calculation
-async function refreshStudentDataAfterPricing(newStudentId) {
-    try {
-        console.log('🔄 Refreshing student data for new version:', newStudentId);
-        
-        const token = window.sessionManager.getToken();
-        if (!token) {
-            console.error('❌ No auth token found');
-            return;
-        }
-        
-        const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
-        
-        // Fetch the new student version data
-        const response = await fetch(AppConfig.getApiUrl(`students?schoolYearId=${schoolYearId}`), {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
             }
-        });
-        
-        if (response.ok) {
+
             const result = await response.json();
-            
-            if (result.success && result.data) {
-                // Find the new student version in the response
-                const newStudentData = result.data.find(s => s.id === newStudentId);
-                
-                if (newStudentData) {
-                    // Transform the data
-                    const transformedStudent = {
-                        id: newStudentData.id,
-                        idNumber: newStudentData.idNumber || '',
-                        name: `${newStudentData.firstName || ''} ${newStudentData.lastName || ''}`.trim(),
-                        gender: newStudentData.gender === 1 ? 'זכר' : newStudentData.gender === 2 ? 'נקבה' : '',
-                        address: [
-                            newStudentData.street,
-                            newStudentData.houseNumber,
-                            newStudentData.city,
-                            newStudentData.postCode
-                        ].filter(Boolean).join(', '),
-                        class: newStudentData.className || newStudentData.classId?.toString() || '',
-                        classId: newStudentData.classId,
-                        startDate: newStudentData.startDate ? new Date(newStudentData.startDate).toLocaleDateString('he-IL') : '',
-                        endDate: newStudentData.endDate ? new Date(newStudentData.endDate).toLocaleDateString('he-IL') : '',
-                        status: 'איסוף נתונים',
-                        category: newStudentData.disabilityCategory || '',
-                        totalAmount: newStudentData.cost != null ? newStudentData.cost.toString() : '0',
-                        sendingCouncil: newStudentData.councilShortName || newStudentData.sendingCouncil?.toString() || '',
-                        sendingCouncilId: newStudentData.sendingCouncil
-                    };
-                    
-                    // Update current students data
-                    window.currentStudentsData = [transformedStudent];
-                    
-                    // Update session with new student data
-                    await window.SessionState.setProperty('SelectedStudentData', JSON.stringify(transformedStudent));
-                    
-                    // Refresh the table display
-                    createStudentsTable([transformedStudent]);
-                    
-                    console.log('✅ Student data refreshed with new version:', transformedStudent);
-                } else {
-                    console.warn('⚠️ New student version not found in API response');
+
+            if (result.success) {
+                console.log('✅ Pricing calculation successful:', result.data);
+
+                // ✅ NEW: Update session with the new student version ID
+                if (result.data.newStudentId) {
+                    console.log(`📝 Updating session with new student ID: ${result.data.newStudentId} (was: ${studentId})`);
+                    await window.SessionState.setProperty('SelectedStudentId', result.data.newStudentId.toString());
+
+                    // ✅ Reload student data to get the new version with updated cost
+                    await refreshStudentDataAfterPricing(result.data.newStudentId);
                 }
+
+                // Show success message with details
+                let message = `✅ חישוב התמחור הושלם בהצלחה!\n\n`;
+                message += `📊 ${result.data.elementsCount} רכיבי תמחור חושבו\n`;
+                message += `💰 סכום כולל: ₪${result.data.totalPrice.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
+
+                if (result.data.warnings && result.data.warnings.length > 0) {
+                    message += `\n⚠️ אזהרות:\n`;
+                    result.data.warnings.slice(0, 3).forEach(warning => {
+                        message += `  • ${warning}\n`;
+                    });
+                    if (result.data.warnings.length > 3) {
+                        message += `  ... ו-${result.data.warnings.length - 3} אזהרות נוספות\n`;
+                    }
+                }
+
+                alert(message);
+
+                // Optionally, auto-open the pricing view to show calculated elements
+                const showResults = confirm('האם להציג את רכיבי התמחור שחושבו?');
+                if (showResults) {
+                    // ✅ Use the NEW student ID for viewing pricing
+                    const newStudentId = result.data.newStudentId || studentId;
+                    await viewStudentPricing(newStudentId, studentName);
+                }
+
+            } else {
+                throw new Error(result.message || 'Calculation failed');
             }
-        } else {
-            console.error('❌ Failed to refresh student data:', response.status);
+
+        } catch (error) {
+            console.error('❌ Error calculating pricing:', error);
+
+            // Remove loading indicator if still present
+            const loadingDiv = document.getElementById('calculatingIndicator');
+            if (loadingDiv) {
+                document.body.removeChild(loadingDiv);
+            }
+
+            alert(`❌ שגיאה בחישוב תמחור:\n${error.message}`);
         }
-    } catch (error) {
-        console.error('❌ Error refreshing student data:', error);
     }
-}
 
-window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
-window.refreshStudentDataAfterPricing = refreshStudentDataAfterPricing;
+    // ✅ NEW: Refresh student data after pricing calculation
+    async function refreshStudentDataAfterPricing(newStudentId) {
+        try {
+            console.log('🔄 Refreshing student data for new version:', newStudentId);
 
-window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
+            const token = window.sessionManager.getToken();
+            if (!token) {
+                console.error('❌ No auth token found');
+                return;
+            }
+
+            const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
+
+            // Fetch the new student version data
+            const response = await fetch(AppConfig.getApiUrl(`students?schoolYearId=${schoolYearId}`), {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    // Find the new student version in the response
+                    const newStudentData = result.data.find(s => s.id === newStudentId);
+
+                    if (newStudentData) {
+                        // Transform the data
+                        const transformedStudent = {
+                            id: newStudentData.id,
+                            idNumber: newStudentData.idNumber || '',
+                            name: `${newStudentData.firstName || ''} ${newStudentData.lastName || ''}`.trim(),
+                            gender: newStudentData.gender === 1 ? 'זכר' : newStudentData.gender === 2 ? 'נקבה' : '',
+                            address: [
+                                newStudentData.street,
+                                newStudentData.houseNumber,
+                                newStudentData.city,
+                                newStudentData.postCode
+                            ].filter(Boolean).join(', '),
+                            class: newStudentData.className || newStudentData.classId?.toString() || '',
+                            classId: newStudentData.classId,
+                            startDate: newStudentData.startDate ? new Date(newStudentData.startDate).toLocaleDateString('he-IL') : '',
+                            endDate: newStudentData.endDate ? new Date(newStudentData.endDate).toLocaleDateString('he-IL') : '',
+                            status: 'איסוף נתונים',
+                            category: newStudentData.disabilityCategory || '',
+                            totalAmount: newStudentData.cost != null ? newStudentData.cost.toString() : '0',
+                            sendingCouncil: newStudentData.councilShortName || newStudentData.sendingCouncil?.toString() || '',
+                            sendingCouncilId: newStudentData.sendingCouncil
+                        };
+
+                        // Update current students data
+                        window.currentStudentsData = [transformedStudent];
+
+                        // Update session with new student data
+                        await window.SessionState.setProperty('SelectedStudentData', JSON.stringify(transformedStudent));
+
+                        // Refresh the table display
+                        createStudentsTable([transformedStudent]);
+
+                        console.log('✅ Student data refreshed with new version:', transformedStudent);
+                    } else {
+                        console.warn('⚠️ New student version not found in API response');
+                    }
+                }
+            } else {
+                console.error('❌ Failed to refresh student data:', response.status);
+            }
+        } catch (error) {
+            console.error('❌ Error refreshing student data:', error);
+        }
+    }
+
+    window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
+    window.refreshStudentDataAfterPricing = refreshStudentDataAfterPricing;
+
+    window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
 
     // Fallback copy function for older browsers following Frontend Architecture Patterns
     function fallbackCopyTextToClipboard(text) {
@@ -678,6 +678,20 @@ window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
                 sortable: true,
                 readOnly: true,
                 render: (item) => `₪${item.price.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            },
+            {
+                key: 'determiningFactor',
+                label: 'גורם לחישוב',
+                sortable: true,
+                readOnly: true,
+                render: (item) => item.determiningFactor || '-'
+            },
+            {
+                key: 'hours',
+                label: 'שעות',
+                sortable: true,
+                readOnly: true,
+                render: (item) => item.hours != null ? item.hours : '-'
             }
         ];
 
@@ -1075,7 +1089,11 @@ window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
                 key: 'totalAmount',
                 label: 'סכום כולל',
                 sortable: true,
-                readOnly: false
+                readOnly: false,
+                render: (student) => {
+                    const amount = parseFloat(student.totalAmount) || 0;
+                    return `₪${amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                }
             },
             { key: 'sendingCouncil', label: 'רשות שולחת', sortable: true, readOnly: false }
         ];
@@ -1185,31 +1203,31 @@ window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
     // Ensure initialization happens when the page loads
     console.log('📄 student.html script loaded, setting up initialization...');
 
-   /* // Try multiple initialization methods to ensure it runs
-    if (document.readyState === 'loading') {
-        console.log('⏳ Document still loading, waiting for DOMContentLoaded...');
-        document.addEventListener('DOMContentLoaded', initializePage);
-    } else {
-        console.log('✅ Document already loaded, initializing immediately...');
-        initializePage();
-    }
-
-    // Also try immediate initialization after a short delay as fallback
-    setTimeout(() => {
-        console.log('⏰ Fallback initialization check...');
-        const studentsContainer = document.getElementById('studentsTableContainer');
-        const documentsContainer = document.getElementById('documentsTableContainer');
-
-        if (studentsContainer && studentsContainer.querySelector('.loading-spinner')) {
-            console.log('⚠️ Students table still showing loading spinner, attempting re-initialization...');
-            initializePage();
-        }
-
-        if (documentsContainer && documentsContainer.querySelector('.loading-spinner')) {
-            console.log('⚠️ Documents table still showing loading spinner, attempting re-initialization...');
-            loadDocumentsData();
-        }
-    }, 500);*/
+    /* // Try multiple initialization methods to ensure it runs
+     if (document.readyState === 'loading') {
+         console.log('⏳ Document still loading, waiting for DOMContentLoaded...');
+         document.addEventListener('DOMContentLoaded', initializePage);
+     } else {
+         console.log('✅ Document already loaded, initializing immediately...');
+         initializePage();
+     }
+ 
+     // Also try immediate initialization after a short delay as fallback
+     setTimeout(() => {
+         console.log('⏰ Fallback initialization check...');
+         const studentsContainer = document.getElementById('studentsTableContainer');
+         const documentsContainer = document.getElementById('documentsTableContainer');
+ 
+         if (studentsContainer && studentsContainer.querySelector('.loading-spinner')) {
+             console.log('⚠️ Students table still showing loading spinner, attempting re-initialization...');
+             initializePage();
+         }
+ 
+         if (documentsContainer && documentsContainer.querySelector('.loading-spinner')) {
+             console.log('⚠️ Documents table still showing loading spinner, attempting re-initialization...');
+             loadDocumentsData();
+         }
+     }, 500);*/
 
     // Export functions to window for cross-component access
     window.initializePage = initializePage;
