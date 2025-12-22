@@ -14,13 +14,9 @@ namespace PetelApp.Api.Data
         [Column("council_id")]
         public int CouncilId { get; set; }
 
-        [Column("council_short_name")]
+        [Column("council_name")]  // Changed from council_short_name
         [MaxLength(25)]
-        public string? CouncilShortName { get; set; }
-
-        [Column("council_long_name")]
-        [MaxLength(50)]
-        public string? CouncilLongName { get; set; }
+        public string? CouncilName { get; set; }
 
         [Column("year_id")]
         public int YearId { get; set; }
@@ -30,9 +26,5 @@ namespace PetelApp.Api.Data
 
         [Column("total_requested_amount")]
         public decimal TotalRequestedAmount { get; set; }
-
-        // Computed property for display
-        [NotMapped]
-        public string CouncilName => CouncilShortName ?? CouncilLongName ?? "לא ידוע";
     }
 }

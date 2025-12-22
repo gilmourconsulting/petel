@@ -182,11 +182,11 @@
         // Define columns following Hebrew/RTL Specific Patterns with Standard Icon Set
         const tableColumns = [
             {
-                key: 'councilShortName',
+                key: 'councilName',
                 label: 'רשות שולחת',
                 sortable: true,
                 readOnly: true,
-                render: (council) => council.councilShortName || 'לא ידוע'
+                render: (council) => council.councilName || 'לא ידוע'
             },
             {
                 key: 'numberOfStudents',
@@ -269,11 +269,11 @@
         if (council) {
             // Store selected council information in session
             await window.SessionState.setProperty('SelectedCouncilId', councilId.toString());
-            await window.SessionState.setProperty('SelectedCouncilName', council.councilShortName || 'לא ידוע');
+            await window.SessionState.setProperty('SelectedCouncilName', council.councilName || 'לא ידוע');
 
             console.log('Selected council stored:', {
                 id: councilId,
-                name: council.councilShortName
+                name: council.councilName
             });
 
             // Navigate to council students page

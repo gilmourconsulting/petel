@@ -270,7 +270,7 @@ modelBuilder.Entity<SpecialNeedsPricingCategory>(entity =>
                     });
 
             // Council entity configuration following Database Conventions
-            modelBuilder.Entity<Council>(entity =>
+        /*    modelBuilder.Entity<Council>(entity =>
             {
                 entity.ToTable("councils");
                 entity.HasKey(e => e.Id);
@@ -283,7 +283,7 @@ modelBuilder.Entity<SpecialNeedsPricingCategory>(entity =>
                 // Ignore computed properties (not in database)
                 entity.Ignore(e => e.Name);
                 entity.Ignore(e => e.ShortName);
-            });
+            });*/
 
             // SchoolClass entity configuration following Database Conventions
             modelBuilder.Entity<SchoolClass>(entity =>

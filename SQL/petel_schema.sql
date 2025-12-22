@@ -427,16 +427,15 @@ ALTER TABLE petel_schema.budget_statuses OWNER TO postgres;
 -- Name: councils; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
-CREATE TABLE petel_schema.councils (
+CREATE TABLE IF NOT EXISTS petel_schema.councils
+(
     id integer NOT NULL,
     council_code integer NOT NULL,
-    council_type character varying(25),
-    council_short_name character varying(25),
-    council_long_name character varying(50),
-    council_district character varying(25),
-    "council_HP_number" integer
-);
-
+    name character varying(25) COLLATE pg_catalog."default",
+    created_at timestamp with time zone,
+    user_id integer DEFAULT 0,
+    CONSTRAINT councils_pkey PRIMARY KEY (id)
+)
 
 ALTER TABLE petel_schema.councils OWNER TO postgres;
 

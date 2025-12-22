@@ -68,7 +68,7 @@
             }
 
             // API call following API Communication Pattern
-            const apiUrl = AppConfig.getApiUrl('entities/councils');
+            const apiUrl = AppConfig.getApiUrl('entities/councils/summary');
             console.log('🌐 Making API call to:', apiUrl);
 
             const response = await fetch(apiUrl, {
@@ -134,16 +134,16 @@
 
         // For now, create summary with basic council info
         // This will be enhanced when we have actual student-council relationships
-        return councils.map(council => ({
-            id: council.id,
-            council: council.councilShortName || council.councilLongName || council.name || 'לא ידוע',
-            councilShortName: council.councilShortName,
-            councilLongName: council.councilLongName,
-            numberOfStudents: 0, // To be calculated from students data
-            status: 'ממתין',
-            totalRequested: '-',
-            lastUpdate: council.updatedAt ? new Date(council.updatedAt).toLocaleDateString('he-IL') : '-'
-        }));
+            return councils.map(council => ({
+                id: council.id,
+                council: council.name || 'לא ידוע',  // Simplified
+                councilName: council.name,  // Changed from councilShortName
+                numberOfStudents: council.numberOfStudents || 0,
+                totalRequested: council.totalRequested ? 
+                    `${council.totalRequested.toLocaleString('he-IL')} ₪` : '-',
+                lastUpdate: council.updatedAt ? 
+                    new Date(council.updatedAt).toLocaleDateString('he-IL') : '-'
+            }));
     }
 
     // Generate mock data following Project-Specific Patterns

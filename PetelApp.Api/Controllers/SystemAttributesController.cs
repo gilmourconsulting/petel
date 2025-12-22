@@ -294,11 +294,11 @@ public async Task<IActionResult> ReloadSystemAttributes()
                 
                 var councils = await _context.Councils
                     .AsNoTracking()
-                    .OrderBy(c => c.CouncilShortName)
+                    .OrderBy(c => c.Name)
                     .Select(c => new
                     {
                         id = c.Id,
-                        councilShortName = c.CouncilShortName,
+                        councilName = c.Name,
                         councilCode = c.CouncilCode
                     })
                     .ToListAsync();

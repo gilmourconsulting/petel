@@ -115,7 +115,7 @@ public async Task<IActionResult> GetSchoolByYear(int schoolYearId)
             Symbol = school.Symbol,
             IsActive = school.IsActive,
             CouncilId = school.Council,
-            CouncilName = school.CouncilEntity?.CouncilShortName
+            CouncilName = school.CouncilEntity?.Name
         };
 
         return Ok(new { success = true, data = schoolDetails });

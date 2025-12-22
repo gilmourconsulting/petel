@@ -75,9 +75,9 @@ namespace PetelApp.Api.Controllers
                         Cost = s.Cost,
 
                         // LEFT JOIN with Councils - uses council_short_name, falls back to council_long_name
-                        CouncilShortName = _context.Councils
+                        CouncilName = _context.Councils
                             .Where(c => c.Id == s.SendingCouncil)
-                            .Select(c => c.CouncilShortName ?? c.CouncilLongName)
+                            .Select(c => c.Name)
                             .FirstOrDefault(),
 
                         // LEFT JOIN with SchoolClasses - uses name column
@@ -177,9 +177,9 @@ namespace PetelApp.Api.Controllers
                         disabilityCategory = s.DisabilityCategory,
                         cost = s.Cost,
                         sendingCouncil = s.SendingCouncil,
-                        councilShortName = _context.Councils
+                        CouncilName = _context.Councils
                             .Where(c => c.Id == s.SendingCouncil)
-                            .Select(c => c.CouncilShortName ?? c.CouncilLongName)
+                            .Select(c => c.Name)
                             .FirstOrDefault(),
                         schoolYearId = s.SchoolYearId,
                         schoolName = _context.SchoolYears

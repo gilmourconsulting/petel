@@ -30,7 +30,6 @@
                 <div class="modal-content" style="max-width: 800px;">
                     <div class="modal-header">
                         <h2>רכיבי תמחור - <span id="pricingStudentName"></span></h2>
-                        <button class="btn-close" onclick="closePricingModal()">✕</button>
                     </div>
                     <div class="modal-body">
                         <div id="pricingTableContainer" class="table-container">
@@ -39,6 +38,20 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn-secondary" onclick="closePricingModal()">סגור</button>
+                    </div>
+                    <div id="pricingTotalContainer" style="
+                            margin-top: 15px;
+                            padding: 15px;
+                            background-color: #f8f9fa;
+                            border: 2px solid #dee2e6;
+                            border-radius: 8px;
+                            text-align: center;
+                            direction: rtl;
+                            font-size: 18px;
+                            font-weight: bold;
+                        ">
+                        <span>סה"כ: </span>
+                        <span id="pricingTotalAmount" style="color: #28a745;">₪0.00</span>
                     </div>
                 </div>
             </div>
@@ -486,7 +499,7 @@
                             status: 'איסוף נתונים',
                             category: newStudentData.disabilityCategory || '',
                             totalAmount: newStudentData.cost != null ? newStudentData.cost.toString() : '0',
-                            sendingCouncil: newStudentData.councilShortName || newStudentData.sendingCouncil?.toString() || '',
+                            sendingCouncil: newStudentData.councilName || newStudentData.sendingCouncil?.toString() || '',
                             sendingCouncilId: newStudentData.sendingCouncil
                         };
 
@@ -666,8 +679,16 @@
             if (container) {
                 container.innerHTML = '<div class="empty-state">לא נמצאו רכיבי תמחור לתלמיד זה</div>';
             }
+
+            // Clear total
+            const totalElement = document.getElementById('pricingTotalAmount');
+            if (totalElement) {
+                totalElement.textContent = '₪0.00';
+            }
+
             return;
         }
+
 
         const columns = [
             { key: 'id', label: 'מזהה', sortable: true, readOnly: true, hidden: true },
@@ -709,6 +730,14 @@
             pricingTable.init(data, columns);
 
             console.log('✅ Pricing ReusableTable initialized successfully with', data.length, 'elements');
+
+            // ✅ Calculate and display total
+            const total = data.reduce((sum, item) => sum + (item.price || 0), 0);
+            const totalElement = document.getElementById('pricingTotalAmount');
+            if (totalElement) {
+                totalElement.textContent = `₪${total.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                console.log('✅ Pricing total displayed:', total);
+            }
 
         } catch (error) {
             console.error('❌ Error creating pricing ReusableTable:', error);
@@ -961,6 +990,12 @@
 
             createStudentsTable([selectedStudent]);
 
+            // ✅ Initialize documents table after student data is loaded
+            setTimeout(() => {
+                console.log('📄 Initializing documents table...');
+                initializeStudentDocuments();
+            }, 100);
+
         } catch (error) {
             console.error('💥 Error loading student data:', error);
             showStudentsTableError('שגיאה בטעינת נתוני התלמיד. אנא נסה שוב.');
@@ -1173,73 +1208,25 @@
     window.loadReusableTableComponentForStudents = loadReusableTableComponentForStudents;
     window.initializeStudentsTable = initializeStudentsTable;
     window.showStudentsTableError = showStudentsTableError;
-    //window.loadDocumentsData = loadDocumentsData;
-    //window.createDocumentsTable = createDocumentsTable;
-    //window.loadReusableTableComponentForDocuments = loadReusableTableComponentForDocuments;
-    //window.initializeDocumentsTable = initializeDocumentsTable;
-    //window.showDocumentsTableError = showDocumentsTableError;
-
     window.initializeStudentDocuments = initializeStudentDocuments;
     window.cleanupStudentDocuments = cleanupStudentDocuments;
 
 
 
-    // Update initializePage to include better logging
-    function initializePage() {
-        console.log('🏁 Initializing student page...');
-        console.log('📋 Current location:', window.location.href);
-        console.log('📋 Session storage keys:', Object.keys(sessionStorage));
 
-
-
-        // Load student data (from session storage) with a small delay
-        setTimeout(() => {
-            console.log('⏰ Starting data load after timeout...');
-            loadStudentData();
-            initializeStudentDocuments();
-        }, 100);
-    }
 
     // Ensure initialization happens when the page loads
     console.log('📄 student.html script loaded, setting up initialization...');
 
-    /* // Try multiple initialization methods to ensure it runs
-     if (document.readyState === 'loading') {
-         console.log('⏳ Document still loading, waiting for DOMContentLoaded...');
-         document.addEventListener('DOMContentLoaded', initializePage);
-     } else {
-         console.log('✅ Document already loaded, initializing immediately...');
-         initializePage();
-     }
- 
-     // Also try immediate initialization after a short delay as fallback
-     setTimeout(() => {
-         console.log('⏰ Fallback initialization check...');
-         const studentsContainer = document.getElementById('studentsTableContainer');
-         const documentsContainer = document.getElementById('documentsTableContainer');
- 
-         if (studentsContainer && studentsContainer.querySelector('.loading-spinner')) {
-             console.log('⚠️ Students table still showing loading spinner, attempting re-initialization...');
-             initializePage();
-         }
- 
-         if (documentsContainer && documentsContainer.querySelector('.loading-spinner')) {
-             console.log('⚠️ Documents table still showing loading spinner, attempting re-initialization...');
-             loadDocumentsData();
-         }
-     }, 500);*/
+
 
     // Export functions to window for cross-component access
-    window.initializePage = initializePage;
+
     window.navigateToStudents = navigateToStudents;
     window.navigateToSchoolDashboard = navigateToSchoolDashboard;
     window.navigateToSchoolList = navigateToSchoolList;
     window.navigateBackToSource = navigateBackToSource;
-    //window.viewDocumentDetails = viewDocumentDetails;
-    //window.downloadDocument = downloadDocument;
-    //window.closeDocumentModal = closeDocumentModal;
-    //window.copyDocumentUrl = copyDocumentUrl;
-    //window.requestDocumentCreation = requestDocumentCreation;
+
 
     console.log('✅ All student page functions exported to window');
 </script>

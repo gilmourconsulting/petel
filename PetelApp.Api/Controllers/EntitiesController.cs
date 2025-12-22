@@ -824,12 +824,11 @@ public async Task<IActionResult> GetOwnerOptions()
                 var councilSummary = await _context.CouncilSummaryVw
                     .AsNoTracking()
                     .Where(cs => cs.YearId == yearId.Value)
-                    .OrderBy(cs => cs.CouncilShortName)
+                    .OrderBy(cs => cs.CouncilName)  // Changed from CouncilShortName
                     .Select(cs => new
                     {
                         id = cs.CouncilId,
-                        councilShortName = cs.CouncilShortName ?? cs.CouncilLongName ?? "לא ידוע",
-                        councilLongName = cs.CouncilLongName,
+                        councilName = cs.CouncilName ?? "לא ידוע",  // Simplified
                         numberOfStudents = cs.NumberOfStudents,
                         totalRequested = cs.TotalRequestedAmount,
                         totalRequestedFormatted = cs.TotalRequestedAmount.ToString("N2") + " ₪"

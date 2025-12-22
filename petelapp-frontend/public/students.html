@@ -618,7 +618,7 @@
                             category: student.disabilityCategory || '',
                             totalAmount: totalAmount,
                             // Use enriched council short name from backend
-                            sendingCouncil: student.councilShortName || student.sendingCouncil?.toString() || '',
+                            sendingCouncil: student.councilName || student.sendingCouncil?.toString() || '',
                             sendingCouncilId: student.sendingCouncil // Keep ID for reference
                         };
                     });

@@ -16,32 +16,21 @@ namespace PetelApp.Api.Data
 
         [Required]
         [Column("council_code")]
-        public required int CouncilCode { get; set; }
+        public int CouncilCode { get; set; }
 
-        [Column("council_type")]
+        [Required]
+        [Column("name")]
         [MaxLength(25)]
-        public required string CouncilType { get; set; }
+        public string Name { get; set; } = string.Empty;
 
-        [Column("council_short_name")]
-        [MaxLength(25)]
-        public required string CouncilShortName { get; set; }
+        [Column("created_at")]
+        public DateTime? CreatedAt { get; set; }
 
-        [Column("council_long_name")]
-        [MaxLength(50)]
-        public required string CouncilLongName { get; set; }
+        [Column("user_id")]
+        public int UserId { get; set; } = 0;
 
-        [Column("council_district")]
-        [MaxLength(25)]
-        public string? CouncilDistrict { get; set; }
-
-        [Column("council_HP_number")]
-        public int? CouncilHPNumber { get; set; }
-
-        // Computed property for display - prefers short name, falls back to long name
+        // Computed property for backward compatibility
         [NotMapped]
-        public string Name => CouncilShortName ?? CouncilLongName ?? $"Council {CouncilCode}";
-
-        [NotMapped]
-        public string ShortName => CouncilShortName ?? CouncilLongName ?? $"Council {CouncilCode}";
+        public string ShortName => Name;
     }
 }

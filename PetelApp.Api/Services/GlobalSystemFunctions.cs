@@ -115,7 +115,7 @@ namespace PetelApp.Api.Services
             var councils = await _context.Councils.ToListAsync();
 
             var matchedCouncil = councils
-                .FirstOrDefault(c => PureHebrewText(c.CouncilShortName) == pureInputName);
+                .FirstOrDefault(c => PureHebrewText(c.Name) == pureInputName);
 
             return matchedCouncil?.Id;
         }
