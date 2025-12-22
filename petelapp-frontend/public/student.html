@@ -496,7 +496,7 @@
                             classId: newStudentData.classId,
                             startDate: newStudentData.startDate ? new Date(newStudentData.startDate).toLocaleDateString('he-IL') : '',
                             endDate: newStudentData.endDate ? new Date(newStudentData.endDate).toLocaleDateString('he-IL') : '',
-                            status: 'איסוף נתונים',
+                            status: newStudentData.statusName || '',
                             category: newStudentData.disabilityCategory || '',
                             totalAmount: newStudentData.cost != null ? newStudentData.cost.toString() : '0',
                             sendingCouncil: newStudentData.councilName || newStudentData.sendingCouncil?.toString() || '',

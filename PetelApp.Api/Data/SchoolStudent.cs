@@ -59,5 +59,12 @@ namespace PetelApp.Api.Data
 
         [Column("cost")]
         public decimal? Cost { get; set; }
+            
+        [ForeignKey("Status")]
+        [Column("status")]
+        public int? StatusId { get; set; }
+
+        // ✅ NEW: Navigation property for Status
+        public virtual Status? Status { get; set; }
     }
 }

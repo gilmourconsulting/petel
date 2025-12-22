@@ -34,7 +34,7 @@ namespace PetelApp.Api.Data
         public DbSet<CouncilSummaryVw> CouncilSummaryVw { get; set; }
         // DbSets following Entity-Based Request Flow
         public DbSet<SchoolStudent> SchoolStudents { get; set; }
-
+public DbSet<Status> Statuses { get; set; }
             public DbSet<MenuItem> MenuItems { get; set; }
         public DbSet<HebrewYear> HebrewYears { get; set; }
 
@@ -163,6 +163,13 @@ namespace PetelApp.Api.Data
 
 
             });
+
+            modelBuilder.Entity<Status>(entity =>
+                {
+                    entity.ToTable("statuses");
+                    entity.HasKey(e => e.Id);
+                });
+
 
             // RolesAction configuration
 // Update RolesAction configuration - ADD SystemAction navigation
@@ -597,7 +604,16 @@ modelBuilder.Entity<SpecialNeedsPricingCategory>(entity =>
                     .IsRequired();
             });
 
-
+                modelBuilder.Entity<SchoolStudent>(entity =>
+                {
+                    entity.ToTable("school_students");
+                    
+                    // ✅ Configure Status relationship
+                    entity.HasOne(s => s.Status)
+                        .WithMany(st => st.Students)
+                        .HasForeignKey(s => s.StatusId)
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
 
             // Alert entities configuration
             modelBuilder.Entity<Alert>(entity =>

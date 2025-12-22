@@ -73,6 +73,7 @@ namespace PetelApp.Api.Controllers
                         SendingCouncil = s.SendingCouncil,
                         DisabilityCategory = s.DisabilityCategory,
                         Cost = s.Cost,
+                        Status = s.Status != null ? s.Status.Name : null,
 
                         // LEFT JOIN with Councils - uses council_short_name, falls back to council_long_name
                         CouncilName = _context.Councils
@@ -177,6 +178,7 @@ namespace PetelApp.Api.Controllers
                         disabilityCategory = s.DisabilityCategory,
                         cost = s.Cost,
                         sendingCouncil = s.SendingCouncil,
+                        Status = s.Status != null ? s.Status.Name : null,
                         CouncilName = _context.Councils
                             .Where(c => c.Id == s.SendingCouncil)
                             .Select(c => c.Name)

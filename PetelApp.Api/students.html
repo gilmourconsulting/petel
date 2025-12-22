@@ -288,7 +288,7 @@ async function loadStudentsData() {
                         startDate: student.startDate ? new Date(student.startDate).toLocaleDateString('he-IL') : '' ,
                         endDate: student.endDate ? new Date(student.endDate).toLocaleDateString('he-IL') : '',
  
-                        status: 'איסוף נתונים',
+                        status:     student.status || '',
                         category: student.disabilityCategory || '',
                         totalAmount: totalAmount,
                         // Use enriched council short name from backend

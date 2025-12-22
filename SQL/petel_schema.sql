@@ -443,6 +443,23 @@ ALTER TABLE petel_schema.councils OWNER TO postgres;
 -- Name: school_students_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
 --
 
+CREATE TABLE IF NOT EXISTS petel_schema.statuses
+(
+    id integer NOT NULL DEFAULT nextval('petel_schema.statuses_id_seq'::regclass),
+    object character varying(25) COLLATE pg_catalog."default",
+    name character varying(25) COLLATE pg_catalog."default",
+    user_id integer,
+    created_at timestamp with time zone,
+    sort_order integer,
+    CONSTRAINT statuses_pkey PRIMARY KEY (id)
+)
+
+TABLESPACE pg_default;
+
+ALTER TABLE IF EXISTS petel_schema.statuses
+    OWNER to "PetelAdmin";
+
+
 CREATE SEQUENCE petel_schema.school_students_id_seq
     START WITH 1
     INCREMENT BY 1
@@ -478,7 +495,8 @@ CREATE TABLE petel_schema.school_students (
     post_code character varying(10),
     sending_council integer,
     is_last_version boolean DEFAULT true,
-    cost numeric(7,2) DEFAULT 0
+    cost numeric(7,2) DEFAULT 0,
+        status smallint
 );
 
 

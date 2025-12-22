@@ -221,11 +221,14 @@ namespace PetelApp.Api.Services
                 {
                     var totalCost = result.CalculatedElements.Sum(e => e.Price);
 
+                    int status = result.Errors.Count == 0 ? 2 : 6;
+
                     var newStudentId = await _studentService.CreateNewStudentVersionAsync(
                         schoolStudentId,
                         newVersion =>
                         {
                             newVersion.Cost = totalCost;
+                            newVersion.StatusId = status;
                         });
 
                     if (newStudentId.HasValue)
