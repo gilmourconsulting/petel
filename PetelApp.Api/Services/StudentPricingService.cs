@@ -152,6 +152,39 @@ namespace PetelApp.Api.Services
                             continue; // Move to next element
                         }
 
+
+                        
+                                                // ✅ Special handling for "Additional Studies" elements
+                                                if (element.Title?.Contains("Additional Studies", StringComparison.OrdinalIgnoreCase) == true ||
+                                                    element.Title?.Contains("תל\"ן", StringComparison.OrdinalIgnoreCase) == true ||
+                                                    element.ElementName?.Contains("Additional Studies", StringComparison.OrdinalIgnoreCase) == true)
+                                                {
+                                                    if (student.ClassId.HasValue)
+                                                    {
+                                                        var additionalStudiesElement = await CalculateAdditionalStudiesPrice(
+                                                            element,
+                                                            disabilityCategory,
+                                                            student.ClassId.Value,
+                                                            student.SchoolYearId);
+                        
+                                                        if (additionalStudiesElement != null)
+                                                        {
+                                                            result.CalculatedElements.Add(additionalStudiesElement);
+                                                            _logger.LogInformation("✅ Additional Studies price calculated: {Price:C}",
+                                                                additionalStudiesElement.Price);
+                                                        }
+                                                        else
+                                                        {
+                                                            _logger.LogDebug("⏭️ No additional studies found for class {ClassId}", student.ClassId.Value);
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        _logger.LogWarning("⚠️ Student has no class assigned, cannot calculate Additional Studies pricing");
+                                                    }
+                                                    continue; // Move to next element
+                                                }
+
                         // Regular element processing
                         var calculatedElement = await CalculatePriceForElement(
                             element,
@@ -216,6 +249,61 @@ namespace PetelApp.Api.Services
                     schoolStudentId);
                 result.Errors.Add($"Critical error: {ex.Message}");
                 return result;
+            }
+        }
+
+                /// <summary>
+        /// Calculate price for "Additional Studies" element by summing approved amounts for student's class
+        /// </summary>
+        private async Task<CalculatedPricingElement?> CalculateAdditionalStudiesPrice(
+            SpecialNeedsPricingElement element,
+            int category,
+            int classId,
+            int schoolYearId)
+        {
+            try
+            {
+                _logger.LogDebug("📚 Calculating Additional Studies pricing for class {ClassId}, school year {SchoolYearId}",
+                    classId, schoolYearId);
+
+                // Get all additional study programs for this class (last version only)
+                var additionalPrograms = await _context.SchoolAdditionalStudyPrograms
+                    .AsNoTracking()
+                    .Where(p => p.ClassId == classId &&
+                                p.SchoolYearId == schoolYearId &&
+                                p.IsLastVersion == true &&
+                                p.ApprovedAmount.HasValue)
+                    .ToListAsync();
+
+                if (additionalPrograms.Count == 0)
+                {
+                    _logger.LogDebug("⚠️ No additional study programs found for class {ClassId}", classId);
+                    return null;
+                }
+
+                // Sum all approved amounts
+                var totalApprovedAmount = additionalPrograms.Sum(p => p.ApprovedAmount!.Value);
+
+                _logger.LogDebug("✅ Found {Count} additional study programs with total approved amount: {Amount:C}",
+                    additionalPrograms.Count, totalApprovedAmount);
+
+                // Build determining factor showing count of programs
+                var determiningFactor = $"{additionalPrograms.Count} תוכניות לימוד נוספות";
+
+                return new CalculatedPricingElement
+                {
+                    PricingElementId = element.Id,
+                    PricingElementName = element.ElementName,
+                    Price = totalApprovedAmount,
+                    DisabilityCategory = category,
+                    DeterminingFactor = determiningFactor,
+                    Hours = null
+                };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error calculating Additional Studies price for class {ClassId}", classId);
+                return null;
             }
         }
 
