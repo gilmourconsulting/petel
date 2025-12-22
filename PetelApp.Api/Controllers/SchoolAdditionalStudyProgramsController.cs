@@ -420,6 +420,135 @@ namespace PetelApp.Api.Controllers
         }
 
         /// <summary>
+    /// Get maximum allowed price for a program based on year and number of students
+    /// If exact match not found:
+    /// - If students < lowest tier: use lowest tier price
+    /// - If students > highest tier: use highest tier price
+    /// - Otherwise: use the tier for that student count (assumes continuity)
+    /// </summary>
+    [HttpGet("max-price")]
+    public async Task<IActionResult> GetMaxPrice([FromQuery] int yearId, [FromQuery] int students)
+    {
+        try
+        {
+            _logger.LogInformation(
+                "Getting max price for yearId {YearId} and {Students} students",
+                yearId,
+                students
+            );
+    
+            // Try to find exact match first
+            var exactMatch = await _context.AdditionalStudyProgramsPricing
+                .AsNoTracking()
+                .Where(p => p.YearId == yearId && p.Students == students && p.Price != null)
+                .FirstOrDefaultAsync();
+    
+            if (exactMatch != null)
+            {
+                _logger.LogInformation(
+                    "Found exact match: price {Price} for yearId {YearId} and {Students} students",
+                    exactMatch.Price,
+                    yearId,
+                    students
+                );
+    
+                return Ok(new
+                {
+                    success = true,
+                    maxPrice = exactMatch.Price,
+                    studentCount = exactMatch.Students,
+                    message = "מחיר מקסימלי נטען בהצלחה"
+                });
+            }
+    
+            // No exact match - get all pricing tiers for this year
+            var allPricing = await _context.AdditionalStudyProgramsPricing
+                .AsNoTracking()
+                .Where(p => p.YearId == yearId && p.Price != null)
+                .OrderBy(p => p.Students)
+                .ToListAsync();
+    
+            if (!allPricing.Any())
+            {
+                _logger.LogWarning(
+                    "No pricing found for yearId {YearId}",
+                    yearId
+                );
+                
+                return Ok(new
+                {
+                    success = true,
+                    maxPrice = (decimal?)null,
+                    studentCount = 0,
+                    message = "לא נמצא מחיר מקסימלי מוגדר"
+                });
+            }
+    
+            var lowestTier = allPricing.First();
+            var highestTier = allPricing.Last();
+    
+            AdditionalStudyProgramsPricing selectedTier;
+    
+            if (students < lowestTier.Students)
+            {
+                // Student count is lower than lowest tier - use lowest tier
+                selectedTier = lowestTier;
+                _logger.LogInformation(
+                    "Student count {Students} is below lowest tier ({LowestTier}). Using lowest tier price {Price}",
+                    students,
+                    lowestTier.Students,
+                    lowestTier.Price
+                );
+            }
+            else if (students > highestTier.Students)
+            {
+                // Student count is higher than highest tier - use highest tier
+                selectedTier = highestTier;
+                _logger.LogInformation(
+                    "Student count {Students} is above highest tier ({HighestTier}). Using highest tier price {Price}",
+                    students,
+                    highestTier.Students,
+                    highestTier.Price
+                );
+            }
+            else
+            {
+                // Student count is between lowest and highest - find the appropriate tier
+                // Assuming continuity, use the tier at or below the student count
+                selectedTier = allPricing
+                    .Where(p => p.Students <= students)
+                    .OrderByDescending(p => p.Students)
+                    .First();
+                
+                _logger.LogInformation(
+                    "Student count {Students} falls within range. Using tier for {TierStudents} students with price {Price}",
+                    students,
+                    selectedTier.Students,
+                    selectedTier.Price
+                );
+            }
+    
+            return Ok(new
+            {
+                success = true,
+                maxPrice = selectedTier.Price,
+                studentCount = selectedTier.Students,
+                message = "מחיר מקסימלי נטען בהצלחה"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting max price for yearId {YearId} and {Students} students", yearId, students);
+            return StatusCode(500, new
+            {
+                success = false,
+                message = "שגיאה בטעינת מחיר מקסימלי",
+                error = ex.Message
+            });
+        }
+    }
+
+        /// <summary>
         /// ✅ UPDATE: Logical delete - mark as not last version (keeps history)
         /// </summary>
         [HttpDelete("{id}")]

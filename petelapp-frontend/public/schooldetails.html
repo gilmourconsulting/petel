@@ -1344,11 +1344,12 @@
             }
 
             const columns = [
-                { 
-                    key: 'nationalId', 
-                    label: 'תעודת זהות', 
-                    sortable: true, 
-                    readOnly: true },
+                {
+                    key: 'nationalId',
+                    label: 'תעודת זהות',
+                    sortable: true,
+                    readOnly: true
+                },
 
                 {
                     key: 'name',
@@ -4048,7 +4049,7 @@
 
         function cleanupSchoolDetailsPage() {
             console.log('🧹 Cleaning up school details page...');
-            
+
             try {
                 // Remove school details content from DOM
                 const contentCard = document.querySelector('.content-card');
@@ -4058,7 +4059,7 @@
                 // Clear global state if needed
                 schoolAttributeTypes = [];
                 // Optionally remove event listeners or timers here
-                
+
                 console.log('✅ School details page cleanup complete');
             } catch (error) {
                 console.error('❌ Error during school details cleanup:', error);
@@ -4325,134 +4326,85 @@
             }
         }
 
-        // Show add additional study program modal
-        async function showAddAdditionalStudyModal() {
-            console.log('➕ Opening add additional study program modal');
-            await showAdditionalStudyModal(null);
-        }
-
-        // Show edit additional study program modal
-        async function showEditAdditionalStudyModal(programId) {
-            console.log('✏️ Opening edit additional study program modal for program:', programId);
-            const program = window.lastSchoolAdditionalStudyData.find(p => p.id === programId);
-            if (!program) {
-                console.error('❌ Additional study program not found:', programId);
-                alert('תל״ן לא נמצא');
-                return;
-            }
-            await showAdditionalStudyModal(program);
-        }
-
         // Generic additional study program modal (add or edit)
         async function showAdditionalStudyModal(programData) {
-            console.log('📋 Opening additional study program modal:', programData ? 'EDIT' : 'ADD');
+            console.log('📝 Opening additional study modal:', programData ? 'EDIT' : 'ADD');
 
             try {
-                // Get school year ID from session
-                const selectedSchoolYearId = await sessionManager.getSessionProperty('SelectedSchoolYearId');
-
-                if (!selectedSchoolYearId) {
-                    alert('לא נמצא מזהה שנת לימודים');
+                // Fetch classes for dropdown
+                const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
+                if (!schoolYearId) {
+                    console.error('❌ No school year ID in session');
+                    alert('שגיאה: לא נבחרה שנת לימודים');
                     return;
                 }
 
-                // Load classes for the school year
-                const classesResponse = await fetch(AppConfig.getApiUrl(`schoolClasses/by-school-year/${selectedSchoolYearId}`), {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-                    }
+                const authToken = sessionStorage.getItem('authToken');
+                const classesResponse = await fetch(AppConfig.getApiUrl(`schoolclasses/by-school-year/${schoolYearId}`), {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
                 });
 
                 if (!classesResponse.ok) {
                     throw new Error('Failed to load classes');
                 }
 
-                const classesResult = await classesResponse.json();
-                const classes = classesResult.success ? classesResult.data : [];
+                const classesData = await classesResponse.json();
+                const classes = classesData.data || [];
 
-                // Create modal
+                // Create modal overlay
                 const overlay = document.createElement('div');
-                overlay.className = 'dialog-overlay';
+                overlay.className = 'modal-overlay';
+                overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 9999;';
 
                 const dialog = document.createElement('div');
-                dialog.className = 'dialog-box';
-                dialog.style.minWidth = '500px';
-
-                const classOptions = classes.map(c =>
-                    `<option value="${c.id}" ${programData && programData.classId === c.id ? 'selected' : ''}>
-                ${c.level} ${c.classNumber}
-            </option>`
-                ).join('');
+                dialog.className = 'modal-dialog';
+                dialog.style.cssText = 'background: white; padding: 20px; border-radius: 8px; min-width: 500px; max-width: 600px; max-height: 90vh; overflow-y: auto; direction: rtl;';
 
                 dialog.innerHTML = `
     <h3 class="dialog-title">${programData ? `עריכת תל״ן (גרסה ${programData.version || 1})` : 'הוספת תל״ן חדש'}</h3>
     <div style="margin: 20px 0;">
         <div style="margin-bottom: 15px;">
-            <label for="programClass" style="display: block; margin-bottom: 5px; font-weight: 600;">כיתה:</label>
-            <select id="programClass" style="
+            <label for="programClass" style="display: block; margin-bottom: 5px; font-weight: 600;">כיתה: <span style="color: red;">*</span></label>
+            <select id="programClass" required style="
                 width: 100%;
                 padding: 8px;
                 border: 1px solid #dee2e6;
                 border-radius: 4px;
                 font-size: 14px;
-                direction: rtl;
             ">
-                <option value="">בחר כיתה...</option>
-                ${classOptions}
+                <option value="">בחר כיתה</option>
+                ${classes.map(c => `<option value="${c.id}" ${programData && programData.classId === c.id ? 'selected' : ''}>${c.level} ${c.classNumber}</option>`).join('')}
             </select>
         </div>
         
         <div style="margin-bottom: 15px;">
-            <label for="programName" style="display: block; margin-bottom: 5px; font-weight: 600;">שם:</label>
-            <input type="text" id="programName" placeholder="הזן שם תל״ן"
+            <label for="programName" style="display: block; margin-bottom: 5px; font-weight: 600;">שם התל״ן: <span style="color: red;">*</span></label>
+            <input type="text" id="programName" placeholder="הזן שם תל״ן" required
                 value="${programData ? programData.name : ''}"
-                style="
-                width: 100%;
-                padding: 8px;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                font-size: 14px;
-                direction: rtl;
-            ">
+                style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px;">
         </div>
         
         <div style="margin-bottom: 15px;">
-            <label for="programHours" style="display: block; margin-bottom: 5px; font-weight: 600;">שעות שבועיות:</label>
-            <input type="number" id="programHours" placeholder="הזן מספר שעות" min="0" step="0.5"
+            <label for="programHours" style="display: block; margin-bottom: 5px; font-weight: 600;">שעות שבועיות: <span style="color: red;">*</span></label>
+            <input type="number" id="programHours" placeholder="מספר שעות" min="0" required
                 value="${programData ? programData.weeklyHours : ''}"
-                style="
-                width: 100%;
-                padding: 8px;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                font-size: 14px;
-                direction: rtl;
-            ">
+                style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px;">
         </div>
         
         <div style="margin-bottom: 15px;">
-            <label for="programStudents" style="display: block; margin-bottom: 5px; font-weight: 600;">מספר תלמידים בכיתה:</label>
-            <input type="number" id="programStudents" placeholder="הזן מספר תלמידים" min="0" step="1"
+            <label for="programStudents" style="display: block; margin-bottom: 5px; font-weight: 600;">מספר תלמידים: <span style="color: red;">*</span></label>
+            <input type="number" id="programStudents" placeholder="מספר תלמידים" min="1" required
                 value="${programData ? programData.numberOfStudents : ''}"
-                style="
-                width: 100%;
-                padding: 8px;
-                border: 1px solid #dee2e6;
-                border-radius: 4px;
-                font-size: 14px;
-                direction: rtl;
-            ">
+                style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px;">
         </div>
         
-        <!-- ✅ NEW: Cost field -->
+        <!-- ✅ Cost field -->
         <div style="margin-bottom: 15px;">
             <label for="programCost" style="display: block; margin-bottom: 5px; font-weight: 600;">
                 עלות:
                 <span style="color: #6c757d; font-size: 0.85em;"></span>
             </label>
-            <input type="number" id="programCost" placeholder="הזן עלות" min="0" step="0.01"
+            <input type="number" id="programCost" placeholder="עלות כוללת" min="0" step="0.01"
                 value="${programData && programData.cost ? programData.cost : ''}"
                 style="
                 width: 100%;
@@ -4463,32 +4415,35 @@
                 direction: ltr;
                 text-align: left;
             ">
-            <small style="color: #6c757d; display: block; margin-top: 4px;">סכום בש"ח</small>
+            <small style="color: #6c757d; display: block; margin-top: 4px;">עלות כוללת בש"ח</small>
         </div>
+
+        <!-- ✅ Hourly Cost field -->
         <div style="margin-bottom: 15px;">
-    <label for="programHourlyCost" style="display: block; margin-bottom: 5px; font-weight: 600;">
-        עלות שעתית:
-        <span style="color: #6c757d; font-size: 0.85em;">(אופציונלי - יחושב אוטומטית)</span>
-    </label>
-    <input type="number" id="programHourlyCost" placeholder="עלות לשעה" min="0" step="0.01"
-        value="${programData && programData.hourlyCost ? programData.hourlyCost : ''}"
-        style="
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #dee2e6;
-        border-radius: 4px;
-        font-size: 14px;
-        direction: ltr;
-        text-align: left;
-        background-color: #f8f9fa;
-    " >
-    <small style="color: #6c757d; display: block; margin-top: 4px;">מחושב אוטומטית: עלות ÷ 35</small>
-</div>
+            <label for="programHourlyCost" style="display: block; margin-bottom: 5px; font-weight: 600;">
+                עלות שעתית:
+                <span style="color: #6c757d; font-size: 0.85em;">(אופציונלי - יחושב אוטומטית)</span>
+            </label>
+            <input type="number" id="programHourlyCost" placeholder="עלות לשעה" min="0" step="0.01"
+                value="${programData && programData.hourlyCost ? programData.hourlyCost : ''}"
+                style="
+                width: 100%;
+                padding: 8px;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                font-size: 14px;
+                direction: ltr;
+                text-align: left;
+                background-color: #f8f9fa;
+            " >
+            <small style="color: #6c757d; display: block; margin-top: 4px;">מחושב אוטומטית: עלות ÷ 35</small>
+        </div>
+
         <!-- ✅ Approved Amount field -->
         <div style="margin-bottom: 15px;">
             <label for="programApproved" style="display: block; margin-bottom: 5px; font-weight: 600;">
                 סכום מאושר:
-                <span style="color: #6c757d; font-size: 0.85em;">(אופציונלי)</span>
+                <span style="color: #6c757d; font-size: 0.85em;"></span>
             </label>
             <input type="number" id="programApproved" placeholder="הזן סכום מאושר" min="0" step="0.01"
                 value="${programData && programData.approvedAmount ? programData.approvedAmount : ''}"
@@ -4503,6 +4458,21 @@
             ">
             <small style="color: #6c757d; display: block; margin-top: 4px;">סכום בש"ח</small>
         </div>
+
+        <!-- ✅ NEW: Maximum Allowed Amount Label -->
+        <div id="maxPriceContainer" style="margin-bottom: 15px; padding: 10px; background-color: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 4px; display: none;">
+            <label style="display: block; font-weight: 600; color: #004085; margin-bottom: 5px;">
+                סכום מקסימלי מותר:
+            </label>
+            <div id="maxPriceValue" style="font-size: 18px; font-weight: bold; color: #004085;">
+                ₪0.00
+            </div>
+        </div>
+
+        <!-- ✅ Validation Error Message -->
+        <div id="validationError" style="display: none; padding: 10px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24; margin-bottom: 15px;">
+            <strong>שגיאה:</strong> <span id="validationErrorText"></span>
+        </div>
         
         <input type="hidden" id="programRecordId" value="${programData ? programData.id : ''}">
         <input type="hidden" id="programVersion" value="${programData ? programData.version : '1'}">
@@ -4510,7 +4480,7 @@
     </div>
     <div class="dialog-buttons">
         ${programData ? `
-            <button id="programHistoryBtn" class="dialog-btn" style="background: #17a2b8; margin-left: auto;">
+            <button id="programHistoryBtn" class="dialog-btn" style="margin-left: auto; background-color: #6c757d;">
                 היסטוריית גרסאות
             </button>
         ` : ''}
@@ -4522,11 +4492,101 @@
                 overlay.appendChild(dialog);
                 document.body.appendChild(overlay);
 
+                // ✅ Store max price globally for validation
+                let currentMaxPrice = null;
+
+                // ✅ Function to fetch and display max price
+                async function updateMaxPrice() {
+                    const students = parseInt(document.getElementById('programStudents').value);
+                    const hebrewYearId = await window.SessionState.getProperty('SelectedYearId');
+
+                    const maxPriceContainer = document.getElementById('maxPriceContainer');
+                    const maxPriceValue = document.getElementById('maxPriceValue');
+
+                    if (!students || students < 1 || !hebrewYearId) {
+                        maxPriceContainer.style.display = 'none';
+                        currentMaxPrice = null;
+                        return;
+                    }
+
+                    try {
+                        console.log(`🔍 Fetching max price for yearId: ${hebrewYearId}, students: ${students}`);
+
+                        // Fetch max price from backend
+                        const priceResponse = await fetch(
+                            AppConfig.getApiUrl(`schooladditionalstudyprograms/max-price?yearId=${hebrewYearId}&students=${students}`),
+                            {
+                                headers: { 'Authorization': `Bearer ${authToken}` }
+                            }
+                        );
+
+                        if (!priceResponse.ok) {
+                            throw new Error('Failed to fetch max price');
+                        }
+
+                        const priceData = await priceResponse.json();
+
+                        if (priceData.success && priceData.maxPrice !== null) {
+                            currentMaxPrice = priceData.maxPrice;
+
+                            // Display price with tier information
+                            let displayHtml = `₪${currentMaxPrice.toFixed(2)}`;
+
+                            // Add clarification about which tier is being used
+                            if (priceData.studentCount !== students) {
+                                displayHtml += `<br><small style="font-size: 0.85em; font-weight: normal; color: #004085;">
+                    (מבוסס על ${priceData.studentCount} תלמידים)
+                </small>`;
+                            }
+
+                            maxPriceValue.innerHTML = displayHtml;
+                            maxPriceContainer.style.display = 'block';
+
+                            console.log(`✅ Max price: ₪${currentMaxPrice.toFixed(2)} (tier: ${priceData.studentCount} students)`);
+                        } else {
+                            currentMaxPrice = null;
+                            maxPriceContainer.style.display = 'none';
+                            console.log('ℹ️ No max price defined for this configuration');
+                        }
+
+                    } catch (error) {
+                        console.error('❌ Error fetching max price:', error);
+                        currentMaxPrice = null;
+                        maxPriceContainer.style.display = 'none';
+                    }
+                }
+
+
+                // ✅ Function to validate approved amount
+                function validateApprovedAmount() {
+                    const approvedInput = document.getElementById('programApproved');
+                    const approvedAmount = parseFloat(approvedInput.value);
+                    const validationError = document.getElementById('validationError');
+                    const validationErrorText = document.getElementById('validationErrorText');
+
+                    // Clear previous errors
+                    validationError.style.display = 'none';
+                    approvedInput.style.borderColor = '#dee2e6';
+
+                    if (!approvedAmount || approvedAmount === 0 || currentMaxPrice === null) {
+                        return true; // No validation needed
+                    }
+
+                    if (approvedAmount > currentMaxPrice) {
+                        validationErrorText.textContent = `הסכום המאושר (₪${approvedAmount.toFixed(2)}) עולה על הסכום המקסימלי המותר (₪${currentMaxPrice.toFixed(2)})`;
+                        validationError.style.display = 'block';
+                        approvedInput.style.borderColor = '#dc3545';
+                        return false;
+                    }
+
+                    return true;
+                }
+
                 // ✅ Auto-calculate hourly cost when cost changes
                 const costInput = document.getElementById('programCost');
                 const hourlyCostInput = document.getElementById('programHourlyCost');
 
-                costInput.addEventListener('blur', function() {
+                costInput.addEventListener('blur', function () {
                     const cost = parseFloat(this.value);
                     if (!isNaN(cost) && cost > 0) {
                         const hourlyCost = (cost / 35).toFixed(2);
@@ -4536,131 +4596,128 @@
                     }
                 });
 
-           // ✅ Auto-populate number of students when class is selected
-                const classSelect = document.getElementById('programClass');
+                // ✅ Update max price when students count changes
                 const studentsInput = document.getElementById('programStudents');
+                studentsInput.addEventListener('change', updateMaxPrice);
+                studentsInput.addEventListener('blur', updateMaxPrice);
+                studentsInput.addEventListener('input', updateMaxPrice);
 
-                classSelect.addEventListener('change', async function() {
-                    const selectedClassId = this.value;
+                // ✅ Validate approved amount when it changes
+                const approvedInput = document.getElementById('programApproved');
+                approvedInput.addEventListener('blur', validateApprovedAmount);
+                approvedInput.addEventListener('input', validateApprovedAmount);
+
+                // ✅ Initial max price load if editing
+                if (programData && programData.numberOfStudents) {
+                    await updateMaxPrice();
+                }
+
+                // ✅ Auto-populate number of students when class is selected
+                const classSelect = document.getElementById('programClass');
+
+                classSelect.addEventListener('change', async function () {
+                    const selectedClassId = parseInt(this.value);
                     if (!selectedClassId) return;
-                    
+
                     try {
-                        // Get count of students in selected class
-                        const response = await fetch(
-                            AppConfig.getApiUrl(`students/count-by-class/${selectedClassId}`),
+                        const studentsResponse = await fetch(
+                            AppConfig.getApiUrl(`schoolstudents/by-school-year/${schoolYearId}`),
                             {
-                                method: 'GET',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-                                }
+                                headers: { 'Authorization': `Bearer ${authToken}` }
                             }
                         );
-                        
-                        if (response.ok) {
-                            const result = await response.json();
-                            if (result.success && result.count !== undefined) {
-                                studentsInput.value = result.count;
-                                console.log(`✅ Auto-populated ${result.count} students for class ${selectedClassId}`);
-                            }
+
+                        if (studentsResponse.ok) {
+                            const studentsData = await studentsResponse.json();
+                            const studentsInClass = (studentsData.data || []).filter(s => s.classId === selectedClassId);
+                            studentsInput.value = studentsInClass.length;
+
+                            // Trigger max price update
+                            await updateMaxPrice();
                         }
                     } catch (error) {
-                        console.error('Error getting student count:', error);
+                        console.error('Error fetching students count:', error);
                     }
                 });
 
                 // ✅ Version history button handler
                 if (programData) {
-                    document.getElementById('programHistoryBtn').onclick = async () => {
-                        await showProgramVersionHistory(programData.masterId || programData.id);
-                    };
+                    document.getElementById('programHistoryBtn')?.addEventListener('click', async () => {
+                        await showProgramVersionHistory(programData.masterId);
+                    });
                 }
 
                 // OK button handler
                 document.getElementById('programOkBtn').onclick = async () => {
                     const classId = document.getElementById('programClass').value;
                     const name = document.getElementById('programName').value.trim();
-                    const hours = parseInt(document.getElementById('programHours').value);
-                    const students = parseInt(document.getElementById('programStudents').value);
-                    const cost = document.getElementById('programCost').value.trim();
-                    const approved = document.getElementById('programApproved').value.trim();
-                    const recordId = document.getElementById('programRecordId').value;
-                    const hourlyCost = document.getElementById('programHourlyCost').value.trim();
+                    const hours = document.getElementById('programHours').value;
+                    const students = document.getElementById('programStudents').value;
+                    const cost = document.getElementById('programCost').value;
+                    const hourlyCost = document.getElementById('programHourlyCost').value;
+                    const approved = document.getElementById('programApproved').value;
 
-                    if (!classId || !name || isNaN(hours) || isNaN(students)) {
-                        alert('נא למלא את כל השדות הנדרשים');
+                    // Validate required fields
+                    if (!classId || !name || !hours || !students) {
+                        alert('אנא מלא את כל השדות החובה');
                         return;
                     }
 
-                    if (hours < 0) {
-                        alert('מספר השעות חייב להיות חיובי');
-                        return;
+                    // ✅ Validate approved amount before saving
+                    if (!validateApprovedAmount()) {
+                        return; // Prevent saving if validation fails
                     }
 
-                    if (students < 0) {
-                        alert('מספר התלמידים חייב להיות חיובי');
-                        return;
-                    }
+                    const payload = {
+                        schoolYearId: parseInt(schoolYearId),
+                        classId: parseInt(classId),
+                        name: name,
+                        weeklyHours: parseInt(hours),
+                        numberOfStudents: parseInt(students),
+                        cost: cost ? parseFloat(cost) : null,
+                        hourlyCost: hourlyCost ? parseFloat(hourlyCost) : null,
+                        approvedAmount: approved ? parseFloat(approved) : null
+                    };
 
                     try {
-                        const url = recordId
-                            ? AppConfig.getApiUrl(`schoolAdditionalStudyPrograms/${recordId}`)
-                            : AppConfig.getApiUrl('schoolAdditionalStudyPrograms');
-
-                        const method = recordId ? 'PUT' : 'POST';
-
-                        const payload = {
-                            schoolYearId: parseInt(selectedSchoolYearId),
-                            classId: parseInt(classId),
-                            name: name,
-                            weeklyHours: hours,
-                            numberOfStudents: students,
-                            cost: cost ? parseFloat(cost) : null,           // ✅ Include cost
-                            approvedAmount: approved ? parseFloat(approved) : null, // ✅ Include approved amount
-                            hourlyCost: hourlyCost ? parseFloat(hourlyCost) : null  // Add after approvedAmount
-                        };
-
-                        if (recordId) {
-                            payload.id = parseInt(recordId);
+                        let response;
+                        if (programData) {
+                            // Update existing program
+                            response = await fetch(AppConfig.getApiUrl(`schooladditionalstudy programs/${programData.id}`), {
+                                method: 'PUT',
+                                headers: {
+                                    'Authorization': `Bearer ${authToken}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(payload)
+                            });
+                        } else {
+                            // Create new program
+                            response = await fetch(AppConfig.getApiUrl('schooladditionalstudy programs'), {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${authToken}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify(payload)
+                            });
                         }
-
-                        const response = await fetch(url, {
-                            method: method,
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-                            },
-                            body: JSON.stringify(payload)
-                        });
 
                         const result = await response.json();
 
                         if (response.ok && result.success) {
-                            console.log('✅ Additional study program saved successfully');
                             document.body.removeChild(overlay);
-
                             await loadSchoolAdditionalStudyPrograms();
-
-                            if (window.schoolAdditionalStudyEditMode) {
-                                setTimeout(() => {
-                                    const actionsColumn = document.querySelectorAll('#additionalStudyTableContainer [data-column="actions"]');
-                                    actionsColumn.forEach(cell => cell.style.display = '');
-                                    const addBtn = document.getElementById('addAdditionalStudyBtn');
-                                    if (addBtn) addBtn.style.display = 'inline-flex';
-                                }, 100);
-                            }
-
-                            alert(result.message || (recordId ? 'התל"ן עודכן בהצלחה' : 'התל"ן נוסף בהצלחה'));
+                            alert(result.message || 'תל״ן נשמר בהצלחה');
                         } else {
-                            console.error('❌ Failed to save additional study program:', result);
-                            alert(result.message || 'שגיאה בשמירת התל"ן');
+                            alert(result.message || 'שגיאה בשמירת תל״ן');
                         }
-
                     } catch (error) {
-                        console.error('💥 Error saving additional study program:', error);
-                        alert('שגיאה בשמירת התל"ן');
+                        console.error('Error saving program:', error);
+                        alert('שגיאה בשמירת תל״ן');
                     }
                 };
+
                 // Cancel button handler
                 document.getElementById('programCancelBtn').onclick = () => {
                     document.body.removeChild(overlay);
@@ -4668,7 +4725,7 @@
 
                 // ESC key handler
                 const escHandler = (e) => {
-                    if (e.key === 'Escape' && document.body.contains(overlay)) {
+                    if (e.key === 'Escape') {
                         document.body.removeChild(overlay);
                         document.removeEventListener('keydown', escHandler);
                     }
@@ -4676,11 +4733,28 @@
                 document.addEventListener('keydown', escHandler);
 
             } catch (error) {
-                console.error('💥 Error opening additional study program modal:', error);
-                alert('שגיאה בפתיחת חלון עריכה');
+                console.error('Error loading additional study modal:', error);
+                alert('שגיאה בטעינת חלון תל״ן');
             }
         }
 
+
+        // Show add additional study modal wrapper
+        async function showAddAdditionalStudyModal() {
+            console.log('➕ Opening add additional study modal');
+            await showAdditionalStudyModal(null);
+        }
+
+        // Show edit additional study program modal
+        async function showEditAdditionalStudyModal(programId) {
+            console.log('✏️ Opening edit additional study program modal for program:', programId);
+            const program = window.lastSchoolAdditionalStudyData.find(p => p.id === programId);
+            if (!program) {
+                console.error('❌ Program not found:', programId);
+                return;
+            }
+            await showAdditionalStudyModal(program);
+        }
 
         // Show version history modal
         async function showProgramVersionHistory(masterId) {
@@ -4870,7 +4944,7 @@
             window.schoolClassesEditMode = false;
             window.schoolAttributesEditMode = false;
             console.log('📊 Navigating back to main dashboard...');
-           // cleanupSchoolDetailsScreen();
+            // cleanupSchoolDetailsScreen();
             // Store navigation context following Authentication & Session Management
             sessionStorage.setItem('navigationSource', 'schooldetails');
             sessionStorage.setItem('returnToDashboard', 'true');
@@ -5084,6 +5158,6 @@
         window.showNavigationWarningDialog = showNavigationWarningDialog;
         window.setupEditAttributesButton = setupEditAttributesButton;
         window.saveSchoolAttributes = saveSchoolAttributes;
-         window.cleanupSchoolDetailsPage = cleanupSchoolDetailsPage;
+        window.cleanupSchoolDetailsPage = cleanupSchoolDetailsPage;
         console.log('✅ School details functions registered globally');
     </script>

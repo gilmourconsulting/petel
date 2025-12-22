@@ -60,6 +60,7 @@ namespace PetelApp.Api.Data
         public DbSet<SchoolAdditionalStudyProgram> SchoolAdditionalStudyPrograms { get; set; }
         public DbSet<SpecialNeedsCharacterization> SpecialNeedsCharacterizations { get; set; } = null!;
 
+        public DbSet<AdditionalStudyProgramsPricing> AdditionalStudyProgramsPricing { get; set; }
 
         public DbSet<ActionType> ActionTypes { get; set; }
         public DbSet<SystemAction> SystemActions { get; set; }
@@ -469,6 +470,19 @@ modelBuilder.Entity<SpecialNeedsPricingCategory>(entity =>
                     entity.Property(e => e.IsLastVersion).HasDefaultValue(true);
                 });
 
+
+                modelBuilder.Entity<AdditionalStudyProgramsPricing>(entity =>
+                {
+                    entity.ToTable("additional_study_programs_pricing");
+                    entity.HasKey(e => e.Id);
+                    
+                    entity.HasOne(e => e.HebrewYear)
+                        .WithMany()
+                        .HasForeignKey(e => e.YearId)
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+                
             modelBuilder.Entity<Document>(entity =>
             {
                 entity.ToTable("documents"); // ✅ Lowercase table name with schema

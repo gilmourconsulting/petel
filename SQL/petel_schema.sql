@@ -1,8 +1,217 @@
+--
+-- PostgreSQL database dump
+--
+
+SET row_security = off;
+
+--
+-- Name: petel_schema; Type: SCHEMA; Schema: -; Owner: PetelAdmin
+--
+
+CREATE SCHEMA petel_schema;
+
+
+ALTER SCHEMA petel_schema OWNER TO "PetelAdmin";
+
+--
+-- Name: trigger_set_timestamp(); Type: FUNCTION; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE FUNCTION petel_schema.trigger_set_timestamp() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+
 ALTER FUNCTION petel_schema.trigger_set_timestamp() OWNER TO "PetelAdmin";
+
+--
+-- Name: action_audit_logs_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE SEQUENCE petel_schema.action_audit_logs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.action_audit_logs_id_seq OWNER TO "PetelAdmin";
 
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: action_audit_logs; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TABLE petel_schema.action_audit_logs (
+    id bigint DEFAULT nextval('petel_schema.action_audit_logs_id_seq'::regclass) NOT NULL,
+    user_id integer NOT NULL,
+    action_name character varying(200) NOT NULL,
+    screen_name character varying(100) NOT NULL,
+    function_name character varying(100) NOT NULL,
+    event_type character varying(50) NOT NULL,
+    result character varying(20) NOT NULL,
+    "timestamp" timestamp with time zone DEFAULT now() NOT NULL,
+    ip_address character varying(45),
+    action_params character varying(500),
+    description character varying(1000)
+);
+
+
+ALTER TABLE petel_schema.action_audit_logs OWNER TO "PetelAdmin";
+
+--
+-- Name: TABLE action_audit_logs; Type: COMMENT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+COMMENT ON TABLE petel_schema.action_audit_logs IS 'Audit log for all action authorization attempts - tracks granted and denied access';
+
+
+--
+-- Name: COLUMN action_audit_logs.user_id; Type: COMMENT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+COMMENT ON COLUMN petel_schema.action_audit_logs.user_id IS 'User who attempted the action';
+
+
+--
+-- Name: COLUMN action_audit_logs.action_name; Type: COMMENT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+COMMENT ON COLUMN petel_schema.action_audit_logs.action_name IS 'Action identifier (format: screenname_functionname)';
+
+
+--
+-- Name: COLUMN action_audit_logs.event_type; Type: COMMENT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+COMMENT ON COLUMN petel_schema.action_audit_logs.event_type IS 'Authorization type: ONCLICK_BUTTON, MENU_NAVIGATION, API_CALL, FILE_UPLOAD, etc.';
+
+
+--
+-- Name: COLUMN action_audit_logs.result; Type: COMMENT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+COMMENT ON COLUMN petel_schema.action_audit_logs.result IS 'Authorization result: GRANTED or DENIED';
+
+
+--
+-- Name: COLUMN action_audit_logs.action_params; Type: COMMENT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+COMMENT ON COLUMN petel_schema.action_audit_logs.action_params IS 'Parameters passed to action (e.g., yearId, schoolId, file name)';
+
+
+--
+-- Name: COLUMN action_audit_logs.description; Type: COMMENT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+COMMENT ON COLUMN petel_schema.action_audit_logs.description IS 'Optional human-readable description of the action';
+
+
+--
+-- Name: action_types_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE SEQUENCE petel_schema.action_types_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.action_types_id_seq OWNER TO "PetelAdmin";
+
+--
+-- Name: action_types; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TABLE petel_schema.action_types (
+    id smallint DEFAULT nextval('petel_schema.action_types_id_seq'::regclass) NOT NULL,
+    name character varying(50) NOT NULL,
+    description character varying(255),
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    user_id integer DEFAULT 1
+);
+
+
+ALTER TABLE petel_schema.action_types OWNER TO "PetelAdmin";
+
+--
+-- Name: actions_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE SEQUENCE petel_schema.actions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.actions_id_seq OWNER TO "PetelAdmin";
+
+--
+-- Name: actions; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TABLE petel_schema.actions (
+    id integer DEFAULT nextval('petel_schema.actions_id_seq'::regclass) NOT NULL,
+    name character varying(100) NOT NULL,
+    display_name character varying(150),
+    description character varying(255),
+    action_type_id smallint NOT NULL,
+    reference character varying(200),
+    sort_order integer DEFAULT 0,
+    is_active boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    user_id integer DEFAULT 1,
+    onclick_name character varying(100)
+);
+
+
+ALTER TABLE petel_schema.actions OWNER TO "PetelAdmin";
+
+--
+-- Name: additional_study_programs_pricing_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE SEQUENCE petel_schema.additional_study_programs_pricing_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    MAXVALUE 2147483647
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.additional_study_programs_pricing_id_seq OWNER TO "PetelAdmin";
+
+--
+-- Name: additional_study_programs_pricing; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TABLE petel_schema.additional_study_programs_pricing (
+    id integer DEFAULT nextval('petel_schema.additional_study_programs_pricing_id_seq'::regclass) NOT NULL,
+    year_id integer NOT NULL,
+    students integer NOT NULL,
+    price numeric(10,2),
+    user_id integer,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+
+ALTER TABLE petel_schema.additional_study_programs_pricing OWNER TO "PetelAdmin";
 
 --
 -- Name: alert_levels; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
@@ -12,8 +221,8 @@ CREATE TABLE petel_schema.alert_levels (
     id smallint NOT NULL,
     name character varying(25),
     description character varying(25),
-    created_at time with time zone DEFAULT now(),
-    user_id integer DEFAULT 0
+    user_id integer DEFAULT 0,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -100,8 +309,8 @@ CREATE TABLE petel_schema.alert_statuses (
     id smallint DEFAULT nextval('petel_schema.alert_statuses_id_seq'::regclass) NOT NULL,
     name character varying(25),
     description character varying(25),
-    created_at time with time zone DEFAULT now(),
-    user_id integer DEFAULT 0
+    user_id integer DEFAULT 0,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -115,8 +324,8 @@ CREATE TABLE petel_schema.alert_types (
     id smallint NOT NULL,
     name character varying(25),
     description character varying(25),
-    created_at time with time zone DEFAULT now(),
-    user_id integer DEFAULT 0
+    user_id integer DEFAULT 0,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -232,6 +441,107 @@ CREATE TABLE petel_schema.councils (
 ALTER TABLE petel_schema.councils OWNER TO postgres;
 
 --
+-- Name: school_students_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
+--
+
+CREATE SEQUENCE petel_schema.school_students_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.school_students_id_seq OWNER TO postgres;
+
+--
+-- Name: school_students; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TABLE petel_schema.school_students (
+    id integer DEFAULT nextval('petel_schema.school_students_id_seq'::regclass) NOT NULL,
+    id_number character varying(15) NOT NULL,
+    school_year_id integer NOT NULL,
+    version integer DEFAULT 1 NOT NULL,
+    first_name character varying(50) NOT NULL,
+    last_name character varying(50) NOT NULL,
+    gender integer DEFAULT 99 NOT NULL,
+    class_id integer DEFAULT 0 NOT NULL,
+    start_date date,
+    end_date date NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    school_grade_id integer,
+    disability_category integer,
+    street character varying(50),
+    house_number character varying(6),
+    city character varying(50),
+    post_code character varying(10),
+    sending_council integer,
+    is_last_version boolean DEFAULT true,
+    cost numeric(7,2) DEFAULT 0
+);
+
+
+ALTER TABLE petel_schema.school_students OWNER TO "PetelAdmin";
+
+--
+-- Name: school_years_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE SEQUENCE petel_schema.school_years_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.school_years_seq OWNER TO "PetelAdmin";
+
+--
+-- Name: school_years; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TABLE petel_schema.school_years (
+    id integer DEFAULT nextval('petel_schema.school_years_seq'::regclass) NOT NULL,
+    school_id integer NOT NULL,
+    hebrew_year_name character varying(50) NOT NULL,
+    start_date date NOT NULL,
+    end_date date NOT NULL,
+    is_current boolean DEFAULT false,
+    update_user integer,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    status integer,
+    year_id integer,
+    CONSTRAINT school_years_date_check CHECK ((end_date > start_date))
+);
+
+
+ALTER TABLE petel_schema.school_years OWNER TO "PetelAdmin";
+
+--
+-- Name: council_summary_vw; Type: VIEW; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE VIEW petel_schema.council_summary_vw AS
+ SELECT c.id AS council_id,
+    c.council_short_name,
+    c.council_long_name,
+    sy.year_id,
+    count(DISTINCT ss.id) AS number_of_students,
+    COALESCE(sum(ss.cost), (0)::numeric) AS total_requested_amount
+   FROM ((petel_schema.councils c
+     LEFT JOIN petel_schema.school_students ss ON (((c.id = ss.sending_council) AND (ss.is_last_version = true))))
+     LEFT JOIN petel_schema.school_years sy ON ((ss.school_year_id = sy.id)))
+  WHERE (sy.year_id IS NOT NULL)
+  GROUP BY c.id, c.council_short_name, c.council_long_name, sy.year_id;
+
+
+ALTER VIEW petel_schema.council_summary_vw OWNER TO "PetelAdmin";
+
+--
 -- Name: courses_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
 --
 
@@ -288,7 +598,7 @@ ALTER SEQUENCE petel_schema.document_links_id_seq OWNED BY petel_schema.document
 CREATE TABLE petel_schema.document_status_types (
     id smallint NOT NULL,
     name character varying(25),
-    created_at time with time zone DEFAULT now()
+    created_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -514,6 +824,45 @@ CREATE TABLE petel_schema.hebrew_years (
 ALTER TABLE petel_schema.hebrew_years OWNER TO "PetelAdmin";
 
 --
+-- Name: menu_items; Type: TABLE; Schema: petel_schema; Owner: postgres
+--
+
+CREATE TABLE petel_schema.menu_items (
+    id integer NOT NULL,
+    name character varying(50) NOT NULL,
+    reference character varying(100) NOT NULL,
+    text character varying(100) NOT NULL,
+    action_id integer,
+    sort_order integer DEFAULT 0 NOT NULL,
+    is_active boolean DEFAULT true NOT NULL
+);
+
+
+ALTER TABLE petel_schema.menu_items OWNER TO postgres;
+
+--
+-- Name: menu_items_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
+--
+
+CREATE SEQUENCE petel_schema.menu_items_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.menu_items_id_seq OWNER TO postgres;
+
+--
+-- Name: menu_items_id_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: postgres
+--
+
+ALTER SEQUENCE petel_schema.menu_items_id_seq OWNED BY petel_schema.menu_items.id;
+
+
+--
 -- Name: persons_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
 --
 
@@ -586,6 +935,27 @@ CREATE TABLE petel_schema.roles_actions (
 ALTER TABLE petel_schema.roles_actions OWNER TO "PetelAdmin";
 
 --
+-- Name: roles_actions_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE SEQUENCE petel_schema.roles_actions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.roles_actions_id_seq OWNER TO "PetelAdmin";
+
+--
+-- Name: roles_actions_id_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER SEQUENCE petel_schema.roles_actions_id_seq OWNED BY petel_schema.roles_actions.id;
+
+
+--
 -- Name: school_additional_study_programs_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
 --
 
@@ -610,15 +980,15 @@ CREATE TABLE petel_schema.school_additional_study_programs (
     class_id integer NOT NULL,
     weekly_hours integer NOT NULL,
     number_of_class_students integer NOT NULL,
-    created_at time with time zone DEFAULT now() NOT NULL,
-    updated_at time with time zone DEFAULT now() NOT NULL,
     user_id integer DEFAULT 0 NOT NULL,
     version integer DEFAULT 1 NOT NULL,
     is_last_version boolean DEFAULT true NOT NULL,
-    master_id integer NOT NULL,
+    master_id integer,
     cost numeric(10,2),
     approved_amount numeric(10,2),
-    hourly_cost numeric(10,2),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    hourly_cost numeric(10,2)
 );
 
 
@@ -681,9 +1051,9 @@ CREATE TABLE petel_schema.school_attribute_types_values (
     id integer DEFAULT nextval('petel_schema.school_attribute_types_values_seq'::regclass) NOT NULL,
     school_attribute_id integer NOT NULL,
     value character varying(50),
-    created_at time with time zone,
     is_valid boolean DEFAULT true,
-    sort_order integer DEFAULT 10
+    sort_order integer DEFAULT 10,
+    created_at timestamp with time zone
 );
 
 
@@ -713,10 +1083,10 @@ CREATE TABLE petel_schema.school_attributes (
     school_attribute_type_id integer NOT NULL,
     version integer DEFAULT 0 NOT NULL,
     value character varying(50),
-    created_at time with time zone DEFAULT now(),
-    updated_at time with time zone DEFAULT now(),
     user_id integer NOT NULL,
-    is_last_version boolean DEFAULT true
+    is_last_version boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 
@@ -729,10 +1099,10 @@ ALTER TABLE petel_schema.school_attributes OWNER TO postgres;
 CREATE TABLE petel_schema.school_attributes_types (
     id integer NOT NULL,
     name character varying(25),
-    created_at time with time zone,
     attribute_value_type character varying(25),
     hebrew_name character varying,
-    year_id integer
+    year_id integer,
+    created_at timestamp with time zone
 );
 
 
@@ -814,7 +1184,8 @@ CREATE TABLE petel_schema.school_student_pricing_elements (
     school_student integer NOT NULL,
     pricing_element integer NOT NULL,
     price numeric(7,2),
-    determinig_factor character varying(30)
+    determining_factor character varying(100),
+    hours smallint
 );
 
 
@@ -843,51 +1214,6 @@ ALTER SEQUENCE petel_schema.school_student_pricing_elements_id_seq OWNED BY pete
 
 
 --
--- Name: school_students_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
---
-
-CREATE SEQUENCE petel_schema.school_students_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE petel_schema.school_students_id_seq OWNER TO postgres;
-
---
--- Name: school_students; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
---
-
-CREATE TABLE petel_schema.school_students (
-    id integer DEFAULT nextval('petel_schema.school_students_id_seq'::regclass) NOT NULL,
-    id_number character varying(15) NOT NULL,
-    school_year_id integer NOT NULL,
-    version integer DEFAULT 1 NOT NULL,
-    first_name character varying(50) NOT NULL,
-    last_name character varying(50) NOT NULL,
-    gender integer DEFAULT 99 NOT NULL,
-    class_id integer DEFAULT 0 NOT NULL,
-    start_date date,
-    end_date date NOT NULL,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    school_grade_id integer,
-    disability_category integer,
-    street character varying(50),
-    house_number character varying(6),
-    city character varying(50),
-    post_code character varying(10),
-    sending_council integer,
-    is_last_version boolean DEFAULT true,
-    cost numeric(7,2) DEFAULT 0
-);
-
-
-ALTER TABLE petel_schema.school_students OWNER TO "PetelAdmin";
-
---
 -- Name: school_tracks; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
@@ -899,7 +1225,7 @@ CREATE TABLE petel_schema.school_tracks (
     class_id integer NOT NULL,
     weekly_hours integer NOT NULL,
     user_id integer NOT NULL,
-    created_at time with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -925,42 +1251,6 @@ ALTER SEQUENCE petel_schema.school_tracks_seq OWNER TO postgres;
 
 ALTER SEQUENCE petel_schema.school_tracks_seq OWNED BY petel_schema.school_tracks.id;
 
-
---
--- Name: school_years_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
---
-
-CREATE SEQUENCE petel_schema.school_years_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
-ALTER SEQUENCE petel_schema.school_years_seq OWNER TO "PetelAdmin";
-
---
--- Name: school_years; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
---
-
-CREATE TABLE petel_schema.school_years (
-    id integer DEFAULT nextval('petel_schema.school_years_seq'::regclass) NOT NULL,
-    school_id integer NOT NULL,
-    hebrew_year_name character varying(50) NOT NULL,
-    start_date date NOT NULL,
-    end_date date NOT NULL,
-    is_current boolean DEFAULT false,
-    update_user integer,
-    created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now(),
-    status integer,
-    year_id integer,
-    CONSTRAINT school_years_date_check CHECK ((end_date > start_date))
-);
-
-
-ALTER TABLE petel_schema.school_years OWNER TO "PetelAdmin";
 
 --
 -- Name: schools_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
@@ -1013,6 +1303,51 @@ CREATE TABLE petel_schema.schools (
 ALTER TABLE petel_schema.schools OWNER TO "PetelAdmin";
 
 --
+-- Name: sign_language_translators_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE SEQUENCE petel_schema.sign_language_translators_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE petel_schema.sign_language_translators_seq OWNER TO "PetelAdmin";
+
+--
+-- Name: sign_language_translators; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TABLE petel_schema.sign_language_translators (
+    id integer DEFAULT nextval('petel_schema.sign_language_translators_seq'::regclass) NOT NULL,
+    school_year_id integer NOT NULL,
+    person_id integer NOT NULL,
+    hours_employed numeric(6,2) NOT NULL,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now(),
+    user_id integer NOT NULL
+);
+
+
+ALTER TABLE petel_schema.sign_language_translators OWNER TO "PetelAdmin";
+
+--
+-- Name: TABLE sign_language_translators; Type: COMMENT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+COMMENT ON TABLE petel_schema.sign_language_translators IS 'Stores sign language translators employed by schools per school year';
+
+
+--
+-- Name: COLUMN sign_language_translators.hours_employed; Type: COMMENT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+COMMENT ON COLUMN petel_schema.sign_language_translators.hours_employed IS 'Number of hours employed for the school year';
+
+
+--
 -- Name: special_needs_characterizations; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
@@ -1037,7 +1372,7 @@ CREATE TABLE petel_schema.special_needs_pricing_categories (
     is_lowest_level boolean,
     price numeric(10,2),
     user_id integer,
-    calculation_level CHARACTER VARYING(50)
+    next_level character varying(20)
 );
 
 
@@ -1075,10 +1410,11 @@ CREATE TABLE petel_schema.special_needs_pricing_elements (
     name character varying(50) NOT NULL,
     title character varying(25) NOT NULL,
     description text,
+    user_id integer,
     created_at timestamp with time zone DEFAULT now(),
-    calculation_level character varying(25) COLLATE pg_catalog."default",
-    sort_order integer NOT NULL DEFAULT 10,
-    attribute_to_check character varying(50) COLLATE pg_catalog."default";
+    calculation_level character varying(25),
+    sort_order integer DEFAULT 10 NOT NULL,
+    attribute_to_check character varying(50)
 );
 
 
@@ -1106,36 +1442,44 @@ ALTER SEQUENCE petel_schema.special_needs_pricing_elements_id_seq OWNER TO "Pete
 ALTER SEQUENCE petel_schema.special_needs_pricing_elements_id_seq OWNED BY petel_schema.special_needs_pricing_elements.id;
 
 
-CREATE SEQUENCE IF NOT EXISTS petel_schema.special_needs_pricing_steps_id_seq
-    INCREMENT 1
-    START 1
-    MINVALUE 1
+--
+-- Name: special_needs_pricing_steps; Type: TABLE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE TABLE petel_schema.special_needs_pricing_steps (
+    id integer NOT NULL,
+    pricing_element integer NOT NULL,
+    category integer NOT NULL,
+    object_check character varying(50) NOT NULL,
+    object_element_check character varying(50) NOT NULL,
+    object_element_value character varying(50) NOT NULL,
+    price numeric(10,2),
+    user_id integer
+);
+
+
+ALTER TABLE petel_schema.special_needs_pricing_steps OWNER TO "PetelAdmin";
+
+--
+-- Name: special_needs_pricing_steps_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE SEQUENCE petel_schema.special_needs_pricing_steps_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
     MAXVALUE 2147483647
     CACHE 1;
 
-ALTER SEQUENCE petel_schema.special_needs_pricing_steps_id_seq
-    OWNED BY petel_schema.special_needs_pricing_steps.id;
 
-ALTER SEQUENCE petel_schema.special_needs_pricing_steps_id_seq
-    OWNER TO "PetelAdmin";
+ALTER SEQUENCE petel_schema.special_needs_pricing_steps_id_seq OWNER TO "PetelAdmin";
 
-CREATE TABLE IF NOT EXISTS petel_schema.special_needs_pricing_steps
-(
-    id integer NOT NULL DEFAULT nextval('petel_schema.special_needs_pricing_steps_id_seq'::regclass),
-    pricing_element integer NOT NULL,
-    category integer NOT NULL,
-    object_check character varying(50) COLLATE pg_catalog."default" NOT NULL,
-    object_element_check character varying(50) COLLATE pg_catalog."default" NOT NULL,
-    object_element_value character varying(50) COLLATE pg_catalog."default" NOT NULL,
-    price numeric(10,2),
-    user_id integer,
-    CONSTRAINT special_needs_pricing_steps_pk PRIMARY KEY (id),
-    CONSTRAINT special_needs_pricing_steps_uc UNIQUE (pricing_element, category, object_check, object_element_check, object_element_value),
-    CONSTRAINT special_needs_pricing_steps_pricing_element_fk FOREIGN KEY (pricing_element)
-        REFERENCES petel_schema.special_needs_pricing_elements (id) MATCH SIMPLE
-        ON UPDATE NO ACTION
-        ON DELETE NO ACTION
-)
+--
+-- Name: special_needs_pricing_steps_id_seq; Type: SEQUENCE OWNED BY; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER SEQUENCE petel_schema.special_needs_pricing_steps_id_seq OWNED BY petel_schema.special_needs_pricing_steps.id;
+
 
 --
 -- Name: student_school_years_id_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres
@@ -1452,11 +1796,64 @@ CREATE TABLE petel_schema.users (
     is_active boolean DEFAULT true,
     update_user integer,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    otp_secret character varying(255),
+    otp_enabled boolean DEFAULT false,
+    otp_verified boolean DEFAULT false
 );
 
 
 ALTER TABLE petel_schema.users OWNER TO "PetelAdmin";
+
+--
+-- Name: vw_role_actions; Type: VIEW; Schema: petel_schema; Owner: postgres
+--
+
+CREATE VIEW petel_schema.vw_role_actions AS
+ SELECT ra.id,
+    ra.role_id,
+    r.name AS role_name,
+    ra.action_id,
+    a.name AS action_name,
+    a.display_name,
+    a.description,
+    at.name AS action_type,
+    a.reference,
+    ra.action_level,
+    ra.updated_at
+   FROM (((petel_schema.roles_actions ra
+     JOIN petel_schema.roles r ON ((ra.role_id = r.id)))
+     JOIN petel_schema.actions a ON ((ra.action_id = a.id)))
+     JOIN petel_schema.action_types at ON ((a.action_type_id = at.id)))
+  WHERE (a.is_active = true);
+
+
+ALTER VIEW petel_schema.vw_role_actions OWNER TO postgres;
+
+--
+-- Name: vw_user_actions; Type: VIEW; Schema: petel_schema; Owner: postgres
+--
+
+CREATE VIEW petel_schema.vw_user_actions AS
+ SELECT DISTINCT ur.user_id,
+    u.username,
+    ur.role_id,
+    r.name AS role_name,
+    ra.action_id,
+    a.name AS action_name,
+    a.display_name,
+    at.name AS action_type,
+    a.reference
+   FROM (((((petel_schema.user_roles ur
+     JOIN petel_schema.users u ON ((ur.user_id = u.id)))
+     JOIN petel_schema.roles r ON ((ur.role_id = r.id)))
+     JOIN petel_schema.roles_actions ra ON ((r.id = ra.role_id)))
+     JOIN petel_schema.actions a ON ((ra.action_id = a.id)))
+     JOIN petel_schema.action_types at ON ((a.action_type_id = at.id)))
+  WHERE ((ur.is_active = true) AND (a.is_active = true));
+
+
+ALTER VIEW petel_schema.vw_user_actions OWNER TO postgres;
 
 --
 -- Name: alert_levels id; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
@@ -1515,6 +1912,20 @@ ALTER TABLE ONLY petel_schema.documents ALTER COLUMN id SET DEFAULT nextval('pet
 
 
 --
+-- Name: menu_items id; Type: DEFAULT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.menu_items ALTER COLUMN id SET DEFAULT nextval('petel_schema.menu_items_id_seq'::regclass);
+
+
+--
+-- Name: roles_actions id; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.roles_actions ALTER COLUMN id SET DEFAULT nextval('petel_schema.roles_actions_id_seq'::regclass);
+
+
+--
 -- Name: school_student_pricing_elements id; Type: DEFAULT; Schema: petel_schema; Owner: postgres
 --
 
@@ -1543,6 +1954,13 @@ ALTER TABLE ONLY petel_schema.special_needs_pricing_elements ALTER COLUMN id SET
 
 
 --
+-- Name: special_needs_pricing_steps id; Type: DEFAULT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.special_needs_pricing_steps ALTER COLUMN id SET DEFAULT nextval('petel_schema.special_needs_pricing_steps_id_seq'::regclass);
+
+
+--
 -- Name: tracks_pricing id; Type: DEFAULT; Schema: petel_schema; Owner: postgres
 --
 
@@ -1555,6 +1973,14 @@ ALTER TABLE ONLY petel_schema.tracks_pricing ALTER COLUMN id SET DEFAULT nextval
 
 ALTER TABLE ONLY petel_schema.tracks
     ADD CONSTRAINT "School_tracks_per_year" UNIQUE (year_id, external_code);
+
+
+--
+-- Name: action_audit_logs action_audit_logs_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.action_audit_logs
+    ADD CONSTRAINT action_audit_logs_pkey PRIMARY KEY (id);
 
 
 --
@@ -1571,6 +1997,46 @@ ALTER TABLE ONLY petel_schema.roles_actions
 
 ALTER TABLE ONLY petel_schema.roles_actions
     ADD CONSTRAINT action_roles_uq UNIQUE (role_id, action_id);
+
+
+--
+-- Name: action_types action_types_name_key; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.action_types
+    ADD CONSTRAINT action_types_name_key UNIQUE (name);
+
+
+--
+-- Name: action_types action_types_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.action_types
+    ADD CONSTRAINT action_types_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: actions actions_pk; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.actions
+    ADD CONSTRAINT actions_pk PRIMARY KEY (id);
+
+
+--
+-- Name: actions actions_unique_pk; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.actions
+    ADD CONSTRAINT actions_unique_pk UNIQUE (name);
+
+
+--
+-- Name: additional_study_programs_pricing additional_study_programs_pricing_pk; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.additional_study_programs_pricing
+    ADD CONSTRAINT additional_study_programs_pricing_pk PRIMARY KEY (id);
 
 
 --
@@ -1699,6 +2165,14 @@ ALTER TABLE ONLY petel_schema.genders
 
 ALTER TABLE ONLY petel_schema.hebrew_years
     ADD CONSTRAINT hebrew_years_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: menu_items menu_items_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
+--
+
+ALTER TABLE ONLY petel_schema.menu_items
+    ADD CONSTRAINT menu_items_pkey PRIMARY KEY (id);
 
 
 --
@@ -1862,6 +2336,14 @@ ALTER TABLE ONLY petel_schema.schools
 
 
 --
+-- Name: sign_language_translators sign_language_translators_pk; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.sign_language_translators
+    ADD CONSTRAINT sign_language_translators_pk PRIMARY KEY (id);
+
+
+--
 -- Name: special_needs_characterizations special_needs_characterizations_pkey; Type: CONSTRAINT; Schema: petel_schema; Owner: postgres
 --
 
@@ -1883,6 +2365,22 @@ ALTER TABLE ONLY petel_schema.special_needs_pricing_categories
 
 ALTER TABLE ONLY petel_schema.special_needs_pricing_elements
     ADD CONSTRAINT special_needs_pricing_elements_pk PRIMARY KEY (id);
+
+
+--
+-- Name: special_needs_pricing_steps special_needs_pricing_steps_pk; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.special_needs_pricing_steps
+    ADD CONSTRAINT special_needs_pricing_steps_pk PRIMARY KEY (id);
+
+
+--
+-- Name: special_needs_pricing_steps special_needs_pricing_steps_uc; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.special_needs_pricing_steps
+    ADD CONSTRAINT special_needs_pricing_steps_uc UNIQUE (pricing_element, category, object_check, object_element_check, object_element_value);
 
 
 --
@@ -1958,6 +2456,14 @@ ALTER TABLE ONLY petel_schema.student_school_years
 
 
 --
+-- Name: sign_language_translators unique_translator_per_year; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.sign_language_translators
+    ADD CONSTRAINT unique_translator_per_year UNIQUE (school_year_id, person_id);
+
+
+--
 -- Name: users unique_username_per_entity_id; Type: CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
 --
 
@@ -1982,6 +2488,90 @@ ALTER TABLE ONLY petel_schema.users
 
 
 --
+-- Name: action_audit_logs_action_name_idx; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX action_audit_logs_action_name_idx ON petel_schema.action_audit_logs USING btree (action_name);
+
+
+--
+-- Name: action_audit_logs_result_idx; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX action_audit_logs_result_idx ON petel_schema.action_audit_logs USING btree (result);
+
+
+--
+-- Name: action_audit_logs_timestamp_idx; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX action_audit_logs_timestamp_idx ON petel_schema.action_audit_logs USING btree ("timestamp");
+
+
+--
+-- Name: action_audit_logs_user_id_idx; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX action_audit_logs_user_id_idx ON petel_schema.action_audit_logs USING btree (user_id);
+
+
+--
+-- Name: action_audit_logs_user_timestamp_idx; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX action_audit_logs_user_timestamp_idx ON petel_schema.action_audit_logs USING btree (user_id, "timestamp");
+
+
+--
+-- Name: actions_action_type_id_idx; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX actions_action_type_id_idx ON petel_schema.actions USING btree (action_type_id);
+
+
+--
+-- Name: actions_action_type_id_is_active_idx; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX actions_action_type_id_is_active_idx ON petel_schema.actions USING btree (action_type_id, is_active);
+
+
+--
+-- Name: actions_is_active_idx; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX actions_is_active_idx ON petel_schema.actions USING btree (is_active);
+
+
+--
+-- Name: actions_name_uq; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE UNIQUE INDEX actions_name_uq ON petel_schema.actions USING btree (name);
+
+
+--
+-- Name: actions_reference_idx; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX actions_reference_idx ON petel_schema.actions USING btree (reference);
+
+
+--
+-- Name: idx_action_audit_logs_event_type; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX idx_action_audit_logs_event_type ON petel_schema.action_audit_logs USING btree (event_type);
+
+
+--
+-- Name: idx_action_audit_logs_user_result; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX idx_action_audit_logs_user_result ON petel_schema.action_audit_logs USING btree (user_id, result, "timestamp" DESC);
+
+
+--
 -- Name: idx_additional_study_is_last_version; Type: INDEX; Schema: petel_schema; Owner: postgres
 --
 
@@ -1993,6 +2583,34 @@ CREATE INDEX idx_additional_study_is_last_version ON petel_schema.school_additio
 --
 
 CREATE INDEX idx_additional_study_master_id ON petel_schema.school_additional_study_programs USING btree (master_id);
+
+
+--
+-- Name: idx_menu_items_action_id; Type: INDEX; Schema: petel_schema; Owner: postgres
+--
+
+CREATE INDEX idx_menu_items_action_id ON petel_schema.menu_items USING btree (action_id);
+
+
+--
+-- Name: idx_menu_items_sort_order; Type: INDEX; Schema: petel_schema; Owner: postgres
+--
+
+CREATE INDEX idx_menu_items_sort_order ON petel_schema.menu_items USING btree (sort_order);
+
+
+--
+-- Name: idx_sign_language_translators_person; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX idx_sign_language_translators_person ON petel_schema.sign_language_translators USING btree (person_id);
+
+
+--
+-- Name: idx_sign_language_translators_school_year; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX idx_sign_language_translators_school_year ON petel_schema.sign_language_translators USING btree (school_year_id);
 
 
 --
@@ -2014,6 +2632,41 @@ CREATE UNIQUE INDEX idx_unique_document_link_student ON petel_schema.document_li
 --
 
 CREATE UNIQUE INDEX idx_unique_document_version ON petel_schema.documents USING btree (master_document_id, version);
+
+
+--
+-- Name: idx_users_otp_enabled; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX idx_users_otp_enabled ON petel_schema.users USING btree (otp_enabled) WHERE (otp_enabled = true);
+
+
+--
+-- Name: roles_actions_action_id_idx; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX roles_actions_action_id_idx ON petel_schema.roles_actions USING btree (action_id);
+
+
+--
+-- Name: roles_actions_role_id_idx; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX roles_actions_role_id_idx ON petel_schema.roles_actions USING btree (role_id);
+
+
+--
+-- Name: user_roles_role_id_idx; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX user_roles_role_id_idx ON petel_schema.user_roles USING btree (role_id);
+
+
+--
+-- Name: user_roles_user_id_idx; Type: INDEX; Schema: petel_schema; Owner: PetelAdmin
+--
+
+CREATE INDEX user_roles_user_id_idx ON petel_schema.user_roles USING btree (user_id);
 
 
 --
@@ -2073,19 +2726,43 @@ CREATE TRIGGER set_timestamp_users BEFORE UPDATE ON petel_schema.users FOR EACH 
 
 
 --
--- Name: roles_actions action_roles_fk1; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+-- Name: action_audit_logs action_audit_logs_user_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
 --
 
-ALTER TABLE ONLY petel_schema.roles_actions
-    ADD CONSTRAINT action_roles_fk1 FOREIGN KEY (role_id) REFERENCES petel_schema.roles(id);
+ALTER TABLE ONLY petel_schema.action_audit_logs
+    ADD CONSTRAINT action_audit_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES petel_schema.users(id) ON DELETE RESTRICT;
 
 
 --
--- Name: roles_actions action_roles_fk2; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+-- Name: action_types action_types_user_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
 --
 
-ALTER TABLE ONLY petel_schema.roles_actions
-    ADD CONSTRAINT action_roles_fk2 FOREIGN KEY (action_id) REFERENCES petel_schema.system_actions(id);
+ALTER TABLE ONLY petel_schema.action_types
+    ADD CONSTRAINT action_types_user_id_fkey FOREIGN KEY (user_id) REFERENCES petel_schema.users(id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+
+--
+-- Name: actions actions_action_type_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.actions
+    ADD CONSTRAINT actions_action_type_id_fkey FOREIGN KEY (action_type_id) REFERENCES petel_schema.action_types(id) ON UPDATE CASCADE ON DELETE RESTRICT;
+
+
+--
+-- Name: actions actions_user_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.actions
+    ADD CONSTRAINT actions_user_id_fkey FOREIGN KEY (user_id) REFERENCES petel_schema.users(id) ON UPDATE CASCADE ON DELETE SET NULL;
+
+
+--
+-- Name: additional_study_programs_pricing additional_study_programs_pricing_year_id_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.additional_study_programs_pricing
+    ADD CONSTRAINT additional_study_programs_pricing_year_id_fk FOREIGN KEY (year_id) REFERENCES petel_schema.hebrew_years(id);
 
 
 --
@@ -2169,6 +2846,22 @@ ALTER TABLE ONLY petel_schema.documents
 
 
 --
+-- Name: sign_language_translators fk_sign_language_translators_person; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.sign_language_translators
+    ADD CONSTRAINT fk_sign_language_translators_person FOREIGN KEY (person_id) REFERENCES petel_schema.persons(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: sign_language_translators fk_sign_language_translators_school_year; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.sign_language_translators
+    ADD CONSTRAINT fk_sign_language_translators_school_year FOREIGN KEY (school_year_id) REFERENCES petel_schema.school_years(id) ON DELETE CASCADE;
+
+
+--
 -- Name: schools inspector_person_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
 --
 
@@ -2206,6 +2899,22 @@ ALTER TABLE ONLY petel_schema.persons
 
 ALTER TABLE ONLY petel_schema.schools
     ADD CONSTRAINT principal_person_fkey FOREIGN KEY (principal) REFERENCES petel_schema.persons(id);
+
+
+--
+-- Name: roles_actions roles_actions_action_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.roles_actions
+    ADD CONSTRAINT roles_actions_action_id_fkey FOREIGN KEY (action_id) REFERENCES petel_schema.actions(id) ON UPDATE CASCADE ON DELETE CASCADE;
+
+
+--
+-- Name: roles_actions roles_actions_role_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.roles_actions
+    ADD CONSTRAINT roles_actions_role_id_fkey FOREIGN KEY (role_id) REFERENCES petel_schema.roles(id) ON UPDATE CASCADE ON DELETE CASCADE;
 
 
 --
@@ -2393,6 +3102,14 @@ ALTER TABLE ONLY petel_schema.special_needs_pricing_elements
 
 
 --
+-- Name: special_needs_pricing_steps special_needs_pricing_steps_pricing_element_fk; Type: FK CONSTRAINT; Schema: petel_schema; Owner: PetelAdmin
+--
+
+ALTER TABLE ONLY petel_schema.special_needs_pricing_steps
+    ADD CONSTRAINT special_needs_pricing_steps_pricing_element_fk FOREIGN KEY (pricing_element) REFERENCES petel_schema.special_needs_pricing_elements(id);
+
+
+--
 -- Name: student_school_years student_school_years_school_year_id_fkey; Type: FK CONSTRAINT; Schema: petel_schema; Owner: postgres
 --
 
@@ -2433,4 +3150,22 @@ ALTER TABLE ONLY petel_schema.users
 
 
 --
+-- Name: TABLE vw_role_actions; Type: ACL; Schema: petel_schema; Owner: postgres
+--
+
+GRANT SELECT ON TABLE petel_schema.vw_role_actions TO "PetelAdmin";
+
+
+--
+-- Name: TABLE vw_user_actions; Type: ACL; Schema: petel_schema; Owner: postgres
+--
+
+GRANT SELECT ON TABLE petel_schema.vw_user_actions TO "PetelAdmin";
+
+
+--
+-- PostgreSQL database dump complete
+--
+
+
 
