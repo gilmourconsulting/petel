@@ -3,7 +3,7 @@
  */
 class SessionManager {
     constructor() {
-        this.baseUrl = window.AppConfig?.baseUrl || 'http://localhost:5082';
+        this.baseUrl = window.AppConfig?.apiBaseUrl || 'http://localhost:5082';
     }
 
     /**
