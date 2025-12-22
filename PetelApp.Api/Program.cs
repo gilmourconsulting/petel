@@ -75,7 +75,11 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3000", "http://localhost:5173")
+        policy.WithOrigins(
+              "http://localhost:3000", 
+              "http://localhost:5173",
+              "https://petel-test-api-ahafcqfnh6drcdbd.israelcentral-01.azurewebsites.net",
+              "https://petel.site")
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -151,7 +155,21 @@ if (app.Environment.IsDevelopment())
 
 app.MapControllers();
 
-app.MapFallbackToFile("index.html");
+// Serve index.html for non-API routes (SPA fallback)
+// This allows direct navigation to /schooldetails, /students, etc.
+app.MapFallback(async context =>
+{
+    // Don't use fallback for API requests
+    if (context.Request.Path.StartsWithSegments("/api"))
+    {
+        context.Response.StatusCode = 404;
+        return;
+    }
+    
+    // Serve index.html for all other routes
+    context.Response.ContentType = "text/html";
+    await context.Response.SendFileAsync("wwwroot/index.html");
+});
 
 app.Run();
 

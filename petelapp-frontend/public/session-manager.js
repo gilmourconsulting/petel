@@ -3,7 +3,7 @@
  */
 class SessionManager {
     constructor() {
-        this.baseUrl = window.AppConfig?.apiBaseUrl || 'http://localhost:5082';
+        this.baseUrl = window.AppConfig?.apiBaseUrl || 'http://localhost:5082/api';
     }
 
     /**
@@ -37,7 +37,7 @@ class SessionManager {
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}/api/auth/check`, {
+            const response = await fetch(`${this.baseUrl}/auth/check`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -64,7 +64,7 @@ class SessionManager {
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}/api/session`, {
+            const response = await fetch(`${this.baseUrl}/session`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -95,7 +95,7 @@ class SessionManager {
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}/api/session/property`, {
+            const response = await fetch(`${this.baseUrl}/session/property`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -125,7 +125,7 @@ class SessionManager {
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}/api/session/property/${key}`, {
+            const response = await fetch(`${this.baseUrl}/session/property/${key}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -157,7 +157,7 @@ class SessionManager {
         }
 
         try {
-            const response = await fetch(`${this.baseUrl}/api/session/properties`, {
+            const response = await fetch(`${this.baseUrl}/session/properties`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

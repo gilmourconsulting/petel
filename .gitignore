@@ -464,3 +464,4 @@ build/
 !petelapp-frontend/public/**/*
 PetelApp.Api/deploy-test.zip
 petel_schema_backup_20251222_155526.dump
+PetelApp.Api/deploy-test.zip
