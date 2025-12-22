@@ -294,7 +294,7 @@ namespace PetelApp.Api.Controllers
                     HouseNumber = GetFieldValue(csv, headers, "house_number", mapping),
                     City = GetFieldValue(csv, headers, "city", mapping),
                     PostCode = GetFieldValue(csv, headers, "post_code", mapping),
-                    SendingCouncil = GetFieldValue(csv, headers, "sending_counsil", mapping)
+                    SendingCouncil = GetFieldValue(csv, headers, "sending_council", mapping)
                 };
             }
             catch
@@ -331,7 +331,7 @@ namespace PetelApp.Api.Controllers
                     HouseNumber = GetFieldValue(row, headers, "house_number", mapping),
                     City = GetFieldValue(row, headers, "city", mapping),
                     PostCode = GetFieldValue(row, headers, "post_code", mapping),
-                    SendingCouncil = GetFieldValue(row, headers, "sending_counsil", mapping)
+                    SendingCouncil = GetFieldValue(row, headers, "sending_council", mapping)
                 };
             }
             catch
@@ -528,7 +528,9 @@ namespace PetelApp.Api.Controllers
                 { "house_number", new[] { "מספר בית", "בית", "house_number", "מס' בית" } },
                 { "city", new[] { "עיר", "city", "יישוב" } },
                 { "post_code", new[] { "מיקוד", "postcode", "post_code", "מספר מיקוד" } },
-                { "sending_counsil", new[] { "רשות שולחת", "מועצה", "council", "sending_counsil", "רשות" } }
+                { "sending_council", new[] { "רשות שולחת", "מועצה", "council", "sending_council", "רשות",
+                            "שם רשות",
+                            "שם מועצה" } }
             };
 
             foreach (var header in headers)
@@ -571,7 +573,7 @@ namespace PetelApp.Api.Controllers
                 { "house_number", "מספר בית" },
                 { "city", "עיר" },
                 { "post_code", "מיקוד" },
-                { "sending_counsil", "רשות שולחת" },
+                { "sending_council", "רשות שולחת" },
                 { "ignore", "התעלם" }
             };
         }

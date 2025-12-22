@@ -14,7 +14,7 @@ namespace PetelApp.Api.Services
         public static readonly string[] MandatoryFields = new[]
         {
             "id_number", "first_name", "last_name", "gender", "class", "start_date", "end_date",
-            "disability_category", "street", "house_number", "city", "post_code", "sending_counsil"
+            "disability_category", "street", "house_number", "city", "post_code", "sending_council"
         };
 
         /// <summary>

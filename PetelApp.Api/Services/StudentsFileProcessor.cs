@@ -56,74 +56,83 @@ namespace PetelApp.Api.Services
             return result;
         }
 
-        private async Task ProcessSingleStudentAsync(
-            StudentFileRow row,
-            int schoolId,
-            int schoolYearId,
-            string userId,
-            ProcessingResult result)
+  private async Task ProcessSingleStudentAsync(
+    StudentFileRow row,
+    int schoolId,
+    int schoolYearId,
+    string userId,
+    ProcessingResult result)
+{
+    _logger.LogInformation("Processing student record: {IdNumber}", row.IdNumber);
+
+    // Validate data format
+    var (isValid, formatError) = ValidateRowFormat(row);
+    if (!isValid)
+    {
+        result.Errors.Add($"{row.IdNumber} - שגיאת פורמט: {formatError}");
+        _logger.LogInformation("Error in student record: {IdNumber}- שגיאת פורמט: {formatError}", row.IdNumber, formatError);
+        return;
+    }
+
+    // Resolve class ID from class name using GlobalFunctions
+    var classId = await _globalFunctions.GetClassIdByName(row.Class, schoolYearId);
+
+    if (classId == null)
+    {
+        result.Errors.Add($"{row.IdNumber} - כיתה '{row.Class}' לא נמצאה בשנת הלימודים");
+        _logger.LogWarning("Class not found: {ClassName} in school year {SchoolYearId} for student {IdNumber}",
+            row.Class, schoolYearId, row.IdNumber);
+        return;
+    }
+
+    _logger.LogInformation("Resolved class '{ClassName}' to ID {ClassId} for student {IdNumber}",
+        row.Class, classId, row.IdNumber);
+
+    // ✅ NEW: Resolve sending council ID from name or numeric ID
+    var councilId = await ResolveCouncilIdAsync(row.SendingCouncil, result, row.IdNumber);
+    
+    // Check if resolution failed (error already added to result)
+    if (councilId == null && !string.IsNullOrWhiteSpace(row.SendingCouncil) && row.SendingCouncil != "99999")
+    {
+        // Council was provided but couldn't be resolved - skip this student
+        _logger.LogWarning("Council resolution failed for student {IdNumber}, skipping", row.IdNumber);
+        return;
+    }
+
+    // Retrieve existing record with is_last_version = true for this school year
+    var existingStudent = await _context.SchoolStudents
+         .Where(s => s.IdNumber == row.IdNumber &&
+                    s.IsLastVersion == true &&
+                    s.SchoolYearId == schoolYearId)
+         .FirstOrDefaultAsync();
+
+    if (existingStudent == null)
+    {
+        // Create new record - pass resolved councilId
+        await CreateNewStudentAsync(row, schoolId, schoolYearId, userId, classId.Value, councilId);
+        result.Created++;
+        _logger.LogInformation("Created new student record: {IdNumber}", row.IdNumber);
+    }
+    else
+    {
+        // Check if data has changed - pass resolved councilId
+        bool hasChanges = HasDataChanged(existingStudent, row, classId.Value, councilId);
+
+        if (!hasChanges)
         {
-
-            _logger.LogInformation("Processing student record: {IdNumber}", row.IdNumber);
-
-            // Validate data format
-            var (isValid, formatError) = ValidateRowFormat(row);
-            if (!isValid)
-            {
-                result.Errors.Add($"{row.IdNumber} - שגיאת פורמט: {formatError}");
-                _logger.LogInformation("Error in student record: {IdNumber}- שגיאת פורמט: {formatError}", row.IdNumber, formatError);
-                return;
-            }
-
-            // Resolve class ID from class name using GlobalFunctions
-            var classId = await _globalFunctions.GetClassIdByName(row.Class, schoolYearId);
-
-            if (classId == null)
-            {
-                result.Errors.Add($"{row.IdNumber} - כיתה '{row.Class}' לא נמצאה בשנת הלימודים");
-                _logger.LogWarning("Class not found: {ClassName} in school year {SchoolYearId} for student {IdNumber}",
-                    row.Class, schoolYearId, row.IdNumber);
-                return;
-            }
-
-            _logger.LogInformation("Resolved class '{ClassName}' to ID {ClassId} for student {IdNumber}",
-                row.Class, classId, row.IdNumber);
-
-            // Retrieve existing record with is_last_version = true for this school year
-
-            var existingStudent = await _context.SchoolStudents
-                 .Where(s => s.IdNumber == row.IdNumber &&
-                            s.IsLastVersion == true &&
-                            s.SchoolYearId == schoolYearId)
-                 .FirstOrDefaultAsync();
-
-            if (existingStudent == null)
-            {
-                // Create new record
-                await CreateNewStudentAsync(row, schoolId, schoolYearId, userId, classId.Value);
-                result.Created++;
-                _logger.LogInformation("Created new student record: {IdNumber}", row.IdNumber);
-            }
-            else
-            {
-                // Check if data has changed
-                bool hasChanges = HasDataChanged(existingStudent, row, classId.Value);
-
-                if (!hasChanges)
-                {
-                    result.Unchanged.Add($"{row.IdNumber} - נתונים לא השתנו");
-                    _logger.LogInformation("Student data unchanged: {IdNumber}", row.IdNumber);
-                }
-                else
-                {
-                    // Update existing record and create new version
-                    await UpdateStudentWithNewVersionAsync(existingStudent, row, userId, classId.Value);
-                    result.Updated++;
-                    _logger.LogInformation("Updated student record: {IdNumber}, new version {Version}",
-                        row.IdNumber, existingStudent.Version + 1);
-                }
-            }
+            result.Unchanged.Add($"{row.IdNumber} - נתונים לא השתנו");
+            _logger.LogInformation("Student data unchanged: {IdNumber}", row.IdNumber);
         }
+        else
+        {
+            // Update existing record and create new version - pass resolved councilId
+            await UpdateStudentWithNewVersionAsync(existingStudent, row, userId, classId.Value, councilId);
+            result.Updated++;
+            _logger.LogInformation("Updated student record: {IdNumber}, new version {Version}",
+                row.IdNumber, existingStudent.Version + 1);
+        }
+    }
+}
 
         private (bool isValid, string? error) ValidateRowFormat(StudentFileRow row)
         {
@@ -172,17 +181,17 @@ namespace PetelApp.Api.Services
                 return (false, "מיקוד חסר");
 
             // Validate sending council (integer or 99999 for none)
-            if (string.IsNullOrWhiteSpace(row.SendingCouncil) || !int.TryParse(row.SendingCouncil, out _))
-                return (false, "מועצה שולחת לא תקינה");
+            if (string.IsNullOrWhiteSpace(row.SendingCouncil) )
+                return (false, "רשות שולחת לא תקינה");
 
             return (true, null);
         }
 
-        private bool HasDataChanged(SchoolStudent existing, StudentFileRow row, int  classId )
+        private bool HasDataChanged(SchoolStudent existing, StudentFileRow row, int  classId , int? councilId)
         {
             var rowGender = ParseGender(row.Gender);
             var rowDisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory) ? null : (int?)int.Parse(row.DisabilityCategory);
-            var rowSendingCouncil = row.SendingCouncil == "99999" ? null : (int?)int.Parse(row.SendingCouncil);
+           // var rowSendingCouncil = row.SendingCouncil == "99999" ? null : (int?)int.Parse(row.SendingCouncil);
 
             return existing.FirstName != row.FirstName ||
                    existing.LastName != row.LastName ||
@@ -195,7 +204,7 @@ namespace PetelApp.Api.Services
                    existing.HouseNumber != row.HouseNumber ||
                    existing.City != row.City ||
                    existing.PostCode != row.PostCode ||
-                   existing.SendingCouncil != rowSendingCouncil;
+                   existing.SendingCouncil != councilId;
         }
 
         private async Task CreateNewStudentAsync(
@@ -203,7 +212,8 @@ namespace PetelApp.Api.Services
             int schoolId,
             int schoolYearId,
             string userId,
-            int classId)
+            int classId,
+            int? councilId)
         {
             var studentId = await _studentService.CreateNewStudentAsync(
                 schoolYearId,
@@ -224,9 +234,7 @@ namespace PetelApp.Api.Services
                     student.HouseNumber = row.HouseNumber;
                     student.City = row.City;
                     student.PostCode = row.PostCode;
-                    student.SendingCouncil = row.SendingCouncil == "99999" 
-                        ? null 
-                        : (int?)int.Parse(row.SendingCouncil);
+                    student.SendingCouncil = councilId;
                 });
 
             if (studentId.HasValue)
@@ -239,11 +247,40 @@ namespace PetelApp.Api.Services
             }
         }
 
+        private async Task<int?> ResolveCouncilIdAsync(
+                string councilValue, 
+                ProcessingResult result, 
+                string studentIdNumber)
+            {
+                if (string.IsNullOrWhiteSpace(councilValue) || councilValue == "99999")
+                    return null;
+                
+                // Try numeric ID first (backwards compatibility)
+                if (int.TryParse(councilValue, out int numericId))
+                {
+                    return numericId;
+                }
+                
+                // Try as council name
+                var councilId = await _globalFunctions.GetCouncilByName(councilValue);
+                if (councilId != null)
+                {
+                    _logger.LogInformation("Resolved council '{Name}' to ID {Id}", 
+                        councilValue, councilId);
+                    return councilId;
+                }
+                
+                // Not found
+                result.Errors.Add($"{studentIdNumber} - רשות שולחת '{councilValue}' לא נמצאה במערכת");
+                return null;
+            }
+        
         private async Task UpdateStudentWithNewVersionAsync(
             SchoolStudent existing,
             StudentFileRow row,
             string userId,
-            int classId)
+            int classId,
+            int? councilId)
         {
             var newVersionId = await _studentService.CreateNewStudentVersionAsync(
                 existing.Id,
@@ -263,9 +300,7 @@ namespace PetelApp.Api.Services
                     newVersion.HouseNumber = row.HouseNumber;
                     newVersion.City = row.City;
                     newVersion.PostCode = row.PostCode;
-                    newVersion.SendingCouncil = row.SendingCouncil == "99999" 
-                        ? null 
-                        : (int?)int.Parse(row.SendingCouncil);
+                    newVersion.SendingCouncil = councilId;
                     // Note: Cost is NOT updated here - it's preserved from existing version
                 });
 
