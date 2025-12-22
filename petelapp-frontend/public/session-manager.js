@@ -182,7 +182,7 @@ class SessionManager {
         
         if (token) {
             try {
-                await fetch(`${this.baseUrl}/api/auth/logout`, {
+                await fetch(`${this.baseUrl}/auth/logout`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -215,7 +215,7 @@ class SessionManager {
             }
         };
 
-        const response = await fetch(`${this.baseUrl}/api/${endpoint}`, {
+        const response = await fetch(`${this.baseUrl}/${endpoint}`, {
             ...options,
             ...defaultOptions,
             headers: { ...defaultOptions.headers, ...options.headers }
