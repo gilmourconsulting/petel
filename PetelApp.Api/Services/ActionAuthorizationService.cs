@@ -199,7 +199,7 @@ namespace PetelApp.Api.Services
 
                 // Determine action type (default to "Button" type with ID 2)
                 // You can adjust this logic based on your action type IDs
-                int actionTypeId = 2; // Button type
+                int actionTypeId = 7; // Button type
                 
                 // Create display name from function name (convert camelCase to Title Case)
                 var displayName = System.Text.RegularExpressions.Regex.Replace(
@@ -215,10 +215,10 @@ namespace PetelApp.Api.Services
                     Reference = screenName,
                     Description = $"Auto-created from screen '{screenName}' function '{functionName}'",
                     ActionTypeId = actionTypeId,
-                    IsActive = false, // ✅ CRITICAL: Created as INACTIVE for security
+                    IsActive = true, // ✅ CRITICAL: Created as INACTIVE for security
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
-                    UserId = 0 // System user
+                    UserId = 1 // System user
                 };
 
                 context.Set<SystemAction>().Add(newAction);

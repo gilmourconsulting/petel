@@ -12,7 +12,7 @@ namespace PetelApp.Api.Controllers
     public class RolesController : BaseController
     {
         private readonly AppDbContext _context;
-        private readonly ActionAuthorizationService _actionAuthService;  
+        private readonly ActionAuthorizationService _actionAuthService;
 
 
         public RolesController(
@@ -448,6 +448,45 @@ namespace PetelApp.Api.Controllers
                 {
                     success = false,
                     message = "שגיאה בהסרת הפעולה",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Refresh authorization cache (reload all roles, actions, and role-action mappings)
+        /// </summary>
+        [HttpPost("refresh-cache")]
+        public async Task<IActionResult> RefreshCache()
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                _logger.LogInformation("🔄 Refreshing authorization cache (all roles, actions, and role-action mappings)...");
+
+                // Refresh the entire authorization cache
+                await _actionAuthService.RefreshCacheAsync();
+
+                _logger.LogInformation("✅ Authorization cache refreshed successfully");
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "המטמון רוענן בהצלחה"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error refreshing cache");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה ברענון המטמון",
                     error = ex.Message
                 });
             }

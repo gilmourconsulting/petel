@@ -22,7 +22,7 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">פרטי בית הספר</h2>
                     <div class="card-header-actions">
-                        <button id="editSchoolDetailsBtn" class="btn-icon" onclick="handleEditButtonClick(event);">
+                        <button id="editSchoolDetailsBtn" class="btn-icon" onclick="toggleSchoolDetailsEdit();">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
                         <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
@@ -37,12 +37,11 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">כיתות בית ספר</h2>
                     <div class="card-header-actions">
-                        <button id="editClassesBtn" class="btn-icon" onclick="handleEditButtonClick(event);">
+                        <button id="editClassesBtn" class="btn-icon" onclick="toggleCardEdit('schoolClasses');">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
-                        <button id="addClassBtn" class="btn-icon"
-                            onclick="handleAddClassClick(event);" title="הוספת כיתה חדשה"
-                            style="display: none;">
+                        <button id="addClassBtn" class="btn-icon" onclick="handleAddClassClick();"
+                            title="הוספת כיתה חדשה" style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
                         <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
@@ -59,7 +58,7 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">שירותי בית ספר</h2>
                     <div class="card-header-actions">
-                        <button id="editAttributesBtn" class="btn-icon" onclick="handleEditButtonClick(event);">
+                        <button id="editAttributesBtn" class="btn-icon" onclick="toggleCardEdit('schoolAttributes');">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
                         <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
@@ -75,12 +74,11 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">מתורגמני שפת סימנים</h2>
                     <div class="card-header-actions">
-                        <button id="editTranslatorsBtn" class="btn-icon" onclick="handleEditButtonClick(event);">
+                        <button id="editTranslatorsBtn" class="btn-icon" onclick="toggleCardEdit('signLanguageTranslators');">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
-                        <button id="addTranslatorBtn" class="btn-icon"
-                            onclick="handleAddTranslatorClick(event);" title="הוספת מתורגמן"
-                            style="display: none;">
+                        <button id="addTranslatorBtn" class="btn-icon" onclick="handleAddTranslatorClick();"
+                            title="הוספת מתורגמן" style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
                         <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
@@ -96,18 +94,17 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">מגמות בית ספר</h2>
                     <div class="card-header-actions">
-                        <button id="editTracksBtn" class="btn-icon" onclick="handleEditButtonClick(event);">
+                        <button id="editTracksBtn" class="btn-icon" onclick="toggleCardEdit('schoolTracks');">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
-                        <button id="addTrackBtn" class="btn-icon"
-                            onclick="handleAddTrackClick(event);" title="הוספת מגמה חדשה"
-                            style="display: none;">
+                        <button id="addTrackBtn" class="btn-icon" onclick="handleAddTrackClick();"
+                            title="הוספת מגמה חדשה" style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
                         <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
                     </div>
                 </div>
-                <div class="detail-card-content" id="schoolCoursesContent">
+                <div class="detail-card-content" id="schoolTracksContent">
                     <!-- Content will be populated here -->
                 </div>
             </div>
@@ -117,12 +114,11 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">תל"ן</h2>
                     <div class="card-header-actions">
-                        <button id="editAdditionalStudyBtn" class="btn-icon" onclick="handleEditButtonClick(event);">
+                        <button id="editAdditionalStudyBtn" class="btn-icon" onclick="toggleCardEdit('additionalStudyProgram');">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
-                        <button id="addAdditionalStudyBtn" class="btn-icon"
-                            onclick="handleAddAdditionalStudyClick(event);" title="הוספת תל״ן חדש"
-                            style="display: none;">
+                        <button id="addAdditionalStudyBtn" class="btn-icon" onclick="handleAddAdditionalStudyClick();"
+                            title="הוספת תל״ן חדש" style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
                         <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
@@ -295,6 +291,59 @@
 
         // Store last classes data for re-rendering
         window.lastSchoolClassesData = window.lastSchoolClassesData || [];
+
+        // ============================================================================
+        // Card Edit Configuration - Centralized card behavior definitions
+        // ============================================================================
+
+        const CARD_EDIT_CONFIG = {
+            schoolClasses: {
+                editMode: 'schoolClassesEditMode',
+                editButtonId: 'editClassesBtn',
+                addButtonId: 'addClassBtn',
+                tableContainerId: 'classesTableContainer',
+                hasActionsColumn: true,
+                hasDisplayFunction: false
+            },
+            schoolAttributes: {
+                editMode: 'schoolAttributesEditMode',
+                editButtonId: 'editAttributesBtn',
+                addButtonId: null,
+                tableContainerId: null,
+                hasActionsColumn: false,
+                hasDisplayFunction: true,
+                displayFunction: 'displaySchoolAttributes',
+                dataSource: 'lastSchoolAttributesData'
+            },
+            signLanguageTranslators: {
+                editMode: 'signLanguageTranslatorsEditMode',
+                editButtonId: 'editTranslatorsBtn',
+                addButtonId: 'addTranslatorBtn',
+                tableContainerId: 'translatorsTableContainer',
+                hasActionsColumn: false,
+                hasDisplayFunction: true,
+                displayFunction: 'displaySignLanguageTranslators',
+                dataSource: 'lastSignLanguageTranslatorsData'
+            },
+            schoolTracks: {
+                editMode: 'schoolTracksEditMode',
+                editButtonId: 'editTracksBtn',
+                addButtonId: 'addTrackBtn',
+                tableContainerId: 'tracksTableContainer',
+                hasActionsColumn: false,
+                hasDisplayFunction: true,
+                displayFunction: 'displaySchoolTracks',
+                dataSource: 'lastSchoolTracksData'
+            },
+            schoolAdditionalStudy: {
+                editMode: 'schoolAdditionalStudyEditMode',
+                editButtonId: 'editAdditionalStudyBtn',
+                addButtonId: 'addAdditionalStudyBtn',
+                tableContainerId: 'additionalStudyTableContainer',
+                hasActionsColumn: true,
+                hasDisplayFunction: false
+            }
+        };
 
 
         // Setup edit classes button - TOGGLE ACTIONS COLUMN VISIBILITY
@@ -1804,9 +1853,9 @@
         async function loadSchoolTracks() {
             console.log('📚 Loading school tracks...');
 
-            const container = document.getElementById('schoolCoursesContent');
+            const container = document.getElementById('schoolTracksContent');
             if (!container) {
-                console.error('❌ schoolCoursesContent container not found');
+                console.error('❌ schoolTracksContent container not found');
                 return;
             }
 
@@ -1864,7 +1913,7 @@
         function displaySchoolTracks(tracks) {
             console.log('📚 Displaying school tracks:', tracks);
 
-            const container = document.getElementById('schoolCoursesContent');
+            const container = document.getElementById('schoolTracksContent');
             if (!container) return;
 
             if (!tracks || tracks.length === 0) {
@@ -2506,7 +2555,7 @@
                 await loadAttributeTypes();
 
                 // Setup edit buttons following Entity-Based Request Flow
-                setupEditSchoolDetailsButton();
+                //   setupEditSchoolDetailsButton();
                 setupEditClassesButton();
                 setupEditAttributesButton();
                 setupEditTracksButton();
@@ -2539,58 +2588,49 @@
         window.hasUnsavedSchoolDetailsChanges = false;
         window.originalSchoolDetailsData = null;
 
-        // Setup edit button without reloading data
-        function setupEditSchoolDetailsButton() {
+        function toggleSchoolDetailsEdit() {
             const editBtn = document.getElementById('editSchoolDetailsBtn');
 
-            if (editBtn) {
-                editBtn.onclick = async function (event) {
-                    event.stopPropagation();
+            if (!window.schoolDetailsEditMode) {
+                // Entering edit mode
+                window.schoolDetailsEditMode = true;
+                window.hasUnsavedSchoolDetailsChanges = false;
 
-                    if (!window.schoolDetailsEditMode) {
-                        // Entering edit mode
-                        window.schoolDetailsEditMode = true;
-                        window.hasUnsavedSchoolDetailsChanges = false;
+                window.originalSchoolDetailsData = JSON.parse(JSON.stringify(window.lastSchoolDetailsData));
+                console.log('💾 Original data stored:', window.originalSchoolDetailsData);
 
-                        // ✅ CRITICAL: Store a DEEP COPY of original data
-                        window.originalSchoolDetailsData = JSON.parse(JSON.stringify(window.lastSchoolDetailsData));
-                        console.log('💾 Original data stored:', window.originalSchoolDetailsData);
+                // Load dropdown data ONCE
+                loadCharacterizations();
+                loadCouncils();
 
-                        // Load dropdown data ONCE
-                        await loadCharacterizations();
-                        await loadCouncils();
+                // Re-render with edit mode
+                displaySchoolDetails(window.lastSchoolDetailsData);
 
-                        // Re-render with edit mode
-                        displaySchoolDetails(window.lastSchoolDetailsData);
+                // Add change listeners
+                addSchoolDetailsChangeListeners();
 
-                        // Add change listeners
-                        addSchoolDetailsChangeListeners();
+                const btnImg = editBtn.querySelector('img');
+                if (btnImg) {
+                    btnImg.alt = 'סגור עריכה';
+                }
 
-                        const btnImg = editBtn.querySelector('img');
-                        if (btnImg) {
-                            btnImg.alt = 'סגור עריכה';
+                console.log('✏️ School details edit mode: ON');
+            } else {
+                // Exiting edit mode
+                if (window.hasUnsavedSchoolDetailsChanges) {
+                    confirmSaveSchoolDetails().then(confirmed => {
+                        if (!confirmed) {
+                            console.log('❌ Save cancelled by user');
+                            return;
                         }
 
-                        console.log('✏️ School details edit mode: ON');
-                    } else {
-                        // Exiting edit mode
-                        if (window.hasUnsavedSchoolDetailsChanges) {
-                            const confirmed = await confirmSaveSchoolDetails();
-
-                            if (!confirmed) {
-                                console.log('❌ Save cancelled by user');
-                                return;
-                            }
-
-                            const saveSuccess = await saveSchoolDetails();
-
+                        saveSchoolDetails().then(saveSuccess => {
                             if (saveSuccess) {
                                 window.schoolDetailsEditMode = false;
                                 window.hasUnsavedSchoolDetailsChanges = false;
-                                window.originalSchoolDetailsData = null; // ✅ Clear original data
+                                window.originalSchoolDetailsData = null;
 
-                                // ✅ Reload fresh data from server
-                                await loadSchoolDetails();
+                                loadSchoolDetails();
 
                                 const btnImg = editBtn.querySelector('img');
                                 if (btnImg) {
@@ -2599,29 +2639,24 @@
 
                                 console.log('✏️ School details edit mode: OFF (saved)');
                             }
-                        } else {
-                            // No changes - just exit edit mode
-                            window.schoolDetailsEditMode = false;
-                            window.originalSchoolDetailsData = null; // ✅ Clear original data
+                        });
+                    });
+                } else {
+                    // No changes - just exit edit mode
+                    window.schoolDetailsEditMode = false;
+                    window.originalSchoolDetailsData = null;
 
-                            // Re-render in read-only mode with current data
-                            displaySchoolDetails(window.lastSchoolDetailsData);
+                    displaySchoolDetails(window.lastSchoolDetailsData);
 
-                            const btnImg = editBtn.querySelector('img');
-                            if (btnImg) {
-                                btnImg.alt = 'עריכה';
-                            }
-
-                            console.log('✏️ School details edit mode: OFF (no changes)');
-                        }
+                    const btnImg = editBtn.querySelector('img');
+                    if (btnImg) {
+                        btnImg.alt = 'עריכה';
                     }
-                };
-                console.log('✅ Edit school details button initialized');
-            } else {
-                console.warn('⚠️ Edit school details button not found');
+
+                    console.log('✏️ School details edit mode: OFF (no changes)');
+                }
             }
         }
-
 
         //  Add change listeners to input fields
         function addSchoolDetailsChangeListeners() {
@@ -4621,7 +4656,7 @@
 
                     try {
                         const studentsResponse = await fetch(
-                            AppConfig.getApiUrl(`schoolstudents/by-school-year/${schoolYearId}`),
+                            AppConfig.getApiUrl(`students?schoolYearId=${schoolYearId}`),
                             {
                                 headers: { 'Authorization': `Bearer ${authToken}` }
                             }
@@ -5097,45 +5132,103 @@
             initializeSchoolDetails();
         }
 
-                // ============================================================================
-        // Security-Enabled Edit Button Handlers
         // ============================================================================
-        
+        // Generic Card Edit Toggle Function
+        // ============================================================================
+
         /**
-         * Generic edit button click handler - stops propagation and triggers edit mode
-         * Can be intercepted by action-security.js for authorization
+         * Generic toggle function for all editable cards
+         * @param {string} cardName - Key from CARD_EDIT_CONFIG
          */
-        function handleEditButtonClick(event) {
-            event.stopPropagation();
-            // Additional logic can be added here if needed
-            console.log('🔧 Edit button clicked');
+        function toggleCardEdit(cardName) {
+            console.log(`🔄 Toggling edit mode for card: ${cardName}`);
+
+            const config = CARD_EDIT_CONFIG[cardName];
+            if (!config) {
+                console.error(`❌ Unknown card name: ${cardName}`);
+                return;
+            }
+
+            const editBtn = document.getElementById(config.editButtonId);
+            if (!editBtn) {
+                console.error(`❌ Edit button not found: ${config.editButtonId}`);
+                return;
+            }
+
+            // Toggle edit mode
+            window[config.editMode] = !window[config.editMode];
+            const isEditMode = window[config.editMode];
+
+            // Handle actions column visibility (for tables with actions column)
+            if (config.hasActionsColumn && config.tableContainerId) {
+                const actionsColumn = document.querySelectorAll(`#${config.tableContainerId} [data-column="actions"]`);
+                actionsColumn.forEach(cell => {
+                    cell.style.display = isEditMode ? '' : 'none';
+                });
+                console.log(`  📋 Actions column ${isEditMode ? 'shown' : 'hidden'} in #${config.tableContainerId}`);
+            }
+
+            // Handle re-render display function (for forms/checkboxes)
+            if (config.hasDisplayFunction) {
+                const displayFunc = window[config.displayFunction];
+                const dataSource = window[config.dataSource];
+                if (typeof displayFunc === 'function') {
+                    displayFunc(dataSource);
+                    console.log(`  🔄 Re-rendered using ${config.displayFunction}()`);
+                } else {
+                    console.warn(`  ⚠️ Display function not found: ${config.displayFunction}`);
+                }
+            }
+
+            // Handle add button visibility
+            if (config.addButtonId) {
+                const addBtn = document.getElementById(config.addButtonId);
+                if (addBtn) {
+                    const card = editBtn.closest('.detail-card');
+                    const isExpanded = card && card.classList.contains('expanded');
+                    addBtn.style.display = (isEditMode && isExpanded) ? 'inline-flex' : 'none';
+                    console.log(`  ➕ Add button ${(isEditMode && isExpanded) ? 'shown' : 'hidden'}`);
+                }
+            }
+
+            // Update edit button icon alt text
+            const btnImg = editBtn.querySelector('img');
+            if (btnImg) {
+                btnImg.alt = isEditMode ? 'סגור עריכה' : 'עריכה';
+            }
+
+            console.log(`✅ ${cardName} edit mode: ${isEditMode ? 'ON' : 'OFF'}`);
         }
-        
+
+
         /**
          * Combined handler for add buttons - stops propagation and calls add function
          */
-        function handleAddClassClick(event) {
-            event.stopPropagation();
+        function handleAddClassClick() {
+
             showAddClassModal();
         }
-        
-        function handleAddTranslatorClick(event) {
-            event.stopPropagation();
+
+        function handleAddTranslatorClick() {
             showAddTranslatorModal();
         }
-        
-        function handleAddTrackClick(event) {
-            event.stopPropagation();
+
+        function handleAddTrackClick() {
             showAddTrackModal();
         }
-        
-        function handleAddAdditionalStudyClick(event) {
-            event.stopPropagation();
+
+        function handleAddAdditionalStudyClick() {
             showAddAdditionalStudyModal();
         }
-        
+
         // Export to window for global access
-        window.handleEditButtonClick = handleEditButtonClick;
+
+        window.toggleSchoolDetailsEdit = toggleSchoolDetailsEdit;
+        window.toggleClassesEdit = toggleClassesEdit;
+        window.toggleAttributesEdit = toggleAttributesEdit;
+        window.toggleTranslatorsEdit = toggleTranslatorsEdit;
+        window.toggleTracksEdit = toggleTracksEdit;
+        window.toggleAdditionalStudyEdit = toggleAdditionalStudyEdit;
         window.handleAddClassClick = handleAddClassClick;
         window.handleAddTranslatorClick = handleAddTranslatorClick;
         window.handleAddTrackClick = handleAddTrackClick;
@@ -5143,7 +5236,7 @@
 
         // Make functions globally available following Cross-Component Communication
         window.initializeCollapsibleCards = initializeCollapsibleCards;
-        window.setupEditSchoolDetailsButton = setupEditSchoolDetailsButton;
+        // window.setupEditSchoolDetailsButton = setupEditSchoolDetailsButton;
         window.confirmSaveSchoolDetails = confirmSaveSchoolDetails;
 
         window.handleSchoolDetailsChange = handleSchoolDetailsChange;

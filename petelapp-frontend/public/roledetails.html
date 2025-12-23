@@ -22,7 +22,7 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">פרטי התפקיד</h2>
                     <div class="card-header-actions">
-                        <button class="btn-icon" onclick="event.stopPropagation(); editRoleName();" title="ערוך שם">
+                        <button class="btn-icon" onclick="editRoleName();" title="ערוך שם">
                             <img src="edit_icon.png" alt="ערוך" class="action-icon-natural">
                         </button>
                         <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
@@ -53,8 +53,7 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">פעולות המותרות לתפקיד</h2>
                     <div class="card-header-actions">
-                        <button class="btn-icon" onclick="event.stopPropagation(); showAddActionDialog();"
-                            title="הוסף פעולה">
+                        <button class="btn-icon" onclick="showAddActionDialog();" title="הוסף פעולה">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
                         <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
@@ -62,11 +61,9 @@
                 </div>
                 <div class="detail-card-content">
                     <div style="margin-bottom: 15px;">
-                        <input type="text" 
-                               id="searchRoleActions" 
-                               placeholder="חיפוש פעולה לפי שם, הפניה או סוג..."
-                               style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px; direction: rtl; font-size: 14px;"
-                               oninput="filterRoleActions()">
+                        <input type="text" id="searchRoleActions" placeholder="חיפוש פעולה לפי שם, הפניה או סוג..."
+                            style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px; direction: rtl; font-size: 14px;"
+                            oninput="filterRoleActions()">
                     </div>
                     <div id="roleActionsTableContainer">
                         <div class="loading-spinner">טוען פעולות...</div>
@@ -428,16 +425,16 @@
     /**
      * Filter role actions based on search input
      */
-        // Clear search input
-        const searchInput = document.getElementById('searchRoleActions');
-        if (searchInput) {
-            searchInput.value = '';
-        }
-        
-        
+    // Clear search input
+    const searchInput = document.getElementById('searchRoleActions');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+
+
     function filterRoleActions() {
         const searchTerm = document.getElementById('searchRoleActions').value.toLowerCase().trim();
-        
+
         if (!searchTerm) {
             // No search term - show all actions
             renderActionsTable(window.allRoleActions);
@@ -449,10 +446,10 @@
             const displayName = (action.displayName || '').toLowerCase();
             const reference = (action.reference || '').toLowerCase();
             const typeName = (action.actionTypeName || '').toLowerCase();
-            
-            return displayName.includes(searchTerm) || 
-                   reference.includes(searchTerm) || 
-                   typeName.includes(searchTerm);
+
+            return displayName.includes(searchTerm) ||
+                reference.includes(searchTerm) ||
+                typeName.includes(searchTerm);
         });
 
         renderActionsTable(filtered);
@@ -462,9 +459,46 @@
     /**
      * Refresh role details
      */
+    /**
+     * Refresh role details and backend cache
+     */
     async function refreshRoleDetails() {
-        console.log('🔄 Refreshing role details...');
-        await loadRoleDetails();
+        console.log('🔄 Refreshing role details and backend cache...');
+
+        try {
+            const authToken = sessionStorage.getItem('authToken');
+            if (!authToken) {
+                alert('נדרש אימות. אנא התחבר מחדש.');
+                return;
+            }
+
+            // Step 1: Refresh backend cache (all roles, actions, role-action mappings)
+            console.log('📡 Refreshing backend cache...');
+            const refreshResponse = await fetch(AppConfig.getApiUrl('roles/refresh-cache'), {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!refreshResponse.ok) {
+                throw new Error(`Cache refresh failed: ${refreshResponse.status}`);
+            }
+
+            const refreshResult = await refreshResponse.json();
+            console.log('✅ Backend cache refreshed:', refreshResult.message);
+
+            // Step 2: Reload page data from database
+            console.log('📡 Reloading page data...');
+            await loadRoleDetails();
+
+            console.log('✅ Role details refreshed successfully');
+
+        } catch (error) {
+            console.error('❌ Error refreshing role details:', error);
+            alert('שגיאה ברענון הנתונים');
+        }
     }
 
     /**
@@ -531,304 +565,304 @@
         document.getElementById('editRoleNameDialog').style.display = 'none';
     }
 
-  // Store available actions data
-let availableActionsData = [];
-let selectedActionsData = [];
+    // Store available actions data
+    let availableActionsData = [];
+    let selectedActionsData = [];
 
-/**
- * Show add action dialog with drag-and-drop interface
- */
-async function showAddActionDialog() {
-    try {
-        const authToken = sessionStorage.getItem('authToken');
-        if (!authToken) {
-            alert('נדרש אימות. אנא התחבר מחדש.');
+    /**
+     * Show add action dialog with drag-and-drop interface
+     */
+    async function showAddActionDialog() {
+        try {
+            const authToken = sessionStorage.getItem('authToken');
+            if (!authToken) {
+                alert('נדרש אימות. אנא התחבר מחדש.');
+                return;
+            }
+
+            // Reset drop zone listeners flag
+            dropZoneListenersInitialized = false;
+
+            // Load available actions
+            const response = await fetch(AppConfig.getApiUrl(`roles/available-actions?roleId=${window.currentRoleId}`), {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to load available actions');
+            }
+
+            const result = await response.json();
+            availableActionsData = result.data || [];
+            selectedActionsData = [];
+
+            renderAvailableActions();
+            renderSelectedActions();
+
+            document.getElementById('addActionDialog').style.display = 'flex';
+        } catch (error) {
+            console.error('❌ Error loading available actions:', error);
+            alert('שגיאה בטעינת רשימת הפעולות');
+        }
+    }
+
+    /**
+     * Filter available actions based on search
+     */
+    function filterAvailableActions() {
+        const searchTerm = document.getElementById('searchAvailableActions').value.toLowerCase();
+        const filtered = availableActionsData.filter(action => {
+            // Only filter actions not in selected list
+            if (selectedActionsData.find(a => a.id === action.id)) {
+                return false;
+            }
+            const displayName = (action.displayName || '').toLowerCase();
+            const reference = (action.reference || '').toLowerCase();
+            const typeName = (action.actionTypeName || '').toLowerCase();
+            return displayName.includes(searchTerm) || reference.includes(searchTerm) || typeName.includes(searchTerm);
+        });
+        renderAvailableActions(filtered);
+    }
+
+    /**
+     * Render available actions list
+     */
+    function renderAvailableActions(actions = null) {
+        const container = document.getElementById('availableActionsList');
+
+        // Filter out actions that are already selected
+        let actionsToRender = actions || availableActionsData;
+        actionsToRender = actionsToRender.filter(action => !selectedActionsData.find(a => a.id === action.id));
+
+        if (actionsToRender.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">אין פעולות זמינות</p>';
             return;
         }
 
-        // Reset drop zone listeners flag
-        dropZoneListenersInitialized = false;
+        container.innerHTML = actionsToRender.map(action => {
+            const referenceText = action.reference || 'ללא הפניה';
+            // Concatenate type and reference
+            const headerText = `${action.actionTypeName} - ${referenceText}`;
+            return `
+        <div class="action-item" draggable="true" data-action-id="${action.id}">
+            <div class="action-item-header">${headerText}</div>
+            <div class="action-item-name">${action.displayName}</div>
+        </div>
+    `;
+        }).join('');
 
-        // Load available actions
-        const response = await fetch(AppConfig.getApiUrl(`roles/available-actions?roleId=${window.currentRoleId}`), {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
+        // Add drag event listeners
+        setupDragAndDrop();
+    }
+
+    /**
+     * Render selected actions list
+     */
+    function renderSelectedActions() {
+        const container = document.getElementById('selectedActionsList');
+        const countElements = document.querySelectorAll('#selectedCount, #submitCount');
+
+        if (selectedActionsData.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">גרור פעולות לכאן</p>';
+            countElements.forEach(el => el.textContent = '0');
+            return;
+        }
+
+        container.innerHTML = selectedActionsData.map(action => {
+            const referenceText = action.reference || 'ללא הפניה';
+            // Concatenate type and reference
+            const headerText = `${action.actionTypeName} - ${referenceText}`;
+            return `
+        <div class="action-item" draggable="true" data-action-id="${action.id}">
+            <div class="action-item-header">${headerText}</div>
+            <div class="action-item-name">${action.displayName}</div>
+        </div>
+    `;
+        }).join('');
+
+        countElements.forEach(el => el.textContent = selectedActionsData.length);
+
+        // Add drag event listeners
+        setupDragAndDrop();
+    }
+
+    // Track if drop zone listeners have been initialized
+    let dropZoneListenersInitialized = false;
+
+    /**
+     * Setup drag and drop functionality - optimized to prevent duplicate listeners
+     */
+    function setupDragAndDrop() {
+        const actionItems = document.querySelectorAll('.action-item');
+
+        // Add dragstart and dragend to items (these are recreated each render, so no duplicates)
+        actionItems.forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                item.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('actionId', item.dataset.actionId);
+            });
+
+            item.addEventListener('dragend', (e) => {
+                item.classList.remove('dragging');
+            });
+        });
+
+        // Only initialize drop zone listeners once
+        if (!dropZoneListenersInitialized) {
+            const availableZone = document.getElementById('availableActionsList');
+            const selectedZone = document.getElementById('selectedActionsList');
+
+            setupDropZone(availableZone, false);
+            setupDropZone(selectedZone, true);
+
+            dropZoneListenersInitialized = true;
+            console.log('✅ Drop zone listeners initialized');
+        }
+    }
+
+    /**
+     * Setup drop zone with event listeners
+     */
+    function setupDropZone(zone, isSelectedZone) {
+        zone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            zone.classList.add('drop-zone-active');
+        });
+
+        zone.addEventListener('dragleave', (e) => {
+            // Only remove highlight if leaving the zone itself
+            const rect = zone.getBoundingClientRect();
+            if (e.clientX < rect.left || e.clientX >= rect.right ||
+                e.clientY < rect.top || e.clientY >= rect.bottom) {
+                zone.classList.remove('drop-zone-active');
             }
         });
 
-        if (!response.ok) {
-            throw new Error('Failed to load available actions');
-        }
-
-        const result = await response.json();
-        availableActionsData = result.data || [];
-        selectedActionsData = [];
-
-        renderAvailableActions();
-        renderSelectedActions();
-
-        document.getElementById('addActionDialog').style.display = 'flex';
-    } catch (error) {
-        console.error('❌ Error loading available actions:', error);
-        alert('שגיאה בטעינת רשימת הפעולות');
-    }
-}
-
-/**
- * Filter available actions based on search
- */
-function filterAvailableActions() {
-    const searchTerm = document.getElementById('searchAvailableActions').value.toLowerCase();
-    const filtered = availableActionsData.filter(action => {
-        // Only filter actions not in selected list
-        if (selectedActionsData.find(a => a.id === action.id)) {
-            return false;
-        }
-        const displayName = (action.displayName || '').toLowerCase();
-        const reference = (action.reference || '').toLowerCase();
-        const typeName = (action.actionTypeName || '').toLowerCase();
-        return displayName.includes(searchTerm) || reference.includes(searchTerm) || typeName.includes(searchTerm);
-    });
-    renderAvailableActions(filtered);
-}
-
-/**
- * Render available actions list
- */
-function renderAvailableActions(actions = null) {
-    const container = document.getElementById('availableActionsList');
-    
-    // Filter out actions that are already selected
-    let actionsToRender = actions || availableActionsData;
-    actionsToRender = actionsToRender.filter(action => !selectedActionsData.find(a => a.id === action.id));
-
-    if (actionsToRender.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">אין פעולות זמינות</p>';
-        return;
-    }
-
-    container.innerHTML = actionsToRender.map(action => {
-        const referenceText = action.reference || 'ללא הפניה';
-        // Concatenate type and reference
-        const headerText = `${action.actionTypeName} - ${referenceText}`;
-        return `
-        <div class="action-item" draggable="true" data-action-id="${action.id}">
-            <div class="action-item-header">${headerText}</div>
-            <div class="action-item-name">${action.displayName}</div>
-        </div>
-    `;
-    }).join('');
-
-    // Add drag event listeners
-    setupDragAndDrop();
-}
-
-/**
- * Render selected actions list
- */
-function renderSelectedActions() {
-    const container = document.getElementById('selectedActionsList');
-    const countElements = document.querySelectorAll('#selectedCount, #submitCount');
-
-    if (selectedActionsData.length === 0) {
-        container.innerHTML = '<p style="text-align: center; color: #6c757d; padding: 20px;">גרור פעולות לכאן</p>';
-        countElements.forEach(el => el.textContent = '0');
-        return;
-    }
-
-    container.innerHTML = selectedActionsData.map(action => {
-        const referenceText = action.reference || 'ללא הפניה';
-        // Concatenate type and reference
-        const headerText = `${action.actionTypeName} - ${referenceText}`;
-        return `
-        <div class="action-item" draggable="true" data-action-id="${action.id}">
-            <div class="action-item-header">${headerText}</div>
-            <div class="action-item-name">${action.displayName}</div>
-        </div>
-    `;
-    }).join('');
-
-    countElements.forEach(el => el.textContent = selectedActionsData.length);
-
-    // Add drag event listeners
-    setupDragAndDrop();
-}
-
-// Track if drop zone listeners have been initialized
-let dropZoneListenersInitialized = false;
-
-/**
- * Setup drag and drop functionality - optimized to prevent duplicate listeners
- */
-function setupDragAndDrop() {
-    const actionItems = document.querySelectorAll('.action-item');
-    
-    // Add dragstart and dragend to items (these are recreated each render, so no duplicates)
-    actionItems.forEach(item => {
-        item.addEventListener('dragstart', (e) => {
-            item.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('actionId', item.dataset.actionId);
-        });
-
-        item.addEventListener('dragend', (e) => {
-            item.classList.remove('dragging');
-        });
-    });
-
-    // Only initialize drop zone listeners once
-    if (!dropZoneListenersInitialized) {
-        const availableZone = document.getElementById('availableActionsList');
-        const selectedZone = document.getElementById('selectedActionsList');
-        
-        setupDropZone(availableZone, false);
-        setupDropZone(selectedZone, true);
-        
-        dropZoneListenersInitialized = true;
-        console.log('✅ Drop zone listeners initialized');
-    }
-}
-
-/**
- * Setup drop zone with event listeners
- */
-function setupDropZone(zone, isSelectedZone) {
-    zone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        zone.classList.add('drop-zone-active');
-    });
-
-    zone.addEventListener('dragleave', (e) => {
-        // Only remove highlight if leaving the zone itself
-        const rect = zone.getBoundingClientRect();
-        if (e.clientX < rect.left || e.clientX >= rect.right ||
-            e.clientY < rect.top || e.clientY >= rect.bottom) {
+        zone.addEventListener('drop', (e) => {
+            e.preventDefault();
             zone.classList.remove('drop-zone-active');
+
+            const actionId = parseInt(e.dataTransfer.getData('actionId'));
+            handleActionMove(actionId, isSelectedZone);
+        });
+    }
+
+    /**
+     * Handle moving action between lists
+     */
+    function handleActionMove(actionId, moveToSelected) {
+        if (moveToSelected) {
+            // Move from available to selected
+            const action = availableActionsData.find(a => a.id === actionId);
+            if (action && !selectedActionsData.find(a => a.id === actionId)) {
+                selectedActionsData.push(action);
+            }
+        } else {
+            // Move from selected to available (remove from selected)
+            selectedActionsData = selectedActionsData.filter(a => a.id !== actionId);
         }
-    });
 
-    zone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        zone.classList.remove('drop-zone-active');
-
-        const actionId = parseInt(e.dataTransfer.getData('actionId'));
-        handleActionMove(actionId, isSelectedZone);
-    });
-}
-
-/**
- * Handle moving action between lists
- */
-function handleActionMove(actionId, moveToSelected) {
-    if (moveToSelected) {
-        // Move from available to selected
-        const action = availableActionsData.find(a => a.id === actionId);
-        if (action && !selectedActionsData.find(a => a.id === actionId)) {
-            selectedActionsData.push(action);
+        // Re-render both lists (items will be filtered out of the source list)
+        const searchTerm = document.getElementById('searchAvailableActions').value;
+        if (searchTerm) {
+            filterAvailableActions();
+        } else {
+            renderAvailableActions();
         }
-    } else {
-        // Move from selected to available (remove from selected)
-        selectedActionsData = selectedActionsData.filter(a => a.id !== actionId);
+        renderSelectedActions();
     }
 
-    // Re-render both lists (items will be filtered out of the source list)
-    const searchTerm = document.getElementById('searchAvailableActions').value;
-    if (searchTerm) {
-        filterAvailableActions();
-    } else {
-        renderAvailableActions();
-    }
-    renderSelectedActions();
-}
-
-/**
- * Submit selected actions
- */
-async function submitSelectedActions() {
-    if (selectedActionsData.length === 0) {
-        alert('אנא בחר לפחות פעולה אחת');
-        return;
-    }
-
-    try {
-        const authToken = sessionStorage.getItem('authToken');
-        if (!authToken) {
-            alert('נדרש אימות. אנא התחבר מחדש.');
+    /**
+     * Submit selected actions
+     */
+    async function submitSelectedActions() {
+        if (selectedActionsData.length === 0) {
+            alert('אנא בחר לפחות פעולה אחת');
             return;
         }
 
-        let successCount = 0;
-        let failCount = 0;
-        const errors = [];
+        try {
+            const authToken = sessionStorage.getItem('authToken');
+            if (!authToken) {
+                alert('נדרש אימות. אנא התחבר מחדש.');
+                return;
+            }
 
-        // Add each action sequentially
-        for (const action of selectedActionsData) {
-            try {
-                const response = await fetch(AppConfig.getApiUrl(`roles/${window.currentRoleId}/actions`), {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${authToken}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ actionId: action.id })
-                });
+            let successCount = 0;
+            let failCount = 0;
+            const errors = [];
 
-                const result = await response.json();
+            // Add each action sequentially
+            for (const action of selectedActionsData) {
+                try {
+                    const response = await fetch(AppConfig.getApiUrl(`roles/${window.currentRoleId}/actions`), {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${authToken}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ actionId: action.id })
+                    });
 
-                if (response.ok) {
-                    successCount++;
-                } else {
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                        errors.push(`${action.displayName}: ${result.message}`);
+                    }
+                } catch (error) {
                     failCount++;
-                    errors.push(`${action.displayName}: ${result.message}`);
-                }
-            } catch (error) {
-                failCount++;
-                errors.push(`${action.displayName}: ${error.message}`);
-            }
-        }
-
-        // Show summary
-        let message = '';
-        if (successCount > 0) {
-            message += `✅ ${successCount} פעולות נוספו בהצלחה\n`;
-        }
-        if (failCount > 0) {
-            message += `❌ ${failCount} פעולות נכשלו\n`;
-            if (errors.length > 0) {
-                message += '\nשגיאות:\n' + errors.slice(0, 5).join('\n');
-                if (errors.length > 5) {
-                    message += `\n... ועוד ${errors.length - 5} שגיאות`;
+                    errors.push(`${action.displayName}: ${error.message}`);
                 }
             }
+
+            // Show summary
+            let message = '';
+            if (successCount > 0) {
+                message += `✅ ${successCount} פעולות נוספו בהצלחה\n`;
+            }
+            if (failCount > 0) {
+                message += `❌ ${failCount} פעולות נכשלו\n`;
+                if (errors.length > 0) {
+                    message += '\nשגיאות:\n' + errors.slice(0, 5).join('\n');
+                    if (errors.length > 5) {
+                        message += `\n... ועוד ${errors.length - 5} שגיאות`;
+                    }
+                }
+            }
+
+            alert(message);
+
+            if (successCount > 0) {
+                closeAddActionDialog();
+                await refreshRoleDetails();
+            }
+        } catch (error) {
+            console.error('❌ Error adding actions:', error);
+            alert('שגיאה כללית בהוספת הפעולות');
         }
+    }
 
-        alert(message);
-
-        if (successCount > 0) {
-            closeAddActionDialog();
-            await refreshRoleDetails();
+    /**
+     * Close add action dialog
+     */
+    function closeAddActionDialog() {
+        document.getElementById('addActionDialog').style.display = 'none';
+        const searchInput = document.getElementById('searchAvailableActions');
+        if (searchInput) {
+            searchInput.value = '';
         }
-    } catch (error) {
-        console.error('❌ Error adding actions:', error);
-        alert('שגיאה כללית בהוספת הפעולות');
+        availableActionsData = [];
+        selectedActionsData = [];
     }
-}
-
-/**
- * Close add action dialog
- */
-function closeAddActionDialog() {
-    document.getElementById('addActionDialog').style.display = 'none';
-    const searchInput = document.getElementById('searchAvailableActions');
-    if (searchInput) {
-        searchInput.value = '';
-    }
-    availableActionsData = [];
-    selectedActionsData = [];
-}
 
 
     /**
@@ -868,9 +902,9 @@ function closeAddActionDialog() {
         }
     }
 
-      /**
-     * Export cleanup function for PageLifecycleManager
-     */
+    /**
+   * Export cleanup function for PageLifecycleManager
+   */
     function cleanupRoleDetailsPage() {
         console.log('🧹 Cleaning up role details page...');
 
@@ -897,7 +931,7 @@ function closeAddActionDialog() {
     window.filterRoleActions = filterRoleActions;
 
     // Initialize page on load
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         console.log('🚀 Role details page loaded');
         loadRoleDetails();
     });
