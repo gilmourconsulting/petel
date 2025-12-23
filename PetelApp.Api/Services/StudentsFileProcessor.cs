@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
+using System.Globalization;
 
 
 namespace PetelApp.Api.Services
@@ -156,11 +157,12 @@ namespace PetelApp.Api.Services
             if (string.IsNullOrWhiteSpace(row.Class))
                 return (false, "כיתה חסרה");
 
-            // Validate dates
-            if (!DateTime.TryParse(row.StartDate, out _))
+            // Validate dates (expecting day-month-year format: DD/MM/YYYY)
+            var hebrewCulture = CultureInfo.GetCultureInfo("he-IL");
+            if (!DateTime.TryParse(row.StartDate, hebrewCulture, DateTimeStyles.None, out _))
                 return (false, "תאריך התחלה לא תקין");
 
-            if (!DateTime.TryParse(row.EndDate, out _))
+            if (!DateTime.TryParse(row.EndDate, hebrewCulture, DateTimeStyles.None, out _))
                 return (false, "תאריך סיום לא תקין");
 
             // Validate disability category (integer or empty for none)
@@ -173,6 +175,9 @@ namespace PetelApp.Api.Services
 
             if (string.IsNullOrWhiteSpace(row.HouseNumber))
                 return (false, "מספר בית חסר");
+
+            if (row.HouseNumber.Trim().Length > 6)
+                return (false, "מספר בית ארוך מדי (מקסימום 6 תווים)");
 
             if (string.IsNullOrWhiteSpace(row.City))
                 return (false, "עיר חסרה");
@@ -189,6 +194,7 @@ namespace PetelApp.Api.Services
 
         private bool HasDataChanged(SchoolStudent existing, StudentFileRow row, int  classId , int? councilId)
         {
+            var hebrewCulture = CultureInfo.GetCultureInfo("he-IL");
             var rowGender = ParseGender(row.Gender);
             var rowDisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory) ? null : (int?)int.Parse(row.DisabilityCategory);
            // var rowSendingCouncil = row.SendingCouncil == "99999" ? null : (int?)int.Parse(row.SendingCouncil);
@@ -197,11 +203,11 @@ namespace PetelApp.Api.Services
                    existing.LastName != row.LastName ||
                    existing.Gender != rowGender ||
                    existing.ClassId != classId  ||
-                   existing.StartDate?.ToString("yyyy-MM-dd") != DateTime.Parse(row.StartDate).ToString("yyyy-MM-dd") ||
-                   existing.EndDate?.ToString("yyyy-MM-dd") != DateTime.Parse(row.EndDate).ToString("yyyy-MM-dd") ||
+                   existing.StartDate?.ToString("yyyy-MM-dd") != DateTime.Parse(row.StartDate, hebrewCulture).ToString("yyyy-MM-dd") ||
+                   existing.EndDate?.ToString("yyyy-MM-dd") != DateTime.Parse(row.EndDate, hebrewCulture).ToString("yyyy-MM-dd") ||
                    existing.DisabilityCategory != rowDisabilityCategory ||
                    existing.Street != row.Street ||
-                   existing.HouseNumber != row.HouseNumber ||
+                   existing.HouseNumber != row.HouseNumber.Trim() ||
                    existing.City != row.City ||
                    existing.PostCode != row.PostCode ||
                    existing.SendingCouncil != councilId;
@@ -221,20 +227,22 @@ namespace PetelApp.Api.Services
                 student =>
                 {
                     // Configure all fields
+                    var hebrewCulture = CultureInfo.GetCultureInfo("he-IL");
                     student.FirstName = row.FirstName;
                     student.LastName = row.LastName;
                     student.Gender = ParseGender(row.Gender);
                     student.ClassId = classId;
-                    student.StartDate = DateOnly.Parse(row.StartDate);
-                    student.EndDate = DateOnly.Parse(row.EndDate);
+                    student.StartDate = DateOnly.FromDateTime(DateTime.Parse(row.StartDate, hebrewCulture));
+                    student.EndDate = DateOnly.FromDateTime(DateTime.Parse(row.EndDate, hebrewCulture));
                     student.DisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory) 
                         ? null 
                         : (int?)int.Parse(row.DisabilityCategory);
                     student.Street = row.Street;
-                    student.HouseNumber = row.HouseNumber;
+                    student.HouseNumber = row.HouseNumber.Trim();
                     student.City = row.City;
                     student.PostCode = row.PostCode;
                     student.SendingCouncil = councilId;
+                    student.StatusId = 1;
                 });
 
             if (studentId.HasValue)
@@ -287,20 +295,22 @@ namespace PetelApp.Api.Services
                 newVersion =>
                 {
                     // Update all fields from file
+                    var hebrewCulture = CultureInfo.GetCultureInfo("he-IL");
                     newVersion.FirstName = row.FirstName;
                     newVersion.LastName = row.LastName;
                     newVersion.Gender = ParseGender(row.Gender);
                     newVersion.ClassId = classId;
-                    newVersion.StartDate = DateOnly.Parse(row.StartDate);
-                    newVersion.EndDate = DateOnly.Parse(row.EndDate);
+                    newVersion.StartDate = DateOnly.FromDateTime(DateTime.Parse(row.StartDate, hebrewCulture));
+                    newVersion.EndDate = DateOnly.FromDateTime(DateTime.Parse(row.EndDate, hebrewCulture));
                     newVersion.DisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory) 
                         ? null 
                         : (int?)int.Parse(row.DisabilityCategory);
                     newVersion.Street = row.Street;
-                    newVersion.HouseNumber = row.HouseNumber;
+                    newVersion.HouseNumber = row.HouseNumber.Trim();
                     newVersion.City = row.City;
                     newVersion.PostCode = row.PostCode;
                     newVersion.SendingCouncil = councilId;
+                    newVersion.StatusId = 1;
                     // Note: Cost is NOT updated here - it's preserved from existing version
                 });
 

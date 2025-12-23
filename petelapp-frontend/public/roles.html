@@ -12,6 +12,24 @@
         <button class="context-btn" onclick="showCreateRoleDialog()">
             הוסף תפקיד חדש
         </button>
+        <button class="context-btn" onclick="showExportActionsDialog()">
+            ייצוא פעולות
+        </button>
+        <button class="context-btn" onclick="showImportActionsDialog()">
+            ייבוא פעולות
+        </button>
+        <button class="context-btn" onclick="showExportRoleActionsDialog()">
+            ייצוא תפקידים-פעולות
+        </button>
+        <button class="context-btn" onclick="showImportRoleActionsDialog()">
+            ייבוא תפקידים-פעולות
+        </button>
+        <button class="context-btn" onclick="showExportCompleteDialog()">
+            ייצוא מלא
+        </button>
+        <button class="context-btn" onclick="showImportCompleteDialog()">
+            ייבוא מלא
+        </button>
         <button class="context-btn" onclick="navigateToUsers()">
             חזרה לניהול משתמשים
         </button>
@@ -90,6 +108,178 @@
         <div class="modal-footer">
             <button type="button" class="btn-secondary" onclick="closeRoleDialog()">ביטול</button>
             <button type="submit" form="roleForm" class="btn-primary">שמור</button>
+        </div>
+    </div>
+</div>
+
+<!-- Export Actions Dialog -->
+<div id="exportActionsDialog" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>ייצוא פעולות</h3>
+            <button class="modal-close" onclick="closeExportActionsDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="exportFromDate">ייצוא מתאריך (אופציונלי):</label>
+                <input type="date" id="exportFromDate" name="exportFromDate">
+                <small class="form-text">השאר ריק לייצוא כל הפעולות</small>
+            </div>
+            <div class="info-box">
+                <p>קובץ JSON ייצא עם כל הפעולות המוגדרות במערכת.</p>
+                <p>ניתן לייבא את הקובץ לסביבה אחרת.</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeExportActionsDialog()">ביטול</button>
+            <button type="button" class="btn-primary" onclick="executeExportActions()">ייצא</button>
+        </div>
+    </div>
+</div>
+
+<!-- Import Actions Dialog -->
+<div id="importActionsDialog" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>ייבוא פעולות</h3>
+            <button class="modal-close" onclick="closeImportActionsDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="importActionsFile">בחר קובץ JSON:</label>
+                <input type="file" id="importActionsFile" accept=".json" required>
+            </div>
+            <div class="info-box">
+                <p>ייבוא יתאים פעולות לפי שם.</p>
+                <p>פעולות קיימות יושמטו אוטומטית.</p>
+                <p>רק פעולות חדשות יתווספו.</p>
+            </div>
+            <div id="importResultsContainer" style="display: none; margin-top: 15px;">
+                <h4>תוצאות ייבוא:</h4>
+                <div id="importResults" class="results-box"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeImportActionsDialog()">סגור</button>
+            <button type="button" class="btn-primary" onclick="executeImportActions()">ייבא</button>
+        </div>
+    </div>
+</div>
+
+<!-- Export Role-Actions Dialog -->
+<div id="exportRoleActionsDialog" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>ייצוא קישורי תפקידים-פעולות</h3>
+            <button class="modal-close" onclick="closeExportRoleActionsDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="exportRoleActionsFromDate">ייצוא מתאריך (אופציונלי):</label>
+                <input type="date" id="exportRoleActionsFromDate" name="exportRoleActionsFromDate">
+                <small class="form-text">השאר ריק לייצוא כל הקישורים</small>
+            </div>
+            <div class="info-box">
+                <p>קובץ JSON ייצא עם כל קישורי התפקידים לפעולות.</p>
+                <p>הקובץ כולל שמות תפקידים ושמות פעולות.</p>
+                <p>ניתן לייבא את הקובץ לסביבה אחרת.</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeExportRoleActionsDialog()">ביטול</button>
+            <button type="button" class="btn-primary" onclick="executeExportRoleActions()">ייצא</button>
+        </div>
+    </div>
+</div>
+
+<!-- Import Role-Actions Dialog -->
+<div id="importRoleActionsDialog" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>ייבוא קישורי תפקידים-פעולות</h3>
+            <button class="modal-close" onclick="closeImportRoleActionsDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="importRoleActionsFile">בחר קובץ JSON:</label>
+                <input type="file" id="importRoleActionsFile" accept=".json" required>
+            </div>
+            <div class="info-box">
+                <p>ייבוא יתאים תפקידים ופעולות לפי שם.</p>
+                <p>קישורים קיימים יושמטו אוטומטית.</p>
+                <p>רק קישורים חדשים יתווספו.</p>
+                <p><strong>שים לב:</strong> התפקידים והפעולות חייבים להיות קיימים במערכת!</p>
+            </div>
+            <div id="importRoleActionsResultsContainer" style="display: none; margin-top: 15px;">
+                <h4>תוצאות ייבוא:</h4>
+                <div id="importRoleActionsResults" class="results-box"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeImportRoleActionsDialog()">סגור</button>
+            <button type="button" class="btn-primary" onclick="executeImportRoleActions()">ייבא</button>
+        </div>
+    </div>
+</div>
+
+<!-- Export Complete Dialog -->
+<div id="exportCompleteDialog" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>ייצוא חבילה מלאה</h3>
+            <button class="modal-close" onclick="closeExportCompleteDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="exportCompleteFromDate">ייצוא מתאריך (אופציונלי):</label>
+                <input type="date" id="exportCompleteFromDate" name="exportCompleteFromDate">
+                <small class="form-text">השאר ריק לייצוא כל הנתונים</small>
+            </div>
+            <div class="info-box">
+                <p><strong>ייצוא מלא כולל:</strong></p>
+                <ul>
+                    <li>כל הפעולות (Actions)</li>
+                    <li>כל קישורי התפקידים-פעולות (Role-Actions)</li>
+                </ul>
+                <p>קובץ אחד עם כל הנתונים הדרושים להעברה בין סביבות.</p>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeExportCompleteDialog()">ביטול</button>
+            <button type="button" class="btn-primary" onclick="executeExportComplete()">ייצא</button>
+        </div>
+    </div>
+</div>
+
+<!-- Import Complete Dialog -->
+<div id="importCompleteDialog" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>ייבוא חבילה מלאה</h3>
+            <button class="modal-close" onclick="closeImportCompleteDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="importCompleteFile">בחר קובץ JSON:</label>
+                <input type="file" id="importCompleteFile" accept=".json" required>
+            </div>
+            <div class="info-box">
+                <p><strong>ייבוא מלא מעבד בסדר הנכון:</strong></p>
+                <ol style="text-align: right; padding-right: 20px;">
+                    <li>ייבוא פעולות חדשות</li>
+                    <li>ייבוא קישורי תפקידים-פעולות</li>
+                </ol>
+                <p>קישורים קיימים יושמטו אוטומטית.</p>
+                <p><strong>שים לב:</strong> התפקידים חייבים להיות קיימים במערכת!</p>
+            </div>
+            <div id="importCompleteResultsContainer" style="display: none; margin-top: 15px;">
+                <h4>תוצאות ייבוא:</h4>
+                <div id="importCompleteResults" class="results-box"></div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeImportCompleteDialog()">סגור</button>
+            <button type="button" class="btn-primary" onclick="executeImportComplete()">ייבא</button>
         </div>
     </div>
 </div>
@@ -613,6 +803,562 @@ function closeManageUsersDialog() {
     document.getElementById('manageUsersDialog').style.display = 'none';
 }
 
+/**
+ * Show export actions dialog
+ */
+function showExportActionsDialog() {
+    console.log('📤 Opening export actions dialog...');
+    document.getElementById('exportFromDate').value = '';
+    document.getElementById('exportActionsDialog').style.display = 'flex';
+}
+
+/**
+ * Close export actions dialog
+ */
+function closeExportActionsDialog() {
+    document.getElementById('exportActionsDialog').style.display = 'none';
+}
+
+/**
+ * Execute export actions
+ */
+async function executeExportActions() {
+    console.log('📤 Exporting actions...');
+    
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        const fromDate = document.getElementById('exportFromDate').value;
+        let url = AppConfig.getApiUrl('roles/actions/export');
+        
+        if (fromDate) {
+            url += `?fromDate=${fromDate}`;
+            console.log(`📅 Exporting actions from date: ${fromDate}`);
+        } else {
+            console.log('📋 Exporting all actions');
+        }
+
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `Actions_Export_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(downloadUrl);
+            document.body.removeChild(a);
+            
+            console.log('✅ Actions exported successfully');
+            alert('הפעולות יוצאו בהצלחה');
+            closeExportActionsDialog();
+        } else {
+            const error = await response.text();
+            console.error('❌ Export failed:', error);
+            alert('שגיאה בייצוא הפעולות');
+        }
+    } catch (error) {
+        console.error('❌ Error exporting actions:', error);
+        alert('שגיאה בייצוא הפעולות');
+    }
+}
+
+/**
+ * Show import actions dialog
+ */
+function showImportActionsDialog() {
+    console.log('📥 Opening import actions dialog...');
+    document.getElementById('importActionsFile').value = '';
+    document.getElementById('importResultsContainer').style.display = 'none';
+    document.getElementById('importResults').innerHTML = '';
+    document.getElementById('importActionsDialog').style.display = 'flex';
+}
+
+/**
+ * Close import actions dialog
+ */
+function closeImportActionsDialog() {
+    document.getElementById('importActionsDialog').style.display = 'none';
+}
+
+/**
+ * Execute import actions
+ */
+async function executeImportActions() {
+    console.log('📥 Importing actions...');
+    
+    const fileInput = document.getElementById('importActionsFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('אנא בחר קובץ');
+        return;
+    }
+
+    if (!file.name.endsWith('.json')) {
+        alert('אנא בחר קובץ JSON');
+        return;
+    }
+
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(AppConfig.getApiUrl('roles/actions/import'), {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: formData
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+            console.log('✅ Actions imported successfully');
+            displayImportResults(result);
+        } else {
+            console.error('❌ Import failed:', result.message);
+            alert(`שגיאה: ${result.message || 'שגיאה בייבוא הפעולות'}`);
+        }
+    } catch (error) {
+        console.error('❌ Error importing actions:', error);
+        alert('שגיאה בייבוא הפעולות');
+    }
+}
+
+/**
+ * Display import results
+ */
+function displayImportResults(result) {
+    const container = document.getElementById('importResultsContainer');
+    const resultsDiv = document.getElementById('importResults');
+    
+    let html = `
+        <div class="import-summary">
+            <p><strong>סיכום:</strong></p>
+            <ul>
+                <li>יובאו: ${result.importedCount} פעולות</li>
+                <li>כבר קיימות: ${result.skippedCount} פעולות</li>
+                <li>שגיאות: ${result.errorCount}</li>
+            </ul>
+        </div>
+    `;
+    
+    if (result.errors && result.errors.length > 0) {
+        html += '<div class="import-errors"><p><strong>שגיאות:</strong></p><ul>';
+        result.errors.forEach(error => {
+            html += `<li>${error}</li>`;
+        });
+        html += '</ul>';
+        
+        if (result.hasMoreErrors) {
+            html += '<p><em>...ועוד שגיאות נוספות</em></p>';
+        }
+        
+        html += '</div>';
+    }
+    
+    resultsDiv.innerHTML = html;
+    container.style.display = 'block';
+    
+    // Show success message
+    if (result.importedCount > 0) {
+        setTimeout(() => {
+            alert(result.message || 'הייבוא הושלם בהצלחה');
+        }, 100);
+    }
+}
+
+/**
+ * Show export role-actions dialog
+ */
+function showExportRoleActionsDialog() {
+    console.log('📤 Opening export role-actions dialog...');
+    document.getElementById('exportRoleActionsFromDate').value = '';
+    document.getElementById('exportRoleActionsDialog').style.display = 'flex';
+}
+
+/**
+ * Close export role-actions dialog
+ */
+function closeExportRoleActionsDialog() {
+    document.getElementById('exportRoleActionsDialog').style.display = 'none';
+}
+
+/**
+ * Execute export role-actions
+ */
+async function executeExportRoleActions() {
+    console.log('📤 Exporting role-actions...');
+    
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        const fromDate = document.getElementById('exportRoleActionsFromDate').value;
+        let url = AppConfig.getApiUrl('roles/role-actions/export');
+        
+        if (fromDate) {
+            url += `?fromDate=${fromDate}`;
+            console.log(`📅 Exporting role-actions from date: ${fromDate}`);
+        } else {
+            console.log('📋 Exporting all role-actions');
+        }
+
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `RoleActions_Export_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(downloadUrl);
+            document.body.removeChild(a);
+            
+            console.log('✅ Role-actions exported successfully');
+            alert('קישורי תפקידים-פעולות יוצאו בהצלחה');
+            closeExportRoleActionsDialog();
+        } else {
+            const error = await response.text();
+            console.error('❌ Export failed:', error);
+            alert('שגיאה בייצוא קישורי תפקידים-פעולות');
+        }
+    } catch (error) {
+        console.error('❌ Error exporting role-actions:', error);
+        alert('שגיאה בייצוא קישורי תפקידים-פעולות');
+    }
+}
+
+/**
+ * Show import role-actions dialog
+ */
+function showImportRoleActionsDialog() {
+    console.log('📥 Opening import role-actions dialog...');
+    document.getElementById('importRoleActionsFile').value = '';
+    document.getElementById('importRoleActionsResultsContainer').style.display = 'none';
+    document.getElementById('importRoleActionsResults').innerHTML = '';
+    document.getElementById('importRoleActionsDialog').style.display = 'flex';
+}
+
+/**
+ * Close import role-actions dialog
+ */
+function closeImportRoleActionsDialog() {
+    document.getElementById('importRoleActionsDialog').style.display = 'none';
+}
+
+/**
+ * Execute import role-actions
+ */
+async function executeImportRoleActions() {
+    console.log('📥 Importing role-actions...');
+    
+    const fileInput = document.getElementById('importRoleActionsFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('אנא בחר קובץ');
+        return;
+    }
+
+    if (!file.name.endsWith('.json')) {
+        alert('אנא בחר קובץ JSON');
+        return;
+    }
+
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(AppConfig.getApiUrl('roles/role-actions/import'), {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: formData
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+            console.log('✅ Role-actions imported successfully');
+            displayImportRoleActionsResults(result);
+        } else {
+            console.error('❌ Import failed:', result.message);
+            alert(`שגיאה: ${result.message || 'שגיאה בייבוא קישורי תפקידים-פעולות'}`);
+        }
+    } catch (error) {
+        console.error('❌ Error importing role-actions:', error);
+        alert('שגיאה בייבוא קישורי תפקידים-פעולות');
+    }
+}
+
+/**
+ * Display import role-actions results
+ */
+function displayImportRoleActionsResults(result) {
+    const container = document.getElementById('importRoleActionsResultsContainer');
+    const resultsDiv = document.getElementById('importRoleActionsResults');
+    
+    let html = `
+        <div class="import-summary">
+            <p><strong>סיכום:</strong></p>
+            <ul>
+                <li>יובאו: ${result.importedCount} קישורים</li>
+                <li>כבר קיימים: ${result.skippedCount} קישורים</li>
+                <li>שגיאות: ${result.errorCount}</li>
+            </ul>
+        </div>
+    `;
+    
+    if (result.errors && result.errors.length > 0) {
+        html += '<div class="import-errors"><p><strong>שגיאות:</strong></p><ul>';
+        result.errors.forEach(error => {
+            html += `<li>${error}</li>`;
+        });
+        html += '</ul>';
+        
+        if (result.hasMoreErrors) {
+            html += '<p><em>...ועוד שגיאות נוספות</em></p>';
+        }
+        
+        html += '</div>';
+    }
+    
+    resultsDiv.innerHTML = html;
+    container.style.display = 'block';
+    
+    // Show success message
+    if (result.importedCount > 0) {
+        setTimeout(() => {
+            alert(result.message || 'הייבוא הושלם בהצלחה');
+        }, 100);
+    }
+}
+
+/**
+ * Show export complete dialog
+ */
+function showExportCompleteDialog() {
+    console.log('📦 Opening export complete dialog...');
+    document.getElementById('exportCompleteFromDate').value = '';
+    document.getElementById('exportCompleteDialog').style.display = 'flex';
+}
+
+/**
+ * Close export complete dialog
+ */
+function closeExportCompleteDialog() {
+    document.getElementById('exportCompleteDialog').style.display = 'none';
+}
+
+/**
+ * Execute export complete
+ */
+async function executeExportComplete() {
+    console.log('📦 Exporting complete package...');
+    
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        const fromDate = document.getElementById('exportCompleteFromDate').value;
+        let url = AppConfig.getApiUrl('roles/complete-export');
+        
+        if (fromDate) {
+            url += `?fromDate=${fromDate}`;
+            console.log(`📅 Exporting complete package from date: ${fromDate}`);
+        } else {
+            console.log('📋 Exporting complete package');
+        }
+
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.ok) {
+            const blob = await response.blob();
+            const downloadUrl = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = `Complete_Export_${new Date().toISOString().slice(0,10)}.json`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(downloadUrl);
+            document.body.removeChild(a);
+            
+            console.log('✅ Complete package exported successfully');
+            alert('חבילה מלאה יוצאה בהצלחה');
+            closeExportCompleteDialog();
+        } else {
+            const error = await response.text();
+            console.error('❌ Export failed:', error);
+            alert('שגיאה בייצוא החבילה המלאה');
+        }
+    } catch (error) {
+        console.error('❌ Error exporting complete package:', error);
+        alert('שגיאה בייצוא החבילה המלאה');
+    }
+}
+
+/**
+ * Show import complete dialog
+ */
+function showImportCompleteDialog() {
+    console.log('📦 Opening import complete dialog...');
+    document.getElementById('importCompleteFile').value = '';
+    document.getElementById('importCompleteResultsContainer').style.display = 'none';
+    document.getElementById('importCompleteResults').innerHTML = '';
+    document.getElementById('importCompleteDialog').style.display = 'flex';
+}
+
+/**
+ * Close import complete dialog
+ */
+function closeImportCompleteDialog() {
+    document.getElementById('importCompleteDialog').style.display = 'none';
+}
+
+/**
+ * Execute import complete
+ */
+async function executeImportComplete() {
+    console.log('📦 Importing complete package...');
+    
+    const fileInput = document.getElementById('importCompleteFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('אנא בחר קובץ');
+        return;
+    }
+
+    if (!file.name.endsWith('.json')) {
+        alert('אנא בחר קובץ JSON');
+        return;
+    }
+
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(AppConfig.getApiUrl('roles/complete-import'), {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: formData
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+            console.log('✅ Complete package imported successfully');
+            displayImportCompleteResults(result);
+        } else {
+            console.error('❌ Import failed:', result.message);
+            alert(`שגיאה: ${result.message || 'שגיאה בייבוא החבילה המלאה'}`);
+        }
+    } catch (error) {
+        console.error('❌ Error importing complete package:', error);
+        alert('שגיאה בייבוא החבילה המלאה');
+    }
+}
+
+/**
+ * Display import complete results
+ */
+function displayImportCompleteResults(result) {
+    const container = document.getElementById('importCompleteResultsContainer');
+    const resultsDiv = document.getElementById('importCompleteResults');
+    
+    let html = `
+        <div class="import-summary">
+            <p><strong>סיכום:</strong></p>
+            <h5>פעולות:</h5>
+            <ul>
+                <li>יובאו: ${result.actionsImported} פעולות</li>
+                <li>כבר קיימות: ${result.actionsSkipped} פעולות</li>
+                <li>שגיאות: ${result.actionsErrors}</li>
+            </ul>
+            <h5>קישורי תפקידים-פעולות:</h5>
+            <ul>
+                <li>יובאו: ${result.roleActionsImported} קישורים</li>
+                <li>כבר קיימים: ${result.roleActionsSkipped} קישורים</li>
+                <li>שגיאות: ${result.roleActionsErrors}</li>
+            </ul>
+        </div>
+    `;
+    
+    if (result.errors && result.errors.length > 0) {
+        html += '<div class="import-errors"><p><strong>שגיאות:</strong></p><ul>';
+        result.errors.forEach(error => {
+            html += `<li>${error}</li>`;
+        });
+        html += '</ul>';
+        
+        if (result.hasMoreErrors) {
+            html += '<p><em>...ועוד שגיאות נוספות</em></p>';
+        }
+        
+        html += '</div>';
+    }
+    
+    resultsDiv.innerHTML = html;
+    container.style.display = 'block';
+    
+    // Show success message
+    if (result.actionsImported > 0 || result.roleActionsImported > 0) {
+        setTimeout(() => {
+            alert(result.message || 'הייבוא המלא הושלם בהצלחה');
+        }, 100);
+    }
+}
+
 window.cleanupRolesPage = cleanupRolesPage;
 window.loadRolesData = loadRolesData;
 window.manageRoleUsers = manageRoleUsers;
@@ -697,5 +1443,80 @@ window.manageRoleUsers = manageRoleUsers;
     color: #6c757d;
     padding: 20px;
     font-style: italic;
+}
+
+.info-box {
+    background-color: #e7f3ff;
+    border: 1px solid #b3d9ff;
+    border-radius: 4px;
+    padding: 15px;
+    margin: 10px 0;
+}
+
+.info-box p {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #004085;
+}
+
+.form-text {
+    display: block;
+    margin-top: 5px;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+.results-box {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 15px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.import-summary {
+    margin-bottom: 15px;
+}
+
+.import-summary ul,
+.import-errors ul {
+    margin: 10px 0;
+    padding-right: 20px;
+}
+
+.import-summary li {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+.import-summary h5 {
+    margin-top: 15px;
+    margin-bottom: 5px;
+    font-size: 15px;
+    font-weight: bold;
+    color: #495057;
+}
+
+.import-errors {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #dee2e6;
+}
+
+.import-errors li {
+    margin: 5px 0;
+    font-size: 13px;
+    color: #dc3545;
+}
+
+.info-box ol {
+    margin: 10px 0;
+    padding-right: 25px;
+}
+
+.info-box li {
+    margin: 5px 0;
+    font-size: 14px;
 }
 </style>

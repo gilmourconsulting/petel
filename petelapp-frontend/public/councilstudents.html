@@ -149,9 +149,11 @@ async function loadCouncilStudentsData() {
                     class: student.className || student.classId?.toString() || '',
                     startDate: student.startDate ? new Date(student.startDate).toLocaleDateString('he-IL') : '',
                     endDate: student.endDate ? new Date(student.endDate).toLocaleDateString('he-IL') : '',
+                    status: student.status || '',
                     category: student.disabilityCategory || '',
                     totalAmount: student.cost != null ? student.cost.toString() : '0',
-                    sendingCouncil: student.councilShortName || ''
+                    sendingCouncil: student.councilName || '',
+                    sendingCouncilId: student.sendingCouncil
                 }));
 
                 console.log('🔄 Transformed students data:', transformedData);
@@ -224,6 +226,7 @@ function initializeCouncilStudentsTable(data) {
         { key: 'address', label: 'כתובת', sortable: false, readOnly: true },
         { key: 'startDate', label: 'התחלה', sortable: true, readOnly: true },
         { key: 'endDate', label: 'סיום', sortable: true, readOnly: true },
+        { key: 'status', label: 'סטטוס', sortable: true, readOnly: true },
         { key: 'category', label: 'קטגוריה', sortable: true, readOnly: true },
         { 
             key: 'totalAmount', 
