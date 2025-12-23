@@ -22,7 +22,7 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">פרטי בית הספר</h2>
                     <div class="card-header-actions">
-                        <button id="editSchoolDetailsBtn" class="btn-icon" onclick="event.stopPropagation();">
+                        <button id="editSchoolDetailsBtn" class="btn-icon" onclick="handleEditButtonClick(event);">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
                         <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
@@ -37,11 +37,11 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">כיתות בית ספר</h2>
                     <div class="card-header-actions">
-                        <button id="editClassesBtn" class="btn-icon" onclick="event.stopPropagation();">
+                        <button id="editClassesBtn" class="btn-icon" onclick="handleEditButtonClick(event);">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
                         <button id="addClassBtn" class="btn-icon"
-                            onclick="event.stopPropagation(); showAddClassModal();" title="הוספת כיתה חדשה"
+                            onclick="handleAddClassClick(event);" title="הוספת כיתה חדשה"
                             style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
@@ -59,7 +59,7 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">שירותי בית ספר</h2>
                     <div class="card-header-actions">
-                        <button id="editAttributesBtn" class="btn-icon" onclick="event.stopPropagation();">
+                        <button id="editAttributesBtn" class="btn-icon" onclick="handleEditButtonClick(event);">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
                         <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
@@ -75,11 +75,11 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">מתורגמני שפת סימנים</h2>
                     <div class="card-header-actions">
-                        <button id="editTranslatorsBtn" class="btn-icon" onclick="event.stopPropagation();">
+                        <button id="editTranslatorsBtn" class="btn-icon" onclick="handleEditButtonClick(event);">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
                         <button id="addTranslatorBtn" class="btn-icon"
-                            onclick="event.stopPropagation(); showAddTranslatorModal();" title="הוספת מתורגמן"
+                            onclick="handleAddTranslatorClick(event);" title="הוספת מתורגמן"
                             style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
@@ -96,11 +96,11 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">מגמות בית ספר</h2>
                     <div class="card-header-actions">
-                        <button id="editTracksBtn" class="btn-icon" onclick="event.stopPropagation();">
+                        <button id="editTracksBtn" class="btn-icon" onclick="handleEditButtonClick(event);">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
                         <button id="addTrackBtn" class="btn-icon"
-                            onclick="event.stopPropagation(); showAddTrackModal();" title="הוספת מגמה חדשה"
+                            onclick="handleAddTrackClick(event);" title="הוספת מגמה חדשה"
                             style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
@@ -117,11 +117,11 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">תל"ן</h2>
                     <div class="card-header-actions">
-                        <button id="editAdditionalStudyBtn" class="btn-icon" onclick="event.stopPropagation();">
+                        <button id="editAdditionalStudyBtn" class="btn-icon" onclick="handleEditButtonClick(event);">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
                         <button id="addAdditionalStudyBtn" class="btn-icon"
-                            onclick="event.stopPropagation(); showAddAdditionalStudyModal();" title="הוספת תל״ן חדש"
+                            onclick="handleAddAdditionalStudyClick(event);" title="הוספת תל״ן חדש"
                             style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
@@ -5096,6 +5096,50 @@
             console.log('📄 Document already ready, calling initializeSchoolDetails immediately');
             initializeSchoolDetails();
         }
+
+                // ============================================================================
+        // Security-Enabled Edit Button Handlers
+        // ============================================================================
+        
+        /**
+         * Generic edit button click handler - stops propagation and triggers edit mode
+         * Can be intercepted by action-security.js for authorization
+         */
+        function handleEditButtonClick(event) {
+            event.stopPropagation();
+            // Additional logic can be added here if needed
+            console.log('🔧 Edit button clicked');
+        }
+        
+        /**
+         * Combined handler for add buttons - stops propagation and calls add function
+         */
+        function handleAddClassClick(event) {
+            event.stopPropagation();
+            showAddClassModal();
+        }
+        
+        function handleAddTranslatorClick(event) {
+            event.stopPropagation();
+            showAddTranslatorModal();
+        }
+        
+        function handleAddTrackClick(event) {
+            event.stopPropagation();
+            showAddTrackModal();
+        }
+        
+        function handleAddAdditionalStudyClick(event) {
+            event.stopPropagation();
+            showAddAdditionalStudyModal();
+        }
+        
+        // Export to window for global access
+        window.handleEditButtonClick = handleEditButtonClick;
+        window.handleAddClassClick = handleAddClassClick;
+        window.handleAddTranslatorClick = handleAddTranslatorClick;
+        window.handleAddTrackClick = handleAddTrackClick;
+        window.handleAddAdditionalStudyClick = handleAddAdditionalStudyClick;
 
         // Make functions globally available following Cross-Component Communication
         window.initializeCollapsibleCards = initializeCollapsibleCards;

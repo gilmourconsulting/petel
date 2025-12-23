@@ -62,7 +62,6 @@ window.ActionSecurity = {
     },
 
 
-
     // Setup global click interceptor for all elements with onclick
     setupClickInterceptor() {
         document.addEventListener('click', async (event) => {
@@ -73,7 +72,7 @@ window.ActionSecurity = {
             if (!this._initialized || this._initializationError) {
                 event.preventDefault();
                 event.stopPropagation();
-                event.stopImmediatePropagation(); // ✅ Prevent ALL handlers
+                event.stopImmediatePropagation();
                 console.error('🚫 SECURITY SYSTEM NOT INITIALIZED - ALL ACTIONS BLOCKED');
                 alert('מערכת האבטחה לא פעילה. אנא רענן את הדף.');
                 return;
@@ -89,10 +88,53 @@ window.ActionSecurity = {
             event.stopPropagation();
             event.stopImmediatePropagation();
 
-            // Update screen name
+            // ✅ CHECK IF THIS IS A MENU ITEM
+            const isMenuItem = element.classList.contains('menu-item') ||
+                element.hasAttribute('data-menu-action') ||
+                element.closest('.menu-items');
+
+            if (isMenuItem) {
+                // Handle as menu navigation
+                const menuName = element.getAttribute('data-menu-name') ||
+                    this._extractActionParams(element)?.replace(/['"]/g, '');
+
+                if (!menuName) {
+                    console.error('❌ Could not extract menu name');
+                    return;
+                }
+
+                const menuReference = element.getAttribute('data-menu-reference') || element.getAttribute('href') || '';
+
+                // ✅ VERIFY MENU ACCESS (uses menu item security action, not button action)
+                const hasAccess = await this._verifyActionSecure(
+                    menuName,           // Action name = menu item name (e.g., "students", "maindashboard")
+                    'menu',             // Screen name = "menu"
+                    'navigateTo',       // Function name = "navigateTo"
+                    'MENU_NAVIGATION',  // Event type
+                    menuReference       // Action params = menu reference
+                );
+
+                if (!hasAccess) {
+                    alert(`אין לך הרשאה לגשת לעמוד זה`);
+                    return;
+                }
+
+                // Execute menu navigation
+                try {
+                    const onclickCode = element.getAttribute('onclick');
+                    if (onclickCode) {
+                        const func = new Function(onclickCode);
+                        func.call(element);
+                    }
+                } catch (error) {
+                    console.error('❌ Error executing menu navigation:', error);
+                }
+                return;
+            }
+
+            // Handle regular button/action clicks
             this._updateCurrentScreenName();
 
-            // Extract function name and parameters
             const functionName = this._getOnclickFunctionName(element);
             const actionParams = this._extractActionParams(element);
 
@@ -101,14 +143,13 @@ window.ActionSecurity = {
                 return;
             }
 
-            // Construct action identifier
             const actionId = this._constructActionId(this._currentScreenName, functionName);
             if (!actionId) {
                 console.debug('ℹ️ Could not construct action ID');
                 return;
             }
 
-            // ✅ VERIFY WITH BACKEND (includes audit logging server-side)
+            // ✅ VERIFY BUTTON ACCESS
             const hasAccess = await this._verifyActionSecure(
                 actionId,
                 this._currentScreenName,
@@ -118,20 +159,14 @@ window.ActionSecurity = {
             );
 
             if (!hasAccess) {
-                // 🚫 DENY ACCESS
-      //          console.warn(`🚫 Access DENIED - Action: ${actionId}`);
                 alert(`אין לך הרשאה לפעולה זו`);
                 return;
             }
 
-            // ✅ ALLOW ACCESS - Execute the onclick function
-      //      console.log(`✅ Access GRANTED - Action: ${actionId}`);
-
+            // Execute the onclick function
             try {
-                // Get the onclick attribute and execute it
                 const onclickCode = element.getAttribute('onclick');
                 if (onclickCode) {
-                    // Create a function from the onclick code and execute it in the element's context
                     const func = new Function(onclickCode);
                     func.call(element);
                 }
@@ -140,6 +175,7 @@ window.ActionSecurity = {
             }
         }, true); // ✅ Capture phase - runs BEFORE onclick
     },
+
 
     // ✅ SECURE: Verify action with backend (backend handles audit logging)
     async _verifyActionSecure(actionName, screenName, functionName, eventType, actionParams = null) {
@@ -191,7 +227,7 @@ window.ActionSecurity = {
                 .trim()
                 .replace(/window\./, '');
 
-          //  const match = cleaned.match(/^(\w+)/);
+            //  const match = cleaned.match(/^(\w+)/);
             const match = cleaned.match(/^(?:\w+\.)?(\w+)/);
             return match ? match[1] : null;
         } catch (error) {
@@ -223,7 +259,7 @@ window.ActionSecurity = {
     shouldSkipSecurityCheck(element) {
         const skipClasses = [
             'menu-toggle', 'modal-close', 'dialog-btn',
-            'collapse-toggle', 'logout-btn', 'debug-btn'
+            'collapse-toggle', 'logout-btn', 'debug-btn', 'menu-item active'
         ];
 
         for (const className of skipClasses) {
@@ -235,8 +271,8 @@ window.ActionSecurity = {
         const onclick = element.getAttribute('onclick') || '';
         const skipPatterns = [
             'toggleMenu', 'closeModal', 'closeDialog',
-            'toggleCard', 'event.stopPropagation',
-            'window.history', 'window.location'
+            'toggleCard',// 'event.stopPropagation',
+            'window.history', 'window.location', 'menu-item active',
         ];
 
         for (const pattern of skipPatterns) {

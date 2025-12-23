@@ -183,12 +183,66 @@ namespace PetelApp.Api.Services
             }
         }
 
+        /// <summary>
+        /// Auto-create missing action in database
+        /// This is called when an action is referenced but not registered
+        /// The action is created as INACTIVE and must be manually activated and assigned to roles
+        /// </summary>
+        private async Task<SystemAction?> AutoCreateMissingActionAsync(string actionName, string screenName, string functionName)
+        {
+            try
+            {
+                _logger.LogWarning("🆕 AUTO-CREATING missing action - ActionName: {ActionName}", actionName);
 
+                using var scope = _scopeFactory.CreateScope();
+                var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                /// <summary>
+                // Determine action type (default to "Button" type with ID 2)
+                // You can adjust this logic based on your action type IDs
+                int actionTypeId = 2; // Button type
+                
+                // Create display name from function name (convert camelCase to Title Case)
+                var displayName = System.Text.RegularExpressions.Regex.Replace(
+                    functionName, 
+                    "([a-z])([A-Z])", 
+                    "$1 $2"
+                );
+
+                var newAction = new SystemAction
+                {
+                    Name = actionName,
+                    DisplayName = displayName,
+                    Reference = screenName,
+                    Description = $"Auto-created from screen '{screenName}' function '{functionName}'",
+                    ActionTypeId = actionTypeId,
+                    IsActive = false, // ✅ CRITICAL: Created as INACTIVE for security
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    UserId = 0 // System user
+                };
+
+                context.Set<SystemAction>().Add(newAction);
+                await context.SaveChangesAsync();
+
+                _logger.LogInformation("✅ Auto-created action: {ActionName} (ID: {ActionId}) - INACTIVE - must be activated manually", 
+                    newAction.Name, newAction.Id);
+
+                // DO NOT add to cache since it's inactive
+                return newAction;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error auto-creating action: {ActionName}", actionName);
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Verify onclick action access - NEW for frontend button interception
         /// Constructs action ID from screen name and function name, then checks authorization
         /// Format: {screenname}_{functionname}
+        /// ✅ FAIL-SECURE: Actions not in database are AUTO-CREATED as INACTIVE then BLOCKED
+        /// ✅ Whitelisted system functions bypass database check
         /// </summary>
         public async Task<bool> VerifyOnclickAccessAsync(int userId, string screenName, string functionName)
         {
@@ -200,38 +254,63 @@ namespace PetelApp.Api.Services
                         screenName, functionName);
                     return false;
                 }
-        
+
+                // ✅ WHITELIST: System functions that don't require database registration
+                var whitelistedPrefixes = new[] { "close", "toggle", "cancel", "refresh" };
+                var functionLower = functionName.ToLower();
+                
+                if (whitelistedPrefixes.Any(prefix => functionLower.StartsWith(prefix)))
+                {
+                    _logger.LogInformation("✅ Whitelisted system function - Function: {FunctionName} - Access GRANTED", functionName);
+                    return true;
+                }
+
                 // Construct action ID: screenname_functionname (lowercase)
                 var actionId = $"{screenName}_{functionName}".ToLower();
-        
+
                 _logger.LogInformation("🔍 Verifying onclick access - Screen: {Screen}, Function: {Function}, ActionId: {ActionId}", 
                     screenName, functionName, actionId);
-        
+
                 // Load user's roles if not already loaded
                 if (!_userRoleCache.ContainsKey(userId))
                 {
                     await LoadUserRolesAsync(userId);
                 }
-        
+
                 // Check if user has roles
                 if (!_userRoleCache.TryGetValue(userId, out var userRoles) || userRoles.Count == 0)
                 {
                     _logger.LogWarning("❌ User {UserId} has no roles assigned", userId);
                     return false;
                 }
-        
+
                 // Lock for thread-safe cache access
+                SystemAction? action;
                 lock (_cacheLock)
                 {
-                    // Get action from cache
-                    if (!_actionsCache.TryGetValue(actionId, out var action))
+                    _actionsCache.TryGetValue(actionId, out action);
+                }
+
+                // ✅ AUTO-CREATE if not found
+                if (action == null)
+                {
+                    _logger.LogWarning("🚫 SECURITY: Onclick action NOT REGISTERED in database - ActionId: {ActionId}", actionId);
+                    
+                    // Auto-create the action (as INACTIVE)
+                    action = await AutoCreateMissingActionAsync(actionId, screenName, functionName);
+                    
+                    if (action != null)
                     {
-                        // Action not registered - log as info (no security check needed)
-                        _logger.LogInformation("ℹ️ Onclick action not registered - ActionId: {ActionId} (allowed, no security required)", actionId);
-                        return true; // Allow if not registered
+                        _logger.LogWarning("✅ Action auto-created but remains INACTIVE - ActionId: {ActionId} - Access DENIED", actionId);
                     }
-        
-                    // Action exists - check if user has permission
+                    
+                    // ✅ DENY access (action is inactive)
+                    return false;
+                }
+
+                // Action exists - check if user has permission
+                lock (_cacheLock)
+                {
                     foreach (var roleId in userRoles)
                     {
                         if (_roleActionsCache.TryGetValue(roleId, out var roleActions) && 
@@ -242,11 +321,11 @@ namespace PetelApp.Api.Services
                             return true;
                         }
                     }
-        
-                    _logger.LogWarning("🚫 Onclick access DENIED - User: {UserId}, ActionId: {ActionId}, Roles: {Roles}", 
-                        userId, string.Join(",", userRoles), actionId);
-                    return false;
                 }
+
+                _logger.LogWarning("🚫 Onclick access DENIED - User: {UserId}, ActionId: {ActionId} - User has no permission", 
+                    userId, actionId);
+                return false;
             }
             catch (Exception ex)
             {
@@ -256,58 +335,74 @@ namespace PetelApp.Api.Services
             }
         }
 
+        /// <summary>
+        /// Verify action access by action name (generic)
+        /// Used for API calls, file uploads, and other non-button actions
+        /// ✅ FAIL-SECURE: Actions not in database are AUTO-CREATED as INACTIVE then BLOCKED
+        /// </summary>
+        public async Task<bool> VerifyActionByNameAsync(int userId, string actionName)
+        {
+            try
+            {
+                _logger.LogDebug("🔍 Verifying action by name: user {UserId}, action '{ActionName}'", userId, actionName);
 
-        
-                /// <summary>
-                /// Verify action access by action name (generic)
-                /// Used for API calls, file uploads, and other non-button actions
-                /// </summary>
-                public async Task<bool> VerifyActionByNameAsync(int userId, string actionName)
+                // Load user's roles if not cached
+                if (!_userRoleCache.ContainsKey(userId))
                 {
-                    try
+                    await LoadUserRolesAsync(userId);
+                }
+
+                if (!_userRoleCache.TryGetValue(userId, out var userRoles) || userRoles.Count == 0)
+                {
+                    _logger.LogWarning("❌ User {UserId} has no roles assigned", userId);
+                    return false;
+                }
+
+                SystemAction? action;
+                lock (_cacheLock)
+                {
+                    _actionsCache.TryGetValue(actionName.ToLower(), out action);
+                }
+
+                // ✅ AUTO-CREATE if not found
+                if (action == null)
+                {
+                    _logger.LogWarning("🚫 SECURITY: Action NOT REGISTERED in database - ActionName: {ActionName}", actionName);
+                    
+                    // Auto-create the action (as INACTIVE) - generic action without screen context
+                    action = await AutoCreateMissingActionAsync(actionName, "unknown", actionName);
+                    
+                    if (action != null)
                     {
-                        _logger.LogDebug("🔍 Verifying action by name: user {UserId}, action '{ActionName}'", userId, actionName);
-        
-                        // Load user's roles if not cached
-                        if (!_userRoleCache.ContainsKey(userId))
-                        {
-                            await LoadUserRolesAsync(userId);
-                        }
-        
-                        if (!_userRoleCache.TryGetValue(userId, out var userRoles) || userRoles.Count == 0)
-                        {
-                            _logger.LogWarning("❌ User {UserId} has no roles assigned", userId);
-                            return false;
-                        }
-        
-                        lock (_cacheLock)
-                        {
-                            if (!_actionsCache.TryGetValue(actionName.ToLower(), out var action))
-                            {
-                                _logger.LogInformation("ℹ️ Action not registered: {ActionName} (allowed by default)", actionName);
-                                return true; // Allow if not registered
-                            }
-        
-                            foreach (var roleId in userRoles)
-                            {
-                                if (_roleActionsCache.TryGetValue(roleId, out var roleActions) &&
-                                    roleActions.Contains(action.Id))
-                                {
-                                    _logger.LogInformation("✅ Action access GRANTED - User: {UserId}, Action: {ActionName}", userId, actionName);
-                                    return true;
-                                }
-                            }
-        
-                            _logger.LogWarning("🚫 Action access DENIED - User: {UserId}, Action: {ActionName}", userId, actionName);
-                            return false;
-                        }
+                        _logger.LogWarning("✅ Action auto-created but remains INACTIVE - ActionName: {ActionName} - Access DENIED", actionName);
                     }
-                    catch (Exception ex)
+                    
+                    // ✅ DENY access (action is inactive)
+                    return false;
+                }
+
+                lock (_cacheLock)
+                {
+                    foreach (var roleId in userRoles)
                     {
-                        _logger.LogError(ex, "❌ Error verifying action access for user {UserId}", userId);
-                        return false;
+                        if (_roleActionsCache.TryGetValue(roleId, out var roleActions) &&
+                            roleActions.Contains(action.Id))
+                        {
+                            _logger.LogInformation("✅ Action access GRANTED - User: {UserId}, Action: {ActionName}", userId, actionName);
+                            return true;
+                        }
                     }
                 }
+
+                _logger.LogWarning("🚫 Action access DENIED - User: {UserId}, Action: {ActionName} - User has no permission", userId, actionName);
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error verifying action access for user {UserId}", userId);
+                return false;
+            }
+        }
         
         /// <summary>
         /// Load user's roles into cache for faster lookups
@@ -461,10 +556,22 @@ namespace PetelApp.Api.Services
         public async Task RefreshCacheAsync()
         {
             _logger.LogInformation("🔄 Refreshing action authorization cache...");
+            
+            // Clear user role cache so users get fresh role-action mappings
+            lock (_cacheLock)
+            {
+                _userRoleCache.Clear();
+                _logger.LogInformation("🧹 Cleared user role cache");
+            }
+            
+            // Reload role-actions and actions from database
             await LoadRoleActionsAsync();
             await LoadActionsAsync();
+            
             _logger.LogInformation("✅ Cache refreshed successfully");
         }
+
+
 
         /// <summary>
         /// Get action details by name
