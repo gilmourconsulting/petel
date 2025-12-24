@@ -387,49 +387,59 @@ namespace PetelApp.Api.Controllers
             var cell = row.Cell(index + 1);
             
             // Log cell details for ALL fields to understand what we're getting
+            var cellValueType = cell.Value.ToString()?.GetType().Name ?? "null";
             _logger.LogInformation("📋 Field '{FieldName}': DataType={DataType}, RawValue='{RawValue}', ValueType={ValueType}", 
-                fieldName, cell.DataType, cell.Value, cell.Value?.GetType().Name ?? "null");
+                fieldName, cell.DataType, cell.Value, cellValueType);
             
             // ✅ Handle date fields specially - Excel stores dates as DateTime
             if (cell.DataType == XLDataType.DateTime || 
                 (fieldName == "start_date" || fieldName == "end_date"))
             {
-                _logger.LogWarning("🔍 Date field detected: '{FieldName}', trying DateTime conversion...", fieldName);
+                _logger.LogWarning("🔍 Date field detected: '{FieldName}'", fieldName);
                 
-                if (cell.TryGetValue(out DateTime dateValue))
+                // Get the raw value and truncate to first 10 characters (DD/MM/YYYY)
+                var rawValue = cell.Value.ToString()?.Trim() ?? "";
+                _logger.LogWarning("📅 Raw date value for '{FieldName}': '{RawValue}'", fieldName, rawValue);
+                
+                if (rawValue.Length >= 10)
                 {
-                    // Format as DD/MM/YYYY for Israeli date format
-                    var formattedDate = dateValue.ToString("dd/MM/yyyy");
-                    _logger.LogWarning("📅 Excel date cell for '{FieldName}': RawValue={RawValue}, Parsed={ParsedDate}, Formatted={FormattedDate}",
-                        fieldName, cell.Value, dateValue, formattedDate);
-                    return formattedDate;
+                    // Truncate to first 10 characters to remove time component
+                    var dateText = rawValue.Substring(0, 10);
+                    _logger.LogWarning("📅 Truncated date text: '{DateText}'", dateText);
+                    
+                    // Split by '/' delimiter
+                    var parts = dateText.Split('/');
+                    if (parts.Length == 3)
+                    {
+                        try
+                        {
+                            // Parse day, month, year
+                            int day = int.Parse(parts[0]);
+                            int month = int.Parse(parts[1]);
+                            int year = int.Parse(parts[2]);
+                            
+                            // Format as DD/MM/YYYY for processor
+                            var formattedDate = $"{day:D2}/{month:D2}/{year}";
+                            _logger.LogWarning("✅ Parsed date for '{FieldName}': Day={Day}, Month={Month}, Year={Year} → '{FormattedDate}'",
+                                fieldName, day, month, year, formattedDate);
+                            return formattedDate;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "❌ Failed to parse date parts from '{DateText}'", dateText);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogError("❌ Date text '{DateText}' does not have 3 parts when split by '/'", dateText);
+                    }
                 }
                 else
                 {
-                    _logger.LogError("❌ Failed TryGetValue<DateTime> for '{FieldName}': {RawValue}", fieldName, cell.Value);
-                    
-                    // Try parsing as text date
-                    var textValue = cell.Value.ToString()?.Trim();
-                    if (!string.IsNullOrEmpty(textValue))
-                    {
-                        _logger.LogWarning("🔄 Attempting to parse date from text: '{TextValue}'", textValue);
-                        
-                        // Try various date formats
-                        string[] formats = { "dd/MM/yyyy", "d/M/yyyy", "dd/MM/yy", "d/M/yy", "M/d/yyyy", "MM/dd/yyyy" };
-                        foreach (var format in formats)
-                        {
-                            if (DateTime.TryParseExact(textValue, format, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsedDate))
-                            {
-                                var formattedDate = parsedDate.ToString("dd/MM/yyyy");
-                                _logger.LogWarning("✅ Parsed text date '{TextValue}' using format '{Format}' → {FormattedDate}", 
-                                    textValue, format, formattedDate);
-                                return formattedDate;
-                            }
-                        }
-                        
-                        _logger.LogError("❌ Could not parse date text '{TextValue}' with any known format", textValue);
-                    }
+                    _logger.LogError("❌ Raw date value '{RawValue}' is too short (less than 10 characters)", rawValue);
                 }
+                
+                return "";  // Return empty string on parse failure
             }
             
             var stringValue = cell.Value.ToString()?.Trim() ?? "";
