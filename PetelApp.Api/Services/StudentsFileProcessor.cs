@@ -221,6 +221,14 @@ namespace PetelApp.Api.Services
             int classId,
             int? councilId)
         {
+            _logger.LogInformation("📝 Creating new student - Raw data from file:");
+            _logger.LogInformation("  IdNumber: {IdNumber}", row.IdNumber);
+            _logger.LogInformation("  Name: {FirstName} {LastName}", row.FirstName, row.LastName);
+            _logger.LogInformation("  StartDate (raw): '{StartDate}'", row.StartDate);
+            _logger.LogInformation("  EndDate (raw): '{EndDate}'", row.EndDate);
+            _logger.LogInformation("  Class: {Class} (resolved to ClassId: {ClassId})", row.Class, classId);
+            _logger.LogInformation("  Street: {Street}, HouseNumber: {HouseNumber}", row.Street, row.HouseNumber);
+            
             var studentId = await _studentService.CreateNewStudentAsync(
                 schoolYearId,
                 row.IdNumber,
@@ -228,12 +236,24 @@ namespace PetelApp.Api.Services
                 {
                     // Configure all fields
                     var hebrewCulture = CultureInfo.GetCultureInfo("he-IL");
+                    
                     student.FirstName = row.FirstName;
                     student.LastName = row.LastName;
                     student.Gender = ParseGender(row.Gender);
                     student.ClassId = classId;
-                    student.StartDate = DateOnly.FromDateTime(DateTime.Parse(row.StartDate, hebrewCulture));
-                    student.EndDate = DateOnly.FromDateTime(DateTime.Parse(row.EndDate, hebrewCulture));
+                    
+                    // Parse dates with Israeli culture
+                    var parsedStartDate = DateTime.Parse(row.StartDate, hebrewCulture);
+                    var parsedEndDate = DateTime.Parse(row.EndDate, hebrewCulture);
+                    student.StartDate = DateOnly.FromDateTime(parsedStartDate);
+                    student.EndDate = DateOnly.FromDateTime(parsedEndDate);
+                    
+                    _logger.LogInformation("📅 Date parsing successful:");
+                    _logger.LogInformation("  StartDate: '{RawStart}' → {ParsedStart} → {DateOnly}", 
+                        row.StartDate, parsedStartDate, student.StartDate);
+                    _logger.LogInformation("  EndDate: '{RawEnd}' → {ParsedEnd} → {DateOnly}", 
+                        row.EndDate, parsedEndDate, student.EndDate);
+                    
                     student.DisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory) 
                         ? null 
                         : (int?)int.Parse(row.DisabilityCategory);
@@ -243,6 +263,17 @@ namespace PetelApp.Api.Services
                     student.PostCode = row.PostCode;
                     student.SendingCouncil = councilId;
                     student.StatusId = 1;
+                    
+                    _logger.LogInformation("💾 Student entity configured - ready for database write:");
+                    _logger.LogInformation("  ID: {IdNumber}, Name: {FirstName} {LastName}", 
+                        student.IdNumber, student.FirstName, student.LastName);
+                    _logger.LogInformation("  Dates: {StartDate} to {EndDate}", student.StartDate, student.EndDate);
+                    _logger.LogInformation("  Class: {ClassId}, Gender: {Gender}, Status: {Status}", 
+                        student.ClassId, student.Gender, student.StatusId);
+                    _logger.LogInformation("  Address: {Street} {HouseNumber}, {City} {PostCode}", 
+                        student.Street, student.HouseNumber, student.City, student.PostCode);
+                    _logger.LogInformation("  Council: {CouncilId}, Disability: {Disability}", 
+                        student.SendingCouncil, student.DisabilityCategory);
                 });
 
             if (studentId.HasValue)
@@ -290,18 +321,34 @@ namespace PetelApp.Api.Services
             int classId,
             int? councilId)
         {
+            _logger.LogInformation("🔄 Updating existing student {IdNumber} - Raw data from file:", row.IdNumber);
+            _logger.LogInformation("  StartDate (raw): '{StartDate}'", row.StartDate);
+            _logger.LogInformation("  EndDate (raw): '{EndDate}'", row.EndDate);
+            
             var newVersionId = await _studentService.CreateNewStudentVersionAsync(
                 existing.Id,
                 newVersion =>
                 {
                     // Update all fields from file
                     var hebrewCulture = CultureInfo.GetCultureInfo("he-IL");
+                    
                     newVersion.FirstName = row.FirstName;
                     newVersion.LastName = row.LastName;
                     newVersion.Gender = ParseGender(row.Gender);
                     newVersion.ClassId = classId;
-                    newVersion.StartDate = DateOnly.FromDateTime(DateTime.Parse(row.StartDate, hebrewCulture));
-                    newVersion.EndDate = DateOnly.FromDateTime(DateTime.Parse(row.EndDate, hebrewCulture));
+                    
+                    // Parse dates with Israeli culture
+                    var parsedStartDate = DateTime.Parse(row.StartDate, hebrewCulture);
+                    var parsedEndDate = DateTime.Parse(row.EndDate, hebrewCulture);
+                    newVersion.StartDate = DateOnly.FromDateTime(parsedStartDate);
+                    newVersion.EndDate = DateOnly.FromDateTime(parsedEndDate);
+                    
+                    _logger.LogInformation("📅 Update - Date parsing successful:");
+                    _logger.LogInformation("  StartDate: '{RawStart}' → {ParsedStart} → {DateOnly}", 
+                        row.StartDate, parsedStartDate, newVersion.StartDate);
+                    _logger.LogInformation("  EndDate: '{RawEnd}' → {ParsedEnd} → {DateOnly}", 
+                        row.EndDate, parsedEndDate, newVersion.EndDate);
+                    
                     newVersion.DisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory) 
                         ? null 
                         : (int?)int.Parse(row.DisabilityCategory);

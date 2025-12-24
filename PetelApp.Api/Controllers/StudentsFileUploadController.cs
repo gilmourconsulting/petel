@@ -202,8 +202,12 @@ namespace PetelApp.Api.Controllers
 
         private async Task<List<StudentFileRow>> ParseFileAsync(IFormFile file, Dictionary<string, string>? mapping)
         {
+            _logger.LogInformation("📄 Starting file parse: FileName={FileName}, Size={Size} bytes", 
+                file.FileName, file.Length);
+            
             var rows = new List<StudentFileRow>();
             var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            _logger.LogInformation("File extension: {Extension}", ext);
 
             using var stream = file.OpenReadStream();
 
@@ -233,8 +237,11 @@ namespace PetelApp.Api.Controllers
             }
             else if (ext == ".xls" || ext == ".xlsx")
             {
+                _logger.LogInformation("📊 Processing Excel file...");
                 using var workbook = new XLWorkbook(stream);
                 var worksheet = workbook.Worksheets.First();
+                _logger.LogInformation("Worksheet name: {WorksheetName}, Row count: {RowCount}",
+                    worksheet.Name, worksheet.RowsUsed().Count());
 
                 var firstRow = worksheet.FirstRowUsed();
                 // ✅ Return empty list on error - let caller handle error response
@@ -246,15 +253,30 @@ namespace PetelApp.Api.Controllers
                 var headers = firstRow.CellsUsed()
                     .Select(cell => cell.Value.ToString()?.Trim() ?? "")
                     .ToList();
+                
+                _logger.LogInformation("📋 Excel headers found: {Headers}", string.Join(", ", headers));
 
+                var rowCount = 0;
                 foreach (var row in worksheet.RowsUsed().Skip(1)) // Skip header row
                 {
+                    rowCount++;
+                    _logger.LogWarning("📊 Processing Excel row {RowNumber}", rowCount);
                     var rowData = ExtractRowData(row, headers, mapping);
                     if (rowData != null)
+                    {
+                        _logger.LogWarning("✅ Extracted row {RowNumber}: ID={IdNumber}, StartDate='{StartDate}', EndDate='{EndDate}'",
+                            rowCount, rowData.IdNumber, rowData.StartDate, rowData.EndDate);
                         rows.Add(rowData);
+                    }
+                    else
+                    {
+                        _logger.LogError("⚠️ Failed to extract row {RowNumber}", rowCount);
+                    }
                 }
+                _logger.LogWarning("📊 Excel file processing complete: {TotalRows} rows extracted", rows.Count);
             }
 
+            _logger.LogInformation("📄 File parse complete: {TotalRows} total rows extracted", rows.Count);
             return rows;
         }
 
@@ -307,6 +329,7 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
+                _logger.LogWarning("🔍 ExtractRowData called for Excel row");
                 var className = GetFieldValue(row, headers, "class", mapping);
                 var classLevel = GetFieldValue(row, headers, "class_level", mapping);
                 var classNumber = GetFieldValue(row, headers, "class_number", mapping);
@@ -317,7 +340,7 @@ namespace PetelApp.Api.Controllers
                     className = $"{classLevel}{classNumber}";
                 }
 
-                return new StudentFileRow
+                var studentRow = new StudentFileRow
                 {
                     IdNumber = GetFieldValue(row, headers, "id_number", mapping),
                     FirstName = GetFieldValue(row, headers, "first_name", mapping),
@@ -333,9 +356,13 @@ namespace PetelApp.Api.Controllers
                     PostCode = GetFieldValue(row, headers, "post_code", mapping),
                     SendingCouncil = GetFieldValue(row, headers, "sending_council", mapping)
                 };
+                
+                _logger.LogWarning("✅ StudentFileRow created successfully");
+                return studentRow;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogError(ex, "❌ Error extracting row data from Excel");
                 return null;
             }
         }
@@ -350,7 +377,64 @@ namespace PetelApp.Api.Controllers
         {
             var headerName = mapping != null && mapping.ContainsKey(fieldName) ? mapping[fieldName] : fieldName;
             var index = headers.IndexOf(headerName);
-            return index >= 0 ? row.Cell(index + 1).Value.ToString()?.Trim() ?? "" : "";
+            
+            if (index < 0)
+            {
+                _logger.LogDebug("Field '{FieldName}' not found in headers", fieldName);
+                return "";
+            }
+            
+            var cell = row.Cell(index + 1);
+            
+            // Log cell details for ALL fields to understand what we're getting
+            _logger.LogInformation("📋 Field '{FieldName}': DataType={DataType}, RawValue='{RawValue}', ValueType={ValueType}", 
+                fieldName, cell.DataType, cell.Value, cell.Value?.GetType().Name ?? "null");
+            
+            // ✅ Handle date fields specially - Excel stores dates as DateTime
+            if (cell.DataType == XLDataType.DateTime || 
+                (fieldName == "start_date" || fieldName == "end_date"))
+            {
+                _logger.LogWarning("🔍 Date field detected: '{FieldName}', trying DateTime conversion...", fieldName);
+                
+                if (cell.TryGetValue(out DateTime dateValue))
+                {
+                    // Format as DD/MM/YYYY for Israeli date format
+                    var formattedDate = dateValue.ToString("dd/MM/yyyy");
+                    _logger.LogWarning("📅 Excel date cell for '{FieldName}': RawValue={RawValue}, Parsed={ParsedDate}, Formatted={FormattedDate}",
+                        fieldName, cell.Value, dateValue, formattedDate);
+                    return formattedDate;
+                }
+                else
+                {
+                    _logger.LogError("❌ Failed TryGetValue<DateTime> for '{FieldName}': {RawValue}", fieldName, cell.Value);
+                    
+                    // Try parsing as text date
+                    var textValue = cell.Value.ToString()?.Trim();
+                    if (!string.IsNullOrEmpty(textValue))
+                    {
+                        _logger.LogWarning("🔄 Attempting to parse date from text: '{TextValue}'", textValue);
+                        
+                        // Try various date formats
+                        string[] formats = { "dd/MM/yyyy", "d/M/yyyy", "dd/MM/yy", "d/M/yy", "M/d/yyyy", "MM/dd/yyyy" };
+                        foreach (var format in formats)
+                        {
+                            if (DateTime.TryParseExact(textValue, format, CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime parsedDate))
+                            {
+                                var formattedDate = parsedDate.ToString("dd/MM/yyyy");
+                                _logger.LogWarning("✅ Parsed text date '{TextValue}' using format '{Format}' → {FormattedDate}", 
+                                    textValue, format, formattedDate);
+                                return formattedDate;
+                            }
+                        }
+                        
+                        _logger.LogError("❌ Could not parse date text '{TextValue}' with any known format", textValue);
+                    }
+                }
+            }
+            
+            var stringValue = cell.Value.ToString()?.Trim() ?? "";
+            _logger.LogDebug("Field '{FieldName}' returning string value: '{StringValue}'", fieldName, stringValue);
+            return stringValue;
         }
 
         /// <summary>
