@@ -482,7 +482,7 @@
                     `➕ נוצרו: ${result.created}\n` +
                     `✏️ עודכנו: ${result.updated}\n` +
                     `➖ ללא שינוי: ${result.unchanged}\n` +
-                    `❌ שגיאות: ${result.errors}`;
+                     (result.errors > 0 ? `\n❌ שגיאות: ${result.errors}` : '');
 
                 let finalMessage = summaryMessage;
                 if (result.errors > 0 && result.details?.errorList) {

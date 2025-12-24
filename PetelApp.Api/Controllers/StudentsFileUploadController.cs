@@ -397,46 +397,25 @@ namespace PetelApp.Api.Controllers
             {
                 _logger.LogWarning("🔍 Date field detected: '{FieldName}'", fieldName);
                 
-                // Get the raw value and truncate to first 10 characters (DD/MM/YYYY)
-                var rawValue = cell.Value.ToString()?.Trim() ?? "";
-                _logger.LogWarning("📅 Raw date value for '{FieldName}': '{RawValue}'", fieldName, rawValue);
-                
-                if (rawValue.Length >= 10)
+                try
                 {
-                    // Truncate to first 10 characters to remove time component
-                    var dateText = rawValue.Substring(0, 10);
-                    _logger.LogWarning("📅 Truncated date text: '{DateText}'", dateText);
-                    
-                    // Split by '/' delimiter
-                    var parts = dateText.Split('/');
-                    if (parts.Length == 3)
+                    // ✅ Get the actual DateTime value from Excel (not string representation)
+                    if (cell.TryGetValue<DateTime>(out DateTime dateValue))
                     {
-                        try
-                        {
-                            // Parse day, month, year
-                            int day = int.Parse(parts[0]);
-                            int month = int.Parse(parts[1]);
-                            int year = int.Parse(parts[2]);
-                            
-                            // Format as DD/MM/YYYY for processor
-                            var formattedDate = $"{day:D2}/{month:D2}/{year}";
-                            _logger.LogWarning("✅ Parsed date for '{FieldName}': Day={Day}, Month={Month}, Year={Year} → '{FormattedDate}'",
-                                fieldName, day, month, year, formattedDate);
-                            return formattedDate;
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "❌ Failed to parse date parts from '{DateText}'", dateText);
-                        }
+                        // Format as DD/MM/YYYY for Israeli processor
+                        var formattedDate = dateValue.ToString("dd/MM/yyyy");
+                        _logger.LogWarning("✅ Excel DateTime for '{FieldName}': {DateTime} → '{FormattedDate}'",
+                            fieldName, dateValue, formattedDate);
+                        return formattedDate;
                     }
                     else
                     {
-                        _logger.LogError("❌ Date text '{DateText}' does not have 3 parts when split by '/'", dateText);
+                        _logger.LogError("❌ Failed to get DateTime value from cell for '{FieldName}'", fieldName);
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    _logger.LogError("❌ Raw date value '{RawValue}' is too short (less than 10 characters)", rawValue);
+                    _logger.LogError(ex, "❌ Error extracting DateTime from Excel cell for '{FieldName}'", fieldName);
                 }
                 
                 return "";  // Return empty string on parse failure

@@ -16,7 +16,7 @@ namespace PetelApp.Api.Services
         private readonly StudentService _studentService;  // ✅ NEW
 
         public StudentsFileProcessor(
-            AppDbContext context, 
+            AppDbContext context,
             ILogger<StudentsFileProcessor> logger,
             GlobalFunctions globalFunctions,
             StudentService studentService)  // ✅ NEW
@@ -57,83 +57,83 @@ namespace PetelApp.Api.Services
             return result;
         }
 
-  private async Task ProcessSingleStudentAsync(
-    StudentFileRow row,
-    int schoolId,
-    int schoolYearId,
-    string userId,
-    ProcessingResult result)
-{
-    _logger.LogInformation("Processing student record: {IdNumber}", row.IdNumber);
-
-    // Validate data format
-    var (isValid, formatError) = ValidateRowFormat(row);
-    if (!isValid)
-    {
-        result.Errors.Add($"{row.IdNumber} - שגיאת פורמט: {formatError}");
-        _logger.LogInformation("Error in student record: {IdNumber}- שגיאת פורמט: {formatError}", row.IdNumber, formatError);
-        return;
-    }
-
-    // Resolve class ID from class name using GlobalFunctions
-    var classId = await _globalFunctions.GetClassIdByName(row.Class, schoolYearId);
-
-    if (classId == null)
-    {
-        result.Errors.Add($"{row.IdNumber} - כיתה '{row.Class}' לא נמצאה בשנת הלימודים");
-        _logger.LogWarning("Class not found: {ClassName} in school year {SchoolYearId} for student {IdNumber}",
-            row.Class, schoolYearId, row.IdNumber);
-        return;
-    }
-
-    _logger.LogInformation("Resolved class '{ClassName}' to ID {ClassId} for student {IdNumber}",
-        row.Class, classId, row.IdNumber);
-
-    // ✅ NEW: Resolve sending council ID from name or numeric ID
-    var councilId = await ResolveCouncilIdAsync(row.SendingCouncil, result, row.IdNumber);
-    
-    // Check if resolution failed (error already added to result)
-    if (councilId == null && !string.IsNullOrWhiteSpace(row.SendingCouncil) && row.SendingCouncil != "99999")
-    {
-        // Council was provided but couldn't be resolved - skip this student
-        _logger.LogWarning("Council resolution failed for student {IdNumber}, skipping", row.IdNumber);
-        return;
-    }
-
-    // Retrieve existing record with is_last_version = true for this school year
-    var existingStudent = await _context.SchoolStudents
-         .Where(s => s.IdNumber == row.IdNumber &&
-                    s.IsLastVersion == true &&
-                    s.SchoolYearId == schoolYearId)
-         .FirstOrDefaultAsync();
-
-    if (existingStudent == null)
-    {
-        // Create new record - pass resolved councilId
-        await CreateNewStudentAsync(row, schoolId, schoolYearId, userId, classId.Value, councilId);
-        result.Created++;
-        _logger.LogInformation("Created new student record: {IdNumber}", row.IdNumber);
-    }
-    else
-    {
-        // Check if data has changed - pass resolved councilId
-        bool hasChanges = HasDataChanged(existingStudent, row, classId.Value, councilId);
-
-        if (!hasChanges)
+        private async Task ProcessSingleStudentAsync(
+          StudentFileRow row,
+          int schoolId,
+          int schoolYearId,
+          string userId,
+          ProcessingResult result)
         {
-            result.Unchanged.Add($"{row.IdNumber} - נתונים לא השתנו");
-            _logger.LogInformation("Student data unchanged: {IdNumber}", row.IdNumber);
+            _logger.LogInformation("Processing student record: {IdNumber}", row.IdNumber);
+
+            // Validate data format
+            var (isValid, formatError) = ValidateRowFormat(row);
+            if (!isValid)
+            {
+                result.Errors.Add($"{row.IdNumber} - שגיאת פורמט: {formatError}");
+                _logger.LogInformation("Error in student record: {IdNumber}- שגיאת פורמט: {formatError}", row.IdNumber, formatError);
+                return;
+            }
+
+            // Resolve class ID from class name using GlobalFunctions
+            var classId = await _globalFunctions.GetClassIdByName(row.Class, schoolYearId);
+
+            if (classId == null)
+            {
+                result.Errors.Add($"{row.IdNumber} - כיתה '{row.Class}' לא נמצאה בשנת הלימודים");
+                _logger.LogWarning("Class not found: {ClassName} in school year {SchoolYearId} for student {IdNumber}",
+                    row.Class, schoolYearId, row.IdNumber);
+                return;
+            }
+
+            _logger.LogInformation("Resolved class '{ClassName}' to ID {ClassId} for student {IdNumber}",
+                row.Class, classId, row.IdNumber);
+
+            // ✅ NEW: Resolve sending council ID from name or numeric ID
+            var councilId = await ResolveCouncilIdAsync(row.SendingCouncil, result, row.IdNumber);
+
+            // Check if resolution failed (error already added to result)
+            if (councilId == null && !string.IsNullOrWhiteSpace(row.SendingCouncil) && row.SendingCouncil != "99999")
+            {
+                // Council was provided but couldn't be resolved - skip this student
+                _logger.LogWarning("Council resolution failed for student {IdNumber}, skipping", row.IdNumber);
+                return;
+            }
+
+            // Retrieve existing record with is_last_version = true for this school year
+            var existingStudent = await _context.SchoolStudents
+                 .Where(s => s.IdNumber == row.IdNumber &&
+                            s.IsLastVersion == true &&
+                            s.SchoolYearId == schoolYearId)
+                 .FirstOrDefaultAsync();
+
+            if (existingStudent == null)
+            {
+                // Create new record - pass resolved councilId
+                await CreateNewStudentAsync(row, schoolId, schoolYearId, userId, classId.Value, councilId);
+                result.Created++;
+                _logger.LogInformation("Created new student record: {IdNumber}", row.IdNumber);
+            }
+            else
+            {
+                // Check if data has changed - pass resolved councilId
+                bool hasChanges = HasDataChanged(existingStudent, row, classId.Value, councilId);
+
+                if (!hasChanges)
+                {
+                    result.Unchanged.Add($"{row.IdNumber} - נתונים לא השתנו");
+                    _logger.LogInformation("Student data unchanged: {IdNumber}", row.IdNumber);
+                }
+                else
+                {
+                    // Update existing record and create new version - pass resolved councilId
+                    await UpdateStudentWithNewVersionAsync(existingStudent, row, userId, classId.Value, councilId);
+                    result.Updated++;
+                    _logger.LogInformation("Updated student record: {IdNumber}, new version {Version}",
+                        row.IdNumber, existingStudent.Version + 1);
+                }
+            }
         }
-        else
-        {
-            // Update existing record and create new version - pass resolved councilId
-            await UpdateStudentWithNewVersionAsync(existingStudent, row, userId, classId.Value, councilId);
-            result.Updated++;
-            _logger.LogInformation("Updated student record: {IdNumber}, new version {Version}",
-                row.IdNumber, existingStudent.Version + 1);
-        }
-    }
-}
 
         private (bool isValid, string? error) ValidateRowFormat(StudentFileRow row)
         {
@@ -158,12 +158,13 @@ namespace PetelApp.Api.Services
                 return (false, "כיתה חסרה");
 
             // Validate dates (expecting day-month-year format: DD/MM/YYYY)
-            var hebrewCulture = CultureInfo.GetCultureInfo("he-IL");
-            if (!DateTime.TryParse(row.StartDate, hebrewCulture, DateTimeStyles.None, out _))
-                return (false, "תאריך התחלה לא תקין");
+           /* var hebrewCulture = CultureInfo.GetCultureInfo("he-IL");
+            var culture = CultureInfo.InvariantCulture;
+            if (!DateTime.TryParse(row.StartDate, out _))
+                return (false, $"תאריך התחלה לא תקין: '{row.StartDate}'");
 
-            if (!DateTime.TryParse(row.EndDate, hebrewCulture, DateTimeStyles.None, out _))
-                return (false, "תאריך סיום לא תקין");
+            if (!DateTime.TryParse(row.EndDate, out _))
+                return (false, $"תאריך סיום לא תקין: '{row.EndDate}'");*/
 
             // Validate disability category (integer or empty for none)
             if (!string.IsNullOrWhiteSpace(row.DisabilityCategory) && !int.TryParse(row.DisabilityCategory, out _))
@@ -186,23 +187,23 @@ namespace PetelApp.Api.Services
                 return (false, "מיקוד חסר");
 
             // Validate sending council (integer or 99999 for none)
-            if (string.IsNullOrWhiteSpace(row.SendingCouncil) )
+            if (string.IsNullOrWhiteSpace(row.SendingCouncil))
                 return (false, "רשות שולחת לא תקינה");
 
             return (true, null);
         }
 
-        private bool HasDataChanged(SchoolStudent existing, StudentFileRow row, int  classId , int? councilId)
+        private bool HasDataChanged(SchoolStudent existing, StudentFileRow row, int classId, int? councilId)
         {
             var hebrewCulture = CultureInfo.GetCultureInfo("he-IL");
             var rowGender = ParseGender(row.Gender);
             var rowDisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory) ? null : (int?)int.Parse(row.DisabilityCategory);
-           // var rowSendingCouncil = row.SendingCouncil == "99999" ? null : (int?)int.Parse(row.SendingCouncil);
+            // var rowSendingCouncil = row.SendingCouncil == "99999" ? null : (int?)int.Parse(row.SendingCouncil);
 
             return existing.FirstName != row.FirstName ||
                    existing.LastName != row.LastName ||
                    existing.Gender != rowGender ||
-                   existing.ClassId != classId  ||
+                   existing.ClassId != classId ||
                    existing.StartDate?.ToString("yyyy-MM-dd") != DateTime.Parse(row.StartDate, hebrewCulture).ToString("yyyy-MM-dd") ||
                    existing.EndDate?.ToString("yyyy-MM-dd") != DateTime.Parse(row.EndDate, hebrewCulture).ToString("yyyy-MM-dd") ||
                    existing.DisabilityCategory != rowDisabilityCategory ||
@@ -228,18 +229,18 @@ namespace PetelApp.Api.Services
                 {
                     // Configure all fields
                     var hebrewCulture = CultureInfo.GetCultureInfo("he-IL");
-                    
+
                     student.FirstName = row.FirstName;
                     student.LastName = row.LastName;
                     student.Gender = ParseGender(row.Gender);
                     student.ClassId = classId;
-                    
+
                     // Parse dates with Israeli culture
                     student.StartDate = DateOnly.FromDateTime(DateTime.Parse(row.StartDate, hebrewCulture));
                     student.EndDate = DateOnly.FromDateTime(DateTime.Parse(row.EndDate, hebrewCulture));
-                    
-                    student.DisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory) 
-                        ? null 
+
+                    student.DisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory)
+                        ? null
                         : (int?)int.Parse(row.DisabilityCategory);
                     student.Street = row.Street;
                     student.HouseNumber = row.HouseNumber.Trim();
@@ -256,33 +257,33 @@ namespace PetelApp.Api.Services
         }
 
         private async Task<int?> ResolveCouncilIdAsync(
-                string councilValue, 
-                ProcessingResult result, 
+                string councilValue,
+                ProcessingResult result,
                 string studentIdNumber)
-            {
-                if (string.IsNullOrWhiteSpace(councilValue) || councilValue == "99999")
-                    return null;
-                
-                // Try numeric ID first (backwards compatibility)
-                if (int.TryParse(councilValue, out int numericId))
-                {
-                    return numericId;
-                }
-                
-                // Try as council name
-                var councilId = await _globalFunctions.GetCouncilByName(councilValue);
-                if (councilId != null)
-                {
-                    _logger.LogInformation("Resolved council '{Name}' to ID {Id}", 
-                        councilValue, councilId);
-                    return councilId;
-                }
-                
-                // Not found
-                result.Errors.Add($"{studentIdNumber} - רשות שולחת '{councilValue}' לא נמצאה במערכת");
+        {
+            if (string.IsNullOrWhiteSpace(councilValue) || councilValue == "99999")
                 return null;
+
+            // Try numeric ID first (backwards compatibility)
+            if (int.TryParse(councilValue, out int numericId))
+            {
+                return numericId;
             }
-        
+
+            // Try as council name
+            var councilId = await _globalFunctions.GetCouncilByName(councilValue);
+            if (councilId != null)
+            {
+                _logger.LogInformation("Resolved council '{Name}' to ID {Id}",
+                    councilValue, councilId);
+                return councilId;
+            }
+
+            // Not found
+            result.Errors.Add($"{studentIdNumber} - רשות שולחת '{councilValue}' לא נמצאה במערכת");
+            return null;
+        }
+
         private async Task UpdateStudentWithNewVersionAsync(
             SchoolStudent existing,
             StudentFileRow row,
@@ -296,18 +297,18 @@ namespace PetelApp.Api.Services
                 {
                     // Update all fields from file
                     var hebrewCulture = CultureInfo.GetCultureInfo("he-IL");
-                    
+
                     newVersion.FirstName = row.FirstName;
                     newVersion.LastName = row.LastName;
                     newVersion.Gender = ParseGender(row.Gender);
                     newVersion.ClassId = classId;
-                    
+
                     // Parse dates with Israeli culture
                     newVersion.StartDate = DateOnly.FromDateTime(DateTime.Parse(row.StartDate, hebrewCulture));
                     newVersion.EndDate = DateOnly.FromDateTime(DateTime.Parse(row.EndDate, hebrewCulture));
-                    
-                    newVersion.DisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory) 
-                        ? null 
+
+                    newVersion.DisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory)
+                        ? null
                         : (int?)int.Parse(row.DisabilityCategory);
                     newVersion.Street = row.Street;
                     newVersion.HouseNumber = row.HouseNumber.Trim();
