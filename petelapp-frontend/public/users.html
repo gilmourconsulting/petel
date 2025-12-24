@@ -73,18 +73,19 @@
         </div>
         <div class="modal-body">
             <input type="hidden" id="manageRolesUserId">
-            
+
             <div class="roles-management-container">
                 <div class="roles-section">
                     <h4>תפקידים זמינים</h4>
                     <div class="roles-search">
-                        <input type="text" id="availableRolesSearch" placeholder="חיפוש תפקיד..." onkeyup="filterAvailableRoles()">
+                        <input type="text" id="availableRolesSearch" placeholder="חיפוש תפקיד..."
+                            onkeyup="filterAvailableRoles()">
                     </div>
                     <div id="availableRolesList" class="roles-list available-roles-list">
                         <div class="loading-spinner">טוען...</div>
                     </div>
                 </div>
-                
+
                 <div class="roles-section">
                     <h4>תפקידים משויכים</h4>
                     <div id="assignedRolesList" class="roles-list assigned-roles-list">
@@ -95,6 +96,38 @@
         </div>
         <div class="modal-footer">
             <button type="button" class="btn-primary" onclick="closeManageRolesDialog()">סגור</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- Change Password Dialog -->
+<div id="changePasswordDialog" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="changePasswordDialogTitle">שינוי סיסמה</h3>
+            <button class="modal-close" onclick="closeChangePasswordDialog()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="changePasswordForm" onsubmit="handleChangePasswordSubmit(event)">
+                <input type="hidden" id="changePasswordUserId">
+
+                <div class="form-group">
+                    <label for="newPassword">סיסמה חדשה *</label>
+                    <input type="password" id="newPassword" name="newPassword" required minlength="6">
+                    <small>לפחות 6 תווים</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="confirmPassword">אימות סיסמה *</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" required minlength="6">
+                    <small>הזן את הסיסמה שוב לאימות</small>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-secondary" onclick="closeChangePasswordDialog()">ביטול</button>
+            <button type="submit" form="changePasswordForm" class="btn-primary">שמור סיסמה</button>
         </div>
     </div>
 </div>
@@ -127,7 +160,12 @@
                         <input type="text" id="userLastName" name="lastName" required>
                     </div>
                 </div>
-
+                <div class="form-group">
+                    <label for="userEntityId">ישות *</label>
+                    <select id="userEntityId" name="entityId" required>
+                        <option value="">בחר ישות...</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label for="userEmail">דוא"ל</label>
                     <input type="email" id="userEmail" name="email">
@@ -311,6 +349,9 @@
                 <button class="btn-icon" onclick="editUser(${data.id})" title="עדכן משתמש">
                     <img src="edit_icon.png" alt="עדכן" class="action-icon-natural">
                 </button>
+                <button class="btn-icon" onclick="changeUserPassword(${data.id}, '${data.fullName}')" title="שנה סיסמה">
+            🔑
+                </button>
                 <button class="btn-icon" onclick="deleteUser(${data.id})" title="הסר משתמש">
                     <img src="delete_icon.png" alt="הסר" class="action-icon-natural">
                 </button>
@@ -363,67 +404,84 @@
         await window.navigateTo('maindashboard');
     }
 
-    /**
-     * Show create user dialog
-     */
-    function showCreateUserDialog() {
-        console.log('📝 Opening create user dialog...');
+/**
+ * Show create user dialog
+ */
+async function showCreateUserDialog() {
+    console.log('📝 Opening create user dialog...');
 
-        document.getElementById('userDialogTitle').textContent = 'משתמש חדש';
-        document.getElementById('isEditMode').value = 'false';
+    document.getElementById('userDialogTitle').textContent = 'משתמש חדש';
+    document.getElementById('isEditMode').value = 'false';
 
-        // Clear form
-        document.getElementById('userForm').reset();
-        document.getElementById('userId').value = '';
-        document.getElementById('userUsername').value = '';
-        document.getElementById('userUsername').removeAttribute('readonly');
+    // Clear form
+    document.getElementById('userForm').reset();
+    document.getElementById('userId').value = '';
+    document.getElementById('userUsername').value = '';
+    document.getElementById('userUsername').removeAttribute('readonly');
 
-        // Show password field for new users
-        document.getElementById('passwordGroup').style.display = 'block';
-        document.getElementById('userPassword').required = true;
+    // Load entities dropdown
+    await loadEntitiesDropdown();
+
+    // Show password field for new users
+    document.getElementById('passwordGroup').style.display = 'block';
+    document.getElementById('userPassword').required = true;
+
+    // Show dialog
+    document.getElementById('userDialog').style.display = 'flex';
+}
+
+/**
+ * Edit user - load user data and show dialog
+ */
+async function editUser(userId) {
+    console.log(`✏️ Editing user ${userId}...`);
+
+    try {
+        const user = window.allUsersData.find(u => u.id === userId);
+        if (!user) {
+            alert('משתמש לא נמצא');
+            return;
+        }
+
+        document.getElementById('userDialogTitle').textContent = 'עדכון משתמש';
+        document.getElementById('isEditMode').value = 'true';
+
+        // Load entities dropdown first
+        await loadEntitiesDropdown();
+
+        // Populate form
+        document.getElementById('userId').value = user.id;
+        document.getElementById('userUsername').value = user.username;
+        document.getElementById('userUsername').setAttribute('readonly', 'readonly');
+        document.getElementById('userFirstName').value = user.firstName;
+        document.getElementById('userLastName').value = user.lastName;
+        document.getElementById('userEmail').value = user.email || '';
+        document.getElementById('userPhone').value = user.phone || '';
+        document.getElementById('userIsActive').checked = user.isActive;
+        
+        // ✅ Set entity name (not ID) since it's now a text input
+        const selectedEntity = window.allEntities.find(e => e.id === user.entityId);
+        if (selectedEntity) {
+            document.getElementById('userEntityId').value = selectedEntity.name;
+            
+            // Also set the hidden field with the ID
+            let hiddenField = document.getElementById('selectedEntityId');
+            if (hiddenField) {
+                hiddenField.value = user.entityId;
+            }
+        }
+
+        // Hide password field for existing users
+        document.getElementById('passwordGroup').style.display = 'none';
+        document.getElementById('userPassword').required = false;
 
         // Show dialog
         document.getElementById('userDialog').style.display = 'flex';
+    } catch (error) {
+        console.error('❌ Error editing user:', error);
+        alert('שגיאה בטעינת פרטי המשתמש');
     }
-
-    /**
-     * Edit user - load user data and show dialog
-     */
-    async function editUser(userId) {
-        console.log(`✏️ Editing user ${userId}...`);
-
-        try {
-            const user = window.allUsersData.find(u => u.id === userId);
-            if (!user) {
-                alert('משתמש לא נמצא');
-                return;
-            }
-
-            document.getElementById('userDialogTitle').textContent = 'עדכון משתמש';
-            document.getElementById('isEditMode').value = 'true';
-
-            // Populate form
-            document.getElementById('userId').value = user.id;
-            document.getElementById('userUsername').value = user.username;
-            document.getElementById('userUsername').setAttribute('readonly', 'readonly');
-            document.getElementById('userFirstName').value = user.firstName;
-            document.getElementById('userLastName').value = user.lastName;
-            document.getElementById('userEmail').value = user.email || '';
-            document.getElementById('userPhone').value = user.phone || '';
-            document.getElementById('userIsActive').checked = user.isActive;
-
-            // Hide password field for existing users
-            document.getElementById('passwordGroup').style.display = 'none';
-            document.getElementById('userPassword').required = false;
-
-            // Show dialog
-            document.getElementById('userDialog').style.display = 'flex';
-        } catch (error) {
-            console.error('❌ Error editing user:', error);
-            alert('שגיאה בטעינת פרטי המשתמש');
-        }
-    }
-
+}
     /**
      * Delete user
      */
@@ -465,75 +523,85 @@
         }
     }
 
-    /**
-     * Handle user form submission
-     */
-    async function handleUserFormSubmit(event) {
-        event.preventDefault();
+ 
+/**
+ * Handle user form submission
+ */
+async function handleUserFormSubmit(event) {
+    event.preventDefault();
 
-        const isEditMode = document.getElementById('isEditMode').value === 'true';
-        const userId = document.getElementById('userId').value;
+    const isEditMode = document.getElementById('isEditMode').value === 'true';
+    const userId = document.getElementById('userId').value;
 
-        const formData = {
-            firstName: document.getElementById('userFirstName').value,
-            lastName: document.getElementById('userLastName').value,
-            email: document.getElementById('userEmail').value || null,
-            phone: document.getElementById('userPhone').value || null,
-            isActive: document.getElementById('userIsActive').checked
-        };
+    const formData = {
+        firstName: document.getElementById('userFirstName').value,
+        lastName: document.getElementById('userLastName').value,
+        email: document.getElementById('userEmail').value || null,
+        phone: document.getElementById('userPhone').value || null,
+        isActive: document.getElementById('userIsActive').checked
+    };
 
-        try {
-            const authToken = sessionStorage.getItem('authToken');
-            if (!authToken) {
-                alert('נדרש אימות. אנא התחבר מחדש.');
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+
+        let url, method, body;
+
+        if (isEditMode) {
+            // Update existing user
+            console.log(`📝 Updating user ${userId}...`);
+            url = AppConfig.getApiUrl(`users/${userId}`);
+            method = 'PUT';
+            body = JSON.stringify(formData);
+        } else {
+            // Create new user - get entity ID from hidden field
+            const entityIdField = document.getElementById('selectedEntityId');
+            const entityId = entityIdField ? entityIdField.value : null;
+            
+            if (!entityId) {
+                alert('נא לבחור ישות');
                 return;
             }
-
-            let url, method, body;
-
-            if (isEditMode) {
-                // Update existing user
-                console.log(`📝 Updating user ${userId}...`);
-                url = AppConfig.getApiUrl(`users/${userId}`);
-                method = 'PUT';
-                body = JSON.stringify(formData);
-            } else {
-                // Create new user
-                console.log('📝 Creating new user...');
-                url = AppConfig.getApiUrl('users');
-                method = 'POST';
-                body = JSON.stringify({
-                    username: document.getElementById('userUsername').value,
-                    password: document.getElementById('userPassword').value,
-                    ...formData
-                });
-            }
-
-            const response = await fetch(url, {
-                method: method,
-                headers: {
-                    'Authorization': `Bearer ${authToken}`,
-                    'Content-Type': 'application/json'
-                },
-                body: body
+            
+            console.log('📝 Creating new user...');
+            url = AppConfig.getApiUrl('users');
+            method = 'POST';
+            body = JSON.stringify({
+                username: document.getElementById('userUsername').value,
+                password: document.getElementById('userPassword').value,
+                entityId: parseInt(entityId),
+                ...formData
             });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                console.log('✅ User saved successfully');
-                alert(result.message || 'נשמרו הנתונים בהצלחה');
-                closeUserDialog();
-                await refreshUsersData();
-            } else {
-                console.error('❌ Save failed:', result.message);
-                alert(`שגיאה: ${result.message}`);
-            }
-        } catch (error) {
-            console.error('❌ Error saving user:', error);
-            alert('שגיאה בשמירת הנתונים');
         }
+
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: body
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            console.log('✅ User saved successfully');
+            alert(result.message || 'נשמרו הנתונים בהצלחה');
+            closeUserDialog();
+            await refreshUsersData();
+        } else {
+            console.error('❌ Save failed:', result.message);
+            alert(`שגיאה: ${result.message}`);
+        }
+    } catch (error) {
+        console.error('❌ Error saving user:', error);
+        alert('שגיאה בשמירת הנתונים');
     }
+}
 
     /**
      * Close user dialog
@@ -558,6 +626,81 @@
     }
 
 
+ /**
+ * Load entities for dropdown with search filtering
+ */
+async function loadEntitiesDropdown() {
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            console.error('❌ No auth token for loading entities');
+            return;
+        }
+
+        const response = await fetch(AppConfig.getApiUrl('entities/login'), {
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Failed to load entities: ${response.status}`);
+        }
+
+        const entities = await response.json();
+        
+        // Store entities globally for filtering
+        window.allEntities = entities;
+
+        const dropdown = document.getElementById('userEntityId');
+        
+        // Replace select with datalist for searchable dropdown
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = 'userEntityId';
+        input.name = 'entityId';
+        input.required = true;
+        input.placeholder = 'הקלד לחיפוש ישות...';
+        input.setAttribute('list', 'entitiesList');
+        input.autocomplete = 'off';
+        
+        const datalist = document.createElement('datalist');
+        datalist.id = 'entitiesList';
+        
+        entities.forEach(entity => {
+            const option = document.createElement('option');
+            option.value = entity.name;
+            option.setAttribute('data-id', entity.id);
+            datalist.appendChild(option);
+        });
+        
+        // Replace dropdown with input + datalist
+        dropdown.parentNode.replaceChild(input, dropdown);
+        input.parentNode.appendChild(datalist);
+        
+        // Add event listener to store selected entity ID in hidden field
+        input.addEventListener('change', function() {
+            const selectedEntity = entities.find(e => e.name === this.value);
+            if (selectedEntity) {
+                // Store the ID in a hidden field
+                let hiddenField = document.getElementById('selectedEntityId');
+                if (!hiddenField) {
+                    hiddenField = document.createElement('input');
+                    hiddenField.type = 'hidden';
+                    hiddenField.id = 'selectedEntityId';
+                    hiddenField.name = 'selectedEntityId';
+                    this.parentNode.appendChild(hiddenField);
+                }
+                hiddenField.value = selectedEntity.id;
+            }
+        });
+
+        console.log(`✅ Loaded ${entities.length} entities to searchable dropdown`);
+    } catch (error) {
+        console.error('❌ Error loading entities:', error);
+    }
+}
 
     /**
      * Export cleanup function for PageLifecycleManager
@@ -588,89 +731,89 @@
      */
     async function manageUserRoles(userId, userName) {
         console.log(`🔑 Managing roles for user ${userId}...`);
-        
+
         document.getElementById('manageRolesUserId').value = userId;
         document.getElementById('manageRolesDialogTitle').textContent = `ניהול תפקידים: ${userName}`;
-        
+
         // Show dialog
         document.getElementById('manageRolesDialog').style.display = 'flex';
-        
+
         // Load roles
         await loadUserRolesData(userId);
     }
 
-/**
- * Load available and assigned roles for user
- */
-async function loadUserRolesData(userId) {
-    try {
-        const authToken = sessionStorage.getItem('authToken');
-        if (!authToken) {
-            alert('נדרש אימות. אנא התחבר מחדש.');
-            return;
-        }
-
-        console.log(`🔍 Loading roles for user ${userId}...`);
-
-        // Load assigned roles first
-        console.log(`📡 Fetching: ${AppConfig.getApiUrl(`users/${userId}/roles`)}`);
-        const assignedResponse = await fetch(AppConfig.getApiUrl(`users/${userId}/roles`), {
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
+    /**
+     * Load available and assigned roles for user
+     */
+    async function loadUserRolesData(userId) {
+        try {
+            const authToken = sessionStorage.getItem('authToken');
+            if (!authToken) {
+                alert('נדרש אימות. אנא התחבר מחדש.');
+                return;
             }
-        });
 
-        console.log(`📨 Assigned roles response status: ${assignedResponse.status}`);
-        
-        if (!assignedResponse.ok) {
-            const errorText = await assignedResponse.text();
-            console.error('❌ Assigned roles error response:', errorText);
-            throw new Error(`Failed to load assigned roles: ${assignedResponse.status}`);
-        }
+            console.log(`🔍 Loading roles for user ${userId}...`);
 
-        const assignedResult = await assignedResponse.json();
-        console.log('📦 Assigned roles result:', assignedResult);
-        const assignedRoles = assignedResult.data || assignedResult || [];
-        console.log(`✅ Assigned roles count: ${assignedRoles.length}`);
+            // Load assigned roles first
+            console.log(`📡 Fetching: ${AppConfig.getApiUrl(`users/${userId}/roles`)}`);
+            const assignedResponse = await fetch(AppConfig.getApiUrl(`users/${userId}/roles`), {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
 
-        // Load available roles
-        console.log(`📡 Fetching: ${AppConfig.getApiUrl(`users/available-roles?userId=${userId}`)}`);
-        const availableResponse = await fetch(AppConfig.getApiUrl(`users/available-roles?userId=${userId}`), {
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
+            console.log(`📨 Assigned roles response status: ${assignedResponse.status}`);
+
+            if (!assignedResponse.ok) {
+                const errorText = await assignedResponse.text();
+                console.error('❌ Assigned roles error response:', errorText);
+                throw new Error(`Failed to load assigned roles: ${assignedResponse.status}`);
             }
-        });
 
-        console.log(`📨 Available roles response status: ${availableResponse.status}`);
+            const assignedResult = await assignedResponse.json();
+            console.log('📦 Assigned roles result:', assignedResult);
+            const assignedRoles = assignedResult.data || assignedResult || [];
+            console.log(`✅ Assigned roles count: ${assignedRoles.length}`);
 
-        if (!availableResponse.ok) {
-            const errorText = await availableResponse.text();
-            console.error('❌ Available roles error response:', errorText);
-            throw new Error(`Failed to load available roles: ${availableResponse.status}`);
+            // Load available roles
+            console.log(`📡 Fetching: ${AppConfig.getApiUrl(`users/available-roles?userId=${userId}`)}`);
+            const availableResponse = await fetch(AppConfig.getApiUrl(`users/available-roles?userId=${userId}`), {
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            console.log(`📨 Available roles response status: ${availableResponse.status}`);
+
+            if (!availableResponse.ok) {
+                const errorText = await availableResponse.text();
+                console.error('❌ Available roles error response:', errorText);
+                throw new Error(`Failed to load available roles: ${availableResponse.status}`);
+            }
+
+            const availableResult = await availableResponse.json();
+            console.log('📦 Available roles result:', availableResult);
+            const availableRoles = availableResult.data || availableResult || [];
+            console.log(`✅ Available roles count: ${availableRoles.length}`);
+
+            renderAvailableRoles(availableRoles);
+            renderAssignedRoles(assignedRoles);
+
+        } catch (error) {
+            console.error('❌ Error loading roles:', error);
+            console.error('❌ Error stack:', error.stack);
+            alert('שגיאה בטעינת התפקידים: ' + error.message);
         }
-
-        const availableResult = await availableResponse.json();
-        console.log('📦 Available roles result:', availableResult);
-        const availableRoles = availableResult.data || availableResult || [];
-        console.log(`✅ Available roles count: ${availableRoles.length}`);
-
-        renderAvailableRoles(availableRoles);
-        renderAssignedRoles(assignedRoles);
-
-    } catch (error) {
-        console.error('❌ Error loading roles:', error);
-        console.error('❌ Error stack:', error.stack);
-        alert('שגיאה בטעינת התפקידים: ' + error.message);
     }
-}
     /**
      * Render available roles list
      */
     function renderAvailableRoles(roles) {
         const container = document.getElementById('availableRolesList');
-        
+
         if (roles.length === 0) {
             container.innerHTML = '<div class="empty-message">אין תפקידים זמינים</div>';
             return;
@@ -702,7 +845,7 @@ async function loadUserRolesData(userId) {
      */
     function renderAssignedRoles(roles) {
         const container = document.getElementById('assignedRolesList');
-        
+
         if (roles.length === 0) {
             container.innerHTML = '<div class="empty-message">אין תפקידים משויכים</div>';
         } else {
@@ -732,7 +875,7 @@ async function loadUserRolesData(userId) {
     function filterAvailableRoles() {
         const searchText = document.getElementById('availableRolesSearch').value.toLowerCase();
         const items = document.querySelectorAll('#availableRolesList .role-item');
-        
+
         items.forEach(item => {
             const roleName = item.getAttribute('data-role-name').toLowerCase();
             if (roleName.includes(searchText)) {
@@ -793,7 +936,7 @@ async function loadUserRolesData(userId) {
      */
     async function addRoleToUser(roleId) {
         const userId = document.getElementById('manageRolesUserId').value;
-        
+
         try {
             const authToken = sessionStorage.getItem('authToken');
             const response = await fetch(AppConfig.getApiUrl(`users/${userId}/roles`), {
@@ -824,11 +967,11 @@ async function loadUserRolesData(userId) {
      */
     async function removeRoleFromUser(roleId) {
         const userId = document.getElementById('manageRolesUserId').value;
-        
+
         if (!confirm('האם אתה בטוח שברצונך להסיר את התפקיד הזה?')) {
             return;
         }
-        
+
         try {
             const authToken = sessionStorage.getItem('authToken');
             const response = await fetch(AppConfig.getApiUrl(`users/${userId}/roles/${roleId}`), {
@@ -859,7 +1002,92 @@ async function loadUserRolesData(userId) {
     function closeManageRolesDialog() {
         document.getElementById('manageRolesDialog').style.display = 'none';
     }
+/**
+ * Show change password dialog
+ */
+function changeUserPassword(userId, userName) {
+    console.log(`🔑 Changing password for user ${userId}...`);
+    
+    document.getElementById('changePasswordDialogTitle').textContent = `שינוי סיסמה: ${userName}`;
+    document.getElementById('changePasswordUserId').value = userId;
+    
+    // Clear form
+    document.getElementById('changePasswordForm').reset();
+    
+    // Show dialog
+    document.getElementById('changePasswordDialog').style.display = 'flex';
+}
 
+/**
+ * Handle change password form submission
+ */
+async function handleChangePasswordSubmit(event) {
+    event.preventDefault();
+    
+    const userId = document.getElementById('changePasswordUserId').value;
+    const newPassword = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+    
+    // Validate passwords match
+    if (newPassword !== confirmPassword) {
+        alert('הסיסמאות אינן תואמות');
+        return;
+    }
+    
+    // Validate password length
+    if (newPassword.length < 6) {
+        alert('הסיסמה חייבת להכיל לפחות 6 תווים');
+        return;
+    }
+    
+    try {
+        const authToken = sessionStorage.getItem('authToken');
+        if (!authToken) {
+            alert('נדרש אימות. אנא התחבר מחדש.');
+            return;
+        }
+        
+        console.log(`🔐 Changing password for user ${userId}...`);
+        
+        const response = await fetch(AppConfig.getApiUrl(`users/${userId}/change-password`), {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${authToken}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                newPassword: newPassword
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            console.log('✅ Password changed successfully');
+            alert('הסיסמה שונתה בהצלחה');
+            closeChangePasswordDialog();
+        } else {
+            console.error('❌ Password change failed:', result.message);
+            alert(`שגיאה: ${result.message}`);
+        }
+    } catch (error) {
+        console.error('❌ Error changing password:', error);
+        alert('שגיאה בשינוי הסיסמה');
+    }
+}
+
+/**
+ * Close change password dialog
+ */
+function closeChangePasswordDialog() {
+    console.log('🔐 Closing change password dialog');
+    document.getElementById('changePasswordDialog').style.display = 'none';
+    document.getElementById('changePasswordForm').reset();
+}
+
+// Export functions
+window.changeUserPassword = changeUserPassword;
+window.closeChangePasswordDialog = closeChangePasswordDialog;
     window.cleanupUsersPage = cleanupUsersPage;
     window.loadUsersData = loadUsersData;
     window.refreshUsersData = refreshUsersData;
@@ -871,95 +1099,3 @@ async function loadUserRolesData(userId) {
 
 </script>
 
-<style>
-.modal-large {
-    max-width: 900px;
-}
-
-.roles-management-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    min-height: 400px;
-}
-
-.roles-section h4 {
-    margin-bottom: 10px;
-    font-size: 16px;
-    font-weight: bold;
-}
-
-.roles-search {
-    margin-bottom: 10px;
-}
-
-.roles-search input {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    font-size: 14px;
-}
-
-.roles-list {
-    border: 2px dashed #dee2e6;
-    border-radius: 8px;
-    padding: 10px;
-    min-height: 300px;
-    max-height: 400px;
-    overflow-y: auto;
-    background-color: #f8f9fa;
-}
-
-.roles-list.drag-over {
-    border-color: #007bff;
-    background-color: #e7f3ff;
-}
-
-.role-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px;
-    margin-bottom: 8px;
-    background-color: white;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    cursor: move;
-}
-
-.role-item.dragging {
-    opacity: 0.5;
-}
-
-.role-item.assigned {
-    cursor: default;
-    background-color: #e7f3ff;
-    border-color: #007bff;
-}
-
-.role-name {
-    flex: 1;
-    font-size: 14px;
-}
-
-.btn-icon-small {
-    padding: 2px 4px;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    background-color: transparent;
-    cursor: pointer;
-    margin-left: 8px;
-}
-
-.btn-icon-small:hover {
-    background-color: #f8f9fa;
-}
-
-.empty-message {
-    text-align: center;
-    color: #6c757d;
-    padding: 20px;
-    font-style: italic;
-}
-</style>

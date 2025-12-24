@@ -158,6 +158,17 @@ namespace PetelApp.Api.Controllers
                     return BadRequest(new { success = false, message = "מזהה ישות לא תקין בסשן" });
                 }
 
+                        // ✅ Use entityId from request instead of session
+                    var entityId = request.EntityId;
+
+                    // Validate entity exists
+                    var entityExists = await _context.Entities
+                        .AnyAsync(e => e.Id == entityId);
+
+                    if (!entityExists) {
+                        return BadRequest(new { success = false, message = "ישות לא קיימת" });
+                    }
+
                 // Validate required fields
                 if (string.IsNullOrWhiteSpace(request.Username))
                     return BadRequest(new { success = false, message = "שם משתמש חובה" });
@@ -196,7 +207,7 @@ namespace PetelApp.Api.Controllers
 
                 var newUser = new User
                 {
-                    EntityId = sessionEntityId,
+                    EntityId = entityId,
                     Username = request.Username,
                     Email = request.Email ?? string.Empty,
                     Phone = request.Phone,
@@ -319,6 +330,68 @@ namespace PetelApp.Api.Controllers
                 });
             }
         }
+
+/// <summary>
+/// Change user password (admin can change any user's password)
+/// </summary>
+[HttpPut("{id}/change-password")]
+public async Task<IActionResult> ChangeUserPassword(int id, [FromBody] ChangePasswordRequest request)
+{
+    try
+    {
+        var session = GetCurrentSession();
+        if (session == null)
+        {
+            return Unauthorized(new { success = false, message = "נדרש אימות" });
+        }
+
+        // Validate password
+        if (string.IsNullOrWhiteSpace(request.NewPassword))
+        {
+            return BadRequest(new { success = false, message = "סיסמה חדשה נדרשת" });
+        }
+
+        if (request.NewPassword.Length < 6)
+        {
+            return BadRequest(new { success = false, message = "סיסמה חייבת להכיל לפחות 6 תווים" });
+        }
+
+        // ✅ FIXED: Remove entity filter - allow admin to change any user password
+        var user = await _context.Users
+            .Where(u => u.Id == id)  // Only check user ID
+            .FirstOrDefaultAsync();
+
+        if (user == null)
+        {
+            return NotFound(new { success = false, message = "משתמש לא נמצא" });
+        }
+
+        // Hash new password
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+        user.UpdateUser = int.TryParse(session.UserId, out int updateUserId) ? updateUserId : null;
+
+        await _context.SaveChangesAsync();
+
+        _logger.LogInformation("Password changed for user {UserId} by admin {AdminId}", id, session.UserId);
+
+        return Ok(new
+        {
+            success = true,
+            message = "הסיסמה שונתה בהצלחה"
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error changing password for user {UserId}", id);
+        return StatusCode(500, new
+        {
+            success = false,
+            message = "שגיאה בשינוי הסיסמה",
+            error = ex.Message
+        });
+    }
+}
 
         /// <summary>
         /// Delete a user (soft delete - set IsActive to false)
@@ -628,6 +701,7 @@ namespace PetelApp.Api.Controllers
     /// </summary>
     public class CreateUserRequest
     {
+        public int EntityId { get; set; }
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
         public string FirstName { get; set; } = string.Empty;
@@ -654,5 +728,13 @@ namespace PetelApp.Api.Controllers
     public class AddRoleToUserRequest
     {
         public int RoleId { get; set; }
+    }
+
+        /// <summary>
+    /// Request model for changing user password
+    /// </summary>
+    public class ChangePasswordRequest
+    {
+        public string NewPassword { get; set; } = string.Empty;
     }
 }

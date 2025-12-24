@@ -49,7 +49,8 @@ builder.Services.AddSwaggerGen();
 // Database
 builder.Services.Configure<DatabaseSettings>(
     builder.Configuration.GetSection("Database"));
-
+builder.Services.Configure<SecuritySettings>(
+    builder.Configuration.GetSection("Security"));
 
 builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
 {

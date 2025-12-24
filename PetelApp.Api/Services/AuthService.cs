@@ -1,12 +1,14 @@
-using System;
-using System.Threading.Tasks;
+
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+
 using PetelApp.Api.Data;
 using PetelApp.Api.DTOs;
-using PetelApp.Api.Models.DTOs;
+
 using PetelApp.Api.Session;
-using BCrypt.Net;
+
+using Microsoft.Extensions.Options; 
+using PetelApp.Api.Configuration; 
+
 
 namespace PetelApp.Api.Services
 {
@@ -19,17 +21,20 @@ namespace PetelApp.Api.Services
         private readonly UserSessionService _sessionService;
         private readonly ActionAuthorizationService _actionAuthService;
         private readonly ILogger<AuthService> _logger;
+        private readonly SecuritySettings _securitySettings; 
 
         public AuthService(
             AppDbContext context,
             UserSessionService sessionService,
             ActionAuthorizationService actionAuthService,
-            ILogger<AuthService> logger)
+            ILogger<AuthService> logger,
+            IOptions<SecuritySettings> securitySettings)
         {
             _context = context;
             _sessionService = sessionService;
             _actionAuthService = actionAuthService;
             _logger = logger;
+            _securitySettings = securitySettings.Value;
         }
 
         /// <summary>
@@ -106,10 +111,25 @@ namespace PetelApp.Api.Services
                 user.LastLogin = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
+                // ✅ CRITICAL: Check OTP BEFORE creating session
+                if (_securitySettings.OtpEnabled && user.OtpEnabled && user.OtpVerified)
+                {
+                    _logger.LogInformation("User {Username} requires OTP verification (global OTP: {GlobalOtp}, user OTP: {UserOtp})", 
+                        loginRequest.Username, _securitySettings.OtpEnabled, user.OtpEnabled);
+                    
+                    return new LoginResponseDto
+                    {
+                        Success = false,
+                        RequiresOtp = true,
+                        TempToken = GenerateTempToken(user.Id),
+                        Message = "נדרש קוד אימות דו-שלבי"
+                    };
+                }
+
                 // Create UserFullName from FirstName + LastName
                 var userFullName = $"{user.FirstName} {user.LastName}".Trim();
 
-                 // Create session following Entity-Based Request Flow
+                // Create session following Entity-Based Request Flow
                 var sessionId = _sessionService.CreateSessionWithFullData(
                     userId: user.Id.ToString(),
                     username: user.Username,
@@ -122,38 +142,33 @@ namespace PetelApp.Api.Services
                 );
 
                 // Load user roles into session
+                _logger.LogInformation("Getting roles for user {UserId}", user.Id);
 
-                  _logger.LogInformation("Getting roles for user {UserId}", user.Id);
+                var userRoles = await _context.UserRoles
+                    .AsNoTracking()
+                    .Where(ur => ur.UserId == user.Id && ur.IsActive)
+                    .ToListAsync();
 
-// ✅ DIAGNOSTIC VERSION - Load full UserRole objects to see what's happening
-var userRoles = await _context.UserRoles
-    .AsNoTracking()
-    .Where(ur => ur.UserId == user.Id && ur.IsActive)
-    .ToListAsync();
+                _logger.LogInformation("Found {Count} user_roles records", userRoles.Count);
 
-_logger.LogInformation("Found {Count} user_roles records", userRoles.Count);
+                foreach (var ur in userRoles)
+                {
+                    _logger.LogInformation("UserRole: Id={Id}, UserId={UserId}, RoleId={RoleId}, IsActive={IsActive}", 
+                        ur.Id, ur.UserId, ur.RoleId, ur.IsActive);
+                }
 
-// Log each role record
-foreach (var ur in userRoles)
-{
-    _logger.LogInformation("UserRole: Id={Id}, UserId={UserId}, RoleId={RoleId}, IsActive={IsActive}", 
-        ur.Id, ur.UserId, ur.RoleId, ur.IsActive);
-}
+                var userRoleIds = userRoles.Select(ur => ur.RoleId).ToArray().ToList();
 
-// Extract role IDs
-var userRoleIds = userRoles.Select(ur => ur.RoleId).ToArray().ToList();
-
-_logger.LogInformation("Extracted {Count} role IDs: {RoleIds}", 
-    userRoleIds.Count, 
-    string.Join(", ", userRoleIds));
-
-                    
+                _logger.LogInformation("Extracted {Count} role IDs: {RoleIds}", 
+                    userRoleIds.Count, 
+                    string.Join(", ", userRoleIds));
 
                 var session = _sessionService.GetUserSession(sessionId);
                 if (session != null)
                 {
                     session.Roles = userRoleIds;
                     _logger.LogInformation("Loaded {RoleCount} roles for user {UserId}", userRoleIds.Count, user.Id);
+                    
                     // Load user actions into session
                     var userActions = await _actionAuthService.GetUserActionsAsync(user.Id);
                     session.SetProperty("UserActions", System.Text.Json.JsonSerializer.Serialize(userActions));
@@ -163,25 +178,12 @@ _logger.LogInformation("Extracted {Count} role IDs: {RoleIds}",
                 _logger.LogInformation("User {Username} (ID: {UserId}) logged in successfully to entity {EntityId}",
                     loginRequest.Username, user.Id, user.EntityId);
 
-                // After password verification:
-                if (user.OtpEnabled && user.OtpVerified)
-                {
-                    // Return requires OTP
-                    return new LoginResponseDto
-                    {
-                        Success = false,
-                        RequiresOtp = true,
-                        TempToken = GenerateTempToken(user.Id),
-                        Message = "נדרש קוד אימות דו-שלבי"
-                    };
-                }
-
                 // Return token only (Frontend Token-Only Storage pattern)
                 return new LoginResponseDto
                 {
                     Success = true,
                     Message = "התחברות הצליחה",
-                    Token = sessionId, // Frontend stores ONLY this token
+                    Token = sessionId,
                     User = new UserDto
                     {
                         Id = user.Id,
