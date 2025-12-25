@@ -39,95 +39,87 @@ namespace PetelApp.Api.Controllers
         /// Upload a students file for a specific school (entity) and school year (form upload).
         /// Can use either IDs or natural keys (school symbol + Hebrew year).
         /// </summary>
-        [HttpPost("upload")]
-        [RequestSizeLimit(10_000_000)] // 10MB limit, adjust as needed
-        public async Task<IActionResult> UploadStudentsFile(
-            [FromForm] IFormFile file,
-            [FromForm] int? schoolId = null,
-            [FromForm] int? schoolYearId = null,
-            [FromForm] string? schoolSymbol = null,
-            [FromForm] string? hebrewYear = null,
-            [FromForm] string? mappingJson = null)
+ [HttpPost("upload")]
+[Consumes("multipart/form-data")]
+[RequestSizeLimit(10_000_000)] // 10MB limit, adjust as needed
+public async Task<IActionResult> UploadStudentsFile([FromForm] UploadStudentsFileRequest request)
+{
+    var session = GetCurrentSession();
+
+    // ✅ Check for null session
+    if (session == null)
+    {
+        _logger.LogError("No valid session found");
+        return Unauthorized(new { success = false, message = "לא נמצאה הפעלה פעילה. אנא התחבר מחדש." });
+    }
+
+    if (request.File == null || request.File.Length == 0)
+        return BadRequest(new { success = false, message = "No file uploaded." });
+
+    // Resolve school and year IDs - explicitly type the tuple
+    var (resolvedSchoolId, resolvedYearId, error) = await ResolveSchoolAndYearAsync(
+        request.SchoolId, request.SchoolYearId, request.SchoolSymbol, request.HebrewYear);
+
+    if (!string.IsNullOrEmpty(error))
+        return BadRequest(new { success = false, message = error });
+
+    // Parse mapping if provided
+    Dictionary<string, string>? mapping = null;
+    if (!string.IsNullOrEmpty(request.MappingJson))
+    {
+        try
         {
-            var session = GetCurrentSession();
-
-            // ✅ Check for null session
-            if (session == null)
-            {
-                _logger.LogError("No valid session found");
-                return Unauthorized(new { success = false, message = "לא נמצאה הפעלה פעילה. אנא התחבר מחדש." });
-            }
-
-            if (file == null || file.Length == 0)
-                return BadRequest(new { success = false, message = "No file uploaded." });
-
-            // Resolve school and year IDs - explicitly type the tuple
-            var (resolvedSchoolId, resolvedYearId, error) = await ResolveSchoolAndYearAsync(
-                schoolId, schoolYearId, schoolSymbol, hebrewYear);
-
-            if (!string.IsNullOrEmpty(error))
-                return BadRequest(new { success = false, message = error });
-
-
-
-            // Parse mapping if provided
-            Dictionary<string, string>? mapping = null;
-            if (!string.IsNullOrEmpty(mappingJson))
-            {
-                try
-                {
-                    mapping = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(mappingJson);
-                }
-                catch
-                {
-                    return BadRequest(new { success = false, message = "Invalid mapping JSON." });
-                }
-            }
-
-            // Validate file structure
-            var (isValid, validationError) = await StudentsFileValidator.ValidateStudentsFileAsync(file, mapping);
-            if (!isValid)
-                return BadRequest(new { success = false, message = validationError });
-
-            // Parse file into student rows
-            var rows = await ParseFileAsync(file, mapping);
-            if (rows == null || !rows.Any())
-                return BadRequest(new { success = false, message = "No valid student data found in file." });
-
-            _logger.LogInformation(
-                 "ResolveSchoolAndYearAsync  returned with: schoolId={SchoolId}, schoolYearId={SchoolYearId}",
-                 resolvedSchoolId, resolvedYearId);
-
-
-            if (!resolvedSchoolId.HasValue || !resolvedYearId.HasValue)
-            {
-                _logger.LogError("Failed to resolve school or year IDs. SchoolId={SchoolId}, YearId={YearId}",
-                    resolvedSchoolId, resolvedYearId);
-                return BadRequest(new { success = false, message = "Failed to resolve school or year information." });
-            }
-
-            // Process student data
-            var result = await _fileProcessor.ProcessStudentRowsAsync(
-                rows,
-                resolvedSchoolId.Value,
-                resolvedYearId.Value,
-                session.UserId);
-
-            return Ok(new
-            {
-                success = true,
-                message = "File processed successfully.",
-                created = result.Created,
-                updated = result.Updated,
-                unchanged = result.Unchanged.Count,
-                errors = result.Errors.Count,
-                details = new
-                {
-                    unchangedList = result.Unchanged,
-                    errorList = result.Errors
-                }
-            });
+            mapping = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(request.MappingJson);
         }
+        catch
+        {
+            return BadRequest(new { success = false, message = "Invalid mapping JSON." });
+        }
+    }
+
+    // Validate file structure
+    var (isValid, validationError) = await StudentsFileValidator.ValidateStudentsFileAsync(request.File, mapping);
+    if (!isValid)
+        return BadRequest(new { success = false, message = validationError });
+
+    // Parse file into student rows
+    var rows = await ParseFileAsync(request.File, mapping);
+    if (rows == null || !rows.Any())
+        return BadRequest(new { success = false, message = "No valid student data found in file." });
+
+    _logger.LogInformation(
+         "ResolveSchoolAndYearAsync  returned with: schoolId={SchoolId}, schoolYearId={SchoolYearId}",
+         resolvedSchoolId, resolvedYearId);
+
+    if (!resolvedSchoolId.HasValue || !resolvedYearId.HasValue)
+    {
+        _logger.LogError("Failed to resolve school or year IDs. SchoolId={SchoolId}, YearId={YearId}",
+            resolvedSchoolId, resolvedYearId);
+        return BadRequest(new { success = false, message = "Failed to resolve school or year information." });
+    }
+
+    // Process student data
+    var result = await _fileProcessor.ProcessStudentRowsAsync(
+        rows,
+        resolvedSchoolId.Value,
+        resolvedYearId.Value,
+        session.UserId);
+
+    return Ok(new
+    {
+        success = true,
+        message = "File processed successfully.",
+        created = result.Created,
+        updated = result.Updated,
+        unchanged = result.Unchanged.Count,
+        errors = result.Errors.Count,
+        details = new
+        {
+            unchangedList = result.Unchanged,
+            errorList = result.Errors
+        }
+    });
+}
 
         /// <summary>
         /// API endpoint for uploading students file (for automation/integration).
@@ -510,74 +502,75 @@ namespace PetelApp.Api.Controllers
         }
 
 
-        /// <summary>
-        /// Preview file and get column headers for mapping
-        /// </summary>
-        [HttpPost("preview")]
-        [RequestSizeLimit(10_000_000)]
-        public async Task<IActionResult> PreviewFile([FromForm] IFormFile file)
+          /// <summary>
+    /// Preview file and get column headers for mapping
+    /// </summary>
+    [HttpPost("preview")]
+    [Consumes("multipart/form-data")]
+    [RequestSizeLimit(10_000_000)]
+    public async Task<IActionResult> PreviewFile([FromForm] PreviewFileRequest request)
+    {
+        var session = GetCurrentSession();
+        if (session == null)
         {
-            var session = GetCurrentSession();
-            if (session == null)
-            {
-                return Unauthorized(new { success = false, message = "נדרש אימות" });
-            }
-
-            if (file == null || file.Length == 0)
-                return BadRequest(new { success = false, message = "No file uploaded." });
-
-            try
-            {
-                var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-                var headers = new List<string>();
-
-                using var stream = file.OpenReadStream();
-
-                if (ext == ".csv")
-                {
-                    using var reader = new StreamReader(stream);
-                    using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
-                    csv.Read();
-                    csv.ReadHeader();
-                    headers = csv.HeaderRecord?.ToList() ?? new List<string>();
-                }
-                else if (ext == ".xls" || ext == ".xlsx")
-                {
-                    using var workbook = new XLWorkbook(stream);
-                    var worksheet = workbook.Worksheets.First();
-                    var firstRow = worksheet.FirstRowUsed();
-                            if (firstRow == null || firstRow.CellsUsed().Count() == 0)
-                                   return BadRequest(new 
-        { 
-            success = false, 
-            message = "לא נמצאו נתוני תלמידים תקינים בקובץ או הקובץ ריק" 
-        });
-                    headers = firstRow.CellsUsed()
-                        .Select(cell => cell.Value.ToString()?.Trim() ?? "")
-                        .ToList();
-                }
-                else
-                {
-                    return BadRequest(new { success = false, message = "Unsupported file format. Please use CSV, XLS, or XLSX." });
-                }
-
-                // Generate suggested mappings
-                var suggestedMappings = GenerateSuggestedMappings(headers);
-
-                return Ok(new
-                {
-                    success = true,
-                    headers = headers,
-                    suggestedMappings = suggestedMappings,
-                    availableFields = GetAvailableStudentFields()
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error previewing file");
-                return StatusCode(500, new { success = false, message = "Error reading file: " + ex.Message });
-            }
+            return Unauthorized(new { success = false, message = "נדרש אימות" });
         }
+    
+        if (request.File == null || request.File.Length == 0)
+            return BadRequest(new { success = false, message = "No file uploaded." });
+    
+        try
+        {
+            var ext = Path.GetExtension(request.File.FileName).ToLowerInvariant();
+            var headers = new List<string>();
+    
+            using var stream = request.File.OpenReadStream();
+    
+            if (ext == ".csv")
+            {
+                using var reader = new StreamReader(stream);
+                using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+                csv.Read();
+                csv.ReadHeader();
+                headers = csv.HeaderRecord?.ToList() ?? new List<string>();
+            }
+            else if (ext == ".xls" || ext == ".xlsx")
+            {
+                using var workbook = new XLWorkbook(stream);
+                var worksheet = workbook.Worksheets.First();
+                var firstRow = worksheet.FirstRowUsed();
+                if (firstRow == null || firstRow.CellsUsed().Count() == 0)
+                    return BadRequest(new 
+                    { 
+                        success = false, 
+                        message = "לא נמצאו נתוני תלמידים תקינים בקובץ או הקובץ ריק" 
+                    });
+                headers = firstRow.CellsUsed()
+                    .Select(cell => cell.Value.ToString()?.Trim() ?? "")
+                    .ToList();
+            }
+            else
+            {
+                return BadRequest(new { success = false, message = "Unsupported file format. Please use CSV, XLS, or XLSX." });
+            }
+    
+            // Generate suggested mappings
+            var suggestedMappings = GenerateSuggestedMappings(headers);
+    
+            return Ok(new
+            {
+                success = true,
+                headers = headers,
+                suggestedMappings = suggestedMappings,
+                availableFields = GetAvailableStudentFields()
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error previewing file");
+            return StatusCode(500, new { success = false, message = "Error reading file: " + ex.Message });
+        }
+    }
 
         /// <summary>
         /// Generate suggested field mappings based on header names
@@ -656,4 +649,25 @@ namespace PetelApp.Api.Controllers
 
 
 
+}
+
+/// <summary>
+/// Request model for uploading students file with form data
+/// </summary>
+public class UploadStudentsFileRequest
+{
+    public IFormFile File { get; set; } = null!;
+    public int? SchoolId { get; set; }
+    public int? SchoolYearId { get; set; }
+    public string? SchoolSymbol { get; set; }
+    public string? HebrewYear { get; set; }
+    public string? MappingJson { get; set; }
+}
+
+/// <summary>
+/// Request model for previewing file with form data
+/// </summary>
+public class PreviewFileRequest
+{
+    public IFormFile File { get; set; } = null!;
 }

@@ -332,53 +332,46 @@ namespace PetelApp.Api.Controllers
         /// Upload new document or replace existing
         /// </summary>
         [HttpPost("upload")]
-        public async Task<IActionResult> UploadDocument(
-            [FromForm] IFormFile file,
-            [FromForm] string? description,
-            [FromForm] int documentTypeId,
-            [FromForm] int statusId,
-            [FromForm] int entityId,
-            [FromForm] int? yearId = null,
-            [FromForm] long? existingDocumentId = null,
-            [FromForm] bool replaceExisting = false)
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadDocument([FromForm] UploadDocumentRequest request)
         {
             try
             {
                 var session = GetCurrentSession();
 
-                if (file == null || file.Length == 0)
+                if (request.File == null || request.File.Length == 0)
                 {
                     return BadRequest(new { error = "לא הועלה קובץ" });
                 }
 
                 // Validate document type
-                var documentType = await _context.DocumentTypes.FindAsync(documentTypeId);
+                var documentType = await _context.DocumentTypes.FindAsync(request.DocumentTypeId);
                 if (documentType == null)
                 {
                     return BadRequest(new { error = "סוג מסמך לא תקין" });
                 }
 
                 // Get file extension and original filename
-                var fileExtension = Path.GetExtension(file.FileName).TrimStart('.');
-                var originalFileName = file.FileName;
+                var fileExtension = Path.GetExtension(request.File.FileName).TrimStart('.');
+                var originalFileName = request.File.FileName;
 
                 // Read file to byte array
                 byte[] fileBytes;
                 using (var memoryStream = new MemoryStream())
                 {
-                    await file.CopyToAsync(memoryStream);
+                    await request.File.CopyToAsync(memoryStream);
                     fileBytes = memoryStream.ToArray();
                 }
 
                 Document document;
 
                 // ✅ ALWAYS handle as replacement if existingDocumentId is provided
-                if (existingDocumentId.HasValue)
+                if (request.ExistingDocumentId.HasValue)
                 {
                     // Get existing document
                     var existingDoc = await _context.Documents
                         .Include(d => d.DocumentLinks)
-                        .FirstOrDefaultAsync(d => d.Id == existingDocumentId.Value);
+                        .FirstOrDefaultAsync(d => d.Id == request.ExistingDocumentId.Value);
 
                     if (existingDoc == null)
                     {
@@ -392,14 +385,14 @@ namespace PetelApp.Api.Controllers
                     // ✅ Create new document with incremented version
                     document = new Document
                     {
-                        MasterDocumentId = existingDoc.MasterDocumentId ?? existingDoc.Id, // ✅ Preserve or set master
-                        Description = !string.IsNullOrWhiteSpace(description) ? description : existingDoc.Description,
-                        DocumentTypeId = existingDoc.DocumentTypeId, // ✅ Preserve document type
-                        StatusId = statusId,
+                        MasterDocumentId = existingDoc.MasterDocumentId ?? existingDoc.Id,
+                        Description = !string.IsNullOrWhiteSpace(request.Description) ? request.Description : existingDoc.Description,
+                        DocumentTypeId = existingDoc.DocumentTypeId,
+                        StatusId = request.StatusId,
                         FileBlob = fileBytes,
                         FileEncoding = fileExtension,
                         FileName = originalFileName,
-                        Version = existingDoc.Version + 1, // ✅ Increment version
+                        Version = existingDoc.Version + 1,
                         IsLastVersion = true
                     };
 
@@ -421,7 +414,7 @@ namespace PetelApp.Api.Controllers
                     await _context.SaveChangesAsync();
 
                     _logger.LogInformation("Document replaced. Old: {OldId} (v{OldVer}), New: {NewId} (v{NewVer}), Master: {MasterId}",
-                        existingDocumentId, existingDoc.Version, document.Id, document.Version, document.MasterDocumentId);
+                        request.ExistingDocumentId, existingDoc.Version, document.Id, document.Version, document.MasterDocumentId);
 
                     return Ok(new
                     {
@@ -437,8 +430,6 @@ namespace PetelApp.Api.Controllers
                 }
                 else
                 {
-                    // ✅ NEW document upload - should never happen via upload button
-                    // Upload button always passes existingDocumentId
                     _logger.LogWarning("Upload called without existingDocumentId - this should not happen");
                     return BadRequest(new { error = "חסר מזהה מסמך קיים" });
                 }
@@ -503,4 +494,19 @@ namespace PetelApp.Api.Controllers
             };
         }
     }
+}
+
+/// <summary>
+/// Request model for document upload
+/// </summary>
+public class UploadDocumentRequest
+{
+    public IFormFile File { get; set; } = null!;
+    public string? Description { get; set; }
+    public int DocumentTypeId { get; set; }
+    public int StatusId { get; set; }
+    public int EntityId { get; set; }
+    public int? YearId { get; set; }
+    public long? ExistingDocumentId { get; set; }
+    public bool ReplaceExisting { get; set; }
 }

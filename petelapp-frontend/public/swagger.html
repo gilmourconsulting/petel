@@ -87,11 +87,30 @@
                 </div>
 
                 <div class="info-box">
-                    <p>💡 טיפ: אתה כבר מחובר למערכת. ה-token שלך יועבר אוטומטית ל-Swagger.</p>
+                    <p>⚠️ הערה: Swagger לא יכול להיטען ישירות בגלל מדיניות CORS. לחץ על הכפתור למעלה לפתיחה בכרטיסייה חדשה.</p>
                 </div>
 
-                <div class="swagger-content">
-                    <iframe id="swaggerFrame" class="swagger-iframe" src="about:blank"></iframe>
+                <div class="swagger-content" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;">
+                    <div style="text-align: center;">
+                        <h3 style="margin-bottom: 15px;">🔗 פתח את Swagger API Documentation</h3>
+                        <p style="margin-bottom: 20px; color: #666;">
+                            Swagger יפתח בכרטיסייה חדשה עם גישה מלאה לכל ה-endpoints
+                        </p>
+                        <button onclick="openSwaggerInNewTab()" class="btn-primary" style="padding: 12px 24px; font-size: 16px;">
+                            פתח Swagger בכרטיסייה חדשה
+                        </button>
+                    </div>
+                    
+                    <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; max-width: 600px;">
+                        <h4 style="margin: 0 0 10px 0;">💡 טיפים לשימוש ב-Swagger:</h4>
+                        <ul style="text-align: right; margin: 0; padding-right: 20px; line-height: 1.8;">
+                            <li><strong>אימות:</strong> לחץ על "Authorize" בראש העמוד והזן: <code>Bearer YOUR_TOKEN</code></li>
+                            <li>לקבלת token: פתח Developer Tools (F12) → Console → הקלד: <code>sessionStorage.getItem('authToken')</code></li>
+                            <li>השתמש ב-"Try it out" כדי לבצע קריאות API ישירות</li>
+                            <li>כל ה-endpoints מתועדים עם דוגמאות ושגיאות אפשריות</li>
+                            <li>ניתן להוריד את ה-OpenAPI spec בפורמט JSON או YAML</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
@@ -99,46 +118,11 @@
 
     <script>
         /**
-         * Load Swagger UI in iframe with auth token
-         */
-        function loadSwagger() {
-            console.log('📚 Loading Swagger UI...');
-            
-            const authToken = sessionStorage.getItem('authToken');
-            if (!authToken) {
-                console.error('❌ No auth token found');
-                alert('נדרש אימות. אנא התחבר מחדש.');
-                return;
-            }
-
-            // Get Swagger URL from AppConfig
-            const apiBaseUrl = window.AppConfig ? window.AppConfig.apiBaseUrl : '';
-            const swaggerUrl = apiBaseUrl.replace('/api', '') + '/swagger';
-            
-            console.log('🔗 Swagger URL:', swaggerUrl);
-            
-            // Load Swagger in iframe
-            const iframe = document.getElementById('swaggerFrame');
-            iframe.src = swaggerUrl;
-            
-            // Try to inject auth token once iframe loads (may not work due to CORS)
-            iframe.onload = function() {
-                try {
-                    console.log('✅ Swagger loaded');
-                    // Note: Cannot access iframe content due to CORS, but Swagger should work anyway
-                } catch (error) {
-                    console.log('⚠️ Cannot access iframe content (expected due to CORS)');
-                }
-            };
-        }
-
-        /**
-         * Refresh Swagger iframe
+         * Refresh Swagger (just reopens in new tab)
          */
         function refreshSwagger() {
-            console.log('🔄 Refreshing Swagger...');
-            const iframe = document.getElementById('swaggerFrame');
-            iframe.src = iframe.src;
+            console.log('🔄 Opening Swagger...');
+            openSwaggerInNewTab();
         }
 
         /**
@@ -183,3 +167,14 @@
     </script>
 </body>
 </html>
+}
+
+        // Export functions
+        window.cleanupSwaggerPage = cleanupSwaggerPage;
+        window.refreshSwagger = refreshSwagger;
+        window.openSwaggerInNewTab = openSwaggerInNewTab;
+        window.navigateToMainDashboard = navigateToMainDashboard;
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎬 Swagger page initialized'
