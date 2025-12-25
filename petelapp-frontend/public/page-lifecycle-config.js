@@ -94,8 +94,14 @@ window.PageLifecycleConfig = {
             title: 'ישויות',
             cleanup: 'cleanupEntitiesPage',
             init: 'initEntitiesPage'
-        }
-        ,
+        },
+        'swagger': {
+            file: 'swagger.html',
+            title: 'Swagger API Documentation',
+            cleanup: 'cleanupSwaggerPage',
+            init: null,
+            selfInitializing: true
+        },
         'users': {
             file: 'users.html',
             title: 'משתמשים',

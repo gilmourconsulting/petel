@@ -107,16 +107,12 @@ Write-Host "App Service: $appName" -ForegroundColor Cyan
     --resource-group $rg `
     --name $appName `
     --src-path "deploy-$Environment.zip" `
-    --type zip
+    --type zip `
+    --restart true `
+    --async false
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "`n✅ Deployment completed successfully!" -ForegroundColor Green
-    
-    # Restart App Service to clear cache
-    Write-Host "`n🔄 Restarting App Service to clear cache..." -ForegroundColor Yellow
-    & "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd" webapp restart `
-        --resource-group $rg `
-        --name $appName | Out-Null
     
     Write-Host "✅ App Service restarted" -ForegroundColor Green
     

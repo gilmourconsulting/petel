@@ -132,7 +132,8 @@ await authService.InitializeAsync();
 app.UseStaticFiles();
 
 // Configure pipeline
-if (app.Environment.IsDevelopment())
+// Enable Swagger in Development and Test environments
+if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "Test")
 {
     app.UseSwagger();
     app.UseSwaggerUI();
@@ -146,7 +147,7 @@ app.UseCors("AllowFrontend");
 app.UseSession();
 
 
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "Test")
 {
     app.UseHangfireDashboard("/hangfire", new DashboardOptions
     {
@@ -160,8 +161,10 @@ app.MapControllers();
 // This allows direct navigation to /schooldetails, /students, etc.
 app.MapFallback(async context =>
 {
-    // Don't use fallback for API requests
-    if (context.Request.Path.StartsWithSegments("/api"))
+    // Don't use fallback for API requests, Swagger, or Hangfire
+    if (context.Request.Path.StartsWithSegments("/api") ||
+        context.Request.Path.StartsWithSegments("/swagger") ||
+        context.Request.Path.StartsWithSegments("/hangfire"))
     {
         context.Response.StatusCode = 404;
         return;

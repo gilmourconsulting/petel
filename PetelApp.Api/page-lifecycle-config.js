@@ -76,6 +76,13 @@ window.PageLifecycleConfig = {
             init: null,
             selfInitializing: true
         },
+        'swagger': {
+            file: 'swagger.html',
+            title: 'Swagger API Documentation',
+            cleanup: 'cleanupSwaggerPage',
+            init: null,
+            selfInitializing: true
+        },
         'roles': {
             file: 'roles.html',
             title: 'ניהול תפקידים',
