@@ -1,4 +1,3 @@
-
 using Microsoft.EntityFrameworkCore;
 
 using PetelApp.Api.Data;
@@ -111,72 +110,40 @@ namespace PetelApp.Api.Services
                 user.LastLogin = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
-                // ✅ CRITICAL: Check OTP BEFORE creating session
-                if (_securitySettings.OtpEnabled && user.OtpEnabled && user.OtpVerified)
+                // ✅ CRITICAL: Check OTP status BEFORE creating session
+                if (_securitySettings.OtpEnabled && user.OtpEnabled)
                 {
-                    _logger.LogInformation("User {Username} requires OTP verification (global OTP: {GlobalOtp}, user OTP: {UserOtp})", 
-                        loginRequest.Username, _securitySettings.OtpEnabled, user.OtpEnabled);
-                    
-                    return new LoginResponseDto
+                    if (!user.OtpVerified)
                     {
-                        Success = false,
-                        RequiresOtp = true,
-                        TempToken = GenerateTempToken(user.Id),
-                        Message = "נדרש קוד אימות דו-שלבי"
-                    };
+                        // Case B: OTP enabled but not set up yet - prompt setup
+                        _logger.LogInformation("User {Username} needs to complete OTP setup", loginRequest.Username);
+                        
+                        return new LoginResponseDto
+                        {
+                            Success = false,
+                            RequiresOtpSetup = true,
+                            TempToken = GenerateTempToken(user.Id),
+                            Message = "יש להגדיר אימות דו-שלבי"
+                        };
+                    }
+                    else
+                    {
+                        // Case C: OTP enabled and verified - prompt code
+                        _logger.LogInformation("User {Username} requires OTP code verification", loginRequest.Username);
+                        
+                        return new LoginResponseDto
+                        {
+                            Success = false,
+                            RequiresOtp = true,
+                            TempToken = GenerateTempToken(user.Id),
+                            Message = "נדרש קוד אימות דו-שלבי"
+                        };
+                    }
                 }
 
-                // Create UserFullName from FirstName + LastName
-                var userFullName = $"{user.FirstName} {user.LastName}".Trim();
-
-                // Create session following Entity-Based Request Flow
-                var sessionId = _sessionService.CreateSessionWithFullData(
-                    userId: user.Id.ToString(),
-                    username: user.Username,
-                    userFullName: userFullName,
-                    entityId: user.EntityId.ToString(),
-                    entityName: userEntity.Name,
-                    entityTypeId: userEntity.EntityTypeId.ToString(),
-                    entityTypeName: userEntity.EntityType?.Name ?? "",
-                    lastLogin: user.LastLogin
-                );
-
-                // Load user roles into session
-                _logger.LogInformation("Getting roles for user {UserId}", user.Id);
-
-                var userRoles = await _context.UserRoles
-                    .AsNoTracking()
-                    .Where(ur => ur.UserId == user.Id && ur.IsActive)
-                    .ToListAsync();
-
-                _logger.LogInformation("Found {Count} user_roles records", userRoles.Count);
-
-                foreach (var ur in userRoles)
-                {
-                    _logger.LogInformation("UserRole: Id={Id}, UserId={UserId}, RoleId={RoleId}, IsActive={IsActive}", 
-                        ur.Id, ur.UserId, ur.RoleId, ur.IsActive);
-                }
-
-                var userRoleIds = userRoles.Select(ur => ur.RoleId).ToArray().ToList();
-
-                _logger.LogInformation("Extracted {Count} role IDs: {RoleIds}", 
-                    userRoleIds.Count, 
-                    string.Join(", ", userRoleIds));
-
-                var session = _sessionService.GetUserSession(sessionId);
-                if (session != null)
-                {
-                    session.Roles = userRoleIds;
-                    _logger.LogInformation("Loaded {RoleCount} roles for user {UserId}", userRoleIds.Count, user.Id);
-                    
-                    // Load user actions into session
-                    var userActions = await _actionAuthService.GetUserActionsAsync(user.Id);
-                    session.SetProperty("UserActions", System.Text.Json.JsonSerializer.Serialize(userActions));
-                    _logger.LogInformation("Loaded {ActionCount} actions for user {UserId}", userActions.Count, user.Id);
-                }
-
-                _logger.LogInformation("User {Username} (ID: {UserId}) logged in successfully to entity {EntityId}",
-                    loginRequest.Username, user.Id, user.EntityId);
+                // Case A: OTP not enabled - complete login
+                var userFullName = $"{user.FirstName} {user.LastName}".Trim(); 
+                var sessionId = await CompleteLoginAsync(user, userEntity);
 
                 // Return token only (Frontend Token-Only Storage pattern)
                 return new LoginResponseDto
@@ -259,6 +226,60 @@ namespace PetelApp.Api.Services
             var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             var guid = Guid.NewGuid().ToString("N");
             return $"{userId}_{timestamp}_{guid}";
+        }
+
+                /// <summary>
+        /// Complete login process by creating full session with roles and actions
+        /// Called by both regular login and OTP validation
+        /// </summary>
+        public async Task<string> CompleteLoginAsync(User user, Entity userEntity)
+        {
+            var userFullName = $"{user.FirstName} {user.LastName}".Trim();
+        
+            // Create session following Entity-Based Request Flow
+            var sessionId = _sessionService.CreateSessionWithFullData(
+                userId: user.Id.ToString(),
+                username: user.Username,
+                userFullName: userFullName,
+                entityId: user.EntityId.ToString(),
+                entityName: userEntity.Name,
+                entityTypeId: userEntity.EntityTypeId.ToString(),
+                entityTypeName: userEntity.EntityType?.Name ?? "",
+                lastLogin: user.LastLogin
+            );
+        
+            // Load user roles into session
+            _logger.LogInformation("Getting roles for user {UserId}", user.Id);
+        
+            var userRoles = await _context.UserRoles
+                .AsNoTracking()
+                .Where(ur => ur.UserId == user.Id && ur.IsActive)
+                .ToListAsync();
+        
+            _logger.LogInformation("Found {Count} user_roles records", userRoles.Count);
+        
+            var userRoleIds = userRoles.Select(ur => ur.RoleId).ToList();
+        
+            _logger.LogInformation("Extracted {Count} role IDs: {RoleIds}", 
+                userRoleIds.Count, 
+                string.Join(", ", userRoleIds));
+        
+            var session = _sessionService.GetUserSession(sessionId);
+            if (session != null)
+            {
+                session.Roles = userRoleIds;
+                _logger.LogInformation("Loaded {RoleCount} roles for user {UserId}", userRoleIds.Count, user.Id);
+                
+                // Load user actions into session
+                var userActions = await _actionAuthService.GetUserActionsAsync(user.Id);
+                session.SetProperty("UserActions", System.Text.Json.JsonSerializer.Serialize(userActions));
+                _logger.LogInformation("Loaded {ActionCount} actions for user {UserId}", userActions.Count, user.Id);
+            }
+        
+            _logger.LogInformation("User {Username} (ID: {UserId}) completed login to entity {EntityId}",
+                user.Username, user.Id, user.EntityId);
+        
+            return sessionId;
         }
     }
 }

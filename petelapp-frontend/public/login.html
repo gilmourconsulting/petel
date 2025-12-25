@@ -82,6 +82,10 @@
             </button>
         </form>
 
+        <div id="otpContainer" style="display: none;">
+            <!-- OTP flows will be injected here -->
+        </div>
+
         <div class="form-footer">
             מערכת ניהול - גרסה <span id="systemVersion">טוען...</span>
         </div>
@@ -104,6 +108,21 @@
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="cancelOtpVerification()">ביטול</button>
                     <button type="button" class="btn-primary" id="verifyOtpButton" onclick="verifyOtp()">אמת</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- OTP Setup Container -->
+        <div class="modal-overlay" id="otpContainer" style="display: none;">
+            <div class="modal-content otp-setup-modal">
+                <div class="modal-header">
+                    <h2>הגדרת אימות דו-שלבי</h2>
+                </div>
+                <div class="modal-body">
+                    <div id="otpSetupContent"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="cancelOtpFlow()">ביטול</button>
                 </div>
             </div>
         </div>
@@ -599,11 +618,11 @@
             }
         });
 
-                //Show OTP modal
+        //Show OTP modal
         function showOtpModal() {
             const modal = document.getElementById('otpModalOverlay');
             modal.style.display = 'flex';
-            
+
             // Clear and focus OTP input
             const otpInput = document.getElementById('otpCode');
             otpInput.value = '';
@@ -624,11 +643,11 @@
         function cancelOtpVerification() {
             hideOtpModal();
             tempToken = null;
-            
+
             // Reset steps
             document.getElementById('step3').classList.remove('active');
             document.getElementById('step2').classList.add('active');
-            
+
             // Focus back to password
             document.getElementById('password').focus();
         }
@@ -671,14 +690,14 @@
                 // ✅ OTP verified successfully
                 console.log('OTP verified, completing login');
                 sessionStorage.setItem('authToken', data.token);
-                
+
                 // Show success briefly before redirect
                 otpError.style.display = 'block';
                 otpError.style.backgroundColor = '#d4edda';
                 otpError.style.borderColor = '#c3e6cb';
                 otpError.style.color = '#155724';
                 otpError.textContent = '✓ אומת בהצלחה!';
-                
+
                 setTimeout(() => {
                     window.location.href = 'index.html';
                 }, 500);
@@ -687,7 +706,7 @@
                 console.error('OTP verification error:', error);
                 otpError.textContent = error.message || 'קוד אימות שגוי. אנא נסה שוב.';
                 otpError.style.display = 'block';
-                
+
                 // Clear input and focus
                 document.getElementById('otpCode').value = '';
                 document.getElementById('otpCode').focus();
@@ -695,6 +714,220 @@
                 verifyButton.disabled = false;
                 verifyButton.textContent = 'אמת';
             }
+        }
+
+        // Case A: Regular login - no OTP
+        async function login() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (!username || !password) {
+                alert('נא למלא שם משתמש וסיסמה');
+                return;
+            }
+
+            try {
+                const response = await fetch(AppConfig.getApiUrl('auth/login'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Case A: Regular login - no OTP
+                    sessionStorage.setItem('authToken', data.token);
+                    window.location.href = 'index.html';
+                }
+                else if (data.requiresOtpSetup) {
+                    // Case B: OTP enabled but not set up - show setup flow
+                    sessionStorage.setItem('otpTempToken', data.tempToken);
+                    showOtpSetupFlow();
+                }
+                else if (data.requiresOtp) {
+                    // Case C: OTP enabled and verified - show code input
+                    sessionStorage.setItem('otpTempToken', data.tempToken);
+                    showOtpCodeInput();
+                }
+                else {
+                    alert(data.message || 'שגיאת התחברות');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('שגיאה בהתחברות למערכת');
+            }
+        }
+
+        // Case B: Show OTP Setup Flow (QR code scanning)
+        function showOtpSetupFlow() {
+            hideLoginForm();
+
+            const container = document.getElementById('otpContainer');
+            container.innerHTML = `
+        <div class="otp-setup-container">
+            <h2>הגדרת אימות דו-שלבי</h2>
+            <p>אנא סרוק את קוד ה-QR באמצעית אפליקציית אימות:</p>
+            
+            <div id="qrCodeDisplay" style="text-align: center; margin: 20px 0;">
+                <div class="loading-spinner">טוען QR...</div>
+            </div>
+            
+            <div class="form-group">
+                <label>או הזן את הקוד הבא באופן ידני:</label>
+                <div class="secret-code">
+                    <code id="manualSecret"></code>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>הזן קוד אימות מהאפליקציה לאימות ההגדרה:</label>
+                <input type="text" id="setupOtpCode" maxlength="6" pattern="[0-9]*" 
+                       placeholder="123456" autocomplete="off">
+            </div>
+            
+            <button onclick="verifyOtpSetup()" class="btn-primary">אמת והמשך</button>
+            <button onclick="cancelOtpFlow()" class="btn-secondary">ביטול</button>
+        </div>
+    `;
+            container.style.display = 'block';
+
+            // Load QR code
+            loadOtpSetupQr();
+        }
+
+        async function loadOtpSetupQr() {
+            const tempToken = sessionStorage.getItem('otpTempToken');
+
+            try {
+                const response = await fetch(AppConfig.getApiUrl('otp/setup'), {
+                    headers: { 'Authorization': `Bearer ${tempToken}` }
+                });
+
+                const data = await response.json();
+
+                // Display QR code
+                document.getElementById('qrCodeDisplay').innerHTML =
+                    `<img src="https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(data.qrCodeUrl)}" 
+                  alt="QR Code" style="border: 2px solid #ccc; padding: 10px;">`;
+
+                // Display manual secret
+                document.getElementById('manualSecret').textContent = data.secret;
+            } catch (error) {
+                console.error('Error loading QR code:', error);
+                document.getElementById('qrCodeDisplay').innerHTML =
+                    '<p style="color: red;">שגיאה בטעינת QR</p>';
+            }
+        }
+
+        async function verifyOtpSetup() {
+            const code = document.getElementById('setupOtpCode').value.trim();
+            const tempToken = sessionStorage.getItem('otpTempToken');
+
+            if (code.length !== 6 || !/^\d+$/.test(code)) {
+                alert('אנא הזן קוד בן 6 ספרות');
+                return;
+            }
+
+            try {
+                const response = await fetch(AppConfig.getApiUrl('otp/verify-setup'), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${tempToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ code })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    alert('✅ אימות דו-שלבי הוגדר בהצלחה!');
+                    // Now complete login with OTP
+                    completeOtpLogin(code);
+                } else {
+                    alert('❌ קוד שגוי, נסה שוב');
+                    document.getElementById('setupOtpCode').value = '';
+                    document.getElementById('setupOtpCode').focus();
+                }
+            } catch (error) {
+                console.error('Error verifying setup:', error);
+                alert('שגיאה באימות הקוד');
+            }
+        }
+
+        // Case C: Show OTP Code Input (user already has OTP set up)
+        function showOtpCodeInput() {
+            hideLoginForm();
+
+            const container = document.getElementById('otpContainer');
+            container.innerHTML = `
+        <div class="otp-verify-container">
+            <h2>אימות דו-שלבי</h2>
+            <p>הזן את קוד האימות מהאפליקציה שלך:</p>
+            
+            <div class="form-group">
+                <input type="text" id="otpCode" maxlength="6" pattern="[0-9]*" 
+                       placeholder="123456" autocomplete="off" autofocus>
+            </div>
+            
+            <button onclick="submitOtpCode()" class="btn-primary">אמת</button>
+            <button onclick="cancelOtpFlow()" class="btn-secondary">ביטול</button>
+        </div>
+    `;
+            container.style.display = 'block';
+
+            // Auto-focus input
+            setTimeout(() => document.getElementById('otpCode').focus(), 100);
+        }
+
+        async function submitOtpCode() {
+            const code = document.getElementById('otpCode').value.trim();
+
+            if (code.length !== 6 || !/^\d+$/.test(code)) {
+                alert('אנא הזן קוד בן 6 ספרות');
+                return;
+            }
+
+            completeOtpLogin(code);
+        }
+
+        async function completeOtpLogin(code) {
+            const tempToken = sessionStorage.getItem('otpTempToken');
+
+            try {
+                const response = await fetch(AppConfig.getApiUrl('otp/validate'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tempToken, code })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    sessionStorage.setItem('authToken', result.token);
+                    sessionStorage.removeItem('otpTempToken');
+                    window.location.href = 'index.html';
+                } else {
+                    alert('❌ קוד שגוי');
+                    if (document.getElementById('otpCode')) {
+                        document.getElementById('otpCode').value = '';
+                        document.getElementById('otpCode').focus();
+                    }
+                }
+            } catch (error) {
+                console.error('Error validating OTP:', error);
+                alert('שגיאה באימות הקוד');
+            }
+        }
+
+        function cancelOtpFlow() {
+            sessionStorage.removeItem('otpTempToken');
+            location.reload();
+        }
+
+        function hideLoginForm() {
+            document.getElementById('loginForm').style.display = 'none';
         }
     </script>
 </body>

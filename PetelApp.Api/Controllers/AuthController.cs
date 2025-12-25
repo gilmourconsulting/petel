@@ -41,10 +41,25 @@ namespace PetelApp.Api.Controllers
 
                 if (!result.Success)
                 {
+                    // ✅ Special case: OTP required - this is NOT a failure, return 200 OK
+                    if (result.RequiresOtp || result.RequiresOtpSetup)
+                    {
+                        _logger.LogInformation("User {Username} requires OTP verification (Setup: {RequiresSetup})", 
+                            request.Username, result.RequiresOtpSetup);
+                        return Ok(result);  // ✅ Return 200 OK with RequiresOtp flag
+                    }
+                    
+                    // ❌ Actual login failure
                     _logger.LogWarning("Login failed for user: {Username}", request.Username);
                     return Unauthorized(result);
                 }
 
+                _logger.LogInformation("Login successful: {Username}, Token: {Token}", 
+                    request.Username, result.Token);
+
+                // Return response following Frontend Token-Only Storage pattern
+                // Frontend will store ONLY result.Token in sessionStorage
+                return Ok(result);
                 _logger.LogInformation("Login successful: {Username}, Token: {Token}", 
                     request.Username, result.Token);
 
