@@ -111,6 +111,30 @@ Write-Host "App Service: $appName" -ForegroundColor Cyan
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "`n✅ Deployment completed successfully!" -ForegroundColor Green
+    
+    # Restart App Service to clear cache
+    Write-Host "`n🔄 Restarting App Service to clear cache..." -ForegroundColor Yellow
+    & "C:\Program Files\Microsoft SDKs\Azure\CLI2\wbin\az.cmd" webapp restart `
+        --resource-group $rg `
+        --name $appName | Out-Null
+    
+    Write-Host "✅ App Service restarted" -ForegroundColor Green
+    
+    # Wait for warm-up
+    Write-Host "`n⏳ Waiting 30 seconds for application to start..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 30
+    
+    # Health check
+    Write-Host "🏥 Performing health check..." -ForegroundColor Yellow
+    try {
+        $healthResponse = Invoke-WebRequest -Uri "https://$appName.azurewebsites.net" -Method GET -TimeoutSec 30 -UseBasicParsing
+        if ($healthResponse.StatusCode -eq 200) {
+            Write-Host "✅ Health check passed!" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "⚠️ Health check warning: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+    
     Write-Host "`n🔗 Application URL: https://$appName.azurewebsites.net" -ForegroundColor Cyan
     Write-Host "`n📋 Post-Deployment Verification:" -ForegroundColor Yellow
     Write-Host "  1. Open https://$appName.azurewebsites.net in browser" -ForegroundColor White
