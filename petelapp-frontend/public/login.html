@@ -95,13 +95,12 @@
             <div class="modal-content otp-modal">
                 <div class="modal-header">
                     <h2>אימות דו-שלבי</h2>
-                    <p class="modal-subtitle">הזן את קוד האימות מאפליקציית האימות שלך</p>
                 </div>
                 <div class="modal-body">
                     <div class="otp-input-container">
-                        <input type="text" id="otpCode" class="otp-input" maxlength="6" pattern="[0-9]{6}"
-                            placeholder="000000" autocomplete="off" inputmode="numeric">
-                        <small>הזן 6 ספרות מאפליקציית האימות</small>
+                        <input type="text" id="otpCode" class="form-input" maxlength="6" pattern="[0-9]{6}"
+                            placeholder="הזן 6 ספרות" autocomplete="off" inputmode="numeric">
+                            <small>הזן את קוד האימות בן 6 הספרות מאפליקציית האימות שלך</small>
                     </div>
                     <div class="otp-error" id="otpError" style="display: none;"></div>
                 </div>
@@ -109,7 +108,7 @@
                     <button type="button" class="btn-secondary" onclick="cancelOtpVerification()">ביטול</button>
                     <button type="button" class="btn-primary" id="verifyOtpButton" onclick="verifyOtp()">אמת</button>
                 </div>
-            </div>
+           </div>
         </div>
 
         <!-- OTP Setup Container -->
@@ -589,9 +588,18 @@
                 }
 
                 // Check if OTP is required
+                if (data.requiresOtpSetup) {
+                    console.log('OTP setup required for this user');
+                    tempToken = data.tempToken;
+                    sessionStorage.setItem('otpTempToken', data.tempToken);
+                    showOtpSetupFlow();
+                    return;
+                }
+
                 if (data.requiresOtp) {
                     console.log('OTP required for this user');
                     tempToken = data.tempToken;
+                    sessionStorage.setItem('otpTempToken', data.tempToken);
                     showOtpModal();
                     return;
                 }
@@ -604,6 +612,7 @@
                 } else {
                     throw new Error(data.message || 'שגיאה בהתחברות');
                 }
+
             } catch (error) {
                 console.error('Login error:', error);
                 document.getElementById('step3').classList.remove('active');
@@ -670,14 +679,14 @@
             otpError.style.display = 'none';
 
             try {
-                const response = await fetch(AppConfig.getApiUrl('otp/verify-login'), {
+                const response = await fetch(AppConfig.getApiUrl('otp/validate'), {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        tempToken: tempToken,
-                        otpCode: otpCode
+                        TempToken: tempToken,
+                        Code: otpCode
                     })
                 });
 
@@ -782,8 +791,8 @@
             
             <div class="form-group">
                 <label>הזן קוד אימות מהאפליקציה לאימות ההגדרה:</label>
-                <input type="text" id="setupOtpCode" maxlength="6" pattern="[0-9]*" 
-                       placeholder="123456" autocomplete="off">
+                <input type="text" id="setupOtpCode" class="form-input" maxlength="6" pattern="[0-9]*" 
+                       placeholder="הזן 6 ספרות" autocomplete="off">
             </div>
             
             <button onclick="verifyOtpSetup()" class="btn-primary">אמת והמשך</button>

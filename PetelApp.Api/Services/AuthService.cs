@@ -5,8 +5,8 @@ using PetelApp.Api.DTOs;
 
 using PetelApp.Api.Session;
 
-using Microsoft.Extensions.Options; 
-using PetelApp.Api.Configuration; 
+using Microsoft.Extensions.Options;
+using PetelApp.Api.Configuration;
 
 
 namespace PetelApp.Api.Services
@@ -20,7 +20,7 @@ namespace PetelApp.Api.Services
         private readonly UserSessionService _sessionService;
         private readonly ActionAuthorizationService _actionAuthService;
         private readonly ILogger<AuthService> _logger;
-        private readonly SecuritySettings _securitySettings; 
+        private readonly SecuritySettings _securitySettings;
 
         public AuthService(
             AppDbContext context,
@@ -117,7 +117,7 @@ namespace PetelApp.Api.Services
                     {
                         // Case B: OTP enabled but not set up yet - prompt setup
                         _logger.LogInformation("User {Username} needs to complete OTP setup", loginRequest.Username);
-                        
+
                         return new LoginResponseDto
                         {
                             Success = false,
@@ -130,7 +130,7 @@ namespace PetelApp.Api.Services
                     {
                         // Case C: OTP enabled and verified - prompt code
                         _logger.LogInformation("User {Username} requires OTP code verification", loginRequest.Username);
-                        
+
                         return new LoginResponseDto
                         {
                             Success = false,
@@ -142,7 +142,7 @@ namespace PetelApp.Api.Services
                 }
 
                 // Case A: OTP not enabled - complete login
-                var userFullName = $"{user.FirstName} {user.LastName}".Trim(); 
+                var userFullName = $"{user.FirstName} {user.LastName}".Trim();
                 var sessionId = await CompleteLoginAsync(user, userEntity);
 
                 // Return token only (Frontend Token-Only Storage pattern)
@@ -217,25 +217,38 @@ namespace PetelApp.Api.Services
             return user;
         }
 
-                /// <summary>
-        /// Generate temporary token for OTP verification
+        /// <summary>
+        /// Generate temporary JWT token for OTP verification (valid for 10 minutes)
         /// </summary>
         private string GenerateTempToken(int userId)
         {
-            // Simple temporary token: userId + timestamp + random guid
-            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            var guid = Guid.NewGuid().ToString("N");
-            return $"{userId}_{timestamp}_{guid}";
-        }
+            var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
+            var key = System.Text.Encoding.UTF8.GetBytes("TempOtpTokenSecretKey_ChangeInProduction_32BytesMinimum!!");
 
-                /// <summary>
+            var tokenDescriptor = new Microsoft.IdentityModel.Tokens.SecurityTokenDescriptor
+            {
+                Subject = new System.Security.Claims.ClaimsIdentity(new[]
+                {
+            new System.Security.Claims.Claim("userId", userId.ToString()),
+            new System.Security.Claims.Claim("temp", "true")
+        }),
+                Expires = DateTime.UtcNow.AddMinutes(10),
+                SigningCredentials = new Microsoft.IdentityModel.Tokens.SigningCredentials(
+                    new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
+                    Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256Signature)
+            };
+
+            var token = handler.CreateToken(tokenDescriptor);
+            return handler.WriteToken(token);
+        }
+        /// <summary>
         /// Complete login process by creating full session with roles and actions
         /// Called by both regular login and OTP validation
         /// </summary>
         public async Task<string> CompleteLoginAsync(User user, Entity userEntity)
         {
             var userFullName = $"{user.FirstName} {user.LastName}".Trim();
-        
+
             // Create session following Entity-Based Request Flow
             var sessionId = _sessionService.CreateSessionWithFullData(
                 userId: user.Id.ToString(),
@@ -247,38 +260,38 @@ namespace PetelApp.Api.Services
                 entityTypeName: userEntity.EntityType?.Name ?? "",
                 lastLogin: user.LastLogin
             );
-        
+
             // Load user roles into session
             _logger.LogInformation("Getting roles for user {UserId}", user.Id);
-        
+
             var userRoles = await _context.UserRoles
                 .AsNoTracking()
                 .Where(ur => ur.UserId == user.Id && ur.IsActive)
                 .ToListAsync();
-        
+
             _logger.LogInformation("Found {Count} user_roles records", userRoles.Count);
-        
+
             var userRoleIds = userRoles.Select(ur => ur.RoleId).ToList();
-        
-            _logger.LogInformation("Extracted {Count} role IDs: {RoleIds}", 
-                userRoleIds.Count, 
+
+            _logger.LogInformation("Extracted {Count} role IDs: {RoleIds}",
+                userRoleIds.Count,
                 string.Join(", ", userRoleIds));
-        
+
             var session = _sessionService.GetUserSession(sessionId);
             if (session != null)
             {
                 session.Roles = userRoleIds;
                 _logger.LogInformation("Loaded {RoleCount} roles for user {UserId}", userRoleIds.Count, user.Id);
-                
+
                 // Load user actions into session
                 var userActions = await _actionAuthService.GetUserActionsAsync(user.Id);
                 session.SetProperty("UserActions", System.Text.Json.JsonSerializer.Serialize(userActions));
                 _logger.LogInformation("Loaded {ActionCount} actions for user {UserId}", userActions.Count, user.Id);
             }
-        
+
             _logger.LogInformation("User {Username} (ID: {UserId}) completed login to entity {EntityId}",
                 user.Username, user.Id, user.EntityId);
-        
+
             return sessionId;
         }
     }

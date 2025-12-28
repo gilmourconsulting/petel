@@ -19,19 +19,19 @@ namespace PetelApp.Api.Controllers
         private readonly AppDbContext _context;
         private readonly SecuritySettings _securitySettings;
         //private readonly UserSessionService _sessionService;
-        private readonly AuthService _authService;
+        private readonly IAuthService _authService;
 
         public OtpController(
             UserSessionService userSessionService,
             ILogger<OtpController> logger,
             AppDbContext context,
             IOptions<SecuritySettings> securitySettings,
-            AuthService authService)
+            IAuthService authService)
             : base(userSessionService, logger)
         {
             _context = context;
             _securitySettings = securitySettings.Value;
-          //  _sessionService = userSessionService;
+            //  _sessionService = userSessionService;
             _authService = authService;
         }
 
@@ -165,28 +165,30 @@ namespace PetelApp.Api.Controllers
                 // Validate the OTP code
                 var secretBytes = Base32Encoding.ToBytes(user.OtpSecret);
                 var totp = new Totp(secretBytes);
-                var isValid = totp.VerifyTotp(dto.Code, out _, new VerificationWindow(2, 2));
 
-                 if (!isValid)
-        {
-            _logger.LogWarning("Invalid OTP code for user {UserId}", user.Id);
-            return BadRequest(new { success = false, message = "קוד שגוי" });
-        }
+                var currentUtcTime = DateTime.UtcNow;
+                _logger.LogInformation("Validating OTP for user {UserId}. Code: {Code}, UTC Time: {Time}",
+                    user.Id, dto.Code, currentUtcTime);
 
-        // OTP is valid - complete login using AuthService helper
-        var sessionId = await _authService.CompleteLoginAsync(user, user.Entity);
+                var isValid = totp.VerifyTotp(dto.Code, out long timeStepMatched, new VerificationWindow(2, 2));
 
-        _logger.LogInformation("OTP validated successfully for user {UserId}", user.Id);
+                if (!isValid)
+                {
+                    _logger.LogWarning("Invalid OTP code for user {UserId}. Code: {Code}, Expected at time: {Time}",
+                        user.Id, dto.Code, currentUtcTime);
+                    return BadRequest(new { success = false, message = "קוד אימות שגוי" });
+                }
 
-        return Ok(new OtpValidationResponseDto
-        {
-            Success = true,
-            Token = sessionId,
-            Message = "התחברות הצליחה"
-        });
+                // ✅ Single logging statement after validation
+                _logger.LogInformation("OTP validated successfully for user {UserId}. TimeStep: {TimeStep}",
+                    user.Id, timeStepMatched);
 
-                _logger.LogInformation("OTP validated successfully for user {UserId}", user.Id);
+                // OTP is valid - complete login using AuthService helper
+                var sessionId = await _authService.CompleteLoginAsync(user, user.Entity);
 
+                _logger.LogInformation("Login completed for user {UserId}, SessionId: {SessionId}", user.Id, sessionId);
+
+                // ✅ Single return statement
                 return Ok(new OtpValidationResponseDto
                 {
                     Success = true,
@@ -200,7 +202,6 @@ namespace PetelApp.Api.Controllers
                 return StatusCode(500, new { success = false, message = "שגיאה באימות הקוד" });
             }
         }
-
         /// <summary>
         /// POST /api/otp/disable - Turn off OTP for current user
         /// </summary>
