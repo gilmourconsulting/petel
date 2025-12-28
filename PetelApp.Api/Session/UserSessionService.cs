@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Text.Json;
+using PetelApp.Api.Services;
 
 namespace PetelApp.Api.Session
 {
@@ -13,6 +14,8 @@ namespace PetelApp.Api.Session
         private readonly ILogger<UserSessionService> _logger;
         private readonly Timer _cleanupTimer;
 
+        private JwtTokenService? _jwtTokenService;
+
         public UserSessionService(ILogger<UserSessionService> logger)
         {
             _logger = logger;
@@ -20,6 +23,12 @@ namespace PetelApp.Api.Session
             _cleanupTimer = new Timer(CleanupExpiredSessions, null, TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(30));
         }
 
+
+        public void SetJwtTokenService(JwtTokenService jwtTokenService)
+        {
+            _jwtTokenService = jwtTokenService;
+            _logger.LogInformation("JwtTokenService configured for UserSessionService");
+        }
         // Add method to create session with complete data
 
         public string CreateSessionWithFullData(
@@ -68,7 +77,19 @@ namespace PetelApp.Api.Session
             _logger.LogInformation("Complete session created for user {UserId} ({Username}) with session {SessionId}", 
                 userId, username, sessionId);
             
-            return sessionId;
+                // ✅ Generate JWT token from session (returned to client)
+            if (_jwtTokenService != null)
+            {
+                var jwtToken = _jwtTokenService.GenerateSessionToken(session);
+                _logger.LogInformation("Generated JWT token for session {SessionId}", sessionId);
+                return jwtToken; // ✅ Return JWT instead of GUID
+            }
+            else
+            {
+                // Fallback during app initialization before JWT service is set
+                _logger.LogWarning("JwtTokenService not initialized, returning GUID (initialization only)");
+                return sessionId;
+            }
         }
 
         // Keep the simple CreateSession method for backward compatibility
@@ -123,28 +144,61 @@ namespace PetelApp.Api.Session
             CreateUserSession(userSession);
         }
 
-        public UserSession? GetUserSession(string sessionId)
+        public UserSession? GetUserSession(string? token)
         {
-            if (string.IsNullOrEmpty(sessionId))
-                return null;
-
-            if (_sessions.TryGetValue(sessionId, out var session))
+            if (string.IsNullOrEmpty(token))
             {
-                // Check if session is still valid
-                if (IsSessionValid(sessionId))
+                _logger.LogWarning("GetUserSession called with null or empty token");
+                return null;
+            }
+
+            // ✅ Try JWT validation first
+            if (_jwtTokenService != null)
+            {
+                var sessionId = _jwtTokenService.ValidateTokenAndGetSessionId(token);
+                
+                if (sessionId != null && _sessions.TryGetValue(sessionId, out var sessionFromJwt))
                 {
-                    // Update last accessed time
-                    session.LastAccessedAt = DateTime.UtcNow;
-                    return session;
+                    // Check if session is still valid (not expired)
+                    if (IsSessionValid(sessionId))
+                    {
+                        // Update last accessed time
+                        sessionFromJwt.LastAccessedAt = DateTime.UtcNow;
+                        _logger.LogDebug("Retrieved session {SessionId} via JWT token", sessionId);
+                        return sessionFromJwt;
+                    }
+                    else
+                    {
+                        // Session expired, remove it
+                        _sessions.TryRemove(sessionId, out _);
+                        _logger.LogInformation("Session {SessionId} expired and removed", sessionId);
+                        return null;
+                    }
                 }
                 else
                 {
-                    // Remove invalid session
-                    _sessions.TryRemove(sessionId, out _);
+                    _logger.LogWarning("JWT token validation failed or session not found");
                     return null;
                 }
             }
 
+            // ✅ Fallback: Direct GUID lookup (for backward compatibility during migration)
+            if (_sessions.TryGetValue(token, out var session))
+            {
+                if (IsSessionValid(token))
+                {
+                    session.LastAccessedAt = DateTime.UtcNow;
+                    _logger.LogDebug("Retrieved session via direct GUID lookup (legacy)");
+                    return session;
+                }
+                else
+                {
+                    _sessions.TryRemove(token, out _);
+                    return null;
+                }
+            }
+
+            _logger.LogWarning("Session not found for provided token");
             return null;
         }
 

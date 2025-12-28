@@ -22,18 +22,22 @@ namespace PetelApp.Api.Services
         private readonly ILogger<AuthService> _logger;
         private readonly SecuritySettings _securitySettings;
 
+        private readonly JwtTokenService _jwtTokenService;
+
         public AuthService(
             AppDbContext context,
             UserSessionService sessionService,
             ActionAuthorizationService actionAuthService,
             ILogger<AuthService> logger,
-            IOptions<SecuritySettings> securitySettings)
+            IOptions<SecuritySettings> securitySettings,
+            JwtTokenService jwtTokenService)
         {
             _context = context;
             _sessionService = sessionService;
             _actionAuthService = actionAuthService;
             _logger = logger;
             _securitySettings = securitySettings.Value;
+            _jwtTokenService = jwtTokenService;
         }
 
         /// <summary>
@@ -217,30 +221,16 @@ namespace PetelApp.Api.Services
             return user;
         }
 
+ 
         /// <summary>
         /// Generate temporary JWT token for OTP verification (valid for 10 minutes)
+        /// ✅ NOW USING CENTRALIZED JWT TOKEN SERVICE
         /// </summary>
         private string GenerateTempToken(int userId)
         {
-            var handler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
-            var key = System.Text.Encoding.UTF8.GetBytes("TempOtpTokenSecretKey_ChangeInProduction_32BytesMinimum!!");
-
-            var tokenDescriptor = new Microsoft.IdentityModel.Tokens.SecurityTokenDescriptor
-            {
-                Subject = new System.Security.Claims.ClaimsIdentity(new[]
-                {
-            new System.Security.Claims.Claim("userId", userId.ToString()),
-            new System.Security.Claims.Claim("temp", "true")
-        }),
-                Expires = DateTime.UtcNow.AddMinutes(10),
-                SigningCredentials = new Microsoft.IdentityModel.Tokens.SigningCredentials(
-                    new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
-                    Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256Signature)
-            };
-
-            var token = handler.CreateToken(tokenDescriptor);
-            return handler.WriteToken(token);
+            return _jwtTokenService.GenerateTempOtpToken(userId);
         }
+
         /// <summary>
         /// Complete login process by creating full session with roles and actions
         /// Called by both regular login and OTP validation

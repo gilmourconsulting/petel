@@ -104,6 +104,9 @@ builder.Services.AddHostedService<SchoolAttributeLoaderHostedService>();
 // User Session Management (Token-based)
 builder.Services.AddSingleton<UserSessionService>();
 
+// JWT Token Service (must be singleton to match UserSessionService)
+builder.Services.AddSingleton<JwtTokenService>();
+
 // Business Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<UserRoleService>();
@@ -125,6 +128,11 @@ if (!string.IsNullOrEmpty(hangfireConnectionString))
 builder.Services.AddLogging();
 
 var app = builder.Build();
+
+//  Initialize JWT service in UserSessionService
+var sessionService = app.Services.GetRequiredService<UserSessionService>();
+var jwtService = app.Services.GetRequiredService<JwtTokenService>();
+sessionService.SetJwtTokenService(jwtService);
 
 var authService = app.Services.GetRequiredService<ActionAuthorizationService>();
 await authService.InitializeAsync();
