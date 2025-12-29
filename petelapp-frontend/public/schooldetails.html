@@ -18,14 +18,14 @@
     <div class="students-content">
         <div class="content-card">
             <!-- School Details Card -->
-            <div class="detail-card collapsed">
+            <div class="detail-card">
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">פרטי בית הספר</h2>
                     <div class="card-header-actions">
-                        <button id="editSchoolDetailsBtn" class="btn-icon" onclick="toggleSchoolDetailsEdit();">
+                        <button id="editSchoolDetailsBtn" class="btn-icon" onclick="toggleSchoolDetailsEdit();" title="עריכת פרטי בית הספר">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
-                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">▲</button>
                     </div>
                 </div>
                 <div class="detail-card-content" id="schoolDetailsContent">
@@ -37,14 +37,15 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">כיתות בית ספר</h2>
                     <div class="card-header-actions">
-                        <button id="editClassesBtn" class="btn-icon" onclick="toggleCardEdit('schoolClasses');">
-                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
-                        </button>
                         <button id="addClassBtn" class="btn-icon" onclick="handleAddClassClick();"
                             title="הוספת כיתה חדשה" style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
-                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                        <button id="editClassesBtn" class="btn-icon" onclick="toggleCardEdit('schoolClasses');" title="עריכת כיתות בית הספר">
+                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                        </button>
+
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">▼</button>
                     </div>
                 </div>
                 <div class="detail-card-content" id="schoolClassesContent">
@@ -58,10 +59,10 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">שירותי בית ספר</h2>
                     <div class="card-header-actions">
-                        <button id="editAttributesBtn" class="btn-icon" onclick="toggleCardEdit('schoolAttributes');">
+                        <button id="editAttributesBtn" class="btn-icon" onclick="toggleCardEdit('schoolAttributes');" title="עריכת שירותי בית הספר">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
-                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">▼</button>
                     </div>
                 </div>
                 <div class="detail-card-content" id="schoolattributesContent">
@@ -74,14 +75,18 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">מתורגמני שפת סימנים</h2>
                     <div class="card-header-actions">
-                        <button id="editTranslatorsBtn" class="btn-icon" onclick="toggleCardEdit('signLanguageTranslators');">
-                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
-                        </button>
                         <button id="addTranslatorBtn" class="btn-icon" onclick="handleAddTranslatorClick();"
                             title="הוספת מתורגמן" style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
-                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                        <button id="editTranslatorsBtn" class="btn-icon"
+                            onclick="toggleCardEdit('signLanguageTranslators');" title="עריכת מתורגמני שפת סימנים">
+                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural" >
+                        </button>
+
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">▼</button>
+
+                        </button>
                     </div>
                 </div>
                 <div class="detail-card-content" id="signLanguageTranslatorsContent">
@@ -94,14 +99,16 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">מגמות בית ספר</h2>
                     <div class="card-header-actions">
-                        <button id="editTracksBtn" class="btn-icon" onclick="toggleCardEdit('schoolTracks');">
-                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
-                        </button>
                         <button id="addTrackBtn" class="btn-icon" onclick="handleAddTrackClick();"
                             title="הוספת מגמה חדשה" style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
-                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                        <button id="editTracksBtn" class="btn-icon" onclick="toggleCardEdit('schoolTracks');" title="עריכת מגמות בית הספר">
+                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                        </button>
+
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">▼</button>
+
                     </div>
                 </div>
                 <div class="detail-card-content" id="schoolTracksContent">
@@ -114,14 +121,17 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">תל"ן</h2>
                     <div class="card-header-actions">
-                        <button id="editAdditionalStudyBtn" class="btn-icon" onclick="toggleCardEdit('additionalStudyProgram');">
-                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
-                        </button>
                         <button id="addAdditionalStudyBtn" class="btn-icon" onclick="handleAddAdditionalStudyClick();"
                             title="הוספת תל״ן חדש" style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
-                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                        <button id="editAdditionalStudyBtn" class="btn-icon"
+                            onclick="toggleCardEdit('additionalStudyProgram');" title="עריכת תל״ן בית הספר">
+                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                        </button>
+
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">▼</button>
+
                     </div>
                 </div>
                 <div class="detail-card-content" id="additionalStudyProgramContent">
@@ -150,13 +160,13 @@
 
                 let schoolName = session.entityName;
 
-                if (parseInt(session.entityTypeId, 10) === 5) {
+             //   if (parseInt(session.entityTypeId, 10) === 5) {
                     // Multi-school network - get selected school name
                     const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
                     if (selectedSchoolName) {
                         schoolName = selectedSchoolName;
                     }
-                }
+              //  }
 
                 console.log('🏫 School context:', { schoolName, yearValue });
 
@@ -202,9 +212,19 @@
                 const editButton = card.querySelector('.btn-icon[id^="edit"]');
                 const addButton = card.querySelector('.btn-icon[id^="add"]');
 
-                // Hide buttons initially
-                if (addButton) addButton.style.display = 'none';
-                if (editButton) editButton.style.display = 'none';
+                // ✅ Check if card is currently expanded or collapsed
+                const isExpanded = !card.classList.contains('collapsed');
+
+                // Show/hide buttons based on initial state
+                if (addButton) addButton.style.display = 'none'; // Always hide add button initially
+
+                if (editButton) {
+                    // ✅ Show edit button if card is already expanded, hide if collapsed
+                    editButton.style.display = isExpanded ? 'inline-flex' : 'none';
+                }
+
+                // ✅ Set correct toggle symbol based on initial state
+                toggle.textContent = isExpanded ? '▲' : '▼';
 
                 // ✅ SEPARATE HANDLER 1: Toggle button click
                 toggle.addEventListener('click', function (e) {
@@ -241,7 +261,7 @@
                 // Expand
                 card.classList.remove('collapsed');
                 card.classList.add('expanded');
-                toggle.textContent = '×';
+                toggle.textContent = '▲';
 
                 // Show edit button when expanded
                 if (editButton) {
@@ -268,7 +288,7 @@
                 // Collapse
                 card.classList.remove('expanded');
                 card.classList.add('collapsed');
-                toggle.textContent = '+';
+                toggle.textContent = '▼';
 
                 // Hide all action buttons when collapsed
                 if (editButton) {
@@ -296,54 +316,58 @@
         // Card Edit Configuration - Centralized card behavior definitions
         // ============================================================================
 
-        const CARD_EDIT_CONFIG = {
-            schoolClasses: {
-                editMode: 'schoolClassesEditMode',
-                editButtonId: 'editClassesBtn',
-                addButtonId: 'addClassBtn',
-                tableContainerId: 'classesTableContainer',
-                hasActionsColumn: true,
-                hasDisplayFunction: false
-            },
-            schoolAttributes: {
-                editMode: 'schoolAttributesEditMode',
-                editButtonId: 'editAttributesBtn',
-                addButtonId: null,
-                tableContainerId: null,
-                hasActionsColumn: false,
-                hasDisplayFunction: true,
-                displayFunction: 'displaySchoolAttributes',
-                dataSource: 'lastSchoolAttributesData'
-            },
-            signLanguageTranslators: {
-                editMode: 'signLanguageTranslatorsEditMode',
-                editButtonId: 'editTranslatorsBtn',
-                addButtonId: 'addTranslatorBtn',
-                tableContainerId: 'translatorsTableContainer',
-                hasActionsColumn: false,
-                hasDisplayFunction: true,
-                displayFunction: 'displaySignLanguageTranslators',
-                dataSource: 'lastSignLanguageTranslatorsData'
-            },
-            schoolTracks: {
-                editMode: 'schoolTracksEditMode',
-                editButtonId: 'editTracksBtn',
-                addButtonId: 'addTrackBtn',
-                tableContainerId: 'tracksTableContainer',
-                hasActionsColumn: false,
-                hasDisplayFunction: true,
-                displayFunction: 'displaySchoolTracks',
-                dataSource: 'lastSchoolTracksData'
-            },
-            schoolAdditionalStudy: {
-                editMode: 'schoolAdditionalStudyEditMode',
-                editButtonId: 'editAdditionalStudyBtn',
-                addButtonId: 'addAdditionalStudyBtn',
-                tableContainerId: 'additionalStudyTableContainer',
-                hasActionsColumn: true,
-                hasDisplayFunction: false
-            }
-        };
+        // Use window scope to prevent redeclaration errors on page reload
+        if (!window.CARD_EDIT_CONFIG) {
+            window.CARD_EDIT_CONFIG = {
+                schoolClasses: {
+                    editMode: 'schoolClassesEditMode',
+                    editButtonId: 'editClassesBtn',
+                    addButtonId: 'addClassBtn',
+                    tableContainerId: 'classesTableContainer',
+                    hasActionsColumn: true,
+                    hasDisplayFunction: false
+                },
+                schoolAttributes: {
+                    editMode: 'schoolAttributesEditMode',
+                    editButtonId: 'editAttributesBtn',
+                    addButtonId: null,
+                    tableContainerId: null,
+                    hasActionsColumn: false,
+                    hasDisplayFunction: true,
+                    displayFunction: 'displaySchoolAttributes',
+                    dataSource: 'lastSchoolAttributesData'
+                },
+                signLanguageTranslators: {
+                    editMode: 'signLanguageTranslatorsEditMode',
+                    editButtonId: 'editTranslatorsBtn',
+                    addButtonId: 'addTranslatorBtn',
+                    tableContainerId: 'translatorsTableContainer',
+                    hasActionsColumn: false,
+                    hasDisplayFunction: true,
+                    displayFunction: 'displaySignLanguageTranslators',
+                    dataSource: 'lastSignLanguageTranslatorsData'
+                },
+                schoolTracks: {
+                    editMode: 'schoolTracksEditMode',
+                    editButtonId: 'editTracksBtn',
+                    addButtonId: 'addTrackBtn',
+                    tableContainerId: 'tracksTableContainer',
+                    hasActionsColumn: false,
+                    hasDisplayFunction: true,
+                    displayFunction: 'displaySchoolTracks',
+                    dataSource: 'lastSchoolTracksData'
+                },
+                schoolAdditionalStudy: {
+                    editMode: 'schoolAdditionalStudyEditMode',
+                    editButtonId: 'editAdditionalStudyBtn',
+                    addButtonId: 'addAdditionalStudyBtn',
+                    tableContainerId: 'additionalStudyTableContainer',
+                    hasActionsColumn: true,
+                    hasDisplayFunction: false
+                }
+            };
+        }
+
 
 
         // Setup edit classes button - TOGGLE ACTIONS COLUMN VISIBILITY
@@ -1011,7 +1035,7 @@
 
                 if (checkResult.success) {
                     if (checkResult.data.inUse) {
-                        alert(`לא ניתן למחוק כיתה זו. יש ${checkResult.data.studentCount} תלמידים המשויכים לכיתה.`);
+                        alert(`לא ניתן למחוק כיתה זו. יש תלמידים המשויכים לכיתה.`);
                         return;
                     }
 
@@ -2879,6 +2903,8 @@
         }
 
 
+
+
         function displaySchoolDetails(data) {
             console.log('🏫 Displaying school details:', data);
 
@@ -2899,6 +2925,7 @@
                     characterizationId: document.getElementById('schoolCharacterization')?.value || data.characterizationId,
                     educationStage: document.getElementById('schoolEducationStage')?.value || data.educationStage,
                     councilId: document.getElementById('schoolCouncil')?.value || data.councilId,
+                    councilSearchValue: document.getElementById('schoolCouncilSearch')?.value || '',
                     phone: document.getElementById('schoolPhone')?.value || data.phone || '',
                     email: document.getElementById('schoolEmail')?.value || data.email || ''
                 };
@@ -2909,6 +2936,7 @@
                     characterizationId: data.characterizationId,
                     educationStage: data.educationStage,
                     councilId: data.councilId,
+                    councilSearchValue: '',
                     phone: data.phone || '',
                     email: data.email || ''
                 };
@@ -2935,12 +2963,14 @@
         </option>`
             ).join('');
 
-            // Build council options
-            const councilOptions = window.councils.map(c =>
-                `<option value="${c.id}" ${currentValues.councilId == c.id ? 'selected' : ''}>
-            ${c.councilShortName}
-        </option>`
-            ).join('');
+            // Get current council name for autocomplete
+            let currentCouncilName = '';
+            if (currentValues.councilSearchValue) {
+                currentCouncilName = currentValues.councilSearchValue;
+            } else if (currentValues.councilId) {
+                const council = window.councils.find(c => c.id == currentValues.councilId);
+                currentCouncilName = council ? council.councilName : '';
+            }
 
             const detailsHTML = `
         <div class="detail-fields-grid">
@@ -3010,21 +3040,23 @@
                         `}
                     </p>
                     
-                    <p class="detail-field">
+                    <p class="detail-field" style="position: relative;">
                         <span class="detail-field-label">רשות:</span>
                         ${isEditMode ? `
-                            <select id="schoolCouncil"
-                                    style="
-                                        padding: 4px 8px;
-                                        border: 1px solid #dee2e6;
-                                        border-radius: 4px;
-                                        font-size: 14px;
-                                        direction: rtl;
-                                        min-width: 200px;
-                                    ">
-                                <option value="">בחר רשות...</option>
-                                ${councilOptions}
-                            </select>
+                            <input type="text" 
+                                   id="schoolCouncilSearch"
+                                   value="${currentCouncilName}"
+                                   placeholder="הקלד לחיפוש..."
+                                   autocomplete="off"
+                                   style="
+                                       padding: 4px 8px;
+                                       border: 1px solid #dee2e6;
+                                       border-radius: 4px;
+                                       font-size: 14px;
+                                       direction: rtl;
+                                       min-width: 200px;
+                                   ">
+                            <input type="hidden" id="schoolCouncil" value="${currentValues.councilId || ''}">
                         ` : `
                             <span class="detail-field-value">${data.councilName || 'לא זמין'}</span>
                         `}
@@ -3129,10 +3161,188 @@
             // ✅ Re-attach change listeners after re-rendering
             if (isEditMode) {
                 addSchoolDetailsChangeListeners();
+                setupCouncilAutocomplete(); // ✅ Setup autocomplete dropdown
             }
 
             console.log('✅ School details displayed in', isEditMode ? 'EDIT' : 'VIEW', 'mode');
         }
+
+        // Setup council autocomplete dropdown
+        function setupCouncilAutocomplete() {
+            const searchInput = document.getElementById('schoolCouncilSearch');
+            const hiddenInput = document.getElementById('schoolCouncil');
+
+            if (!searchInput || !hiddenInput) return;
+
+            console.log('🔍 Setting up council autocomplete');
+
+            // Create dropdown container
+            let dropdown = document.getElementById('councilDropdown');
+            if (dropdown) {
+                dropdown.remove();
+            }
+
+            dropdown = document.createElement('div');
+            dropdown.id = 'councilDropdown';
+            dropdown.style.cssText = `
+                position: fixed;
+                background: white;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                max-height: 200px;
+                overflow-y: auto;
+                display: none;
+                z-index: 9999;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                direction: rtl;
+            `;
+            document.body.appendChild(dropdown);
+
+            let selectedIndex = -1;
+
+            // Position dropdown below input
+            function positionDropdown() {
+                const rect = searchInput.getBoundingClientRect();
+                dropdown.style.top = `${rect.bottom + window.scrollY}px`;
+                dropdown.style.left = `${rect.left + window.scrollX}px`;
+                dropdown.style.width = `${rect.width}px`;
+            }
+
+            // Filter and show suggestions
+            function showSuggestions(query) {
+                if (!query || query.length < 1) {
+                    dropdown.style.display = 'none';
+                    return;
+                }
+
+                const filtered = window.councils.filter(c =>
+                    c.councilName.includes(query) ||
+                    (c.councilFullName && c.councilFullName.includes(query))
+                ).slice(0, 10);
+
+                if (filtered.length === 0) {
+                    dropdown.innerHTML = '<div style="padding: 8px; color: #6c757d;">לא נמצאו תוצאות</div>';
+                    dropdown.style.display = 'block';
+                    positionDropdown();
+                    return;
+                }
+
+                dropdown.innerHTML = filtered.map((c, index) => `
+                    <div class="council-option" 
+                         data-council-id="${c.id}"
+                         data-council-name="${c.councilName}"
+                         data-index="${index}"
+                         style="
+                             padding: 8px 12px;
+                             cursor: pointer;
+                             border-bottom: 1px solid #f0f0f0;
+                             background: ${index === selectedIndex ? '#f8f9fa' : 'white'};
+                         "
+                         onmouseover="this.style.background='#f8f9fa'"
+                         onmouseout="this.style.background='${index === selectedIndex ? '#f8f9fa' : 'white'}'">
+                        ${c.councilName}
+                    </div>
+                `).join('');
+
+                dropdown.style.display = 'block';
+                positionDropdown();
+                selectedIndex = -1;
+
+                // Add click handlers
+                dropdown.querySelectorAll('.council-option').forEach(option => {
+                    option.onclick = function () {
+                        const councilId = this.dataset.councilId;
+                        const councilName = this.dataset.councilName;
+                        selectCouncil(councilId, councilName);
+                    };
+                });
+            }
+
+            // Select a council
+            function selectCouncil(id, name) {
+                searchInput.value = name;
+                hiddenInput.value = id;
+                dropdown.style.display = 'none';
+                selectedIndex = -1;
+
+                // Trigger change event
+                window.hasUnsavedSchoolDetailsChanges = true;
+                updateSchoolDetailsCardTitle();
+
+                console.log('✅ Council selected:', name, 'ID:', id);
+            }
+
+            // Input event - filter as user types
+            searchInput.addEventListener('input', function () {
+                const query = this.value.trim();
+                if (!query) {
+                    hiddenInput.value = '';
+                }
+                showSuggestions(query);
+            });
+
+            // Focus event - show dropdown if has value
+            searchInput.addEventListener('focus', function () {
+                const query = this.value.trim();
+                if (query) {
+                    showSuggestions(query);
+                }
+            });
+
+            // Keyboard navigation
+            searchInput.addEventListener('keydown', function (e) {
+                const options = dropdown.querySelectorAll('.council-option');
+
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (options.length > 0) {
+                        selectedIndex = Math.min(selectedIndex + 1, options.length - 1);
+                        options.forEach((opt, idx) => {
+                            opt.style.background = idx === selectedIndex ? '#f8f9fa' : 'white';
+                        });
+                        options[selectedIndex]?.scrollIntoView({ block: 'nearest' });
+                    }
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (options.length > 0) {
+                        selectedIndex = Math.max(selectedIndex - 1, 0);
+                        options.forEach((opt, idx) => {
+                            opt.style.background = idx === selectedIndex ? '#f8f9fa' : 'white';
+                        });
+                        options[selectedIndex]?.scrollIntoView({ block: 'nearest' });
+                    }
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (selectedIndex >= 0 && options[selectedIndex]) {
+                        const option = options[selectedIndex];
+                        selectCouncil(option.dataset.councilId, option.dataset.councilName);
+                    }
+                } else if (e.key === 'Escape') {
+                    dropdown.style.display = 'none';
+                    selectedIndex = -1;
+                }
+            });
+
+            // Click outside to close
+            document.addEventListener('click', function closeOnClickOutside(e) {
+                if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                    selectedIndex = -1;
+                }
+            });
+
+            // Update position on scroll/resize
+            window.addEventListener('scroll', positionDropdown);
+            window.addEventListener('resize', positionDropdown);
+
+            console.log('✅ Council autocomplete setup complete');
+        }
+
+        // Export to window
+        window.setupCouncilAutocomplete = setupCouncilAutocomplete;
+
+        //  Update editAddress OK button handler to raise changes flag
+
 
         //  Update editAddress OK button handler to raise changes flag
         async function editAddress() {
@@ -3278,13 +3488,13 @@
                 let selectedCouncilId = null;
 
                 const matchingCouncil = window.councils.find(c =>
-                    c.councilShortName === cityToMatch || c.id === data.councilId
+                    c.councilName === cityToMatch || c.id === data.councilId
                 );
 
                 if (matchingCouncil && cityInput) {
-                    cityInput.value = matchingCouncil.councilShortName;
+                    cityInput.value = matchingCouncil.councilName;
                     selectedCouncilId = matchingCouncil.id;
-                    console.log('✅ Pre-selected council:', matchingCouncil.councilShortName, 'ID:', selectedCouncilId);
+                    console.log('✅ Pre-selected council:', matchingCouncil.councilName, 'ID:', selectedCouncilId);
                 }
 
                 const citySuggestions = document.getElementById('citySuggestions');
@@ -3293,7 +3503,7 @@
                     if (!citySuggestions || !cityInput) return;
 
                     const filtered = window.councils.filter(c =>
-                        c.councilShortName.includes(filter) ||
+                        c.councilName.includes(filter) ||
                         (c.councilFullName && c.councilFullName.includes(filter))
                     ).slice(0, 10);
 
@@ -3305,7 +3515,7 @@
                     citySuggestions.innerHTML = filtered.map(c => `
                 <div class="city-suggestion-item" 
                      data-council-id="${c.id}"
-                     data-council-name="${c.councilShortName}"
+                     data-council-name="${c.councilName}"
                      style="
                          padding: 8px 12px;
                          cursor: pointer;
@@ -3314,8 +3524,8 @@
                      "
                      onmouseover="this.style.background='#f8f9fa'"
                      onmouseout="this.style.background='white'">
-                    ${c.councilShortName}
-                    ${c.councilFullName && c.councilFullName !== c.councilShortName ?
+                    ${c.councilName}
+                    ${c.councilFullName && c.councilFullName !== c.councilName ?
                             `<span style="color: #6c757d; font-size: 0.9em;"> - ${c.councilFullName}</span>` :
                             ''}
                 </div>
@@ -4718,7 +4928,7 @@
                         let response;
                         if (programData) {
                             // Update existing program
-                            response = await fetch(AppConfig.getApiUrl(`schooladditionalstudy programs/${programData.id}`), {
+                            response = await fetch(AppConfig.getApiUrl(`schoolAdditionalStudyPrograms/${programData.id}`), {
                                 method: 'PUT',
                                 headers: {
                                     'Authorization': `Bearer ${authToken}`,
@@ -4728,7 +4938,7 @@
                             });
                         } else {
                             // Create new program
-                            response = await fetch(AppConfig.getApiUrl('schooladditionalstudy programs'), {
+                            response = await fetch(AppConfig.getApiUrl('schoolAdditionalStudyPrograms'), {
                                 method: 'POST',
                                 headers: {
                                     'Authorization': `Bearer ${authToken}`,
@@ -5224,15 +5434,15 @@
         // Export to window for global access
 
         window.toggleSchoolDetailsEdit = toggleSchoolDetailsEdit;
-        window.toggleClassesEdit = toggleClassesEdit;
-        window.toggleAttributesEdit = toggleAttributesEdit;
-        window.toggleTranslatorsEdit = toggleTranslatorsEdit;
-        window.toggleTracksEdit = toggleTracksEdit;
-        window.toggleAdditionalStudyEdit = toggleAdditionalStudyEdit;
-        window.handleAddClassClick = handleAddClassClick;
-        window.handleAddTranslatorClick = handleAddTranslatorClick;
-        window.handleAddTrackClick = handleAddTrackClick;
-        window.handleAddAdditionalStudyClick = handleAddAdditionalStudyClick;
+        //     window.toggleClassesEdit = toggleClassesEdit;
+        //   window.toggleAttributesEdit = toggleAttributesEdit;
+        // window.toggleTranslatorsEdit = toggleTranslatorsEdit;
+        //   window.toggleTracksEdit = toggleTracksEdit;
+        //   window.toggleAdditionalStudyEdit = toggleAdditionalStudyEdit;
+        //  window.handleAddClassClick = handleAddClassClick;
+        //   window.handleAddTranslatorClick = handleAddTranslatorClick;
+        // window.handleAddTrackClick = handleAddTrackClick;
+        //  window.handleAddAdditionalStudyClick = handleAddAdditionalStudyClick;
 
         // Make functions globally available following Cross-Component Communication
         window.initializeCollapsibleCards = initializeCollapsibleCards;

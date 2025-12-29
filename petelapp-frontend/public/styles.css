@@ -370,9 +370,9 @@ body {
 .content-card {
     background: var(--card-background);
     border-radius: var(--border-radius-large);
-    padding: 30px;
+    padding: 20px;
     box-shadow: var(--box-shadow-medium);
-    margin-bottom: 20px;
+    margin-bottom: 10px;
 }
 
 /* Dashboard */
@@ -1113,20 +1113,20 @@ body {
     background: #f8f9fa;
     border: 1px solid #dee2e6;
     border-radius: 3px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     overflow: hidden;
     transition: all 0.3s ease;
 }
 
 .detail-card-header {
     background: #e9ecef;
-    padding: 8px 15px;
+    padding: 5px 15px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     cursor: pointer;
     user-select: none;
-    min-height: 50px;
+    min-height: 15px;
     border-bottom: 2px solid #dee2e6;
 }
 
@@ -1159,12 +1159,12 @@ body {
     background: none;
     border: none;
     color: white;
-    font-size: 24px;
+    font-size: 20px;
     font-weight: bold;
     cursor: pointer;
     padding: 0;
-    width: 28px;
-    height: 28px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1183,12 +1183,12 @@ body {
 }
 
 .detail-card.expanded .collapse-toggle {
-    transform: rotate(45deg);
+    transform: rotate(90eg);
 }
 
 
 .detail-card-content {
-    padding: 20px;
+    padding: 10px;
     background: white;
     max-height: 2000px;
     overflow: hidden;

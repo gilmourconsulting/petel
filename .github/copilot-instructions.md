@@ -1677,6 +1677,58 @@ worksheet.View.RightToLeft = true;
 
 ## Common Development Issues & Solutions
 
+### Council Data Structure
+
+**Problem**: Council dropdown shows "undefined" or incorrect data
+
+**Root Cause**: Backend API returns `councilName` property, but frontend code was using `councilShortName`
+
+**Solution**: Always use `councilName` for display and selection
+
+```javascript
+// ✅ CORRECT - Use councilName from API
+const councilOptions = window.councils.map(c =>
+    `<option value="${c.id}">${c.councilName}</option>`
+).join('');
+
+// ❌ WRONG - councilShortName may not exist or be undefined
+const councilOptions = window.councils.map(c =>
+    `<option value="${c.id}">${c.councilShortName}</option>`  // NO!
+).join('');
+```
+
+**Dynamic Council Dropdown Pattern**:
+
+```javascript
+// ✅ Autocomplete/search dropdown for councils
+function setupCouncilAutocomplete() {
+    const searchInput = document.getElementById('schoolCouncilSearch');
+    const hiddenInput = document.getElementById('schoolCouncil');
+    const dropdown = document.getElementById('councilDropdown');
+
+    // Filter councils as user types
+    searchInput.addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        const filtered = window.councils.filter(c => 
+            c.councilName.toLowerCase().includes(query)
+        );
+        
+        // Display filtered results in dropdown
+        showDropdown(filtered);
+    });
+
+    // Keyboard navigation (Arrow Up/Down, Enter, Escape)
+    // Click outside to close
+    // Selection updates both visible input and hidden ID
+}
+```
+
+**Benefits**:
+- ✅ Faster selection for large lists (100+ councils)
+- ✅ Better UX - user can type to search
+- ✅ Keyboard navigation support
+- ✅ Mobile-friendly
+
 ### Navigation Property Null Reference
 
 **Problem**: `NullReferenceException` when accessing navigation property
