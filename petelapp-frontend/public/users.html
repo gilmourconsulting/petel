@@ -146,8 +146,8 @@
 
                 <div class="form-group">
                     <label for="userUsername">שם משתמש *</label>
-                    <input type="text" id="userUsername" name="username" required readonly>
-                    <small>שם משתמש לא ניתן לעדכון</small>
+                    <input type="text" id="userUsername" name="username" required>
+                    <small id="usernameHint">שם משתמש ייחודי</small>
                 </div>
 
                 <div class="form-row">
@@ -160,26 +160,29 @@
                         <input type="text" id="userLastName" name="lastName" required>
                     </div>
                 </div>
+
+                <div class="form-row">
+                    <div class="form-group form-col">
+                        <label for="userEmail">דוא"ל</label>
+                        <input type="email" id="userEmail" name="email">
+                    </div>
+                    <div class="form-group form-col">
+                        <label for="userPhone">טלפון</label>
+                        <input type="tel" id="userPhone" name="phone">
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <label for="userEntityId">ישות *</label>
                     <select id="userEntityId" name="entityId" required>
                         <option value="">בחר ישות...</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label for="userEmail">דוא"ל</label>
-                    <input type="email" id="userEmail" name="email">
-                </div>
-
-                <div class="form-group">
-                    <label for="userPhone">טלפון</label>
-                    <input type="tel" id="userPhone" name="phone">
-                </div>
 
                 <div id="passwordGroup" class="form-group">
                     <label for="userPassword">סיסמה *</label>
                     <input type="password" id="userPassword" name="password" required>
-                    <small>סיסמה חובה לחשבון חדש</small>
+                    <small>לפחות 6 תווים</small>
                 </div>
 
                 <div class="form-group">
@@ -202,10 +205,60 @@
     window.usersTableInstance = window.usersTableInstance || null;
     window.currentEditingUserId = null;
     window.allUsersData = [];
+    window.allEntities = window.allEntities || [];
 
     /**
-     * Load and display all users
+     * Load entities on page initialization
      */
+    async function loadEntities() {
+        try {
+            console.log('📋 Loading entities...');
+            
+            const authToken = sessionStorage.getItem('authToken');
+            if (!authToken) {
+                console.error('❌ No auth token for loading entities');
+                return;
+            }
+
+            const response = await fetch(AppConfig.getApiUrl('entities/login'), {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                const entities = await response.json();
+                window.allEntities = entities;
+                console.log(`✅ Loaded ${entities.length} entities`);
+            } else {
+                console.error('❌ Failed to load entities:', response.status);
+            }
+        } catch (error) {
+            console.error('❌ Error loading entities:', error);
+        }
+    }
+
+    /**
+     * Populate entities dropdown
+     */
+    function populateEntitiesDropdown(selectedEntityId = null) {
+        const dropdown = document.getElementById('userEntityId');
+        if (!dropdown) return;
+        
+        if (!window.allEntities || window.allEntities.length === 0) {
+            dropdown.innerHTML = '<option value="">טוען ישויות...</option>';
+            return;
+        }
+        
+        const options = window.allEntities.map(entity =>
+            `<option value="${entity.id}" ${selectedEntityId == entity.id ? 'selected' : ''}>${entity.name}</option>`
+        ).join('');
+        
+        dropdown.innerHTML = '<option value="">בחר ישות...</option>' + options;
+    }
+
     /**
      * Load and display all users
      */
@@ -256,6 +309,7 @@
             showLoadingError('שגיאה בטעינת נתוני המשתמשים');
         }
     }
+
     /**
      * Update summary statistics
      */
@@ -332,7 +386,7 @@
                 }
             },
             {
-                key: 'entityName',  // ✅ ADD: Show entity
+                key: 'entityName',
                 label: 'ישות',
                 sortable: true,
                 readOnly: true
@@ -358,8 +412,6 @@
             `
             }
         ];
-
-
 
         // Cleanup previous instance
         if (window.usersTableInstance) {
@@ -404,84 +456,85 @@
         await window.navigateTo('maindashboard');
     }
 
-/**
- * Show create user dialog
- */
-async function showCreateUserDialog() {
-    console.log('📝 Opening create user dialog...');
+    /**
+     * Show create user dialog
+     */
+    async function showCreateUserDialog() {
+        console.log('📝 Opening create user dialog...');
 
-    document.getElementById('userDialogTitle').textContent = 'משתמש חדש';
-    document.getElementById('isEditMode').value = 'false';
+        document.getElementById('userDialogTitle').textContent = 'משתמש חדש';
+        document.getElementById('isEditMode').value = 'false';
 
-    // Clear form
-    document.getElementById('userForm').reset();
-    document.getElementById('userId').value = '';
-    document.getElementById('userUsername').value = '';
-    document.getElementById('userUsername').removeAttribute('readonly');
+        // Clear form
+        document.getElementById('userForm').reset();
+        document.getElementById('userId').value = '';
+        document.getElementById('userUsername').value = '';
+        document.getElementById('userUsername').removeAttribute('readonly');
+        document.getElementById('usernameHint').textContent = 'שם משתמש ייחודי';
 
-    // Load entities dropdown
-    await loadEntitiesDropdown();
-
-    // Show password field for new users
-    document.getElementById('passwordGroup').style.display = 'block';
-    document.getElementById('userPassword').required = true;
-
-    // Show dialog
-    document.getElementById('userDialog').style.display = 'flex';
-}
-
-/**
- * Edit user - load user data and show dialog
- */
-async function editUser(userId) {
-    console.log(`✏️ Editing user ${userId}...`);
-
-    try {
-        const user = window.allUsersData.find(u => u.id === userId);
-        if (!user) {
-            alert('משתמש לא נמצא');
-            return;
+        // Load entities if not already loaded
+        if (!window.allEntities || window.allEntities.length === 0) {
+            await loadEntities();
         }
-
-        document.getElementById('userDialogTitle').textContent = 'עדכון משתמש';
-        document.getElementById('isEditMode').value = 'true';
-
-        // Load entities dropdown first
-        await loadEntitiesDropdown();
-
-        // Populate form
-        document.getElementById('userId').value = user.id;
-        document.getElementById('userUsername').value = user.username;
-        document.getElementById('userUsername').setAttribute('readonly', 'readonly');
-        document.getElementById('userFirstName').value = user.firstName;
-        document.getElementById('userLastName').value = user.lastName;
-        document.getElementById('userEmail').value = user.email || '';
-        document.getElementById('userPhone').value = user.phone || '';
-        document.getElementById('userIsActive').checked = user.isActive;
         
-        // ✅ Set entity name (not ID) since it's now a text input
-        const selectedEntity = window.allEntities.find(e => e.id === user.entityId);
-        if (selectedEntity) {
-            document.getElementById('userEntityId').value = selectedEntity.name;
-            
-            // Also set the hidden field with the ID
-            let hiddenField = document.getElementById('selectedEntityId');
-            if (hiddenField) {
-                hiddenField.value = user.entityId;
-            }
-        }
+        // Populate dropdown
+        populateEntitiesDropdown();
 
-        // Hide password field for existing users
-        document.getElementById('passwordGroup').style.display = 'none';
-        document.getElementById('userPassword').required = false;
+        // Show password field for new users
+        document.getElementById('passwordGroup').style.display = 'block';
+        document.getElementById('userPassword').required = true;
 
         // Show dialog
         document.getElementById('userDialog').style.display = 'flex';
-    } catch (error) {
-        console.error('❌ Error editing user:', error);
-        alert('שגיאה בטעינת פרטי המשתמש');
     }
-}
+
+    /**
+     * Edit user - load user data and show dialog
+     */
+    async function editUser(userId) {
+        console.log(`✏️ Editing user ${userId}...`);
+
+        try {
+            const user = window.allUsersData.find(u => u.id === userId);
+            if (!user) {
+                alert('משתמש לא נמצא');
+                return;
+            }
+
+            document.getElementById('userDialogTitle').textContent = 'עדכון משתמש';
+            document.getElementById('isEditMode').value = 'true';
+
+            // Load entities if not already loaded
+            if (!window.allEntities || window.allEntities.length === 0) {
+                await loadEntities();
+            }
+            
+            // Populate dropdown with selected value
+            populateEntitiesDropdown(user.entityId);
+
+            // Populate form
+            document.getElementById('userId').value = user.id;
+            document.getElementById('userUsername').value = user.username;
+            document.getElementById('userUsername').setAttribute('readonly', 'readonly');
+            document.getElementById('usernameHint').textContent = 'שם משתמש לא ניתן לעדכון';
+            document.getElementById('userFirstName').value = user.firstName;
+            document.getElementById('userLastName').value = user.lastName;
+            document.getElementById('userEmail').value = user.email || '';
+            document.getElementById('userPhone').value = user.phone || '';
+            document.getElementById('userIsActive').checked = user.isActive;
+
+            // Hide password field for existing users
+            document.getElementById('passwordGroup').style.display = 'none';
+            document.getElementById('userPassword').required = false;
+
+            // Show dialog
+            document.getElementById('userDialog').style.display = 'flex';
+        } catch (error) {
+            console.error('❌ Error editing user:', error);
+            alert('שגיאה בטעינת פרטי המשתמש');
+        }
+    }
+
     /**
      * Delete user
      */
@@ -512,7 +565,11 @@ async function editUser(userId) {
             if (response.ok) {
                 console.log('✅ User deleted successfully');
                 alert('המשתמש הוסר בהצלחה');
-                await refreshUsersData();
+                
+                // ✅ Remove from local array immediately
+                window.allUsersData = window.allUsersData.filter(u => u.id !== userId);
+                updateUsersSummary(window.allUsersData);
+                renderUsersTable(window.allUsersData);
             } else {
                 console.error('❌ Delete failed:', result.message);
                 alert(`שגיאה: ${result.message}`);
@@ -523,85 +580,127 @@ async function editUser(userId) {
         }
     }
 
- 
-/**
- * Handle user form submission
- */
-async function handleUserFormSubmit(event) {
-    event.preventDefault();
+    /**
+     * Handle user form submission
+     */
+    async function handleUserFormSubmit(event) {
+        event.preventDefault();
 
-    const isEditMode = document.getElementById('isEditMode').value === 'true';
-    const userId = document.getElementById('userId').value;
+        const isEditMode = document.getElementById('isEditMode').value === 'true';
+        const userId = document.getElementById('userId').value;
 
-    const formData = {
-        firstName: document.getElementById('userFirstName').value,
-        lastName: document.getElementById('userLastName').value,
-        email: document.getElementById('userEmail').value || null,
-        phone: document.getElementById('userPhone').value || null,
-        isActive: document.getElementById('userIsActive').checked
-    };
+        const formData = {
+            firstName: document.getElementById('userFirstName').value,
+            lastName: document.getElementById('userLastName').value,
+            email: document.getElementById('userEmail').value || null,
+            phone: document.getElementById('userPhone').value || null,
+            isActive: document.getElementById('userIsActive').checked
+        };
 
-    try {
-        const authToken = sessionStorage.getItem('authToken');
-        if (!authToken) {
-            alert('נדרש אימות. אנא התחבר מחדש.');
-            return;
-        }
-
-        let url, method, body;
-
-        if (isEditMode) {
-            // Update existing user
-            console.log(`📝 Updating user ${userId}...`);
-            url = AppConfig.getApiUrl(`users/${userId}`);
-            method = 'PUT';
-            body = JSON.stringify(formData);
-        } else {
-            // Create new user - get entity ID from hidden field
-            const entityIdField = document.getElementById('selectedEntityId');
-            const entityId = entityIdField ? entityIdField.value : null;
-            
-            if (!entityId) {
-                alert('נא לבחור ישות');
+        try {
+            const authToken = sessionStorage.getItem('authToken');
+            if (!authToken) {
+                alert('נדרש אימות. אנא התחבר מחדש.');
                 return;
             }
-            
-            console.log('📝 Creating new user...');
-            url = AppConfig.getApiUrl('users');
-            method = 'POST';
-            body = JSON.stringify({
-                username: document.getElementById('userUsername').value,
-                password: document.getElementById('userPassword').value,
-                entityId: parseInt(entityId),
-                ...formData
+
+            let url, method, body;
+
+            if (isEditMode) {
+                // Update existing user
+                console.log(`📝 Updating user ${userId}...`);
+                url = AppConfig.getApiUrl(`users/${userId}`);
+                method = 'PUT';
+                body = JSON.stringify(formData);
+            } else {
+                // Create new user - get entity ID directly from select
+                const entityId = document.getElementById('userEntityId').value;
+                
+                if (!entityId) {
+                    alert('נא לבחור ישות');
+                    return;
+                }
+                
+                console.log('📝 Creating new user...');
+                url = AppConfig.getApiUrl('users');
+                method = 'POST';
+                body = JSON.stringify({
+                    username: document.getElementById('userUsername').value,
+                    password: document.getElementById('userPassword').value,
+                    entityId: parseInt(entityId),
+                    ...formData
+                });
+            }
+
+            const response = await fetch(url, {
+                method: method,
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: body
             });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                console.log('✅ User saved successfully');
+                alert(result.message || 'נשמרו הנתונים בהצלחה');
+                closeUserDialog();
+                
+                // ✅ IMMEDIATE UPDATE: Add new user to local array or update existing
+                if (!isEditMode && result.data) {
+                    // Get entity name for display
+                    const entity = window.allEntities.find(e => e.id === result.data.entityId);
+                    const newUser = {
+                        id: result.data.id,
+                        username: result.data.username,
+                        firstName: result.data.firstName,
+                        lastName: result.data.lastName,
+                        fullName: `${result.data.firstName} ${result.data.lastName}`,
+                        email: result.data.email,
+                        phone: result.data.phone,
+                        isActive: result.data.isActive,
+                        entityId: result.data.entityId,
+                        entityName: entity ? entity.name : '',
+                        lastLogin: null
+                    };
+                    
+                    // Add to array immediately
+                    window.allUsersData.push(newUser);
+                    console.log('✅ Added new user to local array immediately');
+                } else if (isEditMode) {
+                    // Update existing user in array
+                    const index = window.allUsersData.findIndex(u => u.id === parseInt(userId));
+                    if (index !== -1) {
+                        const entity = window.allEntities.find(e => e.id === window.allUsersData[index].entityId);
+                        window.allUsersData[index] = {
+                            ...window.allUsersData[index],
+                            firstName: formData.firstName,
+                            lastName: formData.lastName,
+                            fullName: `${formData.firstName} ${formData.lastName}`,
+                            email: formData.email,
+                            phone: formData.phone,
+                            isActive: formData.isActive,
+                            entityName: entity ? entity.name : window.allUsersData[index].entityName
+                        };
+                        console.log('✅ Updated user in local array immediately');
+                    }
+                }
+                
+                // Update UI immediately without server call
+                updateUsersSummary(window.allUsersData);
+                renderUsersTable(window.allUsersData);
+                
+            } else {
+                console.error('❌ Save failed:', result.message);
+                alert(`שגיאה: ${result.message}`);
+            }
+        } catch (error) {
+            console.error('❌ Error saving user:', error);
+            alert('שגיאה בשמירת הנתונים');
         }
-
-        const response = await fetch(url, {
-            method: method,
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: body
-        });
-
-        const result = await response.json();
-
-        if (response.ok) {
-            console.log('✅ User saved successfully');
-            alert(result.message || 'נשמרו הנתונים בהצלחה');
-            closeUserDialog();
-            await refreshUsersData();
-        } else {
-            console.error('❌ Save failed:', result.message);
-            alert(`שגיאה: ${result.message}`);
-        }
-    } catch (error) {
-        console.error('❌ Error saving user:', error);
-        alert('שגיאה בשמירת הנתונים');
     }
-}
 
     /**
      * Close user dialog
@@ -624,83 +723,6 @@ async function handleUserFormSubmit(event) {
         </div>
     `;
     }
-
-
- /**
- * Load entities for dropdown with search filtering
- */
-async function loadEntitiesDropdown() {
-    try {
-        const authToken = sessionStorage.getItem('authToken');
-        if (!authToken) {
-            console.error('❌ No auth token for loading entities');
-            return;
-        }
-
-        const response = await fetch(AppConfig.getApiUrl('entities/login'), {
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to load entities: ${response.status}`);
-        }
-
-        const entities = await response.json();
-        
-        // Store entities globally for filtering
-        window.allEntities = entities;
-
-        const dropdown = document.getElementById('userEntityId');
-        
-        // Replace select with datalist for searchable dropdown
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.id = 'userEntityId';
-        input.name = 'entityId';
-        input.required = true;
-        input.placeholder = 'הקלד לחיפוש ישות...';
-        input.setAttribute('list', 'entitiesList');
-        input.autocomplete = 'off';
-        
-        const datalist = document.createElement('datalist');
-        datalist.id = 'entitiesList';
-        
-        entities.forEach(entity => {
-            const option = document.createElement('option');
-            option.value = entity.name;
-            option.setAttribute('data-id', entity.id);
-            datalist.appendChild(option);
-        });
-        
-        // Replace dropdown with input + datalist
-        dropdown.parentNode.replaceChild(input, dropdown);
-        input.parentNode.appendChild(datalist);
-        
-        // Add event listener to store selected entity ID in hidden field
-        input.addEventListener('change', function() {
-            const selectedEntity = entities.find(e => e.name === this.value);
-            if (selectedEntity) {
-                // Store the ID in a hidden field
-                let hiddenField = document.getElementById('selectedEntityId');
-                if (!hiddenField) {
-                    hiddenField = document.createElement('input');
-                    hiddenField.type = 'hidden';
-                    hiddenField.id = 'selectedEntityId';
-                    hiddenField.name = 'selectedEntityId';
-                    this.parentNode.appendChild(hiddenField);
-                }
-                hiddenField.value = selectedEntity.id;
-            }
-        });
-
-        console.log(`✅ Loaded ${entities.length} entities to searchable dropdown`);
-    } catch (error) {
-        console.error('❌ Error loading entities:', error);
-    }
-}
 
     /**
      * Export cleanup function for PageLifecycleManager
@@ -808,6 +830,7 @@ async function loadEntitiesDropdown() {
             alert('שגיאה בטעינת התפקידים: ' + error.message);
         }
     }
+
     /**
      * Render available roles list
      */
@@ -1002,92 +1025,93 @@ async function loadEntitiesDropdown() {
     function closeManageRolesDialog() {
         document.getElementById('manageRolesDialog').style.display = 'none';
     }
-/**
- * Show change password dialog
- */
-function changeUserPassword(userId, userName) {
-    console.log(`🔑 Changing password for user ${userId}...`);
-    
-    document.getElementById('changePasswordDialogTitle').textContent = `שינוי סיסמה: ${userName}`;
-    document.getElementById('changePasswordUserId').value = userId;
-    
-    // Clear form
-    document.getElementById('changePasswordForm').reset();
-    
-    // Show dialog
-    document.getElementById('changePasswordDialog').style.display = 'flex';
-}
 
-/**
- * Handle change password form submission
- */
-async function handleChangePasswordSubmit(event) {
-    event.preventDefault();
-    
-    const userId = document.getElementById('changePasswordUserId').value;
-    const newPassword = document.getElementById('newPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-    
-    // Validate passwords match
-    if (newPassword !== confirmPassword) {
-        alert('הסיסמאות אינן תואמות');
-        return;
+    /**
+     * Show change password dialog
+     */
+    function changeUserPassword(userId, userName) {
+        console.log(`🔑 Changing password for user ${userId}...`);
+        
+        document.getElementById('changePasswordDialogTitle').textContent = `שינוי סיסמה: ${userName}`;
+        document.getElementById('changePasswordUserId').value = userId;
+        
+        // Clear form
+        document.getElementById('changePasswordForm').reset();
+        
+        // Show dialog
+        document.getElementById('changePasswordDialog').style.display = 'flex';
     }
-    
-    // Validate password length
-    if (newPassword.length < 6) {
-        alert('הסיסמה חייבת להכיל לפחות 6 תווים');
-        return;
-    }
-    
-    try {
-        const authToken = sessionStorage.getItem('authToken');
-        if (!authToken) {
-            alert('נדרש אימות. אנא התחבר מחדש.');
+
+    /**
+     * Handle change password form submission
+     */
+    async function handleChangePasswordSubmit(event) {
+        event.preventDefault();
+        
+        const userId = document.getElementById('changePasswordUserId').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        // Validate passwords match
+        if (newPassword !== confirmPassword) {
+            alert('הסיסמאות אינן תואמות');
             return;
         }
         
-        console.log(`🔐 Changing password for user ${userId}...`);
-        
-        const response = await fetch(AppConfig.getApiUrl(`users/${userId}/change-password`), {
-            method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                newPassword: newPassword
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-            console.log('✅ Password changed successfully');
-            alert('הסיסמה שונתה בהצלחה');
-            closeChangePasswordDialog();
-        } else {
-            console.error('❌ Password change failed:', result.message);
-            alert(`שגיאה: ${result.message}`);
+        // Validate password length
+        if (newPassword.length < 6) {
+            alert('הסיסמה חייבת להכיל לפחות 6 תווים');
+            return;
         }
-    } catch (error) {
-        console.error('❌ Error changing password:', error);
-        alert('שגיאה בשינוי הסיסמה');
+        
+        try {
+            const authToken = sessionStorage.getItem('authToken');
+            if (!authToken) {
+                alert('נדרש אימות. אנא התחבר מחדש.');
+                return;
+            }
+            
+            console.log(`🔐 Changing password for user ${userId}...`);
+            
+            const response = await fetch(AppConfig.getApiUrl(`users/${userId}/change-password`), {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    newPassword: newPassword
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (response.ok) {
+                console.log('✅ Password changed successfully');
+                alert('הסיסמה שונתה בהצלחה');
+                closeChangePasswordDialog();
+            } else {
+                console.error('❌ Password change failed:', result.message);
+                alert(`שגיאה: ${result.message}`);
+            }
+        } catch (error) {
+            console.error('❌ Error changing password:', error);
+            alert('שגיאה בשינוי הסיסמה');
+        }
     }
-}
 
-/**
- * Close change password dialog
- */
-function closeChangePasswordDialog() {
-    console.log('🔐 Closing change password dialog');
-    document.getElementById('changePasswordDialog').style.display = 'none';
-    document.getElementById('changePasswordForm').reset();
-}
+    /**
+     * Close change password dialog
+     */
+    function closeChangePasswordDialog() {
+        console.log('🔐 Closing change password dialog');
+        document.getElementById('changePasswordDialog').style.display = 'none';
+        document.getElementById('changePasswordForm').reset();
+    }
 
-// Export functions
-window.changeUserPassword = changeUserPassword;
-window.closeChangePasswordDialog = closeChangePasswordDialog;
+    // Export functions
+    window.changeUserPassword = changeUserPassword;
+    window.closeChangePasswordDialog = closeChangePasswordDialog;
     window.cleanupUsersPage = cleanupUsersPage;
     window.loadUsersData = loadUsersData;
     window.refreshUsersData = refreshUsersData;
@@ -1095,7 +1119,13 @@ window.closeChangePasswordDialog = closeChangePasswordDialog;
     window.navigateToMainDashboard = navigateToMainDashboard;
     window.showCreateUserDialog = showCreateUserDialog;
     window.manageUserRoles = manageUserRoles;
+    window.loadEntities = loadEntities;
+    window.populateEntitiesDropdown = populateEntitiesDropdown;
 
-
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', async function() {
+        await loadEntities();
+        await loadUsersData();
+    });
 </script>
 

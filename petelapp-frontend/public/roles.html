@@ -750,8 +750,13 @@ async function addUserToRole(userId) {
 
         if (response.ok) {
             console.log('✅ User added to role');
+            
+            // ✅ IMMEDIATE UPDATE: Reload users in dialog
             await loadRoleUsersData(roleId);
-            await refreshRolesData(); // Refresh main table to update user count
+            
+            // ✅ Update main table to reflect new user count
+            await refreshRolesData();
+            
         } else {
             alert(`שגיאה: ${result.message}`);
         }
@@ -785,8 +790,17 @@ async function removeUserFromRole(userId) {
 
         if (response.ok) {
             console.log('✅ User removed from role');
+            
+            // ✅ IMMEDIATE VISUAL FEEDBACK: Force refresh of users dialog
             await loadRoleUsersData(roleId);
-            await refreshRolesData(); // Refresh main table to update user count
+            
+            // ✅ Update main roles table user count
+            const roleIndex = window.allRolesData.findIndex(r => r.id === parseInt(roleId));
+            if (roleIndex !== -1) {
+                window.allRolesData[roleIndex].userCount = Math.max(0, (window.allRolesData[roleIndex].userCount || 0) - 1);
+                renderRolesTable(window.allRolesData);
+            }
+            
         } else {
             alert(`שגיאה: ${result.message}`);
         }

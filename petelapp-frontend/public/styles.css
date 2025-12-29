@@ -1668,6 +1668,31 @@ body {
     padding: 6px;
 }
 
+/* Form row for side-by-side fields */
+.form-row {
+    display: flex;
+    gap: 15px;
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+.form-row .form-col {
+    flex: 1;
+    min-width: 0; /* Prevents flex items from overflowing */
+}
+
+/* Ensure form-group inside form-col doesn't add extra margin */
+.form-row .form-col .form-group {
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.form-row .form-col input,
+.form-row .form-col select {
+    width: 100%;
+    box-sizing: border-box;
+}
+
 .btn-upload {
     padding: 10px 20px;
     background-color: #28a745;
