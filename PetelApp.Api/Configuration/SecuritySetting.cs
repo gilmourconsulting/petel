@@ -4,6 +4,12 @@ namespace PetelApp.Api.Configuration
     {
         public bool OtpEnabled { get; set; }
         public string OtpIssuer { get; set; } = "Petel System";
+
+        /// <summary>
+        /// Session idle timeout in minutes. Default: 10 minutes
+        /// User will be automatically logged out after this period of inactivity
+        /// </summary>
+        public int SessionTimeoutMinutes { get; set; } = 10;
         
         // ✅ NEW: JWT Settings for main session tokens
         public JwtSettings Jwt { get; set; } = new JwtSettings();

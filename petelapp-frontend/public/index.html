@@ -14,6 +14,7 @@
     <script src="env-config.js"></script>
     <script src="config.js"></script>
     <script src="session-manager.js"></script>
+    <script src="session-timeout.js"></script>
     <script src="table-component.js"></script>
     <script src="debug.js"></script>
     <script src="page-lifecycle-config.js"></script>
@@ -434,12 +435,40 @@
         });
 
         // Logout function following Authentication & Session Management
-        function logout() {
-            // Clear session storage
-            sessionStorage.clear();
 
-            // Redirect to login page
-            window.location.href = 'login.html';
+        function logout() {
+            console.log('🚪 User logout initiated');
+
+            // Stop session timeout manager
+            if (window.SessionTimeoutManager) {
+                window.SessionTimeoutManager.stop();
+            }
+
+            const authToken = sessionStorage.getItem('authToken');
+
+            // Call logout API
+            if (authToken) {
+                fetch(AppConfig.getApiUrl('auth/logout'), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                })
+                    .then(() => {
+                        console.log('✅ Logout API called successfully');
+                    })
+                    .catch(error => {
+                        console.error('❌ Error calling logout API:', error);
+                    })
+                    .finally(() => {
+                        // Clear session and redirect
+                        sessionStorage.clear();
+                        window.location.href = 'login.html';
+                    });
+            } else {
+                sessionStorage.clear();
+                window.location.href = 'login.html';
+            }
         }
 
         // Execute scripts in dynamically loaded content following Common Gotchas

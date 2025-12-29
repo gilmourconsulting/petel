@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
+using PetelApp.Api.Configuration;
 using PetelApp.Api.Session;
 
 namespace PetelApp.Api.Controllers
@@ -9,15 +11,38 @@ namespace PetelApp.Api.Controllers
     public class SessionController : BaseController
     {
         private readonly UserSessionService _sessionService;
-
+        private readonly SecuritySettings _securitySettings;
 
         public SessionController(
             UserSessionService sessionService,
+            IOptions<SecuritySettings> securitySettings,
             ILogger<SessionController> logger)
                 : base(sessionService, logger)
         {
             _sessionService = sessionService;
-    
+            _securitySettings = securitySettings.Value;
+        }
+
+                /// <summary>
+        /// Get session timeout configuration for current user
+        /// Returns timeout settings from SecuritySettings configuration
+        /// </summary>
+        
+        [HttpGet("timeout-config")]
+        public IActionResult GetSessionTimeoutConfig()
+        {
+            var session = GetCurrentSession();
+            
+            if (session == null)
+            {
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+            }
+
+            return Ok(new
+            {
+                timeoutMinutes = _securitySettings.SessionTimeoutMinutes,
+                warningMinutes = 2 // Show warning 2 minutes before timeout
+            });
         }
 
         /// <summary>

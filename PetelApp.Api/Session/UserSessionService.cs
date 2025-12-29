@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using PetelApp.Api.Configuration;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using PetelApp.Api.Services;
@@ -13,14 +15,23 @@ namespace PetelApp.Api.Session
         private readonly ConcurrentDictionary<string, UserSession> _sessions = new();
         private readonly ILogger<UserSessionService> _logger;
         private readonly Timer _cleanupTimer;
+        private readonly SecuritySettings _securitySettings;
 
         private JwtTokenService? _jwtTokenService;
 
-        public UserSessionService(ILogger<UserSessionService> logger)
+        public UserSessionService(
+            ILogger<UserSessionService> logger,
+            IOptions<SecuritySettings> securitySettings)
         {
             _logger = logger;
-            // Cleanup expired sessions every 30 minutes
-            _cleanupTimer = new Timer(CleanupExpiredSessions, null, TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(30));
+            _securitySettings = securitySettings.Value;
+            
+            _logger.LogInformation("Session timeout configured: {TimeoutMinutes} minutes", 
+                _securitySettings.SessionTimeoutMinutes);
+            
+            // Cleanup expired sessions every 5 minutes
+            _cleanupTimer = new Timer(CleanupExpiredSessions, null, 
+                TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(5));
         }
 
 
@@ -144,6 +155,34 @@ namespace PetelApp.Api.Session
             CreateUserSession(userSession);
         }
 
+        /// <summary>
+        /// Check if session is valid (exists and not timed out)
+        /// </summary>
+        private bool IsSessionValid(string sessionId)
+        {
+            if (!_sessions.TryGetValue(sessionId, out var session))
+            {
+                return false;
+            }
+
+            // Check if session has timed out due to inactivity
+            var idleTime = DateTime.UtcNow - session.LastAccessedAt;
+            var timeoutMinutes = _securitySettings.SessionTimeoutMinutes;
+            
+            if (idleTime.TotalMinutes > timeoutMinutes)
+            {
+                _logger.LogInformation(
+                    "Session {SessionId} timed out. Idle for {IdleMinutes:F1} minutes (timeout: {TimeoutMinutes} minutes)",
+                    sessionId, idleTime.TotalMinutes, timeoutMinutes);
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Get user session and validate timeout
+        /// </summary>
         public UserSession? GetUserSession(string? token)
         {
             if (string.IsNullOrEmpty(token))
@@ -152,14 +191,14 @@ namespace PetelApp.Api.Session
                 return null;
             }
 
-            // ✅ Try JWT validation first
+            // Try JWT validation first
             if (_jwtTokenService != null)
             {
                 var sessionId = _jwtTokenService.ValidateTokenAndGetSessionId(token);
                 
                 if (sessionId != null && _sessions.TryGetValue(sessionId, out var sessionFromJwt))
                 {
-                    // Check if session is still valid (not expired)
+                    // Check if session is still valid (not expired or timed out)
                     if (IsSessionValid(sessionId))
                     {
                         // Update last accessed time
@@ -169,9 +208,9 @@ namespace PetelApp.Api.Session
                     }
                     else
                     {
-                        // Session expired, remove it
+                        // Session timed out, remove it
                         _sessions.TryRemove(sessionId, out _);
-                        _logger.LogInformation("Session {SessionId} expired and removed", sessionId);
+                        _logger.LogInformation("Session {SessionId} timed out and removed", sessionId);
                         return null;
                     }
                 }
@@ -182,7 +221,7 @@ namespace PetelApp.Api.Session
                 }
             }
 
-            // ✅ Fallback: Direct GUID lookup (for backward compatibility during migration)
+            // Fallback: Direct GUID lookup (for backward compatibility)
             if (_sessions.TryGetValue(token, out var session))
             {
                 if (IsSessionValid(token))
@@ -307,24 +346,6 @@ public Dictionary<string, string> GetAllSessionData(string sessionId)
             {
                 _logger.LogWarning("Session {SessionId} not found during invalidation attempt", sessionId);
             }
-        }
-
-        public bool IsSessionValid(string sessionId)
-        {
-            if (_sessions.TryGetValue(sessionId, out var session))
-            {
-                // Check if session is expired (24 hours)
-                if (DateTime.UtcNow - session.LastAccessedAt > TimeSpan.FromHours(24))
-                {
-                    _sessions.TryRemove(sessionId, out _);
-                    _logger.LogInformation("Session expired for session {SessionId}", sessionId);
-                    return false;
-                }
-
-                return true;
-            }
-
-            return false;
         }
 
         private void CleanupExpiredSessions(object? state)
