@@ -213,7 +213,7 @@
     async function loadEntities() {
         try {
             console.log('📋 Loading entities...');
-            
+
             const authToken = sessionStorage.getItem('authToken');
             if (!authToken) {
                 console.error('❌ No auth token for loading entities');
@@ -246,16 +246,16 @@
     function populateEntitiesDropdown(selectedEntityId = null) {
         const dropdown = document.getElementById('userEntityId');
         if (!dropdown) return;
-        
+
         if (!window.allEntities || window.allEntities.length === 0) {
             dropdown.innerHTML = '<option value="">טוען ישויות...</option>';
             return;
         }
-        
+
         const options = window.allEntities.map(entity =>
             `<option value="${entity.id}" ${selectedEntityId == entity.id ? 'selected' : ''}>${entity.name}</option>`
         ).join('');
-        
+
         dropdown.innerHTML = '<option value="">בחר ישות...</option>' + options;
     }
 
@@ -332,64 +332,66 @@
         console.log('🎨 Rendering users table...');
 
         const columns = [
-            {
-                key: 'id',
-                label: 'מזהה',
-                sortable: true,
-                readOnly: true,
-                hidden: true
-            },
-            {
-                key: 'username',
-                label: 'שם משתמש',
-                sortable: true,
-                readOnly: true
-            },
-            {
-                key: 'fullName',
-                label: 'שם מלא',
-                sortable: true,
-                readOnly: true
-            },
-            {
-                key: 'email',
-                label: 'דוא"ל',
-                sortable: true,
-                readOnly: true
-            },
-            {
-                key: 'phone',
-                label: 'טלפון',
-                sortable: true,
-                readOnly: true
-            },
+            { key: 'id', label: 'מזהה', sortable: true, readOnly: true },
+            { key: 'username', label: 'שם משתמש', sortable: true, readOnly: true },
+            { key: 'fullName', label: 'שם מלא', sortable: true, readOnly: false },
+            { key: 'email', label: 'דוא"ל', sortable: true, readOnly: false },
+            { key: 'phone', label: 'טלפון', sortable: false, readOnly: false },
+            { key: 'entityName', label: 'ישות', sortable: true, readOnly: true },
             {
                 key: 'isActive',
-                label: 'סטטוס',
+                label: 'פעיל',
+                sortable: true,
+                readOnly: true,
+                render: (data) => data.isActive ? '✓ פעיל' : '✗ לא פעיל'
+            },
+            {
+                key: 'isLocked',
+                label: 'סטטוס נעילה',
                 sortable: true,
                 readOnly: true,
                 render: (data) => {
-                    return data.isActive
-                        ? '<span class="status-badge active">פעיל</span>'
-                        : '<span class="status-badge inactive">לא פעיל</span>';
+                    if (data.isLocked) {
+                        return '<span style="color: #d32f2f; font-weight: bold;">🔒 נעול</span>';
+                    }
+                    return '<span style="color: #388e3c;">🔓 פתוח</span>';
                 }
             },
             {
                 key: 'lastLogin',
-                label: 'כניסה אחרונה',
+                label: 'התחברות אחרונה',
+                sortable: true,
+                readOnly: true,
+                render: (data) => data.lastLogin
+                    ? new Date(data.lastLogin).toLocaleDateString('he-IL')
+                    : 'מעולם לא'
+            },
+            {
+                key: 'passwordChangedAt',
+                label: 'שינוי סיסמה אחרון',
                 sortable: true,
                 readOnly: true,
                 render: (data) => {
-                    if (!data.lastLogin) return '-';
-                    const date = new Date(data.lastLogin);
-                    return date.toLocaleDateString('he-IL') + ' ' + date.toLocaleTimeString('he-IL');
+                    if (!data.passwordChangedAt) return 'לא ידוע';
+
+                    const changedDate = new Date(data.passwordChangedAt);
+                    const daysSince = Math.floor((new Date() - changedDate) / (1000 * 60 * 60 * 24));
+
+                    let color = '#388e3c'; // Green
+                    if (daysSince > 150) color = '#d32f2f'; // Red - nearing expiration
+                    else if (daysSince > 120) color = '#f57c00'; // Orange - warning
+
+                    return `<span style="color: ${color};">${changedDate.toLocaleDateString('he-IL')} (${daysSince} ימים)</span>`;
                 }
             },
             {
-                key: 'entityName',
-                label: 'ישות',
+                key: 'passwordChangeRequired',
+                label: 'שינוי סיסמה נדרש',
                 sortable: true,
-                readOnly: true
+                readOnly: true,
+                render: (data) => data.passwordChangeRequired
+                    ? '<span style="color: #d32f2f; font-weight: bold;">✓ נדרש</span>'
+                    : '<span style="color: #666;">✗ לא נדרש</span>'
             },
             {
                 key: 'actions',
@@ -397,32 +399,42 @@
                 sortable: false,
                 readOnly: true,
                 render: (data) => `
-                <button class="btn-icon" onclick="manageUserRoles(${data.id}, '${data.fullName}')" title="נהל תפקידים">
-                    <img src="view_icon.png" alt="תפקידים" class="action-icon-natural">
-                </button>
-                <button class="btn-icon" onclick="editUser(${data.id})" title="עדכן משתמש">
-                    <img src="edit_icon.png" alt="עדכן" class="action-icon-natural">
-                </button>
-                <button class="btn-icon" onclick="changeUserPassword(${data.id}, '${data.fullName}')" title="שנה סיסמה">
-            🔑
-                </button>
-                <button class="btn-icon" onclick="deleteUser(${data.id})" title="הסר משתמש">
-                    <img src="delete_icon.png" alt="הסר" class="action-icon-natural">
-                </button>
-            `
+                    <div style="display: flex; gap: 6px; justify-content: center; flex-wrap: wrap;">
+                        <button onclick="editUser(${data.id})" class="btn-icon" title="ערוך משתמש">
+                            <img src="edit_icon.png" alt="ערוך" class="action-icon-natural">
+                        </button>
+                        <button onclick="manageUserRoles(${data.id}, '${data.username}')" class="btn-icon" title="ניהול תפקידים">
+                            <img src="stats_icon.png" alt="תפקידים" class="action-icon-natural">
+                        </button>
+                        <button onclick="changeUserPassword(${data.id}, '${data.username}')" class="btn-icon" title="שנה סיסמה">
+                            <img src="view_icon.png" alt="סיסמה" class="action-icon-natural">
+                        </button>
+                        <button onclick="forcePasswordChange(${data.id}, '${data.username}')" class="btn-icon" title="דרוש שינוי סיסמה">
+                            <img src="change_password.png" alt="שינוי סיסמה" class="action-icon-natural">
+                        </button>
+                        ${data.isLocked
+                        ? `<button onclick="unlockUser(${data.id})" class="btn-icon" title="שחרר נעילה">
+                                   <img src="unlock_icon.png" alt="שחרר נעילה" class="action-icon-natural">
+                               </button>`
+                        : `<button onclick="lockUser(${data.id})" class="btn-icon" title="נעל משתמש">
+                                   <img src="lock_icon.png" alt="נעל משתמש" class="action-icon-natural">
+                               </button>`
+                    }
+                    </div>
+                `
             }
         ];
 
         // Cleanup previous instance
         if (window.usersTableInstance) {
-            console.log('🧹 Cleaning up previous table instance');
+            window.usersTableInstance.cleanup();
             window.usersTableInstance = null;
         }
 
         // Create new table instance
         window.usersTableInstance = new ReusableTable('usersTableContainer', {
             tableName: 'users',
-            isReadOnly: true,
+            isReadOnly: false,
             allowAdd: false,
             allowEdit: false,
             allowDelete: false
@@ -431,6 +443,70 @@
         window.usersTableInstance.init(usersData, columns);
         console.log('✅ Users table rendered');
     }
+
+    /**
+     * Lock a user account
+     */
+    async function lockUser(userId) {
+        console.log(`🔒 Locking user ${userId}...`);
+
+        if (!confirm('האם אתה בטוח שברצונך לנעול את המשתמש הזה?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(AppConfig.getApiUrl(`users/${userId}/lock`), {
+                method: 'POST',
+                ...AppConfig.getDefaultFetchOptions()
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('המשתמש ננעל בהצלחה');
+                await loadUsersData();  // Refresh table
+            } else {
+                alert(result.message || 'שגיאה בנעילת המשתמש');
+            }
+        } catch (error) {
+            console.error('Error locking user:', error);
+            alert('שגיאה בנעילת המשתמש');
+        }
+    }
+
+    /**
+     * Unlock a user account
+     */
+    async function unlockUser(userId) {
+        console.log(`🔓 Unlocking user ${userId}...`);
+
+        if (!confirm('האם אתה בטוח שברצונך לשחרר את נעילת המשתמש?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(AppConfig.getApiUrl(`users/${userId}/unlock`), {
+                method: 'POST',
+                ...AppConfig.getDefaultFetchOptions()
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('המשתמש שוחרר בהצלחה');
+                await loadUsersData();  // Refresh table
+            } else {
+                alert(result.message || 'שגיאה בשחרור המשתמש');
+            }
+        } catch (error) {
+            console.error('Error unlocking user:', error);
+            alert('שגיאה בשחרור המשתמש');
+        }
+    }
+
+    // Export new functions
+    window.lockUser = lockUser;
+    window.unlockUser = unlockUser;
 
     /**
      * Navigate to roles management
@@ -476,7 +552,7 @@
         if (!window.allEntities || window.allEntities.length === 0) {
             await loadEntities();
         }
-        
+
         // Populate dropdown
         populateEntitiesDropdown();
 
@@ -508,7 +584,7 @@
             if (!window.allEntities || window.allEntities.length === 0) {
                 await loadEntities();
             }
-            
+
             // Populate dropdown with selected value
             populateEntitiesDropdown(user.entityId);
 
@@ -565,7 +641,7 @@
             if (response.ok) {
                 console.log('✅ User deleted successfully');
                 alert('המשתמש הוסר בהצלחה');
-                
+
                 // ✅ Remove from local array immediately
                 window.allUsersData = window.allUsersData.filter(u => u.id !== userId);
                 updateUsersSummary(window.allUsersData);
@@ -615,12 +691,12 @@
             } else {
                 // Create new user - get entity ID directly from select
                 const entityId = document.getElementById('userEntityId').value;
-                
+
                 if (!entityId) {
                     alert('נא לבחור ישות');
                     return;
                 }
-                
+
                 console.log('📝 Creating new user...');
                 url = AppConfig.getApiUrl('users');
                 method = 'POST';
@@ -647,7 +723,7 @@
                 console.log('✅ User saved successfully');
                 alert(result.message || 'נשמרו הנתונים בהצלחה');
                 closeUserDialog();
-                
+
                 // ✅ IMMEDIATE UPDATE: Add new user to local array or update existing
                 if (!isEditMode && result.data) {
                     // Get entity name for display
@@ -665,7 +741,7 @@
                         entityName: entity ? entity.name : '',
                         lastLogin: null
                     };
-                    
+
                     // Add to array immediately
                     window.allUsersData.push(newUser);
                     console.log('✅ Added new user to local array immediately');
@@ -687,11 +763,11 @@
                         console.log('✅ Updated user in local array immediately');
                     }
                 }
-                
+
                 // Update UI immediately without server call
                 updateUsersSummary(window.allUsersData);
                 renderUsersTable(window.allUsersData);
-                
+
             } else {
                 console.error('❌ Save failed:', result.message);
                 alert(`שגיאה: ${result.message}`);
@@ -722,6 +798,36 @@
             <button class="btn-primary" onclick="refreshUsersData()">נסה שנית</button>
         </div>
     `;
+    }
+
+    /**
+ * Force user to change password on next login
+ */
+    async function forcePasswordChange(userId, userName) {
+        console.log(`🔑 Forcing password change for user ${userId}...`);
+
+        if (!confirm(`האם אתה בטוח שברצונך לדרוש מ-${userName} להחליף סיסמה בהתחברות הבאה?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(AppConfig.getApiUrl(`users/${userId}/force-password-change`), {
+                method: 'POST',
+                ...AppConfig.getDefaultFetchOptions()
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('המשתמש יידרש להחליף סיסמה בהתחברות הבאה');
+                await loadUsersData();  // Refresh table
+            } else {
+                alert(result.message || 'שגיאה בסימון שינוי סיסמה');
+            }
+        } catch (error) {
+            console.error('Error forcing password change:', error);
+            alert('שגיאה בסימון שינוי סיסמה');
+        }
     }
 
     /**
@@ -1031,13 +1137,13 @@
      */
     function changeUserPassword(userId, userName) {
         console.log(`🔑 Changing password for user ${userId}...`);
-        
+
         document.getElementById('changePasswordDialogTitle').textContent = `שינוי סיסמה: ${userName}`;
         document.getElementById('changePasswordUserId').value = userId;
-        
+
         // Clear form
         document.getElementById('changePasswordForm').reset();
-        
+
         // Show dialog
         document.getElementById('changePasswordDialog').style.display = 'flex';
     }
@@ -1047,32 +1153,32 @@
      */
     async function handleChangePasswordSubmit(event) {
         event.preventDefault();
-        
+
         const userId = document.getElementById('changePasswordUserId').value;
         const newPassword = document.getElementById('newPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
-        
+
         // Validate passwords match
         if (newPassword !== confirmPassword) {
             alert('הסיסמאות אינן תואמות');
             return;
         }
-        
+
         // Validate password length
         if (newPassword.length < 6) {
             alert('הסיסמה חייבת להכיל לפחות 6 תווים');
             return;
         }
-        
+
         try {
             const authToken = sessionStorage.getItem('authToken');
             if (!authToken) {
                 alert('נדרש אימות. אנא התחבר מחדש.');
                 return;
             }
-            
+
             console.log(`🔐 Changing password for user ${userId}...`);
-            
+
             const response = await fetch(AppConfig.getApiUrl(`users/${userId}/change-password`), {
                 method: 'PUT',
                 headers: {
@@ -1083,9 +1189,9 @@
                     newPassword: newPassword
                 })
             });
-            
+
             const result = await response.json();
-            
+
             if (response.ok) {
                 console.log('✅ Password changed successfully');
                 alert('הסיסמה שונתה בהצלחה');
@@ -1121,11 +1227,11 @@
     window.manageUserRoles = manageUserRoles;
     window.loadEntities = loadEntities;
     window.populateEntitiesDropdown = populateEntitiesDropdown;
+    window.forcePasswordChange = forcePasswordChange;
 
     // Initialize on page load
-    document.addEventListener('DOMContentLoaded', async function() {
+    document.addEventListener('DOMContentLoaded', async function () {
         await loadEntities();
         await loadUsersData();
     });
 </script>
-

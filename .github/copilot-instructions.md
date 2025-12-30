@@ -1906,3 +1906,183 @@ function toggleCardExpansion(card, toggle, addButton) {
         }
     }
 }
+
+## Security Implementation
+
+### JWT Token Authentication
+
+**Architecture**: Application uses signed JWT tokens instead of GUID-based session tokens for enhanced security.
+
+**Required Package**:
+```xml
+<PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.15.0" />// Services/JwtTokenService.cs
+public class JwtTokenService
+{
+    private readonly SecuritySettings _securitySettings;
+    private readonly ILogger<JwtTokenService> _logger;
+    private readonly SymmetricSecurityKey _signingKey;
+
+    public JwtTokenService(
+        IOptions<SecuritySettings> securitySettings,
+        ILogger<JwtTokenService> logger)
+    {
+        _securitySettings = securitySettings.Value;
+        _logger = logger;
+        
+        // Initialize signing key from configuration
+        var keyBytes = Encoding.UTF8.GetBytes(_securitySettings.Jwt.SecretKey);
+        _signingKey = new SymmetricSecurityKey(keyBytes);
+    }
+
+    public string GenerateSessionToken(UserSession session)
+    {
+        var claims = new[]
+        {
+            new Claim("SessionId", session.SessionId),
+            new Claim("UserId", session.UserId.ToString()),
+            new Claim("Username", session.Username),
+            new Claim("EntityId", session.EntityId)
+        };
+
+        var credentials = new SigningCredentials(_signingKey, SecurityAlgorithms.HmacSha256);
+        
+        var token = new JwtSecurityToken(
+            issuer: _securitySettings.Jwt.Issuer,
+            audience: _securitySettings.Jwt.Audience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddHours(_securitySettings.Jwt.ExpirationHours),
+            signingCredentials: credentials
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    public (bool isValid, string? sessionId) ValidateTokenAndGetSessionId(string token)
+    {
+        try
+        {
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var validationParameters = new TokenValidationParameters
+            {
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = _signingKey,
+                ValidateIssuer = true,
+                ValidIssuer = _securitySettings.Jwt.Issuer,
+                ValidateAudience = true,
+                ValidAudience = _securitySettings.Jwt.Audience,
+                ValidateLifetime = true,
+                ClockSkew = TimeSpan.Zero
+            };
+
+            var principal = tokenHandler.ValidateToken(token, validationParameters, out _);
+            var sessionId = principal.FindFirst("SessionId")?.Value;
+
+            return (true, sessionId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "JWT token validation failed");
+            return (false, null);
+        }
+    }
+
+    public string GenerateTempOtpToken(string username)
+    {
+        var claims = new[] { new Claim("Username", username) };
+        var credentials = new SigningCredentials(_signingKey, SecurityAlgorithms.HmacSha256);
+        
+        var token = new JwtSecurityToken(
+            issuer: _securitySettings.Jwt.Issuer,
+            audience: _securitySettings.Jwt.Audience,
+            claims: claims,
+            expires: DateTime.UtcNow.AddMinutes(10),
+            signingCredentials: credentials
+        );
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+}// appsettings.json
+{
+  "Security": {
+    "Jwt": {
+      "SecretKey": "LOADED_FROM_KEY_VAULT",
+      "Issuer": "PetelApp",
+      "Audience": "PetelAppUsers",
+      "ExpirationHours": 8
+    }
+  }
+}// Configuration/SecuritySettings.cs
+public class SecuritySettings
+{
+    public JwtSettings Jwt { get; set; } = new();
+    
+    public class JwtSettings
+    {
+        public string SecretKey { get; set; } = string.Empty;
+        public string Issuer { get; set; } = "PetelApp";
+        public string Audience { get; set; } = "PetelAppUsers";
+        public int ExpirationHours { get; set; } = 8;
+    }
+}// Register JWT service
+builder.Services.Configure<SecuritySettings>(
+    builder.Configuration.GetSection("Security"));
+
+builder.Services.AddSingleton<JwtTokenService>();
+
+// Initialize JWT service in UserSessionService
+var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var jwtService = scope.ServiceProvider.GetRequiredService<JwtTokenService>();
+    var sessionService = scope.ServiceProvider.GetRequiredService<UserSessionService>();
+    sessionService.SetJwtTokenService(jwtService);
+}// Session/UserSessionService.cs
+public class UserSessionService
+{
+    private JwtTokenService? _jwtTokenService;
+
+    public void SetJwtTokenService(JwtTokenService jwtTokenService)
+    {
+        _jwtTokenService = jwtTokenService;
+    }
+
+    public string CreateSessionWithFullData(User user, List<Role> userRoles, int entityId)
+    {
+        var session = new UserSession
+        {
+            SessionId = Guid.NewGuid().ToString(),
+            UserId = user.Id,
+            Username = user.Username,
+            EntityId = entityId.ToString(),
+            Roles = userRoles,
+            LoginTime = DateTime.UtcNow
+        };
+
+        _sessions.TryAdd(session.SessionId, session);
+        
+        // Return JWT token instead of GUID
+        return _jwtTokenService?.GenerateSessionToken(session) ?? session.SessionId;
+    }
+
+    public UserSession? GetUserSession(string token)
+    {
+        // Try JWT validation first
+        if (_jwtTokenService != null)
+        {
+            var (isValid, sessionId) = _jwtTokenService.ValidateTokenAndGetSessionId(token);
+            if (isValid && sessionId != null && _sessions.TryGetValue(sessionId, out var session))
+            {
+                return session;
+            }
+        }
+        
+        // Fallback to GUID lookup for backward compatibility
+        if (_sessions.TryGetValue(token, out var directSession))
+        {
+            return directSession;
+        }
+
+        return null;
+    }
+}

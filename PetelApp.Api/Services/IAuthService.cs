@@ -28,7 +28,16 @@ namespace PetelApp.Api.Services
         /// Validate user credentials following Authentication & Session Management
         /// </summary>
         Task<User?> ValidateUserAsync(string username, string password, int entityId);
+        Task<User?> ValidateUserAsync(int userId);
+        
         Task<string> CompleteLoginAsync(User user, Entity userEntity);
+
+        /// <summary>
+        /// Update user password and reset expiration flags
+        /// </summary>
+        Task UpdateUserPasswordAsync(User user, string newPasswordHash);
+
+        
     }
 
     public class AuthResult

@@ -24,8 +24,10 @@ namespace PetelApp.Api.DTOs
         public UserDto? User { get; set; }
         public EntityDto? Entity { get; set; }
         public bool RequiresOtp { get; set; }
-        public bool RequiresOtpSetup { get; set; }  // ✅ NEW
+        public bool RequiresOtpSetup { get; set; } 
         public string? TempToken { get; set; }
+        public bool RequiresPasswordChange { get; set; }
+        public string? PasswordExpirationMessage { get; set; }
     }
     
     /// <summary>
@@ -53,4 +55,16 @@ namespace PetelApp.Api.DTOs
         public int EntityTypeId { get; set; }
         public string EntityTypeName { get; set; } = string.Empty;
     }
+
+        /// <summary>
+    /// Change expired password request DTO
+    /// </summary>
+    public class ChangeExpiredPasswordDto
+    {
+        public string TempToken { get; set; } = string.Empty;
+        public string OldPassword { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
+    }
+
+
 }

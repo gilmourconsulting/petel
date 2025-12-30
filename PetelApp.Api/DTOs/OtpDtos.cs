@@ -59,13 +59,17 @@ namespace PetelApp.Api.DTOs
         public bool SystemOtpEnabled { get; set; }
     }
 
-    /// <summary>
-    /// Response for successful OTP validation
-    /// </summary>
-    public class OtpValidationResponseDto
-    {
-        public bool Success { get; set; }
-        public string? Token { get; set; }
-        public string Message { get; set; } = string.Empty;
-    }
+        /// <summary>
+        /// OTP validation response DTO
+        /// </summary>
+        public class OtpValidationResponseDto
+        {
+            public bool Success { get; set; }
+            public string? Token { get; set; }
+            public string Message { get; set; } = string.Empty;
+        
+            public bool RequiresPasswordChange { get; set; }
+            public string? TempToken { get; set; }
+            public string? PasswordExpirationMessage { get; set; }
+        }
 }

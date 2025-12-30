@@ -10,8 +10,23 @@ namespace PetelApp.Api.Configuration
         /// User will be automatically logged out after this period of inactivity
         /// </summary>
         public int SessionTimeoutMinutes { get; set; } = 10;
+
+                /// <summary>
+        /// Maximum failed password attempts before user is locked. Default: 5
+        /// </summary>
+        public int MaxPasswordAttempts { get; set; } = 5;
+
+                /// <summary>
+        /// Maximum failed OTP attempts before user is locked. Default: 3
+        /// </summary>
+        public int MaxOtpAttempts { get; set; } = 3;
+
+                /// <summary>
+        /// Password expiration period in months. Default: 3 months. Set to 0 to disable expiration.
+        /// </summary>
+        public int PasswordExpirationMonths { get; set; } = 3;
         
-        // ✅ NEW: JWT Settings for main session tokens
+        // ✅  JWT Settings for main session tokens
         public JwtSettings Jwt { get; set; } = new JwtSettings();
     }
 

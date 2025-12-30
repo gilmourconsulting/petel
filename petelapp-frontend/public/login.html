@@ -100,7 +100,7 @@
                     <div class="otp-input-container">
                         <input type="text" id="otpCode" class="form-input" maxlength="6" pattern="[0-9]{6}"
                             placeholder="הזן 6 ספרות" autocomplete="off" inputmode="numeric">
-                            <small>הזן את קוד האימות בן 6 הספרות מאפליקציית האימות שלך</small>
+                        <small>הזן את קוד האימות בן 6 הספרות מאפליקציית האימות שלך</small>
                     </div>
                     <div class="otp-error" id="otpError" style="display: none;"></div>
                 </div>
@@ -108,7 +108,7 @@
                     <button type="button" class="btn-secondary" onclick="cancelOtpVerification()">ביטול</button>
                     <button type="button" class="btn-primary" id="verifyOtpButton" onclick="verifyOtp()">אמת</button>
                 </div>
-           </div>
+            </div>
         </div>
 
         <!-- OTP Setup Container -->
@@ -123,6 +123,38 @@
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="cancelOtpFlow()">ביטול</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Change Modal -->
+    <div class="modal-overlay" id="passwordChangeModal" style="display: none;">
+        <div class="modal-content password-change-modal">
+            <div class="modal-header">
+                <h2>נדרש שינוי סיסמה</h2>
+            </div>
+            <div class="modal-body">
+                <p id="passwordChangeReason" style="color: #d32f2f; margin-bottom: 20px;"></p>
+                <form id="passwordChangeForm">
+                    <div class="form-group">
+                        <label for="oldPasswordChange" class="form-label">סיסמה ישנה</label>
+                        <input type="password" id="oldPasswordChange" class="form-input" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="newPasswordChange" class="form-label">סיסמה חדשה</label>
+                        <input type="password" id="newPasswordChange" class="form-input" minlength="6" required>
+                        <small>סיסמה חייבת להכיל לפחות 6 תווים</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="confirmPasswordChange" class="form-label">אימות סיסמה חדשה</label>
+                        <input type="password" id="confirmPasswordChange" class="form-input" minlength="6" required>
+                    </div>
+                    <div class="error-message" id="passwordChangeError" style="display: none;"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="cancelPasswordChange()">ביטול</button>
+                <button type="button" class="btn-primary" onclick="submitPasswordChange()">שנה סיסמה</button>
             </div>
         </div>
     </div>
@@ -484,7 +516,99 @@
             }
         }
 
+        // Global variable to store temp token for password change
+        let tempTokenForPasswordChange = null;
 
+        // Handle password change requirement
+        function showPasswordChangeModal(tempToken, message) {
+            console.log('🔐 Password change required');
+
+            tempTokenForPasswordChange = tempToken;
+
+            // Hide login form
+            document.getElementById('loginForm').style.display = 'none';
+
+            // Show reason
+            document.getElementById('passwordChangeReason').textContent = message || 'הסיסמה שלך פגה תוקף';
+
+            // Show modal
+            document.getElementById('passwordChangeModal').style.display = 'flex';
+
+            // Focus on old password field
+            setTimeout(() => {
+                document.getElementById('oldPasswordChange').focus();
+            }, 100);
+        }
+
+        function cancelPasswordChange() {
+            tempTokenForPasswordChange = null;
+            document.getElementById('passwordChangeModal').style.display = 'none';
+            document.getElementById('passwordChangeForm').reset();
+            document.getElementById('passwordChangeError').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+        }
+
+        async function submitPasswordChange() {
+            const oldPassword = document.getElementById('oldPasswordChange').value.trim();
+            const newPassword = document.getElementById('newPasswordChange').value.trim();
+            const confirmPassword = document.getElementById('confirmPasswordChange').value.trim();
+            const errorDiv = document.getElementById('passwordChangeError');
+
+            // Validation
+            if (!oldPassword || !newPassword || !confirmPassword) {
+                errorDiv.textContent = 'יש למלא את כל השדות';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (newPassword.length < 6) {
+                errorDiv.textContent = 'סיסמה חייבת להכיל לפחות 6 תווים';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                errorDiv.textContent = 'הסיסמאות אינן תואמות';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            if (oldPassword === newPassword) {
+                errorDiv.textContent = 'הסיסמה החדשה חייבת להיות שונה מהישנה';
+                errorDiv.style.display = 'block';
+                return;
+            }
+
+            try {
+                const response = await fetch(AppConfig.getApiUrl('auth/change-expired-password'), {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        tempToken: tempTokenForPasswordChange,
+                        oldPassword: oldPassword,
+                        newPassword: newPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    alert('הסיסמה שונתה בהצלחה. אנא התחבר מחדש');
+                    cancelPasswordChange();
+                    // Clear login form
+                    document.getElementById('password').value = '';
+                } else {
+                    errorDiv.textContent = result.message || 'שגיאה בשינוי הסיסמה';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Error changing password:', error);
+                errorDiv.textContent = 'שגיאה בתקשורת עם השרת';
+                errorDiv.style.display = 'block';
+            }
+        }
 
 
         // Enhance the error display function for better visibility
@@ -574,17 +698,18 @@
                     body: JSON.stringify(loginData)
                 });
 
+                // ✅ Backend always returns 200 OK (or 500 for server errors)
+                if (!response.ok) {
+                    throw new Error('שגיאה בתקשורת עם השרת');
+                }
+
                 const data = await response.json();
                 console.log('Login response:', data);
 
-                if (!response.ok) {
-                    if (response.status === 401) {
-                        throw new Error('שם משתמש או סיסמה שגויים');
-                    } else if (response.status === 400) {
-                        throw new Error(data.message || 'נתונים שגויים בטופס');
-                    } else {
-                        throw new Error(data.message || 'שגיאה בהתחברות');
-                    }
+                // ✅ Check success flag instead of HTTP status
+                if (!data.success) {
+                    // Display backend message directly
+                    throw new Error(data.message || 'שגיאה בהתחברות');
                 }
 
                 // Check if OTP is required
@@ -604,20 +729,29 @@
                     return;
                 }
 
+                // Check if password change is required (for users without OTP)
+                if (data.requiresPasswordChange) {
+                    console.log('🔐 Password change required (no OTP)');
+                    showPasswordChangeModal(data.tempToken, data.passwordExpirationMessage);
+                    return;
+                }
+
                 // ✅ Standard login success (no OTP or OTP disabled)
-                if (data.success && data.token) {
+                if (data.token) {
                     sessionStorage.setItem('authToken', data.token);
                     console.log('Login successful, token stored, redirecting to dashboard');
                     window.location.href = 'index.html';
                 } else {
-                    throw new Error(data.message || 'שגיאה בהתחברות');
+                    throw new Error('שגיאה בהתחברות - אין טוקן');
                 }
 
             } catch (error) {
                 console.error('Login error:', error);
                 document.getElementById('step3').classList.remove('active');
                 document.getElementById('step2').classList.add('active');
-                showError(error.message || 'שם משתמש או סיסמה שגויים. אנא נסה שוב.');
+
+                // ✅ Display the specific error message from backend
+                showError(error.message);
 
                 document.getElementById('password').focus();
                 document.getElementById('password').select();
@@ -626,7 +760,6 @@
                 loginButton.innerHTML = 'התחבר';
             }
         });
-
         //Show OTP modal
         function showOtpModal() {
             const modal = document.getElementById('otpModalOverlay');
@@ -660,6 +793,7 @@
             // Focus back to password
             document.getElementById('password').focus();
         }
+
 
         // Verify OTP code
         async function verifyOtp() {
@@ -696,7 +830,15 @@
                     throw new Error(data.message || 'קוד אימות שגוי');
                 }
 
-                // ✅ OTP verified successfully
+                // ✅ NEW: Check if password change is required AFTER OTP
+                if (data.requiresPasswordChange) {
+                    console.log('🔐 Password change required after OTP verification');
+                    hideOtpModal();
+                    showPasswordChangeModal(data.tempToken, data.passwordExpirationMessage);
+                    return;
+                }
+
+                // ✅ OTP verified successfully and no password change needed
                 console.log('OTP verified, completing login');
                 sessionStorage.setItem('authToken', data.token);
 
@@ -724,6 +866,7 @@
                 verifyButton.textContent = 'אמת';
             }
         }
+
 
         // Case A: Regular login - no OTP
         async function login() {

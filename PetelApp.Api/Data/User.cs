@@ -58,6 +58,32 @@ namespace PetelApp.Api.Data
         [Column("otp_verified")]
         public bool OtpVerified { get; set; } = false;
 
+        // ✅ NEW: User locking fields
+        [Column("is_locked")]
+        public bool IsLocked { get; set; } = false;
+
+        [Column("locked_at")]
+        public DateTime? LockedAt { get; set; }
+
+        [Column("locked_by")]
+        public int? LockedBy { get; set; }
+
+        [Column("failed_password_attempts")]
+        public int FailedPasswordAttempts { get; set; } = 0;
+
+        [Column("failed_otp_attempts")]
+        public int FailedOtpAttempts { get; set; } = 0;
+
+        [Column("last_failed_attempt")]
+        public DateTime? LastFailedAttempt { get; set; }
+
+        // ✅ NEW: Password expiration fields
+        [Column("password_changed_at")]
+        public DateTime PasswordChangedAt { get; set; } = DateTime.UtcNow;
+
+        [Column("password_change_required")]
+        public bool PasswordChangeRequired { get; set; } = false;
+
         // Navigation properties following Entity-Based Request Flow
         public virtual Entity Entity { get; set; } = null!;
         public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
@@ -65,5 +91,14 @@ namespace PetelApp.Api.Data
         // Computed property for full name
         [NotMapped]
         public string FullName => $"{FirstName} {LastName}".Trim();
+
+        // ✅ Helper method to check if password is expired (no [NotMapped] needed for methods)
+        public bool IsPasswordExpired(int expirationMonths)
+        {
+            if (expirationMonths <= 0) return false; // Password expiration disabled
+            
+            var expirationDate = PasswordChangedAt.AddMonths(expirationMonths);
+            return DateTime.UtcNow > expirationDate;
+        }
     }
 }

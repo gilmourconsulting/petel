@@ -57,9 +57,13 @@ namespace PetelApp.Api.Controllers
                         u.LastName,
                         FullName = u.FirstName + " " + u.LastName,
                         u.IsActive,
+                        u.IsLocked,  
+                        u.LockedAt, 
                         u.LastLogin,
                         u.CreatedAt,
                         u.UpdatedAt,
+                        u.PasswordChangedAt,
+                        u.PasswordChangeRequired,
                         EntityId = u.EntityId,  // ✅ Show entity ID
                         EntityName = u.Entity != null ? u.Entity.Name : "לא משויך"  // ✅ Show entity name
                     })
@@ -78,6 +82,166 @@ namespace PetelApp.Api.Controllers
                 {
                     success = false,
                     message = "שגיאה בטעינת רשימת המשתמשים",
+                    error = ex.Message
+                });
+            }
+        }
+
+                /// <summary>
+        /// Lock a user account
+        /// </summary>
+        [HttpPost("{id}/lock")]
+        public async Task<IActionResult> LockUser(int id)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+        
+                var user = await _context.Users.FindAsync(id);
+                if (user == null)
+                {
+                    return NotFound(new { success = false, message = "משתמש לא נמצא" });
+                }
+        
+                if (user.IsLocked)
+                {
+                    return BadRequest(new { success = false, message = "המשתמש כבר נעול" });
+                }
+        
+                // Lock the user
+                user.IsLocked = true;
+                user.LockedAt = DateTime.UtcNow;
+                user.LockedBy = int.TryParse(session.UserId, out int adminId) ? adminId : null;
+                user.UpdatedAt = DateTime.UtcNow;
+                user.UpdateUser = user.LockedBy;
+        
+                await _context.SaveChangesAsync();
+        
+                _logger.LogInformation("User {UserId} locked by admin {AdminId}", id, session.UserId);
+        
+                return Ok(new
+                {
+                    success = true,
+                    message = "המשתמש ננעל בהצלחה"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error locking user {UserId}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בנעילת המשתמש",
+                    error = ex.Message
+                });
+            }
+        }
+        
+        /// <summary>
+        /// Unlock a user account and reset failed attempt counters
+        /// </summary>
+        [HttpPost("{id}/unlock")]
+        public async Task<IActionResult> UnlockUser(int id)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+        
+                var user = await _context.Users.FindAsync(id);
+                if (user == null)
+                {
+                    return NotFound(new { success = false, message = "משתמש לא נמצא" });
+                }
+        
+                if (!user.IsLocked)
+                {
+                    return BadRequest(new { success = false, message = "המשתמש אינו נעול" });
+                }
+        
+                // Unlock the user and reset counters
+                user.IsLocked = false;
+                user.LockedAt = null;
+                user.LockedBy = null;
+                user.FailedPasswordAttempts = 0;
+                user.FailedOtpAttempts = 0;
+                user.LastFailedAttempt = null;
+                user.UpdatedAt = DateTime.UtcNow;
+                user.UpdateUser = int.TryParse(session.UserId, out int adminId) ? adminId : null;
+        
+                await _context.SaveChangesAsync();
+        
+                _logger.LogInformation("User {UserId} unlocked by admin {AdminId}", id, session.UserId);
+        
+                return Ok(new
+                {
+                    success = true,
+                    message = "המשתמש שוחרר בהצלחה"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error unlocking user {UserId}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בשחרור המשתמש",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+        /// <summary>
+        /// Force user to change password on next login
+        /// </summary>
+        [HttpPost("{id}/force-password-change")]
+        public async Task<IActionResult> ForcePasswordChange(int id)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                var user = await _context.Users.FindAsync(id);
+                if (user == null)
+                {
+                    return NotFound(new { success = false, message = "משתמש לא נמצא" });
+                }
+
+                // Set flag to require password change
+                user.PasswordChangeRequired = true;
+                user.UpdatedAt = DateTime.UtcNow;
+                user.UpdateUser = int.TryParse(session.UserId, out int adminId) ? adminId : null;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("User {UserId} marked for forced password change by admin {AdminId}", 
+                    id, session.UserId);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "המשתמש יידרש להחליף סיסמה בהתחברות הבאה"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error forcing password change for user {UserId}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בסימון שינוי סיסמה",
                     error = ex.Message
                 });
             }
@@ -331,67 +495,68 @@ namespace PetelApp.Api.Controllers
             }
         }
 
-/// <summary>
-/// Change user password (admin can change any user's password)
-/// </summary>
-[HttpPut("{id}/change-password")]
-public async Task<IActionResult> ChangeUserPassword(int id, [FromBody] ChangePasswordRequest request)
-{
-    try
-    {
-        var session = GetCurrentSession();
-        if (session == null)
+        /// <summary>
+        /// Change user password (admin can change any user's password)
+        /// </summary>
+        [HttpPut("{id}/change-password")]
+        public async Task<IActionResult> ChangeUserPassword(int id, [FromBody] ChangePasswordRequest request)
         {
-            return Unauthorized(new { success = false, message = "נדרש אימות" });
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                // Validate password
+                if (string.IsNullOrWhiteSpace(request.NewPassword))
+                {
+                    return BadRequest(new { success = false, message = "סיסמה חדשה נדרשת" });
+                }
+
+                if (request.NewPassword.Length < 6)
+                {
+                    return BadRequest(new { success = false, message = "סיסמה חייבת להכיל לפחות 6 תווים" });
+                }
+
+                var user = await _context.Users
+                    .Where(u => u.Id == id)
+                    .FirstOrDefaultAsync();
+
+                if (user == null)
+                {
+                    return NotFound(new { success = false, message = "משתמש לא נמצא" });
+                }
+
+                // Hash new password
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+                user.PasswordChangedAt = DateTime.UtcNow; // ✅ NEW: Update timestamp
+                user.PasswordChangeRequired = false; // ✅ NEW: Clear forced change flag
+                user.UpdatedAt = DateTime.UtcNow;
+                user.UpdateUser = int.TryParse(session.UserId, out int updateUserId) ? updateUserId : null;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Password changed for user {UserId} by admin {AdminId}", id, session.UserId);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "הסיסמה שונתה בהצלחה"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error changing password for user {UserId}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בשינוי הסיסמה",
+                    error = ex.Message
+                });
+            }
         }
-
-        // Validate password
-        if (string.IsNullOrWhiteSpace(request.NewPassword))
-        {
-            return BadRequest(new { success = false, message = "סיסמה חדשה נדרשת" });
-        }
-
-        if (request.NewPassword.Length < 6)
-        {
-            return BadRequest(new { success = false, message = "סיסמה חייבת להכיל לפחות 6 תווים" });
-        }
-
-        // ✅ FIXED: Remove entity filter - allow admin to change any user password
-        var user = await _context.Users
-            .Where(u => u.Id == id)  // Only check user ID
-            .FirstOrDefaultAsync();
-
-        if (user == null)
-        {
-            return NotFound(new { success = false, message = "משתמש לא נמצא" });
-        }
-
-        // Hash new password
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-        user.UpdatedAt = DateTime.UtcNow;
-        user.UpdateUser = int.TryParse(session.UserId, out int updateUserId) ? updateUserId : null;
-
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation("Password changed for user {UserId} by admin {AdminId}", id, session.UserId);
-
-        return Ok(new
-        {
-            success = true,
-            message = "הסיסמה שונתה בהצלחה"
-        });
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error changing password for user {UserId}", id);
-        return StatusCode(500, new
-        {
-            success = false,
-            message = "שגיאה בשינוי הסיסמה",
-            error = ex.Message
-        });
-    }
-}
 
         /// <summary>
         /// Delete a user (soft delete - set IsActive to false)

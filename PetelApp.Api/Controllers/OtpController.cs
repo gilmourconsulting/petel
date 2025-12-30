@@ -133,9 +133,30 @@ namespace PetelApp.Api.Controllers
             }
         }
 
+
+            /// <summary>
+            /// Handle failed OTP attempt and lock user if threshold exceeded
+            /// </summary>
+            private async Task HandleFailedOtpAttemptAsync(User user)
+            {
+                user.FailedOtpAttempts++;
+                user.LastFailedAttempt = DateTime.UtcNow;
+
+                if (user.FailedOtpAttempts >= _securitySettings.MaxOtpAttempts)
+                {
+                    user.IsLocked = true;
+                    user.LockedAt = DateTime.UtcNow;
+                    _logger.LogWarning("User {UserId} locked after {Attempts} failed OTP attempts", 
+                        user.Id, user.FailedOtpAttempts);
+                }
+
+                await _context.SaveChangesAsync();
+            }
+
+
         /// <summary>
         /// POST /api/otp/validate - Validate OTP code at login (uses TempToken)
-        /// Returns full session token on success
+        /// Returns full session token on success OR password change requirement
         /// </summary>
         [HttpPost("validate")]
         public async Task<IActionResult> ValidateOtp([FromBody] ValidateOtpDto dto)
@@ -162,6 +183,13 @@ namespace PetelApp.Api.Controllers
                     return Unauthorized(new { success = false, message = "משתמש לא נמצא" });
                 }
 
+                // ✅ Check if user is locked
+                if (user.IsLocked)
+                {
+                    _logger.LogWarning("OTP validation attempt for locked user {UserId}", user.Id);
+                    return Unauthorized(new { success = false, message = "חשבון המשתמש נעול. אנא פנה למנהל המערכת" });
+                }
+
                 // Validate the OTP code
                 var secretBytes = Base32Encoding.ToBytes(user.OtpSecret);
                 var totp = new Totp(secretBytes);
@@ -176,19 +204,53 @@ namespace PetelApp.Api.Controllers
                 {
                     _logger.LogWarning("Invalid OTP code for user {UserId}. Code: {Code}, Expected at time: {Time}",
                         user.Id, dto.Code, currentUtcTime);
-                    return BadRequest(new { success = false, message = "קוד אימות שגוי" });
+                    
+                    // ✅ Track failed OTP attempt
+                    await HandleFailedOtpAttemptAsync(user);
+                    
+                    int remainingAttempts = _securitySettings.MaxOtpAttempts - user.FailedOtpAttempts;
+                    string message = user.IsLocked 
+                        ? "חשבון המשתמש נעול. אנא פנה למנהל המערכת"
+                        : $"קוד אימות שגוי. נותרו {remainingAttempts} ניסיונות";
+                    
+                    return BadRequest(new { success = false, message });
                 }
 
-                // ✅ Single logging statement after validation
+                // ✅ OTP validated successfully
                 _logger.LogInformation("OTP validated successfully for user {UserId}. TimeStep: {TimeStep}",
                     user.Id, timeStepMatched);
 
-                // OTP is valid - complete login using AuthService helper
+                // ✅ Reset failed OTP attempts on success
+                if (user.FailedOtpAttempts > 0)
+                {
+                    user.FailedOtpAttempts = 0;
+                    user.LastFailedAttempt = null;
+                    await _context.SaveChangesAsync();
+                }
+
+                // ✅ NEW: Check password expiration AFTER successful OTP (more secure)
+                var (isExpired, expirationMessage) = CheckPasswordExpiration(user);
+                if (isExpired)
+                {
+                    _logger.LogInformation("User {UserId} requires password change after OTP: {Reason}", 
+                        user.Id, expirationMessage);
+
+                    return Ok(new OtpValidationResponseDto
+                    {
+                        Success = false,
+                        RequiresPasswordChange = true,
+                        TempToken = dto.TempToken, // Reuse the same temp token
+                        PasswordExpirationMessage = expirationMessage,
+                        Message = "נדרש שינוי סיסמה"
+                    });
+                }
+
+                // ✅ Complete login using AuthService helper
                 var sessionId = await _authService.CompleteLoginAsync(user, user.Entity);
 
                 _logger.LogInformation("Login completed for user {UserId}, SessionId: {SessionId}", user.Id, sessionId);
 
-                // ✅ Single return statement
+                // ✅ Return success
                 return Ok(new OtpValidationResponseDto
                 {
                     Success = true,
@@ -202,6 +264,35 @@ namespace PetelApp.Api.Controllers
                 return StatusCode(500, new { success = false, message = "שגיאה באימות הקוד" });
             }
         }
+
+        /// <summary>
+        /// Check if password has expired (helper method)
+        /// </summary>
+        private (bool IsExpired, string? Message) CheckPasswordExpiration(User user)
+        {
+            // Check if expiration is enabled
+            if (_securitySettings.PasswordExpirationMonths <= 0)
+            {
+                return (false, null);
+            }
+
+            // Check if admin forced password change
+            if (user.PasswordChangeRequired)
+            {
+                return (true, "מנהל המערכת דורש החלפת סיסמה");
+            }
+
+            // Check if password is expired by age
+            if (user.IsPasswordExpired(_securitySettings.PasswordExpirationMonths))
+            {
+                var daysSinceChange = (DateTime.UtcNow - user.PasswordChangedAt).Days;
+                return (true, $"הסיסמה פגה תוקף ({daysSinceChange} ימים מאז שינוי אחרון)");
+            }
+
+            return (false, null);
+        }
+        
+
         /// <summary>
         /// POST /api/otp/disable - Turn off OTP for current user
         /// </summary>
