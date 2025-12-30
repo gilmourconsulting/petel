@@ -719,7 +719,7 @@
 
             // OK button handler
             document.getElementById('classOkBtn').onclick = async () => {
-                const level = document.getElementById('classLevel').value.trim();
+                let level = document.getElementById('classLevel').value.trim();
                 const classNumber = document.getElementById('classNumber').value.trim();
                 const hour = document.getElementById('endHour').value;
                 const minute = document.getElementById('endMinute').value;
@@ -730,6 +730,12 @@
                     return;
                 }
 
+
+                    // ✅ Normalize: Convert ASCII quotes to Hebrew Gershayim before saving
+                level = level.replace(/"/g, '״').replace(/'/g, '׳');
+                
+                console.log('💾 Saving class with normalized level:', level);
+                
                 // ✅ Check if another class exists with same level and number
                 const exists = window.lastSchoolClassesData.some(cls =>
                     cls.id !== parseInt(recordId || 0) &&
@@ -2199,13 +2205,15 @@
                     try {
                         // ✅ Get class level from the selected option
                         const selectedOption = this.options[this.selectedIndex];
-                        const classLevel = selectedOption.getAttribute('data-level');
+                        let classLevel = selectedOption.getAttribute('data-level');
 
                         if (!classLevel) {
                             console.error('❌ No class level found for selected class');
                             trackSelect.innerHTML = '<option value="">שגיאה: לא נמצאה שכבה</option>';
                             return;
                         }
+
+                        classLevel = classLevel.replace(/"/g, '״').replace(/'/g, '׳');
 
                         console.log(`📚 Loading tracks for year ${selectedYearId} and class level ${classLevel}`);
 

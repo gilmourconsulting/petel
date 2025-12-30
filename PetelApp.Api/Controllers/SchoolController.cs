@@ -250,11 +250,11 @@ public async Task<IActionResult> UpdateSchoolDetails([FromBody] UpdateSchoolDeta
             });
         }
 
-        if (currentSchool.Owner != sessionEntityId)
-        {
-            _logger.LogWarning("Unauthorized update attempt");
-            return Forbid();
-        }
+    if (currentSchool.Owner != sessionEntityId)
+    {
+        _logger.LogWarning("Unauthorized update attempt - Owner mismatch");
+        return Unauthorized(new { success = false, message = "אין הרשאה לעדכון משאב זה" });
+    }
 
         // ✅ VERSIONING STEP 1: Mark current record as NOT last version
         currentSchool.IsLastVersion = false;
