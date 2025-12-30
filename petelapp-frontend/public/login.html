@@ -661,105 +661,104 @@
         }
 
 
+loginForm.addEventListener('submit', async function (e) {
+    e.preventDefault();
 
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const entityId = document.getElementById('entity').value;
 
-        loginForm.addEventListener('submit', async function (e) {
-            e.preventDefault();
+    if (!username || !password || !entityId) {
+        showError('אנא מלא את כל השדות');
+        return;
+    }
 
-            const username = document.getElementById('username').value;
-            const password = document.getElementById('password').value;
-            const entityId = document.getElementById('entity').value;
+    loginButton.disabled = true;
+    loginButton.innerHTML = 'מתחבר... <span class="loading"></span>';
+    hideError();
 
-            if (!username || !password || !entityId) {
-                showError('אנא מלא את כל השדות');
-                return;
-            }
+    try {
+        document.getElementById('step2').classList.add('completed');
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('step3').classList.add('active');
 
-            loginButton.disabled = true;
-            loginButton.innerHTML = 'מתחבר... <span class="loading"></span>';
-            hideError();
+        const loginData = {
+            username: username.trim(),
+            password: password,
+            entityId: parseInt(entityId)
+        };
 
-            try {
-                document.getElementById('step2').classList.add('completed');
-                document.getElementById('step2').classList.remove('active');
-                document.getElementById('step3').classList.add('active');
-
-                const loginData = {
-                    username: username.trim(),
-                    password: password,
-                    entityId: parseInt(entityId)
-                };
-
-                const response = await fetch(AppConfig.getApiUrl('auth/login'), {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(loginData)
-                });
-
-                // ✅ Backend always returns 200 OK (or 500 for server errors)
-                if (!response.ok) {
-                    throw new Error('שגיאה בתקשורת עם השרת');
-                }
-
-                const data = await response.json();
-                console.log('Login response:', data);
-
-                // ✅ Check success flag instead of HTTP status
-                if (!data.success) {
-                    // Display backend message directly
-                    throw new Error(data.message || 'שגיאה בהתחברות');
-                }
-
-                // Check if OTP is required
-                if (data.requiresOtpSetup) {
-                    console.log('OTP setup required for this user');
-                    tempToken = data.tempToken;
-                    sessionStorage.setItem('otpTempToken', data.tempToken);
-                    showOtpSetupFlow();
-                    return;
-                }
-
-                if (data.requiresOtp) {
-                    console.log('OTP required for this user');
-                    tempToken = data.tempToken;
-                    sessionStorage.setItem('otpTempToken', data.tempToken);
-                    showOtpModal();
-                    return;
-                }
-
-                // Check if password change is required (for users without OTP)
-                if (data.requiresPasswordChange) {
-                    console.log('🔐 Password change required (no OTP)');
-                    showPasswordChangeModal(data.tempToken, data.passwordExpirationMessage);
-                    return;
-                }
-
-                // ✅ Standard login success (no OTP or OTP disabled)
-                if (data.token) {
-                    sessionStorage.setItem('authToken', data.token);
-                    console.log('Login successful, token stored, redirecting to dashboard');
-                    window.location.href = 'index.html';
-                } else {
-                    throw new Error('שגיאה בהתחברות - אין טוקן');
-                }
-
-            } catch (error) {
-                console.error('Login error:', error);
-                document.getElementById('step3').classList.remove('active');
-                document.getElementById('step2').classList.add('active');
-
-                // ✅ Display the specific error message from backend
-                showError(error.message);
-
-                document.getElementById('password').focus();
-                document.getElementById('password').select();
-            } finally {
-                loginButton.disabled = false;
-                loginButton.innerHTML = 'התחבר';
-            }
+        const response = await fetch(AppConfig.getApiUrl('auth/login'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(loginData)
         });
+
+        // ✅ Backend always returns 200 OK (or 500 for server errors)
+        if (!response.ok) {
+            throw new Error('שגיאה בתקשורת עם השרת');
+        }
+
+        const data = await response.json();
+        console.log('Login response:', data);
+
+        // ✅ Check OTP requirements FIRST (before success check)
+        if (data.requiresOtpSetup) {
+            console.log('OTP setup required for this user');
+            tempToken = data.tempToken;
+            sessionStorage.setItem('otpTempToken', data.tempToken);
+            showOtpSetupFlow();
+            return;
+        }
+
+        if (data.requiresOtp) {
+            console.log('OTP required for this user');
+            tempToken = data.tempToken;
+            sessionStorage.setItem('otpTempToken', data.tempToken);
+            showOtpModal();
+            return;
+        }
+
+        // ✅ Check password change requirement
+        if (data.requiresPasswordChange) {
+            console.log('🔐 Password change required (no OTP)');
+            showPasswordChangeModal(data.tempToken, data.passwordExpirationMessage);
+            return;
+        }
+
+        // ✅ NOW check success flag (for actual login failures)
+        if (!data.success) {
+            // Display backend message directly (locked account, wrong password, etc.)
+            throw new Error(data.message || 'שגיאה בהתחברות');
+        }
+
+        // ✅ Standard login success (no OTP, no password change)
+        if (data.token) {
+            sessionStorage.setItem('authToken', data.token);
+            console.log('Login successful, token stored, redirecting to dashboard');
+            window.location.href = 'index.html';
+        } else {
+            throw new Error('שגיאה בהתחברות - אין טוקן');
+        }
+
+    } catch (error) {
+        console.error('Login error:', error);
+        document.getElementById('step3').classList.remove('active');
+        document.getElementById('step2').classList.add('active');
+
+        // ✅ Display the specific error message from backend
+        showError(error.message);
+
+        document.getElementById('password').focus();
+        document.getElementById('password').select();
+    } finally {
+        loginButton.disabled = false;
+        loginButton.innerHTML = 'התחבר';
+    }
+});
+       
         //Show OTP modal
         function showOtpModal() {
             const modal = document.getElementById('otpModalOverlay');
