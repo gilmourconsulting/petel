@@ -4813,6 +4813,7 @@
                 function validateApprovedAmount() {
                     const approvedInput = document.getElementById('programApproved');
                     const approvedAmount = parseFloat(approvedInput.value);
+                    const weeklyHours = parseFloat(document.getElementById('programHours').value) ;
                     const validationError = document.getElementById('validationError');
                     const validationErrorText = document.getElementById('validationErrorText');
 
@@ -4824,8 +4825,8 @@
                         return true; // No validation needed
                     }
 
-                    if (approvedAmount > currentMaxPrice) {
-                        validationErrorText.textContent = `הסכום המאושר (₪${approvedAmount.toFixed(2)}) עולה על הסכום המקסימלי המותר (₪${currentMaxPrice.toFixed(2)})`;
+                    if (approvedAmount > (currentMaxPrice * weeklyHours)) {
+                        validationErrorText.textContent = `הסכום המאושר (₪${approvedAmount.toFixed(2)}) עולה על הסכום המקסימלי המותר (₪${(currentMaxPrice * weeklyHours).toFixed(2)})`;
                         validationError.style.display = 'block';
                         approvedInput.style.borderColor = '#dc3545';
                         return false;
@@ -4840,8 +4841,9 @@
 
                 costInput.addEventListener('blur', function () {
                     const cost = parseFloat(this.value);
-                    if (!isNaN(cost) && cost > 0) {
-                        const hourlyCost = (cost / 35).toFixed(2);
+                    const weeklyHours = parseFloat(document.getElementById('programHours').value);
+                    if (!isNaN(cost) && cost > 0 && !isNaN(weeklyHours) && weeklyHours > 0) {
+                        const hourlyCost = ((cost / 35) / weeklyHours).toFixed(2);
                         hourlyCostInput.value = hourlyCost;
                     } else {
                         hourlyCostInput.value = '';
