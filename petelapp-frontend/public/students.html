@@ -235,30 +235,43 @@
     }
 
     // Update showUploadDialog to reset file input display
-    function showUploadDialog() {
-        const modal = document.getElementById('uploadDialog');
-        if (modal) {
-            // Reset to step 1
-            document.getElementById('fileSelectionStep').style.display = 'block';
-            document.getElementById('columnMappingStep').style.display = 'none';
-            document.getElementById('uploadStatus').style.display = 'none';
-            document.getElementById('submitFileBtn').style.display = 'inline-block';
-            document.getElementById('uploadFileBtn').style.display = 'none';
-            document.getElementById('backToFileBtn').style.display = 'none';
-            document.getElementById('uploadModalTitle').textContent = 'העלאת קובץ תלמידים';
-
-            // Reset file input
-            const fileInput = document.getElementById('studentFile');
-            const fileNameDisplay = document.getElementById('fileNameDisplay');
-            if (fileInput) fileInput.value = '';
-            if (fileNameDisplay) fileNameDisplay.textContent = 'לא נבחר קובץ';
-            selectedFile = null;
-            columnMappings = {}; // ✅ Clear mappings on fresh open
-            currentHeaders = [];
-
-            modal.style.display = 'flex';
-        }
+function showUploadDialog() {
+    const modal = document.getElementById('uploadDialog');
+    if (!modal) {
+        console.error('❌ Upload modal not found in DOM');
+        return;
     }
+    
+    // Reset to step 1 - with null checks
+    const fileSelectionStep = document.getElementById('fileSelectionStep');
+    const columnMappingStep = document.getElementById('columnMappingStep');
+    const uploadStatus = document.getElementById('uploadStatus');
+    const submitFileBtn = document.getElementById('submitFileBtn');
+    const uploadFileBtn = document.getElementById('uploadFileBtn');
+    const backToFileBtn = document.getElementById('backToFileBtn');
+    const uploadModalTitle = document.getElementById('uploadModalTitle');
+    
+    if (fileSelectionStep) fileSelectionStep.style.display = 'block';
+    if (columnMappingStep) columnMappingStep.style.display = 'none';
+    if (uploadStatus) uploadStatus.style.display = 'none';
+    if (submitFileBtn) submitFileBtn.style.display = 'inline-block';
+    if (uploadFileBtn) uploadFileBtn.style.display = 'none';
+    if (backToFileBtn) backToFileBtn.style.display = 'none';
+    if (uploadModalTitle) uploadModalTitle.textContent = 'העלאת קובץ תלמידים';
+
+    // Reset file input
+    const fileInput = document.getElementById('studentFile');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    if (fileInput) fileInput.value = '';
+    if (fileNameDisplay) fileNameDisplay.textContent = 'לא נבחר קובץ';
+    
+    selectedFile = null;
+    columnMappings = {}; // ✅ Clear mappings on fresh open
+    currentHeaders = [];
+
+    modal.style.display = 'flex';
+}
+    
 
     // Go back to file selection step - preserve mappings if same file
     function backToFileSelection() {
@@ -280,25 +293,72 @@
         console.log('🔙 Returned to file selection step (mappings preserved)');
     }
 
-    // Close upload dialog
+   
+        // Close upload dialog
     function closeUploadDialog() {
         const modal = document.getElementById('uploadDialog');
-        if (modal) {
-            modal.style.display = 'none';
+        if (!modal) {
+            console.error('❌ Upload modal not found in DOM');
+            return;
         }
-
-        // Reset everything
-        document.getElementById('fileSelectionStep').style.display = 'block';
-        document.getElementById('columnMappingStep').style.display = 'none';
-        document.getElementById('uploadStatus').style.display = 'none';
-        document.getElementById('fileSelectionStatus').style.display = 'none';
-        document.getElementById('mappingStatus').style.display = 'none';
-        document.getElementById('studentFile').value = '';
+        
+        modal.style.display = 'none';
+    
+        // Reset everything - with null checks
+        const fileSelectionStep = document.getElementById('fileSelectionStep');
+        const columnMappingStep = document.getElementById('columnMappingStep');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const fileSelectionStatus = document.getElementById('fileSelectionStatus');
+        const mappingStatus = document.getElementById('mappingStatus');
+        
+        if (fileSelectionStep) fileSelectionStep.style.display = 'block';
+        if (columnMappingStep) columnMappingStep.style.display = 'none';
+        if (uploadStatus) uploadStatus.style.display = 'none';
+        if (fileSelectionStatus) fileSelectionStatus.style.display = 'none';
+        if (mappingStatus) mappingStatus.style.display = 'none';
+    
+        // Reset file input
+        const fileInput = document.getElementById('studentFile');
+        if (fileInput) fileInput.value = '';
+    
         const fileNameDisplay = document.getElementById('fileNameDisplay');
         if (fileNameDisplay) fileNameDisplay.textContent = 'לא נבחר קובץ';
+    
+        // Clear state variables
         selectedFile = null;
         columnMappings = {};
         currentHeaders = [];
+    
+        // ✅ Reset modal buttons to initial state - with null checks
+        const submitFileBtn = document.getElementById('submitFileBtn');
+        const uploadFileBtn = document.getElementById('uploadFileBtn');
+        const backToFileBtn = document.getElementById('backToFileBtn');
+        const uploadModalTitle = document.getElementById('uploadModalTitle');
+        
+        if (submitFileBtn) {
+            submitFileBtn.style.display = 'inline-block';
+            submitFileBtn.disabled = false;
+        }
+        if (uploadFileBtn) {
+            uploadFileBtn.style.display = 'none';
+            uploadFileBtn.disabled = false;
+            uploadFileBtn.textContent = 'העלה קובץ';
+        }
+        if (backToFileBtn) backToFileBtn.style.display = 'none';
+        if (uploadModalTitle) uploadModalTitle.textContent = 'העלאת קובץ תלמידים';
+    
+        // ✅ Restore original modal footer (in case it was replaced)
+        const modalFooter = document.querySelector('#uploadDialog .modal-footer');
+        if (modalFooter) {
+            modalFooter.innerHTML = `
+            <button type="button" class="btn-secondary" onclick="closeUploadDialog()">ביטול</button>
+            <button type="button" id="backToFileBtn" class="btn-secondary" style="display: none;"
+                onclick="backToFileSelection()">חזרה</button>
+            <button type="button" id="submitFileBtn" class="btn-primary" onclick="handleFileSelection()">המשך</button>
+            <button type="button" id="uploadFileBtn" class="btn-primary" style="display: none;"
+                onclick="handleFileUpload()">העלה קובץ</button>
+        `;
+        }
     }
 
     // Handle file selection and preview
@@ -482,7 +542,7 @@
                     `➕ נוצרו: ${result.created}\n` +
                     `✏️ עודכנו: ${result.updated}\n` +
                     `➖ ללא שינוי: ${result.unchanged}\n` +
-                     (result.errors > 0 ? `\n❌ שגיאות: ${result.errors}` : '');
+                    (result.errors > 0 ? `\n❌ שגיאות: ${result.errors}` : '');
 
                 let finalMessage = summaryMessage;
                 if (result.errors > 0 && result.details?.errorList) {
@@ -537,7 +597,8 @@
     function closeUploadDialogAndRefresh() {
         closeUploadDialog();
         console.log('🔄 Refreshing students data after upload...');
-        window.refreshStudentsData();
+        // ✅ Immediate refresh - no delay needed
+        refreshStudentsData();
     }
 
     // Close modal when clicking on overlay (outside modal content)
@@ -634,7 +695,7 @@
                     // Create table with transformed data
                     createStudentsTable(transformedData);
 
-                                        // ✅ Update page title with school and year
+                    // ✅ Update page title with school and year
                     updatePageTitle();
                 } else {
                     console.error('❌ Invalid response format:', result);
@@ -717,24 +778,24 @@
     }
 
 
-        // Update page title with school name and Hebrew year
+    // Update page title with school name and Hebrew year
     async function updatePageTitle() {
         try {
             const schoolName = await window.SessionState.getProperty('SelectedSchoolName');
             const hebrewYear = await window.SessionState.getProperty('SelectedYearValue');
-            
+
             const titleElement = document.getElementById('studentsTitle');
             if (titleElement) {
                 let titleText = 'תלמידים';
-                
+
                 if (schoolName) {
                     titleText = `תלמידים - ${schoolName}`;
                 }
-                
+
                 if (hebrewYear) {
                     titleText += ` - ${hebrewYear}`;
                 }
-                
+
                 titleElement.textContent = titleText;
                 console.log('✅ Page title updated:', titleText);
             }
@@ -826,7 +887,7 @@
                     return `₪${amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                 }
 
-                },
+            },
             { key: 'sendingCouncil', label: 'רשות שולחת', sortable: true, readOnly: false },
             {
                 key: 'actions',
@@ -973,22 +1034,9 @@
         }
     }
 
-    // Close upload dialog
-    function closeUploadDialog() {
-        document.getElementById('uploadDialog').style.display = 'none';
-        document.getElementById('uploadForm').reset();
-        document.getElementById('uploadStatus').style.display = 'none';
-    }
 
 
 
-    // Close modal when clicking outside
-    window.onclick = function (event) {
-        const modal = document.getElementById('uploadDialog');
-        if (event.target === modal) {
-            closeUploadDialog();
-        }
-    }
 
     // Update the bulk pricing calculation to track new student IDs
     async function calculateBulkStudentPricing() {

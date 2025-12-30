@@ -365,58 +365,123 @@ public async Task<IActionResult> UploadStudentsFile([FromForm] UploadStudentsFil
             return index >= 0 ? csv.GetField(index)?.Trim() ?? "" : "";
         }
 
-        private string GetFieldValue(IXLRow row, List<string> headers, string fieldName, Dictionary<string, string>? mapping)
+ private string GetFieldValue(IXLRow row, List<string> headers, string fieldName, Dictionary<string, string>? mapping)
+{
+    var headerName = mapping != null && mapping.ContainsKey(fieldName) ? mapping[fieldName] : fieldName;
+    var index = headers.IndexOf(headerName);
+    
+    if (index < 0)
+    {
+        _logger.LogDebug("Field '{FieldName}' not found in headers", fieldName);
+        return "";
+    }
+    
+    var cell = row.Cell(index + 1);
+    
+    // Log cell details for debugging
+    _logger.LogDebug("📋 Field '{FieldName}': DataType={DataType}, RawValue='{RawValue}'", 
+        fieldName, cell.DataType, cell.Value);
+    
+    // ✅ Handle date fields specially - can be DateTime, Text, or Number format
+    if (fieldName == "start_date" || fieldName == "end_date")
+    {
+        _logger.LogDebug("🔍 Processing date field: '{FieldName}'", fieldName);
+        
+        try
         {
-            var headerName = mapping != null && mapping.ContainsKey(fieldName) ? mapping[fieldName] : fieldName;
-            var index = headers.IndexOf(headerName);
+            // ✅ Declare hebrewCulture ONCE at the top of the try block
+            var hebrewCulture = CultureInfo.GetCultureInfo("he-IL");
             
-            if (index < 0)
+            // Case 1: Excel DateTime format (formatted as date in Excel)
+            if (cell.DataType == XLDataType.DateTime)
             {
-                _logger.LogDebug("Field '{FieldName}' not found in headers", fieldName);
-                return "";
+                if (cell.TryGetValue<DateTime>(out DateTime dateValue))
+                {
+                    var formattedDate = dateValue.ToString("dd/MM/yyyy");
+                    _logger.LogDebug("✅ DateTime format for '{FieldName}': {DateTime} → '{FormattedDate}'",
+                        fieldName, dateValue, formattedDate);
+                    return formattedDate;
+                }
             }
             
-            var cell = row.Cell(index + 1);
-            
-            // Log cell details for ALL fields to understand what we're getting
-            var cellValueType = cell.Value.ToString()?.GetType().Name ?? "null";
-            _logger.LogInformation("📋 Field '{FieldName}': DataType={DataType}, RawValue='{RawValue}', ValueType={ValueType}", 
-                fieldName, cell.DataType, cell.Value, cellValueType);
-            
-            // ✅ Handle date fields specially - Excel stores dates as DateTime
-            if (cell.DataType == XLDataType.DateTime || 
-                (fieldName == "start_date" || fieldName == "end_date"))
+            // Case 2: Number format (Excel stores dates as numbers - days since 1900-01-01)
+            if (cell.DataType == XLDataType.Number)
             {
-                _logger.LogWarning("🔍 Date field detected: '{FieldName}'", fieldName);
-                
-                try
+                if (cell.TryGetValue<double>(out double numericValue))
                 {
-                    // ✅ Get the actual DateTime value from Excel (not string representation)
-                    if (cell.TryGetValue<DateTime>(out DateTime dateValue))
-                    {
-                        // Format as DD/MM/YYYY for Israeli processor
-                        var formattedDate = dateValue.ToString("dd/MM/yyyy");
-                        _logger.LogWarning("✅ Excel DateTime for '{FieldName}': {DateTime} → '{FormattedDate}'",
-                            fieldName, dateValue, formattedDate);
-                        return formattedDate;
-                    }
-                    else
-                    {
-                        _logger.LogError("❌ Failed to get DateTime value from cell for '{FieldName}'", fieldName);
-                    }
+                    // Excel date serial number (e.g., 45535 = 2024-09-01)
+                    var dateValue = DateTime.FromOADate(numericValue);
+                    var formattedDate = dateValue.ToString("dd/MM/yyyy");
+                    _logger.LogDebug("✅ Number format for '{FieldName}': {Number} → {DateTime} → '{FormattedDate}'",
+                        fieldName, numericValue, dateValue, formattedDate);
+                    return formattedDate;
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "❌ Error extracting DateTime from Excel cell for '{FieldName}'", fieldName);
-                }
-                
-                return "";  // Return empty string on parse failure
             }
             
-            var stringValue = cell.Value.ToString()?.Trim() ?? "";
-            _logger.LogDebug("Field '{FieldName}' returning string value: '{StringValue}'", fieldName, stringValue);
-            return stringValue;
+            // Case 3: Text format (already formatted as dd/MM/yyyy or similar)
+            if (cell.DataType == XLDataType.Text)
+            {
+                var textValue = cell.GetString().Trim();
+                
+                // Validate it's a parseable date (reuse hebrewCulture)
+                if (DateTime.TryParse(textValue, hebrewCulture, DateTimeStyles.None, out DateTime parsedDate))
+                {
+                    // Re-format to ensure consistent dd/MM/yyyy format
+                    var formattedDate = parsedDate.ToString("dd/MM/yyyy");
+                    _logger.LogDebug("✅ Text format for '{FieldName}': '{Text}' → '{FormattedDate}'",
+                        fieldName, textValue, formattedDate);
+                    return formattedDate;
+                }
+                else
+                {
+                    _logger.LogWarning("⚠️ Text format for '{FieldName}' is not a valid date: '{Text}'",
+                        fieldName, textValue);
+                    return textValue; // Return as-is for validation to catch
+                }
+            }
+            
+            // Case 4: General format (try both numeric and text parsing)
+            var cellValueString = cell.Value.ToString()?.Trim() ?? "";
+            
+            // Try as numeric first (Excel general format with date number)
+            if (double.TryParse(cellValueString, NumberStyles.Any, CultureInfo.InvariantCulture, out double generalNumeric))
+            {
+                // Check if it's a reasonable Excel date serial number (between 1900 and 2100)
+                if (generalNumeric > 0 && generalNumeric < 73050) // Excel dates for years 1900-2100
+                {
+                    var dateValue = DateTime.FromOADate(generalNumeric);
+                    var formattedDate = dateValue.ToString("dd/MM/yyyy");
+                    _logger.LogDebug("✅ General-as-number format for '{FieldName}': {Number} → {DateTime} → '{FormattedDate}'",
+                        fieldName, generalNumeric, dateValue, formattedDate);
+                    return formattedDate;
+                }
+            }
+            
+            // Try as text date (reuse hebrewCulture)
+            if (DateTime.TryParse(cellValueString, hebrewCulture, DateTimeStyles.None, out DateTime generalDate))
+            {
+                var formattedDate = generalDate.ToString("dd/MM/yyyy");
+                _logger.LogDebug("✅ General-as-text format for '{FieldName}': '{Text}' → '{FormattedDate}'",
+                    fieldName, cellValueString, formattedDate);
+                return formattedDate;
+            }
+            
+            _logger.LogError("❌ Failed to parse date for '{FieldName}': DataType={DataType}, Value='{Value}'",
+                fieldName, cell.DataType, cellValueString);
+            return cellValueString; // Return as-is for validation to catch
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "❌ Error extracting date from Excel cell for '{FieldName}'", fieldName);
+            return ""; // Return empty string on exception
+        }
+    }
+    
+    // Non-date fields: return as string
+    var stringValue = cell.Value.ToString()?.Trim() ?? "";
+    _logger.LogDebug("Field '{FieldName}' returning string value: '{StringValue}'", fieldName, stringValue);
+    return stringValue;
+}
 
         /// <summary>
         /// Resolves school and year IDs from either direct IDs or natural keys.
