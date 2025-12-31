@@ -17,13 +17,10 @@
             <div class="detail-card">
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">בחירת שנה</h2>
-             <!--       <div class="card-header-actions">
-                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
-                    </div>-->
                 </div>
                 <div class="detail-card-content">
                     <div style="padding: 15px;">
-                        <label for="yearSelect" style="display: block; margin-bottom: 8px; font-weight: 600;">שנה עברית:</label>
+                        <label for="yearSelect" style="display: block; margin-bottom: 8px; font-weight: 600;"> שנת לימודים:</label>
                         <select id="yearSelect" onchange="handleYearChange()" style="
                                     padding: 8px 12px;
                                     border: 1px solid #dee2e6;
@@ -39,55 +36,174 @@
                 </div>
             </div>
 
-                     <!-- Document Types Card -->
-            <div class="detail-card collapsed" id="documentTypesCard" style="display: none;">
-                <div class="detail-card-header">
-                    <h2 class="detail-card-title">סוגי מסמכים</h2>
-                    <div class="card-header-actions">
-                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
-                    </div>
+            <!-- Tabs Container -->
+            <div id="tabsContainer" style="display: none; margin-top: 20px;">
+                <!-- Tab Headers -->
+                <div class="tabs-header" style="
+                    display: flex;
+                    gap: 10px;
+                    padding: 0 15px;
+                    border-bottom: 2px solid #dee2e6;
+                    margin-bottom: 20px;
+                ">
+                    <button class="tab-button active" onclick="switchTab('documents')" data-tab="documents" style="
+                        padding: 12px 24px;
+                        border: none;
+                        background: none;
+                        cursor: pointer;
+                        font-weight: 600;
+                        border-bottom: 3px solid transparent;
+                        transition: all 0.3s;
+                    ">מסמכים</button>
+                    <button class="tab-button" onclick="switchTab('pricing')" data-tab="pricing" style="
+                        padding: 12px 24px;
+                        border: none;
+                        background: none;
+                        cursor: pointer;
+                        font-weight: 600;
+                        border-bottom: 3px solid transparent;
+                        transition: all 0.3s;
+                    ">רכיבי תמחור</button>
+                    <button class="tab-button" onclick="switchTab('tracks')" data-tab="tracks" style="
+                        padding: 12px 24px;
+                        border: none;
+                        background: none;
+                        cursor: pointer;
+                        font-weight: 600;
+                        border-bottom: 3px solid transparent;
+                        transition: all 0.3s;
+                    ">מגמות</button>
                 </div>
-                <div class="detail-card-content">
-                    <div id="documentTypesTableContainer" class="table-container">
-                        <div class="loading-spinner">טוען...</div>
-                    </div>
-                </div>
-            </div>
-         
-            <!-- Pricing Elements Card -->
-            <div class="detail-card collapsed" id="pricingElementsCard" style="display: none;">
-                <div class="detail-card-header">
-                    <h2 class="detail-card-title">רכיבי תמחור</h2>
-                    <div class="card-header-actions">
-                        <button id="addPricingElementBtn" class="btn-icon" onclick="event.stopPropagation(); showAddPricingElementModal();" title="הוסף רכיב תמחור" style="display: none;">
-                            <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
-                        </button>
-                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
-                    </div>
-                </div>
-                <div class="detail-card-content">
-                    <div id="pricingElementsTableContainer" class="table-container">
-                        <div class="loading-spinner">טוען...</div>
-                    </div>
-                </div>
-            </div>
 
-
-
-            <!-- Pricing Categories Card -->
-            <div class="detail-card collapsed" id="pricingCategoriesCard" style="display: none;">
-                <div class="detail-card-header">
-                    <h2 class="detail-card-title">קטגוריות תמחור - <span id="selectedElementName"></span></h2>
-                    <div class="card-header-actions">
-                        <button id="addPricingCategoryBtn" class="btn-icon" onclick="event.stopPropagation(); showAddPricingCategoryModal();" title="הוסף קטגוריה" style="display: none;">
-                            <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
-                        </button>
-                        <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                <!-- Tab Content - Documents -->
+                <div id="documentsTab" class="tab-content" style="display: block;">
+                    <!-- Document Types Card -->
+                    <div class="detail-card collapsed" id="documentTypesCard">
+                        <div class="detail-card-header">
+                            <h2 class="detail-card-title">סוגי מסמכים</h2>
+                            <div class="card-header-actions">
+                                <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                            </div>
+                        </div>
+                        <div class="detail-card-content">
+                            <div id="documentTypesTableContainer" class="table-container">
+                                <div class="loading-spinner">טוען...</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="detail-card-content">
-                    <div id="pricingCategoriesTableContainer" class="table-container">
-                        <div class="loading-spinner">טוען...</div>
+
+                <!-- Tab Content - Pricing -->
+                <div id="pricingTab" class="tab-content" style="display: none;">
+                    <!-- Pricing Elements Card -->
+                    <div class="detail-card collapsed" id="pricingElementsCard">
+                        <div class="detail-card-header">
+                            <h2 class="detail-card-title">רכיבי תמחור</h2>
+                            <div class="card-header-actions">
+                                <button id="addPricingElementBtn" class="btn-icon" onclick="showAddPricingElementModal();" title="הוסף רכיב תמחור" style="display: none;">
+                                    <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
+                                </button>
+                                <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                            </div>
+                        </div>
+                        <div class="detail-card-content">
+                            <div id="pricingElementsTableContainer" class="table-container">
+                                <div class="loading-spinner">טוען...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pricing Categories Card -->
+                    <div class="detail-card collapsed" id="pricingCategoriesCard" style="display: none;">
+                        <div class="detail-card-header">
+                            <h2 class="detail-card-title">קטגוריות תמחור - <span id="selectedElementName"></span></h2>
+                            <div class="card-header-actions">
+                                <button id="addPricingCategoryBtn" class="btn-icon" onclick="showAddPricingCategoryModal();" title="הוסף קטגוריה" style="display: none;">
+                                    <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
+                                </button>
+                                <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                            </div>
+                        </div>
+                        <div class="detail-card-content">
+                            <div id="pricingCategoriesTableContainer" class="table-container">
+                                <div class="loading-spinner">טוען...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pricing Steps Card -->
+                    <div class="detail-card collapsed" id="pricingStepsCard" style="display: none;">
+                        <div class="detail-card-header">
+                            <h2 class="detail-card-title">שלבי תמחור - קטגוריה <span id="selectedCategoryNumber"></span></h2>
+                            <div class="card-header-actions">
+                                <button id="addPricingStepBtn" class="btn-icon" onclick="showAddPricingStepModal();" title="הוסף שלב תמחור" style="display: none;">
+                                    <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
+                                </button>
+                                <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                            </div>
+                        </div>
+                        <div class="detail-card-content">
+                            <div id="pricingStepsTableContainer" class="table-container">
+                                <div class="loading-spinner">טוען...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content - Tracks -->
+                <div id="tracksTab" class="tab-content" style="display: none;">
+                    <!-- Tracks Card -->
+                    <div class="detail-card collapsed" id="tracksCard">
+                        <div class="detail-card-header">
+                            <h2 class="detail-card-title">מגמות</h2>
+                            <div class="card-header-actions">
+                                <button id="addTrackBtn" class="btn-icon" onclick="showAddTrackModal();" title="הוסף מגמה" style="display: none;">
+                                    <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
+                                </button>
+                                <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                            </div>
+                        </div>
+                        <div class="detail-card-content">
+                            <div id="tracksTableContainer" class="table-container">
+                                <div class="loading-spinner">טוען...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Track Levels Card -->
+                    <div class="detail-card collapsed" id="trackLevelsCard" style="display: none;">
+                        <div class="detail-card-header">
+                            <h2 class="detail-card-title">רמות מגמה - <span id="selectedTrackName"></span></h2>
+                            <div class="card-header-actions">
+                                <button id="addTrackLevelBtn" class="btn-icon" onclick="showAddTrackLevelModal();" title="הוסף רמה" style="display: none;">
+                                    <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
+                                </button>
+                                <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                            </div>
+                        </div>
+                        <div class="detail-card-content">
+                            <div id="trackLevelsTableContainer" class="table-container">
+                                <div class="loading-spinner">טוען...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Track Pricing Card -->
+                    <div class="detail-card collapsed" id="trackPricingCard" style="display: none;">
+                        <div class="detail-card-header">
+                            <h2 class="detail-card-title">תמחור רמה - <span id="selectedLevelName"></span></h2>
+                            <div class="card-header-actions">
+                                <button id="addTrackPricingBtn" class="btn-icon" onclick="showAddTrackPricingModal();" title="הוסף תמחור" style="display: none;">
+                                    <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
+                                </button>
+                                <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                            </div>
+                        </div>
+                        <div class="detail-card-content">
+                            <div id="trackPricingTableContainer" class="table-container">
+                                <div class="loading-spinner">טוען...</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -95,17 +211,87 @@
     </div>
 </div>
 
+<style>
+    .tab-button {
+        color: #666;
+    }
+    .tab-button.active {
+        color: #007bff;
+        border-bottom-color: #007bff !important;
+    }
+    .tab-button:hover {
+        color: #0056b3;
+        background-color: #f8f9fa;
+    }
+    .tab-content {
+        animation: fadeIn 0.3s;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+</style>
+
 <script>
     // Global state
     window.schoolYearConfigState = {
         selectedYearId: null,
+        activeTab: 'documents',
+        
+        // Pricing state
         selectedElementId: null,
         selectedElementName: '',
+        selectedCategoryId: null,
+        selectedCategoryNumber: null,
+        
+        // Tracks state
+        selectedTrackId: null,
+        selectedTrackName: '',
+        selectedLevelId: null,
+        selectedLevelName: '',
+        
+        // Data arrays
         hebrewYears: [],
-        pricingElements: [],
         documentTypes: [],
-        pricingCategories: []
+        pricingElements: [],
+        pricingCategories: [],
+        pricingSteps: [],
+        studyPrograms: [],
+        tracks: [],
+        trackLevels: [],
+        trackPricing: []
     };
+
+    // Tab switching function
+    async function switchTab(tabName) {
+        console.log(`🔄 Switching to tab: ${tabName}`);
+        
+        // Update active tab button
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+        
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.style.display = 'none';
+        });
+        
+        // Show selected tab content
+        const tabContent = document.getElementById(`${tabName}Tab`);
+        if (tabContent) {
+            tabContent.style.display = 'block';
+        }
+        
+        // Update state
+        window.schoolYearConfigState.activeTab = tabName;
+        
+        // Initialize collapsible cards for newly shown tab
+        initializeCollapsibleCards();
+        
+        // Load data for the selected tab
+        await loadTabData(tabName);
+    }
 
     // Initialize collapsible cards
     function initializeCollapsibleCards() {
@@ -235,17 +421,15 @@
             if (currentYearId) {
                 console.log(`📌 Auto-selecting current year ID: ${currentYearId}`);
                 window.schoolYearConfigState.selectedYearId = parseInt(currentYearId);
-                document.getElementById('pricingElementsCard').style.display = 'block';
-                document.getElementById('documentTypesCard').style.display = 'block';
+                
+                // Show tabs container
+                document.getElementById('tabsContainer').style.display = 'block';
 
                 // Initialize collapsible cards for newly shown cards
                 initializeCollapsibleCards();
 
-                // Load both pricing elements and document types in parallel
-                await Promise.all([
-                    loadPricingElements(parseInt(currentYearId)),
-                    loadDocumentTypes(parseInt(currentYearId))
-                ]);
+                // Load data for the active tab
+                await loadTabData('documents');
             }
         } catch (error) {
             console.error('❌ Error loading Hebrew years:', error);
@@ -259,31 +443,71 @@
         const selectedYearId = parseInt(yearSelect.value);
 
         if (!selectedYearId) {
-            // Hide all cards if no year selected
-            document.getElementById('pricingElementsCard').style.display = 'none';
-            document.getElementById('documentTypesCard').style.display = 'none';
-            document.getElementById('pricingCategoriesCard').style.display = 'none';
+            // Hide tabs if no year selected
+            document.getElementById('tabsContainer').style.display = 'none';
             window.schoolYearConfigState.selectedYearId = null;
-            window.schoolYearConfigState.selectedElementId = null;
             return;
         }
 
         window.schoolYearConfigState.selectedYearId = selectedYearId;
         window.schoolYearConfigState.selectedElementId = null;
+        window.schoolYearConfigState.selectedTrackId = null;
+        window.schoolYearConfigState.selectedLevelId = null;
 
-        // Show pricing elements and document types cards
-        document.getElementById('pricingElementsCard').style.display = 'block';
-        document.getElementById('documentTypesCard').style.display = 'block';
-        document.getElementById('pricingCategoriesCard').style.display = 'none';
+        // Hide and clear tracks-related cards
+        const trackLevelsCard = document.getElementById('trackLevelsCard');
+        if (trackLevelsCard) {
+            trackLevelsCard.style.display = 'none';
+        }
+        
+        const trackPricingCard = document.getElementById('trackPricingCard');
+        if (trackPricingCard) {
+            trackPricingCard.style.display = 'none';
+        }
 
-        // Initialize collapsible cards for newly shown cards
+        // Clear track levels table
+        const trackLevelsContainer = document.getElementById('trackLevelsTableContainer');
+        if (trackLevelsContainer) {
+            trackLevelsContainer.innerHTML = '<div class="loading-spinner">טוען...</div>';
+        }
+
+        // Clear track pricing table
+        const trackPricingContainer = document.getElementById('trackPricingTableContainer');
+        if (trackPricingContainer) {
+            trackPricingContainer.innerHTML = '<div class="loading-spinner">טוען...</div>';
+        }
+
+        // Show tabs container
+        document.getElementById('tabsContainer').style.display = 'block';
+
+        // Initialize collapsible cards
         initializeCollapsibleCards();
 
-        // Load both pricing elements and document types in parallel
-        await Promise.all([
-            loadPricingElements(selectedYearId),
-            loadDocumentTypes(selectedYearId)
-        ]);
+        // Load data for the active tab
+        await loadTabData(window.schoolYearConfigState.activeTab);
+    }
+
+    // Load data for specific tab
+    async function loadTabData(tabName) {
+        console.log(`📋 Loading data for tab: ${tabName}`);
+        
+        const yearId = window.schoolYearConfigState.selectedYearId;
+        if (!yearId) return;
+
+        switch(tabName) {
+            case 'documents':
+                await loadDocumentTypes(yearId);
+                break;
+            case 'pricing':
+                await loadPricingElements(yearId);
+                break;
+            case 'tracks':
+                await loadTracks(yearId);
+                break;
+            case 'studyprograms':
+                await loadStudyPrograms(yearId);
+                break;
+        }
     }
 
     // Load pricing elements for selected year
@@ -363,6 +587,8 @@
                     <th>שם</th>
                     <th>כותרת</th>
                     <th>תיאור</th>
+                    <th>רמת חישוב</th>
+                    <th>תכונה לבדיקה</th>
                     <th>תאריך יצירה</th>
                     <th>פעולות</th>
                 </tr>
@@ -376,6 +602,8 @@
             const name = element.name || '';
             const title = element.title || '';
             const sortOrder = element.sortOrder !== undefined ? element.sortOrder : 0;
+            const calculationLevel = element.calculationLevel || '';
+            const attributeToCheck = element.attributeToCheck || '';
             
             tableHtml += `
             <tr>
@@ -383,6 +611,8 @@
                 <td>${name}</td>
                 <td>${title}</td>
                 <td>${description}</td>
+                <td>${calculationLevel}</td>
+                <td>${attributeToCheck}</td>
                 <td>${createdAt}</td>
                 <td>
                     <button class="btn-icon" onclick="selectPricingElement(${element.id}, '${name.replace(/'/g, "\\'")}')"; title="הצג קטגוריות">
@@ -518,6 +748,9 @@
                 <td>${isLowestLevel}</td>
                 <td>${price}</td>
                 <td>
+                    <button class="btn-icon" onclick="selectPricingCategory(${category.id}, ${category.category})" title="צפה בשלבים">
+                        <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
+                    </button>
                     <button class="btn-icon" onclick="editPricingCategory(${category.id})" title="עריכה">
                         <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                     </button>
@@ -604,6 +837,38 @@
             </div>
             
             <div style="margin-bottom: 15px;">
+                <label for="elementCalculationLevel" style="display: block; margin-bottom: 5px; font-weight: 600;">רמת חישוב:</label>
+                <input type="text" 
+                       id="elementCalculationLevel" 
+                       maxlength="25"
+                       placeholder="רמת חישוב (אופציונלי)"
+                       style="
+                           width: 100%;
+                           padding: 8px;
+                           border: 1px solid #dee2e6;
+                           border-radius: 4px;
+                           font-size: 14px;
+                           direction: rtl;
+                       ">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="elementAttributeToCheck" style="display: block; margin-bottom: 5px; font-weight: 600;">תכונה לבדיקה:</label>
+                <input type="text" 
+                       id="elementAttributeToCheck" 
+                       maxlength="50"
+                       placeholder="תכונה לבדיקה (אופציונלי)"
+                       style="
+                           width: 100%;
+                           padding: 8px;
+                           border: 1px solid #dee2e6;
+                           border-radius: 4px;
+                           font-size: 14px;
+                           direction: rtl;
+                       ">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
                 <label for="elementSortOrder" style="display: block; margin-bottom: 5px; font-weight: 600;">סדר מיון:</label>
                 <input type="number" 
                        id="elementSortOrder" 
@@ -643,6 +908,8 @@
         const name = document.getElementById('elementName').value.trim();
         const title = document.getElementById('elementTitle').value.trim();
         const description = document.getElementById('elementDescription').value.trim();
+        const calculationLevel = document.getElementById('elementCalculationLevel').value.trim();
+        const attributeToCheck = document.getElementById('elementAttributeToCheck').value.trim();
 
         if (!name) {
             alert('נא להזין שם רכיב');
@@ -668,6 +935,8 @@
                         name: name,
                         title: title,
                         description: description || null,
+                        calculationLevel: calculationLevel || null,
+                        attributeToCheck: attributeToCheck || null,
                         sortOrder: parseInt(document.getElementById('elementSortOrder').value) || 0
                     })
                 }
@@ -908,6 +1177,883 @@
         }
     }
 
+    // Select pricing category to show steps
+    async function selectPricingCategory(categoryId, categoryNumber) {
+        console.log(`📋 Selected pricing category: ${categoryId} - Category ${categoryNumber}`);
+
+        window.schoolYearConfigState.selectedCategoryId = categoryId;
+        window.schoolYearConfigState.selectedCategoryNumber = categoryNumber;
+
+        document.getElementById('selectedCategoryNumber').textContent = categoryNumber;
+        document.getElementById('pricingStepsCard').style.display = 'block';
+
+        // Initialize collapsible card for newly shown card
+        initializeCollapsibleCards();
+
+        await loadPricingSteps(categoryId);
+    }
+
+    // Load pricing steps for selected category
+    async function loadPricingSteps(categoryId) {
+        try {
+            console.log(`📋 Loading pricing steps for category ${categoryId}...`);
+
+            const container = document.getElementById('pricingStepsTableContainer');
+            container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/pricing-steps/${categoryId}`),
+                AppConfig.getDefaultFetchOptions()
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to load pricing steps: ${response.status}`);
+            }
+
+            const steps = await response.json();
+            window.schoolYearConfigState.pricingSteps = steps;
+
+            renderPricingStepsTable(steps);
+
+            console.log(`✅ Loaded ${steps.length} pricing steps`);
+        } catch (error) {
+            console.error('❌ Error loading pricing steps:', error);
+            document.getElementById('pricingStepsTableContainer').innerHTML =
+                '<div style="padding: 20px; text-align: center; color: #dc3545;">שגיאה בטעינת שלבי תמחור</div>';
+        }
+    }
+
+    // Render pricing steps table
+    function renderPricingStepsTable(steps) {
+        const container = document.getElementById('pricingStepsTableContainer');
+
+        if (steps.length === 0) {
+            container.innerHTML = '<div style="padding: 20px; text-align: center;">אין שלבי תמחור לקטגוריה זו</div>';
+            return;
+        }
+
+        let tableHtml = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>בדיקת אובייקט</th>
+                    <th>בדיקת רכיב אובייקט</th>
+                    <th>ערך רכיב אובייקט</th>
+                    <th>מחיר</th>
+                    <th>פעולות</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+        steps.forEach(step => {
+            const price = step.price ? step.price.toFixed(2) : '';
+
+            tableHtml += `
+            <tr>
+                <td>${step.objectCheck}</td>
+                <td>${step.objectElementCheck}</td>
+                <td>${step.objectElementValue}</td>
+                <td>${price}</td>
+                <td>
+                    <button onclick="duplicatePricingStep(${step.id})" class="btn-icon" title="שכפול">
+                        <img src="upload_icon.png" alt="שכפול" class="action-icon-natural">
+                    </button>
+                    <button onclick="duplicatePricingStep(${step.id})" class="btn-icon" title="שכפול">
+                        <img src="upload_icon.png" alt="שכפול" class="action-icon-natural">
+                    </button>
+                    <button onclick="editPricingStep(${step.id})" class="btn-icon" title="עריכה">
+                        <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
+                    <button onclick="deletePricingStep(${step.id})" class="btn-icon" title="מחיקה">
+                        <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                    </button>
+                </td>
+            </tr>
+        `;
+        });
+
+        tableHtml += `
+            </tbody>
+        </table>
+    `;
+
+        container.innerHTML = tableHtml;
+    }
+
+    // Duplicate pricing step
+    function duplicatePricingStep(stepId) {
+        const step = window.schoolYearConfigState.pricingSteps.find(s => s.id === stepId);
+        if (!step) {
+            alert('שלב לא נמצא');
+            return;
+        }
+
+        if (!window.schoolYearConfigState.selectedCategoryId) {
+            alert('אנא בחר קטגוריה תחילה');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        // Get element name for display
+        const elementName = window.schoolYearConfigState.selectedElementName || '';
+        const categoryNumber = window.schoolYearConfigState.selectedCategoryNumber || '';
+
+        // Build pricing elements dropdown
+        const elementsOptions = window.schoolYearConfigState.pricingElements.map(el => 
+            `<option value="${el.id}" ${el.id === window.schoolYearConfigState.selectedElementId ? 'selected' : ''}>${el.name}</option>`
+        ).join('');
+
+        // Build categories dropdown (1-9)
+        let categoriesOptions = '';
+        for (let i = 1; i <= 9; i++) {
+            const selected = i === categoryNumber ? 'selected' : '';
+            categoriesOptions += `<option value="${i}" ${selected}>${i}</option>`;
+        }
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">שכפול שלב תמחור</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">רכיב תמחור:</label>
+                <select id="stepPricingElement" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+                    ${elementsOptions}
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">קטגוריה:</label>
+                <select id="stepCategory" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+                    ${categoriesOptions}
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">בדיקת אובייקט:</label>
+                <input type="text" id="stepObjectCheck" value="${step.objectCheck || ''}" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" />
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">בדיקת רכיב אובייקט:</label>
+                <input type="text" id="stepObjectElementCheck" value="${step.objectElementCheck || ''}" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" />
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">ערך רכיב אובייקט:</label>
+                <input type="text" id="stepObjectElementValue" value="${step.objectElementValue || ''}" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" />
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">מחיר:</label>
+                <input type="number" step="0.01" id="stepPrice" value="${step.price || ''}" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" />
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="addStepOkBtn" class="dialog-btn save">הוסף</button>
+            <button id="addStepCancelBtn" class="dialog-btn cancel">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('addStepOkBtn').onclick = async () => {
+            await addPricingStep(overlay);
+        };
+
+        document.getElementById('addStepCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Show add pricing step modal
+    function showAddPricingStepModal() {
+        if (!window.schoolYearConfigState.selectedCategoryId) {
+            alert('אנא בחר קטגוריה תחילה');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        // Get element name and category number for display
+        const elementName = window.schoolYearConfigState.selectedElementName || '';
+        const categoryNumber = window.schoolYearConfigState.selectedCategoryNumber || '';
+
+        // Build pricing elements dropdown
+        const elementsOptions = window.schoolYearConfigState.pricingElements.map(el => 
+            `<option value="${el.id}" ${el.id === window.schoolYearConfigState.selectedElementId ? 'selected' : ''}>${el.name}</option>`
+        ).join('');
+
+        // Build categories dropdown (1-9)
+        let categoriesOptions = '';
+        for (let i = 1; i <= 9; i++) {
+            const selected = i === categoryNumber ? 'selected' : '';
+            categoriesOptions += `<option value="${i}" ${selected}>${i}</option>`;
+        }
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">הוסף שלב תמחור</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">רכיב תמחור:</label>
+                <select id="stepPricingElement" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+                    ${elementsOptions}
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">קטגוריה:</label>
+                <select id="stepCategory" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+                    ${categoriesOptions}
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 15px;">\n                <label for="stepObjectCheck" style="display: block; margin-bottom: 5px; font-weight: 600;">בדיקת אובייקט: *</label>
+                <input type="text" 
+                       id="stepObjectCheck" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       maxlength="50"
+                       placeholder="לדוגמה: school_class">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="stepObjectElementCheck" style="display: block; margin-bottom: 5px; font-weight: 600;">בדיקת רכיב אובייקט: *</label>
+                <input type="text" 
+                       id="stepObjectElementCheck" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       maxlength="50"
+                       placeholder="לדוגמה: student_count">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="stepObjectElementValue" style="display: block; margin-bottom: 5px; font-weight: 600;">ערך רכיב אובייקט: *</label>
+                <input type="text" 
+                       id="stepObjectElementValue" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       maxlength="50"
+                       placeholder="לדוגמה: >10">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="stepPrice" style="display: block; margin-bottom: 5px; font-weight: 600;">מחיר:</label>
+                <input type="number" 
+                       id="stepPrice" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       step="0.01"
+                       min="0"
+                       placeholder="מחיר">
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="addStepOkBtn" class="dialog-btn save">הוסף</button>
+            <button id="addStepCancelBtn" class="dialog-btn cancel">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('addStepOkBtn').onclick = async () => {
+            await addPricingStep(overlay);
+        };
+
+        document.getElementById('addStepCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Add pricing step
+    async function addPricingStep(overlay) {
+        const selectedElementId = document.getElementById('stepPricingElement') ? 
+            parseInt(document.getElementById('stepPricingElement').value) : 
+            window.schoolYearConfigState.selectedElementId;
+        const selectedCategory = document.getElementById('stepCategory') ? 
+            parseInt(document.getElementById('stepCategory').value) : 
+            window.schoolYearConfigState.selectedCategoryNumber;
+
+        const objectCheck = document.getElementById('stepObjectCheck').value.trim();
+        const objectElementCheck = document.getElementById('stepObjectElementCheck').value.trim();
+        const objectElementValue = document.getElementById('stepObjectElementValue').value.trim();
+        const priceValue = document.getElementById('stepPrice').value.trim();
+        const price = priceValue ? parseFloat(priceValue) : null;
+
+        if (!objectCheck || !objectElementCheck || !objectElementValue) {
+            alert('נא למלא את כל השדות החובה');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl('schoolyearconfig/pricing-steps'),
+                {
+                    ...AppConfig.getDefaultFetchOptions(),
+                    method: 'POST',
+                    body: JSON.stringify({
+                        pricingElement: selectedElementId,
+                        category: selectedCategory,
+                        objectCheck: objectCheck,
+                        objectElementCheck: objectElementCheck,
+                        objectElementValue: objectElementValue,
+                        price: price
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('שלב התמחור נוסף בהצלחה');
+                document.body.removeChild(overlay);
+                
+                // If element or category changed, reload the correct view
+                if (selectedElementId !== window.schoolYearConfigState.selectedElementId) {
+                    const element = window.schoolYearConfigState.pricingElements.find(e => e.id === selectedElementId);
+                    await selectPricingElement(selectedElementId, element?.name || '');
+                    // After loading element, find and select the category
+                    const categories = window.schoolYearConfigState.pricingCategories;
+                    const category = categories.find(c => c.category === selectedCategory);
+                    if (category) {
+                        await selectPricingCategory(category.id, selectedCategory);
+                    }
+                } else if (selectedCategory !== window.schoolYearConfigState.selectedCategoryNumber) {
+                    // Same element, different category
+                    const categories = window.schoolYearConfigState.pricingCategories;
+                    const category = categories.find(c => c.category === selectedCategory);
+                    if (category) {
+                        await selectPricingCategory(category.id, selectedCategory);
+                    }
+                } else {
+                    // Same element and category, just reload steps
+                    await loadPricingSteps(window.schoolYearConfigState.selectedCategoryId);
+                }
+            } else {
+                alert(result.message || 'שגיאה בהוספת שלב תמחור');
+            }
+        } catch (error) {
+            console.error('❌ Error adding pricing step:', error);
+            alert('שגיאה בהוספת שלב תמחור');
+        }
+    }
+
+    // Edit pricing step
+    async function editPricingStep(stepId) {
+        const step = window.schoolYearConfigState.pricingSteps.find(s => s.id === stepId);
+        if (!step) {
+            alert('שלב לא נמצא');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">עריכת שלב תמחור</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label for="editStepObjectCheck" style="display: block; margin-bottom: 5px; font-weight: 600;">בדיקת אובייקט: *</label>
+                <input type="text" 
+                       id="editStepObjectCheck" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       maxlength="50"
+                       value="${step.objectCheck}">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="editStepObjectElementCheck" style="display: block; margin-bottom: 5px; font-weight: 600;">בדיקת רכיב אובייקט: *</label>
+                <input type="text" 
+                       id="editStepObjectElementCheck" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       maxlength="50"
+                       value="${step.objectElementCheck}">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="editStepObjectElementValue" style="display: block; margin-bottom: 5px; font-weight: 600;">ערך רכיב אובייקט: *</label>
+                <input type="text" 
+                       id="editStepObjectElementValue" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       maxlength="50"
+                       value="${step.objectElementValue}">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="editStepPrice" style="display: block; margin-bottom: 5px; font-weight: 600;">מחיר:</label>
+                <input type="number" 
+                       id="editStepPrice" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       step="0.01"
+                       min="0"
+                       value="${step.price || ''}">
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="updateStepBtn" class="dialog-btn save">עדכן</button>
+            <button id="cancelEditStepBtn" class="dialog-btn cancel">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('updateStepBtn').onclick = async () => {
+            await updatePricingStep(stepId, overlay);
+        };
+
+        document.getElementById('cancelEditStepBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Update pricing step
+    async function updatePricingStep(stepId, overlay) {
+        const objectCheck = document.getElementById('editStepObjectCheck').value.trim();
+        const objectElementCheck = document.getElementById('editStepObjectElementCheck').value.trim();
+        const objectElementValue = document.getElementById('editStepObjectElementValue').value.trim();
+        const priceValue = document.getElementById('editStepPrice').value.trim();
+        const price = priceValue ? parseFloat(priceValue) : null;
+
+        if (!objectCheck || !objectElementCheck || !objectElementValue) {
+            alert('נא למלא את כל השדות החובה');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/pricing-steps/${stepId}`),
+                {
+                    ...AppConfig.getDefaultFetchOptions(),
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        objectCheck: objectCheck,
+                        objectElementCheck: objectElementCheck,
+                        objectElementValue: objectElementValue,
+                        price: price
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('שלב התמחור עודכן בהצלחה');
+                document.body.removeChild(overlay);
+                await loadPricingSteps(window.schoolYearConfigState.selectedCategoryId);
+            } else {
+                alert(result.message || 'שגיאה בעדכון שלב תמחור');
+            }
+        } catch (error) {
+            console.error('❌ Error updating pricing step:', error);
+            alert('שגיאה בעדכון שלב תמחור');
+        }
+    }
+
+    // Delete pricing step
+    async function deletePricingStep(stepId) {
+        if (!confirm('האם אתה בטוח שברצונך למחוק שלב תמחור זה?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/pricing-steps/${stepId}`),
+                {
+                    ...AppConfig.getDefaultFetchOptions(),
+                    method: 'DELETE'
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('שלב התמחור נמחק בהצלחה');
+                await loadPricingSteps(window.schoolYearConfigState.selectedCategoryId);
+            } else {
+                alert(result.message || 'שגיאה במחיקת שלב תמחור');
+            }
+        } catch (error) {
+            console.error('❌ Error deleting pricing step:', error);
+            alert('שגיאה במחיקת שלב תמחור');
+        }
+    }
+
+    // Select pricing category to show steps
+    async function selectPricingCategory(categoryId, categoryNumber) {
+        console.log(`📋 Selected pricing category: ${categoryId} - Category ${categoryNumber}`);
+
+        window.schoolYearConfigState.selectedCategoryId = categoryId;
+        window.schoolYearConfigState.selectedCategoryNumber = categoryNumber;
+
+        document.getElementById('selectedCategoryNumber').textContent = categoryNumber;
+        document.getElementById('pricingStepsCard').style.display = 'block';
+
+        // Initialize collapsible card for newly shown card
+        initializeCollapsibleCards();
+
+        await loadPricingSteps(categoryId);
+    }
+
+    // Load pricing steps for selected category
+    async function loadPricingSteps(categoryId) {
+        try {
+            console.log(`📋 Loading pricing steps for category ${categoryId}...`);
+
+            const container = document.getElementById('pricingStepsTableContainer');
+            container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/pricing-steps/${categoryId}`),
+                AppConfig.getDefaultFetchOptions()
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to load pricing steps: ${response.status}`);
+            }
+
+            const steps = await response.json();
+            window.schoolYearConfigState.pricingSteps = steps;
+
+            renderPricingStepsTable(steps);
+
+            console.log(`✅ Loaded ${steps.length} pricing steps`);
+        } catch (error) {
+            console.error('❌ Error loading pricing steps:', error);
+            document.getElementById('pricingStepsTableContainer').innerHTML =
+                '<div style="padding: 20px; text-align: center; color: #dc3545;">שגיאה בטעינת שלבי תמחור</div>';
+        }
+    }
+
+    // Render pricing steps table
+    function renderPricingStepsTable(steps) {
+        const container = document.getElementById('pricingStepsTableContainer');
+
+        if (steps.length === 0) {
+            container.innerHTML = '<div style="padding: 20px; text-align: center;">אין שלבי תמחור לקטגוריה זו</div>';
+            return;
+        }
+
+        let tableHtml = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>בדיקת אובייקט</th>
+                    <th>בדיקת רכיב אובייקט</th>
+                    <th>ערך רכיב אובייקט</th>
+                    <th>מחיר</th>
+                    <th>פעולות</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+        steps.forEach(step => {
+            const price = step.price ? step.price.toFixed(2) : '';
+
+            tableHtml += `
+            <tr>
+                <td>${step.objectCheck}</td>
+                <td>${step.objectElementCheck}</td>
+                <td>${step.objectElementValue}</td>
+                <td>${price}</td>
+                <td>
+                    <button class="btn-icon" onclick="duplicatePricingStep(${step.id})" title="שכפול">
+                        <img src="upload_icon.png" alt="שכפול" class="action-icon-natural">
+                    </button>
+                    <button class="btn-icon" onclick="editPricingStep(${step.id})" title="עריכה">
+                        <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
+                    <button class="btn-icon" onclick="deletePricingStep(${step.id})" title="מחיקה">
+                        <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                    </button>
+                </td>
+            </tr>
+        `;
+        });
+
+        tableHtml += `
+            </tbody>
+        </table>
+    `;
+
+        container.innerHTML = tableHtml;
+    }
+
+    // Show add pricing step modal
+    function showAddPricingStepModal() {
+        if (!window.schoolYearConfigState.selectedCategoryId) {
+            alert('אנא בחר קטגוריה תחילה');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">הוסף שלב תמחור</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label for="stepObjectCheck" style="display: block; margin-bottom: 5px; font-weight: 600;">בדיקת אובייקט: *</label>
+                <input type="text" 
+                       id="stepObjectCheck" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       maxlength="50"
+                       placeholder="לדוגמה: school_class">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="stepObjectElementCheck" style="display: block; margin-bottom: 5px; font-weight: 600;">בדיקת רכיב אובייקט: *</label>
+                <input type="text" 
+                       id="stepObjectElementCheck" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       maxlength="50"
+                       placeholder="לדוגמה: student_count">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="stepObjectElementValue" style="display: block; margin-bottom: 5px; font-weight: 600;">ערך רכיב אובייקט: *</label>
+                <input type="text" 
+                       id="stepObjectElementValue" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       maxlength="50"
+                       placeholder="לדוגמה: >10">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="stepPrice" style="display: block; margin-bottom: 5px; font-weight: 600;">מחיר:</label>
+                <input type="number" 
+                       id="stepPrice" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       step="0.01"
+                       min="0"
+                       placeholder="מחיר">
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="addStepOkBtn" class="dialog-btn save">הוסף</button>
+            <button id="addStepCancelBtn" class="dialog-btn cancel">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('addStepOkBtn').onclick = async () => {
+            await addPricingStep(overlay);
+        };
+
+        document.getElementById('addStepCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Add pricing step
+    async function addPricingStep(overlay) {
+        const objectCheck = document.getElementById('stepObjectCheck').value.trim();
+        const objectElementCheck = document.getElementById('stepObjectElementCheck').value.trim();
+        const objectElementValue = document.getElementById('stepObjectElementValue').value.trim();
+        const priceValue = document.getElementById('stepPrice').value.trim();
+        const price = priceValue ? parseFloat(priceValue) : null;
+
+        if (!objectCheck || !objectElementCheck || !objectElementValue) {
+            alert('נא למלא את כל השדות החובה');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl('schoolyearconfig/pricing-steps'),
+                {
+                    ...AppConfig.getDefaultFetchOptions(),
+                    method: 'POST',
+                    body: JSON.stringify({
+                        pricingElement: window.schoolYearConfigState.selectedElementId,
+                        category: window.schoolYearConfigState.selectedCategoryNumber,
+                        objectCheck: objectCheck,
+                        objectElementCheck: objectElementCheck,
+                        objectElementValue: objectElementValue,
+                        price: price
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('שלב התמחור נוסף בהצלחה');
+                document.body.removeChild(overlay);
+                await loadPricingSteps(window.schoolYearConfigState.selectedCategoryId);
+            } else {
+                alert(result.message || 'שגיאה בהוספת שלב תמחור');
+            }
+        } catch (error) {
+            console.error('❌ Error adding pricing step:', error);
+            alert('שגיאה בהוספת שלב תמחור');
+        }
+    }
+
+    // Edit pricing step
+    async function editPricingStep(stepId) {
+        const step = window.schoolYearConfigState.pricingSteps.find(s => s.id === stepId);
+        if (!step) {
+            alert('שלב לא נמצא');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">עריכת שלב תמחור</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label for="editStepObjectCheck" style="display: block; margin-bottom: 5px; font-weight: 600;">בדיקת אובייקט: *</label>
+                <input type="text" 
+                       id="editStepObjectCheck" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       maxlength="50"
+                       value="${step.objectCheck}">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="editStepObjectElementCheck" style="display: block; margin-bottom: 5px; font-weight: 600;">בדיקת רכיב אובייקט: *</label>
+                <input type="text" 
+                       id="editStepObjectElementCheck" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       maxlength="50"
+                       value="${step.objectElementCheck}">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="editStepObjectElementValue" style="display: block; margin-bottom: 5px; font-weight: 600;">ערך רכיב אובייקט: *</label>
+                <input type="text" 
+                       id="editStepObjectElementValue" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       maxlength="50"
+                       value="${step.objectElementValue}">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label for="editStepPrice" style="display: block; margin-bottom: 5px; font-weight: 600;">מחיר:</label>
+                <input type="number" 
+                       id="editStepPrice" 
+                       style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;"
+                       step="0.01"
+                       min="0"
+                       value="${step.price || ''}">
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="updateStepBtn" class="dialog-btn save">עדכן</button>
+            <button id="cancelEditStepBtn" class="dialog-btn cancel">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('updateStepBtn').onclick = async () => {
+            await updatePricingStep(stepId, overlay);
+        };
+
+        document.getElementById('cancelEditStepBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Update pricing step
+    async function updatePricingStep(stepId, overlay) {
+        const objectCheck = document.getElementById('editStepObjectCheck').value.trim();
+        const objectElementCheck = document.getElementById('editStepObjectElementCheck').value.trim();
+        const objectElementValue = document.getElementById('editStepObjectElementValue').value.trim();
+        const priceValue = document.getElementById('editStepPrice').value.trim();
+        const price = priceValue ? parseFloat(priceValue) : null;
+
+        if (!objectCheck || !objectElementCheck || !objectElementValue) {
+            alert('נא למלא את כל השדות החובה');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/pricing-steps/${stepId}`),
+                {
+                    ...AppConfig.getDefaultFetchOptions(),
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        objectCheck: objectCheck,
+                        objectElementCheck: objectElementCheck,
+                        objectElementValue: objectElementValue,
+                        price: price
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('שלב התמחור עודכן בהצלחה');
+                document.body.removeChild(overlay);
+                await loadPricingSteps(window.schoolYearConfigState.selectedCategoryId);
+            } else {
+                alert(result.message || 'שגיאה בעדכון שלב תמחור');
+            }
+        } catch (error) {
+            console.error('❌ Error updating pricing step:', error);
+            alert('שגיאה בעדכון שלב תמחור');
+        }
+    }
+
+    // Delete pricing step
+    async function deletePricingStep(stepId) {
+        if (!confirm('האם אתה בטוח שברצונך למחוק שלב תמחור זה?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/pricing-steps/${stepId}`),
+                {
+                    ...AppConfig.getDefaultFetchOptions(),
+                    method: 'DELETE'
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('שלב התמחור נמחק בהצלחה');
+                await loadPricingSteps(window.schoolYearConfigState.selectedCategoryId);
+            } else {
+                alert(result.message || 'שגיאה במחיקת שלב תמחור');
+            }
+        } catch (error) {
+            console.error('❌ Error deleting pricing step:', error);
+            alert('שגיאה במחיקת שלב תמחור');
+        }
+    }
+
     // Delete pricing category
     async function deletePricingCategory(categoryId) {
         if (!confirm('האם אתה בטוח שברצונך למחוק קטגוריית תמחור זו?')) {
@@ -939,6 +2085,1238 @@
         }
     }
 
+    // ==================== Study Programs Management Functions ====================
+
+    // Load additional study programs pricing for selected year
+    async function loadStudyPrograms(yearId) {
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/study-programs?yearId=${yearId}`),
+                AppConfig.getDefaultFetchOptions()
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to load study programs: ${response.status}`);
+            }
+
+            const studyPrograms = await response.json();
+            window.schoolYearConfigState.studyPrograms = studyPrograms;
+
+            renderStudyProgramsTable(studyPrograms);
+            console.log(`✅ Loaded ${studyPrograms.length} study programs`);
+        } catch (error) {
+            console.error('❌ Error loading study programs:', error);
+            const container = document.getElementById('studyProgramsTableContainer');
+            if (container) {
+                container.innerHTML = '<div class="error-message">שגיאה בטעינת תוכניות הלימוד</div>';
+            }
+        }
+    }
+
+    // Render study programs table
+    function renderStudyProgramsTable(programs) {
+        const container = document.getElementById('studyProgramsTableContainer');
+
+        if (programs.length === 0) {
+            container.innerHTML = '<div class="empty-message">לא נמצאו תוכניות לימוד נוספות לשנת הלימודים הנבחרת</div>';
+            return;
+        }
+
+        let tableHtml = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>מזהה</th>
+                    <th>תוכנית לימודים</th>
+                    <th>עלות משוערת</th>
+                    <th>סכום מאושר</th>
+                    <th>עלות שעתית</th>
+                    <th>פעולות</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+        programs.forEach(program => {
+            const cost = program.cost ? `₪${program.cost.toFixed(2)}` : '-';
+            const approvedAmount = program.approvedAmount ? `₪${program.approvedAmount.toFixed(2)}` : '-';
+            const hourlyCost = program.hourlyCost ? `₪${program.hourlyCost.toFixed(2)}` : '-';
+
+            tableHtml += `
+                <tr>
+                    <td>${program.id}</td>
+                    <td>${program.programName || '-'}</td>
+                    <td>${cost}</td>
+                    <td>${approvedAmount}</td>
+                    <td>${hourlyCost}</td>
+                    <td>
+                        <button class="btn-icon" onclick="editStudyProgram(${program.id})" title="עריכה">
+                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                        </button>
+                        <button class="btn-icon" onclick="deleteStudyProgram(${program.id})" title="מחיקה">
+                            <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableHtml += `
+            </tbody>
+        </table>
+    `;
+
+        container.innerHTML = tableHtml;
+    }
+
+    // Show add study program modal
+    function showAddStudyProgramModal() {
+        if (!window.schoolYearConfigState.selectedYearId) {
+            alert('נא לבחור שנת לימודים');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">הוסף תוכנית לימודים נוספת</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">שם התוכנית:</label>
+                <input type="text" id="programName" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">עלות משוערת:</label>
+                <input type="number" id="programCost" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">סכום מאושר:</label>
+                <input type="number" id="programApprovedAmount" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">עלות שעתית:</label>
+                <input type="number" id="programHourlyCost" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="addProgramOkBtn" class="btn-primary">הוסף</button>
+            <button id="addProgramCancelBtn" class="btn-secondary">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('addProgramOkBtn').onclick = async () => {
+            await addStudyProgram(overlay);
+        };
+
+        document.getElementById('addProgramCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Add study program
+    async function addStudyProgram(overlay) {
+        const programName = document.getElementById('programName').value.trim();
+        const costValue = document.getElementById('programCost').value.trim();
+        const cost = costValue ? parseFloat(costValue) : null;
+        const approvedValue = document.getElementById('programApprovedAmount').value.trim();
+        const approvedAmount = approvedValue ? parseFloat(approvedValue) : null;
+        const hourlyCostValue = document.getElementById('programHourlyCost').value.trim();
+        const hourlyCost = hourlyCostValue ? parseFloat(hourlyCostValue) : null;
+
+        if (!programName) {
+            alert('נא להזין שם תוכנית');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl('schoolyearconfig/study-programs'),
+                {
+                    ...AppConfig.getDefaultFetchOptions(),
+                    method: 'POST',
+                    body: JSON.stringify({
+                        yearId: window.schoolYearConfigState.selectedYearId,
+                        programName: programName,
+                        cost: cost,
+                        approvedAmount: approvedAmount,
+                        hourlyCost: hourlyCost
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('תוכנית הלימודים נוספה בהצלחה');
+                document.body.removeChild(overlay);
+                await loadStudyPrograms(window.schoolYearConfigState.selectedYearId);
+            } else {
+                alert(result.message || 'שגיאה בהוספת תוכנית הלימודים');
+            }
+        } catch (error) {
+            console.error('❌ Error adding study program:', error);
+            alert('שגיאה בהוספת תוכנית הלימודים');
+        }
+    }
+
+    // Edit study program
+    async function editStudyProgram(programId) {
+        const program = window.schoolYearConfigState.studyPrograms.find(p => p.id === programId);
+        if (!program) {
+            alert('תוכנית הלימודים לא נמצאה');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">עריכת תוכנית לימודים</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">שם התוכנית:</label>
+                <input type="text" id="editProgramName" value="${program.programName || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">עלות משוערת:</label>
+                <input type="number" id="editProgramCost" value="${program.cost || ''}" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">סכום מאושר:</label>
+                <input type="number" id="editProgramApprovedAmount" value="${program.approvedAmount || ''}" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">עלות שעתית:</label>
+                <input type="number" id="editProgramHourlyCost" value="${program.hourlyCost || ''}" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="updateProgramBtn" class="btn-primary">עדכן</button>
+            <button id="cancelEditProgramBtn" class="btn-secondary">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('updateProgramBtn').onclick = async () => {
+            await updateStudyProgram(programId, overlay);
+        };
+
+        document.getElementById('cancelEditProgramBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Update study program
+    async function updateStudyProgram(programId, overlay) {
+        const programName = document.getElementById('editProgramName').value.trim();
+        const costValue = document.getElementById('editProgramCost').value.trim();
+        const cost = costValue ? parseFloat(costValue) : null;
+        const approvedValue = document.getElementById('editProgramApprovedAmount').value.trim();
+        const approvedAmount = approvedValue ? parseFloat(approvedValue) : null;
+        const hourlyCostValue = document.getElementById('editProgramHourlyCost').value.trim();
+        const hourlyCost = hourlyCostValue ? parseFloat(hourlyCostValue) : null;
+
+        if (!programName) {
+            alert('נא להזין שם תוכנית');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/study-programs/${programId}`),
+                {
+                    ...AppConfig.getDefaultFetchOptions(),
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        programName: programName,
+                        cost: cost,
+                        approvedAmount: approvedAmount,
+                        hourlyCost: hourlyCost
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('תוכנית הלימודים עודכנה בהצלחה');
+                document.body.removeChild(overlay);
+                await loadStudyPrograms(window.schoolYearConfigState.selectedYearId);
+            } else {
+                alert(result.message || 'שגיאה בעדכון תוכנית הלימודים');
+            }
+        } catch (error) {
+            console.error('❌ Error updating study program:', error);
+            alert('שגיאה בעדכון תוכנית הלימודים');
+        }
+    }
+
+    // Delete study program
+    async function deleteStudyProgram(programId) {
+        if (!confirm('האם אתה בטוח שברצונך למחוק תוכנית לימודים זו?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/study-programs/${programId}`),
+                {
+                    ...AppConfig.getDefaultFetchOptions(),
+                    method: 'DELETE'
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('תוכנית הלימודים נמחקה בהצלחה');
+                await loadStudyPrograms(window.schoolYearConfigState.selectedYearId);
+            } else {
+                alert(result.message || 'שגיאה במחיקת תוכנית הלימודים');
+            }
+        } catch (error) {
+            console.error('❌ Error deleting study program:', error);
+            alert('שגיאה במחיקת תוכנית הלימודים');
+        }
+    }
+
+    // ==================== End Study Programs Management ====================
+
+    // ==================== Tracks Management Functions ====================
+
+    // Load tracks for selected year
+    async function loadTracks(yearId) {
+        try {
+            console.log(`📋 Loading tracks for year ${yearId}...`);
+
+            const container = document.getElementById('tracksTableContainer');
+            container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/tracks/${yearId}`),
+                AppConfig.getDefaultFetchOptions()
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to load tracks: ${response.status}`);
+            }
+
+            const tracks = await response.json();
+            window.schoolYearConfigState.tracks = tracks;
+
+            renderTracksTable(tracks);
+
+            console.log(`✅ Loaded ${tracks.length} tracks`);
+        } catch (error) {
+            console.error('❌ Error loading tracks:', error);
+            document.getElementById('tracksTableContainer').innerHTML =
+                '<div style="padding: 20px; text-align: center; color: #dc3545;">שגיאה בטעינת מגמות</div>';
+        }
+    }
+
+    // Render tracks table
+    function renderTracksTable(tracks) {
+        const container = document.getElementById('tracksTableContainer');
+
+        if (tracks.length === 0) {
+            container.innerHTML = '<div style="padding: 20px; text-align: center;">אין מגמות לשנה זו</div>';
+            return;
+        }
+
+        let tableHtml = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>שם מגמה</th>
+                    <th>זמין לכיתות</th>
+                    <th>תאריך יצירה</th>
+                    <th>פעולות</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+        tracks.forEach(track => {
+            const createdAt = new Date(track.createdAt).toLocaleDateString('he-IL');
+            const classes = track.availableForClasses ? track.availableForClasses.join(', ') : 'כל הכיתות';
+            
+            tableHtml += `
+            <tr>
+                <td>${track.name}</td>
+                <td>${classes}</td>
+                <td>${createdAt}</td>
+                <td>
+                    <button onclick="selectTrack(${track.id}, '${track.name}')" class="btn-icon" title="צפה ברמות">
+                        <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
+                    </button>
+                    <button onclick="editTrack(${track.id})" class="btn-icon" title="ערוך">
+                        <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
+                    <button onclick="deleteTrack(${track.id})" class="btn-icon" title="מחק">
+                        <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                    </button>
+                </td>
+            </tr>
+        `;
+        });
+
+        tableHtml += `
+            </tbody>
+        </table>
+    `;
+
+        container.innerHTML = tableHtml;
+    }
+
+    // Select track to show levels
+    async function selectTrack(trackId, trackName) {
+        console.log(`📋 Selected track: ${trackId} - ${trackName}`);
+
+        window.schoolYearConfigState.selectedTrackId = trackId;
+        window.schoolYearConfigState.selectedTrackName = trackName;
+
+        document.getElementById('selectedTrackName').textContent = trackName;
+        document.getElementById('trackLevelsCard').style.display = 'block';
+
+        // Initialize collapsible card
+        initializeCollapsibleCards();
+
+        await loadTrackLevels(trackId);
+    }
+
+    // Load track levels for selected track
+    async function loadTrackLevels(trackId) {
+        try {
+            console.log(`📋 Loading track levels for track ${trackId}...`);
+
+            const container = document.getElementById('trackLevelsTableContainer');
+            container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/tracks-levels/${trackId}`),
+                AppConfig.getDefaultFetchOptions()
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to load track levels: ${response.status}`);
+            }
+
+            const levels = await response.json();
+            window.schoolYearConfigState.trackLevels = levels;
+
+            renderTrackLevelsTable(levels);
+
+            console.log(`✅ Loaded ${levels.length} track levels`);
+        } catch (error) {
+            console.error('❌ Error loading track levels:', error);
+            document.getElementById('trackLevelsTableContainer').innerHTML =
+                '<div style="padding: 20px; text-align: center; color: #dc3545;">שגיאה בטעינת רמות מגמה</div>';
+        }
+    }
+
+    // Render track levels table
+    function renderTrackLevelsTable(levels) {
+        const container = document.getElementById('trackLevelsTableContainer');
+
+        if (levels.length === 0) {
+            container.innerHTML = '<div style="padding: 20px; text-align: center;">אין רמות למגמה זה</div>';
+            return;
+        }
+
+        let tableHtml = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>רמה</th>
+                    <th>שעות מינימום</th>
+                    <th>שעות מקסימום</th>
+                    <th>זמין לכיתות</th>
+                    <th>פעולות</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+        levels.forEach(level => {
+            const classes = level.availableForClasses ? level.availableForClasses.join(', ') : 'כל הכיתות';
+            const maxHours = level.maxHours || '-';
+            
+            tableHtml += `
+            <tr>
+                <td>${level.level || ''}</td>
+                <td>${level.minHours}</td>
+                <td>${maxHours}</td>
+                <td>${classes}</td>
+                <td>
+                    <button onclick="selectTrackLevel(${level.id}, '${level.level || 'רמה'}')" class="btn-icon" title="צפה בתמחור">
+                        <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
+                    </button>
+                    <button onclick="editTrackLevel(${level.id})" class="btn-icon" title="ערוך">
+                        <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
+                    <button onclick="deleteTrackLevel(${level.id})" class="btn-icon" title="מחק">
+                        <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                    </button>
+                </td>
+            </tr>
+        `;
+        });
+
+        tableHtml += `
+            </tbody>
+        </table>
+    `;
+
+        container.innerHTML = tableHtml;
+    }
+
+    // Select track level to show pricing
+    async function selectTrackLevel(levelId, levelName) {
+        console.log(`📋 Selected track level: ${levelId} - ${levelName}`);
+
+        window.schoolYearConfigState.selectedLevelId = levelId;
+        window.schoolYearConfigState.selectedLevelName = levelName;
+
+        document.getElementById('selectedLevelName').textContent = levelName;
+        document.getElementById('trackPricingCard').style.display = 'block';
+
+        // Initialize collapsible card
+        initializeCollapsibleCards();
+
+        await loadTrackPricing(levelId);
+    }
+
+    // Load track pricing for selected level
+    async function loadTrackPricing(levelId) {
+        try {
+            console.log(`📋 Loading track pricing for level ${levelId}...`);
+
+            const container = document.getElementById('trackPricingTableContainer');
+            container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/tracks-pricing/${levelId}`),
+                AppConfig.getDefaultFetchOptions()
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to load track pricing: ${response.status}`);
+            }
+
+            const pricing = await response.json();
+            window.schoolYearConfigState.trackPricing = pricing;
+
+            renderTrackPricingTable(pricing);
+
+            console.log(`✅ Loaded ${pricing.length} track pricing items`);
+        } catch (error) {
+            console.error('❌ Error loading track pricing:', error);
+            document.getElementById('trackPricingTableContainer').innerHTML =
+                '<div style="padding: 20px; text-align: center; color: #dc3545;">שגיאה בטעינת תמחור</div>';
+        }
+    }
+
+    // Render track pricing table
+    function renderTrackPricingTable(pricing) {
+        const container = document.getElementById('trackPricingTableContainer');
+
+        if (pricing.length === 0) {
+            container.innerHTML = '<div style="padding: 20px; text-align: center;">אין תמחור לרמה זו</div>';
+            return;
+        }
+
+        let tableHtml = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>קטגוריה</th>
+                    <th>מחיר</th>
+                    <th>פעולות</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+        pricing.forEach(item => {
+            const category = item.category || '-';
+            const price = item.price !== null ? `₪${item.price.toFixed(2)}` : '-';
+            
+            tableHtml += `
+            <tr>
+                <td>${category}</td>
+                <td>${price}</td>
+                <td>
+                    <button onclick="editTrackPricing(${item.id})" class="btn-icon" title="ערוך">
+                        <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
+                    <button onclick="deleteTrackPricing(${item.id})" class="btn-icon" title="מחק">
+                        <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                    </button>
+                </td>
+            </tr>
+        `;
+        });
+
+        tableHtml += `
+            </tbody>
+        </table>
+    `;
+
+        container.innerHTML = tableHtml;
+    }
+
+    // Show add track modal
+    function showAddTrackModal() {
+        if (!window.schoolYearConfigState.selectedYearId) {
+            alert('אנא בחר שנה תחילה');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">הוסף מגמה</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">שם מגמה: <span style="color: red;">*</span></label>
+                <input type="text" id="trackName" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" placeholder="הזן שם מגמה">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">קוד חיצוני:</label>
+                <input type="text" id="trackExternalCode" maxlength="10" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" placeholder="הזן קוד חיצוני">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">זמין לכיתות:</label>
+                <input type="text" id="trackAvailableForClasses" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" placeholder="רשימת כיתות מופרדת בפסיקים (ריק = כל הכיתות)">
+                <small style="color: #6c757d;">לדוגמה: י, יא, יב</small>
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="addTrackOkBtn" class="dialog-btn dialog-btn-primary">אישור</button>
+            <button id="addTrackCancelBtn" class="dialog-btn">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('addTrackOkBtn').onclick = async () => {
+            await addTrack(overlay);
+        };
+
+        document.getElementById('addTrackCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Add track
+    async function addTrack(overlay) {
+        const name = document.getElementById('trackName').value.trim();
+        const externalCode = document.getElementById('trackExternalCode').value.trim();
+        const availableForClassesInput = document.getElementById('trackAvailableForClasses').value.trim();
+        const availableForClasses = availableForClassesInput ? availableForClassesInput.split(',').map(c => c.trim()).filter(c => c) : null;
+
+        if (!name) {
+            alert('אנא הזן שם מגמה');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl('schoolyearconfig/tracks'),
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                        yearId: window.schoolYearConfigState.selectedYearId,
+                        name: name,
+                        externalCode: externalCode || null,
+                        availableForClasses: availableForClasses
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                document.body.removeChild(overlay);
+                alert('מגמה נוסף בהצלחה');
+                await loadTracks(window.schoolYearConfigState.selectedYearId);
+            } else {
+                alert(result.message || 'שגיאה בהוספת מגמה');
+            }
+        } catch (error) {
+            console.error('❌ Error adding track:', error);
+            alert('שגיאה בהוספת מגמה');
+        }
+    }
+
+    // Edit track
+    async function editTrack(trackId) {
+        const track = window.schoolYearConfigState.tracks.find(t => t.id === trackId);
+        if (!track) {
+            alert('מגמה לא נמצא');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        const classesValue = track.availableForClasses && Array.isArray(track.availableForClasses) ? track.availableForClasses.join(', ') : '';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">עריכת מגמה</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">שם מגמה: <span style="color: red;">*</span></label>
+                <input type="text" id="editTrackName" value="${track.name}" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">קוד חיצוני:</label>
+                <input type="text" id="editTrackExternalCode" value="${track.externalCode || ''}" maxlength="10" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">זמין לכיתות:</label>
+                <input type="text" id="editTrackAvailableForClasses" value="${classesValue}" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" placeholder="רשימת כיתות מופרדת בפסיקים (ריק = כל הכיתות)">
+                <small style="color: #6c757d;">לדוגמה: י, יא, יב</small>
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="updateTrackOkBtn" class="dialog-btn dialog-btn-primary">עדכן</button>
+            <button id="updateTrackCancelBtn" class="dialog-btn">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('updateTrackOkBtn').onclick = async () => {
+            await updateTrack(trackId, overlay);
+        };
+
+        document.getElementById('updateTrackCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Update track
+    async function updateTrack(trackId, overlay) {
+        const name = document.getElementById('editTrackName').value.trim();
+        const externalCode = document.getElementById('editTrackExternalCode').value.trim();
+        const availableForClassesInput = document.getElementById('editTrackAvailableForClasses').value.trim();
+        const availableForClasses = availableForClassesInput ? availableForClassesInput.split(',').map(c => c.trim()).filter(c => c) : null;
+
+        if (!name) {
+            alert('אנא הזן שם מגמה');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/tracks/${trackId}`),
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        externalCode: externalCode || null,
+                        availableForClasses: availableForClasses
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                document.body.removeChild(overlay);
+                alert('מגמה עודכן בהצלחה');
+                await loadTracks(window.schoolYearConfigState.selectedYearId);
+            } else {
+                alert(result.message || 'שגיאה בעדכון מגמה');
+            }
+        } catch (error) {
+            console.error('❌ Error updating track:', error);
+            alert('שגיאה בעדכון מגמה');
+        }
+    }
+
+    // Delete track
+    async function deleteTrack(trackId) {
+        if (!confirm('האם אתה בטוח שברצונך למחוק מגמה זה?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/tracks/${trackId}`),
+                {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    }
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('מגמה נמחק בהצלחה');
+                await loadTracks(window.schoolYearConfigState.selectedYearId);
+            } else {
+                alert(result.message || 'שגיאה במחיקת מגמה');
+            }
+        } catch (error) {
+            console.error('❌ Error deleting track:', error);
+            alert('שגיאה במחיקת מגמה');
+        }
+    }
+
+    // Show add track level modal
+    function showAddTrackLevelModal() {
+        if (!window.schoolYearConfigState.selectedTrackId) {
+            alert('אנא בחר מגמה תחילה');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">הוסף רמת מגמה</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">רמה:</label>
+                <input type="text" id="trackLevelName" maxlength="15" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" placeholder="הזן שם רמה">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">שעות מינימום: <span style="color: red;">*</span></label>
+                <input type="number" id="trackLevelMinHours" min="0" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" placeholder="הזן שעות מינימום">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">שעות מקסימום:</label>
+                <input type="number" id="trackLevelMaxHours" min="0" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" placeholder="הזן שעות מקסימום (אופציונלי)">
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="addTrackLevelOkBtn" class="dialog-btn dialog-btn-primary">אישור</button>
+            <button id="addTrackLevelCancelBtn" class="dialog-btn">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('addTrackLevelOkBtn').onclick = async () => {
+            await addTrackLevel(overlay);
+        };
+
+        document.getElementById('addTrackLevelCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Add track level
+    async function addTrackLevel(overlay) {
+        const level = document.getElementById('trackLevelName').value.trim();
+        const minHours = parseInt(document.getElementById('trackLevelMinHours').value);
+        const maxHours = document.getElementById('trackLevelMaxHours').value.trim();
+
+        if (!minHours || minHours < 0) {
+            alert('אנא הזן שעות מינימום תקינות');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl('schoolyearconfig/tracks-levels'),
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                        schoolTrackId: window.schoolYearConfigState.selectedTrackId,
+                        level: level || null,
+                        minHours: minHours,
+                        maxHours: maxHours ? parseInt(maxHours) : null
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                document.body.removeChild(overlay);
+                alert('רמת מגמה נוספה בהצלחה');
+                await loadTrackLevels(window.schoolYearConfigState.selectedTrackId);
+            } else {
+                alert(result.message || 'שגיאה בהוספת רמת מגמה');
+            }
+        } catch (error) {
+            console.error('❌ Error adding track level:', error);
+            alert('שגיאה בהוספת רמת מגמה');
+        }
+    }
+
+    // Edit track level
+    async function editTrackLevel(levelId) {
+        const level = window.schoolYearConfigState.trackLevels.find(l => l.id === levelId);
+        if (!level) {
+            alert('רמת מגמה לא נמצאה');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">עריכת רמת מגמה</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">רמה:</label>
+                <input type="text" id="editTrackLevelName" value="${level.level || ''}" maxlength="15" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">שעות מינימום: <span style="color: red;">*</span></label>
+                <input type="number" id="editTrackLevelMinHours" value="${level.minHours}" min="0" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">שעות מקסימום:</label>
+                <input type="number" id="editTrackLevelMaxHours" value="${level.maxHours || ''}" min="0" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="updateTrackLevelOkBtn" class="dialog-btn dialog-btn-primary">עדכן</button>
+            <button id="updateTrackLevelCancelBtn" class="dialog-btn">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('updateTrackLevelOkBtn').onclick = async () => {
+            await updateTrackLevel(levelId, overlay);
+        };
+
+        document.getElementById('updateTrackLevelCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Update track level
+    async function updateTrackLevel(levelId, overlay) {
+        const levelName = document.getElementById('editTrackLevelName').value.trim();
+        const minHours = parseInt(document.getElementById('editTrackLevelMinHours').value);
+        const maxHoursValue = document.getElementById('editTrackLevelMaxHours').value.trim();
+
+        if (!minHours || minHours < 0) {
+            alert('אנא הזן שעות מינימום תקינות');
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/tracks-levels/${levelId}`),
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                        level: levelName || null,
+                        minHours: minHours,
+                        maxHours: maxHoursValue ? parseInt(maxHoursValue) : null
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                document.body.removeChild(overlay);
+                alert('רמת מגמה עודכנה בהצלחה');
+                await loadTrackLevels(window.schoolYearConfigState.selectedTrackId);
+            } else {
+                alert(result.message || 'שגיאה בעדכון רמת מגמה');
+            }
+        } catch (error) {
+            console.error('❌ Error updating track level:', error);
+            alert('שגיאה בעדכון רמת מגמה');
+        }
+    }
+
+    // Delete track level
+    async function deleteTrackLevel(levelId) {
+        if (!confirm('האם אתה בטוח שברצונך למחוק רמת מגמה זו?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/tracks-levels/${levelId}`),
+                {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    }
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('רמת מגמה נמחקה בהצלחה');
+                await loadTrackLevels(window.schoolYearConfigState.selectedTrackId);
+            } else {
+                alert(result.message || 'שגיאה במחיקת רמת מגמה');
+            }
+        } catch (error) {
+            console.error('❌ Error deleting track level:', error);
+            alert('שגיאה במחיקת רמת מגמה');
+        }
+    }
+
+    // Show add track pricing modal
+    function showAddTrackPricingModal() {
+        if (!window.schoolYearConfigState.selectedLevelId) {
+            alert('אנא בחר רמת מגמה תחילה');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '400px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">הוסף תמחור מגמה</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">קטגוריה:</label>
+                <input type="number" id="trackPricingCategory" min="1" max="9" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" placeholder="הזן קטגוריה (1-9)">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">מחיר:</label>
+                <input type="number" id="trackPricingPrice" step="0.01" min="0" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" placeholder="הזן מחיר">
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="addTrackPricingOkBtn" class="dialog-btn dialog-btn-primary">אישור</button>
+            <button id="addTrackPricingCancelBtn" class="dialog-btn">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('addTrackPricingOkBtn').onclick = async () => {
+            await addTrackPricing(overlay);
+        };
+
+        document.getElementById('addTrackPricingCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Add track pricing
+    async function addTrackPricing(overlay) {
+        const categoryValue = document.getElementById('trackPricingCategory').value.trim();
+        const priceValue = document.getElementById('trackPricingPrice').value.trim();
+
+        const category = categoryValue ? parseInt(categoryValue) : null;
+        const price = priceValue ? parseFloat(priceValue) : null;
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl('schoolyearconfig/tracks-pricing'),
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                        schoolTrackId: window.schoolYearConfigState.selectedTrackId,
+                        levelId: window.schoolYearConfigState.selectedLevelId,
+                        category: category,
+                        price: price
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                document.body.removeChild(overlay);
+                alert('תמחור מגמה נוסף בהצלחה');
+                await loadTrackPricing(window.schoolYearConfigState.selectedLevelId);
+            } else {
+                alert(result.message || 'שגיאה בהוספת תמחור מגמה');
+            }
+        } catch (error) {
+            console.error('❌ Error adding track pricing:', error);
+            alert('שגיאה בהוספת תמחור מגמה');
+        }
+    }
+
+    // Edit track pricing
+    async function editTrackPricing(pricingId) {
+        const pricing = window.schoolYearConfigState.trackPricing.find(p => p.id === pricingId);
+        if (!pricing) {
+            alert('תמחור לא נמצא');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '400px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">עריכת תמחור מגמה</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">קטגוריה:</label>
+                <input type="number" id="editTrackPricingCategory" value="${pricing.category || ''}" min="1" max="9" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">מחיר:</label>
+                <input type="number" id="editTrackPricingPrice" value="${pricing.price || ''}" step="0.01" min="0" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="updateTrackPricingOkBtn" class="dialog-btn dialog-btn-primary">עדכן</button>
+            <button id="updateTrackPricingCancelBtn" class="dialog-btn">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('updateTrackPricingOkBtn').onclick = async () => {
+            await updateTrackPricing(pricingId, overlay);
+        };
+
+        document.getElementById('updateTrackPricingCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Update track pricing
+    async function updateTrackPricing(pricingId, overlay) {
+        const categoryValue = document.getElementById('editTrackPricingCategory').value.trim();
+        const priceValue = document.getElementById('editTrackPricingPrice').value.trim();
+
+        const category = categoryValue ? parseInt(categoryValue) : null;
+        const price = priceValue ? parseFloat(priceValue) : null;
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/tracks-pricing/${pricingId}`),
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    },
+                    body: JSON.stringify({
+                        category: category,
+                        price: price
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                document.body.removeChild(overlay);
+                alert('תמחור מגמה עודכן בהצלחה');
+                await loadTrackPricing(window.schoolYearConfigState.selectedLevelId);
+            } else {
+                alert(result.message || 'שגיאה בעדכון תמחור מגמה');
+            }
+        } catch (error) {
+            console.error('❌ Error updating track pricing:', error);
+            alert('שגיאה בעדכון תמחור מגמה');
+        }
+    }
+
+    // Delete track pricing
+    async function deleteTrackPricing(pricingId) {
+        if (!confirm('האם אתה בטוח שברצונך למחוק תמחור זה?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearconfig/tracks-pricing/${pricingId}`),
+                {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                    }
+                }
+            );
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert('תמחור מגמה נמחק בהצלחה');
+                await loadTrackPricing(window.schoolYearConfigState.selectedLevelId);
+            } else {
+                alert(result.message || 'שגיאה במחיקת תמחור מגמה');
+            }
+        } catch (error) {
+            console.error('❌ Error deleting track pricing:', error);
+            alert('שגיאה במחיקת תמחור מגמה');
+        }
+    }
+
+    // ==================== End Tracks Management ====================
+
     // Cleanup function
     function cleanupSchoolYearConfig() {
         console.log('🧹 Cleaning up School Year Config page...');
@@ -947,10 +3325,13 @@
             selectedYearId: null,
             selectedElementId: null,
             selectedElementName: '',
+            selectedCategoryId: null,
+            selectedCategoryNumber: null,
             hebrewYears: [],
             pricingElements: [],
             documentTypes: [],
-            pricingCategories: []
+            pricingCategories: [],
+            pricingSteps: []
         };
 
         console.log('✅ School Year Config cleanup complete');
@@ -960,9 +3341,35 @@
     window.initializeSchoolYearConfig = initializeSchoolYearConfig;
     window.cleanupSchoolYearConfig = cleanupSchoolYearConfig;
     window.handleYearChange = handleYearChange;
+    window.switchTab = switchTab;
+    
+    // Pricing exports
     window.selectPricingElement = selectPricingElement;
     window.showAddPricingElementModal = showAddPricingElementModal;
     window.showAddPricingCategoryModal = showAddPricingCategoryModal;
     window.editPricingCategory = editPricingCategory;
     window.deletePricingCategory = deletePricingCategory;
+    window.selectPricingCategory = selectPricingCategory;
+    window.showAddPricingStepModal = showAddPricingStepModal;
+    window.duplicatePricingStep = duplicatePricingStep;
+    window.editPricingStep = editPricingStep;
+    window.deletePricingStep = deletePricingStep;
+    
+    // Study Programs exports
+    window.showAddStudyProgramModal = showAddStudyProgramModal;
+    window.editStudyProgram = editStudyProgram;
+    window.deleteStudyProgram = deleteStudyProgram;
+    
+    // Tracks exports
+    window.selectTrack = selectTrack;
+    window.showAddTrackModal = showAddTrackModal;
+    window.editTrack = editTrack;
+    window.deleteTrack = deleteTrack;
+    window.selectTrackLevel = selectTrackLevel;
+    window.showAddTrackLevelModal = showAddTrackLevelModal;
+    window.editTrackLevel = editTrackLevel;
+    window.deleteTrackLevel = deleteTrackLevel;
+    window.showAddTrackPricingModal = showAddTrackPricingModal;
+    window.editTrackPricing = editTrackPricing;
+    window.deleteTrackPricing = deleteTrackPricing;
 </script>

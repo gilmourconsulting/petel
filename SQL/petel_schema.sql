@@ -1703,32 +1703,69 @@ ALTER SEQUENCE petel_schema.tracks_level_seq OWNER TO postgres;
 -- Name: tracks_levels; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
-CREATE TABLE petel_schema.tracks_levels (
-    id integer DEFAULT nextval('petel_schema.tracks_level_seq'::regclass) NOT NULL,
+CREATE TABLE IF NOT EXISTS petel_schema.tracks_levels
+(
+    id integer NOT NULL DEFAULT nextval('petel_schema.tracks_level_seq'::regclass),
     school_track_id integer NOT NULL,
-    level character varying(15),
+    level character varying(15) COLLATE pg_catalog."default",
     min_hours integer NOT NULL,
     max_hours integer,
-    available_for_classes character varying(3)[]
-);
+    available_for_classes character varying(3)[] COLLATE pg_catalog."default",
+    created_at timestamp with time zone DEFAULT now(),
+    user_id integer,
+    CONSTRAINT school_tracks_level_pkey PRIMARY KEY (id),
+    CONSTRAINT school_tracks_levels_school_tracks_fk FOREIGN KEY (school_track_id)
+        REFERENCES petel_schema.tracks (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+        NOT VALID,
+    CONSTRAINT school_tracks_levels_users_fk FOREIGN KEY (user_id)
+        REFERENCES petel_schema.users (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+        NOT VALID
+)
 
+TABLESPACE pg_default;
 
-ALTER TABLE petel_schema.tracks_levels OWNER TO postgres;
+ALTER TABLE IF EXISTS petel_schema.tracks_levels
+    OWNER to "PetelAdmin";
 
 --
 -- Name: tracks_pricing; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
-CREATE TABLE petel_schema.tracks_pricing (
-    id integer NOT NULL,
+CREATE TABLE IF NOT EXISTS petel_schema.tracks_pricing
+(
+    id integer NOT NULL DEFAULT nextval('petel_schema.tracks_pricing_seq'::regclass),
     school_track_id integer NOT NULL,
     price numeric(10,2),
     category integer,
-    level_id integer
-);
+    level_id integer,
+    created_at timestamp with time zone DEFAULT now(),
+    user_id integer,
+    CONSTRAINT school_tracks_pricing_pkey PRIMARY KEY (id),
+    CONSTRAINT school_tracks_pricing_school_tracks_fk FOREIGN KEY (school_track_id)
+        REFERENCES petel_schema.tracks (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+        NOT VALID,
+    CONSTRAINT school_tracks_pricing_school_tracks_levels_fk FOREIGN KEY (level_id)
+        REFERENCES petel_schema.tracks_levels (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+        NOT VALID,
+    CONSTRAINT school_tracks_pricing_user_id_fk FOREIGN KEY (user_id)
+        REFERENCES petel_schema.users (id) MATCH SIMPLE
+        ON UPDATE NO ACTION
+        ON DELETE NO ACTION
+        NOT VALID
+)
 
+TABLESPACE pg_default;
 
-ALTER TABLE petel_schema.tracks_pricing OWNER TO postgres;
+ALTER TABLE IF EXISTS petel_schema.tracks_pricing
+    OWNER to "PetelAdmin";
 
 --
 -- Name: tracks_pricing_seq; Type: SEQUENCE; Schema: petel_schema; Owner: postgres

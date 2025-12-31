@@ -861,6 +861,12 @@ let myComponent = null;  // NO! - Use window.myComponent
 // ❌ Missing cleanup function export
 function cleanupMyPage() { /* ... */ }
 // Missing: window.cleanupMyPage = cleanupMyPage;  // REQUIRED!
+
+// ❌ Using event.stopPropagation() in onclick attributes (SECURITY VIOLATION)
+<button onclick="event.stopPropagation(); myFunction();">  // NO! - Breaks action-security.js
+
+// ✅ CORRECT - No event manipulation in onclick
+<button onclick="myFunction();">  // Header click handler already checks for .btn-icon
 ```
 
 #### Adding a New Page - Checklist
@@ -997,6 +1003,29 @@ table.init(data, columns);
         <!-- Main section content -->
     </div>
 </div>
+```
+
+**Security Constraint - onclick Handlers**:
+- **CRITICAL**: Do NOT use `event.stopPropagation()` or any event manipulation in onclick attributes
+- **Reason**: The action-security.js system evaluates onclick handlers, and `event` is undefined in that context
+- **Solution**: Collapsible card headers already check for `.btn-icon` clicks, so buttons are automatically excluded from collapse triggers
+
+```html
+<!-- ❌ WRONG - Security violation -->
+<button onclick="event.stopPropagation(); showModal();">Open</button>
+
+<!-- ✅ CORRECT - No event manipulation needed -->
+<button onclick="showModal();">Open</button>
+
+<!-- The header click handler already has: -->
+<script>
+header.addEventListener('click', function (e) {
+    if (e.target.closest('.btn-icon')) {
+        return;  // ✅ Buttons don't trigger collapse
+    }
+    toggleCardExpansion(card, toggle, addButton);
+});
+</script>
 ```
 
 **Table Horizontal Scrolling**:
