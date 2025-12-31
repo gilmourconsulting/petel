@@ -13,7 +13,7 @@ namespace PetelApp.Api.Services
     /// </summary>
     public class JwtTokenService
     {
-        private readonly JwtSettings _jwtSettings;
+        private readonly SecuritySettings.JwtSettings _jwtSettings;
         private readonly ILogger<JwtTokenService> _logger;
         private readonly TokenValidationParameters _tokenValidationParameters;
 

@@ -1,21 +1,26 @@
 // PetelApp.Api/Data/AppDbContext.cs
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Options;
 using PetelApp.Api.Configuration;
 using PetelApp.Api.Models;
+using PetelApp.Api.Services;
 
 namespace PetelApp.Api.Data
 {
     public class AppDbContext : DbContext
     {
         private readonly string _schemaName;
+        private readonly DataEncryptionService _encryptionService;
 
         public AppDbContext(
             DbContextOptions<AppDbContext> options,
-            IOptions<DatabaseSettings> dbSettings)
+            IOptions<DatabaseSettings> dbSettings,
+            DataEncryptionService encryptionService)
             : base(options)
         {
             _schemaName = dbSettings.Value.SchemaName;
+            _encryptionService = encryptionService;
         }
 
         // DbSets following Authentication & Session Management
@@ -99,7 +104,92 @@ public DbSet<Status> Statuses { get; set; }
 
             modelBuilder.HasDefaultSchema(_schemaName);
 
-            
+           modelBuilder.HasDefaultSchema(_schemaName);
+    
+    // ===== PERSON ENTITY - Encrypt sensitive fields =====
+    modelBuilder.Entity<Person>(entity =>
+    {
+        entity.ToTable("persons");
+    
+        // ✅ Encrypt ID number with dedicated converter
+        entity.Property(e => e.IdNumber)
+            .HasConversion(
+                v => v != null ? _encryptionService.Encrypt(v) : null,
+                v => v != null ? _encryptionService.Decrypt(v) : null
+            );
+    
+        // ✅ Encrypt email with dedicated converter
+        entity.Property(e => e.Email)
+            .HasConversion(
+                v => v != null ? _encryptionService.Encrypt(v) : null,
+                v => v != null ? _encryptionService.Decrypt(v) : null
+            );
+    
+        // ✅ Encrypt phone number with dedicated converter
+        entity.Property(e => e.PhoneNumber)
+            .HasConversion(
+                v => v != null ? _encryptionService.Encrypt(v) : null,
+                v => v != null ? _encryptionService.Decrypt(v) : null
+            );
+    });
+    
+    // ===== SCHOOL_STUDENT ENTITY - Encrypt sensitive fields =====
+    modelBuilder.Entity<SchoolStudent>(entity =>
+    {
+        entity.ToTable("school_students");
+    
+        // ✅ Encrypt ID number with dedicated converter
+        entity.Property(e => e.IdNumber)
+            .HasConversion(
+                v => v != null ? _encryptionService.Encrypt(v) : null,
+                v => v != null ? _encryptionService.Decrypt(v) : null
+            );
+    
+        // ✅ Encrypt street address with dedicated converter
+        entity.Property(e => e.Street)
+            .HasConversion(
+                v => v != null ? _encryptionService.Encrypt(v) : null,
+                v => v != null ? _encryptionService.Decrypt(v) : null
+            );
+    
+        // Navigation properties
+        entity.HasOne(s => s.Status)
+            .WithMany()
+            .HasForeignKey(s => s.StatusId)
+            .OnDelete(DeleteBehavior.Restrict);
+    });
+    
+    // ===== USER ENTITY - Encrypt OTP secret and email =====
+    modelBuilder.Entity<User>(entity =>
+    {
+        entity.ToTable("users");
+        
+        entity.HasIndex(e => e.Username).IsUnique();
+    
+        // ✅ Encrypt OTP secret with dedicated converter
+        entity.Property(e => e.OtpSecret)
+            .HasConversion(
+                v => v != null ? _encryptionService.Encrypt(v) : null,
+                v => v != null ? _encryptionService.Decrypt(v) : null
+            );
+    
+        // ✅ Encrypt user email with dedicated converter
+        entity.Property(e => e.Email)
+            .HasConversion(
+                v => v != null ? _encryptionService.Encrypt(v) : null,
+                v => v != null ? _encryptionService.Decrypt(v) : null
+            );
+    
+        // Navigation properties
+        entity.HasOne(d => d.Entity)
+            .WithMany()
+            .HasForeignKey(d => d.EntityId)
+            .OnDelete(DeleteBehavior.Restrict);
+    });
+    
+    // ===== ENTITY TABLE - NO ENCRYPTION (Leave as is) =====
+    // Entity.email and Entity.phone remain plaintext
+      
 
             // User entity configuration following Authentication & Session Management
             modelBuilder.Entity<User>(entity =>
@@ -119,7 +209,11 @@ public DbSet<Status> Statuses { get; set; }
             {
                 entity.ToTable("entities");
                 entity.Property(e => e.OwnerId).HasColumnName("owner"); // Add this line
+                entity.Property(e => e.Email)
+                    .HasConversion((string? v) => v, (string? v) => v); // Identity conversion = no encryption
 
+                 entity.Property(e => e.Phone)
+                    .HasConversion((string? v) => v, (string? v) => v); // Identity conversion = no encryption
                 entity.HasOne(e => e.EntityType)
                       .WithMany(et => et.Entities)
                       .HasForeignKey(e => e.EntityTypeId)
