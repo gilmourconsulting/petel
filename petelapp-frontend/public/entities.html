@@ -79,9 +79,9 @@
       // Minimal add form using allowed entity types (3,5,6). Owner defaults to current session entity.
       try {
         const allowedType = 3; // default choice; user can refine later in details screen
-        const sessionEntityId = (await window.SessionState.getProperty('SelectedOwnerId')) 
-          || (await window.SessionState.getProperty('EntityId')) 
-          || null;
+        //  Get entityId from session data directly
+        const session = await window.SessionState.getSession();
+        const sessionEntityId = session?.entityId ? parseInt(session.entityId) : null;
 
         const payload = { name, entityTypeId: allowedType, ownerId: sessionEntityId ? parseInt(sessionEntityId) : null };
         const resp = await fetch(AppConfig.getApiUrl('entities'), {
