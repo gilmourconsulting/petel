@@ -149,6 +149,83 @@ public string Decrypt(string ciphertext)
 }
 
         /// <summary>
+        /// Encrypts plaintext using deterministic AES-256-ECB mode (same input = same output)
+        /// ⚠️ Use ONLY for searchable fields (IdNumber, etc.) - less secure than CBC mode
+        /// ⚠️ ECB mode reveals patterns but allows database equality comparisons
+        /// Returns base64-encoded ciphertext
+        /// </summary>
+        public string EncryptDeterministic(string plaintext)
+        {
+            if (string.IsNullOrWhiteSpace(plaintext))
+            {
+                return plaintext;
+            }
+
+            try
+            {
+                using var aes = Aes.Create();
+                aes.Key = _encryptionKey;
+                aes.Mode = CipherMode.ECB; // Deterministic - same input = same output
+                aes.Padding = PaddingMode.PKCS7;
+
+                using var encryptor = aes.CreateEncryptor();
+                var plaintextBytes = Encoding.UTF8.GetBytes(plaintext);
+                var ciphertextBytes = encryptor.TransformFinalBlock(plaintextBytes, 0, plaintextBytes.Length);
+
+                return Convert.ToBase64String(ciphertextBytes);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error encrypting data (deterministic)");
+                throw new InvalidOperationException("Deterministic data encryption failed", ex);
+            }
+        }
+
+        /// <summary>
+        /// Decrypts deterministic ECB-mode ciphertext
+        /// Handles legacy unencrypted data by returning it as-is
+        /// </summary>
+        public string DecryptDeterministic(string ciphertext)
+        {
+            if (string.IsNullOrWhiteSpace(ciphertext))
+            {
+                return ciphertext;
+            }
+
+            try
+            {
+                var ciphertextBytes = Convert.FromBase64String(ciphertext);
+                
+                using var aes = Aes.Create();
+                aes.Key = _encryptionKey;
+                aes.Mode = CipherMode.ECB;
+                aes.Padding = PaddingMode.PKCS7;
+
+                using var decryptor = aes.CreateDecryptor();
+                var plaintextBytes = decryptor.TransformFinalBlock(ciphertextBytes, 0, ciphertextBytes.Length);
+
+                return Encoding.UTF8.GetString(plaintextBytes);
+            }
+            catch (FormatException ex)
+            {
+                // Not base64 - treat as legacy plain text
+                _logger.LogWarning(ex, "Data is not base64-encoded, treating as plain text");
+                return ciphertext;
+            }
+            catch (CryptographicException ex)
+            {
+                // Decryption failed - might be corrupted or plain text
+                _logger.LogWarning(ex, "Cryptographic error during decryption, treating as plain text");
+                return ciphertext;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error decrypting data (deterministic)");
+                throw new InvalidOperationException("Deterministic data decryption failed", ex);
+            }
+        }
+
+        /// <summary>
         /// Generates a new random 256-bit encryption key (base64-encoded)
         /// Use this once to generate key, then store in Azure Key Vault
         /// </summary>

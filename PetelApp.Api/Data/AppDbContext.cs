@@ -111,7 +111,7 @@ public DbSet<Status> Statuses { get; set; }
     {
         entity.ToTable("persons");
     
-        // ✅ Encrypt ID number with dedicated converter
+        // ✅ Encrypt ID number - NOT searchable in database
         entity.Property(e => e.IdNumber)
             .HasConversion(
                 v => v != null ? _encryptionService.Encrypt(v) : null,
@@ -138,7 +138,7 @@ public DbSet<Status> Statuses { get; set; }
     {
         entity.ToTable("school_students");
     
-        // ✅ Encrypt ID number with dedicated converter
+        // ✅ Encrypt ID number - NOT searchable in database
         entity.Property(e => e.IdNumber)
             .HasConversion(
                 v => v != null ? _encryptionService.Encrypt(v) : null,

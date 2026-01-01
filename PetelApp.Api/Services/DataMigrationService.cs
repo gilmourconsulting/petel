@@ -148,4 +148,19 @@ public class DataMigrationService
             return false;
         }
     }
+
+    /// <summary>
+    /// ⚠️ DO NOT USE - This migration corrupts data!
+    /// The EF Core value converters automatically decrypt data when reading,
+    /// so this tries to re-encrypt already-decrypted plain text.
+    /// Use direct SQL migration instead.
+    /// </summary>
+    [Obsolete("This method corrupts data. Use SQL-based migration instead.")]
+    public async Task<(int reencrypted, int errors)> MigrateToDeterministicEncryptionAsync()
+    {
+        throw new InvalidOperationException(
+            "This migration method is disabled because it corrupts data. " +
+            "EF Core value converters automatically decrypt when reading, causing double-encryption. " +
+            "Please restore from backup and use the original encryption approach.");
+    }
 }

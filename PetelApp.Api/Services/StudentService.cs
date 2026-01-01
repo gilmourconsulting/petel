@@ -12,7 +12,9 @@ namespace PetelApp.Api.Services
         private readonly AppDbContext _context;
         private readonly ILogger<StudentService> _logger;
 
-        public StudentService(AppDbContext context, ILogger<StudentService> logger)
+        public StudentService(
+            AppDbContext context, 
+            ILogger<StudentService> logger)
         {
             _context = context;
             _logger = logger;
@@ -133,11 +135,12 @@ namespace PetelApp.Api.Services
         /// </summary>
         public async Task<SchoolStudent?> GetLatestVersionAsync(string idNumber, int schoolYearId)
         {
-            return await _context.SchoolStudents
-                .Where(s => s.IdNumber == idNumber && 
-                           s.SchoolYearId == schoolYearId && 
-                           s.IsLastVersion)
-                .FirstOrDefaultAsync();
+            // Load all latest versions for the year and compare in memory (encryption prevents DB search)
+            var students = await _context.SchoolStudents
+                .Where(s => s.SchoolYearId == schoolYearId && s.IsLastVersion)
+                .ToListAsync();
+            
+            return students.FirstOrDefault(s => s.IdNumber == idNumber);
         }
 
         /// <summary>
@@ -145,10 +148,13 @@ namespace PetelApp.Api.Services
         /// </summary>
         public async Task<List<SchoolStudent>> GetVersionHistoryAsync(string idNumber, int schoolYearId)
         {
-            return await _context.SchoolStudents
-                .Where(s => s.IdNumber == idNumber && s.SchoolYearId == schoolYearId)
+            // Load all students for the year and filter in memory (encryption prevents DB search)
+            var students = await _context.SchoolStudents
+                .Where(s => s.SchoolYearId == schoolYearId)
                 .OrderBy(s => s.Version)
                 .ToListAsync();
+            
+            return students.Where(s => s.IdNumber == idNumber).ToList();
         }
 
         /// <summary>

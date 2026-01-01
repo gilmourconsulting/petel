@@ -111,6 +111,7 @@ builder.Services.AddScoped<GlobalFunctions>();
 
 builder.Services.AddScoped<StudentPricingService>();
 builder.Services.AddScoped<StudentService>();
+builder.Services.AddScoped<DataMigrationService>();
 
 
 // Register school attribute services
@@ -441,6 +442,41 @@ if (args.Length > 0 && args[0] == "migrate-encrypt-data")
         {
             return false;
         }
+    }
+}
+
+// ✅ NEW COMMAND: Migrate to deterministic encryption
+if (args.Length > 0 && args[0] == "migrate-deterministic")
+{
+    Console.WriteLine("========================================");
+    Console.WriteLine("MIGRATING TO DETERMINISTIC ENCRYPTION");
+    Console.WriteLine("========================================");
+    Console.WriteLine("⚠️  This will re-encrypt IdNumber fields to allow database searches");
+    Console.WriteLine("");
+    
+    var serviceProvider = builder.Services.BuildServiceProvider();
+    using var scope = serviceProvider.CreateScope();
+    var migrationService = scope.ServiceProvider.GetRequiredService<DataMigrationService>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    
+    try
+    {
+        var (reencrypted, errors) = await migrationService.MigrateToDeterministicEncryptionAsync();
+        
+        Console.WriteLine("");
+        Console.WriteLine("========================================");
+        Console.WriteLine($"✅ MIGRATION COMPLETE");
+        Console.WriteLine($"   Re-encrypted: {reencrypted} records");
+        Console.WriteLine($"   Errors: {errors}");
+        Console.WriteLine("========================================");
+        
+        return;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"\n❌ MIGRATION FAILED: {ex.Message}");
+        logger.LogError(ex, "Deterministic encryption migration failed");
+        return;
     }
 }
 

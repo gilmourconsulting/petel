@@ -13,18 +13,18 @@ namespace PetelApp.Api.Services
         private readonly GlobalFunctions _globalFunctions;
         private readonly AppDbContext _context;
         private readonly ILogger<StudentsFileProcessor> _logger;
-        private readonly StudentService _studentService;  // ✅ NEW
+        private readonly StudentService _studentService;
 
         public StudentsFileProcessor(
             AppDbContext context,
             ILogger<StudentsFileProcessor> logger,
             GlobalFunctions globalFunctions,
-            StudentService studentService)  // ✅ NEW
+            StudentService studentService)
         {
             _context = context;
             _logger = logger;
             _globalFunctions = globalFunctions;
-            _studentService = studentService;  // ✅ NEW
+            _studentService = studentService;
         }
 
         /// <summary>
@@ -100,12 +100,14 @@ namespace PetelApp.Api.Services
                 return;
             }
 
-            // Retrieve existing record with is_last_version = true for this school year
-            var existingStudent = await _context.SchoolStudents
-                 .Where(s => s.IdNumber == row.IdNumber &&
-                            s.IsLastVersion == true &&
-                            s.SchoolYearId == schoolYearId)
-                 .FirstOrDefaultAsync();
+            // ✅ Load all students for this school year and compare in memory (encryption prevents DB search)
+            var allStudentsInYear = await _context.SchoolStudents
+                 .Where(s => s.IsLastVersion == true && s.SchoolYearId == schoolYearId)
+                 .ToListAsync();
+            
+            // Find matching student by comparing decrypted IdNumber in memory
+            var existingStudent = allStudentsInYear
+                .FirstOrDefault(s => s.IdNumber == row.IdNumber);
 
             if (existingStudent == null)
             {
