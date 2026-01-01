@@ -21,17 +21,27 @@
                 <div class="detail-card-content">
                     <div style="padding: 15px;">
                         <label for="yearSelect" style="display: block; margin-bottom: 8px; font-weight: 600;"> שנת לימודים:</label>
-                        <select id="yearSelect" onchange="handleYearChange()" style="
-                                    padding: 8px 12px;
-                                    border: 1px solid #dee2e6;
-                                    border-radius: 4px;
-                                    font-size: 14px;
-                                    width: 300px;
-                                    direction: rtl;
-                                    cursor: pointer;
-                                ">
-                            <option value="">טוען...</option>
-                        </select>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <select id="yearSelect" onchange="handleYearChange()" style="
+                                        padding: 8px 12px;
+                                        border: 1px solid #dee2e6;
+                                        border-radius: 4px;
+                                        font-size: 14px;
+                                        width: 300px;
+                                        direction: rtl;
+                                        cursor: pointer;
+                                    ">
+                                <option value="">טוען...</option>
+                            </select>
+                            <button id="exportYearBtn" class="btn-icon" onclick="exportYearConfiguration()" 
+                                    title="ייצא הגדרות שנה" style="display: none;">
+                                <img src="download_icon.png" alt="ייצוא" class="action-icon-natural">
+                            </button>
+                            <button id="importYearBtn" class="btn-icon" onclick="showImportYearModal()" 
+                                    title="ייבא הגדרות שנה" style="display: none;">
+                                <img src="upload_icon.png" alt="ייבוא" class="action-icon-natural">
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -445,6 +455,8 @@
         if (!selectedYearId) {
             // Hide tabs if no year selected
             document.getElementById('tabsContainer').style.display = 'none';
+            document.getElementById('exportYearBtn').style.display = 'none';
+            document.getElementById('importYearBtn').style.display = 'none';
             window.schoolYearConfigState.selectedYearId = null;
             return;
         }
@@ -479,6 +491,10 @@
 
         // Show tabs container
         document.getElementById('tabsContainer').style.display = 'block';
+
+        // Show export/import buttons
+        document.getElementById('exportYearBtn').style.display = 'inline-flex';
+        document.getElementById('importYearBtn').style.display = 'inline-flex';
 
         // Initialize collapsible cards
         initializeCollapsibleCards();
@@ -3317,6 +3333,185 @@
 
     // ==================== End Tracks Management ====================
 
+    // ==================== Export/Import Year Configuration ====================
+
+    // Export all year configuration to JSON file
+    async function exportYearConfiguration() {
+        const yearId = window.schoolYearConfigState.selectedYearId;
+        if (!yearId) {
+            alert('אנא בחר שנת לימודים');
+            return;
+        }
+
+        try {
+            console.log('📥 Exporting year configuration...');
+
+            const authToken = sessionStorage.getItem('authToken');
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolyearexport?yearId=${yearId}`), 
+                {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`Export failed: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Get year name for filename
+            const yearSelect = document.getElementById('yearSelect');
+            const yearName = yearSelect.options[yearSelect.selectedIndex].text;
+            a.download = `school_year_config_${yearName}_${new Date().toISOString().slice(0,10)}.json`;
+            
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+
+            console.log('✅ Export completed successfully');
+            alert('ייצוא הושלם בהצלחה');
+
+        } catch (error) {
+            console.error('❌ Error exporting year configuration:', error);
+            alert('שגיאה בייצוא הגדרות שנה');
+        }
+    }
+
+    // Show import modal
+    function showImportYearModal() {
+        const yearId = window.schoolYearConfigState.selectedYearId;
+        if (!yearId) {
+            alert('אנא בחר שנת לימודים');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '500px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">ייבוא הגדרות שנת לימודים</h3>
+        <div style="margin: 20px 0;">
+            <div style="background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; padding: 15px; margin-bottom: 20px;">
+                <strong>⚠️ אזהרה:</strong>
+                <p style="margin: 10px 0 0 0;">
+                    ייבוא זה ישכתב את כל ההגדרות הקיימות עבור שנת לימודים זו.<br>
+                    מומלץ לייצא גיבוי לפני ביצוע הייבוא.
+                </p>
+            </div>
+            <div class="form-group">
+                <label for="importFile">בחר קובץ JSON:</label>
+                <input type="file" id="importFile" accept=".json" style="
+                    padding: 8px 12px;
+                    border: 1px solid #dee2e6;
+                    border-radius: 4px;
+                    font-size: 14px;
+                    width: 100%;
+                    direction: rtl;
+                    cursor: pointer;
+                ">
+            </div>
+            <div class="form-group" style="margin-top: 15px;">
+                <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="clearExisting" checked>
+                    <span>מחק הגדרות קיימות לפני ייבוא</span>
+                </label>
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="importOkBtn" class="btn-primary">ייבא</button>
+            <button id="importCancelBtn" class="btn-secondary">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('importOkBtn').onclick = async () => {
+            await importYearConfiguration(overlay);
+        };
+
+        document.getElementById('importCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Import year configuration from JSON file
+    async function importYearConfiguration(overlay) {
+        const yearId = window.schoolYearConfigState.selectedYearId;
+        const fileInput = document.getElementById('importFile');
+        const clearExisting = document.getElementById('clearExisting').checked;
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert('אנא בחר קובץ לייבוא');
+            return;
+        }
+
+        if (!file.name.endsWith('.json')) {
+            alert('אנא בחר קובץ JSON תקין');
+            return;
+        }
+
+        try {
+            console.log('📤 Importing year configuration...');
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('yearId', yearId);
+            formData.append('clearExisting', clearExisting);
+
+            const authToken = sessionStorage.getItem('authToken');
+            const response = await fetch(
+                AppConfig.getApiUrl('schoolyearconfig/import'), {
+                method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                document.body.removeChild(overlay);
+                alert(`ייבוא הושלם בהצלחה!\n\nיובאו:\n` +
+                      `${result.imported.pricingElements || 0} רכיבי תמחור\n` +
+                      `${result.imported.pricingCategories || 0} קטגוריות תמחור\n` +
+                      `${result.imported.pricingSteps || 0} שלבי תמחור\n` +
+                      `${result.imported.documentTypes || 0} סוגי מסמכים\n` +
+                      `${result.imported.studyPrograms || 0} תוכניות לימוד נוספות\n` +
+                      `${result.imported.tracks || 0} מגמות\n` +
+                      `${result.imported.trackLevels || 0} רמות מגמה\n` +
+                      `${result.imported.trackPricing || 0} תמחורי מגמה`);
+                
+                // Reload all data
+                await loadTabData(window.schoolYearConfigState.activeTab);
+
+            } else {
+                alert(`שגיאה בייבוא: ${result.message || 'שגיאה לא ידועה'}\n\n` +
+                      (result.errors ? `שגיאות:\n${result.errors.join('\n')}` : ''));
+            }
+
+        } catch (error) {
+            console.error('❌ Error importing year configuration:', error);
+            alert('שגיאה בייבוא הגדרות שנה');
+        }
+    }
+
+    // ==================== End Export/Import ====================
+
     // Cleanup function
     function cleanupSchoolYearConfig() {
         console.log('🧹 Cleaning up School Year Config page...');
@@ -3342,6 +3537,10 @@
     window.cleanupSchoolYearConfig = cleanupSchoolYearConfig;
     window.handleYearChange = handleYearChange;
     window.switchTab = switchTab;
+    
+    // Export/Import exports
+    window.exportYearConfiguration = exportYearConfiguration;
+    window.showImportYearModal = showImportYearModal;
     
     // Pricing exports
     window.selectPricingElement = selectPricingElement;

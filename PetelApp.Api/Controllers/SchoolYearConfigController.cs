@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
+using PetelApp.Api.Models;
 using PetelApp.Api.Session;
 
 namespace PetelApp.Api.Controllers
@@ -584,7 +585,7 @@ namespace PetelApp.Api.Controllers
             }
         }
 
-        #region Tracks Management
+
 
         /// <summary>
         /// Get tracks for a specific year
@@ -1118,7 +1119,580 @@ namespace PetelApp.Api.Controllers
             }
         }
 
-        #endregion
+    
+
+        // ==================== Export/Import Methods ====================
+
+        /// <summary>
+        /// Export all year configuration to JSON file
+        /// </summary>
+        [HttpGet("export")]
+        public async Task<IActionResult> ExportYearConfiguration([FromQuery] int yearId)
+        {
+            try
+            {
+          
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+
+                _logger.LogInformation("Exporting configuration for year ID: {YearId}", yearId);
+
+                var config = new SchoolYearConfigExport
+                {
+                    ExportDate = DateTime.UtcNow,
+                    YearId = yearId
+                };
+
+                // Get year info
+                var year = await _context.SchoolYears
+                    .AsNoTracking()
+                    .Where(y => y.Id == yearId)
+                    .Select(y => new { y.YearName })
+                    .FirstOrDefaultAsync();
+
+                if (year == null)
+                {
+                    return NotFound(new { success = false, message = "שנת לימודים לא נמצאה" });
+                }
+
+                config.YearName = year.YearName;
+
+                // Export Pricing Elements with Categories and Steps
+                var pricingElements = await _context.SpecialNeedsPricingElements
+                    .AsNoTracking()
+                    .Where(pe => pe.YearId == yearId)
+                    .OrderBy(pe => pe.ElementName)
+                    .ToListAsync();
+
+                foreach (var element in pricingElements)
+                {
+                    var exportElement = new PricingElementExport
+                    {
+                        Name = element.ElementName,
+                        Title = element.Title,
+                        Description = element.Description,
+                        CalculationLevel = element.CalculationLevel,
+                        AttributeToCheck = element.AttributeToCheck,
+                        Categories = new List<PricingCategoryExport>()
+                    };
+
+                    // Get categories for this element
+                    var categories = await _context.SpecialNeedsPricingCategories
+                        .AsNoTracking()
+                        .Where(pc => pc.PricingElement == element.Id)
+                        .OrderBy(pc => pc.Category)
+                        .ToListAsync();
+
+                    foreach (var category in categories)
+                    {
+                        var exportCategory = new PricingCategoryExport
+                        {
+                            Category = category.Category,
+                            IsLowestLevel = category.IsLowestLevel.GetValueOrDefault(),
+                            Price = category.Price,
+                            Steps = new List<PricingStepExport>()
+                        };
+
+                        // Get steps for this category
+                        var steps = await _context.SpecialNeedsPricingSteps
+                            .AsNoTracking()
+                            .Where(ps => ps.PricingElement == element.Id && ps.Category == category.Category)
+                            .OrderBy(ps => ps.ObjectCheck)
+                            .ThenBy(ps => ps.ObjectElementCheck)
+                            .ThenBy(ps => ps.ObjectElementValue)
+                            .ToListAsync();
+
+                        foreach (var step in steps)
+                        {
+                            exportCategory.Steps.Add(new PricingStepExport
+                            {
+                                ObjectCheck = step.ObjectCheck,
+                                ObjectElementCheck = step.ObjectElementCheck,
+                                ObjectElementValue = step.ObjectElementValue,
+                                Price = step.Price
+                            });
+                        }
+
+                        exportElement.Categories.Add(exportCategory);
+                    }
+
+                    config.PricingElements.Add(exportElement);
+                }
+
+                // Export Document Types
+                var documentTypes = await _context.DocumentTypes
+                    .AsNoTracking()
+                    .Where(dt => dt.YearId == yearId)
+                    .OrderBy(dt => dt.Name)
+                    .ToListAsync();
+
+                foreach (var dt in documentTypes)
+                {
+                    config.DocumentTypes.Add(new DocumentTypeExport
+                    {
+                        TypeName = dt.Name
+                    });
+                }
+
+                // Export Study Programs
+                var studyPrograms = await _context.AdditionalStudyProgramsPricing
+                    .AsNoTracking()
+                    .Where(sp => sp.YearId == yearId)
+                    .OrderBy(sp => sp.Students)
+                    .ToListAsync();
+
+                foreach (var sp in studyPrograms)
+                {
+                    config.StudyPrograms.Add(new StudyProgramExport
+                    {
+                        Students = sp.Students,
+                        Price = sp.Price
+                    });
+                }
+
+                // Export Tracks with Levels and Pricing
+                var tracks = await _context.Tracks
+                    .AsNoTracking()
+                    .Where(t => t.YearId == yearId)
+                    .OrderBy(t => t.TrackName)
+                    .ToListAsync();
+
+                foreach (var track in tracks)
+                {
+                    var exportTrack = new TrackExport
+                    {
+                        TrackName = track.TrackName,
+                        Description = null,
+                        Levels = new List<TrackLevelExport>()
+                    };
+
+                    // Get levels for this track
+                    var levels = await _context.TrackLevels
+                        .AsNoTracking()
+                        .Where(tl => tl.SchoolTrackId == track.Id)
+                        .OrderBy(tl => tl.LevelName)
+                        .ToListAsync();
+
+                    foreach (var level in levels)
+                    {
+                        var exportLevel = new TrackLevelExport
+                        {
+                            LevelName = level.LevelName ?? "",
+                            Description = null,
+                            Pricing = new List<TrackPricingExport>()
+                        };
+
+                        // Get pricing for this level
+                        var pricing = await _context.TracksPricing
+                            .AsNoTracking()
+                            .Where(tp => tp.SchoolTrackId == track.Id && tp.LevelId == level.Id)
+                            .OrderBy(tp => tp.Category)
+                            .ToListAsync();
+
+                        foreach (var p in pricing)
+                        {
+                            exportLevel.Pricing.Add(new TrackPricingExport
+                            {
+                                Category = p.Category ?? 0,
+                                Price = p.Price
+                            });
+                        }
+
+                        exportTrack.Levels.Add(exportLevel);
+                    }
+
+                    config.Tracks.Add(exportTrack);
+                }
+
+                // Serialize to JSON with formatting
+                var options = new System.Text.Json.JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+                };
+
+                var jsonContent = System.Text.Json.JsonSerializer.Serialize(config, options);
+                var bytes = System.Text.Encoding.UTF8.GetBytes(jsonContent);
+
+                return File(bytes, "application/json", $"school_year_config_{config.YearName}_{DateTime.Now:yyyyMMdd}.json");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting year configuration for year ID: {YearId}", yearId);
+                return StatusCode(500, new { success = false, message = "שגיאה בייצוא הגדרות", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Import year configuration from JSON file
+        /// </summary>
+        [HttpPost("import")]
+        public async Task<IActionResult> ImportYearConfiguration(IFormFile file, [FromForm] int yearId, [FromForm] bool clearExisting = true)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+            {
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { success = false, message = "לא נבחר קובץ" });
+            }
+
+            if (!file.FileName.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { success = false, message = "יש להעלות קובץ JSON בלבד" });
+            }
+
+            try
+            {
+                _logger.LogInformation("Importing configuration for year ID: {YearId}, ClearExisting: {ClearExisting}", yearId, clearExisting);
+
+                // Read and parse JSON
+                string jsonContent;
+                using (var reader = new StreamReader(file.OpenReadStream()))
+                {
+                    jsonContent = await reader.ReadToEndAsync();
+                }
+
+                var options = new System.Text.Json.JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                };
+
+                var config = System.Text.Json.JsonSerializer.Deserialize<SchoolYearConfigExport>(jsonContent, options);
+                if (config == null)
+                {
+                    return BadRequest(new { success = false, message = "קובץ JSON לא תקין" });
+                }
+
+                var errors = new List<string>();
+                var imported = new ImportResult();
+
+                using var transaction = await _context.Database.BeginTransactionAsync();
+
+                try
+                {
+                    // Clear existing data if requested
+                    if (clearExisting)
+                    {
+                        await ClearYearConfiguration(yearId);
+                    }
+
+                    // Import Pricing Elements, Categories, and Steps
+                    foreach (var elementExport in config.PricingElements)
+                    {
+                        try
+                        {
+                            // Check if element already exists for this year
+                            var existingElement = await _context.SpecialNeedsPricingElements
+                                .FirstOrDefaultAsync(e => e.ElementName == elementExport.Name && e.YearId == yearId);
+
+                            if (existingElement != null)
+                            {
+                                _logger.LogInformation("Pricing element '{ElementName}' already exists for year {YearId}, skipping", elementExport.Name, yearId);
+                                continue;
+                            }
+
+                            var element = new SpecialNeedsPricingElement
+                            {
+                                YearId = yearId,
+                                ElementName = elementExport.Name,
+                                Title = elementExport.Title,
+                                Description = elementExport.Description,
+                                CalculationLevel = elementExport.CalculationLevel,
+                                AttributeToCheck = elementExport.AttributeToCheck,
+                                UserId = int.Parse(session.UserId),
+                                CreatedAt = DateTime.UtcNow
+                            };
+
+                            _context.SpecialNeedsPricingElements.Add(element);
+                            await _context.SaveChangesAsync();
+                            imported.PricingElements++;
+
+                            // Import categories
+                            foreach (var categoryExport in elementExport.Categories)
+                            {
+                                var category = new SpecialNeedsPricingCategory
+                                {
+                                    PricingElement = element.Id,
+                                    Category = categoryExport.Category,
+                                    IsLowestLevel = categoryExport.IsLowestLevel,
+                                    Price = categoryExport.Price
+                                };
+
+                                _context.SpecialNeedsPricingCategories.Add(category);
+                                await _context.SaveChangesAsync();
+                                imported.PricingCategories++;
+
+                                // Import steps
+                                foreach (var stepExport in categoryExport.Steps)
+                                {
+                                    var step = new SpecialNeedsPricingStep
+                                    {
+                                        PricingElement = element.Id,
+                                        Category = category.Category,
+                                        ObjectCheck = stepExport.ObjectCheck,
+                                        ObjectElementCheck = stepExport.ObjectElementCheck,
+                                        ObjectElementValue = stepExport.ObjectElementValue,
+                                        Price = stepExport.Price
+                                    };
+
+                                    _context.SpecialNeedsPricingSteps.Add(step);
+                                    imported.PricingSteps++;
+                                }
+
+                                await _context.SaveChangesAsync();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add($"שגיאה בייבוא רכיב תמחור '{elementExport.Name}': {ex.Message}");
+                            _logger.LogError(ex, "Error importing pricing element: {ElementName}", elementExport.Name);
+                        }
+                    }
+
+                    // Import Document Types
+                    foreach (var dtExport in config.DocumentTypes)
+                    {
+                        try
+                        {
+                            // Check if document type already exists for this year
+                            var existing = await _context.DocumentTypes
+                                .FirstOrDefaultAsync(d => d.Name == dtExport.TypeName && d.YearId == yearId);
+
+                            if (existing == null)
+                            {
+                                var documentType = new DocumentType
+                                {
+                                    Name = dtExport.TypeName,
+                                    YearId = yearId,
+                                    Level = "Year"
+                                };
+
+                                _context.DocumentTypes.Add(documentType);
+                                await _context.SaveChangesAsync();
+                                imported.DocumentTypes++;
+                            }
+                            else
+                            {
+                                _logger.LogInformation("Document type '{TypeName}' already exists for year {YearId}, skipping", dtExport.TypeName, yearId);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add($"שגיאה בייבוא סוג מסמך '{dtExport.TypeName}': {ex.Message}");
+                            _logger.LogError(ex, "Error importing document type: {TypeName}", dtExport.TypeName);
+                        }
+                    }
+
+                    // Import Study Programs
+                    foreach (var spExport in config.StudyPrograms)
+                    {
+                        try
+                        {
+                            var studyProgram = new AdditionalStudyProgramsPricing
+                            {
+                                YearId = yearId,
+                                Students = spExport.Students,
+                                Price = spExport.Price,
+                                CreatedAt = DateTime.UtcNow
+                            };
+
+                            _context.AdditionalStudyProgramsPricing.Add(studyProgram);
+                            imported.StudyPrograms++;
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add($"שגיאה בייבוא תוכנית לימוד עם {spExport.Students} תלמידים: {ex.Message}");
+                            _logger.LogError(ex, "Error importing study program: {Students}", spExport.Students);
+                        }
+                    }
+
+                    await _context.SaveChangesAsync();
+
+                    // Import Tracks with Levels and Pricing
+                    foreach (var trackExport in config.Tracks)
+                    {
+                        try
+                        {
+                            var track = new Track
+                            {
+                                YearId = yearId,
+                                TrackName = trackExport.TrackName,
+                                ExternalCode = trackExport.ExternalCode,
+                                AvailableForClasses = trackExport.AvailableForClasses,
+                                CreatedAt = DateTime.UtcNow
+                            };
+
+                            _context.Tracks.Add(track);
+                            await _context.SaveChangesAsync();
+                            imported.Tracks++;
+
+                            // Import levels
+                            foreach (var levelExport in trackExport.Levels)
+                            {
+                                var level = new TrackLevel
+                                {
+                                    SchoolTrackId = track.Id,
+                                    LevelName = levelExport.LevelName,
+                                    MinHours = levelExport.MinHours,
+                                    MaxHours = levelExport.MaxHours,
+                                    AvailableForClasses = levelExport.AvailableForClasses
+                                };
+
+                                _context.TrackLevels.Add(level);
+                                await _context.SaveChangesAsync();
+                                imported.TrackLevels++;
+
+                                // Import pricing
+                                foreach (var pricingExport in levelExport.Pricing)
+                                {
+                                    var pricing = new TrackPricing
+                                    {
+                                        SchoolTrackId = track.Id,
+                                        LevelId = level.Id,
+                                        Category = pricingExport.Category,
+                                        Price = pricingExport.Price
+                                    };
+
+                                    _context.TracksPricing.Add(pricing);
+                                    imported.TrackPricing++;
+                                }
+
+                                await _context.SaveChangesAsync();
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add($"שגיאה בייבוא מגמה '{trackExport.TrackName}': {ex.Message}");
+                            _logger.LogError(ex, "Error importing track: {TrackName}", trackExport.TrackName);
+                        }
+                    }
+
+                    await transaction.CommitAsync();
+
+                    return Ok(new
+                    {
+                        success = true,
+                        message = "ייבוא הושלם בהצלחה",
+                        imported = imported,
+                        errors = errors.Count > 0 ? errors : null
+                    });
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Transaction failed during import");
+                    return StatusCode(500, new { success = false, message = "שגיאה בייבוא - השינויים בוטלו", error = ex.Message });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error importing year configuration");
+                return StatusCode(500, new { success = false, message = "שגיאה בייבוא הגדרות", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Clear all configuration for a year
+        /// </summary>
+        private async Task ClearYearConfiguration(int yearId)
+        {
+            _logger.LogInformation("Clearing existing configuration for year ID: {YearId}", yearId);
+
+            // Get all pricing elements for this year
+            var elementIds = await _context.SpecialNeedsPricingElements
+                .Where(pe => pe.YearId == yearId)
+                .Select(pe => pe.Id)
+                .ToListAsync();
+
+            if (elementIds.Any())
+            {
+                // Get all category IDs
+                var categoryIds = await _context.SpecialNeedsPricingCategories
+                    .Where(pc => elementIds.Contains(pc.PricingElement))
+                    .Select(pc => pc.Id)
+                    .ToListAsync();
+
+                if (categoryIds.Any())
+                {
+                    // Delete pricing steps
+                    var steps = await _context.SpecialNeedsPricingSteps
+                        .Where(ps => elementIds.Contains(ps.PricingElement))
+                        .ToListAsync();
+                    _context.SpecialNeedsPricingSteps.RemoveRange(steps);
+
+                    // Delete pricing categories
+                    var categories = await _context.SpecialNeedsPricingCategories
+                        .Where(pc => categoryIds.Contains(pc.Id))
+                        .ToListAsync();
+                    _context.SpecialNeedsPricingCategories.RemoveRange(categories);
+                }
+
+                // Delete pricing elements
+                var elements = await _context.SpecialNeedsPricingElements
+                    .Where(pe => elementIds.Contains(pe.Id))
+                    .ToListAsync();
+                _context.SpecialNeedsPricingElements.RemoveRange(elements);
+            }
+
+            // Delete document types
+            var documentTypes = await _context.DocumentTypes
+                .Where(dt => dt.YearId == yearId)
+                .ToListAsync();
+            _context.DocumentTypes.RemoveRange(documentTypes);
+
+            // Delete study programs
+            var studyPrograms = await _context.AdditionalStudyProgramsPricing
+                .Where(sp => sp.YearId == yearId)
+                .ToListAsync();
+            _context.AdditionalStudyProgramsPricing.RemoveRange(studyPrograms);
+
+            // Get all tracks for this year
+            var trackIds = await _context.Tracks
+                .Where(t => t.YearId == yearId)
+                .Select(t => t.Id)
+                .ToListAsync();
+
+            if (trackIds.Any())
+            {
+                // Get all level IDs
+                var levelIds = await _context.TrackLevels
+                    .Where(tl => trackIds.Contains(tl.SchoolTrackId))
+                    .Select(tl => tl.Id)
+                    .ToListAsync();
+
+                if (levelIds.Any())
+                {
+                    // Delete track pricing
+                    var trackPricing = await _context.TracksPricing
+                        .Where(tp => levelIds.Contains(tp.LevelId.Value))
+                        .ToListAsync();
+                    _context.TracksPricing.RemoveRange(trackPricing);
+
+                    // Delete track levels
+                    var trackLevels = await _context.TrackLevels
+                        .Where(tl => levelIds.Contains(tl.Id))
+                        .ToListAsync();
+                    _context.TrackLevels.RemoveRange(trackLevels);
+                }
+
+                // Delete tracks
+                var tracks = await _context.Tracks
+                    .Where(t => trackIds.Contains(t.Id))
+                    .ToListAsync();
+                _context.Tracks.RemoveRange(tracks);
+            }
+
+            await _context.SaveChangesAsync();
+        }
     }
 
     // Request DTOs

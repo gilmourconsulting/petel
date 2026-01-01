@@ -169,6 +169,12 @@ namespace PetelApp.Api.Services
                 _logger.LogWarning("JWT token has invalid signature - possible tampering attempt");
                 return null;
             }
+            catch (SecurityTokenMalformedException ex)
+            {
+                // This is expected for old GUID session tokens - not an error
+                _logger.LogDebug("Token is not a valid JWT format (likely old GUID session token): {Message}", ex.Message);
+                return null;
+            }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "JWT token validation failed");
