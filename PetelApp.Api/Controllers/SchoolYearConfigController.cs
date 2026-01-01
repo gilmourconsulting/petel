@@ -1693,6 +1693,203 @@ namespace PetelApp.Api.Controllers
 
             await _context.SaveChangesAsync();
         }
+
+        // ==================== Study Programs Endpoints ====================
+
+        /// <summary>
+        /// Get additional study programs for a specific year
+        /// </summary>
+        [HttpGet("study-programs")]
+        public async Task<IActionResult> GetStudyPrograms([FromQuery] int yearId)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                _logger.LogInformation("Fetching study programs pricing for yearId={YearId}", yearId);
+
+                var programs = await _context.AdditionalStudyProgramsPricing
+                    .AsNoTracking()
+                    .Where(p => p.YearId == yearId)
+                    .OrderBy(p => p.Students)
+                    .Select(p => new
+                    {
+                        id = p.Id,
+                        students = p.Students,
+                        price = p.Price,
+                        createdAt = p.CreatedAt
+                    })
+                    .ToListAsync();
+
+                _logger.LogInformation("Found {Count} study programs pricing entries for yearId={YearId}", programs.Count, yearId);
+
+                return Ok(programs);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading study programs for year {YearId}", yearId);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בטעינת תוכניות לימוד",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Add a new study program
+        /// </summary>
+        [HttpPost("study-programs")]
+        public async Task<IActionResult> AddStudyProgram([FromBody] AddStudyProgramRequest request)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                if (request.Students <= 0)
+                {
+                    return BadRequest(new { success = false, message = "מספר תלמידים חייב להיות גדול מאפס" });
+                }
+
+                var program = new AdditionalStudyProgramsPricing
+                {
+                    YearId = request.YearId,
+                    Students = request.Students,
+                    Price = request.Price,
+                    UserId = int.Parse(session.UserId),
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.AdditionalStudyProgramsPricing.Add(program);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Study program pricing added for year {YearId} with {Students} students", request.YearId, request.Students);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "תוכנית הלימודים נוספה בהצלחה",
+                    id = program.Id
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding study program");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בהוספת תוכנית לימודים",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Update an existing study program
+        /// </summary>
+        [HttpPut("study-programs/{id}")]
+        public async Task<IActionResult> UpdateStudyProgram(int id, [FromBody] UpdateStudyProgramRequest request)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                var program = await _context.AdditionalStudyProgramsPricing
+                    .FirstOrDefaultAsync(p => p.Id == id);
+
+                if (program == null)
+                {
+                    return NotFound(new { success = false, message = "רשומת תמחור לא נמצאה" });
+                }
+
+                if (request.Students <= 0)
+                {
+                    return BadRequest(new { success = false, message = "מספר תלמידים חייב להיות גדול מאפס" });
+                }
+
+                program.Students = request.Students;
+                program.Price = request.Price;
+                program.UserId = int.Parse(session.UserId);
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Study program {Id} updated", id);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "תוכנית הלימודים עודכנה בהצלחה"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating study program {Id}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בעדכון תוכנית לימודים",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Delete a study program
+        /// </summary>
+        [HttpDelete("study-programs/{id}")]
+        public async Task<IActionResult> DeleteStudyProgram(int id)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                var program = await _context.AdditionalStudyProgramsPricing
+                    .FirstOrDefaultAsync(p => p.Id == id);
+
+                if (program == null)
+                {
+                    return NotFound(new { success = false, message = "רשומת תמחור לא נמצאה" });
+                }
+
+                _context.AdditionalStudyProgramsPricing.Remove(program);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Study program {Id} deleted", id);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "תוכנית הלימודים נמחקה בהצלחה"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting study program {Id}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה במחיקת תוכנית לימודים",
+                    error = ex.Message
+                });
+            }
+        }
     }
 
     // Request DTOs
@@ -1784,5 +1981,19 @@ namespace PetelApp.Api.Controllers
     {
         public decimal? Price { get; set; }
         public int? Category { get; set; }
+    }
+
+    // Study Programs Pricing DTOs
+    public class AddStudyProgramRequest
+    {
+        public int YearId { get; set; }
+        public int Students { get; set; }
+        public decimal? Price { get; set; }
+    }
+
+    public class UpdateStudyProgramRequest
+    {
+        public int Students { get; set; }
+        public decimal? Price { get; set; }
     }
 }

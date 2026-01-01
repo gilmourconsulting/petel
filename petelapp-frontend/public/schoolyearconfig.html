@@ -83,6 +83,15 @@
                         border-bottom: 3px solid transparent;
                         transition: all 0.3s;
                     ">מגמות</button>
+                    <button class="tab-button" onclick="switchTab('studyprograms')" data-tab="studyprograms" style="
+                        padding: 12px 24px;
+                        border: none;
+                        background: none;
+                        cursor: pointer;
+                        font-weight: 600;
+                        border-bottom: 3px solid transparent;
+                        transition: all 0.3s;
+                    ">תוכניות לימוד נוספות</button>
                 </div>
 
                 <!-- Tab Content - Documents -->
@@ -211,6 +220,27 @@
                         </div>
                         <div class="detail-card-content">
                             <div id="trackPricingTableContainer" class="table-container">
+                                <div class="loading-spinner">טוען...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab Content - Study Programs -->
+                <div id="studyprogramsTab" class="tab-content" style="display: none;">
+                    <!-- Study Programs Card -->
+                    <div class="detail-card collapsed" id="studyProgramsCard">
+                        <div class="detail-card-header">
+                            <h2 class="detail-card-title">תוכניות לימוד נוספות</h2>
+                            <div class="card-header-actions">
+                                <button id="addStudyProgramBtn" class="btn-icon" onclick="showAddStudyProgramModal();" title="הוסף תוכנית לימודים" style="display: none;">
+                                    <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
+                                </button>
+                                <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                            </div>
+                        </div>
+                        <div class="detail-card-content">
+                            <div id="studyProgramsTableContainer" class="table-container">
                                 <div class="loading-spinner">טוען...</div>
                             </div>
                         </div>
@@ -1181,7 +1211,6 @@
             const result = await response.json();
 
             if (response.ok && result.success) {
-                alert('קטגוריית התמחור עודכנה בהצלחה');
                 document.body.removeChild(overlay);
                 await loadPricingCategories(window.schoolYearConfigState.selectedElementId);
             } else {
@@ -1666,7 +1695,6 @@
             const result = await response.json();
 
             if (response.ok && result.success) {
-                alert('שלב התמחור עודכן בהצלחה');
                 document.body.removeChild(overlay);
                 await loadPricingSteps(window.schoolYearConfigState.selectedCategoryId);
             } else {
@@ -2029,7 +2057,6 @@
             const result = await response.json();
 
             if (response.ok && result.success) {
-                alert('שלב התמחור עודכן בהצלחה');
                 document.body.removeChild(overlay);
                 await loadPricingSteps(window.schoolYearConfigState.selectedCategoryId);
             } else {
@@ -2143,10 +2170,8 @@
             <thead>
                 <tr>
                     <th>מזהה</th>
-                    <th>תוכנית לימודים</th>
-                    <th>עלות משוערת</th>
-                    <th>סכום מאושר</th>
-                    <th>עלות שעתית</th>
+                    <th>מספר תלמידים</th>
+                    <th>מחיר מקסימלי</th>
                     <th>פעולות</th>
                 </tr>
             </thead>
@@ -2154,17 +2179,13 @@
     `;
 
         programs.forEach(program => {
-            const cost = program.cost ? `₪${program.cost.toFixed(2)}` : '-';
-            const approvedAmount = program.approvedAmount ? `₪${program.approvedAmount.toFixed(2)}` : '-';
-            const hourlyCost = program.hourlyCost ? `₪${program.hourlyCost.toFixed(2)}` : '-';
+            const price = program.price ? `₪${program.price.toFixed(2)}` : '-';
 
             tableHtml += `
                 <tr>
                     <td>${program.id}</td>
-                    <td>${program.programName || '-'}</td>
-                    <td>${cost}</td>
-                    <td>${approvedAmount}</td>
-                    <td>${hourlyCost}</td>
+                    <td>${program.students || '-'}</td>
+                    <td>${price}</td>
                     <td>
                         <button class="btn-icon" onclick="editStudyProgram(${program.id})" title="עריכה">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
@@ -2200,23 +2221,15 @@
         dialog.style.minWidth = '500px';
 
         dialog.innerHTML = `
-        <h3 class="dialog-title">הוסף תוכנית לימודים נוספת</h3>
+        <h3 class="dialog-title">הוסף תמחור תכניות לימוד נוספות</h3>
         <div style="margin: 20px 0;">
             <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">שם התוכנית:</label>
-                <input type="text" id="programName" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">מספר תלמידים:</label>
+                <input type="number" id="programStudents" min="1" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
             </div>
             <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">עלות משוערת:</label>
-                <input type="number" id="programCost" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">סכום מאושר:</label>
-                <input type="number" id="programApprovedAmount" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">עלות שעתית:</label>
-                <input type="number" id="programHourlyCost" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">מחיר מקסימלי:</label>
+                <input type="number" id="programPrice" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
             </div>
         </div>
         <div class="dialog-buttons">
@@ -2237,18 +2250,15 @@
         };
     }
 
-    // Add study program
+    // Add study program pricing
     async function addStudyProgram(overlay) {
-        const programName = document.getElementById('programName').value.trim();
-        const costValue = document.getElementById('programCost').value.trim();
-        const cost = costValue ? parseFloat(costValue) : null;
-        const approvedValue = document.getElementById('programApprovedAmount').value.trim();
-        const approvedAmount = approvedValue ? parseFloat(approvedValue) : null;
-        const hourlyCostValue = document.getElementById('programHourlyCost').value.trim();
-        const hourlyCost = hourlyCostValue ? parseFloat(hourlyCostValue) : null;
+        const studentsValue = document.getElementById('programStudents').value.trim();
+        const students = studentsValue ? parseInt(studentsValue) : null;
+        const priceValue = document.getElementById('programPrice').value.trim();
+        const price = priceValue ? parseFloat(priceValue) : null;
 
-        if (!programName) {
-            alert('נא להזין שם תוכנית');
+        if (!students || students <= 0) {
+            alert('נא להזין מספר תלמידים חוקי');
             return;
         }
 
@@ -2260,10 +2270,8 @@
                     method: 'POST',
                     body: JSON.stringify({
                         yearId: window.schoolYearConfigState.selectedYearId,
-                        programName: programName,
-                        cost: cost,
-                        approvedAmount: approvedAmount,
-                        hourlyCost: hourlyCost
+                        students: students,
+                        price: price
                     })
                 }
             );
@@ -2271,15 +2279,15 @@
             const result = await response.json();
 
             if (response.ok && result.success) {
-                alert('תוכנית הלימודים נוספה בהצלחה');
+                alert('תמחור נוסף בהצלחה');
                 document.body.removeChild(overlay);
                 await loadStudyPrograms(window.schoolYearConfigState.selectedYearId);
             } else {
-                alert(result.message || 'שגיאה בהוספת תוכנית הלימודים');
+                alert(result.message || 'שגיאה בהוספת תמחור');
             }
         } catch (error) {
-            console.error('❌ Error adding study program:', error);
-            alert('שגיאה בהוספת תוכנית הלימודים');
+            console.error('❌ Error adding study program pricing:', error);
+            alert('שגיאה בהוספת תמחור');
         }
     }
 
@@ -2287,7 +2295,7 @@
     async function editStudyProgram(programId) {
         const program = window.schoolYearConfigState.studyPrograms.find(p => p.id === programId);
         if (!program) {
-            alert('תוכנית הלימודים לא נמצאה');
+            alert('תמחור לא נמצא');
             return;
         }
 
@@ -2299,23 +2307,15 @@
         dialog.style.minWidth = '500px';
 
         dialog.innerHTML = `
-        <h3 class="dialog-title">עריכת תוכנית לימודים</h3>
+        <h3 class="dialog-title">עריכת תמחור תכניות לימוד</h3>
         <div style="margin: 20px 0;">
             <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">שם התוכנית:</label>
-                <input type="text" id="editProgramName" value="${program.programName || ''}" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">מספר תלמידים:</label>
+                <input type="number" id="editProgramStudents" value="${program.students || ''}" min="1" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
             </div>
             <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">עלות משוערת:</label>
-                <input type="number" id="editProgramCost" value="${program.cost || ''}" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">סכום מאושר:</label>
-                <input type="number" id="editProgramApprovedAmount" value="${program.approvedAmount || ''}" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
-            </div>
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: bold;">עלות שעתית:</label>
-                <input type="number" id="editProgramHourlyCost" value="${program.hourlyCost || ''}" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">מחיר מקסימלי:</label>
+                <input type="number" id="editProgramPrice" value="${program.price || ''}" step="0.01" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" />
             </div>
         </div>
         <div class="dialog-buttons">
@@ -2336,18 +2336,15 @@
         };
     }
 
-    // Update study program
+    // Update study program pricing
     async function updateStudyProgram(programId, overlay) {
-        const programName = document.getElementById('editProgramName').value.trim();
-        const costValue = document.getElementById('editProgramCost').value.trim();
-        const cost = costValue ? parseFloat(costValue) : null;
-        const approvedValue = document.getElementById('editProgramApprovedAmount').value.trim();
-        const approvedAmount = approvedValue ? parseFloat(approvedValue) : null;
-        const hourlyCostValue = document.getElementById('editProgramHourlyCost').value.trim();
-        const hourlyCost = hourlyCostValue ? parseFloat(hourlyCostValue) : null;
+        const studentsValue = document.getElementById('editProgramStudents').value.trim();
+        const students = studentsValue ? parseInt(studentsValue) : null;
+        const priceValue = document.getElementById('editProgramPrice').value.trim();
+        const price = priceValue ? parseFloat(priceValue) : null;
 
-        if (!programName) {
-            alert('נא להזין שם תוכנית');
+        if (!students || students <= 0) {
+            alert('נא להזין מספר תלמידים חוקי');
             return;
         }
 
@@ -2358,10 +2355,8 @@
                     ...AppConfig.getDefaultFetchOptions(),
                     method: 'PUT',
                     body: JSON.stringify({
-                        programName: programName,
-                        cost: cost,
-                        approvedAmount: approvedAmount,
-                        hourlyCost: hourlyCost
+                        students: students,
+                        price: price
                     })
                 }
             );
@@ -2369,7 +2364,6 @@
             const result = await response.json();
 
             if (response.ok && result.success) {
-                alert('תוכנית הלימודים עודכנה בהצלחה');
                 document.body.removeChild(overlay);
                 await loadStudyPrograms(window.schoolYearConfigState.selectedYearId);
             } else {
@@ -2381,9 +2375,9 @@
         }
     }
 
-    // Delete study program
+    // Delete study program pricing
     async function deleteStudyProgram(programId) {
-        if (!confirm('האם אתה בטוח שברצונך למחוק תוכנית לימודים זו?')) {
+        if (!confirm('האם אתה בטוח שברצונך למחוק תמחור זה?')) {
             return;
         }
 
@@ -2399,7 +2393,7 @@
             const result = await response.json();
 
             if (response.ok && result.success) {
-                alert('תוכנית הלימודים נמחקה בהצלחה');
+                alert('תמחור נמחק בהצלחה');
                 await loadStudyPrograms(window.schoolYearConfigState.selectedYearId);
             } else {
                 alert(result.message || 'שגיאה במחיקת תוכנית הלימודים');
@@ -2874,7 +2868,6 @@
 
             if (response.ok && result.success) {
                 document.body.removeChild(overlay);
-                alert('מגמה עודכן בהצלחה');
                 await loadTracks(window.schoolYearConfigState.selectedYearId);
             } else {
                 alert(result.message || 'שגיאה בעדכון מגמה');
@@ -3089,7 +3082,6 @@
 
             if (response.ok && result.success) {
                 document.body.removeChild(overlay);
-                alert('רמת מגמה עודכנה בהצלחה');
                 await loadTrackLevels(window.schoolYearConfigState.selectedTrackId);
             } else {
                 alert(result.message || 'שגיאה בעדכון רמת מגמה');
@@ -3289,7 +3281,6 @@
 
             if (response.ok && result.success) {
                 document.body.removeChild(overlay);
-                alert('תמחור מגמה עודכן בהצלחה');
                 await loadTrackPricing(window.schoolYearConfigState.selectedLevelId);
             } else {
                 alert(result.message || 'שגיאה בעדכון תמחור מגמה');
