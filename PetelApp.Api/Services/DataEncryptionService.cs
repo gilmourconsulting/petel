@@ -85,56 +85,68 @@ namespace PetelApp.Api.Services
             }
         }
 
-        /// <summary>
-        /// Decrypts base64-encoded ciphertext encrypted with Encrypt() method
-        /// Extracts IV from first 16 bytes, decrypts remaining bytes
-        /// </summary>
-        public string Decrypt(string ciphertext)
+   /// <summary>
+/// Decrypts base64-encoded ciphertext encrypted with Encrypt() method
+/// Handles legacy unencrypted data by returning it as-is
+/// Extracts IV from first 16 bytes, decrypts remaining bytes
+/// </summary>
+public string Decrypt(string ciphertext)
+{
+    if (string.IsNullOrWhiteSpace(ciphertext))
+    {
+        return ciphertext;
+    }
+
+    try
+    {
+        // ✅ Try to decode as base64 first
+        var fullCipher = Convert.FromBase64String(ciphertext);
+        
+        // ✅ Check if length is valid (at least IV + 1 block = 32 bytes)
+        if (fullCipher.Length < 32)
         {
-            if (string.IsNullOrWhiteSpace(ciphertext))
-            {
-                return ciphertext;
-            }
-
-            try
-            {
-                var fullCipher = Convert.FromBase64String(ciphertext);
-
-                using var aes = Aes.Create();
-                aes.Key = _encryptionKey;
-                aes.Mode = CipherMode.CBC;
-                aes.Padding = PaddingMode.PKCS7;
-
-                // Extract IV from first 16 bytes
-                var iv = new byte[16];
-                var ciphertextBytes = new byte[fullCipher.Length - 16];
-                
-                Buffer.BlockCopy(fullCipher, 0, iv, 0, 16);
-                Buffer.BlockCopy(fullCipher, 16, ciphertextBytes, 0, ciphertextBytes.Length);
-
-                aes.IV = iv;
-
-                using var decryptor = aes.CreateDecryptor();
-                var plaintextBytes = decryptor.TransformFinalBlock(ciphertextBytes, 0, ciphertextBytes.Length);
-
-                return Encoding.UTF8.GetString(plaintextBytes);
-            }
-            catch (FormatException ex)
-            {
-                _logger.LogError(ex, "Invalid ciphertext format - not base64");
-                throw new InvalidOperationException("Data decryption failed - invalid format", ex);
-            }
-            catch (CryptographicException ex)
-            {
-                _logger.LogError(ex, "Cryptographic error during decryption");
-                throw new InvalidOperationException("Data decryption failed - invalid key or corrupted data", ex);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error decrypting data");
-                throw new InvalidOperationException("Data decryption failed", ex);
-            }
+            _logger.LogWarning("Data too short to be encrypted (length: {Length}), treating as plain text", fullCipher.Length);
+            return ciphertext; // Return as plain text
         }
+
+        using var aes = Aes.Create();
+        aes.Key = _encryptionKey;
+        aes.Mode = CipherMode.CBC;
+        aes.Padding = PaddingMode.PKCS7;
+
+        // Extract IV from first 16 bytes
+        var iv = new byte[16];
+        var ciphertextBytes = new byte[fullCipher.Length - 16];
+        
+        Buffer.BlockCopy(fullCipher, 0, iv, 0, 16);
+        Buffer.BlockCopy(fullCipher, 16, ciphertextBytes, 0, ciphertextBytes.Length);
+
+        aes.IV = iv;
+
+        using var decryptor = aes.CreateDecryptor();
+        var plaintextBytes = decryptor.TransformFinalBlock(ciphertextBytes, 0, ciphertextBytes.Length);
+
+        return Encoding.UTF8.GetString(plaintextBytes);
+    }
+    catch (FormatException ex)
+    {
+        // ✅ Not base64 - treat as legacy plain text
+        _logger.LogWarning(ex, "Data is not base64-encoded, treating as plain text: {Data}", 
+            ciphertext?.Length > 50 ? ciphertext.Substring(0, 50) + "..." : ciphertext);
+        return ciphertext;
+    }
+    catch (CryptographicException ex)
+    {
+        // ✅ Decryption failed - might be corrupted or plain text
+        _logger.LogWarning(ex, "Cryptographic error during decryption, treating as plain text");
+        return ciphertext;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error decrypting data");
+        throw new InvalidOperationException("Data decryption failed", ex);
+    }
+}
 
         /// <summary>
         /// Generates a new random 256-bit encryption key (base64-encoded)
