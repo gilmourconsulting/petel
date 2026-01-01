@@ -221,13 +221,18 @@ namespace PetelApp.Api.Services
                 {
                     var totalCost = result.CalculatedElements.Sum(e => e.Price);
 
+                    var proratedCost = CalculateProratedCost(totalCost, student);
+
+                    _logger.LogInformation("💰 Total cost before proration: {TotalCost:C}, After proration: {ProratedCost:C}",
+                        totalCost, proratedCost);
+
                     int status = result.Errors.Count == 0 ? 2 : 6;
 
                     var newStudentId = await _studentService.CreateNewStudentVersionAsync(
                         schoolStudentId,
                         newVersion =>
                         {
-                            newVersion.Cost = totalCost;
+                            newVersion.Cost = proratedCost;
                             newVersion.StatusId = status;
                         });
 
@@ -253,6 +258,117 @@ namespace PetelApp.Api.Services
                 result.Errors.Add($"Critical error: {ex.Message}");
                 return result;
             }
+        }
+
+
+               /// <summary>
+        /// Calculate prorated cost based on student's enrollment period
+        /// Full year: September 1st to August 31st
+        /// Partial year: Calculate months and prorate
+        /// </summary>
+        /// <param name="totalCost">The full year cost</param>
+        /// <param name="student">Student with StartDate and EndDate</param>
+        /// <returns>Prorated cost based on enrollment period</returns>
+        private decimal CalculateProratedCost(decimal totalCost, SchoolStudent student)
+        {
+            // If dates are missing, return full cost
+            if (!student.StartDate.HasValue || !student.EndDate.HasValue)
+            {
+                _logger.LogWarning("⚠️ Student missing start or end date, using full cost");
+                return totalCost;
+            }
+
+            var startDate = student.StartDate.Value;
+            var endDate = student.EndDate.Value;
+
+            // Check if this is a full year (September 1 to August 31)
+            // Note: Year can differ (e.g., Sep 2024 to Aug 2025)
+            if (startDate.Month == 9 && startDate.Day == 1 && 
+                endDate.Month == 8 && endDate.Day == 31)
+            {
+                _logger.LogDebug("✅ Full year enrollment (Sep 1 - Aug 31), using complete cost");
+                return totalCost;
+            }
+
+            // Calculate number of months
+            int monthsEnrolled = CalculateEnrollmentMonths(startDate, endDate);
+
+            if (monthsEnrolled <= 0)
+            {
+                _logger.LogWarning("⚠️ Calculated 0 or negative months, using full cost. Start: {Start}, End: {End}",
+                    startDate, endDate);
+                return totalCost;
+            }
+
+            if (monthsEnrolled >= 12)
+            {
+                _logger.LogDebug("✅ Enrollment period >= 12 months, using full cost");
+                return totalCost;
+            }
+
+            // Prorate the cost
+            var proratedCost = totalCost * monthsEnrolled / 12m;
+
+            _logger.LogDebug("📅 Enrollment: {Start} to {End} = {Months} months. " +
+                           "Full cost: {FullCost:C}, Prorated: {ProratedCost:C}",
+                startDate, endDate, monthsEnrolled, totalCost, proratedCost);
+
+            return proratedCost;
+        }
+
+        /// <summary>
+        /// Calculate the number of months enrolled based on start and end dates
+        /// Rules:
+        /// - Start date before 16th of month: Count that month
+        /// - End date after 15th of month: Count that month
+        /// </summary>
+        /// <param name="startDate">Enrollment start date</param>
+        /// <param name="endDate">Enrollment end date</param>
+        /// <returns>Number of months enrolled</returns>
+        private int CalculateEnrollmentMonths(DateOnly startDate, DateOnly endDate)
+        {
+            if (endDate < startDate)
+            {
+                _logger.LogWarning("⚠️ End date {End} is before start date {Start}", endDate, startDate);
+                return 0;
+            }
+
+            // Adjust start date: if before 16th, use 1st of that month, otherwise 1st of next month
+            var effectiveStartDate = startDate.Day < 16
+                ? new DateOnly(startDate.Year, startDate.Month, 1)
+                : new DateOnly(startDate.Year, startDate.Month, 1).AddMonths(1);
+
+            // Adjust end date: if after 15th, use last day of that month, otherwise last day of previous month
+            var effectiveEndDate = endDate.Day > 15
+                ? new DateOnly(endDate.Year, endDate.Month, DateTime.DaysInMonth(endDate.Year, endDate.Month))
+                : new DateOnly(endDate.Year, endDate.Month, 1).AddDays(-1);
+
+            // If effective end is before effective start, student doesn't qualify for any full month
+            if (effectiveEndDate < effectiveStartDate)
+            {
+                _logger.LogDebug("⚠️ After date adjustments, no full months qualify. " +
+                               "Start: {Start} -> {EffStart}, End: {End} -> {EffEnd}",
+                    startDate, effectiveStartDate, endDate, effectiveEndDate);
+                return 0;
+            }
+
+            // Calculate the number of full months between effective dates
+            int months = 0;
+            var current = effectiveStartDate;
+
+            while (current <= effectiveEndDate)
+            {
+                months++;
+                current = current.AddMonths(1);
+            }
+
+            _logger.LogDebug("📊 Enrollment calculation: " +
+                           "Original dates: {Start} to {End}, " +
+                           "Effective dates: {EffStart} to {EffEnd}, " +
+                           "Months: {Months}",
+                startDate, endDate, effectiveStartDate, effectiveEndDate, months);
+
+            return months;
         }
 
                 /// <summary>
@@ -373,102 +489,148 @@ namespace PetelApp.Api.Services
             return false; // Don't skip - attribute has valid value
         }
 
-        /// <summary>
-        /// Calculate price for a single pricing element
-        /// ✅ UPDATED: Returns CalculatedPricingElement with determining factor and hours
-        /// </summary>
-        private async Task<CalculatedPricingElement?> CalculatePriceForElement(
-            SpecialNeedsPricingElement element,
-            int disabilityCategory,
-            School school,
-            List<SchoolAttribute> schoolAttributes,
-            SchoolStudent student)
-        {
-            // Find pricing category for this element and disability category
-            var pricingCategory = await _context.SpecialNeedsPricingCategories
-                .AsNoTracking()
-                .FirstOrDefaultAsync(pc =>
-                    pc.PricingElement == element.Id &&
-                    pc.Category == disabilityCategory);
+   
+   /// <summary>
+/// Calculate price for a single pricing element
+/// ✅ UPDATED: Returns CalculatedPricingElement with determining factor and hours
+/// </summary>
+private async Task<CalculatedPricingElement?> CalculatePriceForElement(
+    SpecialNeedsPricingElement element,
+    int disabilityCategory,
+    School school,
+    List<SchoolAttribute> schoolAttributes,
+    SchoolStudent student)
+{
+    // Find pricing category for this element and disability category
+    var pricingCategory = await _context.SpecialNeedsPricingCategories
+        .AsNoTracking()
+        .FirstOrDefaultAsync(pc =>
+            pc.PricingElement == element.Id &&
+            pc.Category == disabilityCategory);
 
-            if (pricingCategory == null)
+    if (pricingCategory == null)
+    {
+        _logger.LogDebug("No pricing category found for element {ElementId}, category {Category}",
+            element.Id, disabilityCategory);
+        return null;
+    }
+
+    // If is_lowest_level is true, return the price directly
+    if (pricingCategory.IsLowestLevel == true && pricingCategory.Price.HasValue)
+    {
+        _logger.LogDebug("Using lowest level price: {Price:C}", pricingCategory.Price.Value);
+
+        var calculatedElement = new CalculatedPricingElement
+        {
+            PricingElementId = element.Id,
+            PricingElementName = element.ElementName,
+            Price = pricingCategory.Price.Value,
+            DisabilityCategory = disabilityCategory,
+            DeterminingFactor = null,
+            Hours = null
+        };
+
+        // ✅ Special handling for "school help" elements
+        if (element.Title?.Contains("school help", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            // Set determining factor to the original price
+            calculatedElement.DeterminingFactor = $"{calculatedElement.Price.ToString("F2")} ש\"ח";
+            // Look up "Helpers Hours" attribute
+            var schoolHoursAttr = schoolAttributes
+                .FirstOrDefault(sa => sa.SchoolAttributeType?.Name?.Equals("Helpers Hours", StringComparison.OrdinalIgnoreCase) == true);
+
+            if (schoolHoursAttr != null && !string.IsNullOrWhiteSpace(schoolHoursAttr.Value))
             {
-                _logger.LogDebug("No pricing category found for element {ElementId}, category {Category}",
-                    element.Id, disabilityCategory);
+                if (int.TryParse(schoolHoursAttr.Value, out int hours))
+                {
+                    calculatedElement.Hours = hours;
+                    calculatedElement.Price = pricingCategory.Price.Value * hours;
+
+                    _logger.LogDebug("✅ School help calculation: {OriginalPrice} × {Hours} hours = {FinalPrice:C}",
+                        calculatedElement.DeterminingFactor, hours, calculatedElement.Price);
+                }
+                else
+                {
+                    _logger.LogWarning("⚠️ Could not parse school hours value: {Value}", schoolHoursAttr.Value);
+                }
+            }
+            else
+            {
+                _logger.LogWarning("⚠️ School hours attribute not found for school help element");
+            }
+        }
+
+        return calculatedElement;
+    }
+    // If calculation_level is 'steps', use step-based calculation
+    if (element.CalculationLevel?.ToLower() == "steps")
+    {
+        return await CalculateStepBasedPrice(
+            element,
+            disabilityCategory,
+            school,
+            schoolAttributes,
+            student); // ✅ Pass student parameter
+    }
+
+    // Fallback: if price exists and no steps, return price
+    if (pricingCategory.Price.HasValue)
+    {
+        return new CalculatedPricingElement
+        {
+            PricingElementId = element.Id,
+            PricingElementName = element.ElementName,
+            Price = pricingCategory.Price.Value,
+            DisabilityCategory = disabilityCategory,
+            DeterminingFactor = null,
+            Hours = null
+        };
+    }
+
+    return null;
+}
+
+
+              /// <summary>
+        /// Determine education stage based on student's class level
+        /// </summary>
+        /// <param name="classLevel">The class level (e.g., "א", "ז", "גן")</param>
+        /// <returns>Education stage: "תיכון", "יסודי", or "גן ילדים"</returns>
+        private string? GetEducationStageFromClassLevel(string? classLevel)
+        {
+            if (string.IsNullOrWhiteSpace(classLevel))
+            {
                 return null;
             }
 
-            // If is_lowest_level is true, return the price directly
-            if (pricingCategory.IsLowestLevel == true && pricingCategory.Price.HasValue)
+            // Normalize the class level to pure Hebrew
+            var normalizedLevel = GlobalFunctions.PureHebrewText(classLevel);
+
+            // Check for kindergarten (גן)
+            if (normalizedLevel.Contains("גן") || classLevel.Contains("גן"))
             {
-                _logger.LogDebug("Using lowest level price: {Price:C}", pricingCategory.Price.Value);
-
-                var calculatedElement = new CalculatedPricingElement
-                {
-                    PricingElementId = element.Id,
-                    PricingElementName = element.ElementName,
-                    Price = pricingCategory.Price.Value,
-                    DisabilityCategory = disabilityCategory,
-                    DeterminingFactor = null,
-                    Hours = null
-                };
-
-                // ✅ Special handling for "school help" elements
-                if (element.Title?.Contains("school help", StringComparison.OrdinalIgnoreCase) == true)
-                {
-                    // Set determining factor to the original price
-                    calculatedElement.DeterminingFactor = $"{calculatedElement.Price.ToString("F2")} ש\"ח";
-                    // Look up "Helpers Hours" attribute
-                    var schoolHoursAttr = schoolAttributes
-                        .FirstOrDefault(sa => sa.SchoolAttributeType?.Name?.Equals("Helpers Hours", StringComparison.OrdinalIgnoreCase) == true);
-
-                    if (schoolHoursAttr != null && !string.IsNullOrWhiteSpace(schoolHoursAttr.Value))
-                    {
-                        if (int.TryParse(schoolHoursAttr.Value, out int hours))
-                        {
-                            calculatedElement.Hours = hours;
-                            calculatedElement.Price = pricingCategory.Price.Value * hours;
-
-                            _logger.LogDebug("✅ School help calculation: {OriginalPrice} × {Hours} hours = {FinalPrice:C}",
-                                calculatedElement.DeterminingFactor, hours, calculatedElement.Price);
-                        }
-                        else
-                        {
-                            _logger.LogWarning("⚠️ Could not parse school hours value: {Value}", schoolHoursAttr.Value);
-                        }
-                    }
-                    else
-                    {
-                        _logger.LogWarning("⚠️ School hours attribute not found for school help element");
-                    }
-                }
-
-                return calculatedElement;
-            }
-            // If calculation_level is 'steps', use step-based calculation
-            if (element.CalculationLevel?.ToLower() == "steps")
-            {
-                return await CalculateStepBasedPrice(
-                    element,
-                    disabilityCategory,
-                    school,
-                    schoolAttributes);
+                _logger.LogDebug("Class level '{Level}' identified as kindergarten", classLevel);
+                return "גן ילדים";
             }
 
-            // Fallback: if price exists and no steps, return price
-            if (pricingCategory.Price.HasValue)
+            // High school levels: ז, ח, ט, י, יא, יב
+            var highSchoolLevels = new[] { "ז", "ח", "ט", "י", "יא", "יב" };
+            if (highSchoolLevels.Contains(normalizedLevel))
             {
-                return new CalculatedPricingElement
-                {
-                    PricingElementId = element.Id,
-                    PricingElementName = element.ElementName,
-                    Price = pricingCategory.Price.Value,
-                    DisabilityCategory = disabilityCategory,
-                    DeterminingFactor = null,
-                    Hours = null
-                };
+                _logger.LogDebug("Class level '{Level}' identified as high school", classLevel);
+                return "תיכון";
             }
 
+            // Elementary levels: א to ו
+            var elementaryLevels = new[] { "א", "ב", "ג", "ד", "ה", "ו" };
+            if (elementaryLevels.Contains(normalizedLevel))
+            {
+                _logger.LogDebug("Class level '{Level}' identified as elementary", classLevel);
+                return "יסודי";
+            }
+
+            // If we can't determine, log warning and return null
+            _logger.LogWarning("⚠️ Could not determine education stage for class level: {Level}", classLevel);
             return null;
         }
 
@@ -481,7 +643,8 @@ namespace PetelApp.Api.Services
             SpecialNeedsPricingElement element,
             int category,
             School school,
-            List<SchoolAttribute> schoolAttributes)
+            List<SchoolAttribute> schoolAttributes,
+            SchoolStudent student)  
         {
             // Get all pricing steps for this element and category
             var pricingSteps = await _context.SpecialNeedsPricingSteps
@@ -509,8 +672,37 @@ namespace PetelApp.Api.Services
                 switch (step.ObjectElementCheck.ToLower())
                 {
                     case "education_level":
-                        valueToCheck = school.EducationStage;
-                        break;
+                        if (student.ClassId.HasValue && student.ClassId.Value > 0)
+                        {
+                            var studentClass = await _context.SchoolClasses
+                                .AsNoTracking()
+                                .FirstOrDefaultAsync(sc => sc.Id == student.ClassId.Value);
+
+                            if (studentClass != null)
+                            {
+                                valueToCheck = GetEducationStageFromClassLevel(studentClass.Level);
+                                
+                                if (valueToCheck != null)
+                                {
+                                    _logger.LogDebug("✅ Education level determined from class level '{ClassLevel}': {EducationStage}",
+                                        studentClass.Level, valueToCheck);
+                                }
+                                else
+                                {
+                                    _logger.LogWarning("⚠️ Could not determine education stage from class level: {ClassLevel}",
+                                        studentClass.Level);
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogWarning("⚠️ Class ID {ClassId} not found", student.ClassId.Value);
+                            }
+                        }
+                        else
+                        {
+                            _logger.LogWarning("⚠️ Student has no class assigned, cannot determine education level");
+                        }
+                        break;;
 
                     case "pool_size":
                         // Find pool_size attribute from school attributes

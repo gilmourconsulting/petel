@@ -124,6 +124,17 @@ namespace PetelApp.Api.Controllers
 
                 _logger.LogInformation("📊 Fetching pricing elements for student: {StudentId}", schoolStudentId);
 
+                 // ✅ Get student information to retrieve cost and dates
+                var student = await _context.SchoolStudents
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id == schoolStudentId);
+
+                if (student == null)
+                {
+                    return NotFound(new { success = false, message = "תלמיד לא נמצא" });
+                }
+
+                
                 var pricingElements = await _context.SchoolStudentPricingElements
                     .Where(pe => pe.StudentId == schoolStudentId)
                     .Join(
@@ -148,11 +159,28 @@ namespace PetelApp.Api.Controllers
                 _logger.LogInformation("✅ Found {Count} pricing elements for student {StudentId}", 
                     pricingElements.Count, schoolStudentId);
 
+                // ✅ Calculate enrollment months
+                int? enrollmentMonths = null;
+                if (student.StartDate.HasValue && student.EndDate.HasValue)
+                {
+                    enrollmentMonths = CalculateEnrollmentMonthsForDisplay(student.StartDate.Value, student.EndDate.Value);
+                }
+
+                // ✅ Calculate sum of pricing elements
+                var elementsTotal = pricingElements.Sum(pe => pe.Price);
+
                 return Ok(new
                 {
                     success = true,
                     data = pricingElements,
-                    totalPrice = pricingElements.Sum(pe => pe.Price)
+                    summary = new
+                    {
+                        elementsTotal = elementsTotal,           // ✅ Sum of pricing elements
+                        studentCost = student.Cost ?? 0,         // ✅ Final cost from student record
+                        enrollmentMonths = enrollmentMonths,     // ✅ Number of months enrolled
+                        startDate = student.StartDate,
+                        endDate = student.EndDate
+                    }
                 });
             }
             catch (Exception ex)
@@ -164,6 +192,53 @@ namespace PetelApp.Api.Controllers
                     message = "שגיאה בטעינת נתוני תמחור"
                 });
             }
+        }
+
+
+               /// <summary>
+        /// Calculate enrollment months for display (same logic as StudentPricingService)
+        /// </summary>
+        private int CalculateEnrollmentMonthsForDisplay(DateOnly startDate, DateOnly endDate)
+        {
+            if (endDate < startDate)
+            {
+                return 0;
+            }
+
+            // Check if full year
+            if (startDate.Month == 9 && startDate.Day == 1 && 
+                endDate.Month == 8 && endDate.Day == 31)
+            {
+                return 12;
+            }
+
+            // Adjust start date: if before 16th, use 1st of that month, otherwise 1st of next month
+            var effectiveStartDate = startDate.Day < 16
+                ? new DateOnly(startDate.Year, startDate.Month, 1)
+                : new DateOnly(startDate.Year, startDate.Month, 1).AddMonths(1);
+
+            // Adjust end date: if after 15th, use last day of that month, otherwise last day of previous month
+            var effectiveEndDate = endDate.Day > 15
+                ? new DateOnly(endDate.Year, endDate.Month, DateTime.DaysInMonth(endDate.Year, endDate.Month))
+                : new DateOnly(endDate.Year, endDate.Month, 1).AddDays(-1);
+
+            // If effective end is before effective start, no full months qualify
+            if (effectiveEndDate < effectiveStartDate)
+            {
+                return 0;
+            }
+
+            // Calculate the number of full months
+            int months = 0;
+            var current = effectiveStartDate;
+
+            while (current <= effectiveEndDate)
+            {
+                months++;
+                current = current.AddMonths(1);
+            }
+
+            return months;
         }
 
         /// <summary>
