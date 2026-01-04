@@ -133,6 +133,13 @@ window.PageLifecycleConfig = {
             cleanup: 'cleanupSchoolYearConfig',
             init: 'initializeSchoolYearConfig'
             //selfInitializing: true
+        },
+        'about': {
+            file: 'about.html',
+            title: 'אודות המערכת',
+            cleanup: 'cleanupAboutPage',
+            init: null,
+            selfInitializing: true
         }
     },
 

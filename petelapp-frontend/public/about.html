@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>אודות המערכת</title>
+    <style>
+        .about-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .about-section {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .about-header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #4a90e2;
+        }
+
+        .about-header h1 {
+            color: #2c3e50;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .about-header .version {
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+
+        .about-content {
+            line-height: 1.8;
+        }
+
+        .about-content h2 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+
+        .about-content h2:first-child {
+            margin-top: 0;
+        }
+
+        .about-content p {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .about-content ul {
+            color: #555;
+            margin: 10px 0 20px 30px;
+            list-style-type: disc;
+        }
+
+        .about-content ul li {
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .feature-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+        }
+
+        .feature-card .icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+        }
+
+        .feature-card h3 {
+            color: #2c3e50;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .feature-card p {
+            color: #666;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .tech-badge {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .contact-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .contact-info p {
+            margin: 8px 0;
+            color: #555;
+        }
+
+        .contact-info strong {
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+    <div class="school-title-section">
+        <h1 class="page-title">אודות המערכת</h1>
+    </div>
+
+    <div class="students-container">
+        <!-- Context buttons -->
+        <div class="context-buttons-section screenwithtable-context">
+            <button class="context-btn" onclick="navigateToMainDashboard()">
+                חזרה לדף ראשי
+            </button>
+        </div>
+
+        <!-- Main content -->
+        <div class="students-content">
+            <div class="about-container">
+                <div class="about-section">
+                    <div class="about-header">
+                        <h1>מערכת ניהול פתל</h1>
+                        <div class="version">גרסה 1.0.0</div>
+                    </div>
+
+                    <div class="about-content">
+                        <h2>אודות המערכת</h2>
+                        <p>
+                            מערכת ניהול פתל היא פתרון מקיף לניהול תלמידי חוץ ומוסדות חינוך. 
+                            המערכת מאפשרת ניהול יעיל של נתוני תלמידים, מסמכים, דוחות ותהליכי עבודה מורכבים.
+                        </p>
+
+                        <h2>תכונות עיקריות</h2>
+                        <div class="feature-grid">
+                            <div class="feature-card">
+                                <div class="icon">👥</div>
+                                <h3>ניהול תלמידים</h3>
+                                <p>מעקב מלא אחר פרטי תלמידים, כיתות ומידע אישי</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="icon">🏫</div>
+                                <h3>ניהול בתי ספר</h3>
+                                <p>ניהול מידע על מוסדות חינוך ורשויות מקומיות</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="icon">📄</div>
+                                <h3>ניהול מסמכים</h3>
+                                <p>העלאה, אחסון וניהול של מסמכים דיגיטליים</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="icon">📊</div>
+                                <h3>דוחות וסטטיסטיקות</h3>
+                                <p>יצירת דוחות מתקדמים וניתוח נתונים</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="icon">🔒</div>
+                                <h3>אבטחת מידע</h3>
+                                <p>הרשאות מתקדמות והצפנת נתונים</p>
+                            </div>
+                            <div class="feature-card">
+                                <div class="icon">📱</div>
+                                <h3>ממשק רספונסיבי</h3>
+                                <p>גישה ממכשירים שונים עם תמיכה מלאה בעברית RTL</p>
+                            </div>
+                        </div>
+
+                        <h2>טכנולוגיות</h2>
+                        <p>המערכת בנויה על טכנולוגיות מתקדמות:</p>
+                        <div class="tech-stack">
+                            <span class="tech-badge">.NET 9</span>
+                            <span class="tech-badge">ASP.NET Core Web API</span>
+                            <span class="tech-badge">PostgreSQL</span>
+                            <span class="tech-badge">Entity Framework Core</span>
+                            <span class="tech-badge">JavaScript (Vanilla)</span>
+                            <span class="tech-badge">HTML5 & CSS3</span>
+                            <span class="tech-badge">JWT Authentication</span>
+                            <span class="tech-badge">Azure Cloud</span>
+                            <span class="tech-badge">EPPlus (Excel)</span>
+                            <span class="tech-badge">Hangfire</span>
+                        </div>
+
+                        <h2>יתרונות המערכת</h2>
+                        <ul>
+                            <li>ממשק ידידותי ואינטואיטיבי בעברית</li>
+                            <li>תמיכה מלאה בטקסט RTL (מימין לשמאל)</li>
+                            <li>ניהול מרובה ישויות ושנות לימוד</li>
+                            <li>ייבוא ויצוא נתונים מקבצי Excel</li>
+                            <li>מערכת הרשאות מתקדמת</li>
+                            <li>גיבוי אוטומטי ואבטחת נתונים</li>
+                            <li>תמיכה טכנית מקצועית</li>
+                        </ul>
+
+                        <h2>צור קשר</h2>
+                        <div class="contact-info">
+                            <p><strong>שם המערכת:</strong> מערכת ניהול פתל</p>
+                            <p><strong>גרסה:</strong> 1.0.0</p>
+                            <p><strong>תאריך עדכון אחרון:</strong> ינואר 2026</p>
+                            <p><strong>סביבת הפעלה:</strong> <span id="environmentName">טעינה...</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        console.log('📄 About page loaded');
+
+        // Navigation function
+        function navigateToMainDashboard() {
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('maindashboard');
+            } else {
+                console.error('❌ window.navigateTo not available');
+            }
+        }
+
+        // Load environment information
+        async function loadEnvironmentInfo() {
+            try {
+                // Get environment from config
+                if (window.AppConfig && window.AppConfig.environment) {
+                    const envElement = document.getElementById('environmentName');
+                    if (envElement) {
+                        const envMap = {
+                            'development': 'פיתוח (Development)',
+                            'staging': 'בדיקות (Staging)',
+                            'production': 'ייצור (Production)',
+                            'test': 'טסט (Test)'
+                        };
+                        envElement.textContent = envMap[window.AppConfig.environment] || window.AppConfig.environment;
+                    }
+                }
+            } catch (error) {
+                console.error('❌ Error loading environment info:', error);
+            }
+        }
+
+        // Initialize page on load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ About page DOMContentLoaded');
+            loadEnvironmentInfo();
+        });
+
+        // Cleanup function (required for page lifecycle)
+        function cleanupAboutPage() {
+            console.log('🧹 Cleaning up about page...');
+            // No complex cleanup needed for this page
+            console.log('✅ About page cleanup complete');
+        }
+
+        // Export cleanup function to window
+        window.cleanupAboutPage = cleanupAboutPage;
+    </script>
+</body>
+</html>
