@@ -7,8 +7,6 @@ using PetelApp.Api.Models;
 using System.Text.Json;
 
 namespace PetelApp.Api.Controllers
-
-
 {
     /// <summary>
     /// Controller for system attributes management
@@ -36,11 +34,11 @@ namespace PetelApp.Api.Controllers
             _context = context;
         }
 
+        private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
 
-private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
-{
-    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-};
         /// <summary>
         /// Get all system attributes - NO AUTHENTICATION REQUIRED
         /// Returns global configuration accessible to all users
@@ -85,7 +83,7 @@ private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
                 }
 
                 var attribute = _cache.GetAttributeByName(name);
-                
+
                 if (attribute == null)
                 {
                     _logger.LogWarning("System attribute not found: {Name}", name);
@@ -120,7 +118,7 @@ private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
                 var attributes = _cache.GetAttributesByForeignId(foreignId);
                 var dtos = attributes.Select(a => MapToDto(a)).ToList();
 
-                _logger.LogDebug("Retrieved {Count} system attributes for foreign_id {ForeignId}", 
+                _logger.LogDebug("Retrieved {Count} system attributes for foreign_id {ForeignId}",
                     dtos.Count, foreignId);
                 return Ok(dtos);
             }
@@ -148,7 +146,7 @@ private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
                 var attributes = _cache.GetAttributesByType(valueType);
                 var dtos = attributes.Select(a => MapToDto(a)).ToList();
 
-                _logger.LogDebug("Retrieved {Count} system attributes of type {ValueType}", 
+                _logger.LogDebug("Retrieved {Count} system attributes of type {ValueType}",
                     dtos.Count, valueType);
                 return Ok(dtos);
             }
@@ -159,44 +157,50 @@ private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
             }
         }
 
+
         /// <summary>
         /// Reload system attributes from database - NO AUTHENTICATION REQUIRED
         /// Per coding guidelines: System attributes are global config, no auth needed
         /// Admin operation to refresh cache from database
         /// </summary>
-  [HttpPost("reload")]
-[AllowAnonymous]
-public async Task<IActionResult> ReloadSystemAttributes()
-{
-    try
-    {
-        _logger.LogInformation("Reloading system attributes and alert definitions from database");
-        
-        // Create scope for database access
-        using var scope = _serviceProvider.CreateScope();
-        var loaderService = scope.ServiceProvider.GetRequiredService<SystemAttributeLoaderHostedService>();
+        [HttpPost("reload")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ReloadSystemAttributes()
+        {
+            try
+            {
+                _logger.LogInformation("Reloading system attributes from database");
 
-        // ✅ Reload both system attributes AND alert definitions
-        await loaderService.LoadAttributesAsync();
-        
-        _logger.LogInformation("Successfully reloaded system attributes and alert definitions from database");
-        
-        return Ok(new { 
-            success = true,
-            message = "System attributes and alert definitions reloaded successfully from database",
-            lastLoaded = DateTime.UtcNow
-        });
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Error reloading system attributes and alert definitions from database");
-        return StatusCode(500, new { 
-            success = false,
-            message = "Error reloading system attributes and alert definitions from database" 
-        });
-    }
-}
+                // ✅ Reload directly from database into cache
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
+                var attributes = await dbContext.SystemAttributes
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                _cache.LoadAttributes(attributes);
+
+                _logger.LogInformation("Successfully reloaded {Count} system attributes from database", attributes.Count);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "System attributes reloaded successfully from database",
+                    lastLoaded = DateTime.UtcNow,
+                    count = attributes.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reloading system attributes from database");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Error reloading system attributes from database"
+                });
+            }
+        }
         /// <summary>
         /// Get cache statistics - NO AUTHENTICATION REQUIRED
         /// Per coding guidelines: System attributes are global config, no auth needed
@@ -285,13 +289,17 @@ public async Task<IActionResult> ReloadSystemAttributes()
             }
         }
 
-                [HttpGet("councils")]
+        /// <summary>
+        /// Get councils - NO AUTHENTICATION REQUIRED
+        /// </summary>
+        [HttpGet("councils")]
+        [AllowAnonymous]
         public async Task<IActionResult> GetCouncils()
         {
             try
             {
                 _logger.LogInformation("Loading councils list");
-                
+
                 var councils = await _context.Councils
                     .AsNoTracking()
                     .OrderBy(c => c.Name)
@@ -302,7 +310,7 @@ public async Task<IActionResult> ReloadSystemAttributes()
                         councilCode = c.CouncilCode
                     })
                     .ToListAsync();
-        
+
                 return Ok(new
                 {
                     success = true,
@@ -319,5 +327,282 @@ public async Task<IActionResult> ReloadSystemAttributes()
                 });
             }
         }
+
+        /// <summary>
+        /// Create a new system attribute - REQUIRES AUTHENTICATION
+        /// </summary>
+        [HttpPost]
+        public async Task<IActionResult> CreateSystemAttribute([FromBody] CreateSystemAttributeRequest request)
+        {
+            try
+            {
+                // TODO: Add authorization check for system admin role
+
+                // Validate required fields
+                if (string.IsNullOrWhiteSpace(request.Name))
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "שם ההגדרה הוא שדה חובה"
+                    });
+                }
+
+                if (string.IsNullOrWhiteSpace(request.Value))
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "ערך ההגדרה הוא שדה חובה"
+                    });
+                }
+
+                // Check if attribute with same name already exists
+                var existingAttribute = await _context.SystemAttributes
+                    .FirstOrDefaultAsync(a => a.Name == request.Name);
+
+                if (existingAttribute != null)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"הגדרה בשם '{request.Name}' כבר קיימת"
+                    });
+                }
+
+                // Validate data type
+                if (!string.IsNullOrWhiteSpace(request.ValueType) &&
+                    !ValidateDataType(request.Value, request.ValueType))
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"ערך לא תקין עבור סוג {request.ValueType}"
+                    });
+                }
+
+                // Create new attribute
+                var newAttribute = new SystemAttribute
+                {
+                    Name = request.Name,
+                    Value = request.Value,
+                    ValueType = request.ValueType ?? "string",
+                    Description = request.Description,
+                    ForeignId = request.ForeignId,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow
+                    // UpdateUser = session.UserId // TODO: Add when auth is ready
+                };
+
+                _context.SystemAttributes.Add(newAttribute);
+                await _context.SaveChangesAsync();
+
+                // Reload cache to include new attribute
+                await ReloadCacheFromDatabase();
+
+                _logger.LogInformation(
+                    "System attribute created: {Name} (ID: {Id})",
+                    newAttribute.Name, newAttribute.Id);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "הגדרה נוצרה בהצלחה",
+                    attribute = MapToDto(newAttribute)
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating system attribute");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה ביצירת הגדרה חדשה"
+                });
+            }
+        }
+
+        /// <summary>
+        /// Update a system attribute value - REQUIRES AUTHENTICATION
+        /// Admin operation to modify system configuration
+        /// </summary>
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateSystemAttribute(int id, [FromBody] UpdateSystemAttributeRequest request)
+        {
+            try
+            {
+                // TODO: Add authorization check for system admin role
+
+                if (string.IsNullOrWhiteSpace(request.Value))
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "ערך ההגדרה לא יכול להיות ריק"
+                    });
+                }
+
+                var attribute = await _context.SystemAttributes
+                    .FirstOrDefaultAsync(a => a.Id == id);
+
+                if (attribute == null)
+                {
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = "הגדרה לא נמצאה"
+                    });
+                }
+
+                // Validate data type
+                if (!ValidateDataType(request.Value, attribute.ValueType))
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"ערך לא תקין עבור סוג {attribute.ValueType}"
+                    });
+                }
+
+                // Update attribute
+                attribute.Value = request.Value;
+                attribute.UpdatedAt = DateTime.UtcNow;
+                // attribute.UpdateUser = session.UserId; // TODO: Add when auth is ready
+
+                await _context.SaveChangesAsync();
+
+                // Reload cache to apply changes immediately
+                await ReloadCacheFromDatabase();
+
+                _logger.LogInformation(
+                    "System attribute updated: {Name} (ID: {Id})",
+                    attribute.Name, id);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "הגדרה עודכנה בהצלחה",
+                    attribute = MapToDto(attribute)
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating system attribute {Id}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בעדכון הגדרה"
+                });
+            }
+        }
+
+        /// <summary>
+        /// Delete a system attribute - REQUIRES AUTHENTICATION
+        /// </summary>
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteSystemAttribute(int id)
+        {
+            try
+            {
+                // TODO: Add authorization check for system admin role
+
+                var attribute = await _context.SystemAttributes
+                    .FirstOrDefaultAsync(a => a.Id == id);
+
+                if (attribute == null)
+                {
+                    return NotFound(new
+                    {
+                        success = false,
+                        message = "הגדרה לא נמצאה"
+                    });
+                }
+
+                _context.SystemAttributes.Remove(attribute);
+                await _context.SaveChangesAsync();
+
+                // Reload cache to remove deleted attribute
+                await ReloadCacheFromDatabase();
+
+                _logger.LogInformation(
+                    "System attribute deleted: {Name} (ID: {Id})",
+                    attribute.Name, id);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "הגדרה נמחקה בהצלחה"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting system attribute {Id}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה במחיקת הגדרה"
+                });
+            }
+        }
+
+        /// <summary>
+        /// Helper method to reload cache from database
+        /// Uses existing LoadAttributes method from SystemAttributeCache
+        /// </summary>
+        private async Task ReloadCacheFromDatabase()
+        {
+            try
+            {
+                var attributes = await _context.SystemAttributes
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                // ✅ Use existing LoadAttributes method
+                _cache.LoadAttributes(attributes);
+
+                _logger.LogInformation("Cache reloaded with {Count} attributes", attributes.Count);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reloading cache from database");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Validate value against data type
+        /// </summary>
+        private bool ValidateDataType(string value, string dataType)
+        {
+            return dataType?.ToLower() switch
+            {
+                "integer" => int.TryParse(value, out _),
+                "boolean" => bool.TryParse(value, out _) ||
+                             value == "true" || value == "false",
+                "string" => true,
+                "sensitive" => true, // Sensitive strings (keys, passwords)
+                _ => true // Unknown types pass validation
+            };
+        }
+    }
+
+    /// <summary>
+    /// Request model for creating a new system attribute
+    /// </summary>
+    public class CreateSystemAttributeRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+        public string? ValueType { get; set; }
+        public string? Description { get; set; }
+        public int? ForeignId { get; set; }
+    }
+
+    /// <summary>
+    /// Request model for updating a system attribute
+    /// </summary>
+    public class UpdateSystemAttributeRequest
+    {
+        public string Value { get; set; } = string.Empty;
     }
 }

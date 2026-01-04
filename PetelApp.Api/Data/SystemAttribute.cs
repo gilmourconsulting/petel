@@ -16,22 +16,26 @@ namespace PetelApp.Api.Data
         public int Id { get; set; }
         
         [Column("name")]
+        [MaxLength(50)]
         public string Name { get; set; } = string.Empty;
         
         [Column("value")]
+        [MaxLength(100)]  // 
         public string Value { get; set; } = string.Empty;
         
         [Column("value_type")]
+        [MaxLength(100)]  //    
         public string ValueType { get; set; } = string.Empty;
         
         [Column("description")]
+        [MaxLength(50)]
         public string? Description { get; set; }
         
         [Column("update_user")]
         public int? UpdateUser { get; set; }
         
         [Column("foreign_id")]
-        public int? ForeignId { get; set; }  // Changed from string to int?
+        public int? ForeignId { get; set; }
         
         [Column("created_at")]
         public DateTime? CreatedAt { get; set; }

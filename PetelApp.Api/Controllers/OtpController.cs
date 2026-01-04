@@ -21,18 +21,38 @@ namespace PetelApp.Api.Controllers
         //private readonly UserSessionService _sessionService;
         private readonly IAuthService _authService;
 
+        private readonly SystemAttributeCache _systemAttributeCache;
+
         public OtpController(
             UserSessionService userSessionService,
             ILogger<OtpController> logger,
             AppDbContext context,
             IOptions<SecuritySettings> securitySettings,
-            IAuthService authService)
+            IAuthService authService,
+            SystemAttributeCache systemAttributeCache)
             : base(userSessionService, logger)
         {
             _context = context;
             _securitySettings = securitySettings.Value;
-            //  _sessionService = userSessionService;
             _authService = authService;
+            _systemAttributeCache = systemAttributeCache;
+        }
+
+
+        private int GetMaxOtpAttempts()
+        {
+            var attribute = _systemAttributeCache.GetAttributeByName("Security_MaxOtpAttempts");
+            if (attribute != null && int.TryParse(attribute.Value, out int maxAttempts))
+                return maxAttempts;
+            return _securitySettings.MaxOtpAttempts;
+        }
+
+        private int GetPasswordExpirationMonths()
+        {
+            var attribute = _systemAttributeCache.GetAttributeByName("Security_PasswordExpirationMonths");
+            if (attribute != null && int.TryParse(attribute.Value, out int months))
+                return months;
+            return _securitySettings.PasswordExpirationMonths;
         }
 
         /// <summary>
@@ -134,24 +154,26 @@ namespace PetelApp.Api.Controllers
         }
 
 
-            /// <summary>
-            /// Handle failed OTP attempt and lock user if threshold exceeded
-            /// </summary>
-            private async Task HandleFailedOtpAttemptAsync(User user)
+        /// <summary>
+        /// Handle failed OTP attempt and lock user if threshold exceeded
+        /// </summary>
+        private async Task HandleFailedOtpAttemptAsync(User user)
+        {
+            user.FailedOtpAttempts++;
+            user.LastFailedAttempt = DateTime.UtcNow;
+
+            int maxAttempts = GetMaxOtpAttempts();  // ✅ Dynamic from cache
+
+            if (user.FailedOtpAttempts >= maxAttempts)
             {
-                user.FailedOtpAttempts++;
-                user.LastFailedAttempt = DateTime.UtcNow;
-
-                if (user.FailedOtpAttempts >= _securitySettings.MaxOtpAttempts)
-                {
-                    user.IsLocked = true;
-                    user.LockedAt = DateTime.UtcNow;
-                    _logger.LogWarning("User {UserId} locked after {Attempts} failed OTP attempts", 
-                        user.Id, user.FailedOtpAttempts);
-                }
-
-                await _context.SaveChangesAsync();
+                user.IsLocked = true;
+                user.LockedAt = DateTime.UtcNow;
+                _logger.LogWarning("User {UserId} locked after {Attempts} failed OTP attempts (max: {MaxAttempts})",
+                    user.Id, user.FailedOtpAttempts, maxAttempts);
             }
+
+            await _context.SaveChangesAsync();
+        }
 
 
         /// <summary>
@@ -204,15 +226,15 @@ namespace PetelApp.Api.Controllers
                 {
                     _logger.LogWarning("Invalid OTP code for user {UserId}. Code: {Code}, Expected at time: {Time}",
                         user.Id, dto.Code, currentUtcTime);
-                    
+
                     // ✅ Track failed OTP attempt
                     await HandleFailedOtpAttemptAsync(user);
-                    
+
                     int remainingAttempts = _securitySettings.MaxOtpAttempts - user.FailedOtpAttempts;
-                    string message = user.IsLocked 
+                    string message = user.IsLocked
                         ? "חשבון המשתמש נעול. אנא פנה למנהל המערכת"
                         : $"קוד אימות שגוי. נותרו {remainingAttempts} ניסיונות";
-                    
+
                     return BadRequest(new { success = false, message });
                 }
 
@@ -232,7 +254,7 @@ namespace PetelApp.Api.Controllers
                 var (isExpired, expirationMessage) = CheckPasswordExpiration(user);
                 if (isExpired)
                 {
-                    _logger.LogInformation("User {UserId} requires password change after OTP: {Reason}", 
+                    _logger.LogInformation("User {UserId} requires password change after OTP: {Reason}",
                         user.Id, expirationMessage);
 
                     return Ok(new OtpValidationResponseDto
@@ -270,20 +292,19 @@ namespace PetelApp.Api.Controllers
         /// </summary>
         private (bool IsExpired, string? Message) CheckPasswordExpiration(User user)
         {
-            // Check if expiration is enabled
-            if (_securitySettings.PasswordExpirationMonths <= 0)
+            int expirationMonths = GetPasswordExpirationMonths();  // ✅ Dynamic from cache
+
+            if (expirationMonths <= 0)
             {
                 return (false, null);
             }
 
-            // Check if admin forced password change
             if (user.PasswordChangeRequired)
             {
                 return (true, "מנהל המערכת דורש החלפת סיסמה");
             }
 
-            // Check if password is expired by age
-            if (user.IsPasswordExpired(_securitySettings.PasswordExpirationMonths))
+            if (user.IsPasswordExpired(expirationMonths))  // ✅ Use dynamic value
             {
                 var daysSinceChange = (DateTime.UtcNow - user.PasswordChangedAt).Days;
                 return (true, $"הסיסמה פגה תוקף ({daysSinceChange} ימים מאז שינוי אחרון)");
@@ -291,7 +312,7 @@ namespace PetelApp.Api.Controllers
 
             return (false, null);
         }
-        
+
 
         /// <summary>
         /// POST /api/otp/disable - Turn off OTP for current user

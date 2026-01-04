@@ -24,13 +24,16 @@ namespace PetelApp.Api.Services
 
         private readonly JwtTokenService _jwtTokenService;
 
+        private readonly SystemAttributeCache _systemAttributeCache;
+
         public AuthService(
             AppDbContext context,
             UserSessionService sessionService,
             ActionAuthorizationService actionAuthService,
             ILogger<AuthService> logger,
             IOptions<SecuritySettings> securitySettings,
-            JwtTokenService jwtTokenService)
+            JwtTokenService jwtTokenService,
+    SystemAttributeCache systemAttributeCache)
         {
             _context = context;
             _sessionService = sessionService;
@@ -38,7 +41,29 @@ namespace PetelApp.Api.Services
             _logger = logger;
             _securitySettings = securitySettings.Value;
             _jwtTokenService = jwtTokenService;
+            _systemAttributeCache = systemAttributeCache;
         }
+
+        private int GetMaxPasswordAttempts()
+        {
+            try
+            {
+                var attribute = _systemAttributeCache.GetAttributeByName("Security_MaxPasswordAttempts");
+                if (attribute != null && int.TryParse(attribute.Value, out int maxAttempts))
+                {
+                    return maxAttempts;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to read MaxPasswordAttempts from cache, using default");
+            }
+
+            // Fallback to configuration value
+            return _securitySettings.MaxPasswordAttempts;
+        }
+
+        
 
 
         /// <summary>
@@ -55,29 +80,33 @@ namespace PetelApp.Api.Services
             return (false, null);
         }
 
-   /// <summary>
-    /// Record failed password attempt and lock user if threshold exceeded
-    /// </summary>
-    private async Task<bool> HandleFailedPasswordAttemptAsync(User user)
-    {
-        user.FailedPasswordAttempts++;
-        user.LastFailedAttempt = DateTime.UtcNow;
 
-        bool wasLocked = false;
-        
-        if (user.FailedPasswordAttempts >= _securitySettings.MaxPasswordAttempts)
+        /// <summary>
+        /// Record failed password attempt and lock user if threshold exceeded
+        /// </summary>
+        private async Task<bool> HandleFailedPasswordAttemptAsync(User user)
         {
-            user.IsLocked = true;
-            user.LockedAt = DateTime.UtcNow;
-            wasLocked = true;
-            _logger.LogWarning("User {UserId} locked after {Attempts} failed password attempts", 
-                user.Id, user.FailedPasswordAttempts);
+            user.FailedPasswordAttempts++;
+            user.LastFailedAttempt = DateTime.UtcNow;
+
+            bool wasLocked = false;
+
+            int maxAttempts = GetMaxPasswordAttempts();  // ✅ Get from cache dynamically
+
+            if (user.FailedPasswordAttempts >= maxAttempts)
+            {
+                user.IsLocked = true;
+                user.LockedAt = DateTime.UtcNow;
+                wasLocked = true;
+                _logger.LogWarning("User {UserId} locked after {Attempts} failed password attempts (max: {MaxAttempts})",
+                    user.Id, user.FailedPasswordAttempts, maxAttempts);
+            }
+
+            await _context.SaveChangesAsync();
+
+            return wasLocked;
         }
 
-        await _context.SaveChangesAsync();
-        
-        return wasLocked; // ✅ Return whether user was just locked
-    }
 
         /// <summary>
         /// Reset failed attempt counters on successful login
@@ -139,17 +168,18 @@ namespace PetelApp.Api.Services
                     };
                 }
 
-        // Verify password using BCrypt (Security Patterns)
+                // Verify password using BCrypt (Security Patterns)
                 if (!BCrypt.Net.BCrypt.Verify(loginRequest.Password, user.PasswordHash))
                 {
                     _logger.LogWarning("Login failed: Invalid password for user {Username}", loginRequest.Username);
-                    
+
                     // ✅ Calculate remaining attempts BEFORE incrementing
-                    int remainingAttempts = _securitySettings.MaxPasswordAttempts - user.FailedPasswordAttempts - 1;
-                    
+                    int maxAttempts = GetMaxPasswordAttempts();
+                    int remainingAttempts = maxAttempts - user.FailedPasswordAttempts - 1;
+
                     // ✅ Track failed attempt and check if user got locked
                     bool wasLocked = await HandleFailedPasswordAttemptAsync(user);
-                    
+
                     if (wasLocked)
                     {
                         // User was just locked on this attempt
@@ -162,7 +192,7 @@ namespace PetelApp.Api.Services
 
                     // User not locked yet - show remaining attempts
                     string message = $"שם משתמש או סיסמה שגויים. נותרו {remainingAttempts} ניסיונות";
-                    
+
                     return new LoginResponseDto
                     {
                         Success = false,
@@ -238,7 +268,7 @@ namespace PetelApp.Api.Services
                 var (isExpired, expirationMessage) = CheckPasswordExpiration(user);
                 if (isExpired)
                 {
-                    _logger.LogInformation("User {Username} requires password change: {Reason}", 
+                    _logger.LogInformation("User {Username} requires password change: {Reason}",
                         loginRequest.Username, expirationMessage);
 
                     return new LoginResponseDto
@@ -301,36 +331,36 @@ namespace PetelApp.Api.Services
             user.PasswordChangedAt = DateTime.UtcNow;
             user.PasswordChangeRequired = false;
             user.UpdatedAt = DateTime.UtcNow;
-            
+
             await _context.SaveChangesAsync();
         }
 
-                        /// <summary>
-                        /// Check if password has expired
-                        /// </summary>
-                        private (bool IsExpired, string? Message) CheckPasswordExpiration(User user)
-                        {
-                            // Check if expiration is enabled
-                            if (_securitySettings.PasswordExpirationMonths <= 0)
-                            {
-                                return (false, null);
-                            }
+        /// <summary>
+        /// Check if password has expired
+        /// </summary>
+        private (bool IsExpired, string? Message) CheckPasswordExpiration(User user)
+        {
+            // Check if expiration is enabled
+            if (_securitySettings.PasswordExpirationMonths <= 0)
+            {
+                return (false, null);
+            }
 
-                            // Check if admin forced password change
-                                        if (user.PasswordChangeRequired)
-                                        {
-                                            return (true, "מנהל המערכת דורש החלפת סיסמה");
-                                        }
+            // Check if admin forced password change
+            if (user.PasswordChangeRequired)
+            {
+                return (true, "מנהל המערכת דורש החלפת סיסמה");
+            }
 
-                                        // Check if password is expired by age
-                                        if (user.IsPasswordExpired(_securitySettings.PasswordExpirationMonths))
-                                        {
-                                            var daysSinceChange = (DateTime.UtcNow - user.PasswordChangedAt).Days;
-                                            return (true, $"הסיסמה פגה תוקף ({daysSinceChange} ימים מאז שינוי אחרון)");
-                                        }
+            // Check if password is expired by age
+            if (user.IsPasswordExpired(_securitySettings.PasswordExpirationMonths))
+            {
+                var daysSinceChange = (DateTime.UtcNow - user.PasswordChangedAt).Days;
+                return (true, $"הסיסמה פגה תוקף ({daysSinceChange} ימים מאז שינוי אחרון)");
+            }
 
-                                        return (false, null);
-                        }
+            return (false, null);
+        }
 
         /// <summary>
         /// Verify user password following Security Patterns
@@ -367,7 +397,7 @@ namespace PetelApp.Api.Services
             return user;
         }
 
- 
+
         /// <summary>
         /// Generate temporary JWT token for OTP verification (valid for 10 minutes)
         /// ✅ NOW USING CENTRALIZED JWT TOKEN SERVICE
@@ -432,11 +462,12 @@ namespace PetelApp.Api.Services
         }
 
         public async Task<User?> ValidateUserAsync(int userId)
-            {
-                return await _context.Users
-                    .Include(u => u.Entity)
-                        .ThenInclude(e => e.EntityType)
-                    .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
-            }
+        {
+            return await _context.Users
+                .Include(u => u.Entity)
+                    .ThenInclude(e => e.EntityType)
+                .FirstOrDefaultAsync(u => u.Id == userId && u.IsActive);
+        }
     }
 }
+

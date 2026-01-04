@@ -1,46 +1,97 @@
 <link rel="stylesheet" href="system-attributes.css">
 
 <div class="content-card">
-    <div class="system-attributes-header">
-        <h2 class="system-attributes-title">מאפייני מערכת</h2>
-        <div class="system-attributes-actions">
-            <button onclick="loadSystemAttributesFromCache()" class="reload-cache-btn">
+    <div class="page-header">
+        <h2>מאפייני מערכת</h2>
+        <div class="header-actions">
+            <button onclick="showAddAttributeModal()" class="btn-icon" title="הוסף מאפיין חדש">
+                <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
+            </button>
+            <button onclick="loadSystemAttributesFromCache()" class="btn-secondary">
                 רענן מהמטמון
             </button>
-            <button onclick="reloadSystemAttributesFromDB()" class="reload-db-btn">
+            <button onclick="reloadSystemAttributesFromDB()" class="btn-primary">
                 טען מחדש מהמסד נתונים
             </button>
         </div>
     </div>
     
     <div id="systemAttributesContainer">
-        <p class="system-attributes-loading">טוען נתונים...</p>
+        <p>טוען נתונים...</p>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div id="attributeModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">הוסף מאפיין חדש</h3>
+            <span class="modal-close" onclick="closeAttributeModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="attributeId">
+            
+            <div class="form-group">
+                <label for="attributeName">שם מאפיין: <span class="required">*</span></label>
+                <input type="text" id="attributeName" class="form-control" placeholder="לדוגמה: Security_SessionTimeout">
+            </div>
+            
+            <div class="form-group">
+                <label for="attributeValue">ערך: <span class="required">*</span></label>
+                <input type="text" id="attributeValue" class="form-control" placeholder="ערך המאפיין">
+            </div>
+            
+            <div class="form-group">
+                <label for="attributeValueType">סוג ערך:</label>
+                <select id="attributeValueType" class="form-control">
+                    <option value="string">string</option>
+                    <option value="integer">integer</option>
+                    <option value="boolean">boolean</option>
+                    <option value="sensitive">sensitive (סודי)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="attributeDescription">תיאור:</label>
+                <input type="text" id="attributeDescription" class="form-control" placeholder="תיאור המאפיין (עד 50 תווים)" maxlength="50">
+            </div>
+            
+            <div class="form-group">
+                <label for="attributeForeignId">מזהה חיצוני:</label>
+                <input type="number" id="attributeForeignId" class="form-control" placeholder="מזהה חיצוני (אופציונלי)">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="saveAttribute()" class="btn-primary">שמור</button>
+            <button onclick="closeAttributeModal()" class="btn-secondary">ביטול</button>
+        </div>
     </div>
 </div>
 
 <script>
-// Load system attributes from cache following System Attributes Pattern
+// ✅ Use window scope for component variables to prevent redeclaration errors
+window.systemAttributesTable = window.systemAttributesTable || null;
+window.isEditMode = false;
 
+// Load system attributes from cache
 async function loadSystemAttributesFromCache() {
     const container = document.getElementById('systemAttributesContainer');
     if (!container) return;
     
     try {
-        container.innerHTML = '<p class="system-attributes-loading">טוען נתונים מהמטמון...</p>';
+        container.innerHTML = '<p>טוען נתונים מהמטמון...</p>';
         
-        const response = await fetch(AppConfig.getApiUrl('systemattributes'));
+        const response = await fetch(window.AppConfig.getApiUrl('systemattributes'));
         
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
         const data = await response.json();
-        console.log('System attributes loaded from cache:', data.length);
-        console.log('First item structure:', data[0]); // ✅ Debug: Check data structure
-        console.log('First item ID:', data[0].id); // ✅ Debug: Verify id field
+        console.log('✅ System attributes loaded from cache:', data.length);
         
         if (data && data.length > 0) {
-            // Define columns BEFORE creating table instance
+            // Define columns with edit/delete actions
             const columns = [
                 { 
                     key: 'id', 
@@ -58,13 +109,21 @@ async function loadSystemAttributesFromCache() {
                     key: 'value', 
                     label: 'ערך', 
                     sortable: false, 
-                    readOnly: true 
+                    readOnly: true,
+                    render: (data) => {
+                        // Mask sensitive values
+                        if (data.valueType === 'sensitive') {
+                            return '********';
+                        }
+                        return data.value;
+                    }
                 },
                 { 
                     key: 'description', 
                     label: 'תיאור', 
                     sortable: false, 
-                    readOnly: true 
+                    readOnly: true,
+                    render: (data) => data.description || '-'
                 },
                 { 
                     key: 'valueType', 
@@ -93,38 +152,50 @@ async function loadSystemAttributesFromCache() {
                             minute: '2-digit'
                         })
                         : '-'
+                },
+                {
+                    key: 'actions',
+                    label: 'פעולות',
+                    sortable: false,
+                    readOnly: true,
+                    render: (data) => `
+                        <button onclick="editAttribute(${data.id})" class="btn-icon" title="ערוך">
+                            <img src="edit_icon.png" alt="ערוך" class="action-icon-natural">
+                        </button>
+                        <button onclick="deleteAttribute(${data.id}, '${data.name.replace(/'/g, "\\'")}' )" class="btn-icon" title="מחק">
+                            <img src="delete_icon.png" alt="מחק" class="action-icon-natural">
+                        </button>
+                    `
                 }
             ];
             
-            console.log('Columns configuration:', columns); // ✅ Debug: Verify columns
-            
-            // Create ReusableTable instance
-            const table = new ReusableTable('systemAttributesContainer', {
-                tableName: 'systemAttributes',
-                isReadOnly: true,
-                allowAdd: false,
-                allowEdit: false,
-                allowDelete: false
-            });
-            
-            console.log('Table instance created:', table); // ✅ Debug: Verify table object
+            // Create or reinitialize ReusableTable instance
+            if (!window.systemAttributesTable) {
+                window.systemAttributesTable = new ReusableTable('systemAttributesContainer', {
+                    tableName: 'systemAttributes',
+                    isReadOnly: true,
+                    allowAdd: false,
+                    allowEdit: false,
+                    allowDelete: false
+                });
+            }
             
             // Initialize table with data and columns
-            table.init(data, columns);
+            window.systemAttributesTable.init(data, columns);
             
-            console.log('Table initialized successfully'); // ✅ Debug: Confirm initialization
+            console.log('✅ Table initialized successfully');
             
         } else {
-            container.innerHTML = '<p class="system-attributes-empty">אין מאפייני מערכת זמינים במטמון</p>';
+            container.innerHTML = '<p>אין מאפייני מערכת זמינים במטמון</p>';
         }
         
     } catch (error) {
-        console.error('Error loading system attributes from cache:', error);
+        console.error('❌ Error loading system attributes:', error);
         container.innerHTML = `
-            <div class="system-attributes-error">
+            <div class="error-message">
                 <p>שגיאה בטעינת מאפייני המערכת מהמטמון</p>
-                <p style="font-size: var(--font-size-small);">${error.message}</p>
-                <button onclick="loadSystemAttributesFromCache()" class="reload-cache-btn">
+                <p>${error.message}</p>
+                <button onclick="loadSystemAttributesFromCache()" class="btn-secondary">
                     נסה שוב
                 </button>
             </div>
@@ -132,28 +203,191 @@ async function loadSystemAttributesFromCache() {
     }
 }
 
+// Show add modal
+function showAddAttributeModal() {
+    window.isEditMode = false;
+    document.getElementById('modalTitle').textContent = 'הוסף מאפיין חדש';
+    document.getElementById('attributeId').value = '';
+    document.getElementById('attributeName').value = '';
+    document.getElementById('attributeName').disabled = false;
+    document.getElementById('attributeValue').value = '';
+    document.getElementById('attributeValueType').value = 'string';
+    document.getElementById('attributeDescription').value = '';
+    document.getElementById('attributeForeignId').value = '';
+    document.getElementById('attributeModal').style.display = 'flex';
+}
 
-
-// Reload system attributes from database to cache (admin operation)
-async function reloadSystemAttributesFromDB() {
+// Edit attribute - loads data from cache
+async function editAttribute(id) {
     try {
-        // Get auth token following Frontend Token-Only Storage pattern
+        const response = await fetch(window.AppConfig.getApiUrl('systemattributes'));
+        const data = await response.json();
+        const attribute = data.find(a => a.id === id);
+        
+        if (!attribute) {
+            alert('מאפיין לא נמצא');
+            return;
+        }
+        
+        window.isEditMode = true;
+        document.getElementById('modalTitle').textContent = 'ערוך מאפיין';
+        document.getElementById('attributeId').value = attribute.id;
+        document.getElementById('attributeName').value = attribute.name;
+        document.getElementById('attributeName').disabled = true;
+        
+        // Don't show masked values for sensitive types
+        if (attribute.valueType === 'sensitive') {
+            document.getElementById('attributeValue').value = '';
+            document.getElementById('attributeValue').placeholder = 'השאר ריק אם אין צורך לשנות';
+        } else {
+            document.getElementById('attributeValue').value = attribute.value;
+            document.getElementById('attributeValue').placeholder = '';
+        }
+        
+        document.getElementById('attributeValueType').value = attribute.valueType || 'string';
+        document.getElementById('attributeDescription').value = attribute.description || '';
+        document.getElementById('attributeForeignId').value = attribute.foreignId || '';
+        document.getElementById('attributeModal').style.display = 'flex';
+    } catch (error) {
+        console.error('❌ Error loading attribute for edit:', error);
+        alert('שגיאה בטעינת המאפיין לעריכה');
+    }
+}
+
+// Save attribute (create or update)
+async function saveAttribute() {
+    const id = document.getElementById('attributeId').value;
+    const name = document.getElementById('attributeName').value.trim();
+    const value = document.getElementById('attributeValue').value.trim();
+    const valueType = document.getElementById('attributeValueType').value;
+    const description = document.getElementById('attributeDescription').value.trim();
+    const foreignId = document.getElementById('attributeForeignId').value;
+    
+    // Validation
+    if (!name) {
+        alert('שם המאפיין הוא שדה חובה');
+        return;
+    }
+    
+    // For edit mode with sensitive type, allow empty value (no change)
+    if (!value && (!window.isEditMode || valueType !== 'sensitive')) {
+        alert('ערך המאפיין הוא שדה חובה');
+        return;
+    }
+    
+    try {
         const token = sessionStorage.getItem('authToken');
         if (!token) {
             alert('נדרשת התחברות למערכת');
-            window.location.href = 'login.html';
+            return;
+        }
+        
+        let response;
+        if (window.isEditMode && id) {
+            // Update existing attribute - only send value
+            if (!value) {
+                alert('לא בוצעו שינויים');
+                closeAttributeModal();
+                return;
+            }
+            
+            response = await fetch(window.AppConfig.getApiUrl(`systemattributes/${id}`), {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ value })
+            });
+        } else {
+            // Create new attribute
+            response = await fetch(window.AppConfig.getApiUrl('systemattributes'), {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name,
+                    value,
+                    valueType,
+                    description: description || null,
+                    foreignId: foreignId ? parseInt(foreignId) : null
+                })
+            });
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            closeAttributeModal();
+            await loadSystemAttributesFromCache();
+        } else {
+            alert(result.message || 'שגיאה בשמירת המאפיין');
+        }
+    } catch (error) {
+        console.error('❌ Error saving attribute:', error);
+        alert('שגיאה בשמירת המאפיין');
+    }
+}
+
+// Delete attribute with confirmation
+async function deleteAttribute(id, name) {
+    if (!confirm(`האם אתה בטוח שברצונך למחוק את המאפיין "${name}"?\n\nפעולה זו אינה ניתנת לביטול.`)) {
+        return;
+    }
+    
+    try {
+        const token = sessionStorage.getItem('authToken');
+        if (!token) {
+            alert('נדרשת התחברות למערכת');
+            return;
+        }
+        
+        const response = await fetch(window.AppConfig.getApiUrl(`systemattributes/${id}`), {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            await loadSystemAttributesFromCache();
+        } else {
+            alert(result.message || 'שגיאה במחיקת המאפיין');
+        }
+    } catch (error) {
+        console.error('❌ Error deleting attribute:', error);
+        alert('שגיאה במחיקת המאפיין');
+    }
+}
+
+// Close modal
+function closeAttributeModal() {
+    document.getElementById('attributeModal').style.display = 'none';
+}
+
+// Reload system attributes from database to cache
+async function reloadSystemAttributesFromDB() {
+    try {
+        const token = sessionStorage.getItem('authToken');
+        if (!token) {
+            alert('נדרשת התחברות למערכת');
             return;
         }
         
         const confirmReload = confirm('האם אתה בטוח שברצונך לטעון מחדש את מאפייני המערכת מהמסד נתונים?\n\nפעולה זו תעדכן את המטמון מהמסד נתונים.');
         if (!confirmReload) return;
         
-        // Show loading state
         const container = document.getElementById('systemAttributesContainer');
-        container.innerHTML = '<p class="system-attributes-loading">טוען מחדש מהמסד נתונים...</p>';
+        container.innerHTML = '<p>טוען מחדש מהמסד נתונים...</p>';
         
-        // Call reload endpoint (requires authentication)
-        const response = await fetch(AppConfig.getApiUrl('systemattributes/reload'), {
+        const response = await fetch(window.AppConfig.getApiUrl('systemattributes/reload'), {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -164,26 +398,50 @@ async function reloadSystemAttributesFromDB() {
         const result = await response.json();
         
         if (response.ok) {
-            alert(`מאפייני המערכת נטענו מחדש בהצלחה!\n\nנטענו ${result.count} רשומות מהמסד נתונים.`);
-            // Reload from cache to show updated data
+            alert('מאפייני המערכת נטענו מחדש בהצלחה!');
             await loadSystemAttributesFromCache();
         } else {
             throw new Error(result.message || 'שגיאה בטעינה מחדש');
         }
         
     } catch (error) {
-        console.error('Error reloading system attributes from DB:', error);
+        console.error('❌ Error reloading from DB:', error);
         alert(`שגיאה בטעינה מחדש: ${error.message}`);
-        // Try to reload from cache anyway
         await loadSystemAttributesFromCache();
     }
 }
 
-// Load data on page load following Single-Page Application pattern
-loadSystemAttributesFromCache();
+// Load data on page load
+document.addEventListener('DOMContentLoaded', loadSystemAttributesFromCache);
 
-// Make functions globally available following Cross-Component Communication pattern
+// Cleanup function following Page Lifecycle Management pattern
+function cleanupSystemAttributesPage() {
+    console.log('🧹 Cleaning up system attributes page...');
+    
+    if (window.systemAttributesTable) {
+        if (typeof window.systemAttributesTable.cleanup === 'function') {
+            window.systemAttributesTable.cleanup();
+        }
+        window.systemAttributesTable = null;
+    }
+    
+    // Close modal if open
+    const modal = document.getElementById('attributeModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    console.log('✅ System attributes page cleanup complete');
+}
+
+// Export functions to window
 window.loadSystemAttributesFromCache = loadSystemAttributesFromCache;
 window.reloadSystemAttributesFromDB = reloadSystemAttributesFromDB;
+window.showAddAttributeModal = showAddAttributeModal;
+window.editAttribute = editAttribute;
+window.saveAttribute = saveAttribute;
+window.deleteAttribute = deleteAttribute;
+window.closeAttributeModal = closeAttributeModal;
+window.cleanupSystemAttributesPage = cleanupSystemAttributesPage;
 </script>
 

@@ -173,12 +173,17 @@ async function updateContextButtonLabels() {
             if (currentButton) currentButton.textContent = currentYearAttr.value;
         }
 
-        if (nextYearAttr) {
-            window.nextYearId = nextYearAttr.foreignId;
+        const nextButton = document.querySelector('.context-btn[onclick*="next"]');
+        if (nextYearAttr && nextYearAttr.foreignId) {
             await window.SessionState.setProperty('NextYearId', nextYearAttr.foreignId.toString());
             await window.SessionState.setProperty('NextYearValue', nextYearAttr.value);
             const nextButton = document.querySelector('.context-btn[onclick*="next"]');
             if (nextButton) nextButton.textContent = nextYearAttr.value;
+                } else {
+            console.log('⚠️ No Next Year attribute found, hiding button');
+            if (nextButton) {
+                nextButton.style.display = 'none'; // ✅ Hide button
+            }
         }
 
         console.log('✅ Context button labels updated and stored in backend session via SessionState');

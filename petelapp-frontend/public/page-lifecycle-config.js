@@ -140,7 +140,14 @@ window.PageLifecycleConfig = {
             cleanup: 'cleanupAboutPage',
             init: null,
             selfInitializing: true
-        }
+        },
+        'settings': {
+            file: 'settings.html',
+            title: 'הגדרות מערכת',
+            cleanup: 'cleanupSettingsPage',
+            init: null,
+            selfInitializing: true
+        },
     },
 
     /**
