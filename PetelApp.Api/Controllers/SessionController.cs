@@ -1,8 +1,9 @@
-using Microsoft.AspNetCore.Authorization;
+
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using PetelApp.Api.Configuration;
 using PetelApp.Api.Session;
+using PetelApp.Api.Services;
 
 namespace PetelApp.Api.Controllers
 {
@@ -13,21 +14,24 @@ namespace PetelApp.Api.Controllers
         private readonly UserSessionService _sessionService;
         private readonly SecuritySettings _securitySettings;
 
+        private readonly SystemAttributeCache? _systemAttributeCache;
+
         public SessionController(
             UserSessionService sessionService,
             IOptions<SecuritySettings> securitySettings,
+            SystemAttributeCache? systemAttributeCache,
             ILogger<SessionController> logger)
                 : base(sessionService, logger)
         {
             _sessionService = sessionService;
             _securitySettings = securitySettings.Value;
+            _systemAttributeCache = systemAttributeCache;
         }
 
-                /// <summary>
+        /// <summary>
         /// Get session timeout configuration for current user
-        /// Returns timeout settings from SecuritySettings configuration
+        /// Returns timeout settings from system attributes (database) with fallback to config
         /// </summary>
-        
         [HttpGet("timeout-config")]
         public IActionResult GetSessionTimeoutConfig()
         {
@@ -38,11 +42,38 @@ namespace PetelApp.Api.Controllers
                 return Unauthorized(new { success = false, message = "נדרש אימות" });
             }
 
+            // ✅ Read from SystemAttributeCache instead of static config
+            int timeoutMinutes = GetSessionTimeoutMinutes();
+
             return Ok(new
             {
-                timeoutMinutes = _securitySettings.SessionTimeoutMinutes,
+                timeoutMinutes = timeoutMinutes,
                 warningMinutes = 2 // Show warning 2 minutes before timeout
             });
+        }
+
+        /// <summary>
+        /// Get SessionTimeoutMinutes from system attributes cache, fallback to config
+        /// </summary>
+        private int GetSessionTimeoutMinutes()
+        {
+            try
+            {
+                var attribute = _systemAttributeCache.GetAttributeByName("Security_SessionTimeoutMinutes");
+                if (attribute != null && int.TryParse(attribute.Value, out int minutes))
+                {
+                    _logger.LogDebug("Using SessionTimeoutMinutes from system attributes: {Minutes}", minutes);
+                    return minutes;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to read SessionTimeoutMinutes from cache, using default");
+            }
+            
+            // Fallback to configuration file
+            _logger.LogDebug("Using SessionTimeoutMinutes from config file: {Minutes}", _securitySettings.SessionTimeoutMinutes);
+            return _securitySettings.SessionTimeoutMinutes;
         }
 
         /// <summary>

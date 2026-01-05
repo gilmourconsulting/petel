@@ -543,6 +543,46 @@ private async Task<CalculatedPricingElement?> CalculatePriceForElement(
             Hours = null
         };
 
+       // ✅ Special handling for "Guard" elements with offset
+        if (element.Title?.Equals("Guard", StringComparison.OrdinalIgnoreCase) == true ||
+            element.ElementName?.Equals("Guard", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            // Check if school has "Guard off-set" attribute set to true
+            var guardOffsetAttr = schoolAttributes
+                .FirstOrDefault(sa => sa.SchoolAttributeType?.Name?.Equals("Guard off-set", StringComparison.OrdinalIgnoreCase) == true);
+
+            if (guardOffsetAttr != null && !string.IsNullOrWhiteSpace(guardOffsetAttr.Value))
+            {
+                // Parse boolean value (true, "1", "yes" all count as true)
+                bool isGuardOffset = guardOffsetAttr.Value.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+                                    guardOffsetAttr.Value == "1" ||
+                                    guardOffsetAttr.Value.Equals("yes", StringComparison.OrdinalIgnoreCase);
+
+                if (isGuardOffset)
+                {
+                    _logger.LogDebug("🛡️ Guard off-set is enabled. Checking council match...");
+                    
+                    // Check if student's sending council matches school's council
+                    if (student.SendingCouncil.HasValue && 
+                        school.Council.HasValue && 
+                        student.SendingCouncil.Value == school.Council.Value)
+                    {
+                        _logger.LogDebug("✅ Guard off-set applied: Student council {StudentCouncil} matches school council {SchoolCouncil} - setting cost to 0",
+                            student.SendingCouncil.Value, school.Council.Value);
+                        
+                        calculatedElement.Price = 0;
+                        calculatedElement.DeterminingFactor = "תלמיד מרשות בית הספר";
+                        return calculatedElement;
+                    }
+                    else
+                    {
+                        _logger.LogDebug("⚠️ Guard off-set NOT applied: Student council {StudentCouncil} does not match school council {SchoolCouncil}",
+                            student.SendingCouncil, school.Council);
+                    }
+                }
+            }
+        }
+
         // ✅ Special handling for "school help" elements
         if (element.Title?.Contains("school help", StringComparison.OrdinalIgnoreCase) == true)
         {

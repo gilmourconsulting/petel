@@ -192,85 +192,81 @@ public async Task<IActionResult> UploadStudentsFile([FromForm] UploadStudentsFil
             });
         }
 
-        private async Task<List<StudentFileRow>> ParseFileAsync(IFormFile file, Dictionary<string, string>? mapping)
+ 
+private Task<List<StudentFileRow>> ParseFileAsync(IFormFile file, Dictionary<string, string>? mapping)
+{
+    _logger.LogInformation("📄 Starting file parse: FileName={FileName}, Size={Size} bytes", 
+        file.FileName, file.Length);
+    
+    var rows = new List<StudentFileRow>();
+    var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+    _logger.LogInformation("File extension: {Extension}", ext);
+
+    using var stream = file.OpenReadStream();
+
+    if (ext == ".csv")
+    {
+        using var reader = new StreamReader(stream);
+        using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
+
+        csv.Read();
+        csv.ReadHeader();
+        
+        var headers = csv.HeaderRecord ?? Array.Empty<string>();
+        if (headers == null || headers.Length == 0)
         {
-            _logger.LogInformation("📄 Starting file parse: FileName={FileName}, Size={Size} bytes", 
-                file.FileName, file.Length);
-            
-            var rows = new List<StudentFileRow>();
-            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
-            _logger.LogInformation("File extension: {Extension}", ext);
-
-            using var stream = file.OpenReadStream();
-
-            if (ext == ".csv")
-            {
-                using var reader = new StreamReader(stream);
-                using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
-
-                csv.Read();
-                csv.ReadHeader();
-                var headers = csv.HeaderRecord;
-                // ✅ Return empty list on error - let caller handle error response
-                if (headers == null || headers.Length == 0)
-                {
-                    _logger.LogWarning("אין שורת כותרות בקובץ ה-CSV");
-                    return new List<StudentFileRow>();  // Return empty list
-                }
-
-
-
-                while (csv.Read())
-                {
-                    var row = ExtractRowData(csv, headers, mapping);
-                    if (row != null)
-                        rows.Add(row);
-                }
-            }
-            else if (ext == ".xls" || ext == ".xlsx")
-            {
-                _logger.LogInformation("📊 Processing Excel file...");
-                using var workbook = new XLWorkbook(stream);
-                var worksheet = workbook.Worksheets.First();
-                _logger.LogInformation("Worksheet name: {WorksheetName}, Row count: {RowCount}",
-                    worksheet.Name, worksheet.RowsUsed().Count());
-
-                var firstRow = worksheet.FirstRowUsed();
-                // ✅ Return empty list on error - let caller handle error response
-                if (firstRow == null || firstRow.CellsUsed().Count() == 0)
-                {
-                    _logger.LogWarning("Excel file has no rows or headers");
-                    return new List<StudentFileRow>();  // Return empty list
-                }
-                var headers = firstRow.CellsUsed()
-                    .Select(cell => cell.Value.ToString()?.Trim() ?? "")
-                    .ToList();
-                
-                _logger.LogInformation("📋 Excel headers found: {Headers}", string.Join(", ", headers));
-
-                var rowCount = 0;
-                foreach (var row in worksheet.RowsUsed().Skip(1)) // Skip header row
-                {
-                    rowCount++;
-                    _logger.LogWarning("📊 Processing Excel row {RowNumber}", rowCount);
-                    var rowData = ExtractRowData(row, headers, mapping);
-                    if (rowData != null)
-                    {
-                        _logger.LogWarning("✅ Extracted row {RowNumber}: ID={IdNumber}, StartDate='{StartDate}', EndDate='{EndDate}'",
-                            rowCount, rowData.IdNumber, rowData.StartDate, rowData.EndDate);
-                        rows.Add(rowData);
-                    }
-                    else
-                    {
-                        _logger.LogError("⚠️ Failed to extract row {RowNumber}", rowCount);
-                    }
-                }
-                _logger.LogWarning("📊 Excel file processing complete: {TotalRows} rows extracted", rows.Count);
-            }
-
-            _logger.LogInformation("📄 File parse complete: {TotalRows} total rows extracted", rows.Count);
-            return rows;
+            _logger.LogWarning("⚠️ CSV file has no headers");
+            return Task.FromResult(rows);
         }
+
+        _logger.LogInformation("CSV headers: {Headers}", string.Join(", ", headers));
+
+        while (csv.Read())
+        {
+            var row = ExtractRowData(csv, headers, mapping);
+            if (row != null)
+            {
+                rows.Add(row);
+            }
+        }
+    }
+    else if (ext == ".xls" || ext == ".xlsx")
+    {
+        using var package = new XLWorkbook(stream);
+        var worksheet = package.Worksheets.FirstOrDefault();
+        
+        if (worksheet == null)
+        {
+            _logger.LogWarning("⚠️ Excel file has no worksheets");
+            return Task.FromResult(rows);
+        }
+
+        var firstRow = worksheet.Row(1);
+        if (firstRow == null || firstRow.CellsUsed().Count() == 0)
+        {
+            _logger.LogWarning("⚠️ Excel file has no headers");
+            return Task.FromResult(rows);
+        }
+
+        var headers = firstRow.CellsUsed()
+            .Select(c => c.GetValue<string>().Trim())
+            .ToList();
+
+        _logger.LogInformation("Excel headers: {Headers}", string.Join(", ", headers));
+
+        foreach (var row in worksheet.RowsUsed().Skip(1))
+        {
+            var studentRow = ExtractRowData(row, headers, mapping);
+            if (studentRow != null)
+            {
+                rows.Add(studentRow);
+            }
+        }
+    }
+
+    _logger.LogInformation("✅ Parsed {Count} student rows from file", rows.Count);
+    return Task.FromResult(rows);
+}
 
         // handle class_level and class_number
 
