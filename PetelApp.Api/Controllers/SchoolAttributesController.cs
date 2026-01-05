@@ -197,6 +197,13 @@ public class SchoolAttributesController : BaseController
                         ? "כן" 
                         : "לא";
                 }
+                else if (attributeType.AttributeValueType?.Equals("Decimal", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    if (decimal.TryParse(attr.Value, out decimal decimalValue))
+                    {
+                        displayValue = decimalValue.ToString("F2"); // Format to 2 decimal places
+                    }
+                }
 
                 return new
                 {

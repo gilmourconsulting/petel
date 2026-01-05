@@ -4132,7 +4132,21 @@
                             <span class="attribute-suffix">שעות</span>
                         </div>
                     `;
-                } else if (attrType.attributeValueType === 'List') {
+                    } else if (attrType.attributeValueType === 'Decimal') {
+                        inputField = `
+                            <input type="number" 
+                                class="attribute-input"
+                                id="attr_${attrType.id}"
+                                data-attribute-id="${attrType.id}"
+                                data-value-type="Decimal"
+                                value="${value}"
+                                min="0"
+                                step="0.01"
+                                ${isEditMode ? '' : 'disabled'}
+                                onchange="window.hasUnsavedAttributeChanges = true;">
+                        `;
+                    }
+                 else if (attrType.attributeValueType === 'List') {
                     const currentValueId = value || '';
                     const possibleValues = attrType.possibleValues || [];
 

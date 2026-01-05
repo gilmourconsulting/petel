@@ -24,6 +24,6 @@ namespace PetelApp.Api.Data
         public string? DeterminingFactor { get; set; }
 
         [Column("hours")]
-        public int? Hours { get; set; }
+        public decimal? Hours { get; set; }
     }
 }

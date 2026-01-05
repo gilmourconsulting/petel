@@ -477,6 +477,19 @@ namespace PetelApp.Api.Services
                     }
                     break;
 
+
+                    case "decimal":
+                    case "float":
+                    case "double":
+                        // Skip if null, "0", "0.0", or cannot parse
+                        if (string.IsNullOrWhiteSpace(value) ||
+                            !decimal.TryParse(value, out decimal decimalValue) ||
+                            decimalValue == 0)
+                        {
+                            return true;
+                        }
+                        break;
+
                 default:
                     // For text/varchar/other types, skip only if null or empty
                     if (string.IsNullOrWhiteSpace(value))
@@ -541,7 +554,7 @@ private async Task<CalculatedPricingElement?> CalculatePriceForElement(
 
             if (schoolHoursAttr != null && !string.IsNullOrWhiteSpace(schoolHoursAttr.Value))
             {
-                if (int.TryParse(schoolHoursAttr.Value, out int hours))
+                if (decimal.TryParse(schoolHoursAttr.Value, out decimal hours))
                 {
                     calculatedElement.Hours = hours;
                     calculatedElement.Price = pricingCategory.Price.Value * hours;
@@ -966,6 +979,6 @@ private async Task<CalculatedPricingElement?> CalculatePriceForElement(
         public decimal Price { get; set; }
         public int DisabilityCategory { get; set; }
         public string? DeterminingFactor { get; set; }
-        public int? Hours { get; set; } // ✅ NEW
+        public decimal? Hours { get; set; } // ✅ NEW
     }
 }
