@@ -420,50 +420,92 @@
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
+                console.error('❌ API Error Response:', errorData);
                 throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
             }
 
             const result = await response.json();
+            console.log('📦 Full API Response:', result);
 
             if (result.success) {
-                console.log('✅ Pricing calculation successful:', result.data);
+                // Ensure data object exists
+                const data = result.data || result;
+                
+                // ✅ Check if no changes were detected
+                if (data.noChangeDetected) {
+                    console.log('ℹ️ No pricing changes detected:', data);
 
-                // ✅ NEW: Update session with the new student version ID
-                if (result.data.newStudentId) {
-                    console.log(`📝 Updating session with new student ID: ${result.data.newStudentId} (was: ${studentId})`);
-                    await window.SessionState.setProperty('SelectedStudentId', result.data.newStudentId.toString());
+                    let message = `✅ חישוב התמחור הושלם בהצלחה!\n\n`;
+                    message += `ℹ️ לא התגלו שינויים ברכיבי התמחור\n`;
+                    
+                    if (data.elementsCount !== undefined) {
+                        message += `📊 ${data.elementsCount} רכיבי תמחור תקפים\n`;
+                    }
+                    
+                    if (data.totalPrice !== undefined) {
+                        message += `💰 סכום כולל: ₪${data.totalPrice.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
+                    }
+                    
+                    message += `\nהנתונים הקיימים עדיין תקפים - לא נוצרה גרסה חדשה.`;
 
-                    // ✅ Reload student data to get the new version with updated cost
-                    await refreshStudentDataAfterPricing(result.data.newStudentId);
-                }
+                    alert(message);
 
-                // Show success message with details
-                let message = `✅ חישוב התמחור הושלם בהצלחה!\n\n`;
-                message += `📊 ${result.data.elementsCount} רכיבי תמחור חושבו\n`;
-                message += `💰 סכום כולל: ₪${result.data.totalPrice.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
+                    // No need to refresh data since nothing changed
+                    // Optionally, show current pricing
+                    const showResults = confirm('האם להציג את רכיבי התמחור הקיימים?');
+                    if (showResults) {
+                        await viewStudentPricing(studentId, studentName);
+                    }
+                } else {
+                    // Changes detected - new version created
+                    console.log('✅ Pricing calculation successful:', data);
 
-                if (result.data.warnings && result.data.warnings.length > 0) {
-                    message += `\n⚠️ אזהרות:\n`;
-                    result.data.warnings.slice(0, 3).forEach(warning => {
-                        message += `  • ${warning}\n`;
-                    });
-                    if (result.data.warnings.length > 3) {
-                        message += `  ... ו-${result.data.warnings.length - 3} אזהרות נוספות\n`;
+                    // ✅ Update session with the new student version ID
+                    if (data.newStudentId) {
+                        console.log(`📝 Updating session with new student ID: ${data.newStudentId} (was: ${studentId})`);
+                        await window.SessionState.setProperty('SelectedStudentId', data.newStudentId.toString());
+
+                        // ✅ Reload student data to get the new version with updated cost
+                        await refreshStudentDataAfterPricing(data.newStudentId);
+                    }
+
+                    // Show success message with details
+                    let message = `✅ חישוב התמחור הושלם בהצלחה!\n\n`;
+                    
+                    if (data.elementsCount !== undefined) {
+                        message += `📊 ${data.elementsCount} רכיבי תמחור חושבו\n`;
+                    }
+                    
+                    if (data.totalPrice !== undefined) {
+                        message += `💰 סכום כולל: ₪${data.totalPrice.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
+                    }
+
+                    if (data.warnings && data.warnings.length > 0) {
+                        message += `\n⚠️ אזהרות:\n`;
+                        data.warnings.slice(0, 3).forEach(warning => {
+                            message += `  • ${warning}\n`;
+                        });
+                        if (data.warnings.length > 3) {
+                            message += `  ... ו-${data.warnings.length - 3} אזהרות נוספות\n`;
+                        }
+                    }
+
+                    alert(message);
+
+                    // Optionally, auto-open the pricing view to show calculated elements
+                    const showResults = confirm('האם להציג את רכיבי התמחור שחושבו?');
+                    if (showResults) {
+                        // ✅ Use the NEW student ID for viewing pricing
+                        const newStudentId = data.newStudentId || studentId;
+                        await viewStudentPricing(newStudentId, studentName);
                     }
                 }
 
-                alert(message);
-
-                // Optionally, auto-open the pricing view to show calculated elements
-                const showResults = confirm('האם להציג את רכיבי התמחור שחושבו?');
-                if (showResults) {
-                    // ✅ Use the NEW student ID for viewing pricing
-                    const newStudentId = result.data.newStudentId || studentId;
-                    await viewStudentPricing(newStudentId, studentName);
-                }
-
             } else {
-                throw new Error(result.message || 'Calculation failed');
+                // ✅ Enhanced error handling
+                console.error('❌ API returned success=false:', result);
+                const errorMessage = result.message || result.error || 'Calculation failed';
+                throw new Error(errorMessage);
             }
 
         } catch (error) {

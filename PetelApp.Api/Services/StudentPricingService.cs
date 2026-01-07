@@ -21,6 +21,94 @@ namespace PetelApp.Api.Services
         }
 
         /// <summary>
+        /// Retrieve current pricing elements for a student
+        /// </summary>
+        private async Task<List<CalculatedPricingElement>> GetCurrentPricingElements(int schoolStudentId)
+        {
+            try
+            {
+                var currentElements = await _context.SchoolStudentPricingElements
+                    .AsNoTracking()
+                    .Where(pe => pe.StudentId == schoolStudentId)
+                    .Join(
+                        _context.SpecialNeedsPricingElements,
+                        pe => pe.PricingElementId,
+                        spe => spe.Id,
+                        (pe, spe) => new CalculatedPricingElement
+                        {
+                            PricingElementId = pe.PricingElementId,
+                            PricingElementName = spe.ElementName,
+                            Price = pe.Price,
+                            DisabilityCategory = 0, // Not needed for comparison
+                            DeterminingFactor = pe.DeterminingFactor,
+                            Hours = pe.Hours
+                        })
+                    .OrderBy(e => e.PricingElementId)
+                    .ThenBy(e => e.DeterminingFactor)
+                    .ToListAsync();
+
+                _logger.LogDebug("📋 Retrieved {Count} current pricing elements for student {StudentId}",
+                    currentElements.Count, schoolStudentId);
+
+                return currentElements;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error retrieving current pricing elements for student {StudentId}", schoolStudentId);
+                return new List<CalculatedPricingElement>();
+            }
+        }
+
+        /// <summary>
+        /// Compare two lists of pricing elements to check if they are identical
+        /// </summary>
+        private bool ArePricingElementsEqual(
+            List<CalculatedPricingElement> current,
+            List<CalculatedPricingElement> calculated)
+        {
+            if (current.Count != calculated.Count)
+            {
+                _logger.LogDebug("Element count mismatch: Current={CurrentCount}, Calculated={CalculatedCount}",
+                    current.Count, calculated.Count);
+                return false;
+            }
+
+            // Sort both lists for comparison (by element ID, then determining factor)
+            var sortedCurrent = current
+                .OrderBy(e => e.PricingElementId)
+                .ThenBy(e => e.DeterminingFactor ?? "")
+                .ToList();
+
+            var sortedCalculated = calculated
+                .OrderBy(e => e.PricingElementId)
+                .ThenBy(e => e.DeterminingFactor ?? "")
+                .ToList();
+
+            // Compare each element
+            for (int i = 0; i < sortedCurrent.Count; i++)
+            {
+                var curr = sortedCurrent[i];
+                var calc = sortedCalculated[i];
+
+                if (curr.PricingElementId != calc.PricingElementId ||
+                    curr.Price != calc.Price ||
+                    curr.DeterminingFactor != calc.DeterminingFactor ||
+                    curr.Hours != calc.Hours)
+                {
+                    _logger.LogDebug("Element difference detected at index {Index}: " +
+                        "Current=[Id:{CurrId}, Price:{CurrPrice:C}, Factor:{CurrFactor}, Hours:{CurrHours}], " +
+                        "Calculated=[Id:{CalcId}, Price:{CalcPrice:C}, Factor:{CalcFactor}, Hours:{CalcHours}]",
+                        i,
+                        curr.PricingElementId, curr.Price, curr.DeterminingFactor, curr.Hours,
+                        calc.PricingElementId, calc.Price, calc.DeterminingFactor, calc.Hours);
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// Calculate pricing elements for a student
         /// </summary>
         public async Task<PricingCalculationResult> CalculateStudentPricing(int schoolStudentId)
@@ -34,9 +122,12 @@ namespace PetelApp.Api.Services
 
             try
             {
-                // Step 1: Get student record
+                // Step 1: Retrieve current pricing elements (before calculation)
                 _logger.LogInformation("📊 Starting pricing calculation for student ID: {StudentId}", schoolStudentId);
+                var currentPricingElements = await GetCurrentPricingElements(schoolStudentId);
+                decimal currentTotalCost = currentPricingElements.Sum(e => e.Price);
 
+                // Step 2: Get student record
                 var student = await _context.SchoolStudents
                     .AsNoTracking()
                     .FirstOrDefaultAsync(s => s.Id == schoolStudentId);
@@ -56,7 +147,7 @@ namespace PetelApp.Api.Services
                 int disabilityCategory = student.DisabilityCategory.Value;
                 _logger.LogInformation("✅ Student found. Disability category: {Category}", disabilityCategory);
 
-                // Step 2: Get school year to find year_id
+                // Step 3: Get school year to find year_id
                 var schoolYear = await _context.SchoolYears
                     .AsNoTracking()
                     .FirstOrDefaultAsync(sy => sy.Id == student.SchoolYearId);
@@ -70,7 +161,7 @@ namespace PetelApp.Api.Services
                 int yearId = schoolYear.YearId;
                 _logger.LogInformation("✅ School year found. Year ID: {YearId}", yearId);
 
-                // Step 3: Get school details for attribute lookups
+                // Step 4: Get school details for attribute lookups
                 var school = await _context.Schools
                     .AsNoTracking()
                     .Where(s => s.SchoolYearId == student.SchoolYearId && s.IsLastVersion)
@@ -91,7 +182,7 @@ namespace PetelApp.Api.Services
 
                 _logger.LogInformation("✅ School found with {AttributeCount} attributes", schoolAttributes.Count);
 
-                // Step 4: Get all pricing elements for this year (sorted by sort_order)
+                // Step 5: Get all pricing elements for this year (sorted by sort_order)
                 var pricingElements = await _context.SpecialNeedsPricingElements
                     .AsNoTracking()
                     .Where(pe => pe.YearId == yearId)
@@ -102,7 +193,7 @@ namespace PetelApp.Api.Services
                 _logger.LogInformation("📋 Found {Count} pricing elements for year {YearId}",
                     pricingElements.Count, yearId);
 
-                // Step 5: Process each pricing element
+                // Step 6: Process each pricing element
                 foreach (var element in pricingElements)
                 {
                     try
@@ -216,36 +307,56 @@ namespace PetelApp.Api.Services
 
                 result.Success = result.CalculatedElements.Count > 0;
 
-                // Create new student version with calculated cost
+                // Step 7: Compare with current pricing elements before saving
                 if (result.Success)
                 {
                     var totalCost = result.CalculatedElements.Sum(e => e.Price);
-
                     var proratedCost = CalculateProratedCost(totalCost, student);
+                    var currentProratedCost = CalculateProratedCost(currentTotalCost, student);
 
                     _logger.LogInformation("💰 Total cost before proration: {TotalCost:C}, After proration: {ProratedCost:C}",
                         totalCost, proratedCost);
 
-                    int status = result.Errors.Count == 0 ? 2 : 6;
+                    // Compare calculated elements with current elements
+                    bool elementsEqual = ArePricingElementsEqual(currentPricingElements, result.CalculatedElements);
+                    bool costEqual = proratedCost == currentProratedCost;
 
-                    var newStudentId = await _studentService.CreateNewStudentVersionAsync(
-                        schoolStudentId,
-                        newVersion =>
-                        {
-                            newVersion.Cost = proratedCost;
-                            newVersion.StatusId = status;
-                        });
-
-                    if (newStudentId.HasValue)
+                    if (elementsEqual && costEqual)
                     {
-                        result.NewStudentId = newStudentId.Value;
-                        _logger.LogInformation("✅ Created new student version {NewId} with cost {Cost:C}",
-                            newStudentId.Value, totalCost);
+                        // No changes detected - skip saving
+                        result.NoChangeDetected = true;
+                        _logger.LogInformation("✅ No pricing changes detected for student {StudentId}. " +
+                            "Current cost: {CurrentCost:C}, Calculated cost: {CalculatedCost:C}. Skipping save.",
+                            schoolStudentId, currentProratedCost, proratedCost);
                     }
                     else
                     {
-                        result.Errors.Add("Failed to create new student version");
-                        result.Success = false;
+                        // Changes detected - create new version
+                        _logger.LogInformation("🔄 Pricing changes detected for student {StudentId}. " +
+                            "Elements equal: {ElementsEqual}, Cost equal: {CostEqual}. Creating new version.",
+                            schoolStudentId, elementsEqual, costEqual);
+
+                        int status = result.Errors.Count == 0 ? 2 : 6;
+
+                        var newStudentId = await _studentService.CreateNewStudentVersionAsync(
+                            schoolStudentId,
+                            newVersion =>
+                            {
+                                newVersion.Cost = proratedCost;
+                                newVersion.StatusId = status;
+                            });
+
+                        if (newStudentId.HasValue)
+                        {
+                            result.NewStudentId = newStudentId.Value;
+                            _logger.LogInformation("✅ Created new student version {NewId} with cost {Cost:C}",
+                                newStudentId.Value, proratedCost);
+                        }
+                        else
+                        {
+                            result.Errors.Add("Failed to create new student version");
+                            result.Success = false;
+                        }
                     }
                 }
 
@@ -1008,6 +1119,7 @@ private async Task<CalculatedPricingElement?> CalculatePriceForElement(
         public int SchoolStudentId { get; set; }
         public int? NewStudentId { get; set; }
         public bool Success { get; set; }
+        public bool NoChangeDetected { get; set; }
         public List<CalculatedPricingElement> CalculatedElements { get; set; } = new();
         public List<string> Errors { get; set; } = new();
     }

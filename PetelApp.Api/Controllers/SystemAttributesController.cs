@@ -201,6 +201,50 @@ namespace PetelApp.Api.Controllers
                 });
             }
         }
+
+        /// <summary>
+        /// Refresh system attributes cache - NO AUTHENTICATION REQUIRED
+        /// This endpoint is called after school attributes are updated to refresh the cache
+        /// Per coding guidelines: System attributes are global config, no auth needed
+        /// </summary>
+        [HttpPost("refresh")]
+        [AllowAnonymous]
+        public async Task<IActionResult> RefreshSystemAttributes()
+        {
+            try
+            {
+                _logger.LogInformation("Refreshing system attributes cache after school attributes update");
+
+                // Reload directly from database into cache
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+                var attributes = await dbContext.SystemAttributes
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                _cache.LoadAttributes(attributes);
+
+                _logger.LogInformation("Successfully refreshed {Count} system attributes", attributes.Count);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "System attributes cache refreshed successfully",
+                    count = attributes.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error refreshing system attributes cache");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Error refreshing system attributes cache"
+                });
+            }
+        }
+
         /// <summary>
         /// Get cache statistics - NO AUTHENTICATION REQUIRED
         /// Per coding guidelines: System attributes are global config, no auth needed

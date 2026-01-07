@@ -92,6 +92,15 @@
                         border-bottom: 3px solid transparent;
                         transition: all 0.3s;
                     ">תוכניות לימוד נוספות</button>
+                    <button class="tab-button" onclick="switchTab('schoolattributes')" data-tab="schoolattributes" style="
+                        padding: 12px 24px;
+                        border: none;
+                        background: none;
+                        cursor: pointer;
+                        font-weight: 600;
+                        border-bottom: 3px solid transparent;
+                        transition: all 0.3s;
+                    ">מאפייני בתי ספר</button>
                 </div>
 
                 <!-- Tab Content - Documents -->
@@ -246,6 +255,25 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Tab Content - School Attributes -->
+                <div id="schoolattributesTab" class="tab-content" style="display: none;">
+                    <!-- School Attribute Types Card -->
+                    <div class="detail-card collapsed" id="schoolAttributesCard">
+                        <div class="detail-card-header">
+                            <h2 class="detail-card-title">סוגי מאפיינים לשנת לימודים</h2>
+                            <div class="card-header-actions">
+                                <!-- Attribute types are read-only, managed at database level -->
+                                <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                            </div>
+                        </div>
+                        <div class="detail-card-content">
+                            <div id="schoolAttributesTableContainer" class="table-container">
+                                <div class="loading-spinner">טוען...</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -299,7 +327,9 @@
         studyPrograms: [],
         tracks: [],
         trackLevels: [],
-        trackPricing: []
+        trackPricing: [],
+        schoolAttributes: [],
+        attributeTypes: []
     };
 
     // Tab switching function
@@ -552,6 +582,9 @@
                 break;
             case 'studyprograms':
                 await loadStudyPrograms(yearId);
+                break;
+            case 'schoolattributes':
+                await loadSchoolAttributes(yearId);
                 break;
         }
     }
@@ -3503,6 +3536,660 @@
 
     // ==================== End Export/Import ====================
 
+    // ==================== School Attributes Management Functions ====================
+
+    // Load school attribute types for selected year
+    async function loadSchoolAttributes(yearId) {
+        try {
+            console.log(`📋 Loading attribute types for year ${yearId}...`);
+
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolattributes/attribute-types/${yearId}`),
+                AppConfig.getDefaultFetchOptions()
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to load attribute types: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const attributeTypes = result.data || result;
+            window.schoolYearConfigState.attributeTypes = attributeTypes;
+
+            renderSchoolAttributesTable(attributeTypes);
+            console.log(`✅ Loaded ${attributeTypes.length} attribute types`);
+        } catch (error) {
+            console.error('❌ Error loading attribute types:', error);
+            const container = document.getElementById('schoolAttributesTableContainer');
+            container.innerHTML = '<div class="error-message">שגיאה בטעינת סוגי מאפיינים</div>';
+        }
+    }
+
+    // Render attribute types table
+    function renderSchoolAttributesTable(attributeTypes) {
+        const container = document.getElementById('schoolAttributesTableContainer');
+
+        if (attributeTypes.length === 0) {
+            container.innerHTML = '<div class="no-data">אין סוגי מאפיינים מוגדרים לשנה זו</div>';
+            return;
+        }
+
+        let tableHtml = `
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>שם מאפיין</th>
+                    <th>שם עברי</th>
+                    <th>סוג ערך</th>
+                    <th>ערכים אפשריים</th>
+                    <th>פעולות</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+        attributeTypes.forEach(attrType => {
+            const possibleValuesCount = attrType.possibleValues ? attrType.possibleValues.length : 0;
+            const possibleValuesText = possibleValuesCount > 0 ? `${possibleValuesCount} ערכים` : '-';
+            
+            tableHtml += `
+                <tr>
+                    <td>${attrType.name || '-'}</td>
+                    <td>${attrType.hebrewName || '-'}</td>
+                    <td>${attrType.attributeValueType || '-'}</td>
+                    <td>${possibleValuesText}</td>
+                    <td>
+                        ${attrType.attributeValueType === 'List' ? `
+                        <button class="btn-icon" onclick="viewAttributeValues(${attrType.id}, '${attrType.hebrewName || attrType.name}')" title="צפה בערכים">
+                            <img src="view_icon.png" alt="צפה" class="action-icon-natural">
+                        </button>
+                        ` : ''}
+                        <button class="btn-icon" onclick="editSchoolAttribute(${attrType.id})" title="ערוך">
+                            <img src="edit_icon.png" alt="ערוך" class="action-icon-natural">
+                        </button>
+                        <button class="btn-icon" onclick="deleteSchoolAttribute(${attrType.id})" title="מחק">
+                            <img src="delete_icon.png" alt="מחק" class="action-icon-natural">
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableHtml += `
+            </tbody>
+        </table>
+    `;
+
+        container.innerHTML = tableHtml;
+    }
+
+    // View attribute values for List type attributes
+    async function viewAttributeValues(attributeTypeId, attributeName) {
+        try {
+            const response = await fetch(
+                AppConfig.getApiUrl(`schoolattributes/attribute-values/${attributeTypeId}`),
+                AppConfig.getDefaultFetchOptions()
+            );
+
+            if (!response.ok) {
+                throw new Error(`Failed to load attribute values: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const values = result.data || result;
+
+            const overlay = document.createElement('div');
+            overlay.className = 'dialog-overlay';
+
+            const dialog = document.createElement('div');
+            dialog.className = 'dialog-box';
+            dialog.style.minWidth = '500px';
+
+            let valuesHtml = '';
+            if (values.length === 0) {
+                valuesHtml = '<p style="text-align: center; color: #666;">אין ערכים מוגדרים</p>';
+            } else {
+                valuesHtml = '<table class="data-table" style="margin-top: 15px;">';
+                valuesHtml += '<thead><tr><th>סדר</th><th>ערך</th></tr></thead><tbody>';
+                values.forEach((v, index) => {
+                    // Handle both object format {value: "...", sortOrder: ...} and string array format
+                    const displayValue = typeof v === 'string' ? v : (v.value !== undefined ? v.value : String(v));
+                    const displayOrder = typeof v === 'object' && v.sortOrder !== undefined ? v.sortOrder : (index + 1);
+                    valuesHtml += `<tr><td>${displayOrder}</td><td>${displayValue}</td></tr>`;
+                });
+                valuesHtml += '</tbody></table>';
+            }
+
+            dialog.innerHTML = `
+            <h3 class="dialog-title">ערכים אפשריים - ${attributeName}</h3>
+            <div style="margin: 20px 0;">
+                ${valuesHtml}
+            </div>
+            <div class="dialog-buttons">
+                <button id="closeValuesBtn" class="btn-secondary">סגור</button>
+            </div>
+        `;
+
+            overlay.appendChild(dialog);
+            document.body.appendChild(overlay);
+
+            document.getElementById('closeValuesBtn').onclick = () => {
+                document.body.removeChild(overlay);
+            };
+        } catch (error) {
+            console.error('❌ Error loading attribute values:', error);
+            alert('שגיאה בטעינת ערכים אפשריים');
+        }
+    }
+
+    // Show add school attribute type modal
+    async function showAddSchoolAttributeModal() {
+        if (!window.schoolYearConfigState.selectedYearId) {
+            alert('אנא בחר שנת לימודים');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '600px';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">הוסף סוג מאפיין</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">שם מאפיין:</label>
+                <input type="text" id="attributeName" class="form-control" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="לדוגמה: GuardOffset">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">שם עברי:</label>
+                <input type="text" id="attributeHebrewName" class="form-control" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="לדוגמה: קיזוז משמרות">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">סוג ערך:</label>
+                <select id="attributeValueType" class="form-control" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" onchange="togglePossibleValuesSection();">
+                    <option value="Boolean">Boolean (כן/לא)</option>
+                    <option value="Integer">Integer (מספר שלם)</option>
+                    <option value="Text">Text (טקסט חופשי)</option>
+                    <option value="List">List (רשימת ערכים)</option>
+                </select>
+            </div>
+            <div id="possibleValuesSection" style="display: none; margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">ערכים אפשריים:</label>
+                <div style="border: 1px solid #ddd; border-radius: 4px; padding: 10px; max-height: 300px; overflow-y: auto;">
+                    <table id="possibleValuesTable" class="data-table" style="width: 100%; margin-bottom: 10px;">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px; text-align: center;">#</th>
+                                <th>ערך</th>
+                                <th style="width: 60px; text-align: center;">פעולות</th>
+                            </tr>
+                        </thead>
+                        <tbody id="possibleValuesTableBody">
+                            <!-- Rows will be added dynamically -->
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn-secondary" onclick="addPossibleValueRow()" style="width: 100%;">
+                        <img src="Plus icon.png" alt="הוסף" class="action-icon-natural" style="vertical-align: middle; margin-left: 5px;"> הוסף ערך
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="addAttributeOkBtn" class="btn-primary">הוסף</button>
+            <button id="addAttributeCancelBtn" class="btn-secondary">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('addAttributeOkBtn').onclick = async () => {
+            await addSchoolAttributeType(overlay);
+        };
+
+        document.getElementById('addAttributeCancelBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Toggle possible values section based on value type
+    function togglePossibleValuesSection() {
+        const valueType = document.getElementById('attributeValueType').value;
+        const section = document.getElementById('possibleValuesSection');
+        const isListType = valueType === 'List';
+        section.style.display = isListType ? 'block' : 'none';
+        
+        // Initialize with one empty row if showing for first time
+        if (isListType) {
+            const tbody = document.getElementById('possibleValuesTableBody');
+            if (!tbody || tbody.children.length === 0) {
+                addPossibleValueRow();
+            }
+        }
+    }
+
+    // Add a new row to possible values table
+    function addPossibleValueRow(value = '') {
+        const tbody = document.getElementById('possibleValuesTableBody');
+        if (!tbody) return;
+        
+        const rowCount = tbody.children.length + 1;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td style="text-align: center; color: #666;">${rowCount}</td>
+            <td>
+                <input type="text" class="form-control possible-value-input" 
+                       value="${value}" 
+                       style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;"
+                       placeholder="הזן ערך">
+            </td>
+            <td style="text-align: center;">
+                <button type="button" class="btn-icon" onclick="removePossibleValueRow(this)" title="מחק">
+                    <img src="delete_icon.png" alt="מחק" class="action-icon-natural">
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+        updatePossibleValuesRowNumbers();
+    }
+
+    // Remove a row from possible values table
+    function removePossibleValueRow(button) {
+        const row = button.closest('tr');
+        if (row) {
+            row.remove();
+            updatePossibleValuesRowNumbers();
+        }
+    }
+
+    // Update row numbers after add/remove
+    function updatePossibleValuesRowNumbers() {
+        const tbody = document.getElementById('possibleValuesTableBody');
+        if (!tbody) return;
+        
+        Array.from(tbody.children).forEach((row, index) => {
+            const firstCell = row.querySelector('td:first-child');
+            if (firstCell) {
+                firstCell.textContent = index + 1;
+            }
+        });
+    }
+
+    // Add school attribute type
+    async function addSchoolAttributeType(overlay) {
+        const name = document.getElementById('attributeName').value.trim();
+        const hebrewName = document.getElementById('attributeHebrewName').value.trim();
+        const valueType = document.getElementById('attributeValueType').value;
+
+        if (!name) {
+            alert('אנא הזן שם מאפיין');
+            return;
+        }
+
+        if (!hebrewName) {
+            alert('אנא הזן שם עברי');
+            return;
+        }
+
+        let possibleValues = null;
+        if (valueType === 'List') {
+            // Extract values from table
+            const tbody = document.getElementById('possibleValuesTableBody');
+            if (!tbody) {
+                alert('שגיאה בטעינת טבלת ערכים');
+                return;
+            }
+            
+            possibleValues = [];
+            const inputs = tbody.querySelectorAll('.possible-value-input');
+            inputs.forEach(input => {
+                const value = input.value.trim();
+                if (value) {
+                    possibleValues.push(value);
+                }
+            });
+            
+            if (possibleValues.length === 0) {
+                alert('אנא הזן לפחות ערך אפשרי אחד עבור סוג List');
+                return;
+            }
+        }
+
+        try {
+            const response = await fetch(AppConfig.getApiUrl('schoolattributes/attribute-types'), {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    schoolYearId: window.schoolYearConfigState.selectedYearId,
+                    attributeName: name,
+                    hebrewAttributeName: hebrewName,
+                    attributeValueType: valueType,
+                    possibleValues: possibleValues
+                })
+            });
+
+            if (response.ok) {
+                alert('סוג המאפיין נוסף בהצלחה');
+                document.body.removeChild(overlay);
+                await loadSchoolAttributes(window.schoolYearConfigState.selectedYearId);
+                await refreshSystemAttributesCache();
+            } else {
+                const error = await response.text();
+                alert(`שגיאה בהוספת סוג מאפיין: ${error}`);
+            }
+        } catch (error) {
+            console.error('❌ Error adding attribute type:', error);
+            alert('שגיאה בהוספת סוג מאפיין');
+        }
+    }
+
+    // Edit school attribute type
+    async function editSchoolAttribute(attributeId) {
+        const attrType = window.schoolYearConfigState.attributeTypes.find(a => a.id === attributeId);
+        if (!attrType) {
+            alert('סוג מאפיין לא נמצא');
+            return;
+        }
+
+        const overlay = document.createElement('div');
+        overlay.className = 'dialog-overlay';
+
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-box';
+        dialog.style.minWidth = '600px';
+
+        // Prepare possible values text (one per line)
+        const possibleValuesText = attrType.possibleValues && attrType.possibleValues.length > 0
+            ? attrType.possibleValues.join('\n')
+            : '';
+
+        dialog.innerHTML = `
+        <h3 class="dialog-title">עריכת סוג מאפיין</h3>
+        <div style="margin: 20px 0;">
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">שם מאפיין:</label>
+                <input type="text" id="editAttributeName" class="form-control" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" value="${attrType.name}">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">שם עברי:</label>
+                <input type="text" id="editAttributeHebrewName" class="form-control" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" value="${attrType.hebrewName}">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">סוג ערך:</label>
+                <select id="editAttributeValueType" class="form-control" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px;" onchange="toggleEditPossibleValuesSection();">
+                    <option value="Boolean" ${attrType.attributeValueType === 'Boolean' ? 'selected' : ''}>Boolean (כן/לא)</option>
+                    <option value="Integer" ${attrType.attributeValueType === 'Integer' ? 'selected' : ''}>Integer (מספר שלם)</option>
+                    <option value="Text" ${attrType.attributeValueType === 'Text' ? 'selected' : ''}>Text (טקסט חופשי)</option>
+                    <option value="List" ${attrType.attributeValueType === 'List' ? 'selected' : ''}>List (רשימת ערכים)</option>
+                </select>
+            </div>
+            <div id="editPossibleValuesSection" style="display: ${attrType.attributeValueType === 'List' ? 'block' : 'none'}; margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">ערכים אפשריים:</label>
+                <div style="border: 1px solid #ddd; border-radius: 4px; padding: 10px; max-height: 300px; overflow-y: auto;">
+                    <table id="editPossibleValuesTable" class="data-table" style="width: 100%; margin-bottom: 10px;">
+                        <thead>
+                            <tr>
+                                <th style="width: 80px; text-align: center;">#</th>
+                                <th>ערך</th>
+                                <th style="width: 60px; text-align: center;">פעולות</th>
+                            </tr>
+                        </thead>
+                        <tbody id="editPossibleValuesTableBody">
+                            ${attrType.possibleValues && attrType.possibleValues.length > 0 ? 
+                                attrType.possibleValues.map((val, idx) => {
+                                    // Handle both object format {value: "...", sortOrder: ...} and string format
+                                    const displayValue = typeof val === 'string' ? val : (val.value !== undefined ? val.value : String(val));
+                                    return `
+                                    <tr>
+                                        <td style="text-align: center; color: #666;">${idx + 1}</td>
+                                        <td>
+                                            <input type="text" class="form-control edit-possible-value-input" 
+                                                   value="${displayValue}" 
+                                                   style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;"
+                                                   placeholder="הזן ערך">
+                                        </td>
+                                        <td style="text-align: center;">
+                                            <button type="button" class="btn-icon" onclick="removeEditPossibleValueRow(this)" title="מחק">
+                                                <img src="delete_icon.png" alt="מחק" class="action-icon-natural">
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `}).join('') : 
+                                '<tr><td colspan="3" style="text-align: center; color: #999;">לא הוגדרו ערכים</td></tr>'
+                            }
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn-secondary" onclick="addEditPossibleValueRow()" style="width: 100%;">
+                        <img src="Plus icon.png" alt="הוסף" class="action-icon-natural" style="vertical-align: middle; margin-left: 5px;"> הוסף ערך
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="dialog-buttons">
+            <button id="updateAttributeBtn" class="btn-primary">עדכן</button>
+            <button id="cancelEditAttributeBtn" class="btn-secondary">ביטול</button>
+        </div>
+    `;
+
+        overlay.appendChild(dialog);
+        document.body.appendChild(overlay);
+
+        document.getElementById('updateAttributeBtn').onclick = async () => {
+            await updateSchoolAttributeType(attributeId, overlay);
+        };
+
+        document.getElementById('cancelEditAttributeBtn').onclick = () => {
+            document.body.removeChild(overlay);
+        };
+    }
+
+    // Toggle possible values section in edit dialog
+    function toggleEditPossibleValuesSection() {
+        const valueType = document.getElementById('editAttributeValueType').value;
+        const section = document.getElementById('editPossibleValuesSection');
+        const isListType = valueType === 'List';
+        section.style.display = isListType ? 'block' : 'none';
+        
+        // Initialize with one empty row if showing for first time
+        if (isListType) {
+            const tbody = document.getElementById('editPossibleValuesTableBody');
+            if (!tbody || tbody.children.length === 0) {
+                addEditPossibleValueRow();
+            }
+        }
+    }
+
+    // Add a new row to edit possible values table
+    function addEditPossibleValueRow(value = '') {
+        const tbody = document.getElementById('editPossibleValuesTableBody');
+        if (!tbody) return;
+        
+        // Remove "no values" message if present
+        const noDataRow = tbody.querySelector('td[colspan="3"]');
+        if (noDataRow) {
+            noDataRow.closest('tr').remove();
+        }
+        
+        const rowCount = tbody.children.length + 1;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td style="text-align: center; color: #666;">${rowCount}</td>
+            <td>
+                <input type="text" class="form-control edit-possible-value-input" 
+                       value="${value}" 
+                       style="width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 4px;"
+                       placeholder="הזן ערך">
+            </td>
+            <td style="text-align: center;">
+                <button type="button" class="btn-icon" onclick="removeEditPossibleValueRow(this)" title="מחק">
+                    <img src="delete_icon.png" alt="מחק" class="action-icon-natural">
+                </button>
+            </td>
+        `;
+        tbody.appendChild(row);
+        updateEditPossibleValuesRowNumbers();
+    }
+
+    // Remove a row from edit possible values table
+    function removeEditPossibleValueRow(button) {
+        const row = button.closest('tr');
+        const tbody = document.getElementById('editPossibleValuesTableBody');
+        if (row && tbody) {
+            row.remove();
+            
+            // Show "no values" message if table is empty
+            if (tbody.children.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #999;">לא הוגדרו ערכים</td></tr>';
+            } else {
+                updateEditPossibleValuesRowNumbers();
+            }
+        }
+    }
+
+    // Update row numbers in edit table after add/remove
+    function updateEditPossibleValuesRowNumbers() {
+        const tbody = document.getElementById('editPossibleValuesTableBody');
+        if (!tbody) return;
+        
+        Array.from(tbody.children).forEach((row, index) => {
+            const firstCell = row.querySelector('td:first-child');
+            if (firstCell && !firstCell.hasAttribute('colspan')) {
+                firstCell.textContent = index + 1;
+            }
+        });
+    }
+
+    // Update school attribute type
+    async function updateSchoolAttributeType(attributeId, overlay) {
+        const name = document.getElementById('editAttributeName').value.trim();
+        const hebrewName = document.getElementById('editAttributeHebrewName').value.trim();
+        const valueType = document.getElementById('editAttributeValueType').value;
+
+        if (!name) {
+            alert('אנא הזן שם מאפיין');
+            return;
+        }
+
+        if (!hebrewName) {
+            alert('אנא הזן שם עברי');
+            return;
+        }
+
+        let possibleValues = null;
+        if (valueType === 'List') {
+            // Extract values from table
+            const tbody = document.getElementById('editPossibleValuesTableBody');
+            if (!tbody) {
+                alert('שגיאה בטעינת טבלת ערכים');
+                return;
+            }
+            
+            possibleValues = [];
+            const inputs = tbody.querySelectorAll('.edit-possible-value-input');
+            inputs.forEach(input => {
+                const value = input.value.trim();
+                if (value) {
+                    possibleValues.push(value);
+                }
+            });
+            
+            if (possibleValues.length === 0) {
+                alert('אנא הזן לפחות ערך אפשרי אחד עבור סוג List');
+                return;
+            }
+        }
+
+        try {
+            const response = await fetch(AppConfig.getApiUrl(`schoolattributes/attribute-types/${attributeId}`), {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    id: attributeId,
+                    schoolYearId: window.schoolYearConfigState.selectedYearId,
+                    attributeName: name,
+                    hebrewAttributeName: hebrewName,
+                    attributeValueType: valueType,
+                    possibleValues: possibleValues
+                })
+            });
+
+            if (response.ok) {
+                alert('סוג המאפיין עודכן בהצלחה');
+                document.body.removeChild(overlay);
+                await loadSchoolAttributes(window.schoolYearConfigState.selectedYearId);
+                await refreshSystemAttributesCache();
+            } else {
+                const error = await response.text();
+                alert(`שגיאה בעדכון סוג מאפיין: ${error}`);
+            }
+        } catch (error) {
+            console.error('❌ Error updating attribute type:', error);
+            alert('שגיאה בעדכון סוג מאפיין');
+        }
+    }
+
+    // Delete school attribute type
+    async function deleteSchoolAttribute(attributeId) {
+        if (!confirm('האם אתה בטוח שברצונך למחוק סוג מאפיין זה?\n\nשים לב: מחיקת סוג מאפיין תמחק גם את כל הערכים המשוייכים לו בבתי הספר.')) {
+            return;
+        }
+
+        try {
+            const response = await fetch(AppConfig.getApiUrl(`schoolattributes/attribute-types/${attributeId}`), {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
+                }
+            });
+
+            if (response.ok) {
+                alert('סוג המאפיין נמחק בהצלחה');
+                await loadSchoolAttributes(window.schoolYearConfigState.selectedYearId);
+                await refreshSystemAttributesCache();
+            } else {
+                const error = await response.text();
+                alert(`שגיאה במחיקת סוג מאפיין: ${error}`);
+            }
+        } catch (error) {
+            console.error('❌ Error deleting attribute type:', error);
+            alert('שגיאה במחיקת סוג מאפיין');
+        }
+    }
+
+    // Refresh system attributes cache
+    async function refreshSystemAttributesCache() {
+        try {
+            console.log('🔄 Refreshing system attributes cache...');
+            const response = await fetch(
+                AppConfig.getApiUrl('systemattributes/refresh'),
+                {
+                    method: 'POST',
+                    headers: AppConfig.getDefaultFetchOptions().headers
+                }
+            );
+
+            if (response.ok) {
+                console.log('✅ System attributes cache refreshed');
+            } else {
+                console.warn('⚠️ Failed to refresh cache, but continuing...');
+            }
+        } catch (error) {
+            console.warn('⚠️ Error refreshing cache:', error);
+            // Don't throw - cache refresh is optional
+        }
+    }
+
+    // ==================== End School Attributes Management ====================
+
     // Cleanup function
     function cleanupSchoolYearConfig() {
         console.log('🧹 Cleaning up School Year Config page...');
@@ -3549,6 +4236,18 @@
     window.showAddStudyProgramModal = showAddStudyProgramModal;
     window.editStudyProgram = editStudyProgram;
     window.deleteStudyProgram = deleteStudyProgram;
+    
+    // School Attributes exports
+    window.viewAttributeValues = viewAttributeValues;
+    window.showAddSchoolAttributeModal = showAddSchoolAttributeModal;
+    window.editSchoolAttribute = editSchoolAttribute;
+    window.deleteSchoolAttribute = deleteSchoolAttribute;
+    window.togglePossibleValuesSection = togglePossibleValuesSection;
+    window.toggleEditPossibleValuesSection = toggleEditPossibleValuesSection;
+    window.addPossibleValueRow = addPossibleValueRow;
+    window.removePossibleValueRow = removePossibleValueRow;
+    window.addEditPossibleValueRow = addEditPossibleValueRow;
+    window.removeEditPossibleValueRow = removeEditPossibleValueRow;
     
     // Tracks exports
     window.selectTrack = selectTrack;
