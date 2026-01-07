@@ -12,19 +12,24 @@
 
     <!-- Main content positioned after menu and context buttons -->
     <div class="students-content">
-        <div class="content-card">
+        <div class="content-header">
 
-            <div class="d-flex justify-between align-center mb-4">
-                <div>
-                    <h1 class="page-title">רשימת בתי ספר</h1>
-                    <p class="page-subtitle">ניהול ומעקב אחר בתי הספר במערכת</p>
-                </div>
-                <button class="btn-icon" title="הוספת בית ספר חדש" onclick="schoolManagement.showAddSchoolModal()">
+            
+             
+                    <div class="page-title-container">
+                        <div class="page-title">רשימת בתי ספר</div>
+                        
+                        <div id="schoolListYearDisplay" class="text-branded" style="text-align: center;">צצצצ</div>
+                        <div class="left-spacer"></div>
+                    </div>
+
+            <div class="header-actions">
+                            <button class="btn-icon" title="הוספת בית ספר חדש" onclick="schoolManagement.showAddSchoolModal()">
 
 
-                    <img src="Plus icon.png" alt="הוספת בית ספר חדש" class="action-icon-natural">
+                                <img src="Plus icon.png" alt="הוספת בית ספר חדש" class="action-icon-natural">
 
-                </button>
+                            </button>
             </div>
 
             <!-- Schools table - ReusableTable component -->
@@ -145,18 +150,18 @@
 
             console.log('📅 Year value from SessionState:', yearValue);
 
-            const pageTitleElement = document.querySelector('.page-title');
-            if (pageTitleElement && yearValue) {
-                pageTitleElement.textContent = `רשימת בתי ספר - שנת לימודים ${yearValue}`;
+            const yearElement = document.getElementById('schoolListYearDisplay');
+            if (yearElement && yearValue) {
+                yearElement.textContent = yearValue;
                 console.log('✅ Page title updated via SessionState');
-            } else if (pageTitleElement) {
-                pageTitleElement.textContent = 'רשימת בתי ספר';
+            } else if (yearElement) {
+                yearElement.textContent = '';
             }
         } catch (error) {
             console.error('❌ Error updating page title:', error);
-            const pageTitleElement = document.querySelector('.page-title');
-            if (pageTitleElement) {
-                pageTitleElement.textContent = 'רשימת בתי ספר';
+            const yearElement = document.getElementById('schoolListYearDisplay');
+            if (yearElement) {
+                yearElement.textContent = '';
             }
         }
     }

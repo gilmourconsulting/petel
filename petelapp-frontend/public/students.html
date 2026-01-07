@@ -10,8 +10,7 @@
         <button class="context-btn" onclick="showUploadDialog()">
             העלאת קובץ תלמידים
         </button>
-        <button class="context-btn" onclick="calculateBulkStudentPricing()"
-            style="background-color: #151c31; border-color: #28a745;">
+        <button class="context-btn" onclick="calculateBulkStudentPricing()">
             תמחור לכל התלמידים
         </button>
     </div>
@@ -19,7 +18,10 @@
     <!-- Main content area -->
     <div class="students-content">
         <div class="content-card">
-            <h2 id="studentsTitle" class="page-title">תלמידים</h2>
+            <div class="page-title-container">
+                <h2 id="studentsTitle" class="page-title">תלמידים</h2>
+                <span id="studentsYearDisplay" class="text-branded"></span>
+            </div>
 
             <!-- Students summary info -->
             <div class="students-summary">
@@ -785,6 +787,8 @@ function showUploadDialog() {
             const hebrewYear = await window.SessionState.getProperty('SelectedYearValue');
 
             const titleElement = document.getElementById('studentsTitle');
+            const yearElement = document.getElementById('studentsYearDisplay');
+            
             if (titleElement) {
                 let titleText = 'תלמידים';
 
@@ -792,12 +796,12 @@ function showUploadDialog() {
                     titleText = `תלמידים - ${schoolName}`;
                 }
 
-                if (hebrewYear) {
-                    titleText += ` - ${hebrewYear}`;
-                }
-
                 titleElement.textContent = titleText;
                 console.log('✅ Page title updated:', titleText);
+            }
+            
+            if (yearElement && hebrewYear) {
+                yearElement.textContent = hebrewYear;
             }
         } catch (error) {
             console.error('❌ Error updating page title:', error);

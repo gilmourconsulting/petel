@@ -6,7 +6,10 @@
     <!-- Main content area -->
     <div class="students-content">
         <div class="content-card">
-            <h2 id="studentTitle" class="page-title">פרטי התלמיד</h2>
+            <div class="page-title-container">
+                <h2 id="studentTitle" class="page-title">פרטי התלמיד</h2>
+                <span id="studentYearDisplay" class="text-branded"></span>
+            </div>
 
 
             <!-- Students table - ReusableTable component -->
@@ -1137,9 +1140,24 @@ window.updatePricingSummary = updatePricingSummary;
         }
     }
 
+    // Update page title with year
+    async function updateStudentPageTitle() {
+        try {
+            const selectedYearValue = await window.SessionState.getProperty('SelectedYearValue');
+            const yearDisplay = document.getElementById('studentYearDisplay');
+            if (yearDisplay && selectedYearValue) {
+                yearDisplay.textContent = selectedYearValue;
+            }
+        } catch (error) {
+            console.error('❌ Error updating page title:', error);
+        }
+    }
+
     // Load selected student data from session storage following Authentication & Session Management
 
     async function loadStudentData() {
+        // Update year display first
+        await updateStudentPageTitle();
         console.log('🔄 Loading selected student data from SessionState...');
 
         try {
@@ -1402,6 +1420,7 @@ window.updatePricingSummary = updatePricingSummary;
 
 
     // Add to window exports following Cross-Component Communication
+    window.updateStudentPageTitle = updateStudentPageTitle;
     window.loadStudentData = loadStudentData;
     window.createStudentsTable = createStudentsTable;
     window.loadReusableTableComponentForStudents = loadReusableTableComponentForStudents;

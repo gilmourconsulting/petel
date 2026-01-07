@@ -13,7 +13,10 @@
     <!-- Main content area -->
     <div class="students-content">
         <div class="content-card">
-            <h2 id="councilStudentsTitle" class="page-title">תלמידי רשות - <span id="councilNameDisplay"></span></h2>
+            <div class="page-title-container">
+                <h2 class="page-title">תלמידי רשות - <span id="councilNameDisplay"></span></h2>
+                <span id="councilYearDisplay" class="text-branded"></span>
+            </div>
             
             <!-- Students summary info -->
             <div class="students-summary">
@@ -96,8 +99,14 @@ async function loadCouncilStudentsData() {
 
         // Update page title
         const councilNameDisplay = document.getElementById('councilNameDisplay');
+        const councilYearDisplay = document.getElementById('councilYearDisplay');
+        const selectedYearValue = await window.SessionState.getProperty('SelectedYearValue');
+        
         if (councilNameDisplay) {
             councilNameDisplay.textContent = councilName || councilId;
+        }
+        if (councilYearDisplay && selectedYearValue) {
+            councilYearDisplay.textContent = selectedYearValue;
         }
 
         // Show loading indicator

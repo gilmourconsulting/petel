@@ -371,16 +371,39 @@ body {
     margin-bottom: 30px;
 }
 
+.page-title-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-bottom: 8px;
+    gap: 20px;
+}
+
 .page-title {
     font-size: var(--font-size-xxl);
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 8px;
+    margin: 0;
+    text-align: right;
+    flex: 1;
 }
 
 .page-subtitle {
     color: var(--text-muted);
     font-size: var(--font-size-medium);
+}
+
+.left-spacer {
+    flex: 1;
+  visibility: hidden; /* Makes the third part invisible */
+}
+
+.header-actions {
+
+    align-items: left;
+    display: flex;
+    padding-bottom: 15px;
 }
 
 .content-card {

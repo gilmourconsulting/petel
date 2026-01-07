@@ -1,6 +1,9 @@
 <!-- School Title Section -->
 <div class="school-title-section">
-    <h1 class="page-title" id="schoolTitle">ניהול תלמידי חוץ</h1>
+    <div class="page-title-container">
+        <h1 class="page-title" id="schoolTitle">ניהול תלמידי חוץ</h1>
+        <span id="schoolDetailsYearDisplay" class="text-branded"></span>
+    </div>
 </div>
 <div class="students-container">
     <!-- Context buttons - LEFT SIDE POSITIONING -->
@@ -170,11 +173,15 @@
                 console.log('🏫 School context:', { schoolName, yearValue });
 
                 const titleElement = document.getElementById('schoolTitle');
+                const yearElement = document.getElementById('schoolDetailsYearDisplay');
+                
                 if (titleElement) {
-                    titleElement.textContent = yearValue
-                        ? `${schoolName} - ${yearValue}`
-                        : schoolName;
+                    titleElement.textContent = schoolName;
                     console.log('✅ School title updated via SessionState');
+                }
+                
+                if (yearElement && yearValue) {
+                    yearElement.textContent = yearValue;
                 }
 
             } catch (error) {
