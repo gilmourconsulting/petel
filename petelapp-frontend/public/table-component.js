@@ -409,7 +409,7 @@ class ReusableTable {
         const tableHTML = `
         <div class="table-container" dir="rtl">
             <table class="data-table">
-                <thead>
+                <thead style="background: var(--bar-background); color: var(--bar-text-color);">
                     <tr>
                         ${visibleColumns.map(col => {
             console.log('Rendering header for column:', col.key, col.label);
@@ -420,7 +420,7 @@ class ReusableTable {
 
             return `
                                 <th data-column="${col.key}" 
-                                    style="${hideStyle}${col.sortable ? 'cursor: pointer;' : ''}"
+                                    style="background: var(--bar-background); color: var(--bar-text-color); ${hideStyle}${col.sortable ? 'cursor: pointer;' : ''}"
                                     ${col.sortable ? '' : ''}>
                                     ${col.label}
                                     ${col.sortable ? '<span class="sort-indicator"></span>' : ''}
