@@ -43,7 +43,7 @@ body {
 .system-logo-section {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 150px;
 }
 
 .system-logo {
@@ -138,9 +138,9 @@ body {
     flex-direction: column;
     align-items: flex-start;
     padding: var(--button-padding);
-    background: var(--bar-hover-background);
+    /*background: var(--bar-hover-background);
     border-radius: var(--border-radius);
-    border: 1px solid var(--bar-border-color);
+    border: 1px solid var(--bar-border-color);*/
 }
 
 .user-name {
@@ -180,7 +180,7 @@ body {
     color: var(--bar-text-color);
     padding: 8px 20px;
     text-align: center;
-    font-size: 12px;
+    font-size: 18px;
     border-top: 1px solid #444;
     z-index: 999;
     box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
@@ -188,6 +188,21 @@ body {
 
 .footer-content {
     direction: rtl;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.footer-content .system-logo {
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+}
+
+.footer-content .system-logo img {
+    height: 40px;
+    width: auto;
 }
 
 #systemVersion {
@@ -200,10 +215,10 @@ body {
 .main-container {
     display: flex;
     flex-direction: row-reverse;
-    height: calc(100vh - 70px - 35px);
-    /* 70px top bar + 35px footer */
+    height: calc(100vh - 16.67vh - 40px);
+    /* 16.67vh top bar + 40px footer (with borders and padding) */
     overflow: hidden;
-
+    margin-bottom: 0;
 }
 
 /* Side Menu */
@@ -347,8 +362,9 @@ body {
     padding: 30px;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-bottom: 20px;
-    /* Extra padding at bottom for breathing room */
+    padding-bottom: 30px;
+    /* Extra padding at bottom for breathing room before footer */
+    max-height: 100%;
 }
 
 .content-header {
@@ -582,7 +598,7 @@ body {
     gap: 18px;
     padding: 18px 8px;
     box-sizing: border-box;
-    background: var(--context-section-background);
+    /*background: var(--context-section-background);
     border-radius: var(--border-radius-large);
     box-shadow: var(--box-shadow-light);
     margin: 24px 0 0 0;

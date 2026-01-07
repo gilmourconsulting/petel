@@ -197,8 +197,8 @@
                 <div class="system-logo-section">
                     <div class="system-logo" style="cursor: pointer;" onclick="navigateToMainDashboard()"
                         title="חזור למסך הראשי">
-                        <img src="petel_logo.png" alt="לוגו המערכת" style="transition: opacity 0.2s;"
-                            onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'" />
+                        <img src="images/nativ-logo.png" alt="לוגו המערכת" style="transition: opacity 0.2s; width: 175px; height: auto; gap: 100px;"
+                            onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='12'" />
                     </div>
                     <div class="system-info">
                         <div class="app-title">מערכת לניהול תלמידי חוץ</div>
@@ -214,6 +214,13 @@
             </div>
             <!-- Right Side: Entity Info and Current User -->
             <div class="top-bar-right">
+
+                <div class="user-section">
+                    <div class="user-name" id="userName">שם המשתמש</div>
+                    <div class="user-role" id="userRole">תפקיד</div>
+                </div>
+
+
                 <div class="entity-section">
                     <div class="entity-logo" id="entityLogo">🏢</div>
                     <div class="entity-info">
@@ -222,12 +229,8 @@
                     </div>
                 </div>
 
-                <div class="user-section">
-                    <div class="user-name" id="userName">שם המשתמש</div>
-                    <div class="user-role" id="userRole">תפקיד</div>
-                </div>
 
-                <button class="logout-btn" onclick="logout()">יציאה</button>
+                <button class="logout-btn" onclick="logout()">🚪 יציאה</button>
             </div>
         </div>
 

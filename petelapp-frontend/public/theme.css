@@ -24,7 +24,7 @@
     --font-size-xxl: 28px;
 
     /* Bar Colors (Top Bar) */
-    --bar-background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --bar-background: linear-gradient(135deg, #764ba2  0%, #667eea 100%);
     --bar-text-color: white;
     --bar-text-opacity: 0.9;
     --bar-border-color: rgba(255, 255, 255, 0.3);
@@ -69,6 +69,7 @@
     --text-secondary: #555;
     --text-muted: #666;
     --text-light: #999;
+    --text-branded:#764ba2;
     --text-accent: var(--button-primary-color);
 
     /* Interactive States */
