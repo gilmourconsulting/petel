@@ -100,12 +100,20 @@
     background: linear-gradient(135deg, #c46424 0%, #a04812 100%);
     color: var(--context-btn-text);
     border: none;
-    padding: 8px 16px;
+    padding: 8px 8px;
     border-radius: var(--border-radius);
-    font-size: var(--font-size-base);
-    font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
+    width: 100%;
+    min-width: 100px;
+    height: 48px;
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-medium);
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--button-transition);
+    box-shadow: var(--box-shadow-light);
+    margin: 0 !important;
     /*box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);*/
 }
 
@@ -441,14 +449,14 @@
 .detail-card {
     background: var(--card-background);
     border-radius: var(--card-border-radius);
-    margin-bottom: 20px;
+    margin-bottom: 5px;
     box-shadow: var(--card-shadow);
     overflow: hidden;
     transition: var(--button-transition);
 }
 
 .detail-card-header {
-    padding: 15px 20px;
+    padding: 5px 20px;
     background: var(--hover-background-light);
     border-bottom: 1px solid var(--border-color);
     display: flex;
@@ -463,7 +471,7 @@
 }
 
 .detail-card-title {
-    font-size: var(--font-size-large);
+    font-size: var(--font-size-medium);
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
@@ -478,10 +486,10 @@
 .collapse-toggle {
     background: none;
     border: 1px solid var(--border-color);
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    border-radius: 25%;
+    font-size: 16px;
     line-height: 1;
     cursor: pointer;
     transition: var(--button-transition);
@@ -505,7 +513,7 @@
 
 .detail-card.expanded .detail-card-content {
     max-height: 2000px;
-    padding: 20px;
+    padding: 5px;
 }
 
 .detail-card.collapsed .detail-card-content {

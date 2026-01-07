@@ -1,31 +1,47 @@
 <!-- filepath: c:\dev\PetelFullApp\petelapp-frontend\public\student.html -->
 
-<link rel="stylesheet" href="student.css">
+<!--    <link rel="stylesheet" href="student.css">-->
 
 <div class="students-container">
+
+    <div class="context-buttons-section">
+        <button class="context-btn" id="backToSourceBtn" onclick="navigateBackToSource()">
+            חזרה לרשימה
+        </button>
+        <button class="context-btn" onclick="navigateToSchoolDashboard()">
+            חזרה לבית ספר
+        </button>
+        <button class="context-btn" onclick="navigateToSchoolList()">
+            רשימת בתי ספר
+        </button>
+    </div>
+
     <!-- Main content area -->
     <div class="students-content">
-        <div class="content-card">
+        <div class="content-header">
             <div class="page-title-container">
-                <h2 id="studentTitle" class="page-title">פרטי התלמיד</h2>
-                <span id="studentYearDisplay" class="text-branded"></span>
+                <div id="studentTitle" class="page-title">פרטי התלמיד</div>
+                <div id="studentYearDisplay" class="text-branded" style="text-align: center;"></div>
+                <div class="left-spacer"></div>
             </div>
 
 
             <!-- Students table - ReusableTable component -->
-            <div class="students-table-section">
-                <h3 class="section-title">פרטי התלמיד</h3>
-                <button class="btn-icon" onclick="viewStudentPricingFromSection()" title="צפייה ברכיבי תמחור">
-                    <img src="stats_icon.png" alt="תמחור" class="action-icon-natural">
-                    <span style="margin-right: 5px;">רכיבי תמחור</span>
-                </button>
-                <button class="btn-icon" onclick="calculateStudentPricingFromSection()" title="חישוב רכיבי תמחור">
-                    <img src="Plus icon.png" alt="חשב" class="action-icon-natural">
-                    <span style="margin-right: 5px;">חשב תמחור</span>
-                </button>
-                <div id="studentsTableContainer">
-                    <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
-                        טוען נתוני תלמידים...
+            <div class="content-card">
+                <div class="students-table-section">
+                    <h3 class="section-title">פרטי התלמיד</h3>
+                    <button class="btn-icon" onclick="viewStudentPricingFromSection()" title="צפייה ברכיבי תמחור">
+                        <img src="stats_icon.png" alt="תמחור" class="action-icon-natural">
+                        <span style="margin-right: 5px;">רכיבי תמחור</span>
+                    </button>
+                    <button class="btn-icon" onclick="calculateStudentPricingFromSection()" title="חישוב רכיבי תמחור">
+                        <img src="Plus icon.png" alt="חשב" class="action-icon-natural">
+                        <span style="margin-right: 5px;">חשב תמחור</span>
+                    </button>
+                    <div id="studentsTableContainer">
+                        <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
+                            טוען נתוני תלמידים...
+                        </div>
                     </div>
                 </div>
             </div>
@@ -87,30 +103,19 @@
                     </div>
                 </div>
             </div>
-
-            <div class="documents-table-section">
-                <h3 class="section-title">רשימת מסמכים</h3>
-                <div id="documentsTableContainer">
-                    <!-- Documents table will be loaded here by documents_table.js -->
+            <div class="content-card">
+                <div class="documents-table-section">
+                    <h3 class="section-title">רשימת מסמכים</h3>
+                    <div id="documentsTableContainer">
+                        <!-- Documents table will be loaded here by documents_table.js -->
+                    </div>
                 </div>
             </div>
-
         </div>
     </div>
-
-    <!-- Simplified context buttons -->
-    <div class="context-buttons-section students-context">
-        <button class="context-btn" id="backToSourceBtn" onclick="navigateBackToSource()">
-            חזרה לרשימה
-        </button>
-        <button class="context-btn" onclick="navigateToSchoolDashboard()">
-            חזרה לבית ספר
-        </button>
-        <button class="context-btn" onclick="navigateToSchoolList()">
-            רשימת בתי ספר
-        </button>
-    </div>
 </div>
+<!-- Simplified context buttons -->
+
 
 <script src="documents-table.js"></script>
 
@@ -433,22 +438,22 @@
             if (result.success) {
                 // Ensure data object exists
                 const data = result.data || result;
-                
+
                 // ✅ Check if no changes were detected
                 if (data.noChangeDetected) {
                     console.log('ℹ️ No pricing changes detected:', data);
 
                     let message = `✅ חישוב התמחור הושלם בהצלחה!\n\n`;
                     message += `ℹ️ לא התגלו שינויים ברכיבי התמחור\n`;
-                    
+
                     if (data.elementsCount !== undefined) {
                         message += `📊 ${data.elementsCount} רכיבי תמחור תקפים\n`;
                     }
-                    
+
                     if (data.totalPrice !== undefined) {
                         message += `💰 סכום כולל: ₪${data.totalPrice.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
                     }
-                    
+
                     message += `\nהנתונים הקיימים עדיין תקפים - לא נוצרה גרסה חדשה.`;
 
                     alert(message);
@@ -474,11 +479,11 @@
 
                     // Show success message with details
                     let message = `✅ חישוב התמחור הושלם בהצלחה!\n\n`;
-                    
+
                     if (data.elementsCount !== undefined) {
                         message += `📊 ${data.elementsCount} רכיבי תמחור חושבו\n`;
                     }
-                    
+
                     if (data.totalPrice !== undefined) {
                         message += `💰 סכום כולל: ₪${data.totalPrice.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
                     }
@@ -744,213 +749,213 @@
         document.head.appendChild(script);
     }
 
- // Initialize pricing table
-function initializePricingTable(responseData) {
-    console.log('🔧 Initializing pricing ReusableTable with data:', responseData);
+    // Initialize pricing table
+    function initializePricingTable(responseData) {
+        console.log('🔧 Initializing pricing ReusableTable with data:', responseData);
 
-    // ✅ Extract data and summary from response
-    const data = responseData.data || responseData;
-    const summary = responseData.summary || {};
+        // ✅ Extract data and summary from response
+        const data = responseData.data || responseData;
+        const summary = responseData.summary || {};
 
-    if (!data || data.length === 0) {
-        const container = document.getElementById('pricingTableContainer');
-        if (container) {
-            container.innerHTML = '<div class="empty-state">לא נמצאו רכיבי תמחור לתלמיד זה</div>';
-        }
-
-        // Clear totals
-        updatePricingSummary(0, 0, null);
-        return;
-    }
-
-    const columns = [
-        { key: 'id', label: 'מזהה', sortable: true, readOnly: true, hidden: true },
-        { key: 'pricingElementName', label: 'רכיב תמחור', sortable: true, readOnly: true },
-        {
-            key: 'price',
-            label: 'סכום',
-            sortable: true,
-            readOnly: true,
-            render: (item) => `₪${item.price.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-        },
-        {
-            key: 'determiningFactor',
-            label: 'גורם לחישוב',
-            sortable: true,
-            readOnly: true,
-            render: (item) => item.determiningFactor || '-'
-        },
-        {
-            key: 'hours',
-            label: 'שעות',
-            sortable: true,
-            readOnly: true,
-            render: (item) => item.hours != null ? item.hours : '-'
-        }
-    ];
-
-    try {
-        const pricingTable = new ReusableTable('pricingTableContainer', {
-            tableName: 'pricing',
-            isReadOnly: true,
-            allowAdd: false,
-            allowEdit: false,
-            allowDelete: false
-        });
-
-        console.log('✅ Pricing ReusableTable instance created');
-
-        pricingTable.init(data, columns);
-
-        console.log('✅ Pricing ReusableTable initialized successfully with', data.length, 'elements');
-
-        // ✅ Update summary with detailed information
-        const elementsTotal = summary.elementsTotal || data.reduce((sum, item) => sum + (item.price || 0), 0);
-        const studentCost = summary.studentCost || elementsTotal;
-        const enrollmentMonths = summary.enrollmentMonths;
-
-        updatePricingSummary(elementsTotal, studentCost, enrollmentMonths);
-
-    } catch (error) {
-        console.error('❌ Error creating pricing ReusableTable:', error);
-        showPricingTableError('שגיאה ביצירת טבלת התמחור');
-    }
-}
-
-// ✅ NEW: Update pricing summary section with detailed information
-function updatePricingSummary(elementsTotal, studentCost, enrollmentMonths) {
-    // Update elements total (smaller font)
-    const elementsTotalElement = document.getElementById('pricingElementsTotal');
-    if (elementsTotalElement) {
-        elementsTotalElement.textContent = `₪${elementsTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-
-    // Update enrollment months
-    const enrollmentMonthsElement = document.getElementById('enrollmentMonths');
-    const enrollmentContainer = document.getElementById('enrollmentMonthsContainer');
-    if (enrollmentMonthsElement && enrollmentContainer) {
-        if (enrollmentMonths != null) {
-            enrollmentMonthsElement.textContent = `${enrollmentMonths} חודשים`;
-            enrollmentContainer.style.display = 'block';
-        } else {
-            enrollmentContainer.style.display = 'none';
-        }
-    }
-
-    // Update final cost (large font)
-    const totalElement = document.getElementById('pricingTotalAmount');
-    if (totalElement) {
-        totalElement.textContent = `₪${studentCost.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-
-    console.log('✅ Pricing summary updated:', {
-        elementsTotal,
-        studentCost,
-        enrollmentMonths
-    });
-}
-
-// Update the existing createPricingTable function to pass the full response
-function createPricingTable(responseData) {
-    console.log('📊 Creating pricing table with ReusableTable component');
-
-    if (typeof ReusableTable === 'undefined') {
-        console.log('⚠️ ReusableTable not loaded, loading component...');
-        loadReusableTableComponentForPricing(responseData);
-        return;
-    }
-
-    initializePricingTable(responseData);
-}
-
-// Update loadReusableTableComponentForPricing to pass response data
-function loadReusableTableComponentForPricing(responseData) {
-    const existingScript = document.querySelector('script[src="table-component.js"]');
-    if (existingScript) {
-        console.log('table-component.js already loaded, waiting for ReusableTable...');
-        setTimeout(() => {
-            if (typeof ReusableTable !== 'undefined') {
-                initializePricingTable(responseData);
-            } else {
-                showPricingTableError('שגיאה בטעינת רכיב הטבלה');
+        if (!data || data.length === 0) {
+            const container = document.getElementById('pricingTableContainer');
+            if (container) {
+                container.innerHTML = '<div class="empty-state">לא נמצאו רכיבי תמחור לתלמיד זה</div>';
             }
-        }, 500);
-        return;
-    }
 
-    const script = document.createElement('script');
-    script.src = 'table-component.js';
-    script.onload = () => {
-        console.log('✅ table-component.js loaded for pricing');
-        setTimeout(() => {
-            initializePricingTable(responseData);
-        }, 100);
-    };
-    script.onerror = () => {
-        console.error('❌ Failed to load table-component.js');
-        showPricingTableError('שגיאה בטעינת רכיב הטבלה');
-    };
-    document.head.appendChild(script);
-}
-
-// Update viewStudentPricing to pass full result
-async function viewStudentPricing(studentId, studentName) {
-    console.log('💰 Viewing pricing elements for student:', studentId);
-
-    try {
-        // Show modal
-        const modal = document.getElementById('pricingModal');
-        const studentNameSpan = document.getElementById('pricingStudentName');
-        const container = document.getElementById('pricingTableContainer');
-
-        if (!modal || !studentNameSpan || !container) {
-            console.error('❌ Modal elements not found');
+            // Clear totals
+            updatePricingSummary(0, 0, null);
             return;
         }
 
-        // Set student name
-        studentNameSpan.textContent = studentName;
-
-        // Show loading
-        container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
-        modal.style.display = 'flex';
-
-        // Fetch pricing data
-        const token = window.sessionManager.getToken();
-        if (!token) {
-            throw new Error('No authentication token found');
-        }
-
-        const response = await fetch(AppConfig.getApiUrl(`studentpricing/${studentId}`), {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
+        const columns = [
+            { key: 'id', label: 'מזהה', sortable: true, readOnly: true, hidden: true },
+            { key: 'pricingElementName', label: 'רכיב תמחור', sortable: true, readOnly: true },
+            {
+                key: 'price',
+                label: 'סכום',
+                sortable: true,
+                readOnly: true,
+                render: (item) => `₪${item.price.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            },
+            {
+                key: 'determiningFactor',
+                label: 'גורם לחישוב',
+                sortable: true,
+                readOnly: true,
+                render: (item) => item.determiningFactor || '-'
+            },
+            {
+                key: 'hours',
+                label: 'שעות',
+                sortable: true,
+                readOnly: true,
+                render: (item) => item.hours != null ? item.hours : '-'
             }
-        });
+        ];
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        try {
+            const pricingTable = new ReusableTable('pricingTableContainer', {
+                tableName: 'pricing',
+                isReadOnly: true,
+                allowAdd: false,
+                allowEdit: false,
+                allowDelete: false
+            });
+
+            console.log('✅ Pricing ReusableTable instance created');
+
+            pricingTable.init(data, columns);
+
+            console.log('✅ Pricing ReusableTable initialized successfully with', data.length, 'elements');
+
+            // ✅ Update summary with detailed information
+            const elementsTotal = summary.elementsTotal || data.reduce((sum, item) => sum + (item.price || 0), 0);
+            const studentCost = summary.studentCost || elementsTotal;
+            const enrollmentMonths = summary.enrollmentMonths;
+
+            updatePricingSummary(elementsTotal, studentCost, enrollmentMonths);
+
+        } catch (error) {
+            console.error('❌ Error creating pricing ReusableTable:', error);
+            showPricingTableError('שגיאה ביצירת טבלת התמחור');
         }
-
-        const result = await response.json();
-
-        if (result.success) {
-            console.log('✅ Pricing data loaded:', result);
-            // ✅ Pass the full result object with summary data
-            createPricingTable(result);
-        } else {
-            throw new Error(result.message || 'Failed to load pricing data');
-        }
-
-    } catch (error) {
-        console.error('❌ Error loading pricing elements:', error);
-        showPricingTableError('שגיאה בטעינת נתוני תמחור');
     }
-}
 
-// Export new function
-window.updatePricingSummary = updatePricingSummary;
+    // ✅ NEW: Update pricing summary section with detailed information
+    function updatePricingSummary(elementsTotal, studentCost, enrollmentMonths) {
+        // Update elements total (smaller font)
+        const elementsTotalElement = document.getElementById('pricingElementsTotal');
+        if (elementsTotalElement) {
+            elementsTotalElement.textContent = `₪${elementsTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+
+        // Update enrollment months
+        const enrollmentMonthsElement = document.getElementById('enrollmentMonths');
+        const enrollmentContainer = document.getElementById('enrollmentMonthsContainer');
+        if (enrollmentMonthsElement && enrollmentContainer) {
+            if (enrollmentMonths != null) {
+                enrollmentMonthsElement.textContent = `${enrollmentMonths} חודשים`;
+                enrollmentContainer.style.display = 'block';
+            } else {
+                enrollmentContainer.style.display = 'none';
+            }
+        }
+
+        // Update final cost (large font)
+        const totalElement = document.getElementById('pricingTotalAmount');
+        if (totalElement) {
+            totalElement.textContent = `₪${studentCost.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        }
+
+        console.log('✅ Pricing summary updated:', {
+            elementsTotal,
+            studentCost,
+            enrollmentMonths
+        });
+    }
+
+    // Update the existing createPricingTable function to pass the full response
+    function createPricingTable(responseData) {
+        console.log('📊 Creating pricing table with ReusableTable component');
+
+        if (typeof ReusableTable === 'undefined') {
+            console.log('⚠️ ReusableTable not loaded, loading component...');
+            loadReusableTableComponentForPricing(responseData);
+            return;
+        }
+
+        initializePricingTable(responseData);
+    }
+
+    // Update loadReusableTableComponentForPricing to pass response data
+    function loadReusableTableComponentForPricing(responseData) {
+        const existingScript = document.querySelector('script[src="table-component.js"]');
+        if (existingScript) {
+            console.log('table-component.js already loaded, waiting for ReusableTable...');
+            setTimeout(() => {
+                if (typeof ReusableTable !== 'undefined') {
+                    initializePricingTable(responseData);
+                } else {
+                    showPricingTableError('שגיאה בטעינת רכיב הטבלה');
+                }
+            }, 500);
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = 'table-component.js';
+        script.onload = () => {
+            console.log('✅ table-component.js loaded for pricing');
+            setTimeout(() => {
+                initializePricingTable(responseData);
+            }, 100);
+        };
+        script.onerror = () => {
+            console.error('❌ Failed to load table-component.js');
+            showPricingTableError('שגיאה בטעינת רכיב הטבלה');
+        };
+        document.head.appendChild(script);
+    }
+
+    // Update viewStudentPricing to pass full result
+    async function viewStudentPricing(studentId, studentName) {
+        console.log('💰 Viewing pricing elements for student:', studentId);
+
+        try {
+            // Show modal
+            const modal = document.getElementById('pricingModal');
+            const studentNameSpan = document.getElementById('pricingStudentName');
+            const container = document.getElementById('pricingTableContainer');
+
+            if (!modal || !studentNameSpan || !container) {
+                console.error('❌ Modal elements not found');
+                return;
+            }
+
+            // Set student name
+            studentNameSpan.textContent = studentName;
+
+            // Show loading
+            container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
+            modal.style.display = 'flex';
+
+            // Fetch pricing data
+            const token = window.sessionManager.getToken();
+            if (!token) {
+                throw new Error('No authentication token found');
+            }
+
+            const response = await fetch(AppConfig.getApiUrl(`studentpricing/${studentId}`), {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (result.success) {
+                console.log('✅ Pricing data loaded:', result);
+                // ✅ Pass the full result object with summary data
+                createPricingTable(result);
+            } else {
+                throw new Error(result.message || 'Failed to load pricing data');
+            }
+
+        } catch (error) {
+            console.error('❌ Error loading pricing elements:', error);
+            showPricingTableError('שגיאה בטעינת נתוני תמחור');
+        }
+    }
+
+    // Export new function
+    window.updatePricingSummary = updatePricingSummary;
     // Show error in pricing table
     function showPricingTableError(message) {
         const container = document.getElementById('pricingTableContainer');

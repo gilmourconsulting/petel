@@ -13,25 +13,22 @@
     <!-- Main content positioned after menu and context buttons -->
     <div class="students-content">
         <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">רשימת בתי ספר</div>
 
-            
-             
-                    <div class="page-title-container">
-                        <div class="page-title">רשימת בתי ספר</div>
-                        
-                        <div id="schoolListYearDisplay" class="text-branded" style="text-align: center;">צצצצ</div>
-                        <div class="left-spacer"></div>
-                    </div>
-
-            <div class="header-actions">
-                            <button class="btn-icon" title="הוספת בית ספר חדש" onclick="schoolManagement.showAddSchoolModal()">
-
-
-                                <img src="Plus icon.png" alt="הוספת בית ספר חדש" class="action-icon-natural">
-
-                            </button>
+                <div id="schoolListYearDisplay" class="text-branded" style="text-align: center;">צצצצ</div>
+                <div class="left-spacer"></div>
             </div>
+            <div class="content-card">
+            <div class="header-actions">
+                <button class="btn-icon" title="הוספת בית ספר חדש" onclick="schoolManagement.showAddSchoolModal()">
 
+
+                    <img src="Plus icon.png" alt="הוספת בית ספר חדש" class="action-icon-natural">
+
+                </button>
+            </div>
+<div class="content-card">
             <!-- Schools table - ReusableTable component -->
             <div class="schools-table-section">
                 <!-- Table container for TableComponent with horizontal scrolling -->
@@ -40,6 +37,8 @@
                     <div class="loading-spinner">
                         <p>טוען רשימת בתי ספר...</p>
                     </div>
+                </div>
+                </div>
                 </div>
             </div>
         </div>

@@ -178,7 +178,7 @@ body {
     right: 0;
     background: var(--bar-background);
     color: var(--bar-text-color);
-    padding: 8px 20px;
+    padding: 2px 15px;
     text-align: center;
     font-size: 18px;
     border-top: 1px solid #444;
@@ -206,7 +206,7 @@ body {
 }
 
 #systemVersion {
-    font-weight: 600;
+
     color: var(--bar-text-color);
 }
 
@@ -215,8 +215,8 @@ body {
 .main-container {
     display: flex;
     flex-direction: row-reverse;
-    height: calc(100vh - 16.67vh - 40px);
-    /* 16.67vh top bar + 40px footer (with borders and padding) */
+    height: calc(100vh - 16.67vh - 30px);
+    /* 16.67vh top bar + 30px footer (with borders and padding) */
     overflow: hidden;
     margin-bottom: 0;
 }
@@ -381,7 +381,7 @@ body {
 }
 
 .page-title {
-    font-size: var(--font-size-xxl);
+    font-size: var(--font-size-xl);
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
@@ -829,7 +829,7 @@ body {
     /* Prevent context buttons from shrinking */
 }
 
-.schoolyear-context .context-btn {
+/*.schoolyear-context .context-btn {
     width: 100%;
     min-width: 100px;
     height: 48px;
@@ -840,41 +840,10 @@ body {
     transition: var(--button-transition);
     box-shadow: var(--box-shadow-light);
     margin: 0 !important;
-    /* Override inline styles */
-}
+    /* Override inline styles 
+}*/
 
-/* Responsive for school year page */
-@media (max-width: 900px) {
-    .schoolyear-container {
-        flex-direction: column;
-    }
 
-    .schoolyear-content {
-        width: 100%;
-        max-width: 100%;
-    }
-
-    .schoolyear-context {
-        order: 1;
-        /* Move to top on mobile */
-        width: 100%;
-        height: auto;
-        flex-direction: row;
-        justify-content: center;
-        align-items: center;
-        margin-bottom: 12px;
-        padding: 12px 0;
-        position: static;
-        min-width: auto;
-        max-width: none;
-    }
-
-    .schoolyear-context .context-btn {
-        width: 30vw;
-        min-width: 80px;
-        margin: 0 6px !important;
-    }
-}
 
 /* Ensure content doesn't overflow */
 .schoolyear-content * {
@@ -914,10 +883,11 @@ body {
 
 .summary-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, 190px);
+    gap: 0;
     margin-bottom: 30px;
     direction: rtl;
+    justify-content: start;
 }
 
 .summary-card {
@@ -1071,7 +1041,7 @@ body {
     background-color: #0056b3;
 }
 
-/* Detail cards styling */
+/* Detail cards styling 
 .detail-card {
     background: #f8f9fa;
     border: 1px solid #dee2e6;
@@ -1079,9 +1049,9 @@ body {
     margin-bottom: 10px;
     overflow: hidden;
     transition: all 0.3s ease;
-}
+}*/
 
-.detail-card-header {
+/*.detail-card-header {
     background: #e9ecef;
     padding: 5px 15px;
     display: flex;
@@ -1107,7 +1077,7 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 50ch;
-    /* 50 character limit */
+    /* 50 character limit 
     padding-right: 10px;
 }
 
@@ -1127,7 +1097,7 @@ body {
     cursor: pointer;
     padding: 0;
     width: 24px;
-    height: 24px;
+    height: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1162,15 +1132,15 @@ body {
 .detail-card.collapsed .detail-card-content {
     max-height: 0;
     padding: 0 20px;
-}
+}*/
 
-/* Ensure action buttons don't interfere with collapse toggle */
+/* Ensure action buttons don't interfere with collapse toggle 
 .detail-card-header .btn-icon {
     z-index: 2;
     position: relative;
     flex-shrink: 0;
 }
-
+*/
 /* Enhanced detail card content for table containers following Table Horizontal Scrolling 
 .detail-card-content {
     padding: 10px;
@@ -1184,11 +1154,10 @@ body {
 /* Generic Detail Fields - System-wide styling */
 .detail-fields-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
     direction: rtl;
-    text-align: right;
-    padding: 10px;
+    display: flex;
 }
 
 .detail-section {
@@ -1209,7 +1178,7 @@ body {
 
 .detail-field {
     margin: 8px 0;
-    line-height: 1.6;
+    line-height: 1.2;
 }
 
 .detail-field-label {

@@ -211,6 +211,15 @@
 .summary-card {
     padding: 10px !important; /* Further reduced */
     border-radius: 6px !important;
+    width: 190px !important; /* Fixed width - 25% wider than previous 150px */
+    min-width: 190px !important; /* Maintain fixed size */
+    max-width: 190px !important;
+}
+
+.summary-grid {
+    gap: 12px !important; /* Remove gaps between cards */
+    grid-template-columns: repeat(auto-fill, 190px) !important; /* Fixed width columns, no growth */
+    justify-content: start !important; /* Align to start instead of stretching */
 }
 
 .summary-icon {
@@ -289,6 +298,7 @@ h3 {
     
     .system-info .app-title {
         font-size: 12px !important;
+        padding-right: 100px !important; /* Adjust for smaller space */
     }
     
     .entity-logo {

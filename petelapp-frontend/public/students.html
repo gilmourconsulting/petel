@@ -17,13 +17,14 @@
 
     <!-- Main content area -->
     <div class="students-content">
-        <div class="content-card">
+        <div class="content-header">
             <div class="page-title-container">
-                <h2 id="studentsTitle" class="page-title">תלמידים</h2>
-                <span id="studentsYearDisplay" class="text-branded"></span>
+                <div id="studentsTitle" class="page-title">תלמידים</div>
+                <div id="studentsYearDisplay" class="text-branded" style="text-align: center;"></div>
+                <div class="left-spacer"></div>
             </div>
-
-            <!-- Students summary info -->
+        </div>
+        <div class="content-card" <!-- Students summary info -->
             <div class="students-summary">
                 <div class="summary-grid">
                     <div class="summary-card">
@@ -237,43 +238,43 @@
     }
 
     // Update showUploadDialog to reset file input display
-function showUploadDialog() {
-    const modal = document.getElementById('uploadDialog');
-    if (!modal) {
-        console.error('❌ Upload modal not found in DOM');
-        return;
+    function showUploadDialog() {
+        const modal = document.getElementById('uploadDialog');
+        if (!modal) {
+            console.error('❌ Upload modal not found in DOM');
+            return;
+        }
+
+        // Reset to step 1 - with null checks
+        const fileSelectionStep = document.getElementById('fileSelectionStep');
+        const columnMappingStep = document.getElementById('columnMappingStep');
+        const uploadStatus = document.getElementById('uploadStatus');
+        const submitFileBtn = document.getElementById('submitFileBtn');
+        const uploadFileBtn = document.getElementById('uploadFileBtn');
+        const backToFileBtn = document.getElementById('backToFileBtn');
+        const uploadModalTitle = document.getElementById('uploadModalTitle');
+
+        if (fileSelectionStep) fileSelectionStep.style.display = 'block';
+        if (columnMappingStep) columnMappingStep.style.display = 'none';
+        if (uploadStatus) uploadStatus.style.display = 'none';
+        if (submitFileBtn) submitFileBtn.style.display = 'inline-block';
+        if (uploadFileBtn) uploadFileBtn.style.display = 'none';
+        if (backToFileBtn) backToFileBtn.style.display = 'none';
+        if (uploadModalTitle) uploadModalTitle.textContent = 'העלאת קובץ תלמידים';
+
+        // Reset file input
+        const fileInput = document.getElementById('studentFile');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        if (fileInput) fileInput.value = '';
+        if (fileNameDisplay) fileNameDisplay.textContent = 'לא נבחר קובץ';
+
+        selectedFile = null;
+        columnMappings = {}; // ✅ Clear mappings on fresh open
+        currentHeaders = [];
+
+        modal.style.display = 'flex';
     }
-    
-    // Reset to step 1 - with null checks
-    const fileSelectionStep = document.getElementById('fileSelectionStep');
-    const columnMappingStep = document.getElementById('columnMappingStep');
-    const uploadStatus = document.getElementById('uploadStatus');
-    const submitFileBtn = document.getElementById('submitFileBtn');
-    const uploadFileBtn = document.getElementById('uploadFileBtn');
-    const backToFileBtn = document.getElementById('backToFileBtn');
-    const uploadModalTitle = document.getElementById('uploadModalTitle');
-    
-    if (fileSelectionStep) fileSelectionStep.style.display = 'block';
-    if (columnMappingStep) columnMappingStep.style.display = 'none';
-    if (uploadStatus) uploadStatus.style.display = 'none';
-    if (submitFileBtn) submitFileBtn.style.display = 'inline-block';
-    if (uploadFileBtn) uploadFileBtn.style.display = 'none';
-    if (backToFileBtn) backToFileBtn.style.display = 'none';
-    if (uploadModalTitle) uploadModalTitle.textContent = 'העלאת קובץ תלמידים';
 
-    // Reset file input
-    const fileInput = document.getElementById('studentFile');
-    const fileNameDisplay = document.getElementById('fileNameDisplay');
-    if (fileInput) fileInput.value = '';
-    if (fileNameDisplay) fileNameDisplay.textContent = 'לא נבחר קובץ';
-    
-    selectedFile = null;
-    columnMappings = {}; // ✅ Clear mappings on fresh open
-    currentHeaders = [];
-
-    modal.style.display = 'flex';
-}
-    
 
     // Go back to file selection step - preserve mappings if same file
     function backToFileSelection() {
@@ -295,48 +296,48 @@ function showUploadDialog() {
         console.log('🔙 Returned to file selection step (mappings preserved)');
     }
 
-   
-        // Close upload dialog
+
+    // Close upload dialog
     function closeUploadDialog() {
         const modal = document.getElementById('uploadDialog');
         if (!modal) {
             console.error('❌ Upload modal not found in DOM');
             return;
         }
-        
+
         modal.style.display = 'none';
-    
+
         // Reset everything - with null checks
         const fileSelectionStep = document.getElementById('fileSelectionStep');
         const columnMappingStep = document.getElementById('columnMappingStep');
         const uploadStatus = document.getElementById('uploadStatus');
         const fileSelectionStatus = document.getElementById('fileSelectionStatus');
         const mappingStatus = document.getElementById('mappingStatus');
-        
+
         if (fileSelectionStep) fileSelectionStep.style.display = 'block';
         if (columnMappingStep) columnMappingStep.style.display = 'none';
         if (uploadStatus) uploadStatus.style.display = 'none';
         if (fileSelectionStatus) fileSelectionStatus.style.display = 'none';
         if (mappingStatus) mappingStatus.style.display = 'none';
-    
+
         // Reset file input
         const fileInput = document.getElementById('studentFile');
         if (fileInput) fileInput.value = '';
-    
+
         const fileNameDisplay = document.getElementById('fileNameDisplay');
         if (fileNameDisplay) fileNameDisplay.textContent = 'לא נבחר קובץ';
-    
+
         // Clear state variables
         selectedFile = null;
         columnMappings = {};
         currentHeaders = [];
-    
+
         // ✅ Reset modal buttons to initial state - with null checks
         const submitFileBtn = document.getElementById('submitFileBtn');
         const uploadFileBtn = document.getElementById('uploadFileBtn');
         const backToFileBtn = document.getElementById('backToFileBtn');
         const uploadModalTitle = document.getElementById('uploadModalTitle');
-        
+
         if (submitFileBtn) {
             submitFileBtn.style.display = 'inline-block';
             submitFileBtn.disabled = false;
@@ -348,7 +349,7 @@ function showUploadDialog() {
         }
         if (backToFileBtn) backToFileBtn.style.display = 'none';
         if (uploadModalTitle) uploadModalTitle.textContent = 'העלאת קובץ תלמידים';
-    
+
         // ✅ Restore original modal footer (in case it was replaced)
         const modalFooter = document.querySelector('#uploadDialog .modal-footer');
         if (modalFooter) {
@@ -788,7 +789,7 @@ function showUploadDialog() {
 
             const titleElement = document.getElementById('studentsTitle');
             const yearElement = document.getElementById('studentsYearDisplay');
-            
+
             if (titleElement) {
                 let titleText = 'תלמידים';
 
@@ -799,7 +800,7 @@ function showUploadDialog() {
                 titleElement.textContent = titleText;
                 console.log('✅ Page title updated:', titleText);
             }
-            
+
             if (yearElement && hebrewYear) {
                 yearElement.textContent = hebrewYear;
             }
