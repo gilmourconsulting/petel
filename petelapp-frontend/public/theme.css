@@ -97,6 +97,41 @@
     --ultra-minimal-padding: 8px;
     --ultra-minimal-margin: 5px;
     --ultra-minimal-card-padding: 10px;
+
+    /* ============================================
+       SEMANTIC COLORS (Added for UI Unification)
+       ============================================ */
+    --color-success: #28a745;
+    --color-warning: #ffc107;
+    --color-danger: #dc3545;
+    --color-info: #17a2b8;
+    
+    /* Brand colors (referencing existing context button colors) */
+    --color-primary: var(--button-primary-color);
+    --color-secondary: var(--context-btn-color-1);
+    --color-accent: var(--context-btn-color-2);
+    
+    /* Status colors */
+    --status-active: var(--color-success);
+    --status-inactive: var(--color-danger);
+    --status-pending: var(--color-warning);
+
+    /* ============================================
+       SPACING SCALE (Added for UI Unification)
+       ============================================ */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 15px;
+    --spacing-lg: 20px;
+    --spacing-xl: 30px;
+    --spacing-xxl: 40px;
+    
+    /* Component spacing */
+    --component-gap: var(--spacing-lg);
+    --section-gap: var(--spacing-xl);
+    --card-padding: var(--spacing-xl);
+    --card-border-radius: var(--border-radius);
+    --card-shadow: var(--box-shadow-medium);
 }
 
 /* Alternative Theme Example (uncomment to use) */
@@ -204,12 +239,7 @@
     font-size: 9px; /* Reduced from 10px */
 }
 
-/* Global minimal context button styling */
-.context-btn {
-    padding: 8px 16px; /* Reduced from default */
-    font-size: 0.9em; /* Slightly smaller */
-    margin: 0 5px; /* Reduced margin */
-}
+/* ✅ Context button styles in ui-components.css - DO NOT override here */
 
 /* Global minimal section titles */
 h2 {

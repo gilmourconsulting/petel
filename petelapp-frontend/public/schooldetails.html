@@ -4,7 +4,7 @@
 </div>
 <div class="students-container">
     <!-- Context buttons - LEFT SIDE POSITIONING -->
-    <div class="context-buttons-section screenwithtable-context">
+    <div class="context-buttons-section">
         <button class="context-btn" onclick="navigateBackToSchoolDashboard()" title="חזרה ללוח הבקרה של בית הספר">
             חזרה ללוח הבקרה של בית הספר
         </button>
@@ -434,7 +434,7 @@
                     return;
                 }
 
-                container.innerHTML = '<p style="padding: 20px;">טוען כיתות...</p>';
+                container.innerHTML = '<div class="loading-spinner">טוען כיתות...</div>';
 
                 const apiUrl = AppConfig.getApiUrl(`schoolClasses/by-school-year/${selectedSchoolYearId}`);
                 console.log('🌐 Making API call to:', apiUrl);
@@ -459,11 +459,11 @@
                 } else {
                     const errorText = await response.text();
                     console.error('❌ API Error:', response.status, errorText);
-                    container.innerHTML = `<p style="color: #721c24; padding: 20px;">שגיאה בטעינת כיתות: ${response.status}</p>`;
+                    container.innerHTML = `<div class="alert alert-danger">שגיאה בטעינת כיתות: ${response.status}</div>`;
                 }
             } catch (error) {
                 console.error('💥 Exception in loadSchoolClasses:', error);
-                container.innerHTML = '<p style="color: #721c24; padding: 20px;">שגיאה בטעינת כיתות בית הספר</p>';
+                container.innerHTML = '<div class="alert alert-danger">שגיאה בטעינת כיתות בית הספר</div>';
             }
         }
 
@@ -547,165 +547,71 @@
             }
 
             const overlay = document.createElement('div');
-            overlay.className = 'dialog-overlay';
+            overlay.className = 'modal-overlay';
 
             const dialog = document.createElement('div');
-            dialog.className = 'dialog-box';
-            dialog.style.minWidth = '400px';
+            dialog.className = 'modal-content modal-small';
 
             const options = gradeLevels.map(level =>
                 `<option value="${level}" ${classData && classData.level === level ? 'selected' : ''}>${level}</option>`
             ).join('');
 
             dialog.innerHTML = `
-        <h3 class="dialog-title">${classData ? 'עריכת כיתה' : 'הוספת כיתה חדשה'}</h3>
-        <div style="margin: 20px 0;">
-            <div style="margin-bottom: 15px;">
-                <label for="classLevel" style="display: block; margin-bottom: 5px; font-weight: 600;">שכבה:</label>
-                <select id="classLevel" style="
-                    width: 100%;
-                    padding: 8px;
-                    border: 1px solid #dee2e6;
-                    border-radius: 4px;
-                    font-size: 14px;
-                    direction: rtl;
-                ">
+        <div class="modal-header">
+            <h3>${classData ? 'עריכת כיתה' : 'הוספת כיתה חדשה'}</h3>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="classLevel">שכבה:</label>
+                <select id="classLevel" class="form-control">
                     <option value="">בחר שכבה...</option>
                     ${options}
                 </select>
             </div>
             
-            <div style="margin-bottom: 15px;">
-                <label for="classNumber" style="display: block; margin-bottom: 5px; font-weight: 600;">מספר כיתה:</label>
-                <input type="text" id="classNumber" placeholder="הזן מספר כיתה" 
-                    value="${classData ? classData.classNumber : ''}"
-                    style="
-                    width: 100%;
-                    padding: 8px;
-                    border: 1px solid #dee2e6;
-                    border-radius: 4px;
-                    font-size: 14px;
-                    direction: rtl;
-                ">
+            <div class="form-group">
+                <label for="classNumber">מספר כיתה:</label>
+                <input type="text" id="classNumber" class="form-control" placeholder="הזן מספר כיתה" 
+                    value="${classData ? classData.classNumber : ''}">
             </div>
             
-            <div style="margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; font-weight: 600;">
+            <div class="form-group">
+                <label>
                     שעת סיום:
-                    <span style="color: #6c757d; font-size: 0.85em;">(אופציונלי)</span>
+                    <span class="text-muted" style="font-size: 0.85em;">(אופציונלי)</span>
                 </label>
                 
-                <div style="display: flex; gap: 10px; align-items: center; direction: ltr;">
+                <div class="d-flex gap-2 align-center" style="direction: ltr;">
                     <!-- Hour Spinner -->
-                    <div style="display: flex; flex-direction: column; align-items: center;">
-                        <button type="button" class="time-spinner-btn" onclick="adjustTime('hour', 1)" 
-                            style="
-                            width: 40px;
-                            height: 30px;
-                            border: 1px solid #dee2e6;
-                            border-radius: 4px 4px 0 0;
-                            background: #f8f9fa;
-                            cursor: pointer;
-                            font-size: 16px;
-                            font-weight: bold;
-                        ">▲</button>
-                        
-                        <input type="text" id="endHour" value="${initialHour.toString().padStart(2, '0')}" 
-                            maxlength="2"
-                            readonly
-                            style="
-                            width: 40px;
-                            height: 40px;
-                            text-align: center;
-                            font-size: 18px;
-                            font-weight: bold;
-                            border: 1px solid #dee2e6;
-                            border-top: none;
-                            border-bottom: none;
-                        ">
-                        
-                        <button type="button" class="time-spinner-btn" onclick="adjustTime('hour', -1)"
-                            style="
-                            width: 40px;
-                            height: 30px;
-                            border: 1px solid #dee2e6;
-                            border-radius: 0 0 4px 4px;
-                            background: #f8f9fa;
-                            cursor: pointer;
-                            font-size: 16px;
-                            font-weight: bold;
-                        ">▼</button>
-                        
-                        <small style="color: #6c757d; margin-top: 4px;">שעה</small>
+                    <div class="d-flex flex-column align-center">
+                        <button type="button" class="time-spinner-btn" onclick="adjustTime('hour', 1)">▲</button>
+                        <input type="text" id="endHour" value="${initialHour.toString().padStart(2, '0')}" maxlength="2" readonly class="time-input">
+                        <button type="button" class="time-spinner-btn" onclick="adjustTime('hour', -1)">▼</button>
+                        <small class="text-muted mt-1">שעה</small>
                     </div>
                     
-                    <span style="font-size: 24px; font-weight: bold;">:</span>
+                    <span class="time-separator">:</span>
                     
                     <!-- Minute Spinner -->
-                    <div style="display: flex; flex-direction: column; align-items: center;">
-                        <button type="button" class="time-spinner-btn" onclick="adjustTime('minute', 1)"
-                            style="
-                            width: 40px;
-                            height: 30px;
-                            border: 1px solid #dee2e6;
-                            border-radius: 4px 4px 0 0;
-                            background: #f8f9fa;
-                            cursor: pointer;
-                            font-size: 16px;
-                            font-weight: bold;
-                        ">▲</button>
-                        
-                        <input type="text" id="endMinute" value="${initialMinute.toString().padStart(2, '0')}" 
-                            maxlength="2"
-                            readonly
-                            style="
-                            width: 40px;
-                            height: 40px;
-                            text-align: center;
-                            font-size: 18px;
-                            font-weight: bold;
-                            border: 1px solid #dee2e6;
-                            border-top: none;
-                            border-bottom: none;
-                        ">
-                        
-                        <button type="button" class="time-spinner-btn" onclick="adjustTime('minute', -1)"
-                            style="
-                            width: 40px;
-                            height: 30px;
-                            border: 1px solid #dee2e6;
-                            border-radius: 0 0 4px 4px;
-                            background: #f8f9fa;
-                            cursor: pointer;
-                            font-size: 16px;
-                            font-weight: bold;
-                        ">▼</button>
-                        
-                        <small style="color: #6c757d; margin-top: 4px;">דקות</small>
+                    <div class="d-flex flex-column align-center">
+                        <button type="button" class="time-spinner-btn" onclick="adjustTime('minute', 1)">▲</button>
+                        <input type="text" id="endMinute" value="${initialMinute.toString().padStart(2, '0')}" maxlength="2" readonly class="time-input">
+                        <button type="button" class="time-spinner-btn" onclick="adjustTime('minute', -1)">▼</button>
+                        <small class="text-muted mt-1">דקות</small>
                     </div>
                     
                     <!-- Clear Button -->
-                    <button type="button" onclick="clearEndTime()"
-                        style="
-                        padding: 8px 12px;
-                        border: 1px solid #dee2e6;
-                        border-radius: 4px;
-                        background: #fff;
-                        cursor: pointer;
-                        color: #6c757d;
-                        font-size: 14px;
-                        margin-right: 10px;
-                    ">נקה</button>
+                    <button type="button" onclick="clearEndTime()" class="btn-secondary" style="margin-right: 10px;">נקה</button>
                 </div>
                 
-                <small style="color: #6c757d; display: block; margin-top: 4px; direction: rtl;">
+                <small class="text-muted d-block mt-1" style="direction: rtl;">
                     לדוגמה: 14:30
                 </small>
             </div>
             
             <input type="hidden" id="classRecordId" value="${classData ? classData.id : ''}">
         </div>
-        <div class="dialog-buttons">
+        <div class="modal-footer">
             <button id="classOkBtn" class="dialog-btn save">אישור</button>
             <button id="classCancelBtn" class="dialog-btn cancel">ביטול</button>
         </div>
@@ -1071,16 +977,20 @@
         function showDeleteConfirmationDialog() {
             return new Promise((resolve) => {
                 const overlay = document.createElement('div');
-                overlay.className = 'dialog-overlay';
+                overlay.className = 'modal-overlay';
 
                 const dialog = document.createElement('div');
-                dialog.className = 'dialog-box';
+                dialog.className = 'modal-content modal-small';
 
                 dialog.innerHTML = `
-            <h3 class="dialog-title warning">אישור מחיקה</h3>
-            <p class="dialog-message">האם אתה בטוח שברצונך למחוק כיתה זו?</p>
-            <p style="color: #6c757d; font-size: 0.9em; margin-top: 10px;">פעולה זו אינה ניתנת לביטול.</p>
-            <div class="dialog-buttons">
+            <div class="modal-header">
+                <h3 class="text-danger">אישור מחיקה</h3>
+            </div>
+            <div class="modal-body">
+                <p>האם אתה בטוח שברצונך למחוק כיתה זו?</p>
+                <p class="text-muted mt-2">פעולה זו אינה ניתנת לביטול.</p>
+            </div>
+            <div class="modal-footer">
                 <button id="confirmDeleteBtn" class="dialog-btn delete">כן, מחק</button>
                 <button id="cancelDeleteBtn" class="dialog-btn cancel">ביטול</button>
             </div>
@@ -1215,15 +1125,19 @@
         function showAttributeSaveDialog() {
             return new Promise((resolve) => {
                 const overlay = document.createElement('div');
-                overlay.className = 'dialog-overlay';
+                overlay.className = 'modal-overlay';
 
                 const dialog = document.createElement('div');
-                dialog.className = 'dialog-box';
+                dialog.className = 'modal-content modal-small';
 
                 dialog.innerHTML = `
-            <h3 class="dialog-title">שינויים לא נשמרו</h3>
-            <p class="dialog-message">ביצעת שינויים בשירותי בית הספר. מה ברצונך לעשות?</p>
-            <div class="dialog-buttons">
+            <div class="modal-header">
+                <h3>שינויים לא נשמרו</h3>
+            </div>
+            <div class="modal-body">
+                <p>ביצעת שינויים בשירותי בית הספר. מה ברצונך לעשות?</p>
+            </div>
+            <div class="modal-footer">
                 <button id="saveBtn" class="dialog-btn save">שמור</button>
                 <button id="dontSaveBtn" class="dialog-btn dont-save">אל תשמור</button>
                 <button id="cancelBtn" class="dialog-btn cancel">ביטול</button>
@@ -1413,7 +1327,7 @@
             // ✅ Show message if no translators, but still show table structure
             if (!translators || translators.length === 0) {
                 container.innerHTML = `
-            <div style="padding: 20px; text-align: center; color: #6c757d; direction: rtl;">
+            <div class="alert alert-info text-center">
                 <p>לא הוגדרו מתורגמני שפת סימנים לשנת לימודים זו</p>
                 <p style="font-size: 0.9em; margin-top: 10px;">לחץ על כפתור העריכה ולאחר מכן על כפתור ההוספה כדי להוסיף מתורגמן</p>
             </div>

@@ -560,14 +560,14 @@ private async Task<CalculatedPricingElement?> CalculatePriceForElement(
 
                 if (isGuardOffset)
                 {
-                    _logger.LogDebug("🛡️ Guard off-set is enabled. Checking council match...");
+                    _logger.LogInformation("🛡️ Guard off-set is enabled. Checking council match...");
                     
                     // Check if student's sending council matches school's council
                     if (student.SendingCouncil.HasValue && 
                         school.Council.HasValue && 
                         student.SendingCouncil.Value == school.Council.Value)
                     {
-                        _logger.LogDebug("✅ Guard off-set applied: Student council {StudentCouncil} matches school council {SchoolCouncil} - setting cost to 0",
+                        _logger.LogInformation("✅ Guard off-set applied: Student council {StudentCouncil} matches school council {SchoolCouncil} - setting cost to 0",
                             student.SendingCouncil.Value, school.Council.Value);
                         
                         calculatedElement.Price = 0;

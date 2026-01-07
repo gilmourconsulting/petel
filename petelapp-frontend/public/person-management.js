@@ -24,11 +24,10 @@ if (typeof PersonManagement === 'undefined') {
             const position = this.getPositionByType(personType);
 
             const overlay = document.createElement('div');
-            overlay.className = 'dialog-overlay';
+            overlay.className = 'modal-overlay';
 
             const dialog = document.createElement('div');
-            dialog.className = 'dialog-box';
-            dialog.style.minWidth = '400px';
+            dialog.className = 'modal-content modal-small';
 
             const hasCurrentPerson = currentPersonData && currentPersonData.id;
             const personName = hasCurrentPerson
@@ -36,33 +35,30 @@ if (typeof PersonManagement === 'undefined') {
                 : 'אין איש קשר נוכחי';
 
             dialog.innerHTML = `
-            <h3 class="dialog-title">${modalTitle}</h3>
-            <div style="margin: 20px 0;">
+            <div class="modal-header">
+                <h3>${modalTitle}</h3>
+            </div>
+            <div class="modal-body">
                 ${hasCurrentPerson ? `
-                    <div style="margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 4px; direction: rtl;">
-                        <div style="font-weight: 600; margin-bottom: 5px;">איש קשר נוכחי:</div>
-                        <div style="color: #495057;">${personName}</div>
-                        ${currentPersonData.position ? `<div style="color: #6c757d; font-size: 0.9em;">תפקיד: ${currentPersonData.position}</div>` : ''}
+                    <div class="alert alert-info mb-3">
+                        <div class="font-weight-bold mb-1">איש קשר נוכחי:</div>
+                        <div>${personName}</div>
+                        ${currentPersonData.position ? `<div class="text-muted mt-1">תפקיד: ${currentPersonData.position}</div>` : ''}
                     </div>
                 ` : `
-                    <div style="margin-bottom: 20px; padding: 15px; background: #fff3cd; border-radius: 4px; direction: rtl;">
-                        <div style="color: #856404;">לא הוגדר איש קשר</div>
+                    <div class="alert alert-warning mb-3">
+                        <div>לא הוגדר איש קשר</div>
                     </div>
                 `}
-                
-                <div style="display: flex; flex-direction: column; gap: 10px;">
-                    ${hasCurrentPerson ? `
-                        <button id="updateContactBtn" class="dialog-btn" style="background: #007bff; width: 100%;">
-                            עדכון פרטי התקשרות
-                        </button>
-                    ` : ''}
-                    <button id="changePersonBtn" class="dialog-btn" style="background: #28a745; width: 100%;">
-                        ${hasCurrentPerson ? 'החלפת איש קשר' : 'בחירת איש קשר'}
-                    </button>
-                </div>
             </div>
-            <div class="dialog-buttons">
+            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button id="cancelChoiceBtn" class="dialog-btn cancel">ביטול</button>
+                ${hasCurrentPerson ? `
+                    <button id="updateContactBtn" class="btn-primary">עדכון פרטי התקשרות</button>
+                ` : ''}
+                <button id="changePersonBtn" class="dialog-btn save">
+                    ${hasCurrentPerson ? 'החלפת איש קשר' : 'בחירת איש קשר'}
+                </button>
             </div>
         `;
 
@@ -116,105 +112,46 @@ if (typeof PersonManagement === 'undefined') {
             const modalTitle = this.getModalTitle(personType);
 
             const overlay = document.createElement('div');
-            overlay.className = 'dialog-overlay';
+            overlay.className = 'modal-overlay';
 
             const dialog = document.createElement('div');
-            dialog.className = 'dialog-box';
-            dialog.style.minWidth = '500px';
+            dialog.className = 'modal-content';
 
             dialog.innerHTML = `
-            <h3 class="dialog-title">${modalTitle} - עדכון פרטי התקשרות</h3>
-            <div style="margin: 20px 0;">
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">שם פרטי:</label>
-                    <input type="text" 
-                           id="personFirstName" 
-                           value="${personData.firstName || ''}"
-                           readonly
-                           style="
-                               width: 100%;
-                               padding: 8px;
-                               border: 1px solid #dee2e6;
-                               border-radius: 4px;
-                               font-size: 14px;
-                               direction: rtl;
-                               background: #e9ecef;
-                               cursor: not-allowed;
-                           ">
-                </div>
-                
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">שם משפחה:</label>
-                    <input type="text" 
-                           id="personLastName" 
-                           value="${personData.lastName || ''}"
-                           readonly
-                           style="
-                               width: 100%;
-                               padding: 8px;
-                               border: 1px solid #dee2e6;
-                               border-radius: 4px;
-                               font-size: 14px;
-                               direction: rtl;
-                               background: #e9ecef;
-                               cursor: not-allowed;
-                           ">
-                </div>
-                
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">טלפון:</label>
-                    <div style="display: flex; gap: 8px; direction: ltr;">
-                        <input type="text" 
-                               id="personPhonePrefix" 
-                               value="${personData.phoneNumberPrefix || ''}"
-                               placeholder="קידומת"
-                               maxlength="7"
-                               style="
-                                   width: 80px;
-                                   padding: 8px;
-                                   border: 1px solid #dee2e6;
-                                   border-radius: 4px;
-                                   font-size: 14px;
-                                   text-align: left;
-                               ">
-                        <input type="text" 
-                               id="personPhone" 
-                               value="${personData.phoneNumber || ''}"
-                               placeholder="מספר טלפון"
-                               maxlength="10"
-                               style="
-                                   flex: 1;
-                                   padding: 8px;
-                                   border: 1px solid #dee2e6;
-                                   border-radius: 4px;
-                                   font-size: 14px;
-                                   text-align: left;
-                               ">
+            <div class="modal-header">
+                <h3>${modalTitle} - עדכון פרטי התקשרות</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>שם מלא:</label>
+                    <div class="d-flex gap-2">
+                        <div style="flex: 1;">
+                            <input type="text" id="personFirstName" class="form-control" value="${personData.firstName || ''}" placeholder="שם פרטי" readonly disabled>
+                        </div>
+                        <div style="flex: 1;">
+                            <input type="text" id="personLastName" class="form-control" value="${personData.lastName || ''}" placeholder="שם משפחה" readonly disabled>
+                        </div>
                     </div>
                 </div>
                 
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">דוא"ל:</label>
-                    <input type="email" 
-                           id="personEmail" 
-                           value="${personData.email || ''}"
-                           placeholder="example@domain.com"
-                           style="
-                               width: 100%;
-                               padding: 8px;
-                               border: 1px solid #dee2e6;
-                               border-radius: 4px;
-                               font-size: 14px;
-                               direction: ltr;
-                               text-align: left;
-                           ">
+                <div class="form-group">
+                    <label>טלפון:</label>
+                    <div class="d-flex gap-2" style="direction: ltr;">
+                        <input type="text" id="personPhonePrefix" class="form-control" value="${personData.phoneNumberPrefix || ''}" placeholder="קידומת" maxlength="7" style="width: 80px; text-align: left;">
+                        <input type="text" id="personPhone" class="form-control" value="${personData.phoneNumber || ''}" placeholder="מספר טלפון" maxlength="10" style="flex: 1; text-align: left;">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>דוא"ל:</label>
+                    <input type="email" id="personEmail" class="form-control" value="${personData.email || ''}" placeholder="example@domain.com" style="direction: ltr; text-align: left;">
                 </div>
                 
                 <input type="hidden" id="personRecordId" value="${personData.id}">
             </div>
-            <div class="dialog-buttons">
-                <button id="updateContactOkBtn" class="dialog-btn save">אישור</button>
+            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button id="updateContactCancelBtn" class="dialog-btn cancel">ביטול</button>
+                <button id="updateContactOkBtn" class="dialog-btn save">אישור</button>
             </div>
         `;
 
@@ -253,67 +190,37 @@ if (typeof PersonManagement === 'undefined') {
             const modalTitle = this.getModalTitle(personType);
 
             const overlay = document.createElement('div');
-            overlay.className = 'dialog-overlay';
+            overlay.className = 'modal-overlay';
 
             const dialog = document.createElement('div');
-            dialog.className = 'dialog-box';
-            dialog.style.minWidth = '600px';
-            dialog.style.maxHeight = '80vh';
+            dialog.className = 'modal-content modal-large';
 
             dialog.innerHTML = `
-            <h3 class="dialog-title">${modalTitle} - חיפוש/בחירה</h3>
-            <div style="margin: 20px 0;">
-                <div style="margin-bottom: 15px;">
-                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">חיפוש לפי שם:</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" 
-                               id="searchFirstName" 
-                               placeholder="שם פרטי"
-                               style="
-                                   flex: 1;
-                                   padding: 8px;
-                                   border: 1px solid #dee2e6;
-                                   border-radius: 4px;
-                                   font-size: 14px;
-                                   direction: rtl;
-                               ">
-                        <input type="text" 
-                               id="searchLastName" 
-                               placeholder="שם משפחה"
-                               style="
-                                   flex: 1;
-                                   padding: 8px;
-                                   border: 1px solid #dee2e6;
-                                   border-radius: 4px;
-                                   font-size: 14px;
-                                   direction: rtl;
-                               ">
-                        <button id="searchBtn" class="dialog-btn" style="background: #007bff; padding: 8px 20px;">
+            <div class="modal-header">
+                <h3>${modalTitle} - חיפוש/בחירה</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>חיפוש לפי שם:</label>
+                    <div class="d-flex gap-2">
+                        <input type="text" id="searchFirstName" class="form-input" placeholder="שם פרטי" >
+                        <input type="text" id="searchLastName" class="form-input" placeholder="שם משפחה" >
+                        <button id="searchBtn" class="btn-primary">
                             חפש
                         </button>
                     </div>
                 </div>
                 
-                <div id="searchResults" style="
-                    max-height: 300px;
-                    overflow-y: auto;
-                    border: 1px solid #dee2e6;
-                    border-radius: 4px;
-                    margin-bottom: 15px;
-                    display: none;
-                "></div>
-                
-                <div style="text-align: center; padding: 10px;">
-                    <button id="createNewPersonBtn" class="dialog-btn" style="background: #28a745;">
-                        + איש קשר חדש
-                    </button>
-                </div>
+                <div id="searchResults" class="mb-3" style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: var(--border-radius); display: none;"></div>
                 
                 <input type="hidden" id="selectedPersonId" value="">
                 <input type="hidden" id="personPosition" value="${position}">
             </div>
-            <div class="dialog-buttons">
+            <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button id="searchCancelBtn" class="dialog-btn cancel">ביטול</button>
+                <button id="createNewPersonBtn" class="dialog-btn save">
+                    + איש קשר חדש
+                </button>
             </div>
         `;
 
@@ -423,32 +330,14 @@ if (typeof PersonManagement === 'undefined') {
                 return `
                 <div class="person-result-item" 
                      data-person-id="${person.id}"
-                     style="
-                         padding: 12px;
-                         border-bottom: 1px solid #dee2e6;
-                         cursor: pointer;
-                         direction: rtl;
-                         transition: background 0.2s;
-                     "
-                     onmouseover="this.style.background='#f8f9fa'"
+                     style="padding: 12px; border-bottom: 1px solid var(--border-color); cursor: pointer; direction: rtl; transition: background 0.2s;"
+                     onmouseover="this.style.background='var(--hover-background)'"
                      onmouseout="this.style.background='white'">
                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 15px; align-items: center;">
-                        <div>
-                           <!-- <div style="color: #6c757d; font-size: 0.85em; margin-bottom: 2px;">שם פרטי</div> -->
-                            <div style="font-weight: 600;">${person.firstName || '-'}</div>
-                        </div>
-                        <div>
-                          <!--   <div style="color: #6c757d; font-size: 0.85em; margin-bottom: 2px;">שם משפחה</div> -->
-                            <div style="font-weight: 600;">${person.lastName || '-'}</div>
-                        </div>
-                        <div>
-                         <!--    <div style="color: #6c757d; font-size: 0.85em; margin-bottom: 2px;">טלפון</div> -->
-                            <div style="direction: ltr; text-align: right;">${phoneDisplay || '-'}</div>
-                        </div>
-                        <div>
-                          <!--   <div style="color: #6c757d; font-size: 0.85em; margin-bottom: 2px;">תפקיד</div> -->
-                            <div>${person.position || '-'}</div>
-                        </div>
+                        <div class="font-weight-bold">${person.firstName || '-'}</div>
+                        <div class="font-weight-bold">${person.lastName || '-'}</div>
+                        <div style="direction: ltr; text-align: right;">${phoneDisplay || '-'}</div>
+                        <div>${person.position || '-'}</div>
                     </div>
                 </div>
             `;
@@ -519,134 +408,60 @@ if (typeof PersonManagement === 'undefined') {
             const isTranslator = personType === 'signLanguageTranslator';
 
             const overlay = document.createElement('div');
-            overlay.className = 'dialog-overlay';
+            overlay.className = 'modal-overlay';
 
             const dialog = document.createElement('div');
-            dialog.className = 'dialog-box';
-            dialog.style.minWidth = '500px';
+            dialog.className = 'modal-content';
 
             dialog.innerHTML = `
-                <h3 class="dialog-title">${modalTitle} - איש קשר חדש</h3>
-                <div style="margin: 20px 0;">
-                    <div style="margin-bottom: 15px;">
-                        <label for="newPersonIdNumber" style="display: block; margin-bottom: 5px; font-weight: 600;">
-                            תעודת זהות:${isTranslator ? ' *' : ''}
+                <div class="modal-header">
+                    <h3>${modalTitle} - איש קשר חדש</h3>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="newPersonIdNumber" class="${isTranslator ? 'required' : ''}">
+                            תעודת זהות:
                         </label>
-                        <input type="text" 
-                               id="newPersonIdNumber" 
-                               placeholder="הזן תעודת זהות"
-                               maxlength="9"
-                               style="
-                                   width: 100%;
-                                   padding: 8px;
-                                   border: 1px solid #dee2e6;
-                                   border-radius: 4px;
-                                   font-size: 14px;
-                                   direction: ltr;
-                                   text-align: left;
-                               ">
-                        <small style="color: #6c757d; display: block; margin-top: 4px;">
+                        <input type="text" id="newPersonIdNumber" class="form-input" placeholder="הזן תעודת זהות" maxlength="9" style="direction: rtl; text-align: left;">
+                        <small class="text-muted d-block mt-1">
                             ${isTranslator ? '9 ספרות ללא מקפים (שדה חובה למתורגמנים)' : '9 ספרות ללא מקפים (אופציונלי)'}
                         </small>
                     </div>
                     
-                    <div style="margin-bottom: 15px;">
-                        <label for="newPersonFirstName" style="display: block; margin-bottom: 5px; font-weight: 600;">שם פרטי: *</label>
-                        <input type="text" 
-                               id="newPersonFirstName" 
-                               placeholder="הזן שם פרטי"
-                               style="
-                                   width: 100%;
-                                   padding: 8px;
-                                   border: 1px solid #dee2e6;
-                                   border-radius: 4px;
-                                   font-size: 14px;
-                                   direction: rtl;
-                               ">
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label for="newPersonLastName" style="display: block; margin-bottom: 5px; font-weight: 600;">שם משפחה: *</label>
-                        <input type="text" 
-                               id="newPersonLastName" 
-                               placeholder="הזן שם משפחה"
-                               style="
-                                   width: 100%;
-                                   padding: 8px;
-                                   border: 1px solid #dee2e6;
-                                   border-radius: 4px;
-                                   font-size: 14px;
-                                   direction: rtl;
-                               ">
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">טלפון:</label>
-                        <div style="display: flex; gap: 8px; direction: ltr;">
-                            <input type="text" 
-                                   id="newPersonPhonePrefix" 
-                                   placeholder="קידומת"
-                                   maxlength="7"
-                                   style="
-                                       width: 80px;
-                                       padding: 8px;
-                                       border: 1px solid #dee2e6;
-                                       border-radius: 4px;
-                                       font-size: 14px;
-                                       text-align: left;
-                                   ">
-                            <input type="text" 
-                                   id="newPersonPhone" 
-                                   placeholder="מספר טלפון"
-                                   maxlength="10"
-                                   style="
-                                       flex: 1;
-                                       padding: 8px;
-                                       border: 1px solid #dee2e6;
-                                       border-radius: 4px;
-                                       font-size: 14px;
-                                       text-align: left;
-                                   ">
+                    <div class="form-group">
+                        <label class="required">שם מלא:</label>
+                        <div class="d-flex gap-2">
+                            
+                                <input type="text" id="newPersonFirstName" class="form-input" placeholder="שם פרטי">
+                            
+                            
+                                <input type="text" id="newPersonLastName" class="form-input" placeholder="שם משפחה">
+                            
                         </div>
                     </div>
                     
-                    <div style="margin-bottom: 15px;">
-                        <label for="newPersonEmail" style="display: block; margin-bottom: 5px; font-weight: 600;">דוא"ל:</label>
-                        <input type="email" 
-                               id="newPersonEmail" 
-                               placeholder="example@domain.com"
-                               style="
-                                   width: 100%;
-                                   padding: 8px;
-                                   border: 1px solid #dee2e6;
-                                   border-radius: 4px;
-                                   font-size: 14px;
-                                   direction: ltr;
-                                   text-align: left;
-                               ">
+                    <div class="form-group">
+                        <label>טלפון:</label>
+                        <div class="d-flex gap-2" style="direction: rtl;">
+                        <input type="text" id="newPersonPhone" class="form-input" placeholder="מספר טלפון" maxlength="10" style="flex: 1; text-align: left;">
+                            <input type="text" id="newPersonPhonePrefix" class="form-input" placeholder="קידומת" maxlength="7" style="width: 80px; text-align: left;">
+                            
+                        </div>
                     </div>
                     
-                    <div style="margin-bottom: 15px;">
-                        <label for="newPersonPosition" style="display: block; margin-bottom: 5px; font-weight: 600;">תפקיד:</label>
-                        <input type="text" 
-                               id="newPersonPosition" 
-                               value="${position}"
-                               readonly
-                               style="
-                                   width: 100%;
-                                   padding: 8px;
-                                   border: 1px solid #dee2e6;
-                                   border-radius: 4px;
-                                   font-size: 14px;
-                                   direction: rtl;
-                                   background: #e9ecef;
-                                   cursor: not-allowed;
-                               ">
+                    <div class="form-group">
+                        <label for="newPersonEmail">דוא"ל:</label>
+                        <input type="email" id="newPersonEmail" class="form-input" placeholder="example@domain.com" style="direction: rtl; text-align: left;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="newPersonPosition">תפקיד:</label>
+                        <input type="text" id="newPersonPosition" class="form-input" value="${position}" readonly disabled>
                     </div>
                 </div>
-                <div class="dialog-buttons">
-                    <button id="newPersonOkBtn" class="dialog-btn save">אישור</button>
+                <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
                     <button id="newPersonCancelBtn" class="dialog-btn cancel">ביטול</button>
+                    <button id="newPersonOkBtn" class="dialog-btn save">אישור</button>
                 </div>
             `;
 

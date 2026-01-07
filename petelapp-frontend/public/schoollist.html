@@ -1,6 +1,6 @@
 <div class="students-container">
     <!-- Context buttons - LEFT SIDE POSITIONING -->
-    <div class="context-buttons-section screenwithtable-context">
+    <div class="context-buttons-section">
         <button class="context-btn" onclick="navigateToCouncilsList()" title="צפייה ברשימת הרשויות המשלחות">
             סיכום רשויות משלחות
         </button>
@@ -14,12 +14,12 @@
     <div class="students-content">
         <div class="content-card">
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="d-flex justify-between align-center mb-4">
                 <div>
                     <h1 class="page-title">רשימת בתי ספר</h1>
                     <p class="page-subtitle">ניהול ומעקב אחר בתי הספר במערכת</p>
                 </div>
-                <button class="btn btn-icon" title="הוספת בית ספר חדש" onclick="schoolManagement.showAddSchoolModal()">
+                <button class="btn-icon" title="הוספת בית ספר חדש" onclick="schoolManagement.showAddSchoolModal()">
 
 
                     <img src="Plus icon.png" alt="הוספת בית ספר חדש" class="action-icon-natural">
@@ -88,7 +88,7 @@
                 console.error('❌ No SelectedYearId in session');
                 const container = document.getElementById('schoolsTableContainer');
                 if (container) {
-                    container.innerHTML = '<p style="color: #721c24; padding: 20px;">לא נבחרה שנת לימודים</p>';
+                    container.innerHTML = '<div class="alert alert-danger">לא נבחרה שנת לימודים</div>';
                 }
                 return;
             }
