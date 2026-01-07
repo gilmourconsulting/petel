@@ -402,14 +402,22 @@ class ReusableTable {
         this.saveColumnVisibilityStates();
 
         // Filter out hidden columns for rendering
-        const visibleColumns = this.columns.filter(col => !col.hidden);
+        let visibleColumns = this.columns.filter(col => !col.hidden);
+        
+        // ✅ Move actions column to the beginning (rightmost in RTL)
+        const actionsIndex = visibleColumns.findIndex(col => col.key === 'actions');
+        if (actionsIndex > 0) {
+            const actionsColumn = visibleColumns.splice(actionsIndex, 1)[0];
+            visibleColumns.unshift(actionsColumn);
+        }
+        
         console.log('Visible columns:', visibleColumns.length, 'out of', this.columns.length);
 
         // Create table HTML following Hebrew/RTL Specific Patterns
         const tableHTML = `
         <div class="table-container" dir="rtl">
             <table class="data-table">
-                <thead style="background: var(--bar-background); color: var(--bar-text-color);">
+                <thead style="background: #5a4d7a; color: white;">
                     <tr>
                         ${visibleColumns.map(col => {
             console.log('Rendering header for column:', col.key, col.label);
@@ -420,9 +428,9 @@ class ReusableTable {
 
             return `
                                 <th data-column="${col.key}" 
-                                    style="background: var(--bar-background); color: var(--bar-text-color); ${hideStyle}${col.sortable ? 'cursor: pointer;' : ''}"
+                                    style="background: #5a4d7a; color: white; text-align: right; max-width: 300px; white-space: nowrap; ${hideStyle}${col.sortable ? 'cursor: pointer;' : ''}"
                                     ${col.sortable ? '' : ''}>
-                                    ${col.label}
+                                    ${col.key === 'actions' ? '' : col.label}
                                     ${col.sortable ? '<span class="sort-indicator"></span>' : ''}
                                 </th>
                             `;
@@ -448,7 +456,7 @@ class ReusableTable {
                 const isHiddenByFrontend = this.columnVisibility.get(col.key) === false;
                 const hideStyle = isHiddenByFrontend ? 'display: none;' : '';
                 return `
-                                        <td data-column="${col.key}" style="${hideStyle}">
+                                        <td data-column="${col.key}" style="text-align: right; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${hideStyle}">
                                             ${renderedValue}
                                         </td>
                                     `;
