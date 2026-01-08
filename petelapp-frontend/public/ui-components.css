@@ -97,9 +97,9 @@
 
 /* Context buttons (navigation between pages) */
 .context-btn {
-    background: linear-gradient(135deg, #c46424 0%, #a04812 100%);
+    background: linear-gradient(135deg, #f7f7f7 0%, #f3f1ef 100%);
     color: var(--context-btn-text);
-    border: none;
+    border: 1px solid rgba(0, 0, 0, 0.15);
     padding: 8px 8px;
     border-radius: var(--border-radius);
     cursor: pointer;
@@ -117,7 +117,7 @@
     /*box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);*/
 }
 
-/* Context button color variants - each stays in same color family */
+/* Context button color variants - each stays in same color family 
 .context-btn:nth-child(1) {
     background: linear-gradient(135deg, #f18c49 0%, #a04812 100%);
 }
@@ -132,7 +132,7 @@
 
 .context-btn:nth-child(4) {
     background: linear-gradient(135deg, #b16ecc 0%, #7d3c98 100%);
-}
+}*/
 
 .context-btn:hover {
     transform: translateY(-2px);

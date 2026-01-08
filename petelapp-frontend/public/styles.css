@@ -939,10 +939,12 @@ body {
     border-radius: 8px;
     background: white;
     direction: rtl;
+    width: fit-content;
+    max-width: 100%;
 }
 
 .data-table {
-    width: 100%;
+    width: auto;
     border-collapse: collapse;
     direction: rtl;
     text-align: right;

@@ -413,6 +413,58 @@ class ReusableTable {
         
         console.log('Visible columns:', visibleColumns.length, 'out of', this.columns.length);
 
+        // Helper function to determine column width style
+        const getColumnWidthStyle = (col) => {
+            if (col.key === 'actions') {
+                return 'width: 100px; min-width: 100px; max-width: 100px;';
+            }
+            
+            // Check for special text column cases by label
+            if (col.label === 'כיתה') {
+                return 'width: 50px; min-width: 50px; max-width: 50px;';
+            }
+            
+            if (col.label === 'תז') {
+                return 'width: 150px; min-width: 150px; max-width: 150px;';
+            }
+            
+            // Check if column key contains "date" (case insensitive)
+            if (col.key.toLowerCase().includes('date')) {
+                return 'width: 120px; min-width: 120px; max-width: 120px;';
+            }
+                        // Check if column key contains "number" (case insensitive)
+            if (col.key.toLowerCase().includes('number') || col.key.toLowerCase().includes('hour')) {
+                return 'width: 80px; min-width: 80px; max-width: 80px;';
+            }
+                        // Check if column renders currency values
+            if (col.render) {
+                const firstRow = this.filteredData.find(row => row[col.key] != null);
+                if (firstRow) {
+                    const renderedValue = col.render(firstRow);
+                    // Check for currency symbols (₪, $, €, £) or common currency patterns
+                    if (typeof renderedValue === 'string' && (renderedValue.includes('₪') || renderedValue.includes('$') || renderedValue.includes('€') || renderedValue.includes('£') || /\d+[,.]?\d*\s*(ILS|USD|EUR|GBP)/.test(renderedValue))) {
+                        return 'width: 120px; min-width: 120px; max-width: 120px;';
+                    }
+                }
+            }
+            
+            // Check data type from first non-null value
+            const sampleValue = this.filteredData.find(row => row[col.key] != null)?.[col.key];
+            const dataType = typeof sampleValue;
+            
+            // Check if it's a date by value
+            if (sampleValue instanceof Date || (typeof sampleValue === 'string' && /^\d{4}-\d{2}-\d{2}/.test(sampleValue))) {
+                return 'width: 50px; min-width: 50px; max-width: 50px;';
+            }
+            
+            if (dataType === 'number' || dataType === 'boolean') {
+                return 'width: auto; padding: 5px;';
+            }
+            
+            // Default to 150px for text columns
+            return 'width: 150px; min-width: 150px; max-width: 150px;';
+        };
+
         // Create table HTML following Hebrew/RTL Specific Patterns
         const tableHTML = `
         <div class="table-container" dir="rtl">
@@ -425,13 +477,15 @@ class ReusableTable {
             // Check if frontend has hidden this column
             const isHiddenByFrontend = this.columnVisibility.get(col.key) === false;
             const hideStyle = isHiddenByFrontend ? 'display: none;' : '';
+            const widthStyle = getColumnWidthStyle(col);
 
             return `
                                 <th data-column="${col.key}" 
-                                    style="background: #5a4d7a; color: white; text-align: right; max-width: 300px; white-space: nowrap; ${hideStyle}${col.sortable ? 'cursor: pointer;' : ''}"
+                                    style="background: #5a4d7a; color: white; text-align: right; white-space: nowrap; ${widthStyle} ${hideStyle}${col.sortable ? 'cursor: pointer;' : ''} position: relative;"
                                     ${col.sortable ? '' : ''}>
                                     ${col.key === 'actions' ? '' : col.label}
                                     ${col.sortable ? '<span class="sort-indicator"></span>' : ''}
+                                    <span class="resize-handle" style="position: absolute; left: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; background: transparent;"></span>
                                 </th>
                             `;
         }).join('')}
@@ -455,8 +509,10 @@ class ReusableTable {
                 // Check if frontend has hidden this column
                 const isHiddenByFrontend = this.columnVisibility.get(col.key) === false;
                 const hideStyle = isHiddenByFrontend ? 'display: none;' : '';
+                const widthStyle = getColumnWidthStyle(col);
+                
                 return `
-                                        <td data-column="${col.key}" style="text-align: right; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${hideStyle}">
+                                        <td data-column="${col.key}" style="text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${widthStyle} ${hideStyle}">
                                             ${renderedValue}
                                         </td>
                                     `;
@@ -481,7 +537,60 @@ class ReusableTable {
             }
         });
 
+        // Add resize functionality
+        this.addResizeListeners(container);
+
         console.log('✅ Table rendered successfully');
+    }
+
+    // Add column resize functionality
+    addResizeListeners(container) {
+        const resizeHandles = container.querySelectorAll('.resize-handle');
+        
+        resizeHandles.forEach(handle => {
+            handle.addEventListener('mousedown', (e) => {
+                e.stopPropagation(); // Prevent sort from triggering
+                const th = handle.parentElement;
+                const columnKey = th.getAttribute('data-column');
+                const startX = e.pageX;
+                const startWidth = th.offsetWidth;
+
+                const onMouseMove = (moveEvent) => {
+                    const deltaX = startX - moveEvent.pageX; // Reversed for RTL
+                    const newWidth = Math.max(50, startWidth + deltaX);
+                    
+                    // Update header
+                    th.style.width = `${newWidth}px`;
+                    th.style.minWidth = `${newWidth}px`;
+                    th.style.maxWidth = `${newWidth}px`;
+                    
+                    // Update all cells in this column
+                    const cells = container.querySelectorAll(`td[data-column="${columnKey}"]`);
+                    cells.forEach(cell => {
+                        cell.style.width = `${newWidth}px`;
+                        cell.style.minWidth = `${newWidth}px`;
+                        cell.style.maxWidth = `${newWidth}px`;
+                    });
+                };
+
+                const onMouseUp = () => {
+                    document.removeEventListener('mousemove', onMouseMove);
+                    document.removeEventListener('mouseup', onMouseUp);
+                };
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            });
+
+            // Visual feedback on hover
+            handle.addEventListener('mouseenter', () => {
+                handle.style.background = 'rgba(255, 255, 255, 0.3)';
+            });
+
+            handle.addEventListener('mouseleave', () => {
+                handle.style.background = 'transparent';
+            });
+        });
     }
     // Add sort method
     sort(columnKey) {
