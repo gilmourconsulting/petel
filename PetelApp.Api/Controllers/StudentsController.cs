@@ -216,6 +216,62 @@ namespace PetelApp.Api.Controllers
             }
         }
 
+
+                /// <summary>
+        /// Get all versions of a student by master student ID
+        /// </summary>
+        [HttpGet("history/{masterStudentId}")]
+        public async Task<IActionResult> GetStudentHistory(int masterStudentId)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+        
+                var versions = await _context.SchoolStudents
+                    .AsNoTracking()
+                    .Where(s => s.MasterStudentId == masterStudentId)
+                    .OrderBy(s => s.Version)
+                    .Select(s => new
+                    {
+                        Id = s.Id,
+                        MasterStudentId = s.MasterStudentId,
+                        Version = s.Version,
+                        IdNumber = s.IdNumber,
+                        FirstName = s.FirstName,
+                        LastName = s.LastName,
+                        ClassId = s.ClassId,
+                        ClassName = _context.SchoolClasses
+                            .Where(sc => sc.Id == s.ClassId)
+                            .Select(sc => sc.Name)
+                            .FirstOrDefault(),
+                        StartDate = s.StartDate,
+                        EndDate = s.EndDate,
+                        IsLastVersion = s.IsLastVersion,
+                    // CreatedAt = s.CreatedAt
+                    })
+                    .ToListAsync();
+        
+                _logger.LogInformation("Loaded {Count} versions for master student ID {MasterStudentId}", 
+                    versions.Count, masterStudentId);
+        
+                return Ok(new { success = true, data = versions });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading student history for master ID {MasterStudentId}", masterStudentId);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בטעינת היסטוריית תלמיד",
+                    error = ex.Message
+                });
+            }
+        }
+
                 [HttpGet("count-by-class/{classId}")]
         public async Task<IActionResult> GetStudentCountByClass(int classId)
         {

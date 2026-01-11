@@ -35,7 +35,7 @@ namespace PetelApp.Api.Data
     {
         public long Id { get; set; }
         public long DocumentId { get; set; }
-        public long? SchoolStudentId { get; set; }
+        public int? SchoolStudentId { get; set; }
         public long? EntityId { get; set; }
 
         // Navigation properties

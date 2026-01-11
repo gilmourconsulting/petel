@@ -211,19 +211,19 @@ class ReusableTable {
     }
 
     applySort() {
-    if (!this.sortColumn) return;
-    
-    this.filteredData.sort((a, b) => {
-        const aVal = a[this.sortColumn] || '';
-        const bVal = b[this.sortColumn] || '';
-        
-        if (this.sortDirection === 'asc') {
-            return aVal.toString().localeCompare(bVal.toString(), 'he');
-        } else {
-            return bVal.toString().localeCompare(aVal.toString(), 'he');
-        }
-    });
-}
+        if (!this.sortColumn) return;
+
+        this.filteredData.sort((a, b) => {
+            const aVal = a[this.sortColumn] || '';
+            const bVal = b[this.sortColumn] || '';
+
+            if (this.sortDirection === 'asc') {
+                return aVal.toString().localeCompare(bVal.toString(), 'he');
+            } else {
+                return bVal.toString().localeCompare(aVal.toString(), 'he');
+            }
+        });
+    }
 
     // Show update status to user
     showUpdateStatus(type, message) {
@@ -402,15 +402,20 @@ class ReusableTable {
         this.saveColumnVisibilityStates();
 
         // Filter out hidden columns for rendering
-        let visibleColumns = this.columns.filter(col => !col.hidden);
-        
+        let visibleColumns = this.columns.filter(col => {
+            // Check if column is hidden by column.hidden property OR by columnVisibility Map
+            const isHiddenByProperty = col.hidden;
+            const isHiddenByMap = this.columnVisibility.get(col.key) === false;
+            return !isHiddenByProperty && !isHiddenByMap;
+        });
+
         // ✅ Move actions column to the beginning (rightmost in RTL)
         const actionsIndex = visibleColumns.findIndex(col => col.key === 'actions');
         if (actionsIndex > 0) {
             const actionsColumn = visibleColumns.splice(actionsIndex, 1)[0];
             visibleColumns.unshift(actionsColumn);
         }
-        
+
         console.log('Visible columns:', visibleColumns.length, 'out of', this.columns.length);
 
         // Helper function to determine column width style
@@ -418,112 +423,120 @@ class ReusableTable {
             if (col.key === 'actions') {
                 return 'width: 100px; min-width: 100px; max-width: 100px;';
             }
-            
+
             // Check for special text column cases by label
             if (col.label === 'כיתה') {
                 return 'width: 50px; min-width: 50px; max-width: 50px;';
             }
-            
-            if (col.label === 'תז') {
+
+            if (col.label === 'תז' || col.label === 'תעודת זהות') {
                 return 'width: 150px; min-width: 150px; max-width: 150px;';
             }
-            
+
+            if (col.label === 'מין') {
+                return 'width: 75px; min-width: 75px; max-width: 75px;';
+            }
+
             // Check if column key contains "date" (case insensitive)
             if (col.key.toLowerCase().includes('date')) {
                 return 'width: 120px; min-width: 120px; max-width: 120px;';
             }
-                        // Check if column key contains "number" (case insensitive)
+            // Check if column key contains "number" (case insensitive)
             if (col.key.toLowerCase().includes('number') || col.key.toLowerCase().includes('hour')) {
                 return 'width: 80px; min-width: 80px; max-width: 80px;';
             }
-                        // Check if column renders currency values
-            if (col.render) {
-                const firstRow = this.filteredData.find(row => row[col.key] != null);
-                if (firstRow) {
-                    const renderedValue = col.render(firstRow);
-                    // Check for currency symbols (₪, $, €, £) or common currency patterns
-                    if (typeof renderedValue === 'string' && (renderedValue.includes('₪') || renderedValue.includes('$') || renderedValue.includes('€') || renderedValue.includes('£') || /\d+[,.]?\d*\s*(ILS|USD|EUR|GBP)/.test(renderedValue))) {
-                        return 'width: 120px; min-width: 120px; max-width: 120px;';
-                    }
-                }
+            if (col.key.toLowerCase().includes('price')) {
+                return 'width: 110px; min-width: 110px; max-width: 110px;';
             }
-            
+            /*                // Check if column renders currency values
+                if (col.render) {
+                    const firstRow = this.filteredData.find(row => row[col.key] != null);
+                    if (firstRow) {
+                        const renderedValue = col.render(firstRow);
+                        // Check for currency symbols (₪, $, €, £) or common currency patterns
+                        if (typeof renderedValue === 'string' && (renderedValue.includes('₪') || renderedValue.includes('$') || renderedValue.includes('€') || renderedValue.includes('£') || /\d+[,.]?\d*\s*(ILS|USD|EUR|GBP)/.test(renderedValue))) {
+                            return 'width: 120px; min-width: 120px; max-width: 120px;';
+                        }
+                    }
+                }*/
+
             // Check data type from first non-null value
             const sampleValue = this.filteredData.find(row => row[col.key] != null)?.[col.key];
             const dataType = typeof sampleValue;
-            
+            const valueStr = sampleValue ? sampleValue.toString() : '';
+
+
+
+            if (valueStr.includes('₪')) {
+                return 'width: 100px; min-width: 100px; max-width: 100px;';
+            }
             // Check if it's a date by value
             if (sampleValue instanceof Date || (typeof sampleValue === 'string' && /^\d{4}-\d{2}-\d{2}/.test(sampleValue))) {
                 return 'width: 50px; min-width: 50px; max-width: 50px;';
             }
-            
+
             if (dataType === 'number' || dataType === 'boolean') {
                 return 'width: auto; padding: 5px;';
             }
-            
+
             // Default to 150px for text columns
             return 'width: 150px; min-width: 150px; max-width: 150px;';
         };
 
-        // Create table HTML following Hebrew/RTL Specific Patterns
-        const tableHTML = `
-        <div class="table-container" dir="rtl">
-            <table class="data-table">
-                <thead style="background: #5a4d7a; color: white;">
-                    <tr>
-                        ${visibleColumns.map(col => {
-            console.log('Rendering header for column:', col.key, col.label);
+    // Create table HTML following Hebrew/RTL Specific Patterns
+    const tableHTML = `
+    <div class="table-container" dir="rtl">
+        <table class="data-table">
+            <thead style="background: #5a4d7a; color: white;">
+                <tr>
+                    ${visibleColumns.map(col => {
+        console.log('Rendering header for column:', col.key, col.label);
+        
+        // No need to check isHiddenByFrontend since we already filtered the columns
+        const widthStyle = getColumnWidthStyle(col);
 
-            // Check if frontend has hidden this column
-            const isHiddenByFrontend = this.columnVisibility.get(col.key) === false;
-            const hideStyle = isHiddenByFrontend ? 'display: none;' : '';
+        return `
+                            <th data-column="${col.key}" 
+                                style="background: #5a4d7a; color: white; text-align: right; white-space: nowrap; ${widthStyle} ${col.sortable ? 'cursor: pointer;' : ''} position: relative;">
+                                ${col.key === 'actions' ? '' : col.label}
+                                ${col.sortable ? '<span class="sort-indicator"></span>' : ''}
+                                <span class="resize-handle" style="position: absolute; left: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; background: transparent;"></span>
+                            </th>
+                        `;
+    }).join('')}
+                </tr>
+            </thead>
+            <tbody>
+                ${this.filteredData.map((row, rowIndex) => {
+        if (rowIndex === 0) {
+            console.log('First row data:', row);
+        }
+        return `
+                        <tr>
+                            ${visibleColumns.map(col => {
+            const cellValue = row[col.key];
+            const renderedValue = col.render ? col.render(row) : (cellValue !== undefined && cellValue !== null ? cellValue : '');
+
+            if (rowIndex === 0) {
+                console.log(`Column ${col.key}:`, cellValue, '→', renderedValue);
+            }
+
+            // No need to check isHiddenByFrontend since we already filtered the columns
             const widthStyle = getColumnWidthStyle(col);
 
             return `
-                                <th data-column="${col.key}" 
-                                    style="background: #5a4d7a; color: white; text-align: right; white-space: nowrap; ${widthStyle} ${hideStyle}${col.sortable ? 'cursor: pointer;' : ''} position: relative;"
-                                    ${col.sortable ? '' : ''}>
-                                    ${col.key === 'actions' ? '' : col.label}
-                                    ${col.sortable ? '<span class="sort-indicator"></span>' : ''}
-                                    <span class="resize-handle" style="position: absolute; left: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; background: transparent;"></span>
-                                </th>
-                            `;
+                                    <td data-column="${col.key}" style="text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${widthStyle}">
+                                        ${renderedValue}
+                                    </td>
+                                `;
         }).join('')}
-                    </tr>
-                </thead>
-                <tbody>
-                    ${this.filteredData.map((row, rowIndex) => {
-            if (rowIndex === 0) {
-                console.log('First row data:', row);
-            }
-            return `
-                            <tr>
-                                ${visibleColumns.map(col => {
-                const cellValue = row[col.key];
-                const renderedValue = col.render ? col.render(row) : (cellValue !== undefined && cellValue !== null ? cellValue : '');
-
-                if (rowIndex === 0) {
-                    console.log(`Column ${col.key}:`, cellValue, '→', renderedValue);
-                }
-
-                // Check if frontend has hidden this column
-                const isHiddenByFrontend = this.columnVisibility.get(col.key) === false;
-                const hideStyle = isHiddenByFrontend ? 'display: none;' : '';
-                const widthStyle = getColumnWidthStyle(col);
-                
-                return `
-                                        <td data-column="${col.key}" style="text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; ${widthStyle} ${hideStyle}">
-                                            ${renderedValue}
-                                        </td>
-                                    `;
-            }).join('')}
-                            </tr>
-                        `;
-        }).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
+                        </tr>
+                    `;
+    }).join('')}
+            </tbody>
+        </table>
+    </div>
+`;
 
         container.innerHTML = tableHTML;
 
@@ -546,7 +559,7 @@ class ReusableTable {
     // Add column resize functionality
     addResizeListeners(container) {
         const resizeHandles = container.querySelectorAll('.resize-handle');
-        
+
         resizeHandles.forEach(handle => {
             handle.addEventListener('mousedown', (e) => {
                 e.stopPropagation(); // Prevent sort from triggering
@@ -558,12 +571,12 @@ class ReusableTable {
                 const onMouseMove = (moveEvent) => {
                     const deltaX = startX - moveEvent.pageX; // Reversed for RTL
                     const newWidth = Math.max(50, startWidth + deltaX);
-                    
+
                     // Update header
                     th.style.width = `${newWidth}px`;
                     th.style.minWidth = `${newWidth}px`;
                     th.style.maxWidth = `${newWidth}px`;
-                    
+
                     // Update all cells in this column
                     const cells = container.querySelectorAll(`td[data-column="${columnKey}"]`);
                     cells.forEach(cell => {
@@ -601,56 +614,56 @@ class ReusableTable {
             this.sortDirection = 'asc';
         }
 
-   /*     this.filteredData.sort((a, b) => {
-            const aVal = a[columnKey] || '';
-            const bVal = b[columnKey] || '';
-
-            if (this.sortDirection === 'asc') {
-                return aVal.toString().localeCompare(bVal.toString(), 'he');
-            } else {
-                return bVal.toString().localeCompare(aVal.toString(), 'he');
-            }
-        });*/
+        /*     this.filteredData.sort((a, b) => {
+                 const aVal = a[columnKey] || '';
+                 const bVal = b[columnKey] || '';
+     
+                 if (this.sortDirection === 'asc') {
+                     return aVal.toString().localeCompare(bVal.toString(), 'he');
+                 } else {
+                     return bVal.toString().localeCompare(aVal.toString(), 'he');
+                 }
+             });*/
 
         this.applySort();
         this.render();
     }
 
-    //  Save current column visibility states from DOM before re-render
-    saveColumnVisibilityStates() {
-        const container = document.getElementById(this.containerId);
-        if (!container) return;
-
-        // Check all header cells for display style
-        const headers = container.querySelectorAll('th[data-column]');
-        headers.forEach(th => {
-            const columnKey = th.getAttribute('data-column');
-            const isVisible = th.style.display !== 'none';
-            this.columnVisibility.set(columnKey, isVisible);
-        });
-
-        console.log('📊 Saved column visibility states:', Object.fromEntries(this.columnVisibility));
+//  Save current column visibility states from DOM before re-render
+saveColumnVisibilityStates() {
+    const container = document.getElementById(this.containerId);
+    if (!container || !container.querySelector('table')) {
+        // Skip if container doesn't exist or has no table yet
+        return;
     }
+
+    // Check all header cells for display style
+    const headers = container.querySelectorAll('th[data-column]');
+    headers.forEach(th => {
+        const columnKey = th.getAttribute('data-column');
+        const isVisible = th.style.display !== 'none';
+        // Only save if explicitly set (not undefined/default)
+        if (th.style.display !== '') {
+            this.columnVisibility.set(columnKey, isVisible);
+        }
+    });
+
+    console.log('📊 Saved column visibility states:', Object.fromEntries(this.columnVisibility));
+}
 
     //  Allow frontend to explicitly set column visibility
-    setColumnVisibility(columnKey, isVisible) {
-        this.columnVisibility.set(columnKey, isVisible);
-
-        const container = document.getElementById(this.containerId);
-        if (!container) return;
-
-        // Apply to DOM immediately
-        const headers = container.querySelectorAll(`th[data-column="${columnKey}"]`);
-        const cells = container.querySelectorAll(`td[data-column="${columnKey}"]`);
-
-        headers.forEach(th => {
-            th.style.display = isVisible ? '' : 'none';
-        });
-
-        cells.forEach(td => {
-            td.style.display = isVisible ? '' : 'none';
-        });
-
-        console.log(`🔄 Column visibility changed: ${columnKey} = ${isVisible ? 'visible' : 'hidden'}`);
+    //  Allow frontend to explicitly set column visibility
+  setColumnVisibility(columnKey, isVisible) {
+    console.log(`🔄 setColumnVisibility called: ${columnKey} = ${isVisible}`);
+    this.columnVisibility.set(columnKey, isVisible);
+    
+    // Trigger re-render if container exists
+    const container = document.getElementById(this.containerId);
+    if (container && container.querySelector('table')) {
+        console.log(`🔄 Re-rendering table to apply visibility change`);
+        this.render();
+    } else {
+        console.log(`⚠️ Container not found yet, visibility will be applied on next render`);
     }
+}
 }

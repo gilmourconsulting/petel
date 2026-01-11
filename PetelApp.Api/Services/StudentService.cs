@@ -22,17 +22,14 @@ namespace PetelApp.Api.Services
 
         /// <summary>
         /// Create a new version of a student record with selective field updates
+        /// ✅ CRITICAL: Preserves master_student_id across versions
         /// </summary>
-        /// <param name="existingStudentId">ID of the current student version</param>
-        /// <param name="updates">Action to apply updates to the new version</param>
-        /// <returns>ID of the newly created version, or null if failed</returns>
         public async Task<int?> CreateNewStudentVersionAsync(
             int existingStudentId, 
             Action<SchoolStudent> updates)
         {
             try
             {
-                // Get existing student record (not AsNoTracking - we need to update it)
                 var existingStudent = await _context.SchoolStudents
                     .FirstOrDefaultAsync(s => s.Id == existingStudentId);
 
@@ -47,16 +44,17 @@ namespace PetelApp.Api.Services
                 _context.SchoolStudents.Update(existingStudent);
 
                 _logger.LogInformation(
-                    "📝 Marking existing student as old version: Id={Id}, IdNumber={IdNumber}, Version={Version}",
-                    existingStudent.Id, existingStudent.IdNumber, existingStudent.Version);
+                    "📝 Marking existing student as old version: Id={Id}, MasterStudentId={MasterId}, Version={Version}",
+                    existingStudent.Id, existingStudent.MasterStudentId, existingStudent.Version);
 
-                // Create new version by copying all fields
+                // ✅ Create new version - PRESERVING master_student_id
                 var newVersion = new SchoolStudent
                 {
                     // Id is auto-generated
                     SchoolYearId = existingStudent.SchoolYearId,
                     IdNumber = existingStudent.IdNumber,
                     Version = existingStudent.Version + 1,
+                    MasterStudentId = existingStudent.MasterStudentId, // ✅ CRITICAL: Keep same master ID
                     FirstName = existingStudent.FirstName,
                     LastName = existingStudent.LastName,
                     Gender = existingStudent.Gender,
@@ -80,8 +78,8 @@ namespace PetelApp.Api.Services
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation(
-                    "✅ Created new student version: OldId={OldId}, NewId={NewId}, Version={Version}",
-                    existingStudent.Id, newVersion.Id, newVersion.Version);
+                    "✅ Created new student version: OldId={OldId}, NewId={NewId}, MasterStudentId={MasterId}, Version={Version}",
+                    existingStudent.Id, newVersion.Id, newVersion.MasterStudentId, newVersion.Version);
 
                 return newVersion.Id;
             }
@@ -95,6 +93,7 @@ namespace PetelApp.Api.Services
 
         /// <summary>
         /// Create a new student record (Version 0)
+        /// ✅ NEW: Sets master_student_id to its own id after creation
         /// </summary>
         public async Task<int?> CreateNewStudentAsync(
             int schoolYearId,
@@ -108,6 +107,7 @@ namespace PetelApp.Api.Services
                     SchoolYearId = schoolYearId,
                     IdNumber = idNumber,
                     Version = 0,
+                    MasterStudentId = 0, // Temporary - will be updated after save
                     IsLastVersion = true
                 };
 
@@ -117,9 +117,14 @@ namespace PetelApp.Api.Services
                 _context.SchoolStudents.Add(newStudent);
                 await _context.SaveChangesAsync();
 
+                // ✅ CRITICAL: Set master_student_id to own id for new students
+                newStudent.MasterStudentId = newStudent.Id;
+                _context.SchoolStudents.Update(newStudent);
+                await _context.SaveChangesAsync();
+
                 _logger.LogInformation(
-                    "✅ Created new student: Id={Id}, IdNumber={IdNumber}, Version=0",
-                    newStudent.Id, newStudent.IdNumber);
+                    "✅ Created new student: Id={Id}, MasterStudentId={MasterId}, IdNumber={IdNumber}, Version=0",
+                    newStudent.Id, newStudent.MasterStudentId, newStudent.IdNumber);
 
                 return newStudent.Id;
             }
@@ -131,7 +136,30 @@ namespace PetelApp.Api.Services
         }
 
         /// <summary>
-        /// Get the latest version of a student
+        /// Get the latest version of a student by master_student_id
+        /// ✅ NEW: Uses master_student_id instead of encrypted id_number
+        /// </summary>
+        public async Task<SchoolStudent?> GetLatestVersionByMasterIdAsync(int masterStudentId)
+        {
+            return await _context.SchoolStudents
+                .Where(s => s.MasterStudentId == masterStudentId && s.IsLastVersion)
+                .FirstOrDefaultAsync();
+        }
+
+        /// <summary>
+        /// Get all versions of a student by master_student_id
+        /// ✅ NEW: Uses master_student_id for history tracking
+        /// </summary>
+        public async Task<List<SchoolStudent>> GetVersionHistoryByMasterIdAsync(int masterStudentId)
+        {
+            return await _context.SchoolStudents
+                .Where(s => s.MasterStudentId == masterStudentId)
+                .OrderBy(s => s.Version)
+                .ToListAsync();
+        }
+
+        /// <summary>
+        /// Get the latest version of a student (legacy method - still needed for encrypted search)
         /// </summary>
         public async Task<SchoolStudent?> GetLatestVersionAsync(string idNumber, int schoolYearId)
         {
@@ -144,7 +172,7 @@ namespace PetelApp.Api.Services
         }
 
         /// <summary>
-        /// Get all versions of a student
+        /// Get all versions of a student (legacy method - still needed for encrypted search)
         /// </summary>
         public async Task<List<SchoolStudent>> GetVersionHistoryAsync(string idNumber, int schoolYearId)
         {

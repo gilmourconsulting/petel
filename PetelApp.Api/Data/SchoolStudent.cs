@@ -12,8 +12,14 @@ namespace PetelApp.Api.Data
 
         [Column("id_number")]
         public string? IdNumber { get; set; }
+        
         [Column("version")]
         public int Version { get; set; }
+
+        // ✅ NEW: Master Student ID for history tracking
+        [Required]
+        [Column("master_student_id")]
+        public int MasterStudentId { get; set; }
 
         [Column("class_id")]
         public int? ClassId { get; set; }
@@ -64,7 +70,7 @@ namespace PetelApp.Api.Data
         [Column("status")]
         public int? StatusId { get; set; }
 
-        // ✅ NEW: Navigation property for Status
+        // Navigation property for Status
         public virtual Status? Status { get; set; }
     }
 }

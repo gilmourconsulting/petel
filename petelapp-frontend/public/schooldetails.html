@@ -9,13 +9,13 @@
 <div class="students-container">
     <!-- Context buttons - LEFT SIDE POSITIONING -->
     <div class="context-buttons-section">
-        <button class="context-btn" onclick="navigateBackToSchoolDashboard()" title="חזרה ללוח הבקרה של בית הספר">
-            חזרה ללוח הבקרה של בית הספר
+        <button class="context-navigation-btn" onclick="navigateBackToSchoolDashboard()" title=" לדף בית הספר">
+            לדף בית הספר
         </button>
 
-        <button class="context-btn" onclick="navigateBackToDashboard()" title="חזרה ללוח הבקרה הראשי">
-            חזרה ללוח הבקרה הראשי
-        </button>
+        <!--     <button class="context-navigation-btn" onclick="navigateBackToDashboard()" title="לוח הבקרה הראשי">
+            ללוח הבקרה הראשי
+        </button>-->
     </div>
 
     <!-- Main content positioned after menu and context buttons -->
@@ -26,7 +26,8 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">פרטי בית הספר</h2>
                     <div class="card-header-actions">
-                        <button id="editSchoolDetailsBtn" class="btn-icon" onclick="toggleSchoolDetailsEdit();" title="עריכת פרטי בית הספר">
+                        <button id="editSchoolDetailsBtn" class="btn-icon" onclick="toggleSchoolDetailsEdit();"
+                            title="עריכת פרטי בית הספר">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
                         <button class="collapse-toggle" aria-label="הרחב/כווץ">▲</button>
@@ -45,7 +46,8 @@
                             title="הוספת כיתה חדשה" style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
-                        <button id="editClassesBtn" class="btn-icon" onclick="toggleCardEdit('schoolClasses');" title="עריכת כיתות בית הספר">
+                        <button id="editClassesBtn" class="btn-icon" onclick="toggleCardEdit('schoolClasses');"
+                            title="עריכת כיתות בית הספר">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
 
@@ -63,7 +65,8 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">שירותי בית ספר</h2>
                     <div class="card-header-actions">
-                        <button id="editAttributesBtn" class="btn-icon" onclick="toggleCardEdit('schoolAttributes');" title="עריכת שירותי בית הספר">
+                        <button id="editAttributesBtn" class="btn-icon" onclick="toggleCardEdit('schoolAttributes');"
+                            title="עריכת שירותי בית הספר">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
                         <button class="collapse-toggle" aria-label="הרחב/כווץ">▼</button>
@@ -85,7 +88,7 @@
                         </button>
                         <button id="editTranslatorsBtn" class="btn-icon"
                             onclick="toggleCardEdit('signLanguageTranslators');" title="עריכת מתורגמני שפת סימנים">
-                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural" >
+                            <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
 
                         <button class="collapse-toggle" aria-label="הרחב/כווץ">▼</button>
@@ -107,7 +110,8 @@
                             title="הוספת מגמה חדשה" style="display: none;">
                             <img src="Plus icon.png" alt="הוספה" class="action-icon-natural">
                         </button>
-                        <button id="editTracksBtn" class="btn-icon" onclick="toggleCardEdit('schoolTracks');" title="עריכת מגמות בית הספר">
+                        <button id="editTracksBtn" class="btn-icon" onclick="toggleCardEdit('schoolTracks');"
+                            title="עריכת מגמות בית הספר">
                             <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
                         </button>
 
@@ -163,24 +167,24 @@
 
                 let schoolName = session.entityName;
 
-             //   if (parseInt(session.entityTypeId, 10) === 5) {
-                    // Multi-school network - get selected school name
-                    const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
-                    if (selectedSchoolName) {
-                        schoolName = selectedSchoolName;
-                    }
-              //  }
+                //   if (parseInt(session.entityTypeId, 10) === 5) {
+                // Multi-school network - get selected school name
+                const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
+                if (selectedSchoolName) {
+                    schoolName = selectedSchoolName;
+                }
+                //  }
 
                 console.log('🏫 School context:', { schoolName, yearValue });
 
                 const titleElement = document.getElementById('schoolTitle');
                 const yearElement = document.getElementById('schoolDetailsYearDisplay');
-                
+
                 if (titleElement) {
                     titleElement.textContent = schoolName;
                     console.log('✅ School title updated via SessionState');
                 }
-                
+
                 if (yearElement && yearValue) {
                     yearElement.textContent = yearValue;
                 }
@@ -645,11 +649,11 @@
                 }
 
 
-                    // ✅ Normalize: Convert ASCII quotes to Hebrew Gershayim before saving
+                // ✅ Normalize: Convert ASCII quotes to Hebrew Gershayim before saving
                 level = level.replace(/"/g, '״').replace(/'/g, '׳');
-                
+
                 console.log('💾 Saving class with normalized level:', level);
-                
+
                 // ✅ Check if another class exists with same level and number
                 const exists = window.lastSchoolClassesData.some(cls =>
                     cls.id !== parseInt(recordId || 0) &&
@@ -775,7 +779,7 @@
         window.getDefaultEndHour = getDefaultEndHour;
 
         // ✅  displaySchoolClasses - READ-ONLY TABLE with HIDDEN ACTIONS COLUMN
-        function displaySchoolClasses(classes) {
+                function displaySchoolClasses(classes) {
             console.log('📚 Displaying school classes:', classes);
 
             const container = document.getElementById('schoolClassesContent');
@@ -827,13 +831,13 @@
                     sortable: false,
                     readOnly: true,
                     render: (item) => `
-                    <button class="btn-icon" onclick="showEditClassModal(${item.id})" title="עריכת כיתה">
-                        <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
-                    </button>
-                    <button class="btn-icon" onclick="deleteClassWithConfirmation(${item.id})" title="מחיקת כיתה">
-                        <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
-                    </button>
-                `
+            <button class="btn-icon" onclick="showEditClassModal(${item.id})" title="עריכת כיתה">
+                <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+            </button>
+            <button class="btn-icon" onclick="deleteClassWithConfirmation(${item.id})" title="מחיקת כיתה">
+                <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+            </button>
+        `
                 }
             ];
 
@@ -847,29 +851,19 @@
                     allowDelete: false
                 });
 
+                // ✅ Set column visibility BEFORE init() so it's applied during first render
+                window.classesTable.setColumnVisibility('actions', false);
+                
+                // Now initialize the table
                 window.classesTable.init(classes, columns);
-
-                // ✅ HIDE actions column initially
-                const actionsHeaders = document.querySelectorAll('#classesTableContainer th:last-child');
-                const actionsCells = document.querySelectorAll('#classesTableContainer td:last-child');
-
-                actionsHeaders.forEach(th => {
-                    th.style.display = 'none';
-                    th.setAttribute('data-column', 'actions');
-                });
-
-                actionsCells.forEach(td => {
-                    td.style.display = 'none';
-                    td.setAttribute('data-column', 'actions');
-                });
-
+                
                 console.log('✅ ReusableTable created with hidden actions column');
 
             } catch (error) {
                 console.error('❌ Error creating ReusableTable for classes:', error);
             }
         }
-
+        
         // ✅ Export new functions to window
         window.showClassModal = showClassModal;
         window.showEditClassModal = showEditClassModal;
@@ -4054,8 +4048,8 @@
                             <span class="attribute-suffix">שעות</span>
                         </div>
                     `;
-                    } else if (attrType.attributeValueType === 'Decimal') {
-                        inputField = `
+                } else if (attrType.attributeValueType === 'Decimal') {
+                    inputField = `
                             <input type="number" 
                                 class="attribute-input"
                                 id="attr_${attrType.id}"
@@ -4067,8 +4061,8 @@
                                 ${isEditMode ? '' : 'disabled'}
                                 onchange="window.hasUnsavedAttributeChanges = true;">
                         `;
-                    }
-                 else if (attrType.attributeValueType === 'List') {
+                }
+                else if (attrType.attributeValueType === 'List') {
                     const currentValueId = value || '';
                     const possibleValues = attrType.possibleValues || [];
 
@@ -4749,7 +4743,7 @@
                 function validateApprovedAmount() {
                     const approvedInput = document.getElementById('programApproved');
                     const approvedAmount = parseFloat(approvedInput.value);
-                    const weeklyHours = parseFloat(document.getElementById('programHours').value) ;
+                    const weeklyHours = parseFloat(document.getElementById('programHours').value);
                     const validationError = document.getElementById('validationError');
                     const validationErrorText = document.getElementById('validationErrorText');
 

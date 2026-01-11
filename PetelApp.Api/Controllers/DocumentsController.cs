@@ -94,11 +94,11 @@ namespace PetelApp.Api.Controllers
 
 
         /// <summary>
-        /// Get documents by entity (school) and year
+        /// Get documents by student master ID (works across all student versions)
         /// </summary>
         [HttpGet("by-student-id")]
         public async Task<IActionResult> GetDocumentsByStudentId(
-            [FromQuery] int? studentId = null)
+            [FromQuery] long? studentId = null)
         {
             try
             {
@@ -111,21 +111,44 @@ namespace PetelApp.Api.Controllers
                 }
 
                 // Use session values if not provided in query
-                int effectiveStudentId = studentId ??
-                    (int.TryParse(session.GetProperty("SelectedStudentId") ?? "", out var sessionStudentId)
+                long effectiveStudentId = studentId ??
+                    (long.TryParse(session.GetProperty("SelectedStudentId") ?? "", out var sessionStudentId)
                         ? sessionStudentId
                         : throw new Exception("No student ID provided and none in session"));
 
+                _logger.LogInformation("Fetching documents for studentId: {StudentId}", effectiveStudentId);
 
-                _logger.LogInformation("Fetching documents for studentId: {StudentId}",
-                    effectiveStudentId);
+                // ✅ NEW: Get the master_student_id for the provided student ID
+                var student = await _context.SchoolStudents
+                    .Where(s => s.Id == effectiveStudentId)
+                    .Select(s => new { s.Id, s.MasterStudentId })
+                    .FirstOrDefaultAsync();
 
-                var query = _context.Documents
+                if (student == null)
+                {
+                    _logger.LogWarning("Student not found: {StudentId}", effectiveStudentId);
+                    return NotFound(new { success = false, message = "תלמיד לא נמצא" });
+                }
+
+                _logger.LogInformation("Resolved student {StudentId} to master_student_id: {MasterStudentId}", 
+                    effectiveStudentId, student.MasterStudentId);
+
+                // ✅ NEW: Get all student IDs that share this master_student_id (all versions)
+                var allStudentVersionIds = await _context.SchoolStudents
+                    .Where(s => s.MasterStudentId == student.MasterStudentId)
+                    .Select(s => s.Id)
+                    .ToListAsync();
+
+                _logger.LogInformation("Found {Count} versions for master_student_id {MasterStudentId}", 
+                    allStudentVersionIds.Count, student.MasterStudentId);
+
+                // ✅ Query documents linked to ANY version of this student
+                var documents = await _context.Documents
                     .Include(d => d.DocumentLinks)
                     .Include(d => d.DocumentType)
-                    .Where(d => d.DocumentLinks.Any(dl => dl.SchoolStudentId == effectiveStudentId));
-
-                var documents = await query
+                    .Where(d => d.DocumentLinks.Any(dl => 
+                        dl.SchoolStudentId.HasValue && 
+                        allStudentVersionIds.Contains(dl.SchoolStudentId.Value)))
                     .Where(d => d.IsLastVersion)
                     .OrderByDescending(d => d.CreatedAt)
                     .Select(d => new
@@ -140,17 +163,26 @@ namespace PetelApp.Api.Controllers
                             .FirstOrDefault() ?? "לא מוגדר",
                         CreatedAt = d.CreatedAt,
                         FileSize = d.FileBlob != null ? d.FileBlob.Length : 0,
-                        HasFile = d.FileBlob != null
+                        HasFile = d.FileBlob != null,
+                        // ✅ Include which student version this document is linked to
+                        LinkedStudentId = d.DocumentLinks
+                            .Where(dl => dl.SchoolStudentId.HasValue && 
+                                         allStudentVersionIds.Contains(dl.SchoolStudentId.Value))
+                            .Select(dl => dl.SchoolStudentId)
+                            .FirstOrDefault(),
+                        MasterStudentId = student.MasterStudentId
                     })
                     .ToListAsync();
 
-                _logger.LogInformation("Retrieved {Count} documents", documents.Count);
-                return Ok(documents);
+                _logger.LogInformation("Retrieved {Count} documents for master_student_id {MasterStudentId}", 
+                    documents.Count, student.MasterStudentId);
+                
+                    return Ok(documents);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving documents");
-                return StatusCode(500, new { error = "שגיאה בטעינת המסמכים" });
+                _logger.LogError(ex, "Error retrieving documents for student");
+                return StatusCode(500, new { success = false, error = "שגיאה בטעינת המסמכים" });
             }
         }
 

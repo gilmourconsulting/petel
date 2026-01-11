@@ -5,13 +5,13 @@
 <div class="students-container">
 
     <div class="context-buttons-section">
-        <button class="context-btn" id="backToSourceBtn" onclick="navigateBackToSource()">
+        <button class="context-navigation-btn" id="backToSourceBtn" onclick="navigateBackToSource()">
             חזרה לרשימה
         </button>
-        <button class="context-btn" onclick="navigateToSchoolDashboard()">
-            חזרה לבית ספר
+        <button class="context-navigation-btn" onclick="navigateToSchoolDashboard()">
+            לדף בית הספר
         </button>
-        <button class="context-btn" onclick="navigateToSchoolList()">
+        <button class="context-navigation-btn" onclick="navigateToSchoolList()">
             רשימת בתי ספר
         </button>
     </div>
@@ -45,60 +45,67 @@
                     </div>
                 </div>
             </div>
-            <div id="pricingModal" class="modal-overlay" style="display: none;">
-                <div class="modal-content" style="max-width: 800px;">
-                    <div class="modal-header">
-                        <h2>רכיבי תמחור - <span id="pricingStudentName"></span></h2>
+            <!-- Pricing Elements Section -->
+            <div class="content-card">
+                <div class="detail-card collapsed">
+                    <div class="detail-card-header">
+                        <h2 class="detail-card-title">רכיבי תמחור - <span id="pricingStudentName"></span></h2>
+                        <div class="card-header-actions">
+                            <button class="btn-icon"
+                                onclick="event.stopPropagation(); calculateStudentPricingFromSection()"
+                                title="חישוב רכיבי תמחור">
+                                <img src="Plus icon.png" alt="חשב" class="action-icon-natural">
+                            </button>
+                            <button class="collapse-toggle" aria-label="הרחב/כווץ">▼</button>
+                        </div>
                     </div>
-                    <div class="modal-body">
+                    <div class="detail-card-content">
                         <div id="pricingTableContainer" class="table-container">
                             <div class="loading-spinner">טוען נתונים...</div>
                         </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn-secondary" onclick="closePricingModal()">סגור</button>
-                    </div>
-                    <!-- ✅  Detailed summary section -->
-                    <div id="pricingTotalContainer" style="
-                margin-top: 15px;
-                padding: 20px;
-                background-color: #f8f9fa;
-                border: 2px solid #dee2e6;
-                border-radius: 8px;
-                direction: rtl;
-            ">
-                        <!-- Elements Total (smaller font) -->
-                        <div style="
-                text-align: center;
-                font-size: 14px;
-                color: #666;
-                margin-bottom: 5px;
-            ">
-                            <span>סכום רכיבי תמחור: </span>
-                            <span id="pricingElementsTotal" style="color: #666;">₪0.00</span>
-                        </div>
 
-                        <!-- Enrollment Months -->
-                        <div style="
-                text-align: center;
-                font-size: 14px;
-                color: #666;
-                margin-bottom: 10px;
-            " id="enrollmentMonthsContainer">
-                            <span>תקופת לימודים: </span>
-                            <span id="enrollmentMonths">-</span>
-                        </div>
+                        <!-- Detailed summary section -->
+                        <div id="pricingTotalContainer" style="
+                            margin-top: 15px;
+                            padding: 10px;
+                            background-color: #f8f9fa;
+                            border: 2px solid #dee2e6;
+                            border-radius: 8px;
+                            direction: rtl;
+                        ">
+                            <!-- Elements Total (smaller font) -->
+                            <div style="
+                                text-align: center;
+                                font-size: 14px;
+                                color: #666;
+                                margin-bottom: 5px;
+                            ">
+                                <span>סכום רכיבי תמחור: </span>
+                                <span id="pricingElementsTotal" style="color: #666;">₪0.00</span>
+                            </div>
 
-                        <!-- Final Cost (large font) -->
-                        <div style="
-                text-align: center;
-                font-size: 24px;
-                font-weight: bold;
-                padding-top: 10px;
-                border-top: 2px solid #dee2e6;
-            ">
-                            <span>סה"כ עלות: </span>
-                            <span id="pricingTotalAmount" style="color: #28a745;">₪0.00</span>
+                            <!-- Enrollment Months -->
+                            <div style="
+                                text-align: center;
+                                font-size: 14px;
+                                color: #666;
+                                margin-bottom: 10px;
+                            " id="enrollmentMonthsContainer">
+                                <span>תקופת לימודים: </span>
+                                <span id="enrollmentMonths">-</span>
+                            </div>
+
+                            <!-- Final Cost (large font) -->
+                            <div style="
+                                text-align: center;
+                                font-size: 18px;
+                                font-weight: bold;
+                                padding-top: 5px;
+                                border-top: 2px solid #dee2e6;
+                            ">
+                                <span>סה"כ עלות: </span>
+                                <span id="pricingTotalAmount" style="color: #28a745;">₪0.00</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -268,16 +275,10 @@
                 console.log('✅ Students container cleared');
             }
 
-            // ✅ Clear modal states
-            const pricingModal = document.getElementById('pricingModal');
-            if (pricingModal) {
-                pricingModal.style.display = 'none';
-
-                // Clear pricing table container
-                const pricingContainer = document.getElementById('pricingTableContainer');
-                if (pricingContainer) {
-                    pricingContainer.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
-                }
+            // ✅ Clear pricing table container
+            const pricingContainer = document.getElementById('pricingTableContainer');
+            if (pricingContainer) {
+                pricingContainer.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
             }
 
             console.log('✅ Student page cleanup complete');
@@ -458,12 +459,8 @@
 
                     alert(message);
 
-                    // No need to refresh data since nothing changed
-                    // Optionally, show current pricing
-                    const showResults = confirm('האם להציג את רכיבי התמחור הקיימים?');
-                    if (showResults) {
-                        await viewStudentPricing(studentId, studentName);
-                    }
+                    // ✅ Automatically refresh pricing table
+                    await viewStudentPricing(studentId, studentName);
                 } else {
                     // Changes detected - new version created
                     console.log('✅ Pricing calculation successful:', data);
@@ -500,13 +497,9 @@
 
                     alert(message);
 
-                    // Optionally, auto-open the pricing view to show calculated elements
-                    const showResults = confirm('האם להציג את רכיבי התמחור שחושבו?');
-                    if (showResults) {
-                        // ✅ Use the NEW student ID for viewing pricing
-                        const newStudentId = data.newStudentId || studentId;
-                        await viewStudentPricing(newStudentId, studentName);
-                    }
+                    // ✅ Automatically refresh pricing table with new data
+                    const newStudentId = data.newStudentId || studentId;
+                    await viewStudentPricing(newStudentId, studentName);
                 }
 
             } else {
@@ -656,13 +649,13 @@
         console.log('💰 Viewing pricing elements for student:', studentId);
 
         try {
-            // Show modal
-            const modal = document.getElementById('pricingModal');
+            // Find the pricing card
             const studentNameSpan = document.getElementById('pricingStudentName');
             const container = document.getElementById('pricingTableContainer');
+            const pricingCard = container?.closest('.detail-card');
 
-            if (!modal || !studentNameSpan || !container) {
-                console.error('❌ Modal elements not found');
+            if (!studentNameSpan || !container || !pricingCard) {
+                console.error('❌ Pricing card elements not found');
                 return;
             }
 
@@ -671,7 +664,13 @@
 
             // Show loading
             container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
-            modal.style.display = 'flex';
+
+            // Expand the card if collapsed
+            if (pricingCard.classList.contains('collapsed')) {
+                const toggle = pricingCard.querySelector('.collapse-toggle');
+                const addButton = pricingCard.querySelector('.btn-icon[onclick*="calculate"]');
+                toggleCardExpansion(pricingCard, toggle, addButton);
+            }
 
             // Fetch pricing data
             const token = window.sessionManager.getToken();
@@ -694,8 +693,8 @@
             const result = await response.json();
 
             if (result.success && result.data) {
-                console.log('✅ Pricing data loaded:', result.data);
-                createPricingTable(result.data);
+                console.log('✅ Pricing data loaded:', result);
+                createPricingTable(result);  // Pass full result with data and summary
             } else {
                 throw new Error(result.message || 'Failed to load pricing data');
             }
@@ -855,105 +854,6 @@
         });
     }
 
-    // Update the existing createPricingTable function to pass the full response
-    function createPricingTable(responseData) {
-        console.log('📊 Creating pricing table with ReusableTable component');
-
-        if (typeof ReusableTable === 'undefined') {
-            console.log('⚠️ ReusableTable not loaded, loading component...');
-            loadReusableTableComponentForPricing(responseData);
-            return;
-        }
-
-        initializePricingTable(responseData);
-    }
-
-    // Update loadReusableTableComponentForPricing to pass response data
-    function loadReusableTableComponentForPricing(responseData) {
-        const existingScript = document.querySelector('script[src="table-component.js"]');
-        if (existingScript) {
-            console.log('table-component.js already loaded, waiting for ReusableTable...');
-            setTimeout(() => {
-                if (typeof ReusableTable !== 'undefined') {
-                    initializePricingTable(responseData);
-                } else {
-                    showPricingTableError('שגיאה בטעינת רכיב הטבלה');
-                }
-            }, 500);
-            return;
-        }
-
-        const script = document.createElement('script');
-        script.src = 'table-component.js';
-        script.onload = () => {
-            console.log('✅ table-component.js loaded for pricing');
-            setTimeout(() => {
-                initializePricingTable(responseData);
-            }, 100);
-        };
-        script.onerror = () => {
-            console.error('❌ Failed to load table-component.js');
-            showPricingTableError('שגיאה בטעינת רכיב הטבלה');
-        };
-        document.head.appendChild(script);
-    }
-
-    // Update viewStudentPricing to pass full result
-    async function viewStudentPricing(studentId, studentName) {
-        console.log('💰 Viewing pricing elements for student:', studentId);
-
-        try {
-            // Show modal
-            const modal = document.getElementById('pricingModal');
-            const studentNameSpan = document.getElementById('pricingStudentName');
-            const container = document.getElementById('pricingTableContainer');
-
-            if (!modal || !studentNameSpan || !container) {
-                console.error('❌ Modal elements not found');
-                return;
-            }
-
-            // Set student name
-            studentNameSpan.textContent = studentName;
-
-            // Show loading
-            container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
-            modal.style.display = 'flex';
-
-            // Fetch pricing data
-            const token = window.sessionManager.getToken();
-            if (!token) {
-                throw new Error('No authentication token found');
-            }
-
-            const response = await fetch(AppConfig.getApiUrl(`studentpricing/${studentId}`), {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (result.success) {
-                console.log('✅ Pricing data loaded:', result);
-                // ✅ Pass the full result object with summary data
-                createPricingTable(result);
-            } else {
-                throw new Error(result.message || 'Failed to load pricing data');
-            }
-
-        } catch (error) {
-            console.error('❌ Error loading pricing elements:', error);
-            showPricingTableError('שגיאה בטעינת נתוני תמחור');
-        }
-    }
-
     // Export new function
     window.updatePricingSummary = updatePricingSummary;
     // Show error in pricing table
@@ -975,15 +875,18 @@
         }
     }
 
-    // Close pricing modal
+    // Close pricing modal (collapse card)
     function closePricingModal() {
-        const modal = document.getElementById('pricingModal');
-        if (modal) {
-            modal.style.display = 'none';
+        const container = document.getElementById('pricingTableContainer');
+        const pricingCard = container?.closest('.detail-card');
+
+        if (pricingCard && pricingCard.classList.contains('expanded')) {
+            const toggle = pricingCard.querySelector('.collapse-toggle');
+            const addButton = pricingCard.querySelector('.btn-icon[onclick*="calculate"]');
+            toggleCardExpansion(pricingCard, toggle, addButton);
         }
 
         // Clear container
-        const container = document.getElementById('pricingTableContainer');
         if (container) {
             container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
         }
@@ -992,14 +895,9 @@
     // Close modal when clicking outside
     window.addEventListener('click', function (event) {
         const uploadModal = document.getElementById('uploadDialog');
-        const pricingModal = document.getElementById('pricingModal');
 
         if (event.target === uploadModal) {
             closeUploadDialog();
-        }
-
-        if (event.target === pricingModal) {
-            closePricingModal();
         }
     });
 
@@ -1220,6 +1118,13 @@
             setTimeout(() => {
                 console.log('📄 Initializing documents table...');
                 initializeStudentDocuments();
+
+                // Initialize collapsible cards for pricing section
+                initializeCollapsibleCards();
+
+                // ✅ Auto-load pricing data when page loads
+                console.log('💰 Auto-loading pricing data...');
+                viewStudentPricingFromSection();
             }, 100);
 
         } catch (error) {
@@ -1433,6 +1338,76 @@
     window.showStudentsTableError = showStudentsTableError;
     window.initializeStudentDocuments = initializeStudentDocuments;
     window.cleanupStudentDocuments = cleanupStudentDocuments;
+
+    // Initialize collapsible cards for pricing section
+    function initializeCollapsibleCards() {
+        console.log('🎴 Initializing collapsible cards in student page...');
+
+        document.querySelectorAll('.detail-card').forEach(card => {
+            const header = card.querySelector('.detail-card-header');
+            const toggle = card.querySelector('.collapse-toggle');
+
+            if (!header || !toggle) return;
+
+            // Check if already initialized to prevent duplicate listeners
+            if (header.dataset.initialized === 'true') {
+                return;
+            }
+            header.dataset.initialized = 'true';
+
+            // Get action buttons
+            const addButton = card.querySelector('.btn-icon[onclick*="calculate"]');
+
+            // Hide add buttons initially (cards start collapsed)
+            if (addButton) addButton.style.display = 'none';
+
+            // Toggle button click handler
+            toggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                toggleCardExpansion(card, toggle, addButton);
+            });
+
+            // Header click handler (excluding buttons)
+            header.addEventListener('click', function (e) {
+                if (e.target.closest('.btn-icon')) {
+                    return;
+                }
+                toggleCardExpansion(card, toggle, addButton);
+            });
+        });
+
+        console.log('✅ Collapsible cards initialized');
+    }
+
+    // Toggle card expansion
+    function toggleCardExpansion(card, toggle, addButton) {
+        const isCollapsed = card.classList.contains('collapsed');
+
+        if (isCollapsed) {
+            // Expand
+            card.classList.remove('collapsed');
+            card.classList.add('expanded');
+            toggle.textContent = '×';
+
+            // Show add button when expanded
+            if (addButton) {
+                addButton.style.display = 'inline-flex';
+            }
+        } else {
+            // Collapse
+            card.classList.remove('expanded');
+            card.classList.add('collapsed');
+            toggle.textContent = '+';
+
+            // Hide add button when collapsed
+            if (addButton) {
+                addButton.style.display = 'none';
+            }
+        }
+    }
+
+    window.initializeCollapsibleCards = initializeCollapsibleCards;
+    window.toggleCardExpansion = toggleCardExpansion;
 
 
 

@@ -117,6 +117,48 @@
     /*box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);*/
 }
 
+.context-navigation-btn {
+    background: linear-gradient(135deg,#b16ecc 0%, #7d3c98 100%);
+    color: var(--context-btn-text-light);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    padding: 8px 8px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    min-width: 100px;
+    height: 48px;
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-medium);
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--button-transition);
+    box-shadow: var(--box-shadow-light);
+    margin: 0 !important;
+    /*box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);*/
+}
+
+.context-spacer {
+    /*background: linear-gradient(135deg, #f7f7f7 0%, #f3f1ef 100%);
+    color: var(--context-btn-text);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    padding: 8px 8px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    width: 100%;
+    min-width: 100px;*/
+    height: 48px;
+   /* border-radius: var(--border-radius);
+    font-size: var(--font-size-medium);
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--button-transition);
+    box-shadow: var(--box-shadow-light);
+    margin: 0 !important;*/
+    /*box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);*/
+}
+
 /* Context button color variants - each stays in same color family 
 .context-btn:nth-child(1) {
     background: linear-gradient(135deg, #f18c49 0%, #a04812 100%);
