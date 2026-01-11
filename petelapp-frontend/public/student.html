@@ -5,6 +5,10 @@
 <div class="students-container">
 
     <div class="context-buttons-section">
+        <button class="context-btn" onclick="calculateStudentPricingFromSection()">
+            חשב רכיבי תמחור לתלמיד
+        </button>
+        <context-spacer></context-spacer>
         <button class="context-navigation-btn" id="backToSourceBtn" onclick="navigateBackToSource()">
             חזרה לרשימה
         </button>
@@ -25,19 +29,10 @@
                 <div class="left-spacer"></div>
             </div>
 
-
-            <!-- Students table - ReusableTable component -->
+            <!-- Student Details Table -->
             <div class="content-card">
                 <div class="students-table-section">
                     <h3 class="section-title">פרטי התלמיד</h3>
-                    <button class="btn-icon" onclick="viewStudentPricingFromSection()" title="צפייה ברכיבי תמחור">
-                        <img src="stats_icon.png" alt="תמחור" class="action-icon-natural">
-                        <span style="margin-right: 5px;">רכיבי תמחור</span>
-                    </button>
-                    <button class="btn-icon" onclick="calculateStudentPricingFromSection()" title="חישוב רכיבי תמחור">
-                        <img src="Plus icon.png" alt="חשב" class="action-icon-natural">
-                        <span style="margin-right: 5px;">חשב תמחור</span>
-                    </button>
                     <div id="studentsTableContainer">
                         <div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">
                             טוען נתוני תלמידים...
@@ -45,83 +40,96 @@
                     </div>
                 </div>
             </div>
-            <!-- Pricing Elements Section -->
+
+            <!-- Tabs Container -->
             <div class="content-card">
-                <div class="detail-card collapsed">
-                    <div class="detail-card-header">
-                        <h2 class="detail-card-title">רכיבי תמחור - <span id="pricingStudentName"></span></h2>
-                        <div class="card-header-actions">
-                            <button class="btn-icon"
-                                onclick="event.stopPropagation(); calculateStudentPricingFromSection()"
-                                title="חישוב רכיבי תמחור">
-                                <img src="Plus icon.png" alt="חשב" class="action-icon-natural">
-                            </button>
-                            <button class="collapse-toggle" aria-label="הרחב/כווץ">▼</button>
+                <!-- Tab Headers -->
+                <div class="tabs-header">
+                    <button class="tab-button active" onclick="switchStudentTab('documents')" data-tab="documents"
+                        >מסמכים</button>
+                    <button class="tab-button" onclick="switchStudentTab('pricing')" data-tab="pricing" >רכיבי תמחור</button>
+                </div>
+
+                <!-- Tab Content - Documents -->
+                <div id="documentsTab" class="tab-content" style="display: block;">
+                    <div class="documents-table-section">
+                        <div id="documentsTableContainer">
+                            <!-- Documents table will be loaded here by documents_table.js -->
                         </div>
                     </div>
-                    <div class="detail-card-content">
-                        <div id="pricingTableContainer" class="table-container">
-                            <div class="loading-spinner">טוען נתונים...</div>
-                        </div>
+                </div>
 
-                        <!-- Detailed summary section -->
-                        <div id="pricingTotalContainer" style="
-                            margin-top: 15px;
-                            padding: 10px;
-                            background-color: #f8f9fa;
-                            border: 2px solid #dee2e6;
-                            border-radius: 8px;
-                            direction: rtl;
-                        ">
-                            <!-- Elements Total (smaller font) -->
-                            <div style="
-                                text-align: center;
-                                font-size: 14px;
-                                color: #666;
-                                margin-bottom: 5px;
-                            ">
-                                <span>סכום רכיבי תמחור: </span>
-                                <span id="pricingElementsTotal" style="color: #666;">₪0.00</span>
+                <!-- Tab Content - Pricing -->
+                <div id="pricingTab" class="tab-content" style="display: none;">
+                    <div class="detail-card expanded">
+                       <div class="detail-card-header">
+                     <!--       <h2 class="detail-card-title">רכיבי תמחור - <span id="pricingStudentName"></span></h2>
+                            <div class="card-header-actions">
+                                <button class="btn-icon" onclick="calculateStudentPricingFromSection()"
+                                    title="חישוב רכיבי תמחור">
+                                    <img src="Plus icon.png" alt="חשב" class="action-icon-natural">
+                                </button>
+
+                            </div>
+                        </div> -->
+                        <div class="detail-card-content">
+                            <div id="pricingTableContainer" class="table-container">
+                                <div class="loading-spinner">טוען נתונים...</div>
                             </div>
 
-                            <!-- Enrollment Months -->
-                            <div style="
-                                text-align: center;
-                                font-size: 14px;
-                                color: #666;
-                                margin-bottom: 10px;
-                            " id="enrollmentMonthsContainer">
-                                <span>תקופת לימודים: </span>
-                                <span id="enrollmentMonths">-</span>
-                            </div>
-
-                            <!-- Final Cost (large font) -->
-                            <div style="
-                                text-align: center;
-                                font-size: 18px;
-                                font-weight: bold;
-                                padding-top: 5px;
-                                border-top: 2px solid #dee2e6;
+                            <!-- Detailed summary section -->
+                            <div id="pricingTotalContainer" style="
+                                margin-top: 15px;
+                                padding: 10px;
+                                background-color: #f8f9fa;
+                                border: 2px solid #dee2e6;
+                                border-radius: 8px;
+                                direction: rtl;
                             ">
-                                <span>סה"כ עלות: </span>
-                                <span id="pricingTotalAmount" style="color: #28a745;">₪0.00</span>
+                                <!-- Elements Total (smaller font) -->
+                                <div style="
+                                    text-align: center;
+                                    font-size: 14px;
+                                    color: #666;
+                                    margin-bottom: 5px;
+                                ">
+                                    <span>סכום רכיבי תמחור: </span>
+                                    <span id="pricingElementsTotal" style="color: #666;">₪0.00</span>
+                                </div>
+
+                                <!-- Enrollment Months -->
+                                <div style="
+                                    text-align: center;
+                                    font-size: 14px;
+                                    color: #666;
+                                    margin-bottom: 10px;
+                                " id="enrollmentMonthsContainer">
+                                    <span>תקופת לימודים: </span>
+                                    <span id="enrollmentMonths">-</span>
+                                </div>
+
+                                <!-- Final Cost (large font) -->
+                                <div style="
+                                    text-align: center;
+                                    font-size: 18px;
+                                    font-weight: bold;
+                                    padding-top: 5px;
+                                    border-top: 2px solid #dee2e6;
+                                ">
+                                    <span>סה"כ עלות: </span>
+                                    <span id="pricingTotalAmount" style="color: #28a745;">₪0.00</span>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="content-card">
-                <div class="documents-table-section">
-                    <h3 class="section-title">רשימת מסמכים</h3>
-                    <div id="documentsTableContainer">
-                        <!-- Documents table will be loaded here by documents_table.js -->
-                    </div>
-                </div>
+
+
             </div>
         </div>
     </div>
 </div>
-<!-- Simplified context buttons -->
+
 
 
 <script src="documents-table.js"></script>
@@ -131,6 +139,35 @@
     if (typeof documentsComponent === 'undefined') {
         var documentsComponent = null;
     }
+
+    // Tab switching function
+    async function switchStudentTab(tabName) {
+        console.log(`🔄 Switching to tab: ${tabName}`);
+
+        // Update active tab button
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(content => {
+            content.style.display = 'none';
+        });
+
+        // Show selected tab content
+        const tabContent = document.getElementById(`${tabName}Tab`);
+        if (tabContent) {
+            tabContent.style.display = 'block';
+        }
+
+        // Initialize collapsible cards for newly shown tab
+        initializeCollapsibleCards();
+
+        console.log(`✅ Switched to ${tabName} tab`);
+    }
+
+    window.switchStudentTab = switchStudentTab;
 
     /**
      * Initialize documents table component for selected student
@@ -327,32 +364,73 @@
         }
     }
 
-    // View student pricing from section header
-    async function viewStudentPricingFromSection() {
+        // View student pricing elements
+    async function viewStudentPricing(studentId, studentName) {
+        console.log('💰 Viewing pricing elements for student:', studentId);
+    
         try {
-            // Get student ID from backend session
-            const studentId = await window.SessionState.getProperty('SelectedStudentId');
-
-            if (!studentId) {
-                console.error('❌ No student ID in session');
-                alert('לא נמצא מזהה תלמיד');
+            const container = document.getElementById('pricingTableContainer');
+            const pricingCard = container?.closest('.detail-card');
+    
+            if (!container) {
+                console.error('❌ Pricing container not found');
                 return;
             }
-
-            // Get student name from current data
-            let studentName = 'תלמיד';
-            if (window.currentStudentsData && window.currentStudentsData.length > 0) {
-                studentName = window.currentStudentsData[0].name || 'תלמיד';
+    
+            // Show loading
+            container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
+    
+            // Fetch pricing data
+            const token = window.sessionManager.getToken();
+            if (!token) {
+                throw new Error('No authentication token found');
             }
-
-            // Call existing pricing function
-            await viewStudentPricing(studentId, studentName);
-
+    
+            const response = await fetch(AppConfig.getApiUrl(`studentpricing/${studentId}`), {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+    
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+    
+            const result = await response.json();
+    
+            if (result.success && result.data) {
+                console.log('✅ Pricing data loaded:', result);
+                createPricingTable(result);  // Pass full result with data and summary
+            } else {
+                throw new Error(result.message || 'Failed to load pricing data');
+            }
+    
         } catch (error) {
-            console.error('❌ Error opening pricing modal:', error);
-            alert('שגיאה בפתיחת חלון התמחור');
+            console.error('❌ Error loading pricing elements:', error);
+            showPricingTableError('שגיאה בטעינת נתוני תמחור');
         }
     }
+
+    async function viewStudentPricingFromSection() {
+    try {
+        const studentId = await window.SessionState.getProperty('SelectedStudentId');
+        if (!studentId) {
+            console.error('❌ No student ID in session');
+            return;
+        }
+        
+        let studentName = 'תלמיד';
+        if (window.currentStudentsData && window.currentStudentsData.length > 0) {
+            studentName = window.currentStudentsData[0].name || 'תלמיד';
+        }
+        
+        await viewStudentPricing(studentId, studentName);
+    } catch (error) {
+        console.error('❌ Error loading pricing from section:', error);
+    }
+}
 
     window.viewStudentPricingFromSection = viewStudentPricingFromSection;
 
@@ -645,7 +723,7 @@
 
 
     // View student pricing elements
-    async function viewStudentPricing(studentId, studentName) {
+   /* async function viewStudentPricing(studentId, studentName) {
         console.log('💰 Viewing pricing elements for student:', studentId);
 
         try {
@@ -704,6 +782,7 @@
             showPricingTableError('שגיאה בטעינת נתוני תמחור');
         }
     }
+*/
 
     // Create pricing elements table
     function createPricingTable(data) {
@@ -1114,7 +1193,7 @@
 
             createStudentsTable([selectedStudent]);
 
-            // ✅ Initialize documents table after student data is loaded
+            // ✅ Initialize documents table and pricing after student data is loaded
             setTimeout(() => {
                 console.log('📄 Initializing documents table...');
                 initializeStudentDocuments();

@@ -49,58 +49,13 @@
             <!-- Tabs Container -->
             <div id="tabsContainer" style="display: none; margin-top: 20px;">
                 <!-- Tab Headers -->
-                <div class="tabs-header" style="
-                    display: flex;
-                    gap: 10px;
-                    padding: 0 15px;
-                    border-bottom: 2px solid #dee2e6;
-                    margin-bottom: 20px;
-                ">
-                    <button class="tab-button active" onclick="switchTab('documents')" data-tab="documents" style="
-                        padding: 12px 24px;
-                        border: none;
-                        background: none;
-                        cursor: pointer;
-                        font-weight: 600;
-                        border-bottom: 3px solid transparent;
-                        transition: all 0.3s;
-                    ">מסמכים</button>
-                    <button class="tab-button" onclick="switchTab('pricing')" data-tab="pricing" style="
-                        padding: 12px 24px;
-                        border: none;
-                        background: none;
-                        cursor: pointer;
-                        font-weight: 600;
-                        border-bottom: 3px solid transparent;
-                        transition: all 0.3s;
-                    ">רכיבי תמחור</button>
-                    <button class="tab-button" onclick="switchTab('tracks')" data-tab="tracks" style="
-                        padding: 12px 24px;
-                        border: none;
-                        background: none;
-                        cursor: pointer;
-                        font-weight: 600;
-                        border-bottom: 3px solid transparent;
-                        transition: all 0.3s;
-                    ">מגמות</button>
-                    <button class="tab-button" onclick="switchTab('studyprograms')" data-tab="studyprograms" style="
-                        padding: 12px 24px;
-                        border: none;
-                        background: none;
-                        cursor: pointer;
-                        font-weight: 600;
-                        border-bottom: 3px solid transparent;
-                        transition: all 0.3s;
-                    ">תוכניות לימוד נוספות</button>
-                    <button class="tab-button" onclick="switchTab('schoolattributes')" data-tab="schoolattributes" style="
-                        padding: 12px 24px;
-                        border: none;
-                        background: none;
-                        cursor: pointer;
-                        font-weight: 600;
-                        border-bottom: 3px solid transparent;
-                        transition: all 0.3s;
-                    ">מאפייני בתי ספר</button>
+                <div class="tabs-header" >
+                    <button class="tab-button active" onclick="switchTab('documents')" data-tab="documents" >מסמכים</button>
+                    <button class="tab-button" onclick="switchTab('pricing')" data-tab="pricing" >רכיבי תמחור</button>
+                    <button class="tab-button" onclick="switchTab('tracks')" data-tab="tracks" >מגמות</button>
+                    <button class="tab-button" onclick="switchTab('studyprograms')" data-tab="studyprograms" >תוכניות לימוד נוספות</button>
+                    <button class="tab-button" onclick="switchTab('schoolattributes')" data-tab="schoolattributes" >מאפייני בתי ספר</button>
+
                 </div>
 
                 <!-- Tab Content - Documents -->
@@ -279,26 +234,6 @@
     </div>
 </div>
 
-<style>
-    .tab-button {
-        color: #666;
-    }
-    .tab-button.active {
-        color: #007bff;
-        border-bottom-color: #007bff !important;
-    }
-    .tab-button:hover {
-        color: #0056b3;
-        background-color: #f8f9fa;
-    }
-    .tab-content {
-        animation: fadeIn 0.3s;
-    }
-    @keyframes fadeIn {
-        from { opacity: 0; }
-        to { opacity: 1; }
-    }
-</style>
 
 <script>
     // Global state
