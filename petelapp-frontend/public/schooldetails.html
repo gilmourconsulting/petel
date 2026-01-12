@@ -9,6 +9,8 @@
 <div class="students-container">
     <!-- Context buttons - LEFT SIDE POSITIONING -->
     <div class="context-buttons-section">
+
+        <div class="context-spacer"></div>
         <button class="context-navigation-btn" onclick="navigateBackToSchoolDashboard()" title=" לדף בית הספר">
             לדף בית הספר
         </button>
@@ -779,7 +781,7 @@
         window.getDefaultEndHour = getDefaultEndHour;
 
         // ✅  displaySchoolClasses - READ-ONLY TABLE with HIDDEN ACTIONS COLUMN
-                function displaySchoolClasses(classes) {
+        function displaySchoolClasses(classes) {
             console.log('📚 Displaying school classes:', classes);
 
             const container = document.getElementById('schoolClassesContent');
@@ -853,17 +855,17 @@
 
                 // ✅ Set column visibility BEFORE init() so it's applied during first render
                 window.classesTable.setColumnVisibility('actions', false);
-                
+
                 // Now initialize the table
                 window.classesTable.init(classes, columns);
-                
+
                 console.log('✅ ReusableTable created with hidden actions column');
 
             } catch (error) {
                 console.error('❌ Error creating ReusableTable for classes:', error);
             }
         }
-        
+
         // ✅ Export new functions to window
         window.showClassModal = showClassModal;
         window.showEditClassModal = showEditClassModal;
@@ -5084,8 +5086,6 @@
                 alert('שגיאה במחיקת התל"ן');
             }
         }
-
-
 
 
 

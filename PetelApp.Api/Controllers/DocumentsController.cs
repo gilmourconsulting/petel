@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
 using PetelApp.Api.Session;
 using PetelApp.Api.Controllers;
+using DocumentFormat.OpenXml.Bibliography;
 
 namespace PetelApp.Api.Controllers
 {
@@ -130,7 +131,7 @@ namespace PetelApp.Api.Controllers
                     return NotFound(new { success = false, message = "תלמיד לא נמצא" });
                 }
 
-                _logger.LogInformation("Resolved student {StudentId} to master_student_id: {MasterStudentId}", 
+                _logger.LogInformation("Resolved student {StudentId} to master_student_id: {MasterStudentId}",
                     effectiveStudentId, student.MasterStudentId);
 
                 // ✅ NEW: Get all student IDs that share this master_student_id (all versions)
@@ -139,15 +140,15 @@ namespace PetelApp.Api.Controllers
                     .Select(s => s.Id)
                     .ToListAsync();
 
-                _logger.LogInformation("Found {Count} versions for master_student_id {MasterStudentId}", 
+                _logger.LogInformation("Found {Count} versions for master_student_id {MasterStudentId}",
                     allStudentVersionIds.Count, student.MasterStudentId);
 
                 // ✅ Query documents linked to ANY version of this student
                 var documents = await _context.Documents
                     .Include(d => d.DocumentLinks)
                     .Include(d => d.DocumentType)
-                    .Where(d => d.DocumentLinks.Any(dl => 
-                        dl.SchoolStudentId.HasValue && 
+                    .Where(d => d.DocumentLinks.Any(dl =>
+                        dl.SchoolStudentId.HasValue &&
                         allStudentVersionIds.Contains(dl.SchoolStudentId.Value)))
                     .Where(d => d.IsLastVersion)
                     .OrderByDescending(d => d.CreatedAt)
@@ -166,7 +167,7 @@ namespace PetelApp.Api.Controllers
                         HasFile = d.FileBlob != null,
                         // ✅ Include which student version this document is linked to
                         LinkedStudentId = d.DocumentLinks
-                            .Where(dl => dl.SchoolStudentId.HasValue && 
+                            .Where(dl => dl.SchoolStudentId.HasValue &&
                                          allStudentVersionIds.Contains(dl.SchoolStudentId.Value))
                             .Select(dl => dl.SchoolStudentId)
                             .FirstOrDefault(),
@@ -174,10 +175,10 @@ namespace PetelApp.Api.Controllers
                     })
                     .ToListAsync();
 
-                _logger.LogInformation("Retrieved {Count} documents for master_student_id {MasterStudentId}", 
+                _logger.LogInformation("Retrieved {Count} documents for master_student_id {MasterStudentId}",
                     documents.Count, student.MasterStudentId);
-                
-                    return Ok(documents);
+
+                return Ok(documents);
             }
             catch (Exception ex)
             {
@@ -264,6 +265,380 @@ namespace PetelApp.Api.Controllers
         }
 
         /// <summary>
+        /// Generate missing documents for a student based on document types for the year
+        /// Level = תלמיד, filtered by category if applicable
+        /// </summary>
+        [HttpPost("generate-student-documents")]
+        public async Task<IActionResult> GenerateStudentDocuments(
+            [FromQuery] int studentId,
+            [FromQuery] int yearId)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                _logger.LogInformation("Generating documents for student {StudentId} in year {YearId}",
+                    studentId, yearId);
+
+                // ✅ Get student with master_student_id
+                var student = await _context.SchoolStudents
+                    .Where(s => s.Id == studentId)
+                    .Select(s => new
+                    {
+                        s.Id,
+                        s.MasterStudentId,
+                        s.DisabilityCategory,
+                        s.SchoolYearId
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (student == null)
+                {
+                    return NotFound(new { success = false, message = "תלמיד לא נמצא" });
+                }
+
+                // ✅ Get all document types for student level (תלמיד) in this year
+                var documentTypes = await _context.DocumentTypes
+                    .Where(dt => dt.YearId == yearId && dt.Level == "תלמיד")
+                    .ToListAsync();
+
+                _logger.LogInformation("Found {Count} document types for year {YearId}",
+                    documentTypes.Count, yearId);
+
+                // ✅ Get existing documents for this master_student_id
+                var allStudentVersionIds = await _context.SchoolStudents
+                    .Where(s => s.MasterStudentId == student.MasterStudentId)
+                    .Select(s => s.Id)
+                    .ToListAsync();
+
+                var existingDocumentTypeIds = await _context.Documents
+                    .Include(d => d.DocumentLinks)
+                    .Where(d => d.DocumentLinks.Any(dl =>
+                        dl.SchoolStudentId.HasValue &&
+                        allStudentVersionIds.Contains(dl.SchoolStudentId.Value)))
+                    .Where(d => d.IsLastVersion)
+                    .Select(d => d.DocumentTypeId)
+                    .Distinct()
+                    .ToListAsync();
+
+                _logger.LogInformation("Student already has {Count} document types",
+                    existingDocumentTypeIds.Count);
+
+                int addedCount = 0;
+                int skippedCount = 0;
+                int notRequiredCount = 0;
+
+                foreach (var docType in documentTypes)
+                {
+                    // ✅ Skip if document type already exists for this student
+                    if (existingDocumentTypeIds.Contains(docType.Id))
+                    {
+                        skippedCount++;
+                        _logger.LogInformation("Skipping document type {TypeId} - already exists", docType.Id);
+                        continue;
+                    }
+
+
+                    // ✅ Create new document with default status and truncated description
+                    var newDocument = new Document
+                    {
+                        Description = null,
+                        DocumentTypeId = docType.Id,
+                        StatusId = 1,  // Default status
+                        Version = 0,
+                        IsLastVersion = true,
+                        CreatedAt = DateTime.UtcNow,
+                        MasterDocumentId = null,
+                        FileBlob = null,
+                        FileEncoding = string.Empty
+                    };
+
+                    _context.Documents.Add(newDocument);
+                    await _context.SaveChangesAsync();
+
+                    // ✅ Set master document ID after creation
+                    await SetMasterDocumentId(newDocument.Id);
+
+                    // ✅ Create document link using master_student_id
+                    var documentLink = new DocumentLink
+                    {
+                        DocumentId = newDocument.Id,
+                        SchoolStudentId = studentId,  // Link to current version
+                        EntityId = null
+                    };
+
+                    _context.Set<DocumentLink>().Add(documentLink);
+                    addedCount++;
+
+                    _logger.LogInformation("Created document for type {TypeId} ({TypeName})",
+                        docType.Id, docType.Name);
+                }
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Document generation complete: {Added} added, {Skipped} skipped (already exist), {NotRequired} not required",
+                    addedCount, skippedCount, notRequiredCount);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"נוספו לרשימה {addedCount} מסמכים ",
+                    addedCount,
+                    skippedCount,
+                    notRequiredCount,
+                    totalTypes = documentTypes.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating student documents");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה ביצירת מסמכים",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Generate missing documents for a school based on document types for the year
+        /// Level = בית ספר, filtered by school attribute type if applicable
+        /// </summary>
+        [HttpPost("generate-school-documents")]
+        public async Task<IActionResult> GenerateSchoolDocuments(
+            [FromQuery] int schoolId,
+            [FromQuery] int yearId,
+            [FromQuery] int? schoolYearId = null)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                _logger.LogInformation("Generating documents for school  {SchoolId} in year {YearId}",
+                    schoolId, yearId);
+
+
+                // ✅ Get school attributes for this specific school year
+                var schoolAttributes = await _context.SchoolAttributes
+                    .Include(sa => sa.SchoolAttributeType)
+                    .Where(sa => sa.SchoolYearId == schoolYearId && sa.IsLastVersion)
+                    .ToListAsync();
+
+                _logger.LogInformation("Found {Count} school attributes for school_year_id {SchoolYearId}",
+                    schoolAttributes.Count, schoolYearId);
+                // ✅ Get all document types for school level (בית ספר) in this year
+                var documentTypes = await _context.DocumentTypes
+                    .Where(dt => dt.YearId == yearId && dt.Level == "בית ספר")
+                    .ToListAsync();
+
+                _logger.LogInformation("Found {Count} document types for year {YearId}",
+                    documentTypes.Count, yearId);
+
+                // ✅ Get existing documents for this entity
+                var existingDocumentTypeIds = await _context.Documents
+                    .Include(d => d.DocumentLinks)
+                    .Where(d => d.DocumentLinks.Any(dl => dl.EntityId == schoolId))
+                    .Where(d => d.IsLastVersion)
+                    .Select(d => d.DocumentTypeId)
+                    .Distinct()
+                    .ToListAsync();
+
+                _logger.LogInformation("School already has {Count} document types",
+                    existingDocumentTypeIds.Count);
+
+                int addedCount = 0;
+                int skippedCount = 0;
+                int notRequiredCount = 0;
+                foreach (var docType in documentTypes)
+                {
+                    // ✅ Skip if document type already exists for this school
+                    if (existingDocumentTypeIds.Contains(docType.Id))
+                    {
+                        skippedCount++;
+                        _logger.LogInformation("Skipping document type {TypeId} - already exists", docType.Id);
+                        continue;
+                    }
+
+                    // ✅ Check object_element_check filter (school attribute type)
+                    if (!string.IsNullOrEmpty(docType.ObjectElementCheck))
+                    {
+                        // Find school attribute with matching type name
+                        var matchingAttribute = schoolAttributes
+                            .FirstOrDefault(sa =>
+                                sa.SchoolAttributeType != null &&
+                                sa.SchoolAttributeType.Name.Equals(
+                                    docType.ObjectElementCheck,
+                                    StringComparison.OrdinalIgnoreCase));
+
+                        if (!string.IsNullOrEmpty(docType.ObjectElementValue))
+                        {
+
+                            if (docType.ObjectElementCheck.Equals("additional studies", StringComparison.OrdinalIgnoreCase) ||
+                                docType.ObjectElementCheck.Equals("תל\"ן", StringComparison.OrdinalIgnoreCase))
+                            {
+
+
+                                // Check if there are any additional study programs for this school year
+                                var hasAdditionalStudies = await _context.SchoolAdditionalStudyPrograms
+                                    .AnyAsync(sasp => sasp.SchoolYearId == schoolYearId && sasp.IsLastVersion);
+
+                                if (!hasAdditionalStudies)
+                                {
+                                    notRequiredCount++;
+                                    _logger.LogInformation(
+                                        "Document type {TypeId} not required - no additional study programs found for school_year_id {SchoolYearId}",
+                                        docType.Id, schoolYearId);
+                                    continue;
+                                }
+
+                                // If ObjectElementValue is specified, treat it as boolean check
+                                if (!string.IsNullOrEmpty(docType.ObjectElementValue))
+                                {
+                                    bool requiredValue = docType.ObjectElementValue.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+                                                         docType.ObjectElementValue == "1";
+
+                                    if (!requiredValue)
+                                    {
+                                        // Required value is false, but we have programs - skip
+                                        notRequiredCount++;
+                                        _logger.LogInformation(
+                                            "Document type {TypeId} not required - additional studies exist but required value is false",
+                                            docType.Id);
+                                        continue;
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                var attributeType = matchingAttribute.SchoolAttributeType?.AttributeValueType?.ToLower();
+                                var attributeValue = matchingAttribute.Value;
+                                var requiredValue = docType.ObjectElementValue;
+
+                                bool valueMatches = false;
+
+                                // ✅ Handle numeric types: 0 = false, non-zero = true
+                                if (attributeType == "integer" || attributeType == "decimal")
+                                {
+                                    // Parse the attribute value as decimal
+                                    if (decimal.TryParse(attributeValue, out var numericValue))
+                                    {
+                                        // Parse required value as boolean (true/false or 1/0)
+                                        bool requiredBool = false;
+                                        if (bool.TryParse(requiredValue, out var boolValue))
+                                        {
+                                            requiredBool = boolValue;
+                                        }
+                                        else if (requiredValue == "1")
+                                        {
+                                            requiredBool = true;
+                                        }
+
+                                        // Compare: 0 = false, non-zero = true
+                                        bool actualBool = numericValue != 0;
+                                        valueMatches = actualBool == requiredBool;
+
+                                        _logger.LogInformation(
+                                            "Document type {TypeId} - numeric attribute check: value={NumericVal}, actual={ActualBool}, required={RequiredBool}, matches={Matches}",
+                                            docType.Id, numericValue, actualBool, requiredBool, valueMatches);
+                                    }
+                                    else
+                                    {
+                                        _logger.LogWarning(
+                                            "Document type {TypeId} - failed to parse numeric attribute value '{Value}'",
+                                            docType.Id, attributeValue);
+                                    }
+                                }
+                                else
+                                {
+                                    // ✅ String comparison for other types
+                                    valueMatches = attributeValue?.Equals(requiredValue, StringComparison.OrdinalIgnoreCase) ?? false;
+                                }
+
+                                if (!valueMatches)
+                                {
+                                    notRequiredCount++;
+                                    _logger.LogInformation(
+                                        "Document type {TypeId} not required - attribute value mismatch (school: {SchoolVal}, required: {RequiredVal}, type: {AttrType})",
+                                        docType.Id, attributeValue, requiredValue, attributeType ?? "string");
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+
+                    // ✅ Create new document with default status and truncated description
+                    var newDocument = new Document
+                    {
+                        Description = null,
+                        DocumentTypeId = docType.Id,
+                        StatusId = 1,  // Default status
+                        Version = 0,
+                        IsLastVersion = true,
+                        CreatedAt = DateTime.UtcNow,
+                        MasterDocumentId = null,
+                        FileBlob = null,
+                        FileEncoding = string.Empty
+                    };
+
+                    _context.Documents.Add(newDocument);
+                    await _context.SaveChangesAsync();
+
+                    // ✅ Set master document ID after creation
+                    await SetMasterDocumentId(newDocument.Id);
+
+                    // ✅ Create document link to entity
+                    var documentLink = new DocumentLink
+                    {
+                        DocumentId = newDocument.Id,
+                        SchoolStudentId = null,
+                        EntityId = schoolId
+                    };
+
+                    _context.Set<DocumentLink>().Add(documentLink);
+                    addedCount++;
+
+                    _logger.LogInformation("Created document for type {TypeId} ({TypeName})",
+                        docType.Id, docType.Name);
+                }
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Document generation complete: {Added} added, {Skipped} skipped (already exist), {NotRequired} not required",
+                    addedCount, skippedCount, notRequiredCount);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"נוספו לרשימה {addedCount} מסמכים ",
+                    addedCount,
+                    skippedCount,
+                    notRequiredCount,  // ✅ NEW: Return filtered count
+                    totalTypes = documentTypes.Count
+                });
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating school documents");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה ביצירת מסמכים",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
         /// Get all document types
         /// </summary>
         [HttpGet("types")]
@@ -292,7 +667,7 @@ namespace PetelApp.Api.Controllers
             }
         }
 
-                /// <summary>
+        /// <summary>
         /// Get document types for selected year
         /// </summary>
         [HttpGet("document-types/{yearId}")]
@@ -305,7 +680,7 @@ namespace PetelApp.Api.Controllers
                 {
                     return Unauthorized(new { success = false, message = "נדרש אימות" });
                 }
-        
+
                 var documentTypes = await _context.DocumentTypes
                     .AsNoTracking()
                     .Where(dt => dt.YearId == yearId)
@@ -318,7 +693,7 @@ namespace PetelApp.Api.Controllers
                         yearId = dt.YearId
                     })
                     .ToListAsync();
-        
+
                 _logger.LogInformation("Retrieved {Count} document types for year {YearId}", documentTypes.Count, yearId);
                 return Ok(documentTypes);
             }
@@ -525,8 +900,36 @@ namespace PetelApp.Api.Controllers
                 _ => "application/octet-stream"
             };
         }
+
+        /// <summary>
+        /// Set the master document ID for a newly created document.
+        /// The document's own ID becomes its master ID for version tracking.
+        /// </summary>
+        /// <param name="documentId">The ID of the newly created document</param>
+        private async Task SetMasterDocumentId(long documentId)
+        {
+            var document = await _context.Documents.FindAsync(documentId);
+            if (document == null)
+            {
+                _logger.LogWarning("Document {DocumentId} not found when setting master ID", documentId);
+                return;
+            }
+
+            // Only set master ID if it's null (first version)
+            if (document.MasterDocumentId == null)
+            {
+                document.MasterDocumentId = documentId;
+                _context.Documents.Update(document);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Set master_document_id={MasterId} for document {DocumentId}",
+                    documentId, documentId);
+            }
+        }
     }
 }
+
+
 
 /// <summary>
 /// Request model for document upload

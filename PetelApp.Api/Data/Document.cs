@@ -1,4 +1,6 @@
 using DocumentFormat.OpenXml.InkML;
+using System.ComponentModel.DataAnnotations.Schema;
+using System.ComponentModel.DataAnnotations;
 
 namespace PetelApp.Api.Data
 {
@@ -29,6 +31,21 @@ namespace PetelApp.Api.Data
         public string Name { get; set; } = string.Empty;
         public string Level { get; set; } = string.Empty;
         public int? YearId { get; set; }
+        
+        // ✅ NEW: Fields for conditional document generation
+        [Column("object_element_check")]
+        [MaxLength(50)]
+        public string? ObjectElementCheck { get; set; }
+        
+        [Column("object_element_value")]
+        [MaxLength(50)]
+        public string? ObjectElementValue { get; set; }
+        
+        [Column("created_at")]
+        public DateTime? CreatedAt { get; set; }
+        
+        [Column("user_id")]
+        public int? UserId { get; set; }
     }
 
     public class DocumentLink

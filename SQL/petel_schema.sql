@@ -647,12 +647,19 @@ ALTER SEQUENCE petel_schema.document_status_types_id_seq OWNED BY petel_schema.d
 -- Name: document_types; Type: TABLE; Schema: petel_schema; Owner: postgres
 --
 
-CREATE TABLE petel_schema.document_types (
-    id integer NOT NULL,
-    name character varying(100) NOT NULL,
-    level character varying(50) NOT NULL,
-    year_id integer
-);
+CREATE TABLE IF NOT EXISTS petel_schema.document_types
+(
+    id integer NOT NULL DEFAULT nextval('petel_schema.document_types_id_seq'::regclass),
+    name character varying(100) COLLATE pg_catalog."default" NOT NULL,
+    level character varying(50) COLLATE pg_catalog."default" NOT NULL,
+    year_id integer,
+    object_element_check character varying(50) COLLATE pg_catalog."default",
+    object_element_value character varying(50) COLLATE pg_catalog."default",
+    created_at timestamp with time zone,
+    user_id integer,
+    CONSTRAINT document_types_pkey PRIMARY KEY (id),
+    CONSTRAINT document_types_name_year_key UNIQUE (name, year_id)
+)
 
 
 ALTER TABLE petel_schema.document_types OWNER TO postgres;

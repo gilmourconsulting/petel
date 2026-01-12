@@ -8,6 +8,9 @@
         <button class="context-btn" onclick="calculateStudentPricingFromSection()">
             חשב רכיבי תמחור לתלמיד
         </button>
+        <button class="context-btn" onclick="generateDocumentsForCurrentStudent()">
+            עדכן רשימת מסמכים לתלמיד
+        </button>
         <context-spacer></context-spacer>
         <button class="context-navigation-btn" id="backToSourceBtn" onclick="navigateBackToSource()">
             חזרה לרשימה
@@ -45,9 +48,10 @@
             <div class="content-card">
                 <!-- Tab Headers -->
                 <div class="tabs-header">
-                    <button class="tab-button active" onclick="switchStudentTab('documents')" data-tab="documents"
-                        >מסמכים</button>
-                    <button class="tab-button" onclick="switchStudentTab('pricing')" data-tab="pricing" >רכיבי תמחור</button>
+                    <button class="tab-button active" onclick="switchStudentTab('documents')"
+                        data-tab="documents">מסמכים</button>
+                    <button class="tab-button" onclick="switchStudentTab('pricing')" data-tab="pricing">רכיבי
+                        תמחור</button>
                 </div>
 
                 <!-- Tab Content - Documents -->
@@ -62,8 +66,8 @@
                 <!-- Tab Content - Pricing -->
                 <div id="pricingTab" class="tab-content" style="display: none;">
                     <div class="detail-card expanded">
-                       <div class="detail-card-header">
-                     <!--       <h2 class="detail-card-title">רכיבי תמחור - <span id="pricingStudentName"></span></h2>
+                        <div class="detail-card-header">
+                            <!--       <h2 class="detail-card-title">רכיבי תמחור - <span id="pricingStudentName"></span></h2>
                             <div class="card-header-actions">
                                 <button class="btn-icon" onclick="calculateStudentPricingFromSection()"
                                     title="חישוב רכיבי תמחור">
@@ -72,13 +76,13 @@
 
                             </div>
                         </div> -->
-                        <div class="detail-card-content">
-                            <div id="pricingTableContainer" class="table-container">
-                                <div class="loading-spinner">טוען נתונים...</div>
-                            </div>
+                            <div class="detail-card-content">
+                                <div id="pricingTableContainer" class="table-container">
+                                    <div class="loading-spinner">טוען נתונים...</div>
+                                </div>
 
-                            <!-- Detailed summary section -->
-                            <div id="pricingTotalContainer" style="
+                                <!-- Detailed summary section -->
+                                <div id="pricingTotalContainer" style="
                                 margin-top: 15px;
                                 padding: 10px;
                                 background-color: #f8f9fa;
@@ -86,105 +90,105 @@
                                 border-radius: 8px;
                                 direction: rtl;
                             ">
-                                <!-- Elements Total (smaller font) -->
-                                <div style="
+                                    <!-- Elements Total (smaller font) -->
+                                    <div style="
                                     text-align: center;
                                     font-size: 14px;
                                     color: #666;
                                     margin-bottom: 5px;
                                 ">
-                                    <span>סכום רכיבי תמחור: </span>
-                                    <span id="pricingElementsTotal" style="color: #666;">₪0.00</span>
-                                </div>
+                                        <span>סכום רכיבי תמחור: </span>
+                                        <span id="pricingElementsTotal" style="color: #666;">₪0.00</span>
+                                    </div>
 
-                                <!-- Enrollment Months -->
-                                <div style="
+                                    <!-- Enrollment Months -->
+                                    <div style="
                                     text-align: center;
                                     font-size: 14px;
                                     color: #666;
                                     margin-bottom: 10px;
                                 " id="enrollmentMonthsContainer">
-                                    <span>תקופת לימודים: </span>
-                                    <span id="enrollmentMonths">-</span>
-                                </div>
+                                        <span>תקופת לימודים: </span>
+                                        <span id="enrollmentMonths">-</span>
+                                    </div>
 
-                                <!-- Final Cost (large font) -->
-                                <div style="
+                                    <!-- Final Cost (large font) -->
+                                    <div style="
                                     text-align: center;
                                     font-size: 18px;
                                     font-weight: bold;
                                     padding-top: 5px;
                                     border-top: 2px solid #dee2e6;
                                 ">
-                                    <span>סה"כ עלות: </span>
-                                    <span id="pricingTotalAmount" style="color: #28a745;">₪0.00</span>
+                                        <span>סה"כ עלות: </span>
+                                        <span id="pricingTotalAmount" style="color: #28a745;">₪0.00</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
+
+
                 </div>
-
-
             </div>
         </div>
     </div>
-</div>
 
 
 
-<script src="documents-table.js"></script>
+    <script src="documents-table.js"></script>
 
-<script>
+    <script>
 
-    if (typeof documentsComponent === 'undefined') {
-        var documentsComponent = null;
-    }
-
-    // Tab switching function
-    async function switchStudentTab(tabName) {
-        console.log(`🔄 Switching to tab: ${tabName}`);
-
-        // Update active tab button
-        document.querySelectorAll('.tab-button').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-
-        // Hide all tab contents
-        document.querySelectorAll('.tab-content').forEach(content => {
-            content.style.display = 'none';
-        });
-
-        // Show selected tab content
-        const tabContent = document.getElementById(`${tabName}Tab`);
-        if (tabContent) {
-            tabContent.style.display = 'block';
+        if (typeof documentsComponent === 'undefined') {
+            var documentsComponent = null;
         }
 
-        // Initialize collapsible cards for newly shown tab
-        initializeCollapsibleCards();
+        // Tab switching function
+        async function switchStudentTab(tabName) {
+            console.log(`🔄 Switching to tab: ${tabName}`);
 
-        console.log(`✅ Switched to ${tabName} tab`);
-    }
+            // Update active tab button
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
 
-    window.switchStudentTab = switchStudentTab;
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
 
-    /**
-     * Initialize documents table component for selected student
-     */
-    async function initializeStudentDocuments() {
-        try {
-            console.log('📄 Initializing student documents table...');
+            // Show selected tab content
+            const tabContent = document.getElementById(`${tabName}Tab`);
+            if (tabContent) {
+                tabContent.style.display = 'block';
+            }
 
-            // Get student ID from backend session
-            const studentId = await window.SessionState.getProperty('SelectedStudentId');
-            const selectedYearId = await window.SessionState.getProperty('SelectedYearId');
+            // Initialize collapsible cards for newly shown tab
+            initializeCollapsibleCards();
 
-            if (!studentId) {
-                console.error('❌ No student ID in session');
-                const container = document.getElementById('documentsTableContainer');
-                if (container) {
-                    container.innerHTML = `
+            console.log(`✅ Switched to ${tabName} tab`);
+        }
+
+        window.switchStudentTab = switchStudentTab;
+
+        /**
+         * Initialize documents table component for selected student
+         */
+        async function initializeStudentDocuments() {
+            try {
+                console.log('📄 Initializing student documents table...');
+
+                // Get student ID from backend session
+                const studentId = await window.SessionState.getProperty('SelectedStudentId');
+                const selectedYearId = await window.SessionState.getProperty('SelectedYearId');
+
+                if (!studentId) {
+                    console.error('❌ No student ID in session');
+                    const container = document.getElementById('documentsTableContainer');
+                    if (container) {
+                        container.innerHTML = `
                     <div class="table-error" style="
                         padding: 20px; 
                         background: #f8d7da; 
@@ -200,40 +204,40 @@
                         </button>
                     </div>
                 `;
+                    }
+                    return;
                 }
-                return;
-            }
 
-            console.log('🔍 Loading documents for student ID:', studentId);
+                console.log('🔍 Loading documents for student ID:', studentId);
 
-            // Initialize documents table component
-            documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
-                showUploadForm: false,
-                allowDelete: false,
-                allowDownload: true,
-                allowUpload: true,
-                entityId: studentId,
-                entityType: 'student',
-                yearId: selectedYearId,
-                onUploadSuccess: (result) => {
-                    console.log('📄 Document uploaded for student:', result);
-                },
-                onDeleteSuccess: (documentId) => {
-                    console.log('🗑 Document deleted:', documentId);
-                }
-            });
+                // Initialize documents table component
+                documentsComponent = new DocumentsTableComponent('documentsTableContainer', {
+                    showUploadForm: false,
+                    allowDelete: false,
+                    allowDownload: true,
+                    allowUpload: true,
+                    entityId: studentId,
+                    entityType: 'student',
+                    yearId: selectedYearId,
+                    onUploadSuccess: (result) => {
+                        console.log('📄 Document uploaded for student:', result);
+                    },
+                    onDeleteSuccess: (documentId) => {
+                        console.log('🗑 Document deleted:', documentId);
+                    }
+                });
 
-            // Create global reference for button onclick handlers
-            window[`documentsTableInstance_documentsTableContainer`] = documentsComponent;
+                // Create global reference for button onclick handlers
+                window[`documentsTableInstance_documentsTableContainer`] = documentsComponent;
 
-            await documentsComponent.init();
+                await documentsComponent.init();
 
-            console.log('✅ Student documents table initialized');
-        } catch (error) {
-            console.error('❌ Error initializing student documents:', error);
-            const container = document.getElementById('documentsTableContainer');
-            if (container) {
-                container.innerHTML = `
+                console.log('✅ Student documents table initialized');
+            } catch (error) {
+                console.error('❌ Error initializing student documents:', error);
+                const container = document.getElementById('documentsTableContainer');
+                if (container) {
+                    container.innerHTML = `
                 <div class="table-error" style="
                     padding: 20px; 
                     background: #f8d7da; 
@@ -249,224 +253,224 @@
                     </button>
                 </div>
             `;
+                }
             }
         }
-    }
 
 
-    /**
-     * Cleanup function called by PageLifecycleManager when leaving page
-     */
-    function cleanupStudentPage() {
-        console.log('🧹 Cleaning up student page...');
+        /**
+         * Cleanup function called by PageLifecycleManager when leaving page
+         */
+        function cleanupStudentPage() {
+            console.log('🧹 Cleaning up student page...');
 
-        try {
-            // ✅ ADD: Cleanup documents component FIRST
-            if (documentsComponent) {
-                console.log('🧹 Cleaning up documents component instance...');
+            try {
+                // ✅ ADD: Cleanup documents component FIRST
+                if (documentsComponent) {
+                    console.log('🧹 Cleaning up documents component instance...');
 
-                // Call component cleanup if available
-                if (typeof documentsComponent.cleanup === 'function') {
-                    documentsComponent.cleanup();
+                    // Call component cleanup if available
+                    if (typeof documentsComponent.cleanup === 'function') {
+                        documentsComponent.cleanup();
+                    }
+
+                    // Clear table reference
+                    if (documentsComponent.documentsTable) {
+                        documentsComponent.documentsTable = null;
+                    }
+
+                    // Clear document types
+                    if (documentsComponent.documentTypes) {
+                        documentsComponent.documentTypes = [];
+                    }
+
+                    // Null the component
+                    documentsComponent = null;
+                    console.log('✅ Documents component nullified');
                 }
 
-                // Clear table reference
-                if (documentsComponent.documentsTable) {
-                    documentsComponent.documentsTable = null;
+                // Remove global reference
+                const globalKey = 'documentsTableInstance_documentsTableContainer';
+                if (window[globalKey]) {
+                    delete window[globalKey];
+                    console.log('✅ Global documents instance removed:', globalKey);
                 }
 
-                // Clear document types
-                if (documentsComponent.documentTypes) {
+                // Clear container HTML
+                const documentsContainer = document.getElementById('documentsTableContainer');
+                if (documentsContainer) {
+                    documentsContainer.innerHTML = '<div class="loading-spinner">טוען מסמכים...</div>';
+                    console.log('✅ Documents container cleared');
+                }
+
+                // ✅ Clear student-specific table instances
+                if (window.currentStudentsData) {
+                    window.currentStudentsData = null;
+                    console.log('✅ Current students data cleared');
+                }
+
+                // ✅ Clear students table container
+                const studentsContainer = document.getElementById('studentsTableContainer');
+                if (studentsContainer) {
+                    studentsContainer.innerHTML = '<div class="loading-spinner">טוען נתוני תלמידים...</div>';
+                    console.log('✅ Students container cleared');
+                }
+
+                // ✅ Clear pricing table container
+                const pricingContainer = document.getElementById('pricingTableContainer');
+                if (pricingContainer) {
+                    pricingContainer.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
+                }
+
+                console.log('✅ Student page cleanup complete');
+            } catch (error) {
+                console.error('❌ Error during student page cleanup:', error);
+            }
+        }
+        window.cleanupStudentPage = cleanupStudentPage;
+        /**
+         * Cleanup documents component when leaving page
+         */
+
+
+        function cleanupStudentDocuments() {
+            try {
+                console.log('🧹 Cleaning up student documents...');
+
+                // Cleanup component instance
+                if (documentsComponent) {
+                    // Clear table reference
+                    if (documentsComponent.documentsTable) {
+                        documentsComponent.documentsTable = null;
+                    }
+
+                    // Clear document types
                     documentsComponent.documentTypes = [];
+
+                    // Null the component
+                    documentsComponent = null;
                 }
 
-                // Null the component
-                documentsComponent = null;
-                console.log('✅ Documents component nullified');
-            }
-
-            // Remove global reference
-            const globalKey = 'documentsTableInstance_documentsTableContainer';
-            if (window[globalKey]) {
-                delete window[globalKey];
-                console.log('✅ Global documents instance removed:', globalKey);
-            }
-
-            // Clear container HTML
-            const documentsContainer = document.getElementById('documentsTableContainer');
-            if (documentsContainer) {
-                documentsContainer.innerHTML = '<div class="loading-spinner">טוען מסמכים...</div>';
-                console.log('✅ Documents container cleared');
-            }
-
-            // ✅ Clear student-specific table instances
-            if (window.currentStudentsData) {
-                window.currentStudentsData = null;
-                console.log('✅ Current students data cleared');
-            }
-
-            // ✅ Clear students table container
-            const studentsContainer = document.getElementById('studentsTableContainer');
-            if (studentsContainer) {
-                studentsContainer.innerHTML = '<div class="loading-spinner">טוען נתוני תלמידים...</div>';
-                console.log('✅ Students container cleared');
-            }
-
-            // ✅ Clear pricing table container
-            const pricingContainer = document.getElementById('pricingTableContainer');
-            if (pricingContainer) {
-                pricingContainer.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
-            }
-
-            console.log('✅ Student page cleanup complete');
-        } catch (error) {
-            console.error('❌ Error during student page cleanup:', error);
-        }
-    }
-    window.cleanupStudentPage = cleanupStudentPage;
-    /**
-     * Cleanup documents component when leaving page
-     */
-
-
-    function cleanupStudentDocuments() {
-        try {
-            console.log('🧹 Cleaning up student documents...');
-
-            // Cleanup component instance
-            if (documentsComponent) {
-                // Clear table reference
-                if (documentsComponent.documentsTable) {
-                    documentsComponent.documentsTable = null;
+                // Remove global reference
+                if (window[`documentsTableInstance_documentsTableContainer`]) {
+                    delete window[`documentsTableInstance_documentsTableContainer`];
                 }
 
-                // Clear document types
-                documentsComponent.documentTypes = [];
+                // Clear container HTML
+                const container = document.getElementById('documentsTableContainer');
+                if (container) {
+                    container.innerHTML = '';
+                }
 
-                // Null the component
-                documentsComponent = null;
+                console.log('✅ Student documents cleanup complete');
+            } catch (error) {
+                console.error('❌ Error during documents cleanup:', error);
             }
-
-            // Remove global reference
-            if (window[`documentsTableInstance_documentsTableContainer`]) {
-                delete window[`documentsTableInstance_documentsTableContainer`];
-            }
-
-            // Clear container HTML
-            const container = document.getElementById('documentsTableContainer');
-            if (container) {
-                container.innerHTML = '';
-            }
-
-            console.log('✅ Student documents cleanup complete');
-        } catch (error) {
-            console.error('❌ Error during documents cleanup:', error);
         }
-    }
 
         // View student pricing elements
-    async function viewStudentPricing(studentId, studentName) {
-        console.log('💰 Viewing pricing elements for student:', studentId);
-    
-        try {
-            const container = document.getElementById('pricingTableContainer');
-            const pricingCard = container?.closest('.detail-card');
-    
-            if (!container) {
-                console.error('❌ Pricing container not found');
-                return;
-            }
-    
-            // Show loading
-            container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
-    
-            // Fetch pricing data
-            const token = window.sessionManager.getToken();
-            if (!token) {
-                throw new Error('No authentication token found');
-            }
-    
-            const response = await fetch(AppConfig.getApiUrl(`studentpricing/${studentId}`), {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
+        async function viewStudentPricing(studentId, studentName) {
+            console.log('💰 Viewing pricing elements for student:', studentId);
+
+            try {
+                const container = document.getElementById('pricingTableContainer');
+                const pricingCard = container?.closest('.detail-card');
+
+                if (!container) {
+                    console.error('❌ Pricing container not found');
+                    return;
                 }
-            });
-    
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+
+                // Show loading
+                container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
+
+                // Fetch pricing data
+                const token = window.sessionManager.getToken();
+                if (!token) {
+                    throw new Error('No authentication token found');
+                }
+
+                const response = await fetch(AppConfig.getApiUrl(`studentpricing/${studentId}`), {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    console.log('✅ Pricing data loaded:', result);
+                    createPricingTable(result);  // Pass full result with data and summary
+                } else {
+                    throw new Error(result.message || 'Failed to load pricing data');
+                }
+
+            } catch (error) {
+                console.error('❌ Error loading pricing elements:', error);
+                showPricingTableError('שגיאה בטעינת נתוני תמחור');
             }
-    
-            const result = await response.json();
-    
-            if (result.success && result.data) {
-                console.log('✅ Pricing data loaded:', result);
-                createPricingTable(result);  // Pass full result with data and summary
-            } else {
-                throw new Error(result.message || 'Failed to load pricing data');
-            }
-    
-        } catch (error) {
-            console.error('❌ Error loading pricing elements:', error);
-            showPricingTableError('שגיאה בטעינת נתוני תמחור');
         }
-    }
 
-    async function viewStudentPricingFromSection() {
-    try {
-        const studentId = await window.SessionState.getProperty('SelectedStudentId');
-        if (!studentId) {
-            console.error('❌ No student ID in session');
-            return;
+        async function viewStudentPricingFromSection() {
+            try {
+                const studentId = await window.SessionState.getProperty('SelectedStudentId');
+                if (!studentId) {
+                    console.error('❌ No student ID in session');
+                    return;
+                }
+
+                let studentName = 'תלמיד';
+                if (window.currentStudentsData && window.currentStudentsData.length > 0) {
+                    studentName = window.currentStudentsData[0].name || 'תלמיד';
+                }
+
+                await viewStudentPricing(studentId, studentName);
+            } catch (error) {
+                console.error('❌ Error loading pricing from section:', error);
+            }
         }
-        
-        let studentName = 'תלמיד';
-        if (window.currentStudentsData && window.currentStudentsData.length > 0) {
-            studentName = window.currentStudentsData[0].name || 'תלמיד';
-        }
-        
-        await viewStudentPricing(studentId, studentName);
-    } catch (error) {
-        console.error('❌ Error loading pricing from section:', error);
-    }
-}
 
-    window.viewStudentPricingFromSection = viewStudentPricingFromSection;
+        window.viewStudentPricingFromSection = viewStudentPricingFromSection;
 
 
-    // Calculate student pricing from section header
-    async function calculateStudentPricingFromSection() {
-        try {
-            console.log('🔢 Starting pricing calculation from section...');
+        // Calculate student pricing from section header
+        async function calculateStudentPricingFromSection() {
+            try {
+                console.log('🔢 Starting pricing calculation from section...');
 
-            // Get student ID from backend session
-            const studentId = await window.SessionState.getProperty('SelectedStudentId');
+                // Get student ID from backend session
+                const studentId = await window.SessionState.getProperty('SelectedStudentId');
 
-            if (!studentId) {
-                console.error('❌ No student ID in session');
-                alert('לא נמצא מזהה תלמיד');
-                return;
-            }
+                if (!studentId) {
+                    console.error('❌ No student ID in session');
+                    alert('לא נמצא מזהה תלמיד');
+                    return;
+                }
 
-            // Get student name from current data
-            let studentName = 'תלמיד';
-            if (window.currentStudentsData && window.currentStudentsData.length > 0) {
-                studentName = window.currentStudentsData[0].name || 'תלמיד';
-            }
+                // Get student name from current data
+                let studentName = 'תלמיד';
+                if (window.currentStudentsData && window.currentStudentsData.length > 0) {
+                    studentName = window.currentStudentsData[0].name || 'תלמיד';
+                }
 
-            // Confirm calculation
-            const confirmCalc = confirm(`האם לחשב רכיבי תמחור עבור ${studentName}?\n\nפעולה זו תחליף את רכיבי התמחור הקיימים.`);
+                // Confirm calculation
+                const confirmCalc = confirm(`האם לחשב רכיבי תמחור עבור ${studentName}?\n\nפעולה זו תחליף את רכיבי התמחור הקיימים.`);
 
-            if (!confirmCalc) {
-                console.log('⚠️ Pricing calculation cancelled by user');
-                return;
-            }
+                if (!confirmCalc) {
+                    console.log('⚠️ Pricing calculation cancelled by user');
+                    return;
+                }
 
-            // Show loading indicator
-            const loadingDiv = document.createElement('div');
-            loadingDiv.id = 'calculatingIndicator';
-            loadingDiv.style.cssText = `
+                // Show loading indicator
+                const loadingDiv = document.createElement('div');
+                loadingDiv.id = 'calculatingIndicator';
+                loadingDiv.style.cssText = `
             position: fixed;
             top: 50%;
             left: 50%;
@@ -479,467 +483,562 @@
             text-align: center;
             direction: rtl;
         `;
-            loadingDiv.innerHTML = `
+                loadingDiv.innerHTML = `
             <div class="loading-spinner" style="margin-bottom: 15px;">⏳</div>
             <div style="font-size: 16px; font-weight: bold;">מחשב רכיבי תמחור...</div>
             <div style="font-size: 14px; color: #666; margin-top: 10px;">אנא המתן</div>
         `;
-            document.body.appendChild(loadingDiv);
+                document.body.appendChild(loadingDiv);
 
-            // Call calculation API
-            const token = window.sessionManager.getToken();
-            if (!token) {
-                throw new Error('No authentication token found');
-            }
-
-            console.log(`📡 Calling calculation API for student ${studentId}...`);
-
-            const response = await fetch(AppConfig.getApiUrl(`studentpricing/calculate/${studentId}?save=true`), {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
+                // Call calculation API
+                const token = window.sessionManager.getToken();
+                if (!token) {
+                    throw new Error('No authentication token found');
                 }
-            });
 
-            // Remove loading indicator
-            document.body.removeChild(loadingDiv);
+                console.log(`📡 Calling calculation API for student ${studentId}...`);
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                console.error('❌ API Error Response:', errorData);
-                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-            }
+                const response = await fetch(AppConfig.getApiUrl(`studentpricing/calculate/${studentId}?save=true`), {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
 
-            const result = await response.json();
-            console.log('📦 Full API Response:', result);
+                // Remove loading indicator
+                document.body.removeChild(loadingDiv);
 
-            if (result.success) {
-                // Ensure data object exists
-                const data = result.data || result;
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('❌ API Error Response:', errorData);
+                    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                }
 
-                // ✅ Check if no changes were detected
-                if (data.noChangeDetected) {
-                    console.log('ℹ️ No pricing changes detected:', data);
+                const result = await response.json();
+                console.log('📦 Full API Response:', result);
 
-                    let message = `✅ חישוב התמחור הושלם בהצלחה!\n\n`;
-                    message += `ℹ️ לא התגלו שינויים ברכיבי התמחור\n`;
+                if (result.success) {
+                    // Ensure data object exists
+                    const data = result.data || result;
 
-                    if (data.elementsCount !== undefined) {
-                        message += `📊 ${data.elementsCount} רכיבי תמחור תקפים\n`;
+                    // ✅ Check if no changes were detected
+                    if (data.noChangeDetected) {
+                        console.log('ℹ️ No pricing changes detected:', data);
+
+                        let message = `✅ חישוב התמחור הושלם בהצלחה!\n\n`;
+                        message += `ℹ️ לא התגלו שינויים ברכיבי התמחור\n`;
+
+                        if (data.elementsCount !== undefined) {
+                            message += `📊 ${data.elementsCount} רכיבי תמחור תקפים\n`;
+                        }
+
+                        if (data.totalPrice !== undefined) {
+                            message += `💰 סכום כולל: ₪${data.totalPrice.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
+                        }
+
+                        message += `\nהנתונים הקיימים עדיין תקפים - לא נוצרה גרסה חדשה.`;
+
+                        alert(message);
+
+                        // ✅ Automatically refresh pricing table
+                        await viewStudentPricing(studentId, studentName);
+                    } else {
+                        // Changes detected - new version created
+                        console.log('✅ Pricing calculation successful:', data);
+
+                        // ✅ Update session with the new student version ID
+                        if (data.newStudentId) {
+                            console.log(`📝 Updating session with new student ID: ${data.newStudentId} (was: ${studentId})`);
+                            await window.SessionState.setProperty('SelectedStudentId', data.newStudentId.toString());
+
+                            // ✅ Reload student data to get the new version with updated cost
+                            await refreshStudentDataAfterPricing(data.newStudentId);
+                        }
+
+                        // Show success message with details
+                        let message = `✅ חישוב התמחור הושלם בהצלחה!\n\n`;
+
+                        if (data.elementsCount !== undefined) {
+                            message += `📊 ${data.elementsCount} רכיבי תמחור חושבו\n`;
+                        }
+
+                        if (data.totalPrice !== undefined) {
+                            message += `💰 סכום כולל: ₪${data.totalPrice.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
+                        }
+
+                        if (data.warnings && data.warnings.length > 0) {
+                            message += `\n⚠️ אזהרות:\n`;
+                            data.warnings.slice(0, 3).forEach(warning => {
+                                message += `  • ${warning}\n`;
+                            });
+                            if (data.warnings.length > 3) {
+                                message += `  ... ו-${data.warnings.length - 3} אזהרות נוספות\n`;
+                            }
+                        }
+
+                        alert(message);
+
+                        // ✅ Automatically refresh pricing table with new data
+                        const newStudentId = data.newStudentId || studentId;
+                        await viewStudentPricing(newStudentId, studentName);
                     }
 
-                    if (data.totalPrice !== undefined) {
-                        message += `💰 סכום כולל: ₪${data.totalPrice.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
-                    }
-
-                    message += `\nהנתונים הקיימים עדיין תקפים - לא נוצרה גרסה חדשה.`;
-
-                    alert(message);
-
-                    // ✅ Automatically refresh pricing table
-                    await viewStudentPricing(studentId, studentName);
                 } else {
-                    // Changes detected - new version created
-                    console.log('✅ Pricing calculation successful:', data);
+                    // ✅ Enhanced error handling
+                    console.error('❌ API returned success=false:', result);
+                    const errorMessage = result.message || result.error || 'Calculation failed';
+                    throw new Error(errorMessage);
+                }
 
-                    // ✅ Update session with the new student version ID
-                    if (data.newStudentId) {
-                        console.log(`📝 Updating session with new student ID: ${data.newStudentId} (was: ${studentId})`);
-                        await window.SessionState.setProperty('SelectedStudentId', data.newStudentId.toString());
+            } catch (error) {
+                console.error('❌ Error calculating pricing:', error);
 
-                        // ✅ Reload student data to get the new version with updated cost
-                        await refreshStudentDataAfterPricing(data.newStudentId);
+                // Remove loading indicator if still present
+                const loadingDiv = document.getElementById('calculatingIndicator');
+                if (loadingDiv) {
+                    document.body.removeChild(loadingDiv);
+                }
+
+                alert(`❌ שגיאה בחישוב תמחור:\n${error.message}`);
+            }
+        }
+
+        // ✅ NEW: Refresh student data after pricing calculation
+        async function refreshStudentDataAfterPricing(newStudentId) {
+            try {
+                console.log('🔄 Refreshing student data for new version:', newStudentId);
+
+                const token = window.sessionManager.getToken();
+                if (!token) {
+                    console.error('❌ No auth token found');
+                    return;
+                }
+
+                const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
+
+                // Fetch the new student version data
+                const response = await fetch(AppConfig.getApiUrl(`students?schoolYearId=${schoolYearId}`), {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
                     }
+                });
 
-                    // Show success message with details
-                    let message = `✅ חישוב התמחור הושלם בהצלחה!\n\n`;
+                if (response.ok) {
+                    const result = await response.json();
 
-                    if (data.elementsCount !== undefined) {
-                        message += `📊 ${data.elementsCount} רכיבי תמחור חושבו\n`;
-                    }
+                    if (result.success && result.data) {
+                        // Find the new student version in the response
+                        const newStudentData = result.data.find(s => s.id === newStudentId);
 
-                    if (data.totalPrice !== undefined) {
-                        message += `💰 סכום כולל: ₪${data.totalPrice.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n`;
-                    }
+                        if (newStudentData) {
+                            // Transform the data
+                            const transformedStudent = {
+                                id: newStudentData.id,
+                                idNumber: newStudentData.idNumber || '',
+                                name: `${newStudentData.firstName || ''} ${newStudentData.lastName || ''}`.trim(),
+                                gender: newStudentData.gender === 1 ? 'זכר' : newStudentData.gender === 2 ? 'נקבה' : '',
+                                address: [
+                                    newStudentData.street,
+                                    newStudentData.houseNumber,
+                                    newStudentData.city,
+                                    newStudentData.postCode
+                                ].filter(Boolean).join(', '),
+                                class: newStudentData.className || newStudentData.classId?.toString() || '',
+                                classId: newStudentData.classId,
+                                startDate: newStudentData.startDate ? new Date(newStudentData.startDate).toLocaleDateString('he-IL') : '',
+                                endDate: newStudentData.endDate ? new Date(newStudentData.endDate).toLocaleDateString('he-IL') : '',
+                                status: newStudentData.statusName || '',
+                                category: newStudentData.disabilityCategory || '',
+                                totalAmount: newStudentData.cost != null ? newStudentData.cost.toString() : '0',
+                                sendingCouncil: newStudentData.councilName || newStudentData.sendingCouncil?.toString() || '',
+                                sendingCouncilId: newStudentData.sendingCouncil
+                            };
 
-                    if (data.warnings && data.warnings.length > 0) {
-                        message += `\n⚠️ אזהרות:\n`;
-                        data.warnings.slice(0, 3).forEach(warning => {
-                            message += `  • ${warning}\n`;
-                        });
-                        if (data.warnings.length > 3) {
-                            message += `  ... ו-${data.warnings.length - 3} אזהרות נוספות\n`;
+                            // Update current students data
+                            window.currentStudentsData = [transformedStudent];
+
+                            // Update session with new student data
+                            await window.SessionState.setProperty('SelectedStudentData', JSON.stringify(transformedStudent));
+
+                            // Refresh the table display
+                            createStudentsTable([transformedStudent]);
+
+                            console.log('✅ Student data refreshed with new version:', transformedStudent);
+                        } else {
+                            console.warn('⚠️ New student version not found in API response');
                         }
                     }
-
-                    alert(message);
-
-                    // ✅ Automatically refresh pricing table with new data
-                    const newStudentId = data.newStudentId || studentId;
-                    await viewStudentPricing(newStudentId, studentName);
+                } else {
+                    console.error('❌ Failed to refresh student data:', response.status);
                 }
-
-            } else {
-                // ✅ Enhanced error handling
-                console.error('❌ API returned success=false:', result);
-                const errorMessage = result.message || result.error || 'Calculation failed';
-                throw new Error(errorMessage);
+            } catch (error) {
+                console.error('❌ Error refreshing student data:', error);
             }
-
-        } catch (error) {
-            console.error('❌ Error calculating pricing:', error);
-
-            // Remove loading indicator if still present
-            const loadingDiv = document.getElementById('calculatingIndicator');
-            if (loadingDiv) {
-                document.body.removeChild(loadingDiv);
-            }
-
-            alert(`❌ שגיאה בחישוב תמחור:\n${error.message}`);
         }
-    }
 
-    // ✅ NEW: Refresh student data after pricing calculation
-    async function refreshStudentDataAfterPricing(newStudentId) {
-        try {
-            console.log('🔄 Refreshing student data for new version:', newStudentId);
+        /**
+     * Generate missing documents for the current student
+     */
+        async function generateDocumentsForCurrentStudent() {
+            try {
+                const studentId = await window.SessionState.getProperty('SelectedStudentId');
+                const yearId = await window.SessionState.getProperty('SelectedYearId');
 
-            const token = window.sessionManager.getToken();
-            if (!token) {
-                console.error('❌ No auth token found');
-                return;
-            }
-
-            const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
-
-            // Fetch the new student version data
-            const response = await fetch(AppConfig.getApiUrl(`students?schoolYearId=${schoolYearId}`), {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
+                if (!studentId) {
+                    alert('לא נמצא תלמיד נבחר');
+                    return;
                 }
-            });
 
-            if (response.ok) {
+                if (!yearId) {
+                    alert('לא נמצאה שנת לימודים נבחרת');
+                    return;
+                }
+
+                console.log(`📄 Generating documents for student ${studentId} in year ${yearId}`);
+
+                // Show loading message
+                const loadingDiv = document.createElement('div');
+                loadingDiv.id = 'documentGenerationLoading';
+                loadingDiv.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: white;
+                padding: 30px;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                z-index: 10000;
+                text-align: center;
+                direction: rtl;
+            `;
+                loadingDiv.innerHTML = `
+                <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px;">
+                   מעדכן רשימת מסמכים...
+                </div>
+                <div style="font-size: 14px; color: #666;">אנא המתן</div>
+            `;
+                document.body.appendChild(loadingDiv);
+
+                const response = await fetch(
+                    AppConfig.getApiUrl(`documents/generate-student-documents?studentId=${studentId}&yearId=${yearId}`),
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+
+                // Remove loading message
+                const loading = document.getElementById('documentGenerationLoading');
+                if (loading) loading.remove();
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'שגיאה ביצירת מסמכים');
+                }
+
                 const result = await response.json();
 
-                if (result.success && result.data) {
-                    // Find the new student version in the response
-                    const newStudentData = result.data.find(s => s.id === newStudentId);
+                console.log('✅ Document generation result:', result);
 
-                    if (newStudentData) {
-                        // Transform the data
-                        const transformedStudent = {
-                            id: newStudentData.id,
-                            idNumber: newStudentData.idNumber || '',
-                            name: `${newStudentData.firstName || ''} ${newStudentData.lastName || ''}`.trim(),
-                            gender: newStudentData.gender === 1 ? 'זכר' : newStudentData.gender === 2 ? 'נקבה' : '',
-                            address: [
-                                newStudentData.street,
-                                newStudentData.houseNumber,
-                                newStudentData.city,
-                                newStudentData.postCode
-                            ].filter(Boolean).join(', '),
-                            class: newStudentData.className || newStudentData.classId?.toString() || '',
-                            classId: newStudentData.classId,
-                            startDate: newStudentData.startDate ? new Date(newStudentData.startDate).toLocaleDateString('he-IL') : '',
-                            endDate: newStudentData.endDate ? new Date(newStudentData.endDate).toLocaleDateString('he-IL') : '',
-                            status: newStudentData.statusName || '',
-                            category: newStudentData.disabilityCategory || '',
-                            totalAmount: newStudentData.cost != null ? newStudentData.cost.toString() : '0',
-                            sendingCouncil: newStudentData.councilName || newStudentData.sendingCouncil?.toString() || '',
-                            sendingCouncilId: newStudentData.sendingCouncil
-                        };
+                // Show success message
+                alert(
+                    `${result.message}\n\n` +
+                    `נוצרו: ${result.addedCount} מסמכים\n` +
+                    `קיימים (דולגו): ${result.skippedCount} מסמכים\n` +
+                    `לא רלוונטיים: ${result.notRequiredCount || 0} מסמכים\n` +
+                    `סה"כ סוגי מסמכים: ${result.totalTypes}`
+                );
 
-                        // Update current students data
-                        window.currentStudentsData = [transformedStudent];
-
-                        // Update session with new student data
-                        await window.SessionState.setProperty('SelectedStudentData', JSON.stringify(transformedStudent));
-
-                        // Refresh the table display
-                        createStudentsTable([transformedStudent]);
-
-                        console.log('✅ Student data refreshed with new version:', transformedStudent);
-                    } else {
-                        console.warn('⚠️ New student version not found in API response');
-                    }
+                // Refresh documents table if visible
+                if (typeof initializeStudentDocuments === 'function') {
+                    await initializeStudentDocuments();
                 }
-            } else {
-                console.error('❌ Failed to refresh student data:', response.status);
+
+            } catch (error) {
+                console.error('❌ Error generating documents:', error);
+
+                // Remove loading message if still present
+                const loading = document.getElementById('documentGenerationLoading');
+                if (loading) loading.remove();
+
+                alert(`שגיאה ביצירת מסמכים: ${error.message}`);
             }
-        } catch (error) {
-            console.error('❌ Error refreshing student data:', error);
         }
-    }
 
-    window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
-    window.refreshStudentDataAfterPricing = refreshStudentDataAfterPricing;
+        window.generateDocumentsForCurrentStudent = generateDocumentsForCurrentStudent;
 
-    window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
+        window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
+        window.refreshStudentDataAfterPricing = refreshStudentDataAfterPricing;
 
-    // Fallback copy function for older browsers following Frontend Architecture Patterns
-    function fallbackCopyTextToClipboard(text) {
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
-        document.body.appendChild(textArea);
-        textArea.focus();
-        textArea.select();
+        window.calculateStudentPricingFromSection = calculateStudentPricingFromSection;
 
-        try {
-            const successful = document.execCommand('copy');
-            if (successful) {
-                alert('הקישור הועתק ללוח');
-            } else {
+        // Fallback copy function for older browsers following Frontend Architecture Patterns
+        function fallbackCopyTextToClipboard(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    alert('הקישור הועתק ללוח');
+                } else {
+                    alert('לא ניתן להעתיק את הקישור');
+                }
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
                 alert('לא ניתן להעתיק את הקישור');
             }
-        } catch (err) {
-            console.error('Fallback copy failed:', err);
-            alert('לא ניתן להעתיק את הקישור');
+
+            document.body.removeChild(textArea);
+            closeDocumentModal();
         }
 
-        document.body.removeChild(textArea);
-        closeDocumentModal();
-    }
 
 
-
-    // Utility functions - DEFINE FIRST following Critical Development Workflows
-    function getStudentById(studentId) {
-        if (window.currentStudentsData && Array.isArray(window.currentStudentsData)) {
-            return window.currentStudentsData.find(student => student.id === studentId);
+        // Utility functions - DEFINE FIRST following Critical Development Workflows
+        function getStudentById(studentId) {
+            if (window.currentStudentsData && Array.isArray(window.currentStudentsData)) {
+                return window.currentStudentsData.find(student => student.id === studentId);
+            }
+            console.warn('⚠️ No current students data available');
+            return null;
         }
-        console.warn('⚠️ No current students data available');
-        return null;
-    }
 
 
 
 
 
-    // View student pricing elements
-   /* async function viewStudentPricing(studentId, studentName) {
-        console.log('💰 Viewing pricing elements for student:', studentId);
+        // View student pricing elements
+        /* async function viewStudentPricing(studentId, studentName) {
+             console.log('💰 Viewing pricing elements for student:', studentId);
+     
+             try {
+                 // Find the pricing card
+                 const studentNameSpan = document.getElementById('pricingStudentName');
+                 const container = document.getElementById('pricingTableContainer');
+                 const pricingCard = container?.closest('.detail-card');
+     
+                 if (!studentNameSpan || !container || !pricingCard) {
+                     console.error('❌ Pricing card elements not found');
+                     return;
+                 }
+     
+                 // Set student name
+                 studentNameSpan.textContent = studentName;
+     
+                 // Show loading
+                 container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
+     
+                 // Expand the card if collapsed
+                 if (pricingCard.classList.contains('collapsed')) {
+                     const toggle = pricingCard.querySelector('.collapse-toggle');
+                     const addButton = pricingCard.querySelector('.btn-icon[onclick*="calculate"]');
+                     toggleCardExpansion(pricingCard, toggle, addButton);
+                 }
+     
+                 // Fetch pricing data
+                 const token = window.sessionManager.getToken();
+                 if (!token) {
+                     throw new Error('No authentication token found');
+                 }
+     
+                 const response = await fetch(AppConfig.getApiUrl(`studentpricing/${studentId}`), {
+                     method: 'GET',
+                     headers: {
+                         'Authorization': `Bearer ${token}`,
+                         'Content-Type': 'application/json'
+                     }
+                 });
+     
+                 if (!response.ok) {
+                     throw new Error(`HTTP error! status: ${response.status}`);
+                 }
+     
+                 const result = await response.json();
+     
+                 if (result.success && result.data) {
+                     console.log('✅ Pricing data loaded:', result);
+                     createPricingTable(result);  // Pass full result with data and summary
+                 } else {
+                     throw new Error(result.message || 'Failed to load pricing data');
+                 }
+     
+             } catch (error) {
+                 console.error('❌ Error loading pricing elements:', error);
+                 showPricingTableError('שגיאה בטעינת נתוני תמחור');
+             }
+         }
+     */
 
-        try {
-            // Find the pricing card
-            const studentNameSpan = document.getElementById('pricingStudentName');
-            const container = document.getElementById('pricingTableContainer');
-            const pricingCard = container?.closest('.detail-card');
+        // Create pricing elements table
+        function createPricingTable(data) {
+            console.log('📊 Creating pricing table with ReusableTable component');
 
-            if (!studentNameSpan || !container || !pricingCard) {
-                console.error('❌ Pricing card elements not found');
+            if (typeof ReusableTable === 'undefined') {
+                console.log('⚠️ ReusableTable not loaded, loading component...');
+                loadReusableTableComponentForPricing(data);
                 return;
             }
 
-            // Set student name
-            studentNameSpan.textContent = studentName;
-
-            // Show loading
-            container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
-
-            // Expand the card if collapsed
-            if (pricingCard.classList.contains('collapsed')) {
-                const toggle = pricingCard.querySelector('.collapse-toggle');
-                const addButton = pricingCard.querySelector('.btn-icon[onclick*="calculate"]');
-                toggleCardExpansion(pricingCard, toggle, addButton);
-            }
-
-            // Fetch pricing data
-            const token = window.sessionManager.getToken();
-            if (!token) {
-                throw new Error('No authentication token found');
-            }
-
-            const response = await fetch(AppConfig.getApiUrl(`studentpricing/${studentId}`), {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const result = await response.json();
-
-            if (result.success && result.data) {
-                console.log('✅ Pricing data loaded:', result);
-                createPricingTable(result);  // Pass full result with data and summary
-            } else {
-                throw new Error(result.message || 'Failed to load pricing data');
-            }
-
-        } catch (error) {
-            console.error('❌ Error loading pricing elements:', error);
-            showPricingTableError('שגיאה בטעינת נתוני תמחור');
-        }
-    }
-*/
-
-    // Create pricing elements table
-    function createPricingTable(data) {
-        console.log('📊 Creating pricing table with ReusableTable component');
-
-        if (typeof ReusableTable === 'undefined') {
-            console.log('⚠️ ReusableTable not loaded, loading component...');
-            loadReusableTableComponentForPricing(data);
-            return;
+            initializePricingTable(data);
         }
 
-        initializePricingTable(data);
-    }
+        // Load ReusableTable for pricing
+        function loadReusableTableComponentForPricing(data) {
+            const existingScript = document.querySelector('script[src="table-component.js"]');
+            if (existingScript) {
+                console.log('table-component.js already loaded, waiting for ReusableTable...');
+                setTimeout(() => {
+                    if (typeof ReusableTable !== 'undefined') {
+                        initializePricingTable(data);
+                    } else {
+                        showPricingTableError('שגיאה בטעינת רכיב הטבלה');
+                    }
+                }, 500);
+                return;
+            }
 
-    // Load ReusableTable for pricing
-    function loadReusableTableComponentForPricing(data) {
-        const existingScript = document.querySelector('script[src="table-component.js"]');
-        if (existingScript) {
-            console.log('table-component.js already loaded, waiting for ReusableTable...');
-            setTimeout(() => {
-                if (typeof ReusableTable !== 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'table-component.js';
+            script.onload = () => {
+                console.log('✅ table-component.js loaded for pricing');
+                setTimeout(() => {
                     initializePricingTable(data);
-                } else {
-                    showPricingTableError('שגיאה בטעינת רכיב הטבלה');
-                }
-            }, 500);
-            return;
+                }, 100);
+            };
+            script.onerror = () => {
+                console.error('❌ Failed to load table-component.js');
+                showPricingTableError('שגיאה בטעינת רכיב הטבלה');
+            };
+            document.head.appendChild(script);
         }
 
-        const script = document.createElement('script');
-        script.src = 'table-component.js';
-        script.onload = () => {
-            console.log('✅ table-component.js loaded for pricing');
-            setTimeout(() => {
-                initializePricingTable(data);
-            }, 100);
-        };
-        script.onerror = () => {
-            console.error('❌ Failed to load table-component.js');
-            showPricingTableError('שגיאה בטעינת רכיב הטבלה');
-        };
-        document.head.appendChild(script);
-    }
+        // Initialize pricing table
+        function initializePricingTable(responseData) {
+            console.log('🔧 Initializing pricing ReusableTable with data:', responseData);
 
-    // Initialize pricing table
-    function initializePricingTable(responseData) {
-        console.log('🔧 Initializing pricing ReusableTable with data:', responseData);
+            // ✅ Extract data and summary from response
+            const data = responseData.data || responseData;
+            const summary = responseData.summary || {};
 
-        // ✅ Extract data and summary from response
-        const data = responseData.data || responseData;
-        const summary = responseData.summary || {};
+            if (!data || data.length === 0) {
+                const container = document.getElementById('pricingTableContainer');
+                if (container) {
+                    container.innerHTML = '<div class="empty-state">לא נמצאו רכיבי תמחור לתלמיד זה</div>';
+                }
 
-        if (!data || data.length === 0) {
+                // Clear totals
+                updatePricingSummary(0, 0, null);
+                return;
+            }
+
+            const columns = [
+                { key: 'id', label: 'מזהה', sortable: true, readOnly: true, hidden: true },
+                { key: 'pricingElementName', label: 'רכיב תמחור', sortable: true, readOnly: true },
+                {
+                    key: 'price',
+                    label: 'סכום',
+                    sortable: true,
+                    readOnly: true,
+                    render: (item) => `₪${item.price.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                },
+                {
+                    key: 'determiningFactor',
+                    label: 'גורם לחישוב',
+                    sortable: true,
+                    readOnly: true,
+                    render: (item) => item.determiningFactor || '-'
+                },
+                {
+                    key: 'hours',
+                    label: 'שעות',
+                    sortable: true,
+                    readOnly: true,
+                    render: (item) => item.hours != null ? item.hours : '-'
+                }
+            ];
+
+            try {
+                const pricingTable = new ReusableTable('pricingTableContainer', {
+                    tableName: 'pricing',
+                    isReadOnly: true,
+                    allowAdd: false,
+                    allowEdit: false,
+                    allowDelete: false
+                });
+
+                console.log('✅ Pricing ReusableTable instance created');
+
+                pricingTable.init(data, columns);
+
+                console.log('✅ Pricing ReusableTable initialized successfully with', data.length, 'elements');
+
+                // ✅ Update summary with detailed information
+                const elementsTotal = summary.elementsTotal || data.reduce((sum, item) => sum + (item.price || 0), 0);
+                const studentCost = summary.studentCost || elementsTotal;
+                const enrollmentMonths = summary.enrollmentMonths;
+
+                updatePricingSummary(elementsTotal, studentCost, enrollmentMonths);
+
+            } catch (error) {
+                console.error('❌ Error creating pricing ReusableTable:', error);
+                showPricingTableError('שגיאה ביצירת טבלת התמחור');
+            }
+        }
+
+        // ✅ NEW: Update pricing summary section with detailed information
+        function updatePricingSummary(elementsTotal, studentCost, enrollmentMonths) {
+            // Update elements total (smaller font)
+            const elementsTotalElement = document.getElementById('pricingElementsTotal');
+            if (elementsTotalElement) {
+                elementsTotalElement.textContent = `₪${elementsTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            }
+
+            // Update enrollment months
+            const enrollmentMonthsElement = document.getElementById('enrollmentMonths');
+            const enrollmentContainer = document.getElementById('enrollmentMonthsContainer');
+            if (enrollmentMonthsElement && enrollmentContainer) {
+                if (enrollmentMonths != null) {
+                    enrollmentMonthsElement.textContent = `${enrollmentMonths} חודשים`;
+                    enrollmentContainer.style.display = 'block';
+                } else {
+                    enrollmentContainer.style.display = 'none';
+                }
+            }
+
+            // Update final cost (large font)
+            const totalElement = document.getElementById('pricingTotalAmount');
+            if (totalElement) {
+                totalElement.textContent = `₪${studentCost.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            }
+
+            console.log('✅ Pricing summary updated:', {
+                elementsTotal,
+                studentCost,
+                enrollmentMonths
+            });
+        }
+
+        // Export new function
+        window.updatePricingSummary = updatePricingSummary;
+        // Show error in pricing table
+        function showPricingTableError(message) {
             const container = document.getElementById('pricingTableContainer');
             if (container) {
-                container.innerHTML = '<div class="empty-state">לא נמצאו רכיבי תמחור לתלמיד זה</div>';
-            }
-
-            // Clear totals
-            updatePricingSummary(0, 0, null);
-            return;
-        }
-
-        const columns = [
-            { key: 'id', label: 'מזהה', sortable: true, readOnly: true, hidden: true },
-            { key: 'pricingElementName', label: 'רכיב תמחור', sortable: true, readOnly: true },
-            {
-                key: 'price',
-                label: 'סכום',
-                sortable: true,
-                readOnly: true,
-                render: (item) => `₪${item.price.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-            },
-            {
-                key: 'determiningFactor',
-                label: 'גורם לחישוב',
-                sortable: true,
-                readOnly: true,
-                render: (item) => item.determiningFactor || '-'
-            },
-            {
-                key: 'hours',
-                label: 'שעות',
-                sortable: true,
-                readOnly: true,
-                render: (item) => item.hours != null ? item.hours : '-'
-            }
-        ];
-
-        try {
-            const pricingTable = new ReusableTable('pricingTableContainer', {
-                tableName: 'pricing',
-                isReadOnly: true,
-                allowAdd: false,
-                allowEdit: false,
-                allowDelete: false
-            });
-
-            console.log('✅ Pricing ReusableTable instance created');
-
-            pricingTable.init(data, columns);
-
-            console.log('✅ Pricing ReusableTable initialized successfully with', data.length, 'elements');
-
-            // ✅ Update summary with detailed information
-            const elementsTotal = summary.elementsTotal || data.reduce((sum, item) => sum + (item.price || 0), 0);
-            const studentCost = summary.studentCost || elementsTotal;
-            const enrollmentMonths = summary.enrollmentMonths;
-
-            updatePricingSummary(elementsTotal, studentCost, enrollmentMonths);
-
-        } catch (error) {
-            console.error('❌ Error creating pricing ReusableTable:', error);
-            showPricingTableError('שגיאה ביצירת טבלת התמחור');
-        }
-    }
-
-    // ✅ NEW: Update pricing summary section with detailed information
-    function updatePricingSummary(elementsTotal, studentCost, enrollmentMonths) {
-        // Update elements total (smaller font)
-        const elementsTotalElement = document.getElementById('pricingElementsTotal');
-        if (elementsTotalElement) {
-            elementsTotalElement.textContent = `₪${elementsTotal.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        }
-
-        // Update enrollment months
-        const enrollmentMonthsElement = document.getElementById('enrollmentMonths');
-        const enrollmentContainer = document.getElementById('enrollmentMonthsContainer');
-        if (enrollmentMonthsElement && enrollmentContainer) {
-            if (enrollmentMonths != null) {
-                enrollmentMonthsElement.textContent = `${enrollmentMonths} חודשים`;
-                enrollmentContainer.style.display = 'block';
-            } else {
-                enrollmentContainer.style.display = 'none';
-            }
-        }
-
-        // Update final cost (large font)
-        const totalElement = document.getElementById('pricingTotalAmount');
-        if (totalElement) {
-            totalElement.textContent = `₪${studentCost.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        }
-
-        console.log('✅ Pricing summary updated:', {
-            elementsTotal,
-            studentCost,
-            enrollmentMonths
-        });
-    }
-
-    // Export new function
-    window.updatePricingSummary = updatePricingSummary;
-    // Show error in pricing table
-    function showPricingTableError(message) {
-        const container = document.getElementById('pricingTableContainer');
-        if (container) {
-            container.innerHTML = `
+                container.innerHTML = `
             <div class="error-message" style="
                 padding: 20px;
                 text-align: center;
@@ -951,442 +1050,442 @@
                 <strong>❌ ${message}</strong>
             </div>
         `;
-        }
-    }
-
-    // Close pricing modal (collapse card)
-    function closePricingModal() {
-        const container = document.getElementById('pricingTableContainer');
-        const pricingCard = container?.closest('.detail-card');
-
-        if (pricingCard && pricingCard.classList.contains('expanded')) {
-            const toggle = pricingCard.querySelector('.collapse-toggle');
-            const addButton = pricingCard.querySelector('.btn-icon[onclick*="calculate"]');
-            toggleCardExpansion(pricingCard, toggle, addButton);
-        }
-
-        // Clear container
-        if (container) {
-            container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
-        }
-    }
-
-    // Close modal when clicking outside
-    window.addEventListener('click', function (event) {
-        const uploadModal = document.getElementById('uploadDialog');
-
-        if (event.target === uploadModal) {
-            closeUploadDialog();
-        }
-    });
-
-    window.viewStudentPricing = viewStudentPricing;
-    window.closePricingModal = closePricingModal;
-
-    // Navigation functions following Single-Page Application with Module Loading
-
-
-    // Navigation functions - Use global navigateTo following Single-Page Application with Module Loading
-    async function navigateToStudents() {
-        console.log('👥 Navigating back to students list...');
-
-        try {
-
-
-            // ✅ Clear student selection from backend session
-            await window.SessionState.setProperty('SelectedStudentId', '');
-            await window.SessionState.setProperty('SelectedStudentData', '');
-            console.log('✅ Student selection cleared from backend session');
-
-            // ✅ Use global navigation function from index.html
-            if (typeof window.navigateTo === 'function') {
-                window.navigateTo('students');
-            } else {
-                console.error('❌ window.navigateTo not available');
-                window.history.back();
-            }
-
-        } catch (error) {
-            console.error('💥 Error clearing session data:', error);
-            // Still navigate even if clearing fails
-            if (typeof window.navigateTo === 'function') {
-                window.navigateTo('students');
-            } else {
-                window.history.back();
             }
         }
-    }
-    // Navigate back to source (dynamic based on where we came from)
-    async function navigateBackToSource() {
-        console.log('🔙 Navigating back to source...');
 
-        try {
-            // Get navigation source
-            const navigationSource = await window.SessionState.getProperty('NavigationSource');
+        // Close pricing modal (collapse card)
+        function closePricingModal() {
+            const container = document.getElementById('pricingTableContainer');
+            const pricingCard = container?.closest('.detail-card');
 
-            console.log('📍 Navigation source:', navigationSource);
+            if (pricingCard && pricingCard.classList.contains('expanded')) {
+                const toggle = pricingCard.querySelector('.collapse-toggle');
+                const addButton = pricingCard.querySelector('.btn-icon[onclick*="calculate"]');
+                toggleCardExpansion(pricingCard, toggle, addButton);
+            }
 
-            // Clear student selection from backend session
-            await window.SessionState.setProperty('SelectedStudentId', '');
-            await window.SessionState.setProperty('SelectedStudentData', '');
+            // Clear container
+            if (container) {
+                container.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
+            }
+        }
 
-            // Navigate based on source
-            if (navigationSource === 'councilstudents') {
-                console.log('🏛️ Returning to council students page');
-                // Clear navigation context for next time
-                await window.SessionState.setProperty('NavigationSource', '');
-                await window.SessionState.setProperty('NavigationSourceTitle', '');
+        // Close modal when clicking outside
+        window.addEventListener('click', function (event) {
+            const uploadModal = document.getElementById('uploadDialog');
 
-                if (typeof window.navigateTo === 'function') {
-                    window.navigateTo('councilstudents');
-                } else {
-                    console.error('❌ window.navigateTo not available');
-                    window.history.back();
-                }
-            } else {
-                // Default: return to students list
-                console.log('👥 Returning to students list');
+            if (event.target === uploadModal) {
+                closeUploadDialog();
+            }
+        });
+
+        window.viewStudentPricing = viewStudentPricing;
+        window.closePricingModal = closePricingModal;
+
+        // Navigation functions following Single-Page Application with Module Loading
+
+
+        // Navigation functions - Use global navigateTo following Single-Page Application with Module Loading
+        async function navigateToStudents() {
+            console.log('👥 Navigating back to students list...');
+
+            try {
+
+
+                // ✅ Clear student selection from backend session
+                await window.SessionState.setProperty('SelectedStudentId', '');
+                await window.SessionState.setProperty('SelectedStudentData', '');
+                console.log('✅ Student selection cleared from backend session');
+
+                // ✅ Use global navigation function from index.html
                 if (typeof window.navigateTo === 'function') {
                     window.navigateTo('students');
                 } else {
                     console.error('❌ window.navigateTo not available');
                     window.history.back();
                 }
-            }
 
-        } catch (error) {
-            console.error('💥 Error navigating back to source:', error);
-            // Fallback to history back
-            window.history.back();
-        }
-    }
-    async function navigateToSchoolDashboard() {
-        console.log('🏫 Navigating to school dashboard...');
-
-        try {
-
-
-            // ✅ Clear student selection from backend session
-            await window.SessionState.setProperty('SelectedStudentId', '');
-            await window.SessionState.setProperty('SelectedStudentData', '');
-            console.log('✅ Student selection cleared from backend session');
-
-            // ✅ Use global navigation function from index.html
-            if (typeof window.navigateTo === 'function') {
-                window.navigateTo('schooldashboard');
-            } else {
-                console.error('❌ window.navigateTo not available');
-                window.history.back();
-            }
-
-        } catch (error) {
-            console.error('💥 Error clearing session data:', error);
-            // Still navigate even if clearing fails
-            if (typeof window.navigateTo === 'function') {
-                window.navigateTo('schooldashboard');
-            } else {
-                window.history.back();
+            } catch (error) {
+                console.error('💥 Error clearing session data:', error);
+                // Still navigate even if clearing fails
+                if (typeof window.navigateTo === 'function') {
+                    window.navigateTo('students');
+                } else {
+                    window.history.back();
+                }
             }
         }
-    }
+        // Navigate back to source (dynamic based on where we came from)
+        async function navigateBackToSource() {
+            console.log('🔙 Navigating back to source...');
 
-    async function navigateToSchoolList() {
-        console.log('🏫 Navigating to school list...');
+            try {
+                // Get navigation source
+                const navigationSource = await window.SessionState.getProperty('NavigationSource');
 
-        try {
+                console.log('📍 Navigation source:', navigationSource);
 
+                // Clear student selection from backend session
+                await window.SessionState.setProperty('SelectedStudentId', '');
+                await window.SessionState.setProperty('SelectedStudentData', '');
 
-            // ✅ Clear student and school selection from backend session
-            await window.SessionState.setProperty('SelectedStudentId', '');
-            await window.SessionState.setProperty('SelectedStudentData', '');
-            await window.SessionState.setProperty('SelectedSchoolId', '');
-            await window.SessionState.setProperty('SelectedSchoolName', '');
-            console.log('✅ Student and school selection cleared from backend session');
+                // Navigate based on source
+                if (navigationSource === 'councilstudents') {
+                    console.log('🏛️ Returning to council students page');
+                    // Clear navigation context for next time
+                    await window.SessionState.setProperty('NavigationSource', '');
+                    await window.SessionState.setProperty('NavigationSourceTitle', '');
 
-            // ✅ Use global navigation function from index.html
-            if (typeof window.navigateTo === 'function') {
-                window.navigateTo('schoollist');
-            } else {
-                console.error('❌ window.navigateTo not available');
-                window.history.back();
-            }
+                    if (typeof window.navigateTo === 'function') {
+                        window.navigateTo('councilstudents');
+                    } else {
+                        console.error('❌ window.navigateTo not available');
+                        window.history.back();
+                    }
+                } else {
+                    // Default: return to students list
+                    console.log('👥 Returning to students list');
+                    if (typeof window.navigateTo === 'function') {
+                        window.navigateTo('students');
+                    } else {
+                        console.error('❌ window.navigateTo not available');
+                        window.history.back();
+                    }
+                }
 
-        } catch (error) {
-            console.error('💥 Error clearing session data:', error);
-            // Still navigate even if clearing fails
-            if (typeof window.navigateTo === 'function') {
-                window.navigateTo('schoollist');
-            } else {
+            } catch (error) {
+                console.error('💥 Error navigating back to source:', error);
+                // Fallback to history back
                 window.history.back();
             }
         }
-    }
+        async function navigateToSchoolDashboard() {
+            console.log('🏫 Navigating to school dashboard...');
 
-    // Update page title with year
-    async function updateStudentPageTitle() {
-        try {
-            const selectedYearValue = await window.SessionState.getProperty('SelectedYearValue');
-            const yearDisplay = document.getElementById('studentYearDisplay');
-            if (yearDisplay && selectedYearValue) {
-                yearDisplay.textContent = selectedYearValue;
+            try {
+
+
+                // ✅ Clear student selection from backend session
+                await window.SessionState.setProperty('SelectedStudentId', '');
+                await window.SessionState.setProperty('SelectedStudentData', '');
+                console.log('✅ Student selection cleared from backend session');
+
+                // ✅ Use global navigation function from index.html
+                if (typeof window.navigateTo === 'function') {
+                    window.navigateTo('schooldashboard');
+                } else {
+                    console.error('❌ window.navigateTo not available');
+                    window.history.back();
+                }
+
+            } catch (error) {
+                console.error('💥 Error clearing session data:', error);
+                // Still navigate even if clearing fails
+                if (typeof window.navigateTo === 'function') {
+                    window.navigateTo('schooldashboard');
+                } else {
+                    window.history.back();
+                }
             }
-        } catch (error) {
-            console.error('❌ Error updating page title:', error);
         }
-    }
 
-    // Load selected student data from session storage following Authentication & Session Management
+        async function navigateToSchoolList() {
+            console.log('🏫 Navigating to school list...');
 
-    async function loadStudentData() {
-        // Update year display first
-        await updateStudentPageTitle();
-        console.log('🔄 Loading selected student data from SessionState...');
+            try {
 
-        try {
-            // ✅ Get from backend session via SessionState
-            const selectedStudentId = await window.SessionState.getProperty('SelectedStudentId');
-            const selectedStudentDataStr = await window.SessionState.getProperty('SelectedStudentData');
 
-            // ✅ Get navigation context
-            const navigationSource = await window.SessionState.getProperty('NavigationSource');
-            const navigationSourceTitle = await window.SessionState.getProperty('NavigationSourceTitle');
+                // ✅ Clear student and school selection from backend session
+                await window.SessionState.setProperty('SelectedStudentId', '');
+                await window.SessionState.setProperty('SelectedStudentData', '');
+                await window.SessionState.setProperty('SelectedSchoolId', '');
+                await window.SessionState.setProperty('SelectedSchoolName', '');
+                console.log('✅ Student and school selection cleared from backend session');
 
-            console.log('📋 Session check:', {
-                hasStudentId: !!selectedStudentId,
-                hasStudentData: !!selectedStudentDataStr,
-                studentId: selectedStudentId,
-                navigationSource: navigationSource
-            });
+                // ✅ Use global navigation function from index.html
+                if (typeof window.navigateTo === 'function') {
+                    window.navigateTo('schoollist');
+                } else {
+                    console.error('❌ window.navigateTo not available');
+                    window.history.back();
+                }
 
-            if (!selectedStudentId || !selectedStudentDataStr) {
-                console.error('❌ No selected student data in backend session');
-                showStudentsTableError('לא נבחר תלמיד. אנא חזור לרשימת התלמידים.');
+            } catch (error) {
+                console.error('💥 Error clearing session data:', error);
+                // Still navigate even if clearing fails
+                if (typeof window.navigateTo === 'function') {
+                    window.navigateTo('schoollist');
+                } else {
+                    window.history.back();
+                }
+            }
+        }
+
+        // Update page title with year
+        async function updateStudentPageTitle() {
+            try {
+                const selectedYearValue = await window.SessionState.getProperty('SelectedYearValue');
+                const yearDisplay = document.getElementById('studentYearDisplay');
+                if (yearDisplay && selectedYearValue) {
+                    yearDisplay.textContent = selectedYearValue;
+                }
+            } catch (error) {
+                console.error('❌ Error updating page title:', error);
+            }
+        }
+
+        // Load selected student data from session storage following Authentication & Session Management
+
+        async function loadStudentData() {
+            // Update year display first
+            await updateStudentPageTitle();
+            console.log('🔄 Loading selected student data from SessionState...');
+
+            try {
+                // ✅ Get from backend session via SessionState
+                const selectedStudentId = await window.SessionState.getProperty('SelectedStudentId');
+                const selectedStudentDataStr = await window.SessionState.getProperty('SelectedStudentData');
+
+                // ✅ Get navigation context
+                const navigationSource = await window.SessionState.getProperty('NavigationSource');
+                const navigationSourceTitle = await window.SessionState.getProperty('NavigationSourceTitle');
+
+                console.log('📋 Session check:', {
+                    hasStudentId: !!selectedStudentId,
+                    hasStudentData: !!selectedStudentDataStr,
+                    studentId: selectedStudentId,
+                    navigationSource: navigationSource
+                });
+
+                if (!selectedStudentId || !selectedStudentDataStr) {
+                    console.error('❌ No selected student data in backend session');
+                    showStudentsTableError('לא נבחר תלמיד. אנא חזור לרשימת התלמידים.');
+                    return;
+                }
+
+                const selectedStudent = JSON.parse(selectedStudentDataStr);
+
+                console.log('✅ Selected student data loaded from backend session:', selectedStudent);
+
+                const container = document.getElementById('studentsTableContainer');
+                if (container) {
+                    container.innerHTML = `<div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">טוען נתוני תלמיד...</div>`;
+                }
+
+                window.currentStudentsData = [selectedStudent];
+
+                // ✅ Update title with student name and school name
+                const titleElement = document.getElementById('studentTitle');
+                if (titleElement) {
+                    let titleText = `מסמכי התלמיד - ${selectedStudent.name}`;
+                    if (selectedStudent.schoolName) {
+                        titleText += ` - ${selectedStudent.schoolName}`;
+                    }
+                    titleElement.textContent = titleText;
+                }
+
+                // ✅ Update back button text based on navigation source
+                const backBtn = document.getElementById('backToSourceBtn');
+                if (backBtn && navigationSourceTitle) {
+                    backBtn.textContent = `חזרה ל${navigationSourceTitle}`;
+                }
+
+                createStudentsTable([selectedStudent]);
+
+                // ✅ Initialize documents table and pricing after student data is loaded
+                setTimeout(() => {
+                    console.log('📄 Initializing documents table...');
+                    initializeStudentDocuments();
+
+                    // Initialize collapsible cards for pricing section
+                    initializeCollapsibleCards();
+
+                    // ✅ Auto-load pricing data when page loads
+                    console.log('💰 Auto-loading pricing data...');
+                    viewStudentPricingFromSection();
+                }, 100);
+
+            } catch (error) {
+                console.error('💥 Error loading student data:', error);
+                showStudentsTableError('שגיאה בטעינת נתוני התלמיד. אנא נסה שוב.');
+            }
+        }
+
+
+        // Create students table using ReusableTable component - EXACT SAME as students.html
+        function createStudentsTable(data) {
+            console.log('📊 Creating student table with ReusableTable component');
+            console.log('📊 Data to display:', data);
+            console.log('📊 ReusableTable defined?', typeof ReusableTable !== 'undefined');
+
+            if (typeof ReusableTable === 'undefined') {
+                console.log('⏳ ReusableTable not loaded, attempting to load table-component.js...');
+                loadReusableTableComponentForStudents(data);
                 return;
             }
 
-            const selectedStudent = JSON.parse(selectedStudentDataStr);
+            console.log('✅ ReusableTable is available, initializing table...');
+            initializeStudentsTable(data);
+        }
 
-            console.log('✅ Selected student data loaded from backend session:', selectedStudent);
+        // Load ReusableTable component dynamically following Single-Page Application with Module Loading
+        function loadReusableTableComponentForStudents(data) {
+            console.log('🔄 Loading table-component.js...');
 
-            const container = document.getElementById('studentsTableContainer');
-            if (container) {
-                container.innerHTML = `<div class="loading-spinner" style="text-align: center; padding: 20px; direction: rtl;">טוען נתוני תלמיד...</div>`;
+            const existingScript = document.querySelector('script[src="table-component.js"]');
+            if (existingScript) {
+                console.log('✅ table-component.js script tag exists, waiting for ReusableTable...');
+
+                // Wait up to 5 seconds for ReusableTable to become available
+                let attempts = 0;
+                const maxAttempts = 50; // 50 * 100ms = 5 seconds
+
+                const checkInterval = setInterval(() => {
+                    attempts++;
+                    console.log(`⏳ Checking for ReusableTable (attempt ${attempts}/${maxAttempts})...`);
+
+                    if (typeof ReusableTable !== 'undefined') {
+                        console.log('✅ ReusableTable is now available!');
+                        clearInterval(checkInterval);
+                        initializeStudentsTable(data);
+                    } else if (attempts >= maxAttempts) {
+                        console.error('❌ ReusableTable not available after 5 seconds');
+                        clearInterval(checkInterval);
+                        showStudentsTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
+                    }
+                }, 100);
+
+                return;
             }
 
-            window.currentStudentsData = [selectedStudent];
+            console.log('📥 Loading table-component.js script...');
+            const script = document.createElement('script');
+            script.src = 'table-component.js';
 
-            // ✅ Update title with student name and school name
-            const titleElement = document.getElementById('studentTitle');
-            if (titleElement) {
-                let titleText = `מסמכי התלמיד - ${selectedStudent.name}`;
-                if (selectedStudent.schoolName) {
-                    titleText += ` - ${selectedStudent.schoolName}`;
-                }
-                titleElement.textContent = titleText;
-            }
+            script.onload = () => {
+                console.log('✅ table-component.js script loaded');
 
-            // ✅ Update back button text based on navigation source
-            const backBtn = document.getElementById('backToSourceBtn');
-            if (backBtn && navigationSourceTitle) {
-                backBtn.textContent = `חזרה ל${navigationSourceTitle}`;
-            }
+                // Wait for ReusableTable to be defined
+                setTimeout(() => {
+                    if (typeof ReusableTable !== 'undefined') {
+                        console.log('✅ ReusableTable is available after script load');
+                        initializeStudentsTable(data);
+                    } else {
+                        console.error('❌ ReusableTable not available even after script loaded');
 
-            createStudentsTable([selectedStudent]);
-
-            // ✅ Initialize documents table and pricing after student data is loaded
-            setTimeout(() => {
-                console.log('📄 Initializing documents table...');
-                initializeStudentDocuments();
-
-                // Initialize collapsible cards for pricing section
-                initializeCollapsibleCards();
-
-                // ✅ Auto-load pricing data when page loads
-                console.log('💰 Auto-loading pricing data...');
-                viewStudentPricingFromSection();
-            }, 100);
-
-        } catch (error) {
-            console.error('💥 Error loading student data:', error);
-            showStudentsTableError('שגיאה בטעינת נתוני התלמיד. אנא נסה שוב.');
-        }
-    }
-
-
-    // Create students table using ReusableTable component - EXACT SAME as students.html
-    function createStudentsTable(data) {
-        console.log('📊 Creating student table with ReusableTable component');
-        console.log('📊 Data to display:', data);
-        console.log('📊 ReusableTable defined?', typeof ReusableTable !== 'undefined');
-
-        if (typeof ReusableTable === 'undefined') {
-            console.log('⏳ ReusableTable not loaded, attempting to load table-component.js...');
-            loadReusableTableComponentForStudents(data);
-            return;
-        }
-
-        console.log('✅ ReusableTable is available, initializing table...');
-        initializeStudentsTable(data);
-    }
-
-    // Load ReusableTable component dynamically following Single-Page Application with Module Loading
-    function loadReusableTableComponentForStudents(data) {
-        console.log('🔄 Loading table-component.js...');
-
-        const existingScript = document.querySelector('script[src="table-component.js"]');
-        if (existingScript) {
-            console.log('✅ table-component.js script tag exists, waiting for ReusableTable...');
-
-            // Wait up to 5 seconds for ReusableTable to become available
-            let attempts = 0;
-            const maxAttempts = 50; // 50 * 100ms = 5 seconds
-
-            const checkInterval = setInterval(() => {
-                attempts++;
-                console.log(`⏳ Checking for ReusableTable (attempt ${attempts}/${maxAttempts})...`);
-
-                if (typeof ReusableTable !== 'undefined') {
-                    console.log('✅ ReusableTable is now available!');
-                    clearInterval(checkInterval);
-                    initializeStudentsTable(data);
-                } else if (attempts >= maxAttempts) {
-                    console.error('❌ ReusableTable not available after 5 seconds');
-                    clearInterval(checkInterval);
-                    showStudentsTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
-                }
-            }, 100);
-
-            return;
-        }
-
-        console.log('📥 Loading table-component.js script...');
-        const script = document.createElement('script');
-        script.src = 'table-component.js';
-
-        script.onload = () => {
-            console.log('✅ table-component.js script loaded');
-
-            // Wait for ReusableTable to be defined
-            setTimeout(() => {
-                if (typeof ReusableTable !== 'undefined') {
-                    console.log('✅ ReusableTable is available after script load');
-                    initializeStudentsTable(data);
-                } else {
-                    console.error('❌ ReusableTable not available even after script loaded');
-
-                    // Try one more time after a longer delay
-                    setTimeout(() => {
-                        if (typeof ReusableTable !== 'undefined') {
-                            console.log('✅ ReusableTable available after extended wait');
-                            initializeStudentsTable(data);
-                        } else {
-                            console.error('❌ ReusableTable definitely not available');
-                            showStudentsTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
-                        }
-                    }, 1000);
-                }
-            }, 200);
-        };
-
-        script.onerror = (error) => {
-            console.error('❌ Failed to load table-component.js:', error);
-            showStudentsTableError('שגיאה בטעינת רכיב הטבלה');
-        };
-
-        document.head.appendChild(script);
-        console.log('📤 table-component.js script tag added to document head');
-    }
-
-    // Initialize the ReusableTable - EXACT SAME structure as students.html
-    function initializeStudentsTable(data) {
-        console.log('🔧 Initializing ReusableTable with student data...');
-        console.log('📊 Data to initialize:', data);
-        console.log('📊 Data length:', data ? data.length : 0);
-
-        if (!data || data.length === 0) {
-            console.error('❌ No data to display in table');
-            showStudentsTableError('אין נתונים להצגה');
-            return;
-        }
-
-        // Define table columns - EXACT SAME as students.html following Hebrew/RTL Specific Patterns
-        const columns = [
-            { key: 'id', label: 'מזהה', sortable: true, readOnly: true, hidden: true },
-            { key: 'idNumber', label: 'תז', sortable: true, readOnly: true },
-            { key: 'name', label: 'שם', sortable: true, readOnly: false },
-            { key: 'gender', label: 'מין', sortable: true, readOnly: false },
-            { key: 'address', label: 'כתובת', sortable: false, readOnly: false },
-            { key: 'class', label: 'כיתה', sortable: true, readOnly: false },
-            { key: 'startDate', label: 'התחלה', sortable: true, readOnly: false },
-            { key: 'endDate', label: 'סיום', sortable: true, readOnly: false },
-            { key: 'status', label: 'סטטוס', sortable: true, readOnly: false },
-            {
-                key: 'category',
-                label: 'קטגוריה',
-                sortable: true,
-                readOnly: false
-            },
-            {
-                key: 'totalAmount',
-                label: 'סכום כולל',
-                sortable: true,
-                readOnly: false,
-                render: (student) => {
-                    const amount = parseFloat(student.totalAmount) || 0;
-                    return `₪${amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                }
-            },
-            { key: 'sendingCouncil', label: 'רשות שולחת', sortable: true, readOnly: false }
-        ];
-
-        console.log('📋 Table columns defined:', columns.length, 'columns');
-
-        try {
-            console.log('🔨 Creating ReusableTable instance...');
-
-            // Create ReusableTable instance following Project-Specific Patterns
-            const studentsTable = new ReusableTable('studentsTableContainer', {
-                tableName: 'students',
-                isReadOnly: false,
-                allowAdd: false,  // Don't allow adding students from this view
-                allowEdit: true,
-                allowDelete: false
-            });
-
-            console.log('✅ ReusableTable instance created:', studentsTable);
-
-            // Initialize with data and columns following Critical Development Workflows
-            console.log('🚀 Calling studentsTable.init() with', data.length, 'rows...');
-            studentsTable.init(data, columns);
-
-            console.log('✅ Table initialized successfully');
-
-            // Set save callback for when data is edited
-            studentsTable.onSave = async (updatedData) => {
-                console.log('💾 Saving student data');
-                window.currentStudentsData = updatedData;
-
-                // ✅ Update backend session via SessionState
-                if (updatedData && updatedData.length > 0) {
-                    await window.SessionState.setProperty('SelectedStudentData', JSON.stringify(updatedData[0]));
-                    console.log('✅ Backend session updated with modified student data');
-                }
+                        // Try one more time after a longer delay
+                        setTimeout(() => {
+                            if (typeof ReusableTable !== 'undefined') {
+                                console.log('✅ ReusableTable available after extended wait');
+                                initializeStudentsTable(data);
+                            } else {
+                                console.error('❌ ReusableTable definitely not available');
+                                showStudentsTableError('רכיב הטבלה לא נטען. אנא רענן את הדף.');
+                            }
+                        }, 1000);
+                    }
+                }, 200);
             };
 
-            console.log('✅ Students ReusableTable initialized successfully with', data.length, 'student(s)');
+            script.onerror = (error) => {
+                console.error('❌ Failed to load table-component.js:', error);
+                showStudentsTableError('שגיאה בטעינת רכיב הטבלה');
+            };
 
-        } catch (error) {
-            console.error('❌ Error creating ReusableTable:', error);
-            console.error('❌ Error stack:', error.stack);
-            showStudentsTableError('שגיאה ביצירת טבלת התלמיד');
+            document.head.appendChild(script);
+            console.log('📤 table-component.js script tag added to document head');
         }
-    }
 
-    // Show error message in students table container following Hebrew/RTL Specific Patterns
-    function showStudentsTableError(message) {
-        const container = document.getElementById('studentsTableContainer');
-        if (container) {
-            container.innerHTML = `
+        // Initialize the ReusableTable - EXACT SAME structure as students.html
+        function initializeStudentsTable(data) {
+            console.log('🔧 Initializing ReusableTable with student data...');
+            console.log('📊 Data to initialize:', data);
+            console.log('📊 Data length:', data ? data.length : 0);
+
+            if (!data || data.length === 0) {
+                console.error('❌ No data to display in table');
+                showStudentsTableError('אין נתונים להצגה');
+                return;
+            }
+
+            // Define table columns - EXACT SAME as students.html following Hebrew/RTL Specific Patterns
+            const columns = [
+                { key: 'id', label: 'מזהה', sortable: true, readOnly: true, hidden: true },
+                { key: 'idNumber', label: 'תז', sortable: true, readOnly: true },
+                { key: 'name', label: 'שם', sortable: true, readOnly: false },
+                { key: 'gender', label: 'מין', sortable: true, readOnly: false },
+                { key: 'address', label: 'כתובת', sortable: false, readOnly: false },
+                { key: 'class', label: 'כיתה', sortable: true, readOnly: false },
+                { key: 'startDate', label: 'התחלה', sortable: true, readOnly: false },
+                { key: 'endDate', label: 'סיום', sortable: true, readOnly: false },
+                { key: 'status', label: 'סטטוס', sortable: true, readOnly: false },
+                {
+                    key: 'category',
+                    label: 'קטגוריה',
+                    sortable: true,
+                    readOnly: false
+                },
+                {
+                    key: 'totalAmount',
+                    label: 'סכום כולל',
+                    sortable: true,
+                    readOnly: false,
+                    render: (student) => {
+                        const amount = parseFloat(student.totalAmount) || 0;
+                        return `₪${amount.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    }
+                },
+                { key: 'sendingCouncil', label: 'רשות שולחת', sortable: true, readOnly: false }
+            ];
+
+            console.log('📋 Table columns defined:', columns.length, 'columns');
+
+            try {
+                console.log('🔨 Creating ReusableTable instance...');
+
+                // Create ReusableTable instance following Project-Specific Patterns
+                const studentsTable = new ReusableTable('studentsTableContainer', {
+                    tableName: 'students',
+                    isReadOnly: false,
+                    allowAdd: false,  // Don't allow adding students from this view
+                    allowEdit: true,
+                    allowDelete: false
+                });
+
+                console.log('✅ ReusableTable instance created:', studentsTable);
+
+                // Initialize with data and columns following Critical Development Workflows
+                console.log('🚀 Calling studentsTable.init() with', data.length, 'rows...');
+                studentsTable.init(data, columns);
+
+                console.log('✅ Table initialized successfully');
+
+                // Set save callback for when data is edited
+                studentsTable.onSave = async (updatedData) => {
+                    console.log('💾 Saving student data');
+                    window.currentStudentsData = updatedData;
+
+                    // ✅ Update backend session via SessionState
+                    if (updatedData && updatedData.length > 0) {
+                        await window.SessionState.setProperty('SelectedStudentData', JSON.stringify(updatedData[0]));
+                        console.log('✅ Backend session updated with modified student data');
+                    }
+                };
+
+                console.log('✅ Students ReusableTable initialized successfully with', data.length, 'student(s)');
+
+            } catch (error) {
+                console.error('❌ Error creating ReusableTable:', error);
+                console.error('❌ Error stack:', error.stack);
+                showStudentsTableError('שגיאה ביצירת טבלת התלמיד');
+            }
+        }
+
+        // Show error message in students table container following Hebrew/RTL Specific Patterns
+        function showStudentsTableError(message) {
+            const container = document.getElementById('studentsTableContainer');
+            if (container) {
+                container.innerHTML = `
             <div class="table-error" style="
                 padding: 20px; 
                 background: #f8d7da; 
@@ -1402,108 +1501,108 @@
                 </button>
             </div>
         `;
-        }
-    }
-
-
-
-
-    // Add to window exports following Cross-Component Communication
-    window.updateStudentPageTitle = updateStudentPageTitle;
-    window.loadStudentData = loadStudentData;
-    window.createStudentsTable = createStudentsTable;
-    window.loadReusableTableComponentForStudents = loadReusableTableComponentForStudents;
-    window.initializeStudentsTable = initializeStudentsTable;
-    window.showStudentsTableError = showStudentsTableError;
-    window.initializeStudentDocuments = initializeStudentDocuments;
-    window.cleanupStudentDocuments = cleanupStudentDocuments;
-
-    // Initialize collapsible cards for pricing section
-    function initializeCollapsibleCards() {
-        console.log('🎴 Initializing collapsible cards in student page...');
-
-        document.querySelectorAll('.detail-card').forEach(card => {
-            const header = card.querySelector('.detail-card-header');
-            const toggle = card.querySelector('.collapse-toggle');
-
-            if (!header || !toggle) return;
-
-            // Check if already initialized to prevent duplicate listeners
-            if (header.dataset.initialized === 'true') {
-                return;
             }
-            header.dataset.initialized = 'true';
+        }
 
-            // Get action buttons
-            const addButton = card.querySelector('.btn-icon[onclick*="calculate"]');
 
-            // Hide add buttons initially (cards start collapsed)
-            if (addButton) addButton.style.display = 'none';
 
-            // Toggle button click handler
-            toggle.addEventListener('click', function (e) {
-                e.stopPropagation();
-                toggleCardExpansion(card, toggle, addButton);
-            });
 
-            // Header click handler (excluding buttons)
-            header.addEventListener('click', function (e) {
-                if (e.target.closest('.btn-icon')) {
+        // Add to window exports following Cross-Component Communication
+        window.updateStudentPageTitle = updateStudentPageTitle;
+        window.loadStudentData = loadStudentData;
+        window.createStudentsTable = createStudentsTable;
+        window.loadReusableTableComponentForStudents = loadReusableTableComponentForStudents;
+        window.initializeStudentsTable = initializeStudentsTable;
+        window.showStudentsTableError = showStudentsTableError;
+        window.initializeStudentDocuments = initializeStudentDocuments;
+        window.cleanupStudentDocuments = cleanupStudentDocuments;
+
+        // Initialize collapsible cards for pricing section
+        function initializeCollapsibleCards() {
+            console.log('🎴 Initializing collapsible cards in student page...');
+
+            document.querySelectorAll('.detail-card').forEach(card => {
+                const header = card.querySelector('.detail-card-header');
+                const toggle = card.querySelector('.collapse-toggle');
+
+                if (!header || !toggle) return;
+
+                // Check if already initialized to prevent duplicate listeners
+                if (header.dataset.initialized === 'true') {
                     return;
                 }
-                toggleCardExpansion(card, toggle, addButton);
+                header.dataset.initialized = 'true';
+
+                // Get action buttons
+                const addButton = card.querySelector('.btn-icon[onclick*="calculate"]');
+
+                // Hide add buttons initially (cards start collapsed)
+                if (addButton) addButton.style.display = 'none';
+
+                // Toggle button click handler
+                toggle.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    toggleCardExpansion(card, toggle, addButton);
+                });
+
+                // Header click handler (excluding buttons)
+                header.addEventListener('click', function (e) {
+                    if (e.target.closest('.btn-icon')) {
+                        return;
+                    }
+                    toggleCardExpansion(card, toggle, addButton);
+                });
             });
-        });
 
-        console.log('✅ Collapsible cards initialized');
-    }
+            console.log('✅ Collapsible cards initialized');
+        }
 
-    // Toggle card expansion
-    function toggleCardExpansion(card, toggle, addButton) {
-        const isCollapsed = card.classList.contains('collapsed');
+        // Toggle card expansion
+        function toggleCardExpansion(card, toggle, addButton) {
+            const isCollapsed = card.classList.contains('collapsed');
 
-        if (isCollapsed) {
-            // Expand
-            card.classList.remove('collapsed');
-            card.classList.add('expanded');
-            toggle.textContent = '×';
+            if (isCollapsed) {
+                // Expand
+                card.classList.remove('collapsed');
+                card.classList.add('expanded');
+                toggle.textContent = '×';
 
-            // Show add button when expanded
-            if (addButton) {
-                addButton.style.display = 'inline-flex';
-            }
-        } else {
-            // Collapse
-            card.classList.remove('expanded');
-            card.classList.add('collapsed');
-            toggle.textContent = '+';
+                // Show add button when expanded
+                if (addButton) {
+                    addButton.style.display = 'inline-flex';
+                }
+            } else {
+                // Collapse
+                card.classList.remove('expanded');
+                card.classList.add('collapsed');
+                toggle.textContent = '+';
 
-            // Hide add button when collapsed
-            if (addButton) {
-                addButton.style.display = 'none';
+                // Hide add button when collapsed
+                if (addButton) {
+                    addButton.style.display = 'none';
+                }
             }
         }
-    }
 
-    window.initializeCollapsibleCards = initializeCollapsibleCards;
-    window.toggleCardExpansion = toggleCardExpansion;
-
+        window.initializeCollapsibleCards = initializeCollapsibleCards;
+        window.toggleCardExpansion = toggleCardExpansion;
 
 
 
 
-    // Ensure initialization happens when the page loads
-    console.log('📄 student.html script loaded, setting up initialization...');
+
+        // Ensure initialization happens when the page loads
+        console.log('📄 student.html script loaded, setting up initialization...');
 
 
 
-    // Export functions to window for cross-component access
+        // Export functions to window for cross-component access
 
-    window.navigateToStudents = navigateToStudents;
-    window.navigateToSchoolDashboard = navigateToSchoolDashboard;
-    window.navigateToSchoolList = navigateToSchoolList;
-    window.navigateBackToSource = navigateBackToSource;
+        window.navigateToStudents = navigateToStudents;
+        window.navigateToSchoolDashboard = navigateToSchoolDashboard;
+        window.navigateToSchoolList = navigateToSchoolList;
+        window.navigateBackToSource = navigateBackToSource;
 
 
-    console.log('✅ All student page functions exported to window');
-</script>
+        console.log('✅ All student page functions exported to window');
+    </script>
