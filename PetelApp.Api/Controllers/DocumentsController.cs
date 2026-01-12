@@ -342,6 +342,25 @@ namespace PetelApp.Api.Controllers
                         continue;
                     }
 
+                    // ✅ Check object_element_check filter
+                    if (!string.IsNullOrEmpty(docType.ObjectElementCheck))
+                    {
+                        // If check type is "category", verify student's disability_category matches
+                        if (docType.ObjectElementCheck.Equals("category", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var studentCategory = student.DisabilityCategory?.ToString();
+                            if (string.IsNullOrEmpty(studentCategory) ||
+                                !studentCategory.Equals(docType.ObjectElementValue, StringComparison.OrdinalIgnoreCase))
+                            {
+                                notRequiredCount++;
+                                _logger.LogInformation(
+                                    "Skipping document type {TypeId} - category mismatch (student: {StudentCat}, required: {RequiredCat})",
+                                    docType.Id, studentCategory, docType.ObjectElementValue);
+                                continue;
+                            }
+                        }
+                    }
+
 
                     // ✅ Create new document with default status and truncated description
                     var newDocument = new Document

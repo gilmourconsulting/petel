@@ -655,8 +655,7 @@ private async Task<CalculatedPricingElement?> CalculatePriceForElement(
         };
 
        // ✅ Special handling for "Guard" elements with offset
-        if (element.Title?.Equals("Guard", StringComparison.OrdinalIgnoreCase) == true ||
-            element.ElementName?.Equals("Guard", StringComparison.OrdinalIgnoreCase) == true)
+        if (element.Title?.Equals("Guard", StringComparison.OrdinalIgnoreCase) == true || element.Title?.Equals("Security", StringComparison.OrdinalIgnoreCase) == true)
         {
             // Check if school has "Guard off-set" attribute set to true
             var guardOffsetAttr = schoolAttributes
@@ -682,7 +681,7 @@ private async Task<CalculatedPricingElement?> CalculatePriceForElement(
                             student.SendingCouncil.Value, school.Council.Value);
                         
                         calculatedElement.Price = 0;
-                        calculatedElement.DeterminingFactor = "תלמיד מרשות בית הספר";
+                        calculatedElement.DeterminingFactor = "מקוזז - תלמיד/ה מרשות בית הספר";
                         return calculatedElement;
                     }
                     else
