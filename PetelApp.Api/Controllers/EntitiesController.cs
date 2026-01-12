@@ -253,6 +253,84 @@ public async Task<IActionResult> GetSchools([FromQuery] int? yearId = null)
     }
 }
 
+
+/// <summary>
+/// Get the distributor name of the highest owner in the entity hierarchy
+/// Used to determine which system logo to display
+/// </summary>
+[HttpGet("{id}/distributor")]
+public async Task<IActionResult> GetDistributorLogo(int id)
+{
+    try
+    {
+        var session = GetCurrentSession();
+        if (session == null)
+        {
+            return Unauthorized(new { message = "Authentication required" });
+        }
+
+        _logger.LogInformation("Getting distributor logo for entity {EntityId}", id);
+
+        // Find the highest owner (root entity) in the hierarchy
+        var currentEntity = await _context.Entities
+            .AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == id);
+
+        if (currentEntity == null)
+        {
+            return NotFound(new { message = "גוף לא נמצא" });
+        }
+
+        // Traverse up the ownership hierarchy to find the root owner
+        var rootEntity = currentEntity;
+        var visitedIds = new HashSet<int> { id }; // Prevent infinite loops
+        var maxIterations = 50; // Safety limit
+        var iterations = 0;
+
+        while (rootEntity.OwnerId.HasValue && iterations < maxIterations)
+        {
+            iterations++;
+            
+            if (visitedIds.Contains(rootEntity.OwnerId.Value))
+            {
+                _logger.LogWarning("Circular ownership detected for entity {EntityId}", id);
+                break;
+            }
+
+            var ownerEntity = await _context.Entities
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Id == rootEntity.OwnerId.Value);
+
+            if (ownerEntity == null)
+            {
+                _logger.LogWarning("Owner entity {OwnerId} not found", rootEntity.OwnerId.Value);
+                break;
+            }
+
+            visitedIds.Add(rootEntity.OwnerId.Value);
+            rootEntity = ownerEntity;
+        }
+
+        _logger.LogInformation("Root entity for {EntityId} is {RootEntityId} with distributor '{Distributor}'", 
+            id, rootEntity.Id, rootEntity.Distributor ?? "null");
+
+
+
+        return Ok(new
+        {
+            distributor = rootEntity.Distributor ?? ""
+        });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Error getting distributor logo for entity {EntityId}", id);
+        return StatusCode(500, new { 
+            message = "שגיאה בטעינת מפיץ", 
+            error = ex.Message 
+        });
+    }
+}
+
 // ✅ Helper method to format address
 private static string FormatSchoolAddress(string? street, string? houseNumber, string? city, string? postCode)
 {

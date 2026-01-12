@@ -195,16 +195,15 @@
             <!-- Left Side: System Logo and Info -->
             <div class="top-bar-left">
                 <div class="system-logo-section">
-                    <div class="system-logo" style="cursor: pointer;" onclick="navigateToMainDashboard()"
-                        title="חזור למסך הראשי">
-                        <img src="images/nativ-logo.png" alt="לוגו המערכת"
-                            style="transition: opacity 0.2s; width: 175px; height: auto; gap: 100px;"
+                    <div class="system-logo" id="topBarLogo" style="cursor: pointer;"
+                        onclick="navigateToMainDashboard()" title="חזור למסך הראשי">
+                        <img src="petel_logo.png" alt="לוגו המערכת" style="transition: opacity 0.2s;"
                             onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='12'" />
                     </div>
-                <button id="debugSessionBtn" class="debug-btn" onclick="showSessionDebug()" style="display: none;"
-                    title="הצג נתוני סשן">
-                    🔍 Debug Session
-                </button>
+                    <button id="debugSessionBtn" class="debug-btn" onclick="showSessionDebug()" style="display: none;"
+                        title="הצג נתוני סשן">
+                        🔍 Debug Session
+                    </button>
                 </div>
 
 
@@ -330,6 +329,7 @@
                     // Load user info first
                     loadUserInfo();
                     loadSystemVersion();
+                    loadSystemLogo();
 
 
                     // Use PageLifecycleManager for initial load
@@ -403,6 +403,49 @@
             return session?.entityTypeId;
         }
 
+
+        // Load system logo based on distributor of highest owner
+        async function loadSystemLogo() {
+            console.log('🎨 Loading system logo based on distributor...');
+
+            try {
+                const session = await window.SessionState.getSession();
+                const entityId = session.entityId;
+
+                if (!entityId) {
+                    console.error('❌ No entity ID in session');
+                    return;
+                }
+
+                const token = sessionStorage.getItem('authToken');
+                const response = await fetch(AppConfig.getApiUrl(`entities/${entityId}/distributor`), {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('✅ Distributor logo data:', data);
+                    if (data.distributor === 'Nativ') {
+                        // Update top-bar logo
+                        const topBarLogoDiv = document.getElementById('topBarLogo');
+                        let logoHtml = topBarLogoDiv.innerHTML;
+                        logoHtml = logoHtml.replace('petel_logo.png', 'images/nativ-logo.png');
+                        logoHtml = logoHtml.replace('style="transition: opacity 0.2s;', 'style="transition: opacity 0.2s; width: 175px; height: auto; gap: 100px;"');
+                        topBarLogoDiv.innerHTML = logoHtml;
+                        const topBarLogo = topBarLogoDiv.querySelector('img');      
+                        console.log(`✅ Top bar logo set to: ${topBarLogo.src}`);
+                    }
+
+
+
+                } else {
+                    console.warn('⚠️ Failed to load distributor logo, using default');
+                }
+            } catch (error) {
+                console.error('❌ Error loading system logo:', error);
+                // Silently fail - keep default logo
+            }
+        }
 
 
         // Check if current entity is a multi-school network following Entity-Based Request Flow

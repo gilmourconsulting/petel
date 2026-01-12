@@ -72,6 +72,9 @@ namespace PetelApp.Api.Data
         [Column("characterization_id")]
         public int? CharacterizationId { get; set; }
 
+        [Column("distributor")]
+        public string? Distributor { get; set; }
+
         [Column("tax_number")]
         public string? TaxNumber { get; set; }
 
