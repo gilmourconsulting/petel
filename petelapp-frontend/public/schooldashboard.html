@@ -1,5 +1,12 @@
 <!-- School Title Section -->
-<div class="students-container">
+ <div class="school-title-section">
+    <div class="page-title-container">
+        <div class="page-title" id="schoolTitle">דך בית ספר - </div>
+        <div id="schoolYearDisplay" class="text-branded" style="text-align: center;"></div>
+        <div class="left-spacer"></div>
+    </div>
+</div>
+<div class="main-container">
     <!-- Context buttons - LEFT SIDE POSITIONING -->
     <div class="context-buttons-section">
         <button class="context-btn" onclick="navigateToStudents()">תלמידים</button>
@@ -54,6 +61,54 @@
 <script src="alerts-events-manager.js"></script>
 <script>
     console.log('🔍 Main Dashboard script loaded');
+
+
+      
+
+
+     // Update the loadSchoolTitle function in schooldetails.html
+        async function loadSchoolTitle() {
+            console.log('📋 Loading school title from SessionState...');
+
+            try {
+                // ✅ Use centralized SessionState
+                const session = await window.SessionState.getSession();
+                const yearValue = await window.SessionState.getProperty('SelectedYearValue');
+
+                let schoolName = session.entityName;
+
+                //   if (parseInt(session.entityTypeId, 10) === 5) {
+                // Multi-school network - get selected school name
+                const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
+                if (selectedSchoolName) {
+                    schoolName = selectedSchoolName;
+                }
+                //  }
+
+                console.log('🏫 School context:', { schoolName, yearValue });
+
+                const titleElement = document.getElementById('schoolTitle');
+                const yearElement = document.getElementById('schoolYearDisplay');
+
+                if (titleElement) {
+                    titleElement.textContent = schoolName;
+                    console.log('✅ School title updated via SessionState');
+                }
+
+                if (yearElement && yearValue) {
+                    yearElement.textContent = yearValue;
+                }
+
+            } catch (error) {
+                console.error('❌ Error loading school title:', error);
+                const titleElement = document.getElementById('schoolTitle');
+                if (titleElement) {
+                    titleElement.textContent = 'לוח בקרה של בית ספר';
+                }
+            }
+        }
+
+
 
 async function loadDashboardCardData(cardId) {
     console.log('📊 Loading dashboard card data for:', cardId);

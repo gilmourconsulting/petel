@@ -25,7 +25,8 @@ window.PageLifecycleConfig = {
             file: 'schooldashboard.html',
             title: 'לוח בקרה בית ספר',
             cleanup: 'cleanupSchoolDashboardPage',
-            init: null
+            init: null,
+            selfInitializing: true
         },
         'schooldetails': {
             file: 'schooldetails.html',

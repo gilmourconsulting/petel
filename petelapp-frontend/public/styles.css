@@ -857,7 +857,7 @@ body {
 }
 
 /* Students Page Styles */
-.students-container {
+.main-container {
     display: flex;
     gap: 20px;
     height: 100%;
