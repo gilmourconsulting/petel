@@ -284,6 +284,13 @@
             // ✅ Use PageLifecycleManager for all navigation
             window.navigateTo = async function (section, fromPopstate = false) {
                 await window.PageLifecycleManager.navigateTo(section, fromPopstate);
+
+                // ✅ Automatically configure school list navigation button after page loads
+                setTimeout(() => {
+                    if (typeof window.configureSchoolListNavigationButton === 'function') {
+                        window.configureSchoolListNavigationButton();
+                    }
+                }, 150); // Small delay to ensure page HTML is rendered
             };
 
 
@@ -432,7 +439,7 @@
                         logoHtml = logoHtml.replace('petel_logo.png', 'images/nativ-logo.png');
                         logoHtml = logoHtml.replace('style="transition: opacity 0.2s;', 'style="transition: opacity 0.2s; width: 175px; height: auto; gap: 100px;"');
                         topBarLogoDiv.innerHTML = logoHtml;
-                        const topBarLogo = topBarLogoDiv.querySelector('img');      
+                        const topBarLogo = topBarLogoDiv.querySelector('img');
                         console.log(`✅ Top bar logo set to: ${topBarLogo.src}`);
                     }
 
@@ -707,6 +714,50 @@
                     container.innerHTML = '<p style="color:red; text-align: center;">שגיאה בטעינת מאפייני מערכת.</p>';
                 });
         }
+
+        /**
+         * Global function to configure "Back to School List" button visibility
+         * Automatically hides the button for single-school entities (types 1, 4)
+         * Call this function in any page that has a "Back to School List" button
+         * Following Entity-Based Request Flow pattern
+         */
+        async function configureSchoolListNavigationButton() {
+            console.log('🔧 Configuring "Back to School List" button visibility...');
+
+            try {
+                const session = await window.SessionState.getSession();
+                const entityTypeId = parseInt(session.entityTypeId, 10);
+
+                console.log('📋 Entity type ID:', entityTypeId);
+
+                // Find any button that navigates back to school list
+                // Matches onclick="navigateBackToSchoolList()" or similar
+                const backButton = document.querySelector('button[onclick*="navigateBackToSchoolList"]') ||
+                    document.querySelector('button[onclick*="BackToSchoolList"]') ||
+                    document.querySelector('.context-navigation-btn[onclick*="schoollist"]');
+
+                if (!backButton) {
+                    console.log('ℹ️ No "Back to School List" button found on this page');
+                    return;
+                }
+
+                // Hide button for single-school entities (1 = school, 4 = external school)
+                if (entityTypeId === 1 || entityTypeId === 4) {
+                    backButton.style.display = 'none';
+                    console.log('✅ Hid "Back to School List" button for single-school entity');
+                } else {
+                    backButton.style.display = '';
+                    console.log('✅ Showing "Back to School List" button for multi-school entity');
+                }
+
+            } catch (error) {
+                console.error('❌ Error configuring school list navigation button:', error);
+            }
+        }
+
+        // Export globally
+        window.configureSchoolListNavigationButton = configureSchoolListNavigationButton;
+
 
         // Toggle side menu following Frontend Architecture Patterns
         function toggleMenu() {

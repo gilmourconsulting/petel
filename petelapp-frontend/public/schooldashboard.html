@@ -1,5 +1,5 @@
 <!-- School Title Section -->
- <div class="school-title-section">
+<div class="school-title-section">
     <div class="page-title-container">
         <div class="page-title" id="schoolTitle">דך בית ספר - </div>
         <div id="schoolYearDisplay" class="text-branded" style="text-align: center;"></div>
@@ -15,6 +15,9 @@
         <div class="context-spacer"></div>
         <button class="context-navigation-btn" onclick="navigateBackToSchoolList()" title="לרשימת בתי הספר">
             לרשימת בתי הספר
+        </button>
+        <button class="context-navigation-btn" onclick="navigateToMainDashboard()" title="חזרה למסך הראשי">
+            חזרה למסך הראשי
         </button>
     </div>
 
@@ -63,99 +66,106 @@
     console.log('🔍 Main Dashboard script loaded');
 
 
-      
 
 
-     // Update the loadSchoolTitle function in schooldetails.html
-        async function loadSchoolTitle() {
-            console.log('📋 Loading school title from SessionState...');
 
-            try {
-                // ✅ Use centralized SessionState
-                const session = await window.SessionState.getSession();
-                const yearValue = await window.SessionState.getProperty('SelectedYearValue');
+    // Update the loadSchoolTitle function in schooldetails.html
+    async function loadSchoolTitle() {
+        console.log('📋 Loading school title from SessionState...');
 
-                let schoolName = session.entityName;
+        try {
+            // ✅ Use centralized SessionState
+            const session = await window.SessionState.getSession();
+            const yearValue = await window.SessionState.getProperty('SelectedYearValue');
 
-                //   if (parseInt(session.entityTypeId, 10) === 5) {
-                // Multi-school network - get selected school name
-                const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
-                if (selectedSchoolName) {
-                    schoolName = selectedSchoolName;
-                }
-                //  }
+            let schoolName = session.entityName;
 
-                console.log('🏫 School context:', { schoolName, yearValue });
-
-                const titleElement = document.getElementById('schoolTitle');
-                const yearElement = document.getElementById('schoolYearDisplay');
-
-                if (titleElement) {
-                    titleElement.textContent = schoolName;
-                    console.log('✅ School title updated via SessionState');
-                }
-
-                if (yearElement && yearValue) {
-                    yearElement.textContent = yearValue;
-                }
-
-            } catch (error) {
-                console.error('❌ Error loading school title:', error);
-                const titleElement = document.getElementById('schoolTitle');
-                if (titleElement) {
-                    titleElement.textContent = 'לוח בקרה של בית ספר';
-                }
+            //   if (parseInt(session.entityTypeId, 10) === 5) {
+            // Multi-school network - get selected school name
+            const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
+            if (selectedSchoolName) {
+                schoolName = selectedSchoolName;
             }
-        }
+            //  }
 
+            console.log('🏫 School context:', { schoolName, yearValue });
 
+            const titleElement = document.getElementById('schoolTitle');
+            const yearElement = document.getElementById('schoolYearDisplay');
 
-async function loadDashboardCardData(cardId) {
-    console.log('📊 Loading dashboard card data for:', cardId);
-
-    try {
-        // Get selected school ID from session
-        const session = await window.SessionState.getSession();
-        let schoolId;
-
-        if (parseInt(session.entityTypeId, 10) === 5) {
-            // Multi-school network - use SelectedSchoolId
-            const selectedSchoolId = await window.SessionState.getProperty('SelectedSchoolId');
-            if (!selectedSchoolId) {
-                console.warn('⚠️ No SelectedSchoolId in session');
-                const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
-                if (containerElement) {
-                    containerElement.innerHTML = '<div class="no-data-message">לא נמצא בית ספר נבחר</div>';
-                }
-                return;
+            if (titleElement) {
+                titleElement.textContent = schoolName;
+                console.log('✅ School title updated via SessionState');
             }
-            schoolId = selectedSchoolId;
-        } else {
-            // Single school - use entity ID
-            schoolId = session.entityId;
-        }
 
-        console.log('🏫 Loading alerts for school:', schoolId);
+            if (yearElement && yearValue) {
+                yearElement.textContent = yearValue;
+            }
 
-        // Load data from backend via AlertsEventsManager
-        const data = await window.AlertsEventsManager.loadAlertEventsData(schoolId);
-
-        if (cardId === 'alertsCard') {
-            // ✅ Pass schoolId to render function
-            window.AlertsEventsManager.renderAlerts(data.alerts, 'alertsInternalCards', schoolId);
-        } else if (cardId === 'eventsCard') {
-            // ✅ Pass schoolId to render function
-            window.AlertsEventsManager.renderEvents(data.events, 'eventsInternalCards', schoolId);
-        }
-    } catch (error) {
-        console.error('❌ Error loading dashboard data:', error);
-        const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
-        if (containerElement) {
-            containerElement.innerHTML = '<div class="error-message">שגיאה בטעינת הנתונים</div>';
+        } catch (error) {
+            console.error('❌ Error loading school title:', error);
+            const titleElement = document.getElementById('schoolTitle');
+            if (titleElement) {
+                titleElement.textContent = 'לוח בקרה של בית ספר';
+            }
         }
     }
-}
 
+
+
+    async function loadDashboardCardData(cardId) {
+        console.log('📊 Loading dashboard card data for:', cardId);
+
+        try {
+            // Get selected school ID from session
+            const session = await window.SessionState.getSession();
+            let schoolId;
+
+            if (parseInt(session.entityTypeId, 10) === 5) {
+                // Multi-school network - use SelectedSchoolId
+                const selectedSchoolId = await window.SessionState.getProperty('SelectedSchoolId');
+                if (!selectedSchoolId) {
+                    console.warn('⚠️ No SelectedSchoolId in session');
+                    const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
+                    if (containerElement) {
+                        containerElement.innerHTML = '<div class="no-data-message">לא נמצא בית ספר נבחר</div>';
+                    }
+                    return;
+                }
+                schoolId = selectedSchoolId;
+            } else {
+                // Single school - use entity ID
+                schoolId = session.entityId;
+            }
+
+            console.log('🏫 Loading alerts for school:', schoolId);
+
+            // Load data from backend via AlertsEventsManager
+            const data = await window.AlertsEventsManager.loadAlertEventsData(schoolId);
+
+            if (cardId === 'alertsCard') {
+                // ✅ Pass schoolId to render function
+                window.AlertsEventsManager.renderAlerts(data.alerts, 'alertsInternalCards', schoolId);
+            } else if (cardId === 'eventsCard') {
+                // ✅ Pass schoolId to render function
+                window.AlertsEventsManager.renderEvents(data.events, 'eventsInternalCards', schoolId);
+            }
+        } catch (error) {
+            console.error('❌ Error loading dashboard data:', error);
+            const containerElement = document.getElementById(cardId.replace('Card', 'InternalCards'));
+            if (containerElement) {
+                containerElement.innerHTML = '<div class="error-message">שגיאה בטעינת הנתונים</div>';
+            }
+        }
+    }
+
+
+    function navigateToMainDashboard() {
+        if (!checkAuthentication()) return;
+
+        // Use PageLifecycleManager instead of loadMainDashboard()
+        window.navigateTo('maindashboard');
+    }
 
     function showAddModal(cardType) {
         const isEvent = cardType === 'eventsCard';
@@ -177,21 +187,21 @@ async function loadDashboardCardData(cardId) {
     }
 
     // Add navigation function for school details following Project-Specific Patterns
-async function navigateToSchoolDetails() {
-    console.log('🏫 Navigating to school details...');
+    async function navigateToSchoolDetails() {
+        console.log('🏫 Navigating to school details...');
 
-    try {
-        if (typeof window.navigateTo === 'function') {
-            window.navigateTo('schooldetails');
-        } else {
-            console.error('❌ navigateTo not available');
+        try {
+            if (typeof window.navigateTo === 'function') {
+                window.navigateTo('schooldetails');
+            } else {
+                console.error('❌ navigateTo not available');
+                alert('שגיאה בטעינת פרטי בית הספר');
+            }
+        } catch (error) {
+            console.error('💥 Error loading school details:', error);
             alert('שגיאה בטעינת פרטי בית הספר');
         }
-    } catch (error) {
-        console.error('💥 Error loading school details:', error);
-        alert('שגיאה בטעינת פרטי בית הספר');
     }
-}
 
     async function navigateToSchoolDocuments() {
         console.log('📄 Navigating to school documents...');
@@ -240,13 +250,13 @@ async function navigateToSchoolDetails() {
 
             const schoolName = await window.SessionState.getProperty('SelectedSchoolName');
 
-        /*    if (parseInt(session.entityTypeId, 10) === 5) {
-                // Multi-school network - get selected school name
-                const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
-                if (selectedSchoolName) {
-                    schoolName = selectedSchoolName;
-                }
-            }*/
+            /*    if (parseInt(session.entityTypeId, 10) === 5) {
+                    // Multi-school network - get selected school name
+                    const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
+                    if (selectedSchoolName) {
+                        schoolName = selectedSchoolName;
+                    }
+                }*/
 
             console.log('🏫 School context:', { schoolName, yearValue });
 
@@ -267,41 +277,41 @@ async function navigateToSchoolDetails() {
         }
     }
 
-/**
- * Configure context buttons visibility based on entity type
- * Hide "Back to School List" button for single-school entities
- * Following Entity-Based Request Flow pattern
- */
-async function configureContextButtons() {
-    console.log('🔧 Configuring context buttons based on entity type...');
+    /**
+     * Configure context buttons visibility based on entity type
+     * Hide "Back to School List" button for single-school entities
+     * Following Entity-Based Request Flow pattern
+     */
+    async function configureContextButtons() {
+        console.log('🔧 Configuring context buttons based on entity type...');
 
-    try {
-        const session = await window.SessionState.getSession();
-        const entityTypeId = parseInt(session.entityTypeId, 10);
+        try {
+            const session = await window.SessionState.getSession();
+            const entityTypeId = parseInt(session.entityTypeId, 10);
 
-        console.log('📋 Entity type ID:', entityTypeId);
+            console.log('📋 Entity type ID:', entityTypeId);
 
-        // Find the "Back to School List" button
-        const backButton = document.querySelector('button[onclick*="navigateBackToSchoolList"]');
+            // Find the "Back to School List" button
+            const backButton = document.querySelector('button[onclick*="navigateBackToSchoolList"]');
 
-        if (!backButton) {
-            console.warn('⚠️ Back to school list button not found');
-            return;
+            if (!backButton) {
+                console.warn('⚠️ Back to school list button not found');
+                return;
+            }
+
+            // Hide button for single-school entities (1 = school, 4 = external school)
+            if (entityTypeId === 1 || entityTypeId === 4) {
+                backButton.style.display = 'none';
+                console.log('✅ Hid "Back to School List" button for single-school entity');
+            } else {
+                backButton.style.display = '';
+                console.log('✅ Showing "Back to School List" button for multi-school entity');
+            }
+
+        } catch (error) {
+            console.error('❌ Error configuring context buttons:', error);
         }
-
-        // Hide button for single-school entities (1 = school, 4 = external school)
-        if (entityTypeId === 1 || entityTypeId === 4) {
-            backButton.style.display = 'none';
-            console.log('✅ Hid "Back to School List" button for single-school entity');
-        } else {
-            backButton.style.display = '';
-            console.log('✅ Showing "Back to School List" button for multi-school entity');
-        }
-
-    } catch (error) {
-        console.error('❌ Error configuring context buttons:', error);
     }
-}
 
     function cleanupSchoolDashboardPage() {
         console.log('🧹 Cleaning up school dashboard page...');
@@ -423,7 +433,7 @@ async function configureContextButtons() {
     window.showSchoolYear = showSchoolYear;
 
 
-   window.debugDashboardElements = debugDashboardElements;
+    window.debugDashboardElements = debugDashboardElements;
     window.navigateToSchoolDocuments = navigateToSchoolDocuments;
 
     console.log('✅ School Dashboard functions registered globally');
