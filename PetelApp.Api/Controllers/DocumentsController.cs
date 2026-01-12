@@ -265,6 +265,114 @@ namespace PetelApp.Api.Controllers
         }
 
         /// <summary>
+        /// Get documents for user's entity and all owned entities (excluding schools)
+        /// Used for entity-level document management
+        /// </summary>
+        [HttpGet("by-entity-hierarchy")]
+        public async Task<IActionResult> GetDocumentsByEntityHierarchy(
+            [FromQuery] int? yearId = null)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    _logger.LogError("No valid session found");
+                    return Unauthorized(new { success = false, message = "לא נמצאה הפעלה פעילה. אנא התחבר מחדש." });
+                }
+
+                var userEntityId = int.Parse(session.EntityId);
+
+                int? effectiveYearId = yearId ??
+                    (int.TryParse(session.GetProperty("SelectedYearId") ?? "", out var sessionYearId)
+                        ? sessionYearId
+                        : (int?)null);
+
+                _logger.LogInformation("Fetching entity hierarchy documents for entityId: {EntityId}, yearId: {YearId}",
+                    userEntityId, effectiveYearId);
+
+                // Get user's entity and all owned entities (excluding schools - entity types 1 and 4)
+                var notSchoolTypes = new[] { 1, 4 };
+
+                var entityIds = await _context.Entities
+                    .Where(e => e.IsActive &&
+                           !notSchoolTypes.Contains(e.EntityTypeId) &&
+                           (e.Id == userEntityId || e.OwnerId == userEntityId))
+                    .Select(e => new { e.Id, e.Name })
+                    .ToListAsync();
+
+                var entityIdList = entityIds.Select(e => e.Id).ToList();
+
+                // Create a dictionary for fast entity name lookup
+                var entityIdToNameMap = entityIds.ToDictionary(e => e.Id, e => e.Name);
+
+                _logger.LogInformation("Found {Count} entities in hierarchy (including owner): {EntityIds}",
+                    entityIds.Count, string.Join(", ", entityIdList));
+
+                // Query documents for all entities in hierarchy
+                var query = _context.Documents
+                    .Include(d => d.DocumentLinks)
+                    .Include(d => d.DocumentType)
+                    .Where(d => d.DocumentLinks.Any(dl => dl.EntityId.HasValue &&
+                                                           entityIdList.Contains((int)dl.EntityId.Value)));
+
+                if (effectiveYearId.HasValue)
+                {
+                    query = query.Where(d => d.DocumentType.YearId == effectiveYearId.Value);
+                }
+
+                // ✅ First get the documents with their linked entity IDs
+                var documentsWithEntityIds = await query
+                    .Where(d => d.IsLastVersion)
+                    .OrderByDescending(d => d.CreatedAt)
+                    .Select(d => new
+                    {
+                        d.Id,
+                        d.Description,
+                        DocumentType = d.DocumentType.Name,
+                        DocumentTypeId = d.DocumentTypeId,
+                        StatusName = _context.Set<DocumentStatusType>()
+                            .Where(s => s.Id == d.StatusId)
+                            .Select(s => s.Name)
+                            .FirstOrDefault() ?? "לא מוגדר",
+                        CreatedAt = d.CreatedAt,
+                        FileSize = d.FileBlob != null ? d.FileBlob.Length : 0,
+                        HasFile = d.FileBlob != null,
+                        // Get the entity ID from document links
+                        EntityId = d.DocumentLinks
+                            .Where(dl => dl.EntityId.HasValue)
+                            .Select(dl => (int)dl.EntityId.Value)
+                            .FirstOrDefault()
+                    })
+                    .ToListAsync();
+
+                // ✅ Then add entity names using the in-memory dictionary
+                var documents = documentsWithEntityIds.Select(d => new
+                {
+                    d.Id,
+                    d.Description,
+                    d.DocumentType,
+                    d.DocumentTypeId,
+                    d.StatusName,
+                    d.CreatedAt,
+                    d.FileSize,
+                    d.HasFile,
+                    d.EntityId,
+                    // Lookup entity name from dictionary
+                    EntityName = entityIdToNameMap.TryGetValue(d.EntityId, out var name) ? name : "לא ידוע"
+                }).ToList();
+
+                _logger.LogInformation("Retrieved {Count} documents for entity hierarchy", documents.Count);
+                return Ok(documents);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving entity hierarchy documents");
+                return StatusCode(500, new { error = "שגיאה בטעינת מסמכי הישות" });
+            }
+        }
+
+        /// <summary>
         /// Generate missing documents for a student based on document types for the year
         /// Level = תלמיד, filtered by category if applicable
         /// </summary>
@@ -648,6 +756,203 @@ namespace PetelApp.Api.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating school documents");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה ביצירת מסמכים",
+                    error = ex.Message
+                });
+            }
+        }
+
+
+                /// <summary>
+        /// Generate missing documents for an entity based on document types for the year
+        /// Level = רשת, no filtering rules
+        /// For entity type 6 (networks), generates documents for all owned entities (excluding schools)
+        /// </summary>
+        [HttpPost("generate-entity-documents")]
+        public async Task<IActionResult> GenerateEntityDocuments(
+            [FromQuery] int entityId,
+            [FromQuery] int yearId)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+        
+                _logger.LogInformation("Generating documents for entity {EntityId} in year {YearId}",
+                    entityId, yearId);
+        
+                // Get the entity to check its type
+                var entity = await _context.Entities
+                    .Where(e => e.Id == entityId)
+                    .Select(e => new { e.Id, e.EntityTypeId, e.Name })
+                    .FirstOrDefaultAsync();
+        
+                if (entity == null)
+                {
+                    return NotFound(new { success = false, message = "ישות לא נמצאה" });
+                }
+        
+                _logger.LogInformation("Entity {EntityId} is type {EntityTypeId}", entityId, entity.EntityTypeId);
+        
+                // Determine target entities
+                List<int> targetEntityIds;
+                
+                if (entity.EntityTypeId == 6)
+                {
+                    // Entity type 6 (network) - get all owned entities (excluding schools - types 1 and 4)
+                    var notSchoolTypes = new[] { 1, 4 };
+                    
+                    targetEntityIds = await _context.Entities
+                        .Where(e => e.OwnerId == entityId && 
+                                   e.IsActive && 
+                                   !notSchoolTypes.Contains(e.EntityTypeId))
+                        .Select(e => e.Id)
+                        .ToListAsync();
+        
+                    _logger.LogInformation("Entity type 6 (network) - found {Count} owned entities (excluding schools)",
+                        targetEntityIds.Count);
+        
+                    if (targetEntityIds.Count == 0)
+                    {
+                        return Ok(new
+                        {
+                            success = true,
+                            message = "לא נמצאו ישויות בנות ליצירת מסמכים",
+                            addedCount = 0,
+                            skippedCount = 0,
+                            totalTypes = 0,
+                            targetEntitiesCount = 0
+                        });
+                    }
+                }
+                else
+                {
+                    // For other entity types, generate documents for the entity itself
+                    targetEntityIds = new List<int> { entityId };
+                    _logger.LogInformation("Entity type {TypeId} - generating documents for the entity itself",
+                        entity.EntityTypeId);
+                }
+        
+                // Get all document types for רשת level in this year
+                var documentTypes = await _context.DocumentTypes
+                    .Where(dt => dt.YearId == yearId && dt.Level == "רשת")
+                    .ToListAsync();
+        
+                _logger.LogInformation("Found {Count} document types with level 'רשת' for year {YearId}",
+                    documentTypes.Count, yearId);
+        
+                if (documentTypes.Count == 0)
+                {
+                    return Ok(new
+                    {
+                        success = true,
+                        message = "לא נמצאו סוגי מסמכים מסוג 'רשת' לשנה זו",
+                        addedCount = 0,
+                        skippedCount = 0,
+                        totalTypes = 0,
+                        targetEntitiesCount = targetEntityIds.Count
+                    });
+                }
+        
+                int totalAddedCount = 0;
+                int totalSkippedCount = 0;
+        
+                // Process each target entity
+                foreach (var targetEntityId in targetEntityIds)
+                {
+                    _logger.LogInformation("Processing entity {EntityId}", targetEntityId);
+        
+                    // Get existing documents for this entity
+                    var existingDocumentTypeIds = await _context.Documents
+                        .Include(d => d.DocumentLinks)
+                        .Where(d => d.DocumentLinks.Any(dl => dl.EntityId == targetEntityId))
+                        .Where(d => d.IsLastVersion)
+                        .Select(d => d.DocumentTypeId)
+                        .Distinct()
+                        .ToListAsync();
+        
+                    _logger.LogInformation("Entity {EntityId} already has {Count} document types",
+                        targetEntityId, existingDocumentTypeIds.Count);
+        
+                    foreach (var docType in documentTypes)
+                    {
+                        // Skip if document type already exists for this entity
+                        if (existingDocumentTypeIds.Contains(docType.Id))
+                        {
+                            totalSkippedCount++;
+                            _logger.LogInformation("Skipping document type {TypeId} for entity {EntityId} - already exists",
+                                docType.Id, targetEntityId);
+                            continue;
+                        }
+        
+                        // רשת level documents have no filtering rules - always create
+                        _logger.LogInformation("Creating document type {TypeId} ({TypeName}) for entity {EntityId}",
+                            docType.Id, docType.Name, targetEntityId);
+        
+                        // Create new document with default status
+                        var newDocument = new Document
+                        {
+                            Description = null,
+                            DocumentTypeId = docType.Id,
+                            StatusId = 1,  // Default status
+                            Version = 0,
+                            IsLastVersion = true,
+                            CreatedAt = DateTime.UtcNow,
+                            MasterDocumentId = null,
+                            FileBlob = null,
+                            FileEncoding = string.Empty
+                        };
+        
+                        _context.Documents.Add(newDocument);
+                        await _context.SaveChangesAsync();
+        
+                        // Set master document ID after creation
+                        await SetMasterDocumentId(newDocument.Id);
+        
+                        // Create document link to entity
+                        var documentLink = new DocumentLink
+                        {
+                            DocumentId = newDocument.Id,
+                            SchoolStudentId = null,
+                            EntityId = targetEntityId
+                        };
+        
+                        _context.Set<DocumentLink>().Add(documentLink);
+                        totalAddedCount++;
+        
+                        _logger.LogInformation("Created document {DocumentId} for type {TypeId} ({TypeName}) linked to entity {EntityId}",
+                            newDocument.Id, docType.Id, docType.Name, targetEntityId);
+                    }
+        
+                    await _context.SaveChangesAsync();
+                }
+        
+                _logger.LogInformation("Entity document generation complete: {Added} added, {Skipped} skipped across {EntityCount} entities",
+                    totalAddedCount, totalSkippedCount, targetEntityIds.Count);
+        
+                var message = entity.EntityTypeId == 6
+                    ? $"נוספו {totalAddedCount} מסמכים ל-{targetEntityIds.Count} ישויות בנות"
+                    : $"נוספו לרשימה {totalAddedCount} מסמכים";
+        
+                return Ok(new
+                {
+                    success = true,
+                    message = message,
+                    addedCount = totalAddedCount,
+                    skippedCount = totalSkippedCount,
+                    totalTypes = documentTypes.Count,
+                    targetEntitiesCount = targetEntityIds.Count
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error generating entity documents");
                 return StatusCode(500, new
                 {
                     success = false,

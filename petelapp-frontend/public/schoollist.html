@@ -1,6 +1,9 @@
 <div class="main-container">
     <!-- Context buttons - LEFT SIDE POSITIONING -->
     <div class="context-buttons-section">
+        <button class="context-btn" onclick="navigateToEntityDocuments()" title="צפייה במסמכי הישות">
+            מסמכי ישות
+        </button>
         <button class="context-btn" onclick="navigateToCouncilsList()" title="צפייה ברשימת הרשויות המשלחות">
             סיכום רשויות משלחות
         </button>
@@ -20,25 +23,25 @@
                 <div class="left-spacer"></div>
             </div>
             <div class="content-card">
-            <div class="header-actions">
-                <button class="btn-icon" title="הוספת בית ספר חדש" onclick="schoolManagement.showAddSchoolModal()">
+                <div class="header-actions">
+                    <button class="btn-icon" title="הוספת בית ספר חדש" onclick="schoolManagement.showAddSchoolModal()">
 
 
-                    <img src="Plus icon.png" alt="הוספת בית ספר חדש" class="action-icon-natural">
+                        <img src="Plus icon.png" alt="הוספת בית ספר חדש" class="action-icon-natural">
 
-                </button>
-            </div>
-<div class="content-card">
-            <!-- Schools table - ReusableTable component -->
-            <div class="schools-table-section">
-                <!-- Table container for TableComponent with horizontal scrolling -->
-                <div id="schoolsTableContainer">
-                    <!-- TableComponent will render here -->
-                    <div class="loading-spinner">
-                        <p>טוען רשימת בתי ספר...</p>
+                    </button>
+                </div>
+                <div class="content-card">
+                    <!-- Schools table - ReusableTable component -->
+                    <div class="schools-table-section">
+                        <!-- Table container for TableComponent with horizontal scrolling -->
+                        <div id="schoolsTableContainer">
+                            <!-- TableComponent will render here -->
+                            <div class="loading-spinner">
+                                <p>טוען רשימת בתי ספר...</p>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                </div>
                 </div>
             </div>
         </div>
@@ -308,23 +311,16 @@
         }
     }
 
-    /* function editSchool(schoolId) {
-         console.log('Editing school:', schoolId);
-         const school = allSchools.find(s => s.id === schoolId);
-         if (school) {
-             alert(`עריכת בית ספר: ${school.name}`);
-         }
-     }*/
+    async function navigateToEntityDocuments() {
+        console.log('📄 Navigating to entity documents...');
 
-    /*function manageSchoolYear(schoolId) {
-        console.log('Managing school year for school:', schoolId);
-        const school = allSchools.find(s => s.id === schoolId);
-        if (school) {
-            sessionStorage.setItem('selectedSchoolId', schoolId);
-            sessionStorage.setItem('selectedSchoolName', school.name);
-            alert(`ניהול שנת לימודים עבור: ${school.name}`);
+        if (typeof window.navigateTo === 'function') {
+            await window.navigateTo('entitydocuments');
+        } else {
+            console.error('❌ window.navigateTo not available');
+            alert('שגיאה בניווט למסמכי ישות');
         }
-    }*/
+    }
 
     // Context button navigation functions following Single-Page Application with Module Loading
     async function navigateToCouncilsList() {
@@ -338,8 +334,6 @@
             alert('שגיאה בניווט לרשימת רשויות');
         }
     }
-
-
 
 
     async function navigateBackToDashboard() {
@@ -377,48 +371,6 @@
 
     window.cleanupSchoolListPage = cleanupSchoolListPage;
 
-    /*  function showNavigationError(container, message) {
-          container.innerHTML = `
-                  <div class="error-message" style="
-                      text-align: center; 
-                      padding: 40px; 
-                      direction: rtl;
-                      background: #f8d7da;
-                      color: #721c24;
-                      border: 1px solid #f5c6cb;
-                      border-radius: 8px;
-                      margin: 20px;
-                  ">
-                      <h3 style="margin-bottom: 15px;">${message}</h3>
-                      <p style="margin-bottom: 20px;">לא ניתן לטעון את הדף המבוקש. אנא נסה שוב.</p>
-                      <button onclick="window.history.back()" style="
-                          background: #007bff;
-                          color: white;
-                          border: none;
-                          padding: 8px 16px;
-                          border-radius: 4px;
-                          cursor: pointer;
-                          font-size: 14px;
-                          margin-left: 10px;
-                      ">
-                          חזרה
-                      </button>
-                      <button onclick="window.location.reload()" style="
-                          background: #28a745;
-                          color: white;
-                          border: none;
-                          padding: 8px 16px;
-                          border-radius: 4px;
-                          cursor: pointer;
-                          font-size: 14px;
-                      ">
-                          רענן דף
-                      </button>
-                  </div>
-              `;
-      }
-  */
-
 
     // Initialize page following Critical Development Workflows
     document.addEventListener('DOMContentLoaded', function () {
@@ -441,6 +393,7 @@
     window.viewSchool = viewSchool;
     window.navigateToSchoolDashboard = navigateToSchoolDashboard;
     window.navigateToCouncilsList = navigateToCouncilsList;
+    window.navigateToEntityDocuments = navigateToEntityDocuments;
 
 
     console.log('✅ School list functions registered globally');

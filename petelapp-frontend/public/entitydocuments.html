@@ -1,0 +1,257 @@
+<!-- Entity Title Section -->
+<div class="school-title-section">
+    <div class="page-title-container">
+        <div class="page-title" id="entityTitle">מסמכי ישות</div>
+        <div id="entityDocumentYearDisplay" class="text-branded" style="text-align: center;"></div>
+        <div class="left-spacer"></div>
+    </div>
+</div>
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <button class="context-btn" onclick="generateDocumentsForEntity()">
+            עדכן רשימת מסמכים לישות
+        </button>
+        <div class="context-spacer"></div>
+        <button class="context-navigation-btn" onclick="navigateBackToSchoolList()">
+            חזרה לרשימת בתי הספר
+        </button>
+    </div>
+
+    <!-- Main content area -->
+    <div class="students-content">
+        <div class="content-card">
+            <!-- Info message about what documents are shown -->
+            <div class="info-message" style="margin-bottom: 20px; padding: 15px; background-color: #e7f3ff; border-radius: 8px; direction: rtl;">
+                <p style="margin: 0; color: #0066cc;">
+                    <strong>הערה:</strong> מסך זה מציג מסמכים של הישות שלך וכל הישויות הבנות (למעט בתי ספר).
+                    מסמכי בתי ספר ניתן לצפות במסך "מסמכים בית ספריים" של כל בית ספר.
+                </p>
+            </div>
+
+            <!-- Documents table component will be rendered here -->
+            <div id="entityDocumentsContainer"></div>
+        </div>
+    </div>
+</div>
+
+<script src="documents-table.js"></script>
+<script>
+    (function () {
+        'use strict';
+        console.log('📄 Entity Documents page loaded');
+
+        async function loadEntityTitle() {
+            console.log('📋 Loading entity title from SessionState...');
+
+            try {
+                const session = await window.SessionState.getSession();
+                const yearValue = await window.SessionState.getProperty('SelectedYearValue');
+
+                const entityName = session.entityName || 'ישות';
+
+                console.log('🏢 Entity context:', { entityName, yearValue });
+
+                const titleElement = document.getElementById('entityTitle');
+                const yearElement = document.getElementById('entityDocumentYearDisplay');
+
+                if (titleElement) {
+                    titleElement.textContent = "מסמכי ישות - " + entityName;
+                    console.log('✅ Entity title updated via SessionState');
+                }
+
+                if (yearElement && yearValue) {
+                    yearElement.textContent = yearValue;
+                }
+
+            } catch (error) {
+                console.error('❌ Error loading entity title:', error);
+                const titleElement = document.getElementById('entityTitle');
+                if (titleElement) {
+                    titleElement.textContent = 'מסמכי ישות';
+                }
+            }
+        }
+
+        let documentsComponent = null;
+
+        async function initializeEntityDocumentsPage() {
+            try {
+                console.log('🔧 Initializing entity documents page...');
+
+                const session = await window.SessionState.getSession();
+                const selectedYearId = await window.SessionState.getProperty('SelectedYearId');
+                const entityId = session.entityId;
+
+                console.log('📋 Documents for entity context:', { entityId, selectedYearId });
+
+                await loadEntityTitle();
+
+                // Initialize documents table component with entity hierarchy mode
+                documentsComponent = new DocumentsTableComponent('entityDocumentsContainer', {
+                    showUploadForm: false,
+                    allowDelete: false,
+                    allowDownload: true,
+                    allowUpload: true,
+                    entityId: entityId,
+                    entityType: 'entity-hierarchy', // Special mode for entity hierarchy
+                    yearId: selectedYearId,
+                    onUploadSuccess: (result) => {
+                        console.log('📄 Document uploaded:', result);
+                    },
+                    onDeleteSuccess: (documentId) => {
+                        console.log('🗑 Document deleted:', documentId);
+                    }
+                });
+
+                // Create global reference for button onclick handlers
+                window[`documentsTableInstance_entityDocumentsContainer`] = documentsComponent;
+
+                await documentsComponent.init();
+
+                console.log('✅ Entity documents page initialized');
+            } catch (error) {
+                console.error('❌ Error initializing entity documents page:', error);
+                alert('שגיאה באתחול עמוד המסמכים');
+            }
+        }
+
+        function cleanupEntityDocumentsPage() {
+            try {
+                console.log('🧹 Cleaning up entity documents page...');
+
+                if (documentsComponent) {
+                    if (documentsComponent.documentsTable) {
+                        documentsComponent.documentsTable = null;
+                    }
+                    documentsComponent.documentTypes = [];
+                    documentsComponent = null;
+                }
+
+                if (window[`documentsTableInstance_entityDocumentsContainer`]) {
+                    delete window[`documentsTableInstance_entityDocumentsContainer`];
+                }
+
+                const container = document.getElementById('entityDocumentsContainer');
+                if (container) {
+                    container.innerHTML = '';
+                }
+
+                console.log('✅ Entity documents page cleanup complete');
+            } catch (error) {
+                console.error('❌ Error during cleanup:', error);
+            }
+        }
+
+        async function generateDocumentsForEntity() {
+            try {
+                const session = await window.SessionState.getSession();
+                const entityId = session.entityId;
+                const yearId = await window.SessionState.getProperty('SelectedYearId');
+
+                if (!entityId) {
+                    alert('לא נמצאה ישות');
+                    return;
+                }
+
+                if (!yearId) {
+                    alert('לא נמצאה שנת לימודים נבחרת');
+                    return;
+                }
+
+                console.log(`📄 Generating documents for entity ${entityId} in year ${yearId}`);
+
+                const loadingDiv = document.createElement('div');
+                loadingDiv.id = 'entityDocumentGenerationLoading';
+                loadingDiv.style.cssText = `
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: white;
+                    padding: 30px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                    z-index: 10000;
+                    text-align: center;
+                    direction: rtl;
+                `;
+                loadingDiv.innerHTML = `
+                    <div style="font-size: 18px; font-weight: bold; margin-bottom: 15px;">
+                        מייצר מסמכים חסרים לישות...
+                    </div>
+                    <div style="font-size: 14px; color: #666;">אנא המתן</div>
+                `;
+                document.body.appendChild(loadingDiv);
+
+                // Note: You'll need to implement this endpoint similar to generate-school-documents
+                const response = await fetch(
+                    AppConfig.getApiUrl(`documents/generate-entity-documents?entityId=${entityId}&yearId=${yearId}`),
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                );
+
+                const loading = document.getElementById('entityDocumentGenerationLoading');
+                if (loading) loading.remove();
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'שגיאה ביצירת מסמכים');
+                }
+
+                const result = await response.json();
+                console.log('✅ Entity document generation result:', result);
+
+                alert(
+                    `${result.message}\n\n` +
+                    `נוספו: ${result.addedCount} מסמכים\n` +
+                    `קיימים (דולגו): ${result.skippedCount} מסמכים`
+                );
+
+                if (documentsComponent && typeof documentsComponent.loadDocumentsTable === 'function') {
+                    console.log('🔄 Refreshing documents list...');
+                    await documentsComponent.loadDocumentsTable();
+                    console.log('✅ Documents list refreshed');
+                }
+            } catch (error) {
+                console.error('❌ Error generating entity documents:', error);
+
+                const loading = document.getElementById('entityDocumentGenerationLoading');
+                if (loading) loading.remove();
+
+                alert(`שגיאה ביצירת מסמכים לישות: ${error.message}`);
+            }
+        }
+
+        async function navigateBackToSchoolList() {
+            console.log('⬅️ Navigating back to school list...');
+            
+            try {
+                if (typeof window.navigateTo === 'function') {
+                    window.navigateTo('schoollist');
+                } else {
+                    console.error('❌ navigateTo function not available');
+                    alert('שגיאה בחזרה לרשימת בתי הספר');
+                }
+            } catch (error) {
+                console.error('💥 Error navigating back to school list:', error);
+                alert('שגיאה בחזרה לרשימת בתי הספר');
+            }
+        }
+
+        window.generateDocumentsForEntity = generateDocumentsForEntity;
+        window.navigateBackToSchoolList = navigateBackToSchoolList;
+        window.cleanupEntityDocumentsPage = cleanupEntityDocumentsPage;
+
+        document.addEventListener('DOMContentLoaded', initializeEntityDocumentsPage);
+        if (document.readyState !== 'loading') {
+            setTimeout(initializeEntityDocumentsPage, 50);
+        }
+    })();
+</script>

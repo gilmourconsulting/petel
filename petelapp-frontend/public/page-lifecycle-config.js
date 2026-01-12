@@ -52,6 +52,13 @@ window.PageLifecycleConfig = {
             cleanup: 'cleanupStudentPage',
             init: 'loadStudentData'
         },
+        'entitydocuments': {
+            file: 'entitydocuments.html',
+            title: 'מסמכי ישות',
+            cleanup: 'cleanupEntityDocumentsPage',
+            init: null,
+            selfInitializing: true
+        },
         'studentdetails': {
             file: 'student.html', // Same file as student
             title: 'פרטי תלמיד',

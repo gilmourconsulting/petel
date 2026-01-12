@@ -153,35 +153,47 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
 
 
 
-                /**
-         * Load and display documents table
-         */
+        /**
+ * Load and display documents table
+ */
         async loadDocumentsTable() {
             try {
                 console.log('📊 Loading documents table...');
-        
+
                 const token = sessionStorage.getItem('authToken');
 
                 let url = '';
-        
+
                 if (this.options.entityType === 'student') {
                     // Use by-student-id endpoint
                     url = AppConfig.getApiUrl('documents/by-student-id');
                     const params = new URLSearchParams();
                     if (this.options.entityId) {
-                    params.append('entityId', this.options.entityId);
+                        params.append('entityId', this.options.entityId);
                     }
 
-                                    if (params.toString()) {
-                    url += '?' + params.toString();
+                    if (params.toString()) {
+                        url += '?' + params.toString();
+                    }
                 }
-                }
+                else if (this.options.entityType === 'entity-hierarchy') {
+                    // ✅ NEW: Use entity-hierarchy endpoint
+                    url = AppConfig.getApiUrl('documents/by-entity-hierarchy');
+                    const params = new URLSearchParams();
 
+                    if (this.options.yearId) {
+                        params.append('yearId', this.options.yearId);
+                    }
+
+                    if (params.toString()) {
+                        url += '?' + params.toString();
+                    }
+                }
                 else if (this.options.entityType === 'school' || this.options.entityType === 'entity') {
-                // Build URL with query parameters if entityId/yearId provided
+                    // Build URL with query parameters if entityId/yearId provided
                     url = AppConfig.getApiUrl('documents/by-entity');
                     const params = new URLSearchParams();
-            
+
                     if (this.options.entityId) {
                         params.append('entityId', this.options.entityId);
                     }
@@ -189,28 +201,28 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
                         params.append('yearId', this.options.yearId);
                     }
 
-                                    if (params.toString()) {
-                    url += '?' + params.toString();
-                }
+                    if (params.toString()) {
+                        url += '?' + params.toString();
+                    }
                 } else {
-            throw new Error(`Unknown entity type: ${this.options.entityType}`);
-        }
-        
+                    throw new Error(`Unknown entity type: ${this.options.entityType}`);
+                }
 
-        
+
+
                 console.log('📡 Fetching documents from:', url);
-        
+
                 const response = await fetch(url, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-        
+
                 if (!response.ok) {
                     throw new Error('Failed to load documents');
                 }
-        
+
                 const documents = await response.json();
                 console.log(`✅ Loaded ${documents.length} documents`);
-        
+
                 // Initialize ReusableTable
                 this.documentsTable = new ReusableTable(`${this.containerId}_tableWrapper`, {
                     tableName: 'documents',
@@ -219,7 +231,7 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
                     allowEdit: false,
                     allowDelete: this.options.allowDelete
                 });
-        
+
                 const columns = [
                     {
                         key: 'documentType',
@@ -238,7 +250,20 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
                         label: 'סטטוס',
                         sortable: true,
                         readOnly: true
-                    },
+                    }
+                ];
+
+                // ✅ Add EntityName column for entity-hierarchy mode
+                if (this.options.entityType === 'entity-hierarchy') {
+                    columns.push({
+                        key: 'entityName',
+                        label: 'ישות',
+                        sortable: true,
+                        readOnly: true
+                    });
+                }
+
+                columns.push(
                     {
                         key: 'createdAt',
                         label: 'עדכון אחרון',
@@ -253,49 +278,49 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
                         readOnly: true,
                         render: (data) => {
                             const escapedDocType = data.documentType.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-                            
+
                             const viewBtn = this.options.allowDownload && data.fileSize > 0
                                 ? `<button onclick="documentsTableInstance_${this.containerId}.viewDocument(${data.id})" class="btn-icon" title="צפייה">
-                                    <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
-                                </button>`
+                            <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
+                        </button>`
                                 : `<button class="btn-icon" disabled title="אין קובץ לצפייה">
-                                    <img src="view_icon.png" alt="צפייה" class="action-icon-natural" style="opacity: 0.3;">
-                                </button>`;
-                                
+                            <img src="view_icon.png" alt="צפייה" class="action-icon-natural" style="opacity: 0.3;">
+                        </button>`;
+
                             const downloadBtn = this.options.allowDownload && data.fileSize > 0
                                 ? `<button onclick="documentsTableInstance_${this.containerId}.downloadDocument(${data.id})" class="btn-icon" title="הורדה">
-                                    <img src="download_icon.png" alt="הורדה" class="action-icon-natural">
-                                </button>`
+                            <img src="download_icon.png" alt="הורדה" class="action-icon-natural">
+                        </button>`
                                 : (this.options.allowDownload
-                                ? `<button class="btn-icon" disabled title="אין קובץ להורדה">
-                                    <img src="download_icon.png" alt="הורדה" class="action-icon-natural" style="opacity: 0.3;">
-                                </button>`
+                                    ? `<button class="btn-icon" disabled title="אין קובץ להורדה">
+                            <img src="download_icon.png" alt="הורדה" class="action-icon-natural" style="opacity: 0.3;">
+                        </button>`
                                     : '');
-        
+
                             const uploadBtn = this.options.allowUpload
                                 ? `<button 
-                                    onclick="documentsTableInstance_${this.containerId}.showUploadModal(${data.id}, ${data.fileSize}, '${escapedDocType}', ${data.documentTypeId})" 
-                                    data-doc-id="${data.id}"
-                                    data-file-size="${data.fileSize}"
-                                    data-doc-type="${escapedDocType}"
-                                    data-doc-type-id="${data.documentTypeId}"
-                                    class="btn-icon" 
-                                    title="העלאת קובץ">
-                                    <img src="upload_icon.png" alt="העלאה" class="action-icon-natural">
-                                </button>`
+                            onclick="documentsTableInstance_${this.containerId}.showUploadModal(${data.id}, ${data.fileSize}, '${escapedDocType}', ${data.documentTypeId})" 
+                            data-doc-id="${data.id}"
+                            data-file-size="${data.fileSize}"
+                            data-doc-type="${escapedDocType}"
+                            data-doc-type-id="${data.documentTypeId}"
+                            class="btn-icon" 
+                            title="העלאת קובץ">
+                            <img src="upload_icon.png" alt="העלאה" class="action-icon-natural">
+                        </button>`
                                 : '';
-        
+
                             const deleteBtn = this.options.allowDelete
                                 ? `<button onclick="documentsTableInstance_${this.containerId}.deleteDocument(${data.id})" class="btn-icon" title="מחיקה">
-                                    <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
-                                </button>`
+                            <img src="delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                        </button>`
                                 : '';
-        
+
                             return `${viewBtn} ${downloadBtn} ${uploadBtn} ${deleteBtn}`;
                         }
                     }
-                ];
-        
+                );
+
                 this.documentsTable.init(documents, columns);
                 console.log('✅ Documents table initialized');
             } catch (error) {
@@ -303,7 +328,6 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
                 alert('שגיאה בטעינת המסמכים');
             }
         }
-
 
         /**
  * View document in new browser tab
@@ -353,18 +377,18 @@ if (typeof window.DocumentsTableComponent === 'undefined') {
             }
         }
 
-  /**
- * Show upload modal
- */
-async showUploadModal(documentId, currentFileSize, documentTypeName, documentTypeId) {
-    try {
-        console.log('📤 Showing upload modal for document:', documentId);
+        /**
+       * Show upload modal
+       */
+        async showUploadModal(documentId, currentFileSize, documentTypeName, documentTypeId) {
+            try {
+                console.log('📤 Showing upload modal for document:', documentId);
 
-        // Load status types only (document type is read-only)
-        const statusTypes = await this.loadDocumentStatusTypes();
+                // Load status types only (document type is read-only)
+                const statusTypes = await this.loadDocumentStatusTypes();
 
-        // Create modal HTML
-        const modalHtml = `
+                // Create modal HTML
+                const modalHtml = `
             <div class="modal-overlay" id="uploadModal_${this.containerId}">
                 <div class="modal-content">
                     <div class="modal-header">
@@ -392,8 +416,8 @@ async showUploadModal(documentId, currentFileSize, documentTypeName, documentTyp
                                 <label for="uploadStatus_${this.containerId}">סטטוס *</label>
                                 <select id="uploadStatus_${this.containerId}" required>
                                     ${statusTypes.map(status =>
-                                        `<option value="${status.id}">${status.name}</option>`
-                                    ).join('')}
+                    `<option value="${status.id}">${status.name}</option>`
+                ).join('')}
                                 </select>
                             </div>
 
@@ -410,17 +434,17 @@ async showUploadModal(documentId, currentFileSize, documentTypeName, documentTyp
             </div>
         `;
 
-        // Add modal to document body
-        const modalContainer = document.createElement('div');
-        modalContainer.innerHTML = modalHtml;
-        document.body.appendChild(modalContainer.firstElementChild);
+                // Add modal to document body
+                const modalContainer = document.createElement('div');
+                modalContainer.innerHTML = modalHtml;
+                document.body.appendChild(modalContainer.firstElementChild);
 
-        console.log('✅ Upload modal displayed');
-    } catch (error) {
-        console.error('❌ Error showing upload modal:', error);
-        alert('שגיאה בפתיחת חלון ההעלאה');
-    }
-}
+                console.log('✅ Upload modal displayed');
+            } catch (error) {
+                console.error('❌ Error showing upload modal:', error);
+                alert('שגיאה בפתיחת חלון ההעלאה');
+            }
+        }
 
         /**
          * Close upload modal
@@ -477,10 +501,10 @@ async showUploadModal(documentId, currentFileSize, documentTypeName, documentTyp
                     formData.append('yearId', this.options.yearId);
                 }
 
-                
-                    formData.append('existingDocumentId', documentId);
-                    formData.append('replaceExisting', 'true');
-               
+
+                formData.append('existingDocumentId', documentId);
+                formData.append('replaceExisting', 'true');
+
 
                 const token = sessionStorage.getItem('authToken');
                 const url = AppConfig.getApiUrl('documents/upload');
