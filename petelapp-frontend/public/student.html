@@ -56,13 +56,66 @@
 
                 <!-- Tab Content - Documents -->
                 <div id="documentsTab" class="tab-content" style="display: block;">
-                    <div class="documents-table-section">
-                        <div id="documentsTableContainer">
-                            <!-- Documents table will be loaded here by documents_table.js -->
+                    <!-- Student Documents Section -->
+                    <div class="detail-card expanded" style="margin-bottom: 20px;">
+                        <div class="detail-card-header">
+                            <h3 class="detail-card-title">מסמכי התלמיד</h3>
+                            <div class="card-header-actions">
+                                <button class="collapse-toggle" aria-label="הרחב/כווץ">×</button>
+                            </div>
+                        </div>
+                        <div class="detail-card-content">
+                            <div class="documents-table-section">
+                                <div id="documentsTableContainer">
+                                    <div class="loading-spinner"
+                                        style="text-align: center; padding: 20px; direction: rtl;">
+                                        טוען מסמכי תלמיד...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- School Documents Section -->
+                    <div class="detail-card collapsed" style="margin-bottom: 20px;">
+                        <div class="detail-card-header">
+                            <h3 class="detail-card-title">מסמכי בית הספר</h3>
+                            <div class="card-header-actions">
+                                <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                            </div>
+                        </div>
+                        <div class="detail-card-content">
+                            <div class="documents-table-section">
+                                <div id="schoolDocumentsTableContainer">
+                                    <div class="loading-spinner"
+                                        style="text-align: center; padding: 20px; direction: rtl;">
+                                        טוען מסמכי בית ספר...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Entity Documents Section -->
+                    <div class="detail-card collapsed">
+                        <div class="detail-card-header">
+                            <h3 class="detail-card-title">מסמכי הרשת/בעלות</h3>
+                            <div class="card-header-actions">
+                                <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
+                            </div>
+                        </div>
+                        <div class="detail-card-content">
+                            <div class="documents-table-section">
+                                <div id="entityDocumentsTableContainer">
+                                    <div class="loading-spinner"
+                                        style="text-align: center; padding: 20px; direction: rtl;">
+                                        טוען מסמכי רשת...
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
-
                 <!-- Tab Content - Pricing -->
                 <div id="pricingTab" class="tab-content" style="display: none;">
                     <div class="detail-card expanded">
@@ -143,6 +196,12 @@
         if (typeof documentsComponent === 'undefined') {
             var documentsComponent = null;
         }
+        if (typeof schoolDocumentsComponent === 'undefined') {
+            var schoolDocumentsComponent = null;
+        }
+        if (typeof entityDocumentsComponent === 'undefined') {
+            var entityDocumentsComponent = null;
+        }
 
         // Tab switching function
         async function switchStudentTab(tabName) {
@@ -173,6 +232,88 @@
 
         window.switchStudentTab = switchStudentTab;
 
+
+        /**
+ * Initialize all document tables (student, school, entity)
+ */
+        async function initializeAllDocumentTables() {
+            console.log('📄 Initializing all document tables...');
+
+            try {
+                // Get IDs from session
+                const studentId = await window.SessionState.getProperty('SelectedStudentId');
+                const schoolYearId = await window.SessionState.getProperty('SelectedSchoolYearId');
+                const yearId = await window.SessionState.getProperty('SelectedYearId');
+
+                if (!studentId) {
+                    console.error('❌ No student ID in session');
+                    return;
+                }
+
+                // Get school and entity IDs from backend
+                const schoolAndEntityIds = await fetchSchoolAndEntityIds(schoolYearId);
+
+                if (!schoolAndEntityIds) {
+                    console.error('❌ Failed to get school and entity IDs');
+                    return;
+                }
+
+                const { schoolId, entityId } = schoolAndEntityIds;
+
+                // Initialize student documents
+                await initializeStudentDocuments();
+
+                // Initialize school documents
+                await initializeSchoolDocuments(schoolId, yearId);
+
+                // Initialize entity documents
+                await initializeEntityDocuments(entityId, yearId);
+
+                console.log('✅ All document tables initialized');
+            } catch (error) {
+                console.error('❌ Error initializing document tables:', error);
+            }
+        }
+        /**
+         * Fetch school ID and entity ID (owner) from school_year
+         */
+        async function fetchSchoolAndEntityIds(schoolYearId) {
+            try {
+                const token = window.sessionManager.getToken();
+                if (!token) {
+                    throw new Error('No authentication token found');
+                }
+
+                const response = await fetch(AppConfig.getApiUrl(`school/by-year/${schoolYearId}`), {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    console.log('🏫 School data:', result.data);
+
+                    return {
+                        schoolId: result.data.entityId,           // School's entity ID
+                        entityId: result.data.ownerId || result.data.entityId  // Parent entity (owner) ID
+                    };
+                }
+
+                return null;
+            } catch (error) {
+                console.error('❌ Error fetching school and entity IDs:', error);
+                return null;
+            }
+        }
+
         /**
          * Initialize documents table component for selected student
          */
@@ -200,7 +341,7 @@
                     ">
                         <h4>לא נמצא מזהה תלמיד</h4>
                         <button onclick="navigateToStudents()" class="btn btn-primary" style="margin-top: 10px;">
-                            חזרה לרשימת תלמידים
+                            חזור לרשימת תלמידים
                         </button>
                     </div>
                 `;
@@ -257,66 +398,149 @@
             }
         }
 
+        /**
+    * Initialize school documents table
+    */
+        async function initializeSchoolDocuments(schoolId, yearId) {
+            try {
+                console.log('🏫 Initializing school documents table...');
+
+                if (!schoolId || !yearId) {
+                    console.warn('⚠️ Missing school ID or year ID for school documents');
+                    return;
+                }
+
+                schoolDocumentsComponent = new DocumentsTableComponent('schoolDocumentsTableContainer', {
+                    showUploadForm: false,
+                    allowDelete: false,
+                    allowDownload: true,
+                    allowUpload: false,
+                    entityId: schoolId,
+                    entityType: 'school',
+                    yearId: yearId
+                });
+
+                window['documentsTableInstance_schoolDocumentsTableContainer'] = schoolDocumentsComponent;
+
+                await schoolDocumentsComponent.init();
+
+                console.log('✅ School documents table initialized');
+            } catch (error) {
+                console.error('❌ Error initializing school documents:', error);
+                const container = document.getElementById('schoolDocumentsTableContainer');
+                if (container) {
+                    container.innerHTML = `
+                <div class="table-error" style="padding: 20px; text-align: center; color: #dc3545;">
+                    <p>שגיאה בטעינת מסמכי בית הספר</p>
+                </div>
+            `;
+                }
+            }
+        }
 
         /**
-         * Cleanup function called by PageLifecycleManager when leaving page
+         * Initialize entity documents table
+         */
+        async function initializeEntityDocuments(entityId, yearId) {
+            try {
+                console.log('🏢 Initializing entity documents table...');
+
+                if (!entityId || !yearId) {
+                    console.warn('⚠️ Missing entity ID or year ID for entity documents');
+                    return;
+                }
+
+                entityDocumentsComponent = new DocumentsTableComponent('entityDocumentsTableContainer', {
+                    showUploadForm: false,
+                    allowDelete: false,
+                    allowDownload: true,
+                    allowUpload: false,
+                    entityId: entityId,
+                    entityType: 'entity',
+                    yearId: yearId
+                });
+
+                window['documentsTableInstance_entityDocumentsTableContainer'] = entityDocumentsComponent;
+
+                await entityDocumentsComponent.init();
+
+                console.log('✅ Entity documents table initialized');
+            } catch (error) {
+                console.error('❌ Error initializing entity documents:', error);
+                const container = document.getElementById('entityDocumentsTableContainer');
+                if (container) {
+                    container.innerHTML = `
+                <div class="table-error" style="padding: 20px; text-align: center; color: #dc3545;">
+                    <p>שגיאה בטעינת מסמכי הרשת</p>
+                </div>
+            `;
+                }
+            }
+        }
+
+        /**
+         *  cleanup function to handle all document components
          */
         function cleanupStudentPage() {
             console.log('🧹 Cleaning up student page...');
 
             try {
-                // ✅ ADD: Cleanup documents component FIRST
+                // Cleanup student documents component
                 if (documentsComponent) {
-                    console.log('🧹 Cleaning up documents component instance...');
-
-                    // Call component cleanup if available
+                    console.log('🧹 Cleaning up student documents component...');
                     if (typeof documentsComponent.cleanup === 'function') {
                         documentsComponent.cleanup();
                     }
-
-                    // Clear table reference
-                    if (documentsComponent.documentsTable) {
-                        documentsComponent.documentsTable = null;
-                    }
-
-                    // Clear document types
-                    if (documentsComponent.documentTypes) {
-                        documentsComponent.documentTypes = [];
-                    }
-
-                    // Null the component
                     documentsComponent = null;
-                    console.log('✅ Documents component nullified');
                 }
 
-                // Remove global reference
-                const globalKey = 'documentsTableInstance_documentsTableContainer';
-                if (window[globalKey]) {
-                    delete window[globalKey];
-                    console.log('✅ Global documents instance removed:', globalKey);
+                // Cleanup school documents component
+                if (schoolDocumentsComponent) {
+                    console.log('🧹 Cleaning up school documents component...');
+                    if (typeof schoolDocumentsComponent.cleanup === 'function') {
+                        schoolDocumentsComponent.cleanup();
+                    }
+                    schoolDocumentsComponent = null;
                 }
+
+                // Cleanup entity documents component
+                if (entityDocumentsComponent) {
+                    console.log('🧹 Cleaning up entity documents component...');
+                    if (typeof entityDocumentsComponent.cleanup === 'function') {
+                        entityDocumentsComponent.cleanup();
+                    }
+                    entityDocumentsComponent = null;
+                }
+
+                // Remove global references
+                ['documentsTableContainer', 'schoolDocumentsTableContainer', 'entityDocumentsTableContainer'].forEach(containerId => {
+                    const globalKey = `documentsTableInstance_${containerId}`;
+                    if (window[globalKey]) {
+                        delete window[globalKey];
+                        console.log('✅ Global instance removed:', globalKey);
+                    }
+                });
 
                 // Clear container HTML
-                const documentsContainer = document.getElementById('documentsTableContainer');
-                if (documentsContainer) {
-                    documentsContainer.innerHTML = '<div class="loading-spinner">טוען מסמכים...</div>';
-                    console.log('✅ Documents container cleared');
-                }
+                ['documentsTableContainer', 'schoolDocumentsTableContainer', 'entityDocumentsTableContainer'].forEach(containerId => {
+                    const container = document.getElementById(containerId);
+                    if (container) {
+                        container.innerHTML = '<div class="loading-spinner">טוען...</div>';
+                    }
+                });
 
-                // ✅ Clear student-specific table instances
+                // Clear student-specific table instances
                 if (window.currentStudentsData) {
                     window.currentStudentsData = null;
-                    console.log('✅ Current students data cleared');
                 }
 
-                // ✅ Clear students table container
+                // Clear students table container
                 const studentsContainer = document.getElementById('studentsTableContainer');
                 if (studentsContainer) {
                     studentsContainer.innerHTML = '<div class="loading-spinner">טוען נתוני תלמידים...</div>';
-                    console.log('✅ Students container cleared');
                 }
 
-                // ✅ Clear pricing table container
+                // Clear pricing table container
                 const pricingContainer = document.getElementById('pricingTableContainer');
                 if (pricingContainer) {
                     pricingContainer.innerHTML = '<div class="loading-spinner">טוען נתונים...</div>';
@@ -327,6 +551,8 @@
                 console.error('❌ Error during student page cleanup:', error);
             }
         }
+
+
         window.cleanupStudentPage = cleanupStudentPage;
         /**
          * Cleanup documents component when leaving page
@@ -1294,14 +1520,8 @@
 
                 // ✅ Initialize documents table and pricing after student data is loaded
                 setTimeout(() => {
-                    console.log('📄 Initializing documents table...');
-                    initializeStudentDocuments();
-
-                    // Initialize collapsible cards for pricing section
+                    initializeAllDocumentTables();
                     initializeCollapsibleCards();
-
-                    // ✅ Auto-load pricing data when page loads
-                    console.log('💰 Auto-loading pricing data...');
                     viewStudentPricingFromSection();
                 }, 100);
 
@@ -1516,6 +1736,10 @@
         window.showStudentsTableError = showStudentsTableError;
         window.initializeStudentDocuments = initializeStudentDocuments;
         window.cleanupStudentDocuments = cleanupStudentDocuments;
+        window.initializeAllDocumentTables = initializeAllDocumentTables;
+        window.fetchSchoolAndEntityIds = fetchSchoolAndEntityIds;
+        window.initializeSchoolDocuments = initializeSchoolDocuments;
+        window.initializeEntityDocuments = initializeEntityDocuments;
 
         // Initialize collapsible cards for pricing section
         function initializeCollapsibleCards() {

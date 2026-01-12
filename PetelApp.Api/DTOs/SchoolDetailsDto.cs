@@ -44,5 +44,8 @@ namespace PetelApp.Api.DTOs
         public string? CouncilName { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
+
+        public int? OwnerId { get; set; }
+        public string? OwnerName { get; set; }
     }
 }

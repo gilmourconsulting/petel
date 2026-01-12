@@ -62,6 +62,8 @@ namespace PetelApp.Api.Controllers
                     .Include(s => s.ContactPersonPerson)
                     .Include(s => s.CouncilEntity)
                     .Include(s => s.Characterization)
+                    .Include(s => s.Entity)
+                    .ThenInclude(e => e.Owner)
                     .AsNoTracking()
                     .Where(s => s.SchoolYearId == schoolYearId && s.IsLastVersion) // ✅ Only last version
                     .FirstOrDefaultAsync();
@@ -115,7 +117,9 @@ namespace PetelApp.Api.Controllers
                     Symbol = school.Symbol,
                     IsActive = school.IsActive,
                     CouncilId = school.Council,
-                    CouncilName = school.CouncilEntity?.Name
+                    CouncilName = school.CouncilEntity?.Name,
+                    OwnerId = school.Owner,
+                    OwnerName = school.Entity?.Owner?.Name
                 };
 
                 return Ok(new { success = true, data = schoolDetails });
