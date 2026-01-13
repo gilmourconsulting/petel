@@ -13,14 +13,17 @@ namespace PetelApp.Api.Controllers
     public class AlertsController : BaseController
     {
         private readonly AppDbContext _context;
+        private readonly AlertService _alertService;
 
         public AlertsController(
             AppDbContext context,
+            AlertService alertService,
             UserSessionService userSessionService,
             ILogger<AlertsController> logger)
             : base(userSessionService, logger)
         {
             _context = context;
+            _alertService = alertService;
         }
 
    /// <summary>
@@ -40,136 +43,25 @@ public async Task<IActionResult> CreateAlert([FromBody] CreateAlertDto dto)
         var entityId = int.Parse(session.EntityId);
         var entityTypeId = int.Parse(session.EntityTypeId);
 
-        _logger.LogInformation(
-            "📝 Creating alert: Type={Type}, Level={Level}, IsEvent={IsEvent}, EntityId={EntityId}, EntityTypeId={EntityTypeId}",
-            dto.AlertType, dto.AlertLevel, dto.IsEvent, entityId, entityTypeId);
-
-        // Validate alert type and level exist in cache
-        if (!AlertDefinitionsCache.IsValidAlertType(dto.AlertType))
-        {
-            return BadRequest($"Invalid alert type: {dto.AlertType}");
-        }
-
-        if (!AlertDefinitionsCache.IsValidAlertLevel(dto.AlertLevel))
-        {
-            return BadRequest($"Invalid alert level: {dto.AlertLevel}");
-        }
-
-        // Validate event date requirement
-        if (dto.IsEvent && !dto.EventDate.HasValue)
-        {
-            return BadRequest("EventDate is required when IsEvent is true");
-        }
-
-        // Create alert
-        var alert = new Alert
-        {
-            AlertType = dto.AlertType,
-            AlertLevel = dto.AlertLevel,
-            Description = dto.Description,
-            Status = 1, // New status
-            UserId = int.Parse(session.UserId),
-            IsEvent = dto.IsEvent,
-            EventDate = dto.EventDate,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        _context.Alerts.Add(alert);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation("✅ Alert created with Id={AlertId}", alert.Id);
-
-        // Collect entity IDs for alert links
-        var targetEntityIds = new List<int> { entityId }; // Always include current entity
-
-        // Distribution logic based on alert level
-        if (dto.AlertLevel == 2 && dto.DistributeToOwned)
-        {
-            // Level 2 (owner) - Get entities owned by current entity
-            var ownedEntities = await _context.Entities
-                .Where(e => e.OwnerId == entityId && e.IsActive)
-                .Select(e => e.Id)
-                .ToListAsync();
-
-            targetEntityIds.AddRange(ownedEntities);
-
-            _logger.LogInformation(
-                "📢 Added {Count} owned entities for owner {EntityId}",
-                ownedEntities.Count, entityId);
-        }
-
-        if (dto.DistributeToSchools)
-        {
-            if (entityTypeId == 5) // School network
-            {
-                // Get schools owned by this network
-                var networkSchools = await _context.Entities
-                    .Where(e => e.OwnerId == entityId 
-                             && e.EntityTypeId == 4 // School type
-                             && e.IsActive)
-                    .Select(e => e.Id)
-                    .ToListAsync();
-
-                targetEntityIds.AddRange(networkSchools);
-
-                _logger.LogInformation(
-                    "🏫 Added {Count} schools for network {EntityId}",
-                    networkSchools.Count, entityId);
-            }
-            else if (entityTypeId == 6) // Owner
-            {
-                // Get schools where the owner is an entity owned by current entity
-                // SQL equivalent: SELECT s.id FROM entities s 
-                // WHERE s.entity_type_id = 4 AND s.owner_id IN 
-                // (SELECT id FROM entities WHERE owner_id = @currentEntityId)
-                var ownerSchools = await _context.Entities
-                    .Where(school => school.EntityTypeId == 4 
-                                  && school.IsActive
-                                  && _context.Entities.Any(owner => 
-                                      owner.OwnerId == entityId 
-                                      && owner.Id == school.OwnerId
-                                      && owner.IsActive))
-                    .Select(e => e.Id)
-                    .ToListAsync();
-
-                targetEntityIds.AddRange(ownerSchools);
-
-                _logger.LogInformation(
-                    "🏫 Added {Count} schools via owned entities for owner {EntityId}",
-                    ownerSchools.Count, entityId);
-            }
-        }
-
-        // Remove duplicates
-        targetEntityIds = targetEntityIds.Distinct().ToList();
-
-        _logger.LogInformation(
-            "📊 Creating alert links for {Count} entities", 
-            targetEntityIds.Count);
-
-        // Create alert links
-        var alertLinks = targetEntityIds.Select(targetEntityId => new AlertLink
-        {
-            AlertId = alert.Id,
-            AlertStatus = 1, // New status
-            EntityId = targetEntityId,
-            IsLastVersion = true
-        }).ToList();
-
-        _context.AlertLinks.AddRange(alertLinks);
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation(
-            "✅ Alert creation complete: AlertId={AlertId}, Links={LinkCount}",
-            alert.Id, alertLinks.Count);
+        // Use AlertService to create the alert
+        var (alertId, linksCreated, distributedTo) = await _alertService.CreateAlertAsync(
+            dto,
+            int.Parse(session.UserId),
+            entityId,
+            entityTypeId);
 
         return Ok(new
         {
-            alertId = alert.Id,
+            alertId = alertId,
             message = $"{(dto.IsEvent ? "אירוע" : "התראה")} נוצר בהצלחה",
-            linksCreated = alertLinks.Count,
-            distributedTo = targetEntityIds
+            linksCreated = linksCreated,
+            distributedTo = distributedTo
         });
+    }
+    catch (ArgumentException ex)
+    {
+        _logger.LogWarning(ex, "❌ Validation error creating alert");
+        return BadRequest(ex.Message);
     }
     catch (Exception ex)
     {

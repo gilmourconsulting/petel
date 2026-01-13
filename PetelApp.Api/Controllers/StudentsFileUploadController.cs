@@ -22,17 +22,21 @@ namespace PetelApp.Api.Controllers
         private readonly AppDbContext _context;
         private readonly StudentsFileProcessor _fileProcessor;
         private readonly GlobalFunctions _globalFunctions;
+        private readonly AlertService _alertService;
+        
         public StudentsFileUploadController(
             UserSessionService userSessionService,
             ILogger<StudentsFileUploadController> logger,
             AppDbContext context,
             StudentsFileProcessor fileProcessor,
-    GlobalFunctions globalFunctions)
+            GlobalFunctions globalFunctions,
+            AlertService alertService)
         : base(userSessionService, logger)
         {
             _context = context;
             _fileProcessor = fileProcessor;
             _globalFunctions = globalFunctions;
+            _alertService = alertService;
         }
 
         /// <summary>
@@ -105,6 +109,31 @@ public async Task<IActionResult> UploadStudentsFile([FromForm] UploadStudentsFil
         resolvedYearId.Value,
         session.UserId);
 
+    // ✅ Create alert for successful file upload using AlertService
+    try
+    {
+        var school = await _context.Entities
+            .Where(e => e.Id == resolvedSchoolId.Value)
+            .FirstOrDefaultAsync();
+
+        if (school != null)
+        {
+            var alertDescription = $"קובץ חדש הועלה לבית ספר {school.Name}";
+            
+            await _alertService.CreateSchoolAlertAsync(
+                description: alertDescription,
+                schoolId: resolvedSchoolId.Value,
+                userId: int.Parse(session.UserId),
+                isEvent: false
+            );
+        }
+    }
+    catch (Exception ex)
+    {
+        _logger.LogWarning(ex, "⚠️ Failed to create alert for file upload, but file processing succeeded");
+        // Don't fail the request if alert creation fails
+    }
+
     return Ok(new
     {
         success = true,
@@ -176,14 +205,39 @@ public async Task<IActionResult> UploadStudentsFile([FromForm] UploadStudentsFil
                 resolvedYearId.Value,
                 session.UserId);
 
-            return Ok(new
+        // ✅ Create alert for successful file upload using AlertService
+        try
+        {
+            var school = await _context.Entities
+                .Where(e => e.Id == resolvedSchoolId.Value)
+                .FirstOrDefaultAsync();
+
+            if (school != null)
             {
-                success = true,
-                message = "File processed successfully via API.",
-                created = result.Created,
-                updated = result.Updated,
-                unchanged = result.Unchanged.Count,
-                errors = result.Errors.Count,
+                var alertDescription = $"קובץ חדש הועלה לבית ספר {school.Name}";
+                
+                await _alertService.CreateSchoolAlertAsync(
+                    description: alertDescription,
+                    schoolId: resolvedSchoolId.Value,
+                    userId: int.Parse(session.UserId),
+                    isEvent: false
+                );
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "⚠️ Failed to create alert for file upload, but file processing succeeded");
+            // Don't fail the request if alert creation fails
+        }
+
+        return Ok(new
+        {
+            success = true,
+            message = "File processed successfully via API.",
+            created = result.Created,
+            updated = result.Updated,
+            unchanged = result.Unchanged.Count,
+            errors = result.Errors.Count,
                 details = new
                 {
                     unchangedList = result.Unchanged,

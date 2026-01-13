@@ -127,6 +127,7 @@ builder.Services.AddSingleton<JwtTokenService>();
 // Business Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<UserRoleService>();
+builder.Services.AddScoped<AlertService>();
 
 // Register file processor service
 builder.Services.AddScoped<StudentsFileProcessor>();
