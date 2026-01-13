@@ -1,7 +1,3 @@
-<!-- filepath: c:\dev\PetelFullApp\petelapp-frontend\public\student.html -->
-
-<!--    <link rel="stylesheet" href="student.css">-->
-
 <div class="main-container">
 
     <div class="context-buttons-section">
@@ -1471,6 +1467,7 @@
                 // ✅ Get from backend session via SessionState
                 const selectedStudentId = await window.SessionState.getProperty('SelectedStudentId');
                 const selectedStudentDataStr = await window.SessionState.getProperty('SelectedStudentData');
+                const selectedSchoolName = await window.SessionState.getProperty('SelectedSchoolName');
 
                 // ✅ Get navigation context
                 const navigationSource = await window.SessionState.getProperty('NavigationSource');
@@ -1503,9 +1500,9 @@
                 // ✅ Update title with student name and school name
                 const titleElement = document.getElementById('studentTitle');
                 if (titleElement) {
-                    let titleText = `מסמכי התלמיד - ${selectedStudent.name}`;
-                    if (selectedStudent.schoolName) {
-                        titleText += ` - ${selectedStudent.schoolName}`;
+                    let titleText = `פרטי התלמיד - ${selectedStudent.name}`;
+                    if (selectedSchoolName) {
+                        titleText += ` - ${selectedSchoolName}`;
                     }
                     titleElement.textContent = titleText;
                 }
