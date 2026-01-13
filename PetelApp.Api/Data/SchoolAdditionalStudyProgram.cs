@@ -82,16 +82,37 @@ namespace PetelApp.Api.Data
         [Column("hourly_cost")]
         public decimal? HourlyCost { get; set; }
 
-        // Navigation properties
-        [ForeignKey(nameof(SchoolYearId))]
-        public virtual SchoolYear? SchoolYear { get; set; }
+    /// <summary>
+    /// Number of sessions/meetings for this program (מספר מפגשים)
+    /// </summary>
+    [Required]
+    [Column("number_of_sessions")]
+    public int NumberOfSessions { get; set; } = 30;
 
-        [ForeignKey(nameof(ClassId))]
-        public virtual SchoolClass? SchoolClass { get; set; }
+    /// <summary>
+    /// Approval status: 0=לא מאושר (not approved), 1=מאושר (approved), 2=אישור חריג (exception)
+    /// </summary>
+    [Required]
+    [Column("approval_status")]
+    public int ApprovalStatus { get; set; } = 0;
 
-        [ForeignKey(nameof(MasterId))]
-        public virtual SchoolAdditionalStudyProgram? MasterProgram { get; set; }
+    /// <summary>
+    /// Calculation mode: false=calculate hourly from total cost, true=calculate total from hourly cost
+    /// </summary>
+    [Required]
+    [Column("calculate_by_hourly_cost")]
+    public bool CalculateByHourlyCost { get; set; } = false;
 
-        public virtual ICollection<SchoolAdditionalStudyProgram> VersionHistory { get; set; } = new List<SchoolAdditionalStudyProgram>();
+    // Navigation properties
+    [ForeignKey(nameof(SchoolYearId))]
+    public virtual SchoolYear? SchoolYear { get; set; }
+
+    [ForeignKey(nameof(ClassId))]
+    public virtual SchoolClass? SchoolClass { get; set; }
+
+    [ForeignKey(nameof(MasterId))]
+    public virtual SchoolAdditionalStudyProgram? MasterProgram { get; set; }
+
+    public virtual ICollection<SchoolAdditionalStudyProgram> VersionHistory { get; set; } = new List<SchoolAdditionalStudyProgram>();
     }
 }

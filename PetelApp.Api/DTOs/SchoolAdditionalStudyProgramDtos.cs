@@ -23,7 +23,12 @@ namespace PetelApp.Api.DTOs
         public int UserId { get; set; }
         public string UserName { get; set; } = string.Empty;
         public int? MasterId { get; set; } // Reference to original record
+        
+        public int NumberOfSessions { get; set; }
+        public int ApprovalStatus { get; set; }
+        public bool CalculateByHourlyCost { get; set; }
     }
+    
     public class CreateSchoolAdditionalStudyProgramDto
     {
         public int SchoolYearId { get; set; }
@@ -36,6 +41,10 @@ namespace PetelApp.Api.DTOs
         public decimal? ApprovedAmount { get; set; }
 
         public decimal? HourlyCost { get; set; }
+    
+        public int NumberOfSessions { get; set; } = 30;
+        public int ApprovalStatus { get; set; } = 0;
+        public bool CalculateByHourlyCost { get; set; } = false;
     }
 
     public class UpdateSchoolAdditionalStudyProgramDto
@@ -50,5 +59,9 @@ namespace PetelApp.Api.DTOs
         public decimal? ApprovedAmount { get; set; }
 
         public decimal? HourlyCost { get; set; }
+        
+        public int NumberOfSessions { get; set; }
+        public int ApprovalStatus { get; set; }
+        public bool CalculateByHourlyCost { get; set; }
     }
 }

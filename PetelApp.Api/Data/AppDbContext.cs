@@ -42,6 +42,7 @@ namespace PetelApp.Api.Data
 public DbSet<Status> Statuses { get; set; }
             public DbSet<MenuItem> MenuItems { get; set; }
         public DbSet<HebrewYear> HebrewYears { get; set; }
+        public DbSet<SchoolYearAttribute> SchoolYearAttributes { get; set; }
 
         //  DbSets for Council and SchoolClass
         public DbSet<School> Schools { get; set; }
@@ -844,6 +845,21 @@ modelBuilder.Entity<SystemAction>(entity =>
         .HasForeignKey(a => a.UserId)
         .OnDelete(DeleteBehavior.Restrict);
 });
+
+            // SchoolYearAttribute configuration
+            modelBuilder.Entity<SchoolYearAttribute>(entity =>
+            {
+                entity.ToTable("school_year_attributes");
+                
+                entity.HasIndex(e => e.YearId);
+                entity.HasIndex(e => e.Name);
+                entity.HasIndex(e => new { e.YearId, e.Name }).IsUnique();
+
+                entity.HasOne(sya => sya.HebrewYear)
+                    .WithMany()
+                    .HasForeignKey(sya => sya.YearId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
 
         }
     }

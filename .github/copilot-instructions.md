@@ -1680,6 +1680,425 @@ var match = await _context.Entities
     .FirstOrDefaultAsync();
 ```
 
+## Standard Database Table Structure
+
+**CRITICAL**: All tables in the system MUST follow standardized naming and structure patterns.
+
+### Required Audit Fields
+
+**Every table must include these audit fields**:
+
+```sql
+created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+created_user INTEGER NULL REFERENCES petel_schema.users(id) ON DELETE SET NULL,
+updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+update_user INTEGER NULL REFERENCES petel_schema.users(id) ON DELETE SET NULL
+```
+
+**Entity Model Pattern**:
+```csharp
+[Column("created_at")]
+public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+[Column("created_user")]
+public int? CreatedUser { get; set; }
+
+[Column("updated_at")]
+public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+[Column("update_user")]
+public int? UpdateUser { get; set; }
+```
+
+### Field Naming Conventions
+
+**✅ CORRECT Patterns**:
+- Use concise names: `name`, `value`, `description` (NOT `attribute_name`, `attribute_value`)
+- Table name provides context, so field names should be minimal
+- Use underscores for multi-word fields: `school_year_id`, `created_at`
+- Hebrew descriptions: Always include a `description` field for Hebrew UI labels
+
+**❌ WRONG Patterns**:
+```sql
+-- NO! Redundant prefix from table name
+CREATE TABLE school_year_attributes (
+    attribute_name VARCHAR(100),  -- Should be just "name"
+    attribute_value VARCHAR(500)  -- Should be just "value"
+);
+
+-- NO! Missing audit fields
+CREATE TABLE my_table (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100)
+    -- Missing: created_at, created_user, updated_at, update_user
+);
+```
+
+### Standard Table Template
+
+**Use this template for all new tables**:
+
+```sql
+CREATE TABLE petel_schema.table_name (
+    id SERIAL PRIMARY KEY,
+    
+    -- Foreign keys (if applicable)
+    parent_id INTEGER NOT NULL REFERENCES petel_schema.parent_table(id) ON DELETE CASCADE,
+    
+    -- Business fields
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(200) NULL,  -- Hebrew description for UI
+    value VARCHAR(500) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT true,
+    
+    -- Audit fields (REQUIRED)
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_user INTEGER NULL REFERENCES petel_schema.users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_user INTEGER NULL REFERENCES petel_schema.users(id) ON DELETE SET NULL,
+    
+    -- Constraints
+    CONSTRAINT uk_table_unique UNIQUE (parent_id, name)
+);
+
+-- Indexes
+CREATE INDEX idx_table_name_parent_id ON petel_schema.table_name(parent_id);
+CREATE INDEX idx_table_name_name ON petel_schema.table_name(name);
+CREATE INDEX idx_table_name_created_user ON petel_schema.table_name(created_user);
+CREATE INDEX idx_table_name_update_user ON petel_schema.table_name(update_user);
+```
+
+### Controller Pattern for User Tracking
+
+**Always populate user audit fields**:
+
+```csharp
+[HttpPost]
+public async Task<IActionResult> Create([FromBody] CreateRequest request)
+{
+    var session = GetCurrentSession();
+    int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
+    var entity = new MyEntity
+    {
+        Name = request.Name,
+        Description = request.Description,
+        Value = request.Value,
+        CreatedAt = DateTime.UtcNow,
+        CreatedUser = userId,  // ✅ Track who created
+        UpdatedAt = DateTime.UtcNow,
+        UpdateUser = userId
+    };
+
+    _context.MyEntities.Add(entity);
+    await _context.SaveChangesAsync();
+    return Ok(new { success = true });
+}
+
+[HttpPut("{id}")]
+public async Task<IActionResult> Update(int id, [FromBody] UpdateRequest request)
+{
+    var session = GetCurrentSession();
+    int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
+    var entity = await _context.MyEntities.FindAsync(id);
+    
+    entity.Name = request.Name;
+    entity.Value = request.Value;
+    entity.UpdatedAt = DateTime.UtcNow;
+    entity.UpdateUser = userId;  // ✅ Track who updated
+
+    await _context.SaveChangesAsync();
+    return Ok(new { success = true });
+}
+```
+
+### Migration Script Pattern
+
+**Use idempotent migrations with proper checks**:
+
+```sql
+-- Check if table exists
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT FROM pg_tables
+        WHERE schemaname = 'petel_schema'
+        AND tablename = 'my_table'
+    ) THEN
+        CREATE TABLE petel_schema.my_table (
+            -- Table definition here
+        );
+        
+        -- Create indexes
+        CREATE INDEX idx_my_table_field ON petel_schema.my_table(field);
+        
+        RAISE NOTICE 'Table my_table created successfully';
+    ELSE
+        RAISE NOTICE 'Table my_table already exists';
+    END IF;
+END
+$$;
+
+-- Insert seed data
+INSERT INTO petel_schema.my_table (field1, field2, description, value)
+VALUES 
+    (1, 'key1', 'תיאור בעברית', 'value1'),
+    (2, 'key2', 'תיאור אחר', 'value2')
+ON CONFLICT (unique_field) DO NOTHING;
+```
+
+### Benefits of Standard Structure
+
+✅ **Full audit trail** - Know who created/modified every record
+✅ **Consistent patterns** - Easy to learn and maintain
+✅ **Hebrew support** - Description field for UI localization
+✅ **Referential integrity** - Proper foreign key constraints
+✅ **Performance** - Standard indexes on common query fields
+✅ **Idempotent migrations** - Safe to run multiple times
+
+### Common Mistakes to Avoid
+
+```sql
+-- ❌ WRONG - Redundant field names
+CREATE TABLE school_attributes (
+    attribute_name VARCHAR(100),
+    attribute_value VARCHAR(500)
+);
+
+-- ✅ CORRECT - Concise field names
+CREATE TABLE school_attributes (
+    name VARCHAR(100),
+    value VARCHAR(500),
+    description VARCHAR(200)
+);
+
+-- ❌ WRONG - Missing audit fields
+CREATE TABLE my_table (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100)
+);
+
+-- ✅ CORRECT - Complete audit fields
+CREATE TABLE my_table (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_user INTEGER NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_user INTEGER NULL
+);
+
+-- ❌ WRONG - No Hebrew description
+CREATE TABLE options (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(50),
+    value VARCHAR(100)
+);
+
+-- ✅ CORRECT - Include Hebrew description
+CREATE TABLE options (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(50),
+    description VARCHAR(200),  -- For Hebrew UI label
+    value VARCHAR(100)
+);
+```
+
+## School Year Attributes Pattern
+
+**Purpose**: Store year-specific configuration values that vary across school years (e.g., required sessions for additional study programs).
+
+### Database Schema
+
+```sql
+CREATE TABLE petel_schema.school_year_attributes (
+    id SERIAL PRIMARY KEY,
+    year_id INTEGER NOT NULL REFERENCES petel_schema.hebrew_years(id) ON DELETE CASCADE,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(200) NULL,
+    value VARCHAR(500) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_user INTEGER NULL REFERENCES petel_schema.users(id) ON DELETE SET NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_user INTEGER NULL REFERENCES petel_schema.users(id) ON DELETE SET NULL,
+    CONSTRAINT uk_year_attribute UNIQUE (year_id, name)
+);
+```
+
+### Entity Model
+
+```csharp
+[Table("school_year_attributes")]
+public class SchoolYearAttribute
+{
+    [Key]
+    [Column("id")]
+    public int Id { get; set; }
+
+    [Required]
+    [ForeignKey("HebrewYear")]
+    [Column("year_id")]
+    public int YearId { get; set; }
+
+    [Required]
+    [Column("name")]
+    [MaxLength(100)]
+    public string Name { get; set; } = string.Empty;
+
+    [Column("description")]
+    [MaxLength(200)]
+    public string? Description { get; set; }
+
+    [Required]
+    [Column("value")]
+    [MaxLength(500)]
+    public string Value { get; set; } = string.Empty;
+
+    [Column("created_at")]
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    [Column("created_user")]
+    public int? CreatedUser { get; set; }
+
+    [Column("updated_at")]
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    [Column("update_user")]
+    public int? UpdateUser { get; set; }
+
+    // Navigation property
+    public virtual HebrewYear? HebrewYear { get; set; }
+}
+```
+
+### Controller Pattern
+
+```csharp
+[HttpGet("year/{yearId}/attribute/{attributeName}")]
+public async Task<IActionResult> GetAttributeValue(int yearId, string attributeName)
+{
+    var session = GetCurrentSession();
+    if (session == null)
+        return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+    var attribute = await _context.SchoolYearAttributes
+        .AsNoTracking()
+        .Where(sya => sya.YearId == yearId && sya.Name == attributeName)
+        .Select(sya => new
+        {
+            sya.Id,
+            sya.YearId,
+            sya.Name,
+            sya.Description,
+            sya.Value
+        })
+        .FirstOrDefaultAsync();
+
+    if (attribute == null)
+        return NotFound(new { success = false, message = $"מאפיין '{attributeName}' לא נמצא" });
+
+    return Ok(new { success = true, data = attribute });
+}
+
+[HttpPost]
+public async Task<IActionResult> CreateOrUpdateAttribute([FromBody] SchoolYearAttributeRequest request)
+{
+    var session = GetCurrentSession();
+    int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
+    var existing = await _context.SchoolYearAttributes
+        .FirstOrDefaultAsync(sya => sya.YearId == request.YearId && sya.Name == request.Name);
+
+    if (existing != null)
+    {
+        existing.Value = request.Value;
+        existing.Description = request.Description;
+        existing.UpdatedAt = DateTime.UtcNow;
+        existing.UpdateUser = userId;
+    }
+    else
+    {
+        var newAttr = new SchoolYearAttribute
+        {
+            YearId = request.YearId,
+            Name = request.Name,
+            Description = request.Description,
+            Value = request.Value,
+            CreatedAt = DateTime.UtcNow,
+            CreatedUser = userId,
+            UpdatedAt = DateTime.UtcNow,
+            UpdateUser = userId
+        };
+        _context.SchoolYearAttributes.Add(newAttr);
+    }
+
+    await _context.SaveChangesAsync();
+    return Ok(new { success = true });
+}
+```
+
+### Frontend Integration
+
+```javascript
+// Load year-specific attribute for UI guidance
+async function loadYearAttributes() {
+    try {
+        const yearId = await window.SessionState.getProperty('SelectedSchoolYearId');
+        const response = await fetch(
+            AppConfig.getApiUrl(`schoolyearattributes/year/${yearId}/attribute/additional_study_sessions_required`),
+            {
+                headers: { 'Authorization': `Bearer ${sessionStorage.getItem('authToken')}` }
+            }
+        );
+
+        if (response.ok) {
+            const result = await response.json();
+            const requiredSessions = result.data.value;
+            document.getElementById('sessionsRemark').textContent = 
+                `מספר מפגשים נדרש: ${requiredSessions}`;
+        }
+    } catch (error) {
+        console.error('Error loading year attributes:', error);
+    }
+}
+```
+
+### Standard Attributes
+
+**Common attribute names**:
+- `additional_study_sessions_required` - Required sessions for additional study programs (מפגשי תל"ן נדרשים)
+- Additional attributes can be added as needed
+
+### Benefits
+
+✅ **Year-specific configuration** - Different values per school year without code changes
+✅ **Database-driven** - No hardcoded values in frontend or backend
+✅ **Flexible schema** - String-based values support any data type
+✅ **Unique constraint** - Prevents duplicate attributes per year
+✅ **Cascading deletes** - Automatic cleanup when year is deleted
+✅ **User tracking** - Full audit trail with created_user and update_user
+
+### Best Practices
+
+```csharp
+// ✅ CORRECT - Use consistent attribute names
+const string SESSIONS_REQUIRED = "additional_study_sessions_required";
+var attribute = await GetAttributeValue(yearId, SESSIONS_REQUIRED);
+
+// ✅ CORRECT - Parse value with validation
+if (int.TryParse(attribute.Value, out int sessions))
+{
+    // Use sessions value
+}
+
+// ❌ WRONG - Hardcoded values
+const int DEFAULT_SESSIONS = 30;  // NO! Use database attribute
+
+// ❌ WRONG - Magic strings scattered in code
+var attr = await GetAttributeValue(yearId, "sessions");  // NO! Use constant
+```
+
 ## Hebrew/RTL Specific Patterns
 
 ### CSS RTL Support
@@ -1835,6 +2254,156 @@ navigationRules: [
 **Problem**: `relation "table_name" does not exist` error
 
 **Solution**: Verify `HasDefaultSchema`
+
+### Modal Form Layout Pattern
+
+**Purpose**: Create consistent, user-friendly modal forms with optimal field grouping and inline actions.
+
+#### Side-by-Side Field Layout
+
+**Use flexbox for related fields that benefit from horizontal grouping**:
+
+```html
+<!-- ✅ Weekly Hours and Sessions side by side -->
+<div style="display: flex; gap: 15px; margin-bottom: 15px;">
+    <div style="flex: 1;">
+        <label for="programHours" style="display: block; margin-bottom: 5px; font-weight: 600;">
+            שעות שבועיות: <span style="color: red;">*</span>
+        </label>
+        <input type="number" id="programHours" required
+            style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+    </div>
+    <div style="flex: 1;">
+        <label for="programSessions" style="display: block; margin-bottom: 5px; font-weight: 600;">
+            מספר מפגשים: <span style="color: red;">*</span>
+        </label>
+        <input type="number" id="programSessions" required
+            style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+        <small id="sessionsRemark" style="color: #6c757d; display: block; margin-top: 4px;">
+            מספר מפגשים נדרש: 32
+        </small>
+    </div>
+</div>
+
+<!-- ✅ Cost and Hourly Cost side by side -->
+<div style="display: flex; gap: 15px; margin-bottom: 15px;">
+    <div style="flex: 1;">
+        <label for="programCost">עלות:</label>
+        <input type="number" id="programCost" step="0.01"
+            style="width: 100%; direction: ltr; text-align: left;">
+    </div>
+    <div style="flex: 1;">
+        <label for="programHourlyCost">עלות שעתית:</label>
+        <input type="number" id="programHourlyCost" step="0.01"
+            style="width: 100%; direction: ltr; text-align: left;">
+    </div>
+</div>
+```
+
+#### Inline Action Buttons
+
+**Add action buttons next to fields for related operations**:
+
+```html
+<div style="margin-bottom: 15px;">
+    <label for="programStudents">מספר תלמידים: <span style="color: red;">*</span></label>
+    <div style="display: flex; gap: 8px; align-items: flex-start;">
+        <input type="number" id="programStudents" required
+            style="flex: 1; padding: 8px;">
+        <button type="button" id="updateStudentCountBtn" 
+            onclick="updateStudentCountFromClass()" 
+            title="עדכן לפי מספר תלמידים בכיתה"
+            style="padding: 8px 12px; white-space: nowrap;">
+            <img src="view_icon.png" alt="עדכן" class="action-icon-natural">
+            <span>עדכן מכיתה</span>
+        </button>
+    </div>
+</div>
+```
+
+```javascript
+// Function to update field value from external data
+async function updateStudentCountFromClass() {
+    const classSelect = document.getElementById('programClass');
+    const studentsInput = document.getElementById('programStudents');
+    
+    if (!classSelect.value) {
+        alert('אנא בחר כיתה תחילה');
+        return;
+    }
+    
+    const response = await fetch(AppConfig.getApiUrl(`students?classId=${classSelect.value}`));
+    if (response.ok) {
+        const data = await response.json();
+        studentsInput.value = data.count;
+        
+        // Trigger change event for dependent calculations
+        studentsInput.dispatchEvent(new Event('change'));
+    }
+}
+```
+
+#### Dynamic Hints from Backend
+
+**Load contextual hints from database attributes**:
+
+```javascript
+// Load year-specific guidance text
+async function loadYearAttributes() {
+    const yearId = await window.SessionState.getProperty('SelectedSchoolYearId');
+    
+    const response = await fetch(
+        AppConfig.getApiUrl(`schoolyearattributes/year/${yearId}/attribute/additional_study_sessions_required`)
+    );
+    
+    if (response.ok) {
+        const result = await response.json();
+        document.getElementById('sessionsRemark').textContent = 
+            `מספר מפגשים נדרש: ${result.data.attributeValue}`;
+    }
+}
+
+// Call when modal opens
+await loadYearAttributes();
+```
+
+#### Best Practices
+
+**Field Grouping**:
+- ✅ Group related fields horizontally (weekly hours + sessions, cost + hourly cost)
+- ✅ Use `display: flex; gap: 15px;` for consistent spacing
+- ✅ Set `flex: 1` on child divs for equal width distribution
+- ✅ Keep labels and hints within each field's container
+
+**Action Buttons**:
+- ✅ Place action buttons adjacent to the field they affect
+- ✅ Use `white-space: nowrap` to prevent text wrapping
+- ✅ Use descriptive tooltips with `title` attribute
+- ✅ Trigger dependent calculations via `dispatchEvent(new Event('change'))`
+
+**Dynamic Content**:
+- ✅ Load contextual hints from backend attributes (avoid hardcoding)
+- ✅ Update hint text asynchronously after modal renders
+- ✅ Use semantic IDs for hint elements (e.g., `sessionsRemark`)
+
+**Anti-Patterns**:
+```html
+<!-- ❌ WRONG - Fields in separate rows when they're related -->
+<div><label>שעות שבועיות:</label><input></div>
+<div><label>מספר מפגשים:</label><input></div>
+
+<!-- ✅ CORRECT - Group related fields -->
+<div style="display: flex; gap: 15px;">
+    <div style="flex: 1;"><label>שעות שבועיות:</label><input></div>
+    <div style="flex: 1;"><label>מספר מפגשים:</label><input></div>
+</div>
+
+<!-- ❌ WRONG - Hardcoded hint text -->
+<small>ברירת מחדל: 30 מפגשים</small>
+
+<!-- ✅ CORRECT - Dynamic hint from backend -->
+<small id="sessionsRemark">טוען...</small>
+```
 
 ### Collapsible Card Pattern
 
