@@ -63,6 +63,45 @@ namespace PetelApp.Api.Services
             return _securitySettings.MaxPasswordAttempts;
         }
 
+        private bool GetOtpEnabled()
+        {
+            try
+            {
+                var attribute = _systemAttributeCache.GetAttributeByName("Security_OtpEnabled");
+                if (attribute != null)
+                {
+                    return attribute.Value.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+                           attribute.Value.Equals("1", StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to read OtpEnabled from cache, using default");
+            }
+
+            // Fallback to configuration value
+            return _securitySettings.OtpEnabled;
+        }
+
+        private int GetPasswordExpirationMonths()
+        {
+            try
+            {
+                var attribute = _systemAttributeCache.GetAttributeByName("Security_PasswordExpirationMonths");
+                if (attribute != null && int.TryParse(attribute.Value, out int months))
+                {
+                    return months;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to read PasswordExpirationMonths from cache, using default");
+            }
+
+            // Fallback to configuration value
+            return _securitySettings.PasswordExpirationMonths;
+        }
+
         
 
 
@@ -233,7 +272,7 @@ namespace PetelApp.Api.Services
                 await _context.SaveChangesAsync();
 
                 // ✅ Check OTP status BEFORE password expiration
-                if (_securitySettings.OtpEnabled && user.OtpEnabled)
+                if (GetOtpEnabled() && user.OtpEnabled)
                 {
                     if (!user.OtpVerified)
                     {
@@ -341,7 +380,8 @@ namespace PetelApp.Api.Services
         private (bool IsExpired, string? Message) CheckPasswordExpiration(User user)
         {
             // Check if expiration is enabled
-            if (_securitySettings.PasswordExpirationMonths <= 0)
+            var expirationMonths = GetPasswordExpirationMonths();
+            if (expirationMonths <= 0)
             {
                 return (false, null);
             }
@@ -353,7 +393,7 @@ namespace PetelApp.Api.Services
             }
 
             // Check if password is expired by age
-            if (user.IsPasswordExpired(_securitySettings.PasswordExpirationMonths))
+            if (user.IsPasswordExpired(expirationMonths))
             {
                 var daysSinceChange = (DateTime.UtcNow - user.PasswordChangedAt).Days;
                 return (true, $"הסיסמה פגה תוקף ({daysSinceChange} ימים מאז שינוי אחרון)");

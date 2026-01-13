@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelApp.Api.Data;
+using PetelApp.Api.Services;
 using PetelApp.Api.Session;
 
 namespace PetelApp.Api.Controllers
@@ -10,14 +11,17 @@ namespace PetelApp.Api.Controllers
     public class UsersController : BaseController
     {
         private readonly AppDbContext _context;
+        private readonly SystemAttributeService _systemAttributeService;
 
         public UsersController(
             AppDbContext context,
             UserSessionService userSessionService,
-            ILogger<UsersController> logger)
+            ILogger<UsersController> logger,
+            SystemAttributeService systemAttributeService)
             : base(userSessionService, logger)
         {
             _context = context;
+            _systemAttributeService = systemAttributeService;
         }
 
         /// <summary>
@@ -369,6 +373,9 @@ namespace PetelApp.Api.Controllers
                 // Hash the password (in production, use proper password hashing)
                 string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password ?? "");
 
+                // ✅ Get OTP setting from system attributes database
+                var otpEnabled = _systemAttributeService.GetAttributeValueAsBool("Security_OtpEnabled");
+
                 var newUser = new User
                 {
                     EntityId = entityId,
@@ -379,6 +386,7 @@ namespace PetelApp.Api.Controllers
                     LastName = request.LastName,
                     PasswordHash = passwordHash,
                     IsActive = true,
+                    OtpEnabled = otpEnabled,  // ✅ Auto-enable OTP if system flag is on
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };

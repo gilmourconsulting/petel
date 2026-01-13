@@ -16,18 +16,21 @@ namespace PetelApp.Api.Session
         private readonly ILogger<UserSessionService> _logger;
         private readonly Timer _cleanupTimer;
         private readonly SecuritySettings _securitySettings;
+        private readonly SystemAttributeCache? _systemAttributeCache;
 
         private JwtTokenService? _jwtTokenService;
 
         public UserSessionService(
             ILogger<UserSessionService> logger,
-            IOptions<SecuritySettings> securitySettings)
+            IOptions<SecuritySettings> securitySettings,
+            SystemAttributeCache? systemAttributeCache = null)
         {
             _logger = logger;
             _securitySettings = securitySettings.Value;
+            _systemAttributeCache = systemAttributeCache;
             
             _logger.LogInformation("Session timeout configured: {TimeoutMinutes} minutes", 
-                _securitySettings.SessionTimeoutMinutes);
+                GetSessionTimeoutMinutes());
             
             // Cleanup expired sessions every 5 minutes
             _cleanupTimer = new Timer(CleanupExpiredSessions, null, 
@@ -39,6 +42,33 @@ namespace PetelApp.Api.Session
         {
             _jwtTokenService = jwtTokenService;
             _logger.LogInformation("JwtTokenService configured for UserSessionService");
+        }
+
+        /// <summary>
+        /// Get SessionTimeoutMinutes from system attributes cache, fallback to config
+        /// </summary>
+        private int GetSessionTimeoutMinutes()
+        {
+            try
+            {
+                if (_systemAttributeCache != null)
+                {
+                    var attribute = _systemAttributeCache.GetAttributeByName("Security_SessionTimeoutMinutes");
+                    if (attribute != null && int.TryParse(attribute.Value, out int minutes))
+                    {
+                        _logger.LogDebug("Using SessionTimeoutMinutes from system attributes: {Minutes}", minutes);
+                        return minutes;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to read SessionTimeoutMinutes from cache, using default");
+            }
+            
+            // Fallback to configuration file
+            _logger.LogDebug("Using SessionTimeoutMinutes from config file: {Minutes}", _securitySettings.SessionTimeoutMinutes);
+            return _securitySettings.SessionTimeoutMinutes;
         }
         // Add method to create session with complete data
 
@@ -167,7 +197,7 @@ namespace PetelApp.Api.Session
 
             // Check if session has timed out due to inactivity
             var idleTime = DateTime.UtcNow - session.LastAccessedAt;
-            var timeoutMinutes = _securitySettings.SessionTimeoutMinutes;
+            var timeoutMinutes = GetSessionTimeoutMinutes();
             
             if (idleTime.TotalMinutes > timeoutMinutes)
             {
