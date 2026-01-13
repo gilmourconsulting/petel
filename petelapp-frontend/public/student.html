@@ -1500,7 +1500,7 @@
                 // ✅ Update title with student name and school name
                 const titleElement = document.getElementById('studentTitle');
                 if (titleElement) {
-                    let titleText = `פרטי התלמיד - ${selectedStudent.name}`;
+                    let titleText = `${selectedStudent.name}`;
                     if (selectedSchoolName) {
                         titleText += ` - ${selectedSchoolName}`;
                     }
@@ -1511,6 +1511,14 @@
                 const backBtn = document.getElementById('backToSourceBtn');
                 if (backBtn && navigationSourceTitle) {
                     backBtn.textContent = `חזרה ל${navigationSourceTitle}`;
+                }
+
+                // ✅ Hide school dashboard button if coming from councilstudents
+                if (navigationSource === 'councilstudents') {
+                    const schoolDashboardBtn = document.querySelector('.context-navigation-btn[onclick="navigateToSchoolDashboard()"]');
+                    if (schoolDashboardBtn) {
+                        schoolDashboardBtn.style.display = 'none';
+                    }
                 }
 
                 createStudentsTable([selectedStudent]);
