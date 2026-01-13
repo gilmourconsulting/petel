@@ -4440,24 +4440,20 @@
                         return `<span style="font-weight: 600; color: #007bff;">₪${item.approvedAmount.toFixed(2)}</span>`;
                     }
                 },
-                // ✅ Optional: Version column (can be hidden by default)
+                // ✅ Version column - clickable if multiple versions exist
                 {
                     key: 'version',
                     label: 'גרסה',
                     sortable: true,
                     readOnly: true,
-                    render: (item) => `<span style="font-size: 0.9em; color: #6c757d;">v${item.version}</span>`
-                },
-                {
-                    key: 'history',
-                    label: 'היסטוריה',
-                    sortable: false,
-                    readOnly: true,
-                    render: (item) => `
-            <button class="btn-icon" onclick="showProgramVersionHistory(${item.masterId || item.id})" title="היסטוריית גרסאות">
-                <img src="stats_icon.png" alt="היסטוריה" class="action-icon-natural">
-            </button>
-        `
+                    render: (item) => {
+                        // If Version > 1, make it a clickable link
+                        if (item.version > 1) {
+                            return `<a href="javascript:void(0)" onclick="showProgramVersionHistory(${item.masterId || item.id})" style="color: #007bff; text-decoration: underline; cursor: pointer; font-size: 0.9em;">v${item.version}</a>`;
+                        }
+                        // Otherwise, just show version
+                        return `<span style="font-size: 0.9em; color: #6c757d;">v${item.version}</span>`;
+                    }
                 },
                 // ✅ UPDATED: Actions column - ONLY edit and delete (hidden by default)
                 {
@@ -4489,7 +4485,7 @@
                 window.additionalStudyTable.init(programs, columns);
 
                 // Hide actions column initially
-                const actionsHeaders = document.querySelectorAll('#additionalStudyTableContainer th:last-child');
+           /*     const actionsHeaders = document.querySelectorAll('#additionalStudyTableContainer th:last-child');
                 const actionsCells = document.querySelectorAll('#additionalStudyTableContainer td:last-child');
 
                 actionsHeaders.forEach(th => {
@@ -4500,7 +4496,7 @@
                 actionsCells.forEach(td => {
                     td.style.display = 'none';
                     td.setAttribute('data-column', 'actions');
-                });
+                });*/
 
                 console.log('✅ ReusableTable created with hidden actions column for additional study programs');
 
@@ -4544,8 +4540,22 @@
                 dialog.className = 'modal-dialog';
                 dialog.style.cssText = 'background: white; padding: 20px; border-radius: 8px; min-width: 500px; max-width: 600px; max-height: 90vh; overflow-y: auto; direction: rtl;';
 
+                // Format date if editing
+                let titleExtra = '';
+                if (programData) {
+                    const updatedDate = programData.updatedDate ? new Date(programData.updatedDate).toLocaleDateString('he-IL') : '';
+                    const updatedByUser = programData.updatedByUser || '';
+                    if (updatedDate && updatedByUser) {
+                        titleExtra = `<div style="font-weight: bold; margin-top: 8px; font-size: 0.9em; color: #555;">${updatedDate} - ${updatedByUser}</div>`;
+                    } else if (updatedDate) {
+                        titleExtra = `<div style="font-weight: bold; margin-top: 8px; font-size: 0.9em; color: #555;">${updatedDate}</div>`;
+                    } else if (updatedByUser) {
+                        titleExtra = `<div style="font-weight: bold; margin-top: 8px; font-size: 0.9em; color: #555;">${updatedByUser}</div>`;
+                    }
+                }
+
                 dialog.innerHTML = `
-    <h3 class="dialog-title">${programData ? `עריכת תל״ן (גרסה ${programData.version || 1})` : 'הוספת תל״ן חדש'}</h3>
+    <h3 class="dialog-title">${programData ? 'עריכת תל״ן' : 'הוספת תל״ן חדש'}${titleExtra}</h3>
     <div style="margin: 20px 0;">
         <div style="margin-bottom: 15px;">
             <label for="programClass" style="display: block; margin-bottom: 5px; font-weight: 600;">כיתה: <span style="color: red;">*</span></label>
@@ -4663,11 +4673,6 @@
         <input type="hidden" id="programMasterId" value="${programData ? programData.masterId : ''}">
     </div>
     <div class="dialog-buttons">
-        ${programData ? `
-            <button id="programHistoryBtn" class="dialog-btn" style="margin-left: auto; background-color: #6c757d;">
-                היסטוריית גרסאות
-            </button>
-        ` : ''}
         <button id="programOkBtn" class="dialog-btn save">אישור</button>
         <button id="programCancelBtn" class="dialog-btn cancel">ביטול</button>
     </div>
@@ -4826,13 +4831,6 @@
                     }
                 });
 
-                // ✅ Version history button handler
-                if (programData) {
-                    document.getElementById('programHistoryBtn')?.addEventListener('click', async () => {
-                        await showProgramVersionHistory(programData.masterId);
-                    });
-                }
-
                 // OK button handler
                 document.getElementById('programOkBtn').onclick = async () => {
                     const classId = document.getElementById('programClass').value;
@@ -4988,8 +4986,10 @@
                         direction: rtl;
                     ">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                            <strong style="font-size: 1.1em;">גרסה ${v.version}</strong>
+                         <div><strong>${new Date(v.createdAt).toLocaleString('he-IL')}</strong></div>
                             ${v.isLastVersion ? '<span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">גרסה נוכחית</span>' : ''}
+ 
+                         <div>על ידי: ${v.userName || 'לא ידוע'}</div>
                         </div>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                             <div><strong>כיתה:</strong> ${v.className}</div>
@@ -4998,8 +4998,7 @@
                             <div><strong>מספר תלמידים:</strong> ${v.numberOfStudents}</div>
                             <div><strong>עלות:</strong> ${v.cost ? `₪${v.cost.toFixed(2)}` : 'לא הוגדר'}</div>
                             <div><strong>סכום מאושר:</strong> ${v.approvedAmount ? `₪${v.approvedAmount.toFixed(2)}` : 'לא הוגדר'}</div>
-                            <div><strong>נוצר:</strong> ${new Date(v.createdAt).toLocaleString('he-IL')}</div>
-                        <div><strong>נוצר על ידי:</strong> ${v.userName || 'לא ידוע'}</div>
+
                     </div>
                         </div>
                     </div>
