@@ -108,8 +108,8 @@
             return;
         }
 
-        // Show entity details button for schools (EntityTypeId = 2)
-        _showEntityDetailsButton = session.EntityTypeId == "2";
+        // Show entity details button for schools (entityTypeId !== 1 and !== 4)
+        _showEntityDetailsButton =  session.EntityTypeId != "1" && session.EntityTypeId != "4";
 
         await LoadData();
     }

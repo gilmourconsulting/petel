@@ -1,122 +1,210 @@
 @page "/entitydetails"
+@layout MainLayout
 @inject ApiService ApiService
 @inject SessionStateService SessionState
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+
 
 <div class="main-container">
+    <!-- Context buttons -->
     <div class="context-buttons-section">
-        <button class="context-btn" @onclick="RefreshData">רענן נתונים</button>
-        <button class="context-btn" @onclick="ToggleEditMode">
-            @(_isEditMode ? "בטל עריכה" : "ערוך פרטים")
-        </button>
-        <div class="context-spacer"></div>
-        <button class="context-navigation-btn" @onclick="NavigateBack">חזור</button>
+        <button class="context-navigation-btn" @onclick="BackToDashboard">חזרה ללוח בקרה</button>
     </div>
 
-    <div class="content-card">
-        <h2>פרטי ישות</h2>
-
-        @if (_loading)
-        {
-            <div class="loading-spinner">טוען...</div>
-        }
-        else if (_entity == null)
-        {
-            <div class="error-message">לא נמצאו נתונים</div>
-        }
-        else
-        {
-            <div class="form-section">
-                <h3>מידע כללי</h3>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>סוג ישות</label>
-                        <input type="text" class="form-input" value="@_entity.EntityTypeName" disabled />
-                    </div>
-                    <div class="form-group">
-                        <label>שם ישות *</label>
-                        <input type="text" class="form-input" @bind="_entity.EntityName" disabled="@(!_isEditMode)" />
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>כתובת</label>
-                        <input type="text" class="form-input" @bind="_entity.Address" disabled="@(!_isEditMode)" />
-                    </div>
-                    <div class="form-group">
-                        <label>עיר</label>
-                        <input type="text" class="form-input" @bind="_entity.City" disabled="@(!_isEditMode)" />
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-section">
-                <h3>פרטי קשר</h3>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>טלפון</label>
-                        <input type="tel" class="form-input" @bind="_entity.Phone" disabled="@(!_isEditMode)" />
-                    </div>
-                    <div class="form-group">
-                        <label>דוא"ל</label>
-                        <input type="email" class="form-input" @bind="_entity.Email" disabled="@(!_isEditMode)" />
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>איש קשר ראשי</label>
-                        <input type="text" class="form-input" @bind="_entity.ContactPerson" disabled="@(!_isEditMode)" />
-                    </div>
-                    <div class="form-group">
-                        <label>טלפון איש קשר</label>
-                        <input type="tel" class="form-input" @bind="_entity.ContactPhone" disabled="@(!_isEditMode)" />
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-section">
-                <h3>מידע נוסף</h3>
-                <div class="form-group">
-                    <label>הערות</label>
-                    <textarea class="form-input" rows="4" @bind="_entity.Notes" disabled="@(!_isEditMode)"></textarea>
-                </div>
-            </div>
-
-            @if (_isEditMode)
-            {
-                <div class="form-actions">
-                    <button class="btn-primary" @onclick="SaveChanges" disabled="@_isSaving">
-                        @if (_isSaving)
+    <!-- Main content -->
+    <div class="students-content">
+        <!-- Entity Details Title Section -->
+        <div class="school-title-section">
+            <h1 class="page-title">@_pageTitle</h1>
+        </div>
+        
+        <div class="content-card">
+            <!-- Entity Details Card -->
+            <div class="detail-card expanded">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">
+                        פרטי ישות
+                        @if (_hasUnsavedChanges)
                         {
-                            <span>שומר...</span>
+                            <span class="unsaved-indicator"
+                                style="color: #dc3545; font-size: 0.9em; margin-right: 10px; font-weight: normal;">(שינויים
+                                לא נשמרו)</span>
                         }
-                        else
-                        {
-                            <span>שמור שינויים</span>
-                        }
-                    </button>
-                    <button class="btn-secondary" @onclick="CancelEdit">ביטול</button>
+                    </h2>
+                    <div class="card-header-actions">
+                        <button class="btn-icon" @onclick="ToggleEditMode">
+                            <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                        </button>
+                    </div>
                 </div>
-            }
+                <div class="detail-card-content">
+                    @if (_isLoading)
+                    {
+                        <div class="loading-spinner">טוען...</div>
+                    }
+                    else if (_entityDetails != null)
+                    {
+                        <div class="detail-fields-grid">
+                            <!-- Basic Information Section -->
+                            <div class="detail-section">
+                                <h4 class="detail-section-title">פרטים בסיסיים</h4>
+                                <div>
+                                    <p class="detail-field">
+                                        <span class="detail-field-label">שם:</span>
+                                        @if (_isEditMode)
+                                        {
+                                            <input type="text" @bind="_editModel.Name" @oninput="MarkAsChanged"
+                                                style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; direction: rtl; width: 250px;" />
+                                        }
+                                        else
+                                        {
+                                            <span class="detail-field-value">@(_entityDetails.Name ?? "לא זמין")</span>
+                                        }
+                                    </p>
 
-            @if (!string.IsNullOrEmpty(_message))
-            {
-                <div class="@(_messageType == "success" ? "success-alert" : "error-alert")">
-                    @_message
+                                    <p class="detail-field">
+                                        <span class="detail-field-label">בעלות:</span>
+                                        @if (_isEditMode)
+                                        {
+                                            <select @bind="_editModel.OwnerId" @bind:after="MarkAsChanged"
+                                                disabled="@_isOwnerDropdownLocked"
+                                                style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; direction: rtl; min-width: 200px; @(_isOwnerDropdownLocked ? "background-color: #e9ecef; cursor: not-allowed;" : "")">
+                                                <option value="">בחר בעלות...</option>
+                                                @foreach (var owner in _potentialOwners)
+                                                {
+                                                    <option value="@owner.Id">@owner.Name</option>
+                                                }
+                                            </select>
+                                            @if (_isOwnerDropdownLocked)
+                                            {
+                                                <span style="color: #6c757d; font-size: 0.85em; margin-right: 5px;">(נעול - מוגבל
+                                                    לגוף הנוכחי)</span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="detail-field-value">@(_entityDetails.OwnerName ?? "לא זמין")</span>
+                                        }
+                                    </p>
+
+                                    <p class="detail-field">
+                                        <span class="detail-field-label">סוג ישות:</span>
+                                        @if (_isEditMode)
+                                        {
+                                            <select @bind="_editModel.EntityTypeId" @bind:after="MarkAsChanged"
+                                                style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; direction: rtl; min-width: 200px;">
+                                                <option value="0">בחר סוג ישות...</option>
+                                                @foreach (var type in _entityTypes.Where(t => new[] { 3, 5, 6 }.Contains(t.Id)))
+                                                {
+                                                    <option value="@type.Id">@type.Name</option>
+                                                }
+                                            </select>
+                                        }
+                                        else
+                                        {
+                                            <span class="detail-field-value">@(_entityDetails.EntityTypeDescription ?? "לא זמין")</span>
+                                        }
+                                    </p>
+
+                                    <p class="detail-field">
+                                        <span class="detail-field-label">מספר עוסק / ח.פ:</span>
+                                        @if (_isEditMode)
+                                        {
+                                            <input type="text" @bind="_editModel.TaxNumber" @oninput="MarkAsChanged"
+                                                placeholder="הזן מספר עוסק"
+                                                style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; direction: ltr; text-align: left; width: 150px;" />
+                                        }
+                                        else
+                                        {
+                                            <span class="detail-field-value">@(_entityDetails.TaxNumber ?? "לא זמין")</span>
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Address and Contact Section -->
+                            <div class="detail-section">
+                                <h4 class="detail-section-title">כתובת ויצירת קשר</h4>
+                                <div>
+                                    <p class="detail-field">
+                                        <span class="detail-field-label">כתובת:</span>
+                                        <span class="detail-field-value">@(_entityDetails.Address ?? "לא זמין")</span>
+                                        @if (_isEditMode)
+                                        {
+                                            <button class="btn-icon" @onclick="ShowAddressModal" title="עריכת כתובת">
+                                                <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                            </button>
+                                        }
+                                    </p>
+
+                                    <p class="detail-field">
+                                        <span class="detail-field-label">טלפון:</span>
+                                        @if (_isEditMode)
+                                        {
+                                            <input type="tel" @bind="_editModel.Phone" @oninput="MarkAsChanged"
+                                                placeholder="02-1234567"
+                                                style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; direction: ltr; text-align: left; width: 150px;" />
+                                        }
+                                        else
+                                        {
+                                            <span class="detail-field-value">@(_entityDetails.Phone ?? "לא זמין")</span>
+                                        }
+                                    </p>
+
+                                    <p class="detail-field">
+                                        <span class="detail-field-label">דוא"ל:</span>
+                                        @if (_isEditMode)
+                                        {
+                                            <input type="email" @bind="_editModel.Email" @oninput="MarkAsChanged"
+                                                placeholder="entity@example.com"
+                                                style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; direction: ltr; text-align: left; width: 250px;" />
+                                        }
+                                        else
+                                        {
+                                            <span class="detail-field-value">@(_entityDetails.Email ?? "לא זמין")</span>
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Contact Persons Section -->
+                            <div class="detail-section">
+                                <h4 class="detail-section-title">אנשי קשר</h4>
+                                <div>
+                                    <p class="detail-field">
+                                        <span class="detail-field-label">איש קשר:</span>
+                                        <span class="detail-field-value">@(_entityDetails.ContactPersonName ?? "לא זמין")</span>
+                                        @if (_isEditMode)
+                                        {
+                                            <button class="btn-icon" @onclick="ShowContactPersonModal" title="עריכת איש קשר"
+                                                style="margin-right: 10px;">
+                                                <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                            </button>
+                                        }
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    }
                 </div>
-            }
-        }
+            </div>
+        </div>
     </div>
 </div>
 
 @code {
-    private EntityDetailsDto? _entity;
-    private EntityDetailsDto? _originalEntity;
-    private bool _loading = true;
+    private EntityDetailsDto? _entityDetails;
+    private EntityUpdateDto _editModel = new();
+    private List<EntityTypeDto> _entityTypes = new();
+    private List<OwnerOptionDto> _potentialOwners = new();
+    private bool _isOwnerDropdownLocked = false;
     private bool _isEditMode = false;
-    private bool _isSaving = false;
-    private string? _message;
-    private string _messageType = "success";
+    private bool _isLoading = true;
+    private bool _hasUnsavedChanges = false;
+    private string _pageTitle = "פרטי ישות";
+    private int _currentUserEntityTypeId;
 
     protected override async Task OnInitializedAsync()
     {
@@ -127,172 +215,209 @@
             return;
         }
 
-        await LoadEntityDetails(session.EntityId);
+        if (int.TryParse(session.EntityTypeId, out int entityTypeId))
+        {
+            _currentUserEntityTypeId = entityTypeId;
+        }
+
+        await LoadData();
     }
 
-    private async Task LoadEntityDetails(string entityId)
+    private async Task LoadData()
     {
-        _loading = true;
+        _isLoading = true;
         try
         {
-            _entity = await ApiService.GetAsync<EntityDetailsDto>($"entities/{entityId}");
-            _originalEntity = _entity != null ? CloneEntity(_entity) : null;
+            var session = await SessionState.GetSessionAsync();
+            if (session == null) return;
+
+            // Load entity types and owners first
+            await Task.WhenAll(LoadEntityTypes(), LoadPotentialOwners());
+
+            // Load entity details
+            if (int.TryParse(session.EntityId, out int entityId))
+            {
+                _entityDetails = await ApiService.GetAsync<EntityDetailsDto>($"entitydetails/{entityId}");
+
+                if (_entityDetails != null)
+                {
+                    UpdatePageTitle();
+                    InitializeEditModel();
+                }
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading entity details: {ex.Message}");
-            _message = "שגיאה בטעינת נתונים";
-            _messageType = "error";
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת פרטי הישות");
         }
         finally
         {
-            _loading = false;
+            _isLoading = false;
         }
     }
 
-    private void ToggleEditMode()
+    private async Task LoadEntityTypes()
     {
-        _isEditMode = !_isEditMode;
-        _message = null;
-    }
-
-    private void CancelEdit()
-    {
-        if (_originalEntity != null && _entity != null)
-        {
-            _entity = CloneEntity(_originalEntity);
-        }
-        _isEditMode = false;
-        _message = null;
-    }
-
-    private async Task SaveChanges()
-    {
-        _message = null;
-        _isSaving = true;
-
         try
         {
-            var response = await ApiService.PostAsync($"entities/{_entity!.Id}", _entity);
-            
-            if (response.IsSuccessStatusCode)
+            _entityTypes = await ApiService.GetAsync<List<EntityTypeDto>>("entities/entity-types") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading entity types: {ex.Message}");
+        }
+    }
+
+    private async Task LoadPotentialOwners()
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<OwnerOptionsResponseDto>("entities/owner-options");
+            if (response != null && response.Success)
             {
-                _message = "הנתונים נשמרו בהצלחה";
-                _messageType = "success";
-                _isEditMode = false;
-                _originalEntity = CloneEntity(_entity);
-            }
-            else
-            {
-                _message = "שגיאה בשמירת נתונים";
-                _messageType = "error";
+                _potentialOwners = response.OwnerOptions;
+                _isOwnerDropdownLocked = response.IsLocked;
             }
         }
         catch (Exception ex)
         {
-            _message = $"שגיאה: {ex.Message}";
-            _messageType = "error";
-        }
-        finally
-        {
-            _isSaving = false;
+            Console.WriteLine($"Error loading owners: {ex.Message}");
         }
     }
 
-    private async Task RefreshData()
+    private void UpdatePageTitle()
     {
-        var session = await SessionState.GetSessionAsync();
-        if (session != null)
+        if (_entityDetails != null)
         {
-            await LoadEntityDetails(session.EntityId);
+            _pageTitle = $"פרטי - {_entityDetails.Name} - {_entityDetails.EntityTypeDescription}";
         }
     }
 
-    private void NavigateBack()
+    private void InitializeEditModel()
+    {
+        if (_entityDetails == null) return;
+
+        _editModel = new EntityUpdateDto
+        {
+            Name = _entityDetails.Name,
+            EntityTypeId = _entityDetails.EntityTypeId,
+            OwnerId = _entityDetails.OwnerId,
+            Phone = _entityDetails.Phone ?? string.Empty,
+            Email = _entityDetails.Email ?? string.Empty,
+            TaxNumber = _entityDetails.TaxNumber ?? string.Empty,
+            ContactPersonId = _entityDetails.ContactPersonId,
+            IsActive = _entityDetails.IsActive,
+            Street = _entityDetails.Street ?? string.Empty,
+            HouseNumber = _entityDetails.HouseNumber ?? string.Empty,
+            City = _entityDetails.City ?? string.Empty,
+            PostCode = _entityDetails.PostCode ?? string.Empty
+        };
+    }
+
+    private async Task ToggleEditMode()
+    {
+        if (!_isEditMode)
+        {
+            // Entering edit mode
+            _isEditMode = true;
+            _hasUnsavedChanges = false;
+            InitializeEditModel();
+            Console.WriteLine("✏️ Entity details edit mode: ON");
+        }
+        else
+        {
+            // Save changes
+            await SaveChanges();
+        }
+    }
+
+    private async Task CancelEdit()
+    {
+        if (_hasUnsavedChanges)
+        {
+            bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "יש לך שינויים שלא נשמרו. האם אתה בטוח שברצונך לבטל?");
+            if (!confirmed) return;
+        }
+
+        _isEditMode = false;
+        _hasUnsavedChanges = false;
+        InitializeEditModel();
+        Console.WriteLine("❌ Entity details edit mode cancelled");
+    }
+
+    private void MarkAsChanged()
+    {
+        _hasUnsavedChanges = true;
+        Console.WriteLine("📝 Entity details field changed");
+    }
+
+    private async Task SaveChanges()
+    {
+        if (!ValidateForm()) return;
+
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך לשמור את השינויים בפרטי הישות?");
+        if (!confirmed) return;
+
+        try
+        {
+            if (_entityDetails == null) return;
+
+            var response = await ApiService.PutAsync<EntityUpdateDto, object>($"entitydetails/{_entityDetails.Id}", _editModel);
+
+            if (response != null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "פרטי הישות עודכנו בהצלחה");
+                _hasUnsavedChanges = false;
+                _isEditMode = false;
+
+                // Reload data to reflect changes
+                await LoadData();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving entity details: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בשמירת פרטי הישות");
+        }
+    }
+
+    private bool ValidateForm()
+    {
+        if (string.IsNullOrWhiteSpace(_editModel.Name))
+        {
+            JSRuntime.InvokeVoidAsync("alert", "נא להזין שם ישות");
+            return false;
+        }
+
+        if (_editModel.EntityTypeId == 0)
+        {
+            JSRuntime.InvokeVoidAsync("alert", "נא לבחור סוג ישות");
+            return false;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_editModel.Email) &&
+        !System.Text.RegularExpressions.Regex.IsMatch(_editModel.Email, @"^[^\s@]+@[^\s@]+\.[^\s@]+$"))
+        {
+            JSRuntime.InvokeVoidAsync("alert", "כתובת דוא\"ל לא תקינה");
+            return false;
+        }
+
+        return true;
+    }
+
+    private void BackToDashboard()
     {
         Navigation.NavigateTo("/maindashboard");
     }
 
-    private EntityDetailsDto CloneEntity(EntityDetailsDto source)
+    private async Task ShowAddressModal()
     {
-        return new EntityDetailsDto
-        {
-            Id = source.Id,
-            EntityName = source.EntityName,
-            EntityTypeName = source.EntityTypeName,
-            Address = source.Address,
-            City = source.City,
-            Phone = source.Phone,
-            Email = source.Email,
-            ContactPerson = source.ContactPerson,
-            ContactPhone = source.ContactPhone,
-            Notes = source.Notes
-        };
+        await JSRuntime.InvokeVoidAsync("alert", "עריכת כתובת - בפיתוח");
     }
 
-    private class EntityDetailsDto
+    private async Task ShowContactPersonModal()
     {
-        public int Id { get; set; }
-        public string EntityName { get; set; } = string.Empty;
-        public string EntityTypeName { get; set; } = string.Empty;
-        public string? Address { get; set; }
-        public string? City { get; set; }
-        public string? Phone { get; set; }
-        public string? Email { get; set; }
-        public string? ContactPerson { get; set; }
-        public string? ContactPhone { get; set; }
-        public string? Notes { get; set; }
+        await JSRuntime.InvokeVoidAsync("alert", "עריכת איש קשר - בפיתוח");
     }
 }
-
-<style>
-    .form-section {
-        margin-bottom: 30px;
-        padding: 20px;
-        background: var(--card-background, #f8f9fa);
-        border-radius: 8px;
-    }
-
-    .form-section h3 {
-        margin-bottom: 20px;
-        color: var(--primary-color, #2c3e50);
-        border-bottom: 2px solid var(--border-color, #dee2e6);
-        padding-bottom: 10px;
-    }
-
-    .form-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 15px;
-        margin-bottom: 15px;
-    }
-
-    .form-group {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .form-group label {
-        margin-bottom: 5px;
-        font-weight: 600;
-        color: var(--text-primary, #333);
-    }
-
-    .form-input {
-        padding: 10px;
-        border: 1px solid var(--border-color, #dee2e6);
-        border-radius: 6px;
-        font-size: 1rem;
-    }
-
-    .form-input:disabled {
-        background: #e9ecef;
-        cursor: not-allowed;
-    }
-
-    .form-actions {
-        display: flex;
-        gap: 15px;
-        margin-top: 20px;
-    }
-</style>
