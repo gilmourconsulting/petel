@@ -204,7 +204,154 @@
     {
         Navigation.NavigateTo("/entitydetails");
     }
-    private void PreviousYear() => Console.WriteLine("Previous year clicked");
-    private void CurrentYear() => Console.WriteLine("Current year clicked");
-    private void NextYear() => Console.WriteLine("Next year clicked");
+
+    private async Task PreviousYear()
+    {
+        await ShowSchoolYear(_previousYearId, "previous", _previousYearName);
+    }
+
+    private async Task CurrentYear()
+    {
+        await ShowSchoolYear(_currentYearId, "current", _currentYearName);
+    }
+
+    private async Task NextYear()
+    {
+        await ShowSchoolYear(_nextYearId, "next", _nextYearName);
+    }
+
+    private async Task ShowSchoolYear(int yearId, string yearType, string yearValue)
+    {
+        Console.WriteLine($"🗓️ ShowSchoolYear: {yearId}, {yearType}, {yearValue}");
+
+        if (yearId == 0 || string.IsNullOrEmpty(yearType))
+        {
+            Console.WriteLine("❌ Invalid year parameters");
+            return;
+        }
+
+        try
+        {
+            // Store selected year in backend session
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedYearId",
+                value = yearId.ToString()
+            });
+
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedYearType",
+                value = yearType
+            });
+
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedYearValue",
+                value = yearValue
+            });
+
+            Console.WriteLine("✅ Selected year stored in session");
+
+            // Get current session to check entity type
+            var session = await SessionState.GetSessionAsync();
+            if (session == null)
+            {
+                Console.WriteLine("❌ No session found");
+                return;
+            }
+
+            var entityTypeId = int.Parse(session.EntityTypeId);
+            Console.WriteLine($"📋 Entity type: {entityTypeId}");
+
+            // Multi-school network (not school entity) -> go to school list
+            if (entityTypeId != 1 && entityTypeId != 4)
+            {
+                Console.WriteLine("🏫 Multi-school network - navigating to school list");
+                Navigation.NavigateTo("/schoollist");
+            }
+            else
+            {
+                // Single school entity -> go to school dashboard
+                Console.WriteLine("🏫 Single school - navigating to school dashboard");
+                await LoadSchoolDashboard(session);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 Error in ShowSchoolYear: {ex.Message}");
+        }
+    }
+
+    private async Task LoadSchoolDashboard(SessionData session)
+    {
+        try
+        {
+            // Set SelectedSchoolId to user's entityId (the school they belong to)
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedSchoolId",
+                value = session.EntityId
+            });
+
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedSchoolName",
+                value = session.EntityName
+            });
+
+            Console.WriteLine($"✅ SelectedSchoolId set to user entityId: {session.EntityId}");
+
+            // Get the selected year type from session
+            var yearTypeResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearType");
+            var selectedYearType = yearTypeResponse?["value"];
+
+            Console.WriteLine($"📅 Selected year type: {selectedYearType}");
+
+            // Get the corresponding school_year.id based on year type
+            string? schoolYearId = null;
+
+            if (selectedYearType == "previous")
+            {
+                var response = await ApiService.GetAsync<Dictionary<string, string>>("session/property/PreviousSchoolYearId");
+                schoolYearId = response?["value"];
+                Console.WriteLine($"📚 Using Previous School Year ID: {schoolYearId}");
+            }
+            else if (selectedYearType == "current")
+            {
+                var response = await ApiService.GetAsync<Dictionary<string, string>>("session/property/CurrentSchoolYearId");
+                schoolYearId = response?["value"];
+                Console.WriteLine($"📚 Using Current School Year ID: {schoolYearId}");
+            }
+            else if (selectedYearType == "next")
+            {
+                var response = await ApiService.GetAsync<Dictionary<string, string>>("session/property/NextSchoolYearId");
+                schoolYearId = response?["value"];
+                Console.WriteLine($"📚 Using Next School Year ID: {schoolYearId}");
+            }
+
+            // Validate school year ID exists
+            if (string.IsNullOrEmpty(schoolYearId))
+            {
+                Console.WriteLine($"❌ No school year ID found for selected year type: {selectedYearType}");
+                return;
+            }
+
+            // Store SelectedSchoolYearId in session
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedSchoolYearId",
+                value = schoolYearId
+            });
+
+            Console.WriteLine($"✅ SelectedSchoolYearId set to: {schoolYearId}");
+
+            // Navigate to school dashboard
+            Navigation.NavigateTo("/schooldashboard");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error in LoadSchoolDashboard: {ex.Message}");
+        }
+    }
 }
