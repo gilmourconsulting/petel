@@ -1,0 +1,185 @@
+@using PetelApp.BlazorServer.DTOs
+@using PetelApp.BlazorServer.Services
+@inject ApiService ApiService
+@inject IJSRuntime JSRuntime
+
+<div class="documents-table-wrapper">
+    @if (_isLoading)
+    {
+        <div class="loading-spinner">טוען מסמכים...</div>
+    }
+    else if (_documents == null || _documents.Count == 0)
+    {
+        <div style="text-align: center; color: #666; padding: 20px;">
+            אין מסמכים להצגה
+        </div>
+    }
+    else
+    {
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>סוג מסמך</th>
+                        <th>תיאור</th>
+                        <th>סטטוס</th>
+                        @if (ShowEntityName)
+                        {
+                            <th>שם ישות</th>
+                        }
+                        <th>עדכון אחרון</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var doc in _documents)
+                    {
+                        <tr>
+                            <td>
+                                @if (AllowDownload)
+                                {
+                                    <button class="btn-icon" @onclick="() => ViewDocument(doc.Id)" title="צפה במסמך">
+                                        <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                    </button>
+                                }
+                                @if (AllowUpload && doc.FileSize == 0)
+                                {
+                                    <button class="btn-icon" @onclick="() => ShowUploadModal(doc)" title="העלה מסמך">
+                                        <img src="/images/upload_icon.png" alt="העלאה" class="action-icon-natural">
+                                    </button>
+                                }
+                                @if (AllowDelete && doc.FileSize > 0)
+                                {
+                                    <button class="btn-icon" @onclick="() => DeleteDocument(doc.Id)" title="מחק מסמך">
+                                        <img src="/images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                                    </button>
+                                }
+                            </td>
+                            <td>@doc.DocumentType</td>
+                            <td>@doc.Description</td>
+                            <td>@doc.StatusName</td>
+                            @if (ShowEntityName)
+                            {
+                                <td>@doc.EntityName</td>
+                            }
+                            <td>@doc.CreatedAt.ToString("dd/MM/yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string EntityType { get; set; } = "student"; // 'student', 'school', 'entity', 'entity-hierarchy'
+    [Parameter] public int? EntityId { get; set; }
+    [Parameter] public int? YearId { get; set; }
+    [Parameter] public bool AllowDownload { get; set; } = true;
+    [Parameter] public bool AllowUpload { get; set; } = true;
+    [Parameter] public bool AllowDelete { get; set; } = true;
+    [Parameter] public bool ShowEntityName { get; set; } = false;
+    [Parameter] public EventCallback OnDocumentsChanged { get; set; }
+
+    private List<DocumentDto> _documents = new();
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDocuments();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (EntityId.HasValue)
+        {
+            await LoadDocuments();
+        }
+    }
+
+    public async Task Reload()
+    {
+        await LoadDocuments();
+    }
+
+    private async Task LoadDocuments()
+    {
+        try
+        {
+            _isLoading = true;
+            StateHasChanged();
+
+            string endpoint = EntityType switch
+            {
+                "student" => $"documents/by-student-id?studentId={EntityId}&yearId={YearId}",
+                "school" => $"documents/by-entity?entityId={EntityId}&yearId={YearId}",
+                "entity" => $"documents/by-entity?entityId={EntityId}&yearId={YearId}",
+                "entity-hierarchy" => $"documents/by-entity-hierarchy?entityId={EntityId}&yearId={YearId}",
+                _ => throw new ArgumentException($"Invalid EntityType: {EntityType}")
+            };
+
+            _documents = await ApiService.GetAsync<List<DocumentDto>>(endpoint) ?? new();
+
+            Console.WriteLine($"✅ Loaded {_documents.Count} documents for {EntityType} {EntityId}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading documents: {ex.Message}");
+            _documents = new();
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ViewDocument(int documentId)
+    {
+        try
+        {
+            // Open document in new tab - construct full URL
+            var baseUrl = "http://localhost:5082"; // TODO: Get from configuration
+            var url = $"{baseUrl}/api/documents/{documentId}/download";
+            await JSRuntime.InvokeVoidAsync("open", url, "_blank");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error viewing document: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בפתיחת המסמך");
+        }
+    }
+
+    private async Task ShowUploadModal(DocumentDto document)
+    {
+        // TODO: Implement file upload modal
+        await JSRuntime.InvokeVoidAsync("alert", $"העלאת מסמך - {document.DocumentType} - בהמשך יתווסף");
+    }
+
+    private async Task DeleteDocument(int documentId)
+    {
+        try
+        {
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך למחוק מסמך זה?");
+            if (!confirmed) return;
+
+            var response = await ApiService.DeleteAsync($"documents/{documentId}");
+
+            if (response != null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "המסמך נמחק בהצלחה");
+                await LoadDocuments();
+                await OnDocumentsChanged.InvokeAsync();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה במחיקת מסמך");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error deleting document: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה במחיקת מסמך");
+        }
+    }
+}

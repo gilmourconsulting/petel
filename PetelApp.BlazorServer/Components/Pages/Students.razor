@@ -128,9 +128,6 @@
                                                 <button class="btn-icon" @onclick="() => ViewStudent(student.Id)" title="צפה בפרטי תלמיד">
                                                     <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
                                                 </button>
-                                                <button class="btn-icon" @onclick="() => EditStudent(student.Id)" title="ערוך תלמיד">
-                                                    <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
-                                                </button>
                                             </td>
                                             <td>@student.IdNumber</td>
                                             <td>@student.FirstName</td>
@@ -307,17 +304,6 @@
             new { key = "SelectedStudentId", value = studentId.ToString() });
 
         Navigation.NavigateTo("/student");
-    }
-
-    private async Task EditStudent(int studentId)
-    {
-        // Store student ID in session
-        await ApiService.PostAsync<object, object>(
-            "session/property",
-            new { key = "SelectedStudentId", value = studentId.ToString() });
-
-        // Navigate to student edit page (to be implemented)
-        Navigation.NavigateTo($"/student");
     }
 
     private async Task ShowUploadDialog()

@@ -1,0 +1,657 @@
+@page "/student"
+@layout MainLayout
+@using PetelApp.BlazorServer.DTOs
+@using PetelApp.BlazorServer.Services
+@using PetelApp.BlazorServer.Components.Shared
+@inject ApiService ApiService
+@inject SessionStateService SessionStateService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <button class="context-btn" @onclick="CalculateStudentPricing">
+            חשב רכיבי תמחור לתלמיד
+        </button>
+        <button class="context-btn" @onclick="GenerateDocuments">
+            עדכן רשימת מסמכים לתלמיד
+        </button>
+        <div class="context-spacer"></div>
+        <button class="context-navigation-btn" @onclick="NavigateBackToSource">
+            חזרה לרשימה
+        </button>
+        <button class="context-navigation-btn" @onclick="NavigateToSchoolDashboard">
+            לדף בית הספר
+        </button>
+        <button class="context-navigation-btn" @onclick="NavigateToSchoolList">
+            רשימת בתי ספר
+        </button>
+    </div>
+
+    <!-- Main content area -->
+    <div class="students-content">
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">@_pageTitle</div>
+                <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
+                <div class="left-spacer"></div>
+            </div>
+
+            @if (_isLoading)
+            {
+                <div class="loading-spinner">טוען נתונים...</div>
+            }
+            else if (_student == null)
+            {
+                <div class="no-data-message">תלמיד לא נמצא</div>
+            }
+            else
+            {
+                <!-- Student Details -->
+                <div class="content-card">
+                    <div class="detail-card expanded">
+                        <div class="detail-card-header">
+                            <h2 class="detail-card-title">פרטי תלמיד</h2>
+                        </div>
+                        <div class="detail-card-content">
+                            <div class="detail-fields-grid">
+                                <!-- Personal Information Section -->
+                                <div class="detail-section">
+                                    <h4 class="detail-section-title">פרטים אישיים</h4>
+                                    <div>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">ת.ז:</span>
+                                            <span class="detail-field-value">@(_student.IdNumber ?? "לא זמין")</span>
+                                        </p>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">שם פרטי:</span>
+                                            <span class="detail-field-value">@(_student.FirstName ?? "לא זמין")</span>
+                                        </p>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">שם משפחה:</span>
+                                            <span class="detail-field-value">@(_student.LastName ?? "לא זמין")</span>
+                                        </p>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">כיתה:</span>
+                                            <span class="detail-field-value">@(_student.ClassName ?? "לא זמין")</span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Address Section -->
+                                <div class="detail-section">
+                                    <h4 class="detail-section-title">כתובת</h4>
+                                    <div>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">רחוב:</span>
+                                            <span class="detail-field-value">@(_student.Street ?? "לא זמין")</span>
+                                        </p>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">מספר בית:</span>
+                                            <span class="detail-field-value">@(_student.HouseNumber ?? "לא זמין")</span>
+                                        </p>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">עיר:</span>
+                                            <span class="detail-field-value">@(_student.City ?? "לא זמין")</span>
+                                        </p>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">מיקוד:</span>
+                                            <span class="detail-field-value">@(_student.PostCode?.ToString() ?? "לא                                            זמין")</span>
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Additional Information Section -->
+                                <div class="detail-section">
+                                    <h4 class="detail-section-title">פרטים נוספים</h4>
+                                    <div>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">רשות שולחת:</span>
+                                            <span class="detail-field-value">@(_student.CouncilName ?? "לא זמין")</span>
+                                        </p>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">סטטוס:</span>
+                                            <span class="detail-field-value">@(_student.Status ?? "לא זמין")</span>
+                                        </p>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">עלות:</span>
+                                            <span class="detail-field-value">@(_student.Cost?.ToString("N2") ?? "לא                                            זמין")</span>
+                                        </p>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">קטגוריית נכות:</span>
+                                            <span class="detail-field-value">@(_student.DisabilityCategory?.ToString() ??
+                                                                                            "לא זמין")</span>
+                                        </p>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">תאריך התחלה:</span>
+                                            <span class="detail-field-value">@(_student.StartDate?.ToString("dd/MM/yyyy") ??
+                                                                                            "לא זמין")</span>
+                                        </p>
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">תאריך סיום:</span>
+                                            <span class="detail-field-value">@(_student.EndDate?.ToString("dd/MM/yyyy") ??
+                                                                                            "לא זמין")</span>
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tabs Container -->
+                <div class="content-card">
+                    <!-- Tab Headers -->
+                    <div class="tabs-header">
+                        <button class="tab-button @(_activeTab == "documents" ? "active" : "")"
+                            @onclick='() => SwitchTab("documents")'>
+                            מסמכים
+                        </button>
+                        <button class="tab-button @(_activeTab == "pricing" ? "active" : "")"
+                            @onclick='() => SwitchTab("pricing")'>
+                            רכיבי תמחור
+                        </button>
+                    </div>
+
+                    <!-- Tab Content - Documents -->
+                    <div class="tab-content" style="display: @(_activeTab == "documents" ? "block" : "none");">
+                        <!-- Student Documents Section -->
+                        <div class="detail-card @(_studentDocsExpanded ? "expanded" : "collapsed")"
+                            style="margin-bottom: 20px;">
+                            <div class="detail-card-header" @onclick="() => _studentDocsExpanded = !_studentDocsExpanded">
+                                <h2 class="detail-card-title">מסמכי תלמיד</h2>
+                                <div class="card-header-actions">
+                                    <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                        @(_studentDocsExpanded ? "×" : "+")
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="detail-card-content">
+                                @if (_studentDocsExpanded && _student != null && _schoolId.HasValue && _yearId.HasValue)
+                                {
+                                    <DocumentsTable @ref="_studentDocsTable" EntityType="student" EntityId="@_student.Id"
+                                        YearId="@_yearId" AllowDownload="true" AllowUpload="true" AllowDelete="true" />
+                                }
+                            </div>
+                        </div>
+
+                        <!-- School Documents Section -->
+                        <div class="detail-card @(_schoolDocsExpanded ? "expanded" : "collapsed")"
+                            style="margin-bottom: 20px;">
+                            <div class="detail-card-header" @onclick="() => _schoolDocsExpanded = !_schoolDocsExpanded">
+                                <h2 class="detail-card-title">מסמכי בית ספר</h2>
+                                <div class="card-header-actions">
+                                    <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                        @(_schoolDocsExpanded ? "×" : "+")
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="detail-card-content">
+                                @if (_schoolDocsExpanded && _schoolId.HasValue && _yearId.HasValue)
+                                {
+                                    <DocumentsTable @ref="_schoolDocsTable" EntityType="school" EntityId="@_schoolId"
+                                        YearId="@_yearId" AllowDownload="true" AllowUpload="false" AllowDelete="false" />
+                                }
+                            </div>
+                        </div>
+
+                        <!-- Entity Documents Section -->
+                        <div class="detail-card @(_entityDocsExpanded ? "expanded" : "collapsed")">
+                            <div class="detail-card-header" @onclick="() => _entityDocsExpanded = !_entityDocsExpanded">
+                                <h2 class="detail-card-title">מסמכי הרשת</h2>
+                                <div class="card-header-actions">
+                                    <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                        @(_entityDocsExpanded ? "×" : "+")
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="detail-card-content">
+                                @if (_entityDocsExpanded && _entityId.HasValue && _yearId.HasValue)
+                                {
+                                    <DocumentsTable @ref="_entityDocsTable" EntityType="entity" EntityId="@_entityId"
+                                        YearId="@_yearId" AllowDownload="true" AllowUpload="false" AllowDelete="false" />
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab Content - Pricing -->
+                    <div class="tab-content" style="display: @(_activeTab == "pricing" ? "block" : "none");">
+                        <div class="detail-card @(_pricingExpanded ? "expanded" : "collapsed")">
+                            <div class="detail-card-header" @onclick="() => _pricingExpanded = !_pricingExpanded">
+                                <h2 class="detail-card-title">רכיבי תמחור</h2>
+                                <div class="card-header-actions">
+                                    <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                        @(_pricingExpanded ? "×" : "+")
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="detail-card-content">
+                                @if (_pricingExpanded)
+                                {
+                                    @if (_pricingLoading)
+                                    {
+                                        <div class="loading-spinner">טוען רכיבי תמחור...</div>
+                                    }
+                                    else if (_pricingElements == null || _pricingElements.Count == 0)
+                                    {
+                                        <div style="text-align: center; color: #666; padding: 20px;">
+                                            אין רכיבי תמחור להצגה. לחץ על "חשב רכיבי תמחור לתלמיד" למעלה.
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <!-- Pricing Summary -->
+
+                                        <div style="background: #f8f9fa; padding: 10px; border-radius: 20px; margin-bottom: 5px;">
+                                            <div style="display: flex; justify-content: space-around; text-align: center;">
+
+                                                <span style="font-size: 0.9em; color: #666;">סה"כ רכיבים:</span>
+                                                <span style="font-size: 1.1em; font-weight: 500; color: #2c3e50;">
+                                                    @_pricingSummary.ElementsTotal ₪ </span>
+
+                                                <span style="font-size: 0.9em; color: #666;"> | חודשי רישום:</span>
+                                                <span style="font-size: 1.1em; font-weight: 500; color: #2c3e50;">
+                                                    @_pricingSummary.EnrollmentMonths </span>
+
+
+                                                <span style="font-size: 0.9em; color: #666;"> | עלות תלמיד:</span>
+                                                <span style="font-size: 1.2em; font-weight: 700; color: #048f17;">
+                                                    @_pricingSummary.StudentCost ₪ </span>
+                                                <span></span>
+                                            </div>
+                                        </div>
+
+
+                                        <!-- Pricing Elements Table -->
+                                        <div class="table-container">
+                                            <table class="data-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>שם רכיב</th>
+                                                        <th>מחיר</th>
+                                                        <th>גורם משפיע</th>
+                                                        <th>שעות</th>
+
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var element in _pricingElements)
+                                                    {
+                                                        <tr>
+
+                                                            <td>@element.PricingElementName</td>
+                                                            <td>@element.Price.ToString("N2") ₪</td>
+                                                            <td>@element.DeterminingFactor</td>
+                                                            <td>@element.Hours?.ToString("N2")</td>
+
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private StudentDto? _student;
+    private List<PricingElementDto> _pricingElements = new();
+    private PricingSummaryDto _pricingSummary = new();
+    private bool _isLoading = true;
+    private bool _pricingLoading = false;
+    private string _pageTitle = "פרטי התלמיד";
+    private string _yearDisplay = string.Empty;
+    private string _activeTab = "documents";
+
+    // Document context IDs
+    private int? _schoolId;
+    private int? _entityId;
+    private int? _yearId;
+
+    // Document table references
+    private DocumentsTable? _studentDocsTable;
+    private DocumentsTable? _schoolDocsTable;
+    private DocumentsTable? _entityDocsTable;
+
+    // Collapsible card states
+    private bool _studentDocsExpanded = true;
+    private bool _schoolDocsExpanded = false;
+    private bool _entityDocsExpanded = false;
+    private bool _pricingExpanded = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadStudentData();
+    }
+
+    private async Task LoadStudentData()
+    {
+        try
+        {
+            _isLoading = true;
+
+            // Get student ID from session
+            var studentIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+            $"session/property/SelectedStudentId");
+
+            if (studentIdResponse == null || !studentIdResponse.TryGetValue("value", out var studentIdStr))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "לא נבחר תלמיד");
+                Navigation.NavigateTo("/students");
+                return;
+            }
+
+            var studentId = int.Parse(studentIdStr);
+
+            // Get school year ID from session
+            var schoolYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+            $"session/property/SelectedSchoolYearId");
+
+            if (schoolYearIdResponse == null || !schoolYearIdResponse.TryGetValue("value", out var schoolYearIdStr))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "לא נבחרה שנת לימודים");
+                Navigation.NavigateTo("/students");
+                return;
+            }
+
+            var schoolYearId = int.Parse(schoolYearIdStr);
+
+            // Load student data
+            var studentsResponse = await ApiService.GetAsync<ApiResponse<List<StudentDto>>>(
+            $"students?schoolYearId={schoolYearId}");
+
+            if (studentsResponse?.Success == true && studentsResponse.Data != null)
+            {
+                _student = studentsResponse.Data.FirstOrDefault(s => s.Id == studentId);
+            }
+
+            if (_student == null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "תלמיד לא נמצא");
+                Navigation.NavigateTo("/students");
+                return;
+            }
+
+            // Update page title
+            _pageTitle = $"פרטי התלמיד - {_student.FirstName} {_student.LastName}";
+
+            // Get year display
+            var yearValueResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+            $"session/property/SelectedYearValue");
+
+            if (yearValueResponse != null && yearValueResponse.TryGetValue("value", out var yearValue))
+            {
+                _yearDisplay = $"שנת לימודים: {yearValue}";
+            }
+
+            // Get YearId from session for documents
+            var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+            $"session/property/SelectedYearId");
+
+            if (yearIdResponse != null && yearIdResponse.TryGetValue("value", out var yearIdStr))
+            {
+                _yearId = int.Parse(yearIdStr);
+            }
+
+            // Get school and entity IDs from school_year
+            await LoadSchoolAndEntityIds(schoolYearId);
+
+            // Load pricing elements if available
+            await LoadPricingElements();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading student data: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינת נתונים: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadSchoolAndEntityIds(int schoolYearId)
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<SchoolInfoDto>>(
+            $"school/by-year/{schoolYearId}");
+
+            if (response?.Success == true && response.Data != null)
+            {
+                // School documents use the school's EntityId
+                _schoolId = response.Data.EntityId;
+                // Entity documents use the owner's EntityId (parent entity)
+                _entityId = response.Data.OwnerId;
+                Console.WriteLine($"✅ School Entity ID: {_schoolId}, Owner Entity ID: {_entityId}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading school and entity IDs: {ex.Message}");
+        }
+    }
+
+    private async Task LoadPricingElements()
+    {
+        if (_student == null) return;
+
+        try
+        {
+            _pricingLoading = true;
+
+            var response = await ApiService.GetAsync<PricingResponse>(
+            $"studentpricing/{_student.Id}");
+
+            if (response?.Success == true && response.Data != null)
+            {
+                _pricingElements = response.Data;
+
+                // Use summary from API response
+                if (response.Summary != null)
+                {
+                    _pricingSummary = new PricingSummaryDto
+                    {
+                        ElementsTotal = response.Summary.ElementsTotal,
+                        StudentCost = response.Summary.StudentCost,
+                        EnrollmentMonths = response.Summary.EnrollmentMonths ?? 0
+                    };
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading pricing elements: {ex.Message}");
+            // Don't show error - pricing may not be calculated yet
+        }
+        finally
+        {
+            _pricingLoading = false;
+        }
+    }
+
+    private void SwitchTab(string tabName)
+    {
+        _activeTab = tabName;
+    }
+
+    private async Task CalculateStudentPricing()
+    {
+        if (_student == null) return;
+
+        try
+        {
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            "האם לחשב רכיבי תמחור לתלמיד? פעולה זו עלולה לקחת זמן.");
+
+            if (!confirmed) return;
+
+            _pricingLoading = true;
+            StateHasChanged();
+
+            var response = await ApiService.PostAsync<object, ApiResponse<object>>(
+            $"studentpricing/calculate/{_student.Id}?save=true",
+            new { });
+
+            if (response?.Success == true)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "חישוב רכיבי התמחור הושלם בהצלחה");
+
+                // Reload pricing elements
+                await LoadPricingElements();
+
+                // Reload student data to get updated cost
+                await LoadStudentData();
+
+                // Switch to pricing tab
+                _activeTab = "pricing";
+                _pricingExpanded = true;
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בחישוב תמחור: {response?.Message ?? "שגיאה לא ידועה"}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error calculating pricing: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בחישוב תמחור: {ex.Message}");
+        }
+        finally
+        {
+            _pricingLoading = false;
+        }
+    }
+
+    private async Task GenerateDocuments()
+    {
+        if (_student == null || !_yearId.HasValue) return;
+
+        try
+        {
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            "האם לעדכן רשימת מסמכים לתלמיד?");
+
+            if (!confirmed) return;
+
+            var response = await ApiService.PostAsync<object, ApiResponse<object>>(
+            $"documents/generate-student-documents?studentId={_student.Id}&yearId={_yearId.Value}",
+            new { });
+
+            if (response?.Success == true)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "רשימת המסמכים עודכנה בהצלחה");
+
+                // Reload all document tables
+                if (_studentDocsTable != null)
+                    await _studentDocsTable.Reload();
+                if (_schoolDocsTable != null)
+                    await _schoolDocsTable.Reload();
+                if (_entityDocsTable != null)
+                    await _entityDocsTable.Reload();
+
+                // Switch to documents tab and expand student docs
+                _activeTab = "documents";
+                _studentDocsExpanded = true;
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בעדכון מסמכים: {response?.Message ?? "שגיאה לא ידועה"}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating documents: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בעדכון מסמכים: {ex.Message}");
+        }
+    }
+
+
+    private async Task NavigateBackToSource()
+    {
+        // Check if we came from students page
+        try
+        {
+            var sourcePageResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+            $"session/property/SourcePage");
+
+            if (sourcePageResponse != null && sourcePageResponse.TryGetValue("value", out var sourcePage)
+            && !string.IsNullOrEmpty(sourcePage))
+            {
+                Navigation.NavigateTo(sourcePage);
+                return;
+            }
+        }
+        catch
+        {
+            // If error, default to students page
+        }
+
+        Navigation.NavigateTo("/students");
+    }
+
+    private void NavigateToSchoolDashboard()
+    {
+        Navigation.NavigateTo("/schooldashboard");
+    }
+
+    private void NavigateToSchoolList()
+    {
+        Navigation.NavigateTo("/schoollist");
+    }
+
+    private string GetGenderDisplay(int? gender)
+    {
+        return gender switch
+        {
+            1 => "זכר",
+            2 => "נקבה",
+            _ => ""
+        };
+    }
+
+    // DTOs for pricing
+    private class PricingElementDto
+    {
+        public int Id { get; set; }
+        public int StudentId { get; set; }
+        public int PricingElementId { get; set; }
+        public string PricingElementName { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public string? DeterminingFactor { get; set; }
+        public decimal? Hours { get; set; }
+        public int SortOrder { get; set; }
+    }
+
+    private class PricingResponse
+    {
+        public bool Success { get; set; }
+        public List<PricingElementDto>? Data { get; set; }
+        public PricingSummaryResponse? Summary { get; set; }
+    }
+
+    private class PricingSummaryResponse
+    {
+        public decimal ElementsTotal { get; set; }
+        public decimal StudentCost { get; set; }
+        public int? EnrollmentMonths { get; set; }
+        public DateOnly? StartDate { get; set; }
+        public DateOnly? EndDate { get; set; }
+    }
+
+    private class PricingSummaryDto
+    {
+        public decimal ElementsTotal { get; set; }
+        public decimal StudentCost { get; set; }
+        public int EnrollmentMonths { get; set; }
+    }
+}

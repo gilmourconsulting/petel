@@ -227,9 +227,10 @@ body {
 /* Main Container */
 .main-container {
     display: flex;
+    background: var(--main-background);
     flex-direction: row-reverse;
-    height: calc(100vh - 16.67vh - 30px);
-    /* 16.67vh top bar + 30px footer (with borders and padding) */
+    height: calc(100vh - 16.67vh - 50px);
+    /* 16.67vh top bar + 50px footer (accounts for padding, border, and content height) */
     overflow: hidden;
     margin-bottom: 0;
 }
@@ -375,8 +376,8 @@ body {
     padding: 30px;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-bottom: 30px;
-    /* Extra padding at bottom for breathing room before footer */
+    padding-bottom: 120px;
+    /* Extra padding at bottom to prevent footer overlap */
     max-height: 100%;
 }
 

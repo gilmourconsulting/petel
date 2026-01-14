@@ -11,6 +11,12 @@
                 <div class="system-logo" @onclick="NavigateToMainDashboard" style="cursor: pointer;" title="חזור למסך הראשי">
                     <img src="/images/petel_logo.png" alt="לוגו המערכת" />
                 </div>
+                @if (_showDebugButton)
+                {
+                    <button class="debug-btn" @onclick="ShowSessionDebug" title="הצג נתוני סשן">
+                        🔍 Debug Session
+                    </button>
+                }
             </div>
         </div>
 
@@ -59,6 +65,33 @@
     </div>
 </div>
 
+<!-- Debug Modal -->
+@if (_showDebugModal)
+{
+    <div class="debug-modal" style="display: block;" @onclick="CloseDebugModal">
+        <div class="debug-modal-content" @onclick:stopPropagation="true">
+            <div class="debug-modal-header">
+                <h3>נתוני סשן נוכחי</h3>
+                <span class="debug-modal-close" @onclick="CloseDebugModal">&times;</span>
+            </div>
+            <div class="debug-json-container">
+                @if (_debugDataLoading)
+                {
+                    <p>טוען נתוני סשן...</p>
+                }
+                else
+                {
+                    <pre>@_debugData</pre>
+                }
+            </div>
+            <div style="margin-top: 15px; text-align: center;">
+                <button @onclick="RefreshDebugData" class="btn-secondary">רענן נתונים</button>
+                <button @onclick="CloseDebugModal" class="btn-secondary" style="margin-right: 10px;">סגור</button>
+            </div>
+        </div>
+    </div>
+}
+
 <div id="blazor-error-ui" data-nosnippet>
     אירעה שגיאה לא מטופלת.
     <a href="." class="reload">טען מחדש</a>
@@ -70,11 +103,16 @@
     private string _entityName = "";
     private string _entityType = "";
     private string _username = "";
+    private bool _showDebugButton = false;
+    private bool _showDebugModal = false;
+    private bool _debugDataLoading = false;
+    private string _debugData = string.Empty;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadHeaderInfo();
         await LoadSystemVersion();
+        await CheckDebugButtonVisibility();
     }
 
     private async Task LoadHeaderInfo()
@@ -113,6 +151,112 @@
         {
             Console.WriteLine($"Error loading system version: {ex.Message}");
         }
+    }
+
+    private async Task CheckDebugButtonVisibility()
+    {
+        try
+        {
+            var attributes = await ApiService.GetAsync<List<SystemAttributeDto>>("systemattributes");
+            if (attributes != null)
+            {
+                var debugAttr = attributes.FirstOrDefault(a => a.Id == 9999 || a.Name == "Show debug button");
+                if (debugAttr != null)
+                {
+                    _showDebugButton = debugAttr.Value?.ToLower() == "true" || debugAttr.Value == "1";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error checking debug button visibility: {ex.Message}");
+        }
+    }
+
+    private async Task ShowSessionDebug()
+    {
+        _showDebugModal = true;
+        _debugDataLoading = true;
+        StateHasChanged();
+        
+        await LoadDebugData();
+    }
+
+    private async Task LoadDebugData()
+    {
+        try
+        {
+            var session = await SessionState.GetSessionAsync();
+            
+            // Get session properties
+            var sessionProperties = new Dictionary<string, string>();
+            string? propertiesError = null;
+            try
+            {
+                sessionProperties = await ApiService.GetAsync<Dictionary<string, string>>("session/properties") ?? new();
+            }
+            catch (Exception ex)
+            {
+                propertiesError = ex.Message;
+            }
+            
+            // Get user actions
+            var userActions = new List<object>();
+            string? userActionsError = null;
+            try
+            {
+                userActions = await ApiService.GetAsync<List<object>>("security/user-actions") ?? new();
+            }
+            catch (Exception ex)
+            {
+                userActionsError = ex.Message;
+            }
+
+            var debugData = new
+            {
+                sessionInfo = session,
+                sessionProperties = new
+                {
+                    properties = sessionProperties,
+                    error = propertiesError
+                },
+                userRoles = session?.Roles ?? new List<int>(),
+                userActions = new
+                {
+                    count = userActions.Count,
+                    actions = userActions,
+                    error = userActionsError
+                }
+            };
+
+            _debugData = System.Text.Json.JsonSerializer.Serialize(debugData, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            });
+        }
+        catch (Exception ex)
+        {
+            _debugData = $"שגיאה בטעינת נתוני סשן: {ex.Message}";
+        }
+        finally
+        {
+            _debugDataLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshDebugData()
+    {
+        _debugDataLoading = true;
+        StateHasChanged();
+        await LoadDebugData();
+    }
+
+    private void CloseDebugModal()
+    {
+        _showDebugModal = false;
+        StateHasChanged();
     }
 
     private void Logout()

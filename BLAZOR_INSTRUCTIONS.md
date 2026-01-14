@@ -543,6 +543,156 @@ protected override async Task OnAfterRenderAsync(bool firstRender)
 }
 ```
 
+### Student Detail Page with Tabs and Collapsible Cards
+
+**Individual entity detail page pattern** (Student, School, Program, etc.):
+
+```razor
+@page "/student"
+@layout MainLayout
+
+<div class="main-container">
+    <!-- Context buttons for actions -->
+    <div class="context-buttons-section">
+        <button class="context-btn" @onclick="CalculateAction">
+            חשב רכיבי תמחור
+        </button>
+        <div class="context-spacer"></div>
+        <button class="context-navigation-btn" @onclick="NavigateBack">
+            חזרה לרשימה
+        </button>
+    </div>
+
+    <div class="students-content">
+        <!-- Detail Form (NOT table) -->
+        <div class="content-card">
+            <!-- Header with entity name -->
+            <div class="school-header">
+                <h2>@_entity.Name</h2>
+                <span class="school-code">קוד: @_entity.Code</span>
+            </div>
+
+            <!-- Detail Sections (using form-group pattern) -->
+            <div class="detail-card">
+                <div class="detail-card-header">
+                    <h3>פרטים אישיים</h3>
+                </div>
+                <div class="detail-card-content">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>שדה 1</label>
+                            <input type="text" class="form-input" value="@_entity.Field1" disabled />
+                        </div>
+                        <div class="form-group">
+                            <label>שדה 2</label>
+                            <input type="text" class="form-input" value="@_entity.Field2" disabled />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs Container -->
+        <div class="content-card">
+            <!-- Tab Headers -->
+            <div class="tabs-header">
+                <button class="tab-button @(_activeTab == "tab1" ? "active" : "")" 
+                        @onclick='() => SwitchTab("tab1")'>
+                    טאב 1
+                </button>
+                <button class="tab-button @(_activeTab == "tab2" ? "active" : "")" 
+                        @onclick='() => SwitchTab("tab2")'>
+                    טאב 2
+                </button>
+            </div>
+
+            <!-- Tab Content -->
+            <div class="tab-content" style="display: @(_activeTab == "tab1" ? "block" : "none");">
+                <!-- Collapsible Card -->
+                <div class="detail-card @(_cardExpanded ? "expanded" : "collapsed")">
+                    <div class="detail-card-header" @onclick="() => _cardExpanded = !_cardExpanded">
+                        <h2 class="detail-card-title">כותרת כרטיס</h2>
+                        <div class="card-header-actions">
+                            <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                @(_cardExpanded ? "×" : "+")
+                            </button>
+                        </div>
+                    </div>
+                    <div class="detail-card-content">
+                        @if (_cardExpanded)
+                        {
+                            <!-- Card content here -->
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private EntityDto? _entity;
+    private string _activeTab = "tab1";
+    private bool _cardExpanded = true;
+
+    private void SwitchTab(string tabName)
+    {
+        _activeTab = tabName;
+    }
+}
+```
+
+**Key Patterns**:
+- ✅ Load entity data from session property (e.g., SelectedStudentId)
+- ✅ **Use form-group pattern, NOT tables** for entity details
+- ✅ Header uses `school-header` class with name and code/ID
+- ✅ Details organized in `detail-card` sections (Personal, Address, Additional)
+- ✅ Each section uses `form-row` with two `form-group` elements
+- ✅ All inputs use `disabled` attribute (non-editable display)
+- ✅ Labels are simple text, values in disabled input fields
+- ✅ Tabs use conditional CSS class: `@(_activeTab == "tab1" ? "active" : "")`
+- ✅ Tab content uses inline style: `style="display: @(_activeTab == "tab1" ? "block" : "none");"`
+- ✅ Collapsible cards toggle via boolean state: `@(_cardExpanded ? "expanded" : "collapsed")`
+- ✅ Card header click toggles expansion: `@onclick="() => _cardExpanded = !_cardExpanded"`
+- ✅ Toggle button shows × when expanded, + when collapsed
+- ✅ Card content conditionally rendered: `@if (_cardExpanded) { ... }`
+
+**Form Layout Structure**:
+```razor
+<div class="detail-card">
+    <div class="detail-card-header">
+        <h3>Section Title</h3>
+    </div>
+    <div class="detail-card-content">
+        <div class="form-row">
+            <div class="form-group">
+                <label>Field Label</label>
+                <input type="text" class="form-input" value="@_value" disabled />
+            </div>
+            <div class="form-group">
+                <label>Field Label 2</label>
+                <input type="text" class="form-input" value="@_value2" disabled />
+            </div>
+        </div>
+    </div>
+</div>
+```
+
+**Student Page Specifics**:
+- Documents tab: Three collapsible sections (Student, School, Entity documents)
+- Pricing tab: Single collapsible card with summary and table
+- Pricing summary: Three metrics (Elements Total, Student Cost, Enrollment Months)
+- Context actions: Calculate pricing, Generate documents, Navigation
+
+**CSS Classes Used**:
+- `school-header` - Entity name and code display
+- `detail-card` - Section container
+- `detail-card-header` - Section header
+- `detail-card-content` - Section content area
+- `form-row` - Horizontal container for form groups (2 per row)
+- `form-group` - Individual field container (label + input)
+- `form-input` - Input field styling
+
 ### Step Indicator Pattern
 
 **Multi-step forms with progress visualization**:
@@ -731,14 +881,14 @@ For each page migration:
 
 ## Phase 1 Completion Status
 
-**Migrated Pages** (11 pages):
+**Migrated Pages** (12 pages):
 - ✅ Login (with OTP support)
 - ✅ MainDashboard
 - ✅ SchoolDashboard  
 - ✅ SchoolList
 - ✅ SchoolDetails
-- ✅ Students
-- ✅ Student (individual)
+- ✅ Students (list page)
+- ✅ Student (individual detail page)
 - ✅ Analytics
 - ✅ SystemAttributes
 - ✅ About
