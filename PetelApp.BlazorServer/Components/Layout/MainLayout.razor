@@ -1,0 +1,80 @@
+﻿@inherits LayoutComponentBase
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+@inject TokenService TokenService
+
+<div class="app-container" dir="rtl">
+    <!-- Top Bar -->
+    <div class="top-bar">
+        <div class="top-bar-left">
+            <div class="system-logo-section">
+                <div class="system-logo">
+                    <img src="/images/petel_logo.png" alt="לוגו מערכת פתל" />
+                </div>
+                <div class="system-info">
+                    <div class="app-title">מערכת פט"ל</div>
+                    <div class="system-version">גרסה 2.0 - Blazor</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="top-bar-right">
+            <div class="entity-section">
+                <div class="entity-logo">
+                    <img src="/images/default_school.png" alt="לוגו ישות" />
+                </div>
+                <div class="entity-info">
+                    <div class="entity-name">@_entityName</div>
+                    <div class="entity-type">@_entityType</div>
+                </div>
+            </div>
+            
+            <div class="user-section">
+                <div class="user-info">
+                    <div class="user-name">@_userName</div>
+                    <div class="user-role">משתמש מערכת</div>
+                </div>
+                <button class="logout-btn" @onclick="HandleLogout" title="התנתק">
+                    <img src="/images/lock_icon.png" alt="התנתק" class="action-icon-natural" />
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-layout">
+        <!-- Side Menu -->
+        <div id="sideMenuContainer" class="side-menu-container">
+            <NavMenu />
+        </div>
+
+        <!-- Dynamic Content -->
+        <div id="dynamicContent" class="dynamic-content">
+            @Body
+        </div>
+    </div>
+</div>
+
+@code {
+    private string _userName = "";
+    private string _entityName = "";
+    private string _entityType = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session != null)
+        {
+            _userName = session.UserFullName;
+            _entityName = session.EntityName;
+            _entityType = session.EntityTypeName;
+        }
+    }
+
+    private async Task HandleLogout()
+    {
+        await TokenService.ClearTokenAsync();
+        SessionState.ClearSession();
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+}

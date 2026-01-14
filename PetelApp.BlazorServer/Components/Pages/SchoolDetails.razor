@@ -1,0 +1,436 @@
+@page "/schooldetails/{SchoolId:int}"
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+
+<div class="main-container">
+    <div class="context-buttons-section">
+        <button class="context-btn" @onclick="RefreshData">רענן נתונים</button>
+        <button class="context-btn" @onclick="ToggleEditMode">
+            @(_isEditMode ? "בטל עריכה" : "ערוך פרטים")
+        </button>
+        <button class="context-btn" @onclick="ViewPrograms">תכניות לימוד</button>
+        <div class="context-spacer"></div>
+        <button class="context-navigation-btn" @onclick="NavigateBack">חזור</button>
+    </div>
+
+    <div class="content-card">
+        @if (_loading)
+        {
+            <div class="loading-spinner">טוען...</div>
+        }
+        else if (_school == null)
+        {
+            <div class="error-message">לא נמצאו נתונים</div>
+        }
+        else
+        {
+            <!-- Header with school name -->
+            <div class="school-header">
+                <h2>@_school.SchoolName</h2>
+                <span class="school-code">קוד: @_school.SchoolCode</span>
+            </div>
+
+            <!-- Basic Information -->
+            <div class="detail-card">
+                <div class="detail-card-header">
+                    <h3>מידע בסיסי</h3>
+                </div>
+                <div class="detail-card-content">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>שם בית ספר *</label>
+                            <input type="text" class="form-input" @bind="_school.SchoolName" disabled="@(!_isEditMode)" />
+                        </div>
+                        <div class="form-group">
+                            <label>קוד מוסד *</label>
+                            <input type="text" class="form-input" @bind="_school.SchoolCode" disabled="@(!_isEditMode)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>מועצה</label>
+                            <input type="text" class="form-input" value="@_school.CouncilName" disabled />
+                        </div>
+                        <div class="form-group">
+                            <label>יישוב</label>
+                            <input type="text" class="form-input" @bind="_school.Settlement" disabled="@(!_isEditMode)" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Information -->
+            <div class="detail-card">
+                <div class="detail-card-header">
+                    <h3>פרטי קשר</h3>
+                </div>
+                <div class="detail-card-content">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>כתובת</label>
+                            <input type="text" class="form-input" @bind="_school.Address" disabled="@(!_isEditMode)" />
+                        </div>
+                        <div class="form-group">
+                            <label>עיר</label>
+                            <input type="text" class="form-input" @bind="_school.City" disabled="@(!_isEditMode)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>טלפון</label>
+                            <input type="tel" class="form-input" @bind="_school.Phone" disabled="@(!_isEditMode)" />
+                        </div>
+                        <div class="form-group">
+                            <label>דוא"ל</label>
+                            <input type="email" class="form-input" @bind="_school.Email" disabled="@(!_isEditMode)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>שם מנהל</label>
+                            <input type="text" class="form-input" @bind="_school.PrincipalName" disabled="@(!_isEditMode)" />
+                        </div>
+                        <div class="form-group">
+                            <label>טלפון מנהל</label>
+                            <input type="tel" class="form-input" @bind="_school.PrincipalPhone" disabled="@(!_isEditMode)" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Academic Information -->
+            <div class="detail-card">
+                <div class="detail-card-header">
+                    <h3>מידע אקדמי</h3>
+                </div>
+                <div class="detail-card-content">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>סוג מוסד</label>
+                            <input type="text" class="form-input" @bind="_school.SchoolType" disabled="@(!_isEditMode)" />
+                        </div>
+                        <div class="form-group">
+                            <label>רשות</label>
+                            <input type="text" class="form-input" @bind="_school.Authority" disabled="@(!_isEditMode)" />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>מספר תלמידים</label>
+                            <input type="number" class="form-input" value="@_school.StudentsCount" disabled />
+                        </div>
+                        <div class="form-group">
+                            <label>מספר כיתות</label>
+                            <input type="number" class="form-input" value="@_school.ClassesCount" disabled />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics -->
+            @if (_stats != null)
+            {
+                <div class="detail-card">
+                    <div class="detail-card-header">
+                        <h3>סטטיסטיקה</h3>
+                    </div>
+                    <div class="detail-card-content">
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <label>תלמידים פעילים</label>
+                                <strong>@_stats.ActiveStudents</strong>
+                            </div>
+                            <div class="stat-item">
+                                <label>כיתות פעילות</label>
+                                <strong>@_stats.ActiveClasses</strong>
+                            </div>
+                            <div class="stat-item">
+                                <label>תכניות לימוד</label>
+                                <strong>@_stats.ProgramsCount</strong>
+                            </div>
+                            <div class="stat-item">
+                                <label>שעות שבועיות</label>
+                                <strong>@_stats.WeeklyHours</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Additional Notes -->
+            <div class="detail-card">
+                <div class="detail-card-header">
+                    <h3>הערות</h3>
+                </div>
+                <div class="detail-card-content">
+                    <div class="form-group">
+                        <textarea class="form-input" rows="4" @bind="_school.Notes" disabled="@(!_isEditMode)"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            @if (_isEditMode)
+            {
+                <div class="form-actions">
+                    <button class="btn-primary" @onclick="SaveChanges" disabled="@_isSaving">
+                        @if (_isSaving)
+                        {
+                            <span>שומר...</span>
+                        }
+                        else
+                        {
+                            <span>שמור שינויים</span>
+                        }
+                    </button>
+                    <button class="btn-secondary" @onclick="CancelEdit">ביטול</button>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(_message))
+            {
+                <div class="@(_messageType == "success" ? "success-alert" : "error-alert")">
+                    @_message
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int SchoolId { get; set; }
+
+    private SchoolDto? _school;
+    private SchoolDto? _originalSchool;
+    private SchoolStatsDto? _stats;
+    
+    private bool _loading = true;
+    private bool _isEditMode = false;
+    private bool _isSaving = false;
+    private string? _message;
+    private string _messageType = "success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadSchoolDetails();
+    }
+
+    private async Task LoadSchoolDetails()
+    {
+        _loading = true;
+        try
+        {
+            // Load school details
+            _school = await ApiService.GetAsync<SchoolDto>($"schools/{SchoolId}");
+            _originalSchool = _school != null ? CloneSchool(_school) : null;
+
+            // Load statistics
+            _stats = await ApiService.GetAsync<SchoolStatsDto>($"schools/{SchoolId}/stats");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading school details: {ex.Message}");
+            _message = "שגיאה בטעינת נתונים";
+            _messageType = "error";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ToggleEditMode()
+    {
+        _isEditMode = !_isEditMode;
+        _message = null;
+    }
+
+    private void CancelEdit()
+    {
+        if (_originalSchool != null && _school != null)
+        {
+            _school = CloneSchool(_originalSchool);
+        }
+        _isEditMode = false;
+        _message = null;
+    }
+
+    private async Task SaveChanges()
+    {
+        _message = null;
+        _isSaving = true;
+
+        try
+        {
+            var response = await ApiService.PostAsync($"schools/{SchoolId}", _school);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                _message = "הנתונים נשמרו בהצלחה";
+                _messageType = "success";
+                _isEditMode = false;
+                _originalSchool = CloneSchool(_school!);
+            }
+            else
+            {
+                _message = "שגיאה בשמירת נתונים";
+                _messageType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = $"שגיאה: {ex.Message}";
+            _messageType = "error";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadSchoolDetails();
+    }
+
+    private void ViewPrograms()
+    {
+        Navigation.NavigateTo($"/schoolprograms/{SchoolId}");
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/schools");
+    }
+
+    private SchoolDto CloneSchool(SchoolDto source)
+    {
+        return new SchoolDto
+        {
+            Id = source.Id,
+            SchoolName = source.SchoolName,
+            SchoolCode = source.SchoolCode,
+            CouncilName = source.CouncilName,
+            Settlement = source.Settlement,
+            Address = source.Address,
+            City = source.City,
+            Phone = source.Phone,
+            Email = source.Email,
+            PrincipalName = source.PrincipalName,
+            PrincipalPhone = source.PrincipalPhone,
+            SchoolType = source.SchoolType,
+            Authority = source.Authority,
+            StudentsCount = source.StudentsCount,
+            ClassesCount = source.ClassesCount,
+            Notes = source.Notes
+        };
+    }
+
+    private class SchoolDto
+    {
+        public int Id { get; set; }
+        public string SchoolName { get; set; } = string.Empty;
+        public string SchoolCode { get; set; } = string.Empty;
+        public string? CouncilName { get; set; }
+        public string? Settlement { get; set; }
+        public string? Address { get; set; }
+        public string? City { get; set; }
+        public string? Phone { get; set; }
+        public string? Email { get; set; }
+        public string? PrincipalName { get; set; }
+        public string? PrincipalPhone { get; set; }
+        public string? SchoolType { get; set; }
+        public string? Authority { get; set; }
+        public int StudentsCount { get; set; }
+        public int ClassesCount { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    private class SchoolStatsDto
+    {
+        public int ActiveStudents { get; set; }
+        public int ActiveClasses { get; set; }
+        public int ProgramsCount { get; set; }
+        public int WeeklyHours { get; set; }
+    }
+}
+
+<style>
+    .school-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        padding-bottom: 20px;
+        border-bottom: 3px solid var(--primary-color, #2c3e50);
+    }
+
+    .school-header h2 {
+        margin: 0;
+        font-size: 2rem;
+        color: var(--primary-color, #2c3e50);
+    }
+
+    .school-code {
+        padding: 8px 16px;
+        background: var(--secondary-color, #6c757d);
+        color: white;
+        border-radius: 6px;
+        font-weight: 600;
+    }
+
+    .detail-card {
+        margin-bottom: 25px;
+        padding: 20px;
+        background: white;
+        border: 1px solid var(--border-color, #dee2e6);
+        border-radius: 8px;
+    }
+
+    .detail-card-header {
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--border-color, #dee2e6);
+    }
+
+    .detail-card-header h3 {
+        margin: 0;
+        font-size: 1.3rem;
+        color: var(--primary-color, #2c3e50);
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+    }
+
+    .stat-item {
+        padding: 20px;
+        background: var(--card-background, #f8f9fa);
+        border: 1px solid var(--border-color, #dee2e6);
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .stat-item label {
+        display: block;
+        margin-bottom: 10px;
+        color: var(--text-secondary, #6c757d);
+        font-weight: 600;
+    }
+
+    .stat-item strong {
+        display: block;
+        font-size: 2rem;
+        color: var(--primary-color, #2c3e50);
+    }
+</style>

@@ -1,0 +1,193 @@
+@page "/schooldashboard"
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+
+<div class="main-container">
+    <div class="context-buttons-section">
+        <button class="context-btn" @onclick="RefreshData">רענן נתונים</button>
+        <button class="context-btn" @onclick="@(() => ShowSchoolYear(_previousYearId, "previous"))">שנה קודמת</button>
+        <button class="context-btn" @onclick="@(() => ShowSchoolYear(_currentYearId, "current"))">שנה נוכחית</button>
+        <button class="context-btn" @onclick="@(() => ShowSchoolYear(_nextYearId, "next"))">שנה הבאה</button>
+        <div class="context-spacer"></div>
+        <button class="context-navigation-btn" @onclick="NavigateToSchoolDetails">פרטי בית ספר</button>
+    </div>
+
+    <div class="content-header">
+        <div class="page-title-container">
+            <div class="page-title">@_schoolName</div>
+            <div class="text-branded">@_yearName</div>
+        </div>
+    </div>
+
+    <div class="dashboard-flex-row">
+        <!-- Summary Cards -->
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="summary-icon">👥</div>
+                <div class="summary-info">
+                    <div class="summary-value">@_totalStudents</div>
+                    <div class="summary-label">סה"כ תלמידים</div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon">📚</div>
+                <div class="summary-info">
+                    <div class="summary-value">@_totalClasses</div>
+                    <div class="summary-label">כיתות</div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon">⏰</div>
+                <div class="summary-info">
+                    <div class="summary-value">@_totalHours</div>
+                    <div class="summary-label">שעות שבועיות</div>
+                </div>
+            </div>
+            <div class="summary-card">
+                <div class="summary-icon">💰</div>
+                <div class="summary-info">
+                    <div class="summary-value">@_totalBudget.ToString("N0")</div>
+                    <div class="summary-label">תקציב</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="content-card">
+            <h3>פעולות מהירות</h3>
+            <div class="quick-actions-grid">
+                <button class="action-card" @onclick="@(() => Navigation.NavigateTo("/students"))">
+                    <div class="action-icon">👥</div>
+                    <div class="action-label">תלמידים</div>
+                </button>
+                <button class="action-card" @onclick="@(() => Navigation.NavigateTo("/schooldetails"))">
+                    <div class="action-icon">🏫</div>
+                    <div class="action-label">פרטי בית ספר</div>
+                </button>
+                <button class="action-card" @onclick="@(() => Navigation.NavigateTo("/schoolyearconfig"))">
+                    <div class="action-icon">⚙</div>
+                    <div class="action-label">הגדרות שנה</div>
+                </button>
+                <button class="action-card" @onclick="ShowReportsMenu">
+                    <div class="action-icon">📊</div>
+                    <div class="action-label">דוחות</div>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string _schoolName = "";
+    private string _yearName = "";
+    private int _totalStudents = 0;
+    private int _totalClasses = 0;
+    private decimal _totalHours = 0;
+    private decimal _totalBudget = 0;
+
+    private int _previousYearId = 0;
+    private int _currentYearId = 0;
+    private int _nextYearId = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        _schoolName = session.EntityName;
+        await LoadSchoolYears();
+        await LoadDashboardData();
+    }
+
+    private async Task LoadSchoolYears()
+    {
+        try
+        {
+            var years = await ApiService.GetAsync<List<SchoolYearDto>>("schoolyears");
+            if (years != null && years.Count > 0)
+            {
+                var currentYear = years.FirstOrDefault(y => y.IsCurrent);
+                if (currentYear != null)
+                {
+                    _currentYearId = currentYear.Id;
+                    _yearName = currentYear.YearName;
+                    
+                    var currentIndex = years.IndexOf(currentYear);
+                    if (currentIndex > 0)
+                        _previousYearId = years[currentIndex - 1].Id;
+                    if (currentIndex < years.Count - 1)
+                        _nextYearId = years[currentIndex + 1].Id;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading school years: {ex.Message}");
+        }
+    }
+
+    private async Task LoadDashboardData()
+    {
+        try
+        {
+            var session = await SessionState.GetSessionAsync();
+            if (session != null)
+            {
+                var summary = await ApiService.GetAsync<SchoolSummaryDto>($"school/{session.EntityId}/summary?yearId={_currentYearId}");
+                if (summary != null)
+                {
+                    _totalStudents = summary.TotalStudents;
+                    _totalClasses = summary.TotalClasses;
+                    _totalHours = summary.TotalHours;
+                    _totalBudget = summary.TotalBudget;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading dashboard data: {ex.Message}");
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadDashboardData();
+    }
+
+    private void ShowSchoolYear(int yearId, string period)
+    {
+        _currentYearId = yearId;
+        InvokeAsync(async () => await LoadDashboardData());
+    }
+
+    private void NavigateToSchoolDetails()
+    {
+        Navigation.NavigateTo("/schooldetails");
+    }
+
+    private void ShowReportsMenu()
+    {
+        // Implement reports menu
+        Console.WriteLine("Show reports menu");
+    }
+
+    private class SchoolYearDto
+    {
+        public int Id { get; set; }
+        public string YearName { get; set; } = string.Empty;
+        public bool IsCurrent { get; set; }
+    }
+
+    private class SchoolSummaryDto
+    {
+        public int TotalStudents { get; set; }
+        public int TotalClasses { get; set; }
+        public decimal TotalHours { get; set; }
+        public decimal TotalBudget { get; set; }
+    }
+}

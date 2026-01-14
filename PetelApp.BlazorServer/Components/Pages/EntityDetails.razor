@@ -1,0 +1,298 @@
+@page "/entitydetails"
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+
+<div class="main-container">
+    <div class="context-buttons-section">
+        <button class="context-btn" @onclick="RefreshData">רענן נתונים</button>
+        <button class="context-btn" @onclick="ToggleEditMode">
+            @(_isEditMode ? "בטל עריכה" : "ערוך פרטים")
+        </button>
+        <div class="context-spacer"></div>
+        <button class="context-navigation-btn" @onclick="NavigateBack">חזור</button>
+    </div>
+
+    <div class="content-card">
+        <h2>פרטי ישות</h2>
+
+        @if (_loading)
+        {
+            <div class="loading-spinner">טוען...</div>
+        }
+        else if (_entity == null)
+        {
+            <div class="error-message">לא נמצאו נתונים</div>
+        }
+        else
+        {
+            <div class="form-section">
+                <h3>מידע כללי</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>סוג ישות</label>
+                        <input type="text" class="form-input" value="@_entity.EntityTypeName" disabled />
+                    </div>
+                    <div class="form-group">
+                        <label>שם ישות *</label>
+                        <input type="text" class="form-input" @bind="_entity.EntityName" disabled="@(!_isEditMode)" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>כתובת</label>
+                        <input type="text" class="form-input" @bind="_entity.Address" disabled="@(!_isEditMode)" />
+                    </div>
+                    <div class="form-group">
+                        <label>עיר</label>
+                        <input type="text" class="form-input" @bind="_entity.City" disabled="@(!_isEditMode)" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3>פרטי קשר</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>טלפון</label>
+                        <input type="tel" class="form-input" @bind="_entity.Phone" disabled="@(!_isEditMode)" />
+                    </div>
+                    <div class="form-group">
+                        <label>דוא"ל</label>
+                        <input type="email" class="form-input" @bind="_entity.Email" disabled="@(!_isEditMode)" />
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>איש קשר ראשי</label>
+                        <input type="text" class="form-input" @bind="_entity.ContactPerson" disabled="@(!_isEditMode)" />
+                    </div>
+                    <div class="form-group">
+                        <label>טלפון איש קשר</label>
+                        <input type="tel" class="form-input" @bind="_entity.ContactPhone" disabled="@(!_isEditMode)" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-section">
+                <h3>מידע נוסף</h3>
+                <div class="form-group">
+                    <label>הערות</label>
+                    <textarea class="form-input" rows="4" @bind="_entity.Notes" disabled="@(!_isEditMode)"></textarea>
+                </div>
+            </div>
+
+            @if (_isEditMode)
+            {
+                <div class="form-actions">
+                    <button class="btn-primary" @onclick="SaveChanges" disabled="@_isSaving">
+                        @if (_isSaving)
+                        {
+                            <span>שומר...</span>
+                        }
+                        else
+                        {
+                            <span>שמור שינויים</span>
+                        }
+                    </button>
+                    <button class="btn-secondary" @onclick="CancelEdit">ביטול</button>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(_message))
+            {
+                <div class="@(_messageType == "success" ? "success-alert" : "error-alert")">
+                    @_message
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    private EntityDetailsDto? _entity;
+    private EntityDetailsDto? _originalEntity;
+    private bool _loading = true;
+    private bool _isEditMode = false;
+    private bool _isSaving = false;
+    private string? _message;
+    private string _messageType = "success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadEntityDetails(session.EntityId);
+    }
+
+    private async Task LoadEntityDetails(string entityId)
+    {
+        _loading = true;
+        try
+        {
+            _entity = await ApiService.GetAsync<EntityDetailsDto>($"entities/{entityId}");
+            _originalEntity = _entity != null ? CloneEntity(_entity) : null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading entity details: {ex.Message}");
+            _message = "שגיאה בטעינת נתונים";
+            _messageType = "error";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ToggleEditMode()
+    {
+        _isEditMode = !_isEditMode;
+        _message = null;
+    }
+
+    private void CancelEdit()
+    {
+        if (_originalEntity != null && _entity != null)
+        {
+            _entity = CloneEntity(_originalEntity);
+        }
+        _isEditMode = false;
+        _message = null;
+    }
+
+    private async Task SaveChanges()
+    {
+        _message = null;
+        _isSaving = true;
+
+        try
+        {
+            var response = await ApiService.PostAsync($"entities/{_entity!.Id}", _entity);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                _message = "הנתונים נשמרו בהצלחה";
+                _messageType = "success";
+                _isEditMode = false;
+                _originalEntity = CloneEntity(_entity);
+            }
+            else
+            {
+                _message = "שגיאה בשמירת נתונים";
+                _messageType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = $"שגיאה: {ex.Message}";
+            _messageType = "error";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session != null)
+        {
+            await LoadEntityDetails(session.EntityId);
+        }
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/maindashboard");
+    }
+
+    private EntityDetailsDto CloneEntity(EntityDetailsDto source)
+    {
+        return new EntityDetailsDto
+        {
+            Id = source.Id,
+            EntityName = source.EntityName,
+            EntityTypeName = source.EntityTypeName,
+            Address = source.Address,
+            City = source.City,
+            Phone = source.Phone,
+            Email = source.Email,
+            ContactPerson = source.ContactPerson,
+            ContactPhone = source.ContactPhone,
+            Notes = source.Notes
+        };
+    }
+
+    private class EntityDetailsDto
+    {
+        public int Id { get; set; }
+        public string EntityName { get; set; } = string.Empty;
+        public string EntityTypeName { get; set; } = string.Empty;
+        public string? Address { get; set; }
+        public string? City { get; set; }
+        public string? Phone { get; set; }
+        public string? Email { get; set; }
+        public string? ContactPerson { get; set; }
+        public string? ContactPhone { get; set; }
+        public string? Notes { get; set; }
+    }
+}
+
+<style>
+    .form-section {
+        margin-bottom: 30px;
+        padding: 20px;
+        background: var(--card-background, #f8f9fa);
+        border-radius: 8px;
+    }
+
+    .form-section h3 {
+        margin-bottom: 20px;
+        color: var(--primary-color, #2c3e50);
+        border-bottom: 2px solid var(--border-color, #dee2e6);
+        padding-bottom: 10px;
+    }
+
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-bottom: 15px;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .form-group label {
+        margin-bottom: 5px;
+        font-weight: 600;
+        color: var(--text-primary, #333);
+    }
+
+    .form-input {
+        padding: 10px;
+        border: 1px solid var(--border-color, #dee2e6);
+        border-radius: 6px;
+        font-size: 1rem;
+    }
+
+    .form-input:disabled {
+        background: #e9ecef;
+        cursor: not-allowed;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 15px;
+        margin-top: 20px;
+    }
+</style>

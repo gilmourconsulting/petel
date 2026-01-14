@@ -1,0 +1,496 @@
+@page "/schoolyearconfig"
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+
+<div class="main-container">
+    <div class="context-buttons-section">
+        <button class="context-btn" @onclick="RefreshData">רענן נתונים</button>
+        <button class="context-btn" @onclick="ShowAddYearModal">הוסף שנה חדשה</button>
+        <div class="context-spacer"></div>
+        <button class="context-navigation-btn" @onclick="NavigateBack">חזור</button>
+    </div>
+
+    <div class="content-card">
+        <h2>ניהול שנות לימוד</h2>
+
+        @if (_loading)
+        {
+            <div class="loading-spinner">טוען...</div>
+        }
+        else
+        {
+            @if (_years.Count == 0)
+            {
+                <div class="info-message">אין שנות לימוד להצגה</div>
+            }
+            else
+            {
+                <div class="years-grid">
+                    @foreach (var year in _years)
+                    {
+                        <div class="year-card @(year.IsActive ? "active-year" : "")">
+                            <div class="year-header">
+                                <h3>@year.YearName</h3>
+                                @if (year.IsActive)
+                                {
+                                    <span class="badge-active">שנה פעילה</span>
+                                }
+                            </div>
+                            
+                            <div class="year-details">
+                                <div class="detail-row">
+                                    <label>תאריך התחלה:</label>
+                                    <span>@year.StartDate?.ToString("dd/MM/yyyy")</span>
+                                </div>
+                                <div class="detail-row">
+                                    <label>תאריך סיום:</label>
+                                    <span>@year.EndDate?.ToString("dd/MM/yyyy")</span>
+                                </div>
+                                <div class="detail-row">
+                                    <label>מספר בתי ספר:</label>
+                                    <span>@year.SchoolsCount</span>
+                                </div>
+                                <div class="detail-row">
+                                    <label>מספר תלמידים:</label>
+                                    <span>@year.StudentsCount</span>
+                                </div>
+                            </div>
+
+                            <div class="year-actions">
+                                <button class="btn-icon" @onclick="@(() => EditYear(year))" title="ערוך">
+                                    <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural" />
+                                </button>
+                                @if (!year.IsActive)
+                                {
+                                    <button class="btn-icon" @onclick="@(() => SetActiveYear(year.Id))" title="הגדר כשנה פעילה">
+                                        <span>✓</span>
+                                    </button>
+                                }
+                                <button class="btn-icon" @onclick="@(() => ManageAttributes(year.Id))" title="ניהול מאפיינים">
+                                    <img src="/images/view_icon.png" alt="מאפיינים" class="action-icon-natural" />
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        }
+
+        @if (!string.IsNullOrEmpty(_message))
+        {
+            <div class="@(_messageType == "success" ? "success-alert" : "error-alert")">
+                @_message
+            </div>
+        }
+    </div>
+
+    <!-- Add/Edit Year Modal -->
+    @if (_showYearModal)
+    {
+        <div class="modal-overlay" @onclick="CloseYearModal">
+            <div class="modal-content" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3>@(_editingYear?.Id > 0 ? "עריכת שנת לימוד" : "הוספת שנת לימוד חדשה")</h3>
+                    <button class="modal-close" @onclick="CloseYearModal">×</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>שם שנה *</label>
+                        <input type="text" class="form-input" @bind="_editingYear!.YearName" />
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>תאריך התחלה</label>
+                            <input type="date" class="form-input" @bind="_editingYear.StartDate" />
+                        </div>
+                        <div class="form-group">
+                            <label>תאריך סיום</label>
+                            <input type="date" class="form-input" @bind="_editingYear.EndDate" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" @bind="_editingYear.IsActive" />
+                            <span>שנה פעילה</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-primary" @onclick="SaveYear" disabled="@_isSaving">
+                        @(_isSaving ? "שומר..." : "שמור")
+                    </button>
+                    <button class="btn-secondary" @onclick="CloseYearModal">ביטול</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Attributes Modal -->
+    @if (_showAttributesModal)
+    {
+        <div class="modal-overlay" @onclick="CloseAttributesModal">
+            <div class="modal-content large" @onclick:stopPropagation="true">
+                <div class="modal-header">
+                    <h3>מאפייני שנת לימוד - @_selectedYear?.YearName</h3>
+                    <button class="modal-close" @onclick="CloseAttributesModal">×</button>
+                </div>
+                <div class="modal-body">
+                    @if (_loadingAttributes)
+                    {
+                        <div class="loading-spinner">טוען מאפיינים...</div>
+                    }
+                    else
+                    {
+                        <div class="attributes-list">
+                            @if (_attributes.Count == 0)
+                            {
+                                <p class="info-message">אין מאפיינים מוגדרים</p>
+                            }
+                            else
+                            {
+                                @foreach (var attr in _attributes)
+                                {
+                                    <div class="attribute-item">
+                                        <div class="attribute-header">
+                                            <strong>@attr.Name</strong>
+                                            @if (!string.IsNullOrEmpty(attr.Description))
+                                            {
+                                                <small>@attr.Description</small>
+                                            }
+                                        </div>
+                                        <input type="text" class="form-input" @bind="attr.Value" />
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <button class="btn-secondary" @onclick="AddAttribute">הוסף מאפיין</button>
+                    }
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-primary" @onclick="SaveAttributes" disabled="@_isSavingAttributes">
+                        @(_isSavingAttributes ? "שומר..." : "שמור שינויים")
+                    </button>
+                    <button class="btn-secondary" @onclick="CloseAttributesModal">סגור</button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<SchoolYearDto> _years = new();
+    private List<YearAttributeDto> _attributes = new();
+    private SchoolYearDto? _editingYear;
+    private SchoolYearDto? _selectedYear;
+    
+    private bool _loading = true;
+    private bool _loadingAttributes = false;
+    private bool _isSaving = false;
+    private bool _isSavingAttributes = false;
+    private bool _showYearModal = false;
+    private bool _showAttributesModal = false;
+    private string? _message;
+    private string _messageType = "success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadYears();
+    }
+
+    private async Task LoadYears()
+    {
+        _loading = true;
+        try
+        {
+            _years = await ApiService.GetAsync<List<SchoolYearDto>>("schoolyears") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading school years: {ex.Message}");
+            _message = "שגיאה בטעינת נתונים";
+            _messageType = "error";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ShowAddYearModal()
+    {
+        _editingYear = new SchoolYearDto { IsActive = false };
+        _showYearModal = true;
+    }
+
+    private void EditYear(SchoolYearDto year)
+    {
+        _editingYear = new SchoolYearDto
+        {
+            Id = year.Id,
+            YearName = year.YearName,
+            StartDate = year.StartDate,
+            EndDate = year.EndDate,
+            IsActive = year.IsActive
+        };
+        _showYearModal = true;
+    }
+
+    private void CloseYearModal()
+    {
+        _showYearModal = false;
+        _editingYear = null;
+    }
+
+    private async Task SaveYear()
+    {
+        _isSaving = true;
+        try
+        {
+            HttpResponseMessage response;
+            if (_editingYear!.Id > 0)
+            {
+                response = await ApiService.PostAsync($"schoolyears/{_editingYear.Id}", _editingYear);
+            }
+            else
+            {
+                response = await ApiService.PostAsync("schoolyears", _editingYear);
+            }
+
+            if (response.IsSuccessStatusCode)
+            {
+                _message = "השינויים נשמרו בהצלחה";
+                _messageType = "success";
+                CloseYearModal();
+                await LoadYears();
+            }
+            else
+            {
+                _message = "שגיאה בשמירת נתונים";
+                _messageType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = $"שגיאה: {ex.Message}";
+            _messageType = "error";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task SetActiveYear(int yearId)
+    {
+        try
+        {
+            var response = await ApiService.PostAsync($"schoolyears/{yearId}/setactive", new { });
+            if (response.IsSuccessStatusCode)
+            {
+                _message = "השנה הוגדרה כפעילה";
+                _messageType = "success";
+                await LoadYears();
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = $"שגיאה: {ex.Message}";
+            _messageType = "error";
+        }
+    }
+
+    private async Task ManageAttributes(int yearId)
+    {
+        _selectedYear = _years.FirstOrDefault(y => y.Id == yearId);
+        _showAttributesModal = true;
+        _loadingAttributes = true;
+
+        try
+        {
+            _attributes = await ApiService.GetAsync<List<YearAttributeDto>>($"schoolyearattributes/{yearId}") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading attributes: {ex.Message}");
+        }
+        finally
+        {
+            _loadingAttributes = false;
+        }
+    }
+
+    private void AddAttribute()
+    {
+        _attributes.Add(new YearAttributeDto { YearId = _selectedYear!.Id });
+    }
+
+    private async Task SaveAttributes()
+    {
+        _isSavingAttributes = true;
+        try
+        {
+            var response = await ApiService.PostAsync($"schoolyearattributes/{_selectedYear!.Id}", _attributes);
+            if (response.IsSuccessStatusCode)
+            {
+                _message = "המאפיינים נשמרו בהצלחה";
+                _messageType = "success";
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = $"שגיאה בשמירת מאפיינים: {ex.Message}";
+            _messageType = "error";
+        }
+        finally
+        {
+            _isSavingAttributes = false;
+        }
+    }
+
+    private void CloseAttributesModal()
+    {
+        _showAttributesModal = false;
+        _selectedYear = null;
+        _attributes.Clear();
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadYears();
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/maindashboard");
+    }
+
+    private class SchoolYearDto
+    {
+        public int Id { get; set; }
+        public string YearName { get; set; } = string.Empty;
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public bool IsActive { get; set; }
+        public int SchoolsCount { get; set; }
+        public int StudentsCount { get; set; }
+    }
+
+    private class YearAttributeDto
+    {
+        public int Id { get; set; }
+        public int YearId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string Value { get; set; } = string.Empty;
+    }
+}
+
+<style>
+    .years-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 20px;
+    }
+
+    .year-card {
+        padding: 20px;
+        background: white;
+        border: 2px solid var(--border-color, #dee2e6);
+        border-radius: 8px;
+        transition: box-shadow 0.3s;
+    }
+
+    .year-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .year-card.active-year {
+        border-color: var(--success-color, #28a745);
+        background: #f0fff4;
+    }
+
+    .year-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid var(--border-color, #dee2e6);
+    }
+
+    .year-header h3 {
+        margin: 0;
+        color: var(--primary-color, #2c3e50);
+    }
+
+    .badge-active {
+        padding: 5px 12px;
+        background: var(--success-color, #28a745);
+        color: white;
+        border-radius: 12px;
+        font-size: 0.85rem;
+        font-weight: 600;
+    }
+
+    .year-details {
+        margin-bottom: 15px;
+    }
+
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid var(--border-color, #dee2e6);
+    }
+
+    .detail-row label {
+        font-weight: 600;
+        color: var(--text-secondary, #6c757d);
+    }
+
+    .year-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+
+    .attributes-list {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+
+    .attribute-item {
+        padding: 15px;
+        background: var(--card-background, #f8f9fa);
+        border: 1px solid var(--border-color, #dee2e6);
+        border-radius: 6px;
+    }
+
+    .attribute-header {
+        margin-bottom: 10px;
+    }
+
+    .attribute-header strong {
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    .attribute-header small {
+        color: var(--text-secondary, #6c757d);
+    }
+
+    .modal-content.large {
+        width: 800px;
+        max-width: 95%;
+    }
+</style>

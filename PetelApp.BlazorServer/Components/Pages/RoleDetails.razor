@@ -1,0 +1,373 @@
+@page "/roledetails/{RoleId:int}"
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+
+<div class="main-container">
+    <div class="context-buttons-section">
+        <button class="context-btn" @onclick="RefreshData">רענן נתונים</button>
+        <button class="context-btn" @onclick="ToggleEditMode">
+            @(_isEditMode ? "בטל עריכה" : "ערוך תפקיד")
+        </button>
+        <div class="context-spacer"></div>
+        <button class="context-navigation-btn" @onclick="NavigateToRoles">חזור לרשימת תפקידים</button>
+    </div>
+
+    <div class="content-card">
+        <h2>פרטי תפקיד</h2>
+
+        @if (_loading)
+        {
+            <div class="loading-spinner">טוען...</div>
+        }
+        else if (_role == null)
+        {
+            <div class="error-message">לא נמצאו נתונים</div>
+        }
+        else
+        {
+            <!-- Role Basic Info -->
+            <div class="form-section">
+                <h3>מידע בסיסי</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>שם תפקיד *</label>
+                        <input type="text" class="form-input" @bind="_role.RoleName" disabled="@(!_isEditMode)" />
+                    </div>
+                    <div class="form-group">
+                        <label>קוד תפקיד</label>
+                        <input type="text" class="form-input" @bind="_role.RoleCode" disabled="@(!_isEditMode)" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>תיאור</label>
+                    <textarea class="form-input" rows="3" @bind="_role.Description" disabled="@(!_isEditMode)"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" @bind="_role.IsActive" disabled="@(!_isEditMode)" />
+                        <span>תפקיד פעיל</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Permissions Section -->
+            <div class="form-section">
+                <h3>הרשאות</h3>
+                <p class="section-description">בחר את ההרשאות המתאימות לתפקיד זה</p>
+                
+                @if (_permissions == null || _permissions.Count == 0)
+                {
+                    <div class="info-message">טוען הרשאות...</div>
+                }
+                else
+                {
+                    <div class="permissions-grid">
+                        @foreach (var permission in _permissions)
+                        {
+                            <div class="permission-item">
+                                <label>
+                                    <input type="checkbox" 
+                                           checked="@IsPermissionGranted(permission.Id)"
+                                           @onchange="@(e => TogglePermission(permission.Id, (bool)e.Value!))"
+                                           disabled="@(!_isEditMode)" />
+                                    <span>@permission.Name</span>
+                                </label>
+                                @if (!string.IsNullOrEmpty(permission.Description))
+                                {
+                                    <small class="permission-desc">@permission.Description</small>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Users in Role Section -->
+            <div class="form-section">
+                <h3>משתמשים בתפקיד</h3>
+                @if (_usersInRole.Count == 0)
+                {
+                    <p class="info-message">אין משתמשים המשויכים לתפקיד זה</p>
+                }
+                else
+                {
+                    <div class="users-list">
+                        @foreach (var user in _usersInRole)
+                        {
+                            <div class="user-item">
+                                <span class="user-name">@user.FullName</span>
+                                <span class="user-username">(@user.Username)</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            @if (_isEditMode)
+            {
+                <div class="form-actions">
+                    <button class="btn-primary" @onclick="SaveChanges" disabled="@_isSaving">
+                        @if (_isSaving)
+                        {
+                            <span>שומר...</span>
+                        }
+                        else
+                        {
+                            <span>שמור שינויים</span>
+                        }
+                    </button>
+                    <button class="btn-secondary" @onclick="CancelEdit">ביטול</button>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(_message))
+            {
+                <div class="@(_messageType == "success" ? "success-alert" : "error-alert")">
+                    @_message
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public int RoleId { get; set; }
+
+    private RoleDto? _role;
+    private RoleDto? _originalRole;
+    private List<PermissionDto> _permissions = new();
+    private HashSet<int> _grantedPermissions = new();
+    private List<UserDto> _usersInRole = new();
+    
+    private bool _loading = true;
+    private bool _isEditMode = false;
+    private bool _isSaving = false;
+    private string? _message;
+    private string _messageType = "success";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadRoleDetails();
+    }
+
+    private async Task LoadRoleDetails()
+    {
+        _loading = true;
+        try
+        {
+            // Load role details
+            _role = await ApiService.GetAsync<RoleDto>($"roles/{RoleId}");
+            _originalRole = _role != null ? CloneRole(_role) : null;
+
+            // Load all available permissions
+            _permissions = await ApiService.GetAsync<List<PermissionDto>>("roles/permissions") ?? new();
+
+            // Load granted permissions for this role
+            var granted = await ApiService.GetAsync<List<int>>($"roles/{RoleId}/permissions") ?? new();
+            _grantedPermissions = new HashSet<int>(granted);
+
+            // Load users in this role
+            _usersInRole = await ApiService.GetAsync<List<UserDto>>($"roles/{RoleId}/users") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading role details: {ex.Message}");
+            _message = "שגיאה בטעינת נתונים";
+            _messageType = "error";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private bool IsPermissionGranted(int permissionId)
+    {
+        return _grantedPermissions.Contains(permissionId);
+    }
+
+    private void TogglePermission(int permissionId, bool isGranted)
+    {
+        if (isGranted)
+        {
+            _grantedPermissions.Add(permissionId);
+        }
+        else
+        {
+            _grantedPermissions.Remove(permissionId);
+        }
+    }
+
+    private void ToggleEditMode()
+    {
+        _isEditMode = !_isEditMode;
+        _message = null;
+    }
+
+    private void CancelEdit()
+    {
+        if (_originalRole != null && _role != null)
+        {
+            _role = CloneRole(_originalRole);
+        }
+        _isEditMode = false;
+        _message = null;
+    }
+
+    private async Task SaveChanges()
+    {
+        _message = null;
+        _isSaving = true;
+
+        try
+        {
+            // Save role basic info
+            var roleResponse = await ApiService.PostAsync($"roles/{RoleId}", _role);
+            
+            // Save permissions
+            var permissionsResponse = await ApiService.PostAsync($"roles/{RoleId}/permissions", _grantedPermissions.ToList());
+            
+            if (roleResponse.IsSuccessStatusCode && permissionsResponse.IsSuccessStatusCode)
+            {
+                _message = "הנתונים נשמרו בהצלחה";
+                _messageType = "success";
+                _isEditMode = false;
+                _originalRole = CloneRole(_role!);
+            }
+            else
+            {
+                _message = "שגיאה בשמירת נתונים";
+                _messageType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            _message = $"שגיאה: {ex.Message}";
+            _messageType = "error";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadRoleDetails();
+    }
+
+    private void NavigateToRoles()
+    {
+        Navigation.NavigateTo("/roles");
+    }
+
+    private RoleDto CloneRole(RoleDto source)
+    {
+        return new RoleDto
+        {
+            Id = source.Id,
+            RoleName = source.RoleName,
+            RoleCode = source.RoleCode,
+            Description = source.Description,
+            IsActive = source.IsActive
+        };
+    }
+
+    private class RoleDto
+    {
+        public int Id { get; set; }
+        public string RoleName { get; set; } = string.Empty;
+        public string? RoleCode { get; set; }
+        public string? Description { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    private class PermissionDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+    }
+
+    private class UserDto
+    {
+        public int Id { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+    }
+}
+
+<style>
+    .section-description {
+        color: var(--text-secondary, #6c757d);
+        margin-bottom: 20px;
+    }
+
+    .permissions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 15px;
+    }
+
+    .permission-item {
+        padding: 15px;
+        background: white;
+        border: 1px solid var(--border-color, #dee2e6);
+        border-radius: 6px;
+    }
+
+    .permission-item label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .permission-desc {
+        display: block;
+        margin-top: 5px;
+        margin-right: 30px;
+        color: var(--text-secondary, #6c757d);
+        font-size: 0.9rem;
+    }
+
+    .users-list {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .user-item {
+        padding: 10px 15px;
+        background: var(--card-background, #f8f9fa);
+        border-radius: 6px;
+        border: 1px solid var(--border-color, #dee2e6);
+    }
+
+    .user-name {
+        font-weight: 600;
+        margin-left: 10px;
+    }
+
+    .user-username {
+        color: var(--text-secondary, #6c757d);
+    }
+
+    .info-message {
+        padding: 15px;
+        background: #e3f2fd;
+        border: 1px solid #2196f3;
+        border-radius: 6px;
+        color: #1976d2;
+    }
+</style>

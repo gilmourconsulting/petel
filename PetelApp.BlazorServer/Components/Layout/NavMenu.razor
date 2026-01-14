@@ -1,0 +1,92 @@
+﻿@inject ApiService ApiService
+@inject NavigationManager Navigation
+@implements IDisposable
+
+<nav class="side-menu">
+    <div class="menu-items">
+        @if (_menuItems == null)
+        {
+            <div class="loading-menu">טוען תפריט...</div>
+        }
+        else if (_menuItems.Count == 0)
+        {
+            <div class="error-menu">לא נמצאו פריטי תפריט</div>
+        }
+        else
+        {
+            @foreach (var item in _menuItems)
+            {
+                <a href="@GetMenuPath(item.Reference)" 
+                   class="menu-item @(IsActive(item) ? "active" : "")"
+                   @onclick="() => HandleMenuClick(item)"
+                   @onclick:preventDefault="true">
+                    <span class="menu-item-text">@item.Text</span>
+                </a>
+            }
+        }
+    </div>
+</nav>
+
+@code {
+    private List<MenuItemDto>? _menuItems;
+    private string _currentPath = "/";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMenuItems();
+        _currentPath = new Uri(Navigation.Uri).AbsolutePath;
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    private async Task LoadMenuItems()
+    {
+        try
+        {
+            _menuItems = await ApiService.GetAsync<List<MenuItemDto>>("menu");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading menu: {ex.Message}");
+            _menuItems = new List<MenuItemDto>();
+        }
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _currentPath = new Uri(e.Location).AbsolutePath;
+        StateHasChanged();
+    }
+
+    private string GetMenuPath(string reference)
+    {
+        // Convert #reference to /reference
+        return reference.StartsWith("#") ? reference.Substring(1) : reference;
+    }
+
+    private bool IsActive(MenuItemDto item)
+    {
+        var path = GetMenuPath(item.Reference);
+        return _currentPath.Equals($"/{path}", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void HandleMenuClick(MenuItemDto item)
+    {
+        var path = GetMenuPath(item.Reference);
+        Navigation.NavigateTo($"/{path}");
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+
+    private class MenuItemDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Reference { get; set; } = string.Empty;
+        public string Text { get; set; } = string.Empty;
+        public int SortOrder { get; set; }
+    }
+}
+
