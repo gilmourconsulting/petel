@@ -122,11 +122,27 @@ private string GetAlertTypeName(int alertTypeId)
 - ❌ `Level` as string - API returns `alertLevel` as `int`
 - ❌ Using `Title` property - API returns `alertType` field
 
-## Full-Width Page Layout Pattern
+## Page Layout Patterns
 
-### Problem: Pages Using MainLayout Get Constrained Width
+### Standard Pages with MainLayout
 
-MainLayout includes side menu and layout containers which constrain page width. For pages needing full-width layouts (like dashboard), inline styling is required.
+**REQUIRED**: All pages must explicitly specify the layout directive at the top:
+
+```razor
+@page "/pagename"
+@layout MainLayout
+@using PetelApp.BlazorServer.DTOs
+@using PetelApp.BlazorServer.Services
+```
+
+**Why This Matters**:
+- Ensures consistent side menu and navigation across all pages
+- Without `@layout MainLayout`, pages will not have proper layout structure
+- Must be placed at the very top of the .razor file
+
+### Full-Width Pages Bypassing MainLayout
+
+For pages needing full-width layouts (like certain dashboards), use custom layout:
 
 **Full-Width Dashboard Pattern**:
 ```razor
@@ -355,6 +371,88 @@ protected override async Task OnAfterRenderAsync(bool firstRender)
 - 200ms ensures DOM is fully updated
 
 ## Component Patterns
+
+### Data Table with Actions Column
+
+**Actions column MUST always be the first column with no header text**:
+
+```razor
+<table class="data-table">
+    <thead>
+        <tr>
+            <!-- ✅ Actions column first with empty header -->
+            <th></th>
+            <th @onclick="() => SortTable('Name')" style="cursor: pointer;">
+                שם @GetSortArrow('Name')
+            </th>
+            <th @onclick="() => SortTable('Status')" style="cursor: pointer;">
+                סטטוס @GetSortArrow('Status')
+            </th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var item in _items)
+        {
+            <tr>
+                <!-- ✅ Action buttons first -->
+                <td>
+                    <button class="btn-icon" @onclick="() => ViewItem(item.Id)" title="צפה">
+                        <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                    </button>
+                    <button class="btn-icon" @onclick="() => EditItem(item.Id)" title="ערוך">
+                        <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
+                </td>
+                <td>@item.Name</td>
+                <td>@item.Status</td>
+            </tr>
+        }
+    </tbody>
+</table>
+```
+
+**Key Patterns**:
+- ✅ Actions column is ALWAYS the first column
+- ✅ Header cell is empty (`<th></th>`) - no text label
+- ✅ Action buttons use `btn-icon` class for consistent styling
+- ✅ Icons are 15px PNG files with `action-icon-natural` class
+- ✅ Each button has a descriptive `title` attribute for tooltips
+- ❌ Do NOT place actions column at the end
+- ❌ Do NOT add a header label like "פעולות" or "Actions"
+
+### Summary Cards Pattern
+
+**Horizontal summary cards for metrics/statistics** (e.g., Students page):
+
+```razor
+<!-- Summary Cards -->
+<div class="dashboard-cards-wrapper" style="margin-bottom: 20px;">
+    <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+        <!-- Total Count Card -->
+        <div class="summary-card" style="min-width: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+            <img src="/images/view_icon.png" alt="" style="width: 40px; height: 40px; object-fit: contain; opacity: 0.8;">
+            <div style="flex: 1; text-align: right;">
+                <div style="font-size: 2em; font-weight: 700; color: #2c3e50; line-height: 1; margin-bottom: 5px;">@_summary.TotalCount</div>
+                <div style="font-size: 0.9em; color: #666; font-weight: 500;">סה"כ פריטים</div>
+            </div>
+        </div>
+        
+        <!-- Additional cards... -->
+    </div>
+</div>
+```
+
+**CRITICAL**: 
+- ❌ **DO NOT** use `internal-cards-container` for horizontal summary cards - it uses `flex-direction: column` (vertical)
+- ✅ Use inline `style="display: flex; gap: 20px; flex-wrap: wrap;"` for horizontal layout
+- ✅ Each card uses inline styles for self-contained, portable styling
+- ✅ Icons should be 40x40px with `opacity: 0.8`
+- ✅ Summary values use `font-size: 2em; font-weight: 700`
+
+**When to Use**:
+- Top-of-page metrics summary (total students, active users, etc.)
+- Statistics overview (4-6 horizontal cards)
+- Pages with tabular data below the summary
 
 ### Autocomplete Dropdown Pattern
 

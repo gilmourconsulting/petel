@@ -1,0 +1,352 @@
+@page "/students"
+@layout MainLayout  
+@using PetelApp.BlazorServer.DTOs
+@using PetelApp.BlazorServer.Services
+@inject ApiService ApiService
+@inject SessionStateService SessionStateService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <button class="context-btn" @onclick="RefreshData">רענן נתונים</button>
+        <button class="context-btn" @onclick="ShowUploadDialog">העלה קובץ תלמידים</button>
+        <button class="context-btn" @onclick="ShowBulkPricingDialog">תמחור מרוכז</button>
+        <button class="context-btn" @onclick="ShowGenerateDocumentsDialog">הפקת מסמכים</button>
+        <div class="context-spacer"></div>
+        <button class="context-navigation-btn" @onclick="NavigateToSchoolDashboard" title="חזרה למסך בית הספר">
+            חזרה למסך בית הספר
+        </button>
+    </div>
+
+    <!-- Students content -->
+    <div class="students-content">
+        <!-- School Title Section -->
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">@_pageTitle</div>
+                <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
+                <div class="left-spacer"></div>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="dashboard-cards-wrapper" style="margin-bottom: 20px;">
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <!-- Total Students Card -->
+                <div class="summary-card" style="min-width: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                    <div style="font-size: 40px; opacity: 0.8;">👥</div>
+                    <div style="flex: 1; text-align: right;">
+                        <div style="font-size: 2em; font-weight: 700; color: #2c3e50; line-height: 1; margin-bottom: 5px;">@_summary.TotalStudents</div>
+                        <div style="font-size: 0.9em; color: #666; font-weight: 500;">סה"כ תלמידים</div>
+                    </div>
+                </div>
+
+                <!-- Active Students Card -->
+                <div class="summary-card" style="min-width: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                    <div style="font-size: 40px; opacity: 0.8;">⚙</div>
+                    <div style="flex: 1; text-align: right;">
+                        <div style="font-size: 2em; font-weight: 700; color: #2c3e50; line-height: 1; margin-bottom: 5px;">@_summary.ActiveStudents</div>
+                        <div style="font-size: 0.9em; color: #666; font-weight: 500;">תלמידים פעילים</div>
+                    </div>
+                </div>
+
+                <!-- Finished Students Card -->
+                <div class="summary-card" style="min-width: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                    <div style="font-size: 40px; opacity: 0.8;">✅</div>
+                    <div style="flex: 1; text-align: right;">
+                        <div style="font-size: 2em; font-weight: 700; color: #2c3e50; line-height: 1; margin-bottom: 5px;">@_summary.FinishedStudents</div>
+                        <div style="font-size: 0.9em; color: #666; font-weight: 500;">תלמידים שסיימו</div>
+                    </div>
+                </div>
+
+                <!-- Councils Card -->
+                <div class="summary-card" style="min-width: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                    <div style="font-size: 40px; opacity: 0.8;">📚</div>
+                    <div style="flex: 1; text-align: right;">
+                        <div style="font-size: 2em; font-weight: 700; color: #2c3e50; line-height: 1; margin-bottom: 5px;">@_summary.CouncilCount</div>
+                        <div style="font-size: 0.9em; color: #666; font-weight: 500;">רשויות</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Students Table Section -->
+        <div class="content-card">
+            <div class="detail-card expanded">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">רשימת תלמידים</h2>
+                </div>
+                <div class="detail-card-content" style="min-height: 400px; max-height: none;">
+                    @if (_isLoading)
+                    {
+                        <div class="loading-spinner">טוען נתונים...</div>
+                    }
+                    else if (_students == null || _students.Count == 0)
+                    {
+                        <div class="no-data-message">אין תלמידים להצגה</div>
+                    }
+                    else
+                    {
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.IdNumber))" style="cursor: pointer;">
+                                            ת.ז @GetSortArrow(nameof(StudentDto.IdNumber))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.FirstName))" style="cursor: pointer;">
+                                            שם פרטי @GetSortArrow(nameof(StudentDto.FirstName))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.LastName))" style="cursor: pointer;">
+                                            שם משפחה @GetSortArrow(nameof(StudentDto.LastName))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.Gender))" style="cursor: pointer;">
+                                            מגדר @GetSortArrow(nameof(StudentDto.Gender))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.ClassName))" style="cursor: pointer;">
+                                            כיתה @GetSortArrow(nameof(StudentDto.ClassName))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.Status))" style="cursor: pointer;">
+                                            סטטוס @GetSortArrow(nameof(StudentDto.Status))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.City))" style="cursor: pointer;">
+                                            עיר @GetSortArrow(nameof(StudentDto.City))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.CouncilName))" style="cursor: pointer;">
+                                            רשות שולחת @GetSortArrow(nameof(StudentDto.CouncilName))
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var student in _students)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <button class="btn-icon" @onclick="() => ViewStudent(student.Id)" title="צפה בפרטי תלמיד">
+                                                    <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                                </button>
+                                                <button class="btn-icon" @onclick="() => EditStudent(student.Id)" title="ערוך תלמיד">
+                                                    <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                                </button>
+                                            </td>
+                                            <td>@student.IdNumber</td>
+                                            <td>@student.FirstName</td>
+                                            <td>@student.LastName</td>
+                                            <td>@GetGenderDisplay(student.Gender)</td>
+                                            <td>@student.ClassName</td>
+                                            <td>@student.Status</td>
+                                            <td>@student.City</td>
+                                            <td>@student.CouncilName</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<StudentDto> _students = new();
+    private StudentSummaryDto _summary = new();
+    private bool _isLoading = true;
+    private string _pageTitle = "תלמידים";
+    private string _yearDisplay = string.Empty;
+
+    private string _sortColumn = nameof(StudentDto.LastName);
+    private bool _sortAscending = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            _isLoading = true;
+
+            // Get school year from session
+            var schoolYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                $"session/property/SelectedSchoolYearId");
+            
+            if (schoolYearIdResponse == null || !schoolYearIdResponse.TryGetValue("value", out var schoolYearIdStr))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "לא נבחרה שנת לימודים");
+                return;
+            }
+
+            var schoolYearId = int.Parse(schoolYearIdStr);
+
+            // Get school name for title
+            var schoolNameResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                $"session/property/SelectedSchoolName");
+            
+            if (schoolNameResponse != null && schoolNameResponse.TryGetValue("value", out var schoolName))
+            {
+                _pageTitle = $"תלמידים - {schoolName}";
+            }
+
+            // Get year display
+            var yearValueResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                $"session/property/SelectedYearValue");
+            
+            if (yearValueResponse != null && yearValueResponse.TryGetValue("value", out var yearValue))
+            {
+                _yearDisplay = $"שנת לימודים: {yearValue}";
+            }
+
+            // Load students data (API returns wrapped response)
+            var studentsResponse = await ApiService.GetAsync<ApiResponse<List<StudentDto>>>(
+                $"students?schoolYearId={schoolYearId}");
+            
+            if (studentsResponse?.Success == true && studentsResponse.Data != null)
+            {
+                _students = studentsResponse.Data;
+            }
+            else
+            {
+                _students = new List<StudentDto>();
+            }
+
+            // Calculate summary from loaded students
+            _summary = new StudentSummaryDto
+            {
+                TotalStudents = _students.Count,
+                ActiveStudents = _students.Count(s => s.Status == "פעיל" || string.IsNullOrEmpty(s.Status)),
+                FinishedStudents = _students.Count(s => s.Status == "הסתיים"),
+                CouncilCount = _students.Where(s => !string.IsNullOrEmpty(s.CouncilName)).Select(s => s.CouncilName).Distinct().Count()
+            };
+
+            // Apply current sort
+            ApplySort();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading students: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינת נתונים: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void SortTable(string columnName)
+    {
+        if (_sortColumn == columnName)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = columnName;
+            _sortAscending = true;
+        }
+
+        ApplySort();
+    }
+
+    private void ApplySort()
+    {
+        if (_students == null || _students.Count == 0) return;
+
+        _students = _sortColumn switch
+        {
+            nameof(StudentDto.IdNumber) => _sortAscending
+                ? _students.OrderBy(s => s.IdNumber).ToList()
+                : _students.OrderByDescending(s => s.IdNumber).ToList(),
+            nameof(StudentDto.FirstName) => _sortAscending
+                ? _students.OrderBy(s => s.FirstName).ToList()
+                : _students.OrderByDescending(s => s.FirstName).ToList(),
+            nameof(StudentDto.LastName) => _sortAscending
+                ? _students.OrderBy(s => s.LastName).ToList()
+                : _students.OrderByDescending(s => s.LastName).ToList(),
+            nameof(StudentDto.Gender) => _sortAscending
+                ? _students.OrderBy(s => s.Gender).ToList()
+                : _students.OrderByDescending(s => s.Gender).ToList(),
+            nameof(StudentDto.ClassName) => _sortAscending
+                ? _students.OrderBy(s => s.ClassName).ToList()
+                : _students.OrderByDescending(s => s.ClassName).ToList(),
+            nameof(StudentDto.Status) => _sortAscending
+                ? _students.OrderBy(s => s.Status).ToList()
+                : _students.OrderByDescending(s => s.Status).ToList(),
+            nameof(StudentDto.City) => _sortAscending
+                ? _students.OrderBy(s => s.City).ToList()
+                : _students.OrderByDescending(s => s.City).ToList(),
+            nameof(StudentDto.CouncilName) => _sortAscending
+                ? _students.OrderBy(s => s.CouncilName).ToList()
+                : _students.OrderByDescending(s => s.CouncilName).ToList(),
+            _ => _students
+        };
+    }
+
+    private string GetSortArrow(string columnName)
+    {
+        if (_sortColumn != columnName) return string.Empty;
+        return _sortAscending ? "▲" : "▼";
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadData();
+    }
+
+    private async Task ViewStudent(int studentId)
+    {
+        // Store student ID in session
+        await ApiService.PostAsync<object, object>(
+            "session/property",
+            new { key = "SelectedStudentId", value = studentId.ToString() });
+
+        Navigation.NavigateTo("/student");
+    }
+
+    private async Task EditStudent(int studentId)
+    {
+        // Store student ID in session
+        await ApiService.PostAsync<object, object>(
+            "session/property",
+            new { key = "SelectedStudentId", value = studentId.ToString() });
+
+        // Navigate to student edit page (to be implemented)
+        Navigation.NavigateTo($"/student");
+    }
+
+    private async Task ShowUploadDialog()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "העלאת קובץ תלמידים - בהמשך יתווסף");
+    }
+
+    private async Task ShowBulkPricingDialog()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "תמחור מרוכז - בהמשך יתווסף");
+    }
+
+    private async Task ShowGenerateDocumentsDialog()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "הפקת מסמכים - בהמשך יתווסף");
+    }
+
+    private void NavigateToSchoolDashboard()
+    {
+        Navigation.NavigateTo("/schooldashboard");
+    }
+
+    private string GetGenderDisplay(int? gender)
+    {
+        return gender switch
+        {
+            1 => "זכר",
+            2 => "נקבה",
+            _ => ""
+        };
+    }
+}

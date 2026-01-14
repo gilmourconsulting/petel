@@ -1,94 +1,118 @@
 @page "/schooldashboard"
+@layout MainLayout
+@using PetelApp.BlazorServer.DTOs
 @inject ApiService ApiService
 @inject SessionStateService SessionState
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <div class="main-container">
+    <!-- Context buttons -->
     <div class="context-buttons-section">
-        <button class="context-btn" @onclick="RefreshData">רענן נתונים</button>
-        <button class="context-btn" @onclick="@(() => ShowSchoolYear(_previousYearId, "previous"))">שנה קודמת</button>
-        <button class="context-btn" @onclick="@(() => ShowSchoolYear(_currentYearId, "current"))">שנה נוכחית</button>
-        <button class="context-btn" @onclick="@(() => ShowSchoolYear(_nextYearId, "next"))">שנה הבאה</button>
+        <button class="context-btn" @onclick="NavigateToStudents">תלמידים</button>
+        <button class="context-btn" @onclick="NavigateToSchoolDetails">פרטי בית ספר</button>
+        <button class="context-btn" @onclick="NavigateToSchoolDocuments">מסמכים בית ספריים</button>
         <div class="context-spacer"></div>
-        <button class="context-navigation-btn" @onclick="NavigateToSchoolDetails">פרטי בית ספר</button>
+        @if (_showBackToSchoolList)
+        {
+            <button class="context-navigation-btn" @onclick="NavigateBackToSchoolList" title="לרשימת בתי הספר">
+                לרשימת בתי הספר
+            </button>
+        }
+        <button class="context-navigation-btn" @onclick="NavigateToMainDashboard" title="חזרה למסך הראשי">
+            חזרה למסך הראשי
+        </button>
     </div>
 
-    <div class="content-header">
-        <div class="page-title-container">
-            <div class="page-title">@_schoolName</div>
-            <div class="text-branded">@_yearName</div>
-        </div>
-    </div>
-
+    <!-- Dashboard Content -->
     <div class="dashboard-flex-row">
-        <!-- Summary Cards -->
-        <div class="summary-grid">
-            <div class="summary-card">
-                <div class="summary-icon">👥</div>
-                <div class="summary-info">
-                    <div class="summary-value">@_totalStudents</div>
-                    <div class="summary-label">סה"כ תלמידים</div>
+        <div class="dashboard-cards-wrapper">
+            <!-- School Title Section -->
+            <div class="content-header">
+                <div class="page-title-container">
+                    <div class="page-title">@_schoolTitle</div>
+                    <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
+                    <div class="left-spacer"></div>
                 </div>
             </div>
-            <div class="summary-card">
-                <div class="summary-icon">📚</div>
-                <div class="summary-info">
-                    <div class="summary-value">@_totalClasses</div>
-                    <div class="summary-label">כיתות</div>
+            
+            <!-- Alerts Card -->
+            <div class="dashboard-card" id="alertsCard">
+                <div class="dashboard-card-header">
+                    <div class="dashboard-card-icon">🔔</div>
+                    <div class="dashboard-card-title">התראות</div>
+                    <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
+                         @onclick="() => ShowAddModal(false)" title="הוספת התראה חדשה" style="cursor: pointer;" />
+                </div>
+                <div class="internal-cards-container">
+                    @if (_alertsLoading)
+                    {
+                        <div class="loading-message">טוען התראות...</div>
+                    }
+                    else if (_alerts.Count == 0)
+                    {
+                        <div class="no-data-message">אין התראות להצגה</div>
+                    }
+                    else
+                    {
+                        @foreach (var alert in _alerts)
+                        {
+                            <div class="internal-card">
+                                <div class="internal-card-content">@alert.Description</div>
+                                <div class="internal-card-footer">
+                                    <span class="internal-card-date">@alert.CreatedAt.ToString("dd/MM/yyyy")</span>
+                                </div>
+                            </div>
+                        }
+                    }
                 </div>
             </div>
-            <div class="summary-card">
-                <div class="summary-icon">⏰</div>
-                <div class="summary-info">
-                    <div class="summary-value">@_totalHours</div>
-                    <div class="summary-label">שעות שבועיות</div>
+            
+            <!-- Events Card -->
+            <div class="dashboard-card" id="eventsCard">
+                <div class="dashboard-card-header">
+                    <div class="dashboard-card-icon">🗓</div>
+                    <div class="dashboard-card-title">אירועים</div>
+                    <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
+                         @onclick="() => ShowAddModal(true)" title="הוספת אירוע חדש" style="cursor: pointer;" />
                 </div>
-            </div>
-            <div class="summary-card">
-                <div class="summary-icon">💰</div>
-                <div class="summary-info">
-                    <div class="summary-value">@_totalBudget.ToString("N0")</div>
-                    <div class="summary-label">תקציב</div>
+                <div class="internal-cards-container">
+                    @if (_eventsLoading)
+                    {
+                        <div class="loading-message">טוען אירועים...</div>
+                    }
+                    else if (_events.Count == 0)
+                    {
+                        <div class="no-data-message">אין אירועים להצגה</div>
+                    }
+                    else
+                    {
+                        @foreach (var evt in _events)
+                        {
+                            <div class="internal-card">
+                                <div class="internal-card-content">@evt.Description</div>
+                                <div class="internal-card-footer">
+                                    <span class="internal-card-date">@(evt.EventDate?.ToString("dd/MM/yyyy") ?? evt.CreatedAt.ToString("dd/MM/yyyy"))</span>
+                                </div>
+                            </div>
+                        }
+                    }
                 </div>
-            </div>
-        </div>
-
-        <!-- Quick Actions -->
-        <div class="content-card">
-            <h3>פעולות מהירות</h3>
-            <div class="quick-actions-grid">
-                <button class="action-card" @onclick="@(() => Navigation.NavigateTo("/students"))">
-                    <div class="action-icon">👥</div>
-                    <div class="action-label">תלמידים</div>
-                </button>
-                <button class="action-card" @onclick="@(() => Navigation.NavigateTo("/schooldetails"))">
-                    <div class="action-icon">🏫</div>
-                    <div class="action-label">פרטי בית ספר</div>
-                </button>
-                <button class="action-card" @onclick="@(() => Navigation.NavigateTo("/schoolyearconfig"))">
-                    <div class="action-icon">⚙</div>
-                    <div class="action-label">הגדרות שנה</div>
-                </button>
-                <button class="action-card" @onclick="ShowReportsMenu">
-                    <div class="action-icon">📊</div>
-                    <div class="action-label">דוחות</div>
-                </button>
             </div>
         </div>
     </div>
 </div>
 
 @code {
-    private string _schoolName = "";
-    private string _yearName = "";
-    private int _totalStudents = 0;
-    private int _totalClasses = 0;
-    private decimal _totalHours = 0;
-    private decimal _totalBudget = 0;
-
-    private int _previousYearId = 0;
-    private int _currentYearId = 0;
-    private int _nextYearId = 0;
+    private List<AlertDto> _alerts = new();
+    private List<AlertDto> _events = new();
+    private bool _alertsLoading = true;
+    private bool _eventsLoading = true;
+    private bool _showBackToSchoolList = false;
+    
+    private string _schoolTitle = "לוח בקרה של בית ספר";
+    private string _yearDisplay = "";
+    private string _schoolId = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -99,54 +123,126 @@
             return;
         }
 
-        _schoolName = session.EntityName;
-        await LoadSchoolYears();
-        await LoadDashboardData();
+        await ConfigureContextButtons(session);
+        await LoadSchoolTitle();
+        await ResolveSelectedSchoolYearId();
+        await LoadData();
     }
 
-    private async Task LoadSchoolYears()
+    private async Task ConfigureContextButtons(SessionData session)
     {
-        try
-        {
-            var years = await ApiService.GetAsync<List<SchoolYearDto>>("schoolyears");
-            if (years != null && years.Count > 0)
-            {
-                var currentYear = years.FirstOrDefault(y => y.IsCurrent);
-                if (currentYear != null)
-                {
-                    _currentYearId = currentYear.Id;
-                    _yearName = currentYear.YearName;
-                    
-                    var currentIndex = years.IndexOf(currentYear);
-                    if (currentIndex > 0)
-                        _previousYearId = years[currentIndex - 1].Id;
-                    if (currentIndex < years.Count - 1)
-                        _nextYearId = years[currentIndex + 1].Id;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading school years: {ex.Message}");
-        }
+        var entityTypeId = int.Parse(session.EntityTypeId);
+        
+        // Show "Back to School List" button for multi-school entities only
+        _showBackToSchoolList = entityTypeId != 1 && entityTypeId != 4;
+        
+        Console.WriteLine($"📋 Entity type: {entityTypeId}, Show back button: {_showBackToSchoolList}");
     }
 
-    private async Task LoadDashboardData()
+    private async Task LoadSchoolTitle()
     {
         try
         {
             var session = await SessionState.GetSessionAsync();
-            if (session != null)
+            
+            // Get year value for display
+            var yearValueResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearValue");
+            _yearDisplay = yearValueResponse?["value"] ?? "";
+
+            // Get school name from session
+            var schoolNameResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolName");
+            var schoolName = schoolNameResponse?["value"] ?? session?.EntityName ?? "";
+
+            _schoolTitle = !string.IsNullOrEmpty(_yearDisplay) 
+                ? $"{schoolName} - {_yearDisplay}" 
+                : schoolName;
+
+            Console.WriteLine($"🏫 School title: {_schoolTitle}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading school title: {ex.Message}");
+            _schoolTitle = "לוח בקרה של בית ספר";
+        }
+    }
+
+    private async Task ResolveSelectedSchoolYearId()
+    {
+        try
+        {
+            var selectedYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearId");
+            var selectedYearId = selectedYearIdResponse?["value"];
+            
+            var selectedSchoolIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolId");
+            var selectedSchoolId = selectedSchoolIdResponse?["value"];
+
+            Console.WriteLine($"🔎 Resolving SelectedSchoolYearId: yearId={selectedYearId}, schoolId={selectedSchoolId}");
+
+            if (string.IsNullOrEmpty(selectedYearId) || string.IsNullOrEmpty(selectedSchoolId))
             {
-                var summary = await ApiService.GetAsync<SchoolSummaryDto>($"school/{session.EntityId}/summary?yearId={_currentYearId}");
-                if (summary != null)
+                Console.WriteLine("⚠ Missing SelectedYearId or SelectedSchoolId; skipping school_year lookup");
+                return;
+            }
+
+            var schoolYear = await ApiService.GetAsync<SchoolYearLookupDto>(
+                $"schoolYears/by-year-and-school?yearId={selectedYearId}&schoolId={selectedSchoolId}");
+
+            if (schoolYear?.Id > 0)
+            {
+                await ApiService.PostAsync<object, object>("session/property", new
                 {
-                    _totalStudents = summary.TotalStudents;
-                    _totalClasses = summary.TotalClasses;
-                    _totalHours = summary.TotalHours;
-                    _totalBudget = summary.TotalBudget;
+                    key = "SelectedSchoolYearId",
+                    value = schoolYear.Id.ToString()
+                });
+                
+                Console.WriteLine($"✅ Stored SelectedSchoolYearId in session: {schoolYear.Id}");
+            }
+            else
+            {
+                Console.WriteLine("⚠ school_year not found for given yearId/schoolId");
+                
+                await ApiService.PostAsync<object, object>("session/property", new
+                {
+                    key = "SelectedSchoolYearId",
+                    value = ""
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error resolving SelectedSchoolYearId: {ex.Message}");
+        }
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var session = await SessionState.GetSessionAsync();
+            var entityTypeId = int.Parse(session.EntityTypeId);
+
+            // Determine which school ID to use
+            if (entityTypeId == 5)
+            {
+                // Multi-school network - use SelectedSchoolId
+                var selectedSchoolIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolId");
+                _schoolId = selectedSchoolIdResponse?["value"] ?? "";
+                
+                if (string.IsNullOrEmpty(_schoolId))
+                {
+                    Console.WriteLine("⚠️ No SelectedSchoolId in session");
+                    return;
                 }
             }
+            else
+            {
+                // Single school - use entity ID
+                _schoolId = session.EntityId;
+            }
+
+            Console.WriteLine($"🏫 Loading alerts for school: {_schoolId}");
+
+            await Task.WhenAll(LoadAlerts(), LoadEvents());
         }
         catch (Exception ex)
         {
@@ -154,15 +250,54 @@
         }
     }
 
-    private async Task RefreshData()
+    private async Task LoadAlerts()
     {
-        await LoadDashboardData();
+        _alertsLoading = true;
+        try
+        {
+            if (!string.IsNullOrEmpty(_schoolId))
+            {
+                _alerts = await ApiService.GetAsync<List<AlertDto>>($"alerts/entity/{_schoolId}?isEvent=false") ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading alerts: {ex.Message}");
+        }
+        finally
+        {
+            _alertsLoading = false;
+        }
     }
 
-    private void ShowSchoolYear(int yearId, string period)
+    private async Task LoadEvents()
     {
-        _currentYearId = yearId;
-        InvokeAsync(async () => await LoadDashboardData());
+        _eventsLoading = true;
+        try
+        {
+            if (!string.IsNullOrEmpty(_schoolId))
+            {
+                _events = await ApiService.GetAsync<List<AlertDto>>($"alerts/entity/{_schoolId}?isEvent=true") ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading events: {ex.Message}");
+        }
+        finally
+        {
+            _eventsLoading = false;
+        }
+    }
+
+    private async Task ShowAddModal(bool isEvent)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", isEvent ? "הוספת אירוע - בפיתוח" : "הוספת התראה - בפיתוח");
+    }
+
+    private void NavigateToStudents()
+    {
+        Navigation.NavigateTo("/students");
     }
 
     private void NavigateToSchoolDetails()
@@ -170,24 +305,18 @@
         Navigation.NavigateTo("/schooldetails");
     }
 
-    private void ShowReportsMenu()
+    private void NavigateToSchoolDocuments()
     {
-        // Implement reports menu
-        Console.WriteLine("Show reports menu");
+        Navigation.NavigateTo("/schooldocuments");
     }
 
-    private class SchoolYearDto
+    private void NavigateBackToSchoolList()
     {
-        public int Id { get; set; }
-        public string YearName { get; set; } = string.Empty;
-        public bool IsCurrent { get; set; }
+        Navigation.NavigateTo("/schoollist");
     }
 
-    private class SchoolSummaryDto
+    private void NavigateToMainDashboard()
     {
-        public int TotalStudents { get; set; }
-        public int TotalClasses { get; set; }
-        public decimal TotalHours { get; set; }
-        public decimal TotalBudget { get; set; }
+        Navigation.NavigateTo("/maindashboard");
     }
 }
