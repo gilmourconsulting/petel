@@ -1,0 +1,58 @@
+@using PetelApp.BlazorServer.DTOs
+
+@if (Tracks != null && Tracks.Any())
+{
+    <div class="table-container" style="overflow-x: auto; border: 1px solid #dee2e6; border-radius: 8px;">
+        <table class="data-table" style="width: 100%; border-collapse: collapse; direction: rtl;">
+            <thead>
+                <tr style="background-color: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                    <th style="padding: 12px; text-align: right; font-weight: 600;">מגמה</th>
+                    <th style="padding: 12px; text-align: right; font-weight: 600;">רמה</th>
+                    <th style="padding: 12px; text-align: right; font-weight: 600;">כיתה</th>
+                    <th style="padding: 12px; text-align: center; font-weight: 600;">שעות שבועיות</th>
+                    @if (IsEditMode)
+                    {
+                        <th style="padding: 12px; text-align: center; font-weight: 600; width: 120px;">פעולות</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var track in Tracks)
+                {
+                    <tr style="border-bottom: 1px solid #dee2e6;">
+                        <td style="padding: 12px;">@track.Track</td>
+                        <td style="padding: 12px;">@track.TrackLevel</td>
+                        <td style="padding: 12px;">@track.ClassName</td>
+                        <td style="padding: 12px; text-align: center;">@track.WeeklyHours.ToString("N1")</td>
+                        @if (IsEditMode)
+                        {
+                            <td style="padding: 12px; text-align: center;">
+                                <div style="display: flex; gap: 8px; justify-content: center;">
+                                    <button class="btn-icon" @onclick="() => OnEdit.InvokeAsync(track)" title="עריכה">
+                                        <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural" style="width: 15px; height: 15px;">
+                                    </button>
+                                    <button class="btn-icon" @onclick="() => OnDelete.InvokeAsync(track.Id)" title="מחיקה">
+                                        <img src="/images/delete_icon.png" alt="מחיקה" class="action-icon-natural" style="width: 15px; height: 15px;">
+                                    </button>
+                                </div>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <div class="empty-state" style="padding: 40px; text-align: center; color: #6c757d;">
+        <p>לא נמצאו מגמות</p>
+    </div>
+}
+
+@code {
+    [Parameter] public List<SchoolTrackDto> Tracks { get; set; } = new();
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public EventCallback<SchoolTrackDto> OnEdit { get; set; }
+    [Parameter] public EventCallback<int> OnDelete { get; set; }
+}

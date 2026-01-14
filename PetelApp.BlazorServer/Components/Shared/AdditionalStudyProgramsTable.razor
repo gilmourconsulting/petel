@@ -1,0 +1,90 @@
+@using PetelApp.BlazorServer.DTOs
+
+@if (Programs != null && Programs.Any())
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>כיתה</th>
+                    <th>שם תכנית</th>
+                    <th>שעות שבועיות</th>
+                    <th>מפגשים</th>
+                    <th>תלמידים</th>
+                    <th>עלות</th>
+                    <th>סכום מאושר</th>
+                    <th>גרסה</th>
+                    @if (IsEditMode)
+                    {
+                        <th>פעולות</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var program in Programs)
+                {
+                    <tr>
+                        <td>@program.ClassName</td>
+                        <td>@program.Name</td>
+                        <td>@program.WeeklyHours.ToString("N2")</td>
+                        <td>@program.Sessions</td>
+                        <td>@program.NumberOfStudents</td>
+                        <td>@(program.Cost?.ToString("C2") ?? "-")</td>
+                        <td>@(program.ApprovedAmount?.ToString("C2") ?? "-")</td>
+                        <td>
+                            @if (program.MasterId.HasValue)
+                            {
+                                <button class="btn-link" @onclick="() => OnViewHistory.InvokeAsync(program.MasterId.Value)" title="היסטוריית גרסאות">
+                                    v@program.Version
+                                </button>
+                            }
+                            else
+                            {
+                                <span>v@program.Version</span>
+                            }
+                        </td>
+                        @if (IsEditMode)
+                        {
+                            <td>
+                                <button class="btn-icon" @onclick="() => OnEdit.InvokeAsync(program)" title="עריכה">
+                                    <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                </button>
+                                <button class="btn-icon" @onclick="() => OnDelete.InvokeAsync(program.Id)" title="מחיקה">
+                                    <img src="/images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                                </button>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <div class="empty-state">לא נמצאו תכניות תל״ן</div>
+}
+
+@code {
+    [Parameter] public List<AdditionalStudyProgramDto> Programs { get; set; } = new();
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public EventCallback<AdditionalStudyProgramDto> OnEdit { get; set; }
+    [Parameter] public EventCallback<int> OnDelete { get; set; }
+    [Parameter] public EventCallback<int> OnViewHistory { get; set; }
+}
+
+<style>
+    .btn-link {
+        background: none;
+        border: none;
+        color: #007bff;
+        text-decoration: underline;
+        cursor: pointer;
+        padding: 0;
+        font: inherit;
+    }
+
+    .btn-link:hover {
+        color: #0056b3;
+    }
+</style>

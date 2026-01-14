@@ -1,0 +1,216 @@
+@using PetelApp.BlazorServer.DTOs
+
+@if (SchoolData != null)
+{
+    <div class="detail-fields-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 30px; direction: rtl;">
+        <!-- Basic Information Section -->
+        <div class="detail-section">
+            <h4 class="detail-section-title" style="font-size: 16px; font-weight: 600; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #dee2e6;">פרטים בסיסיים</h4>
+            <div>
+                <p class="detail-field" style="margin-bottom: 12px;">
+                    <span class="detail-field-label" style="display: inline-block; min-width: 120px; font-weight: 600;">סמל בית ספר:</span>
+                    @if (IsEditMode)
+                    {
+                        <input type="text" class="form-input" @bind="SchoolData.SchoolSymbol" maxlength="8" />
+                    }
+                    else
+                    {
+                        <span class="detail-field-value">@(SchoolData.SchoolSymbol ?? "לא זמין")</span>
+                    }
+                </p>
+                
+                <p class="detail-field" style="margin-bottom: 12px;">
+                    <span class="detail-field-label" style="display: inline-block; min-width: 120px; font-weight: 600;">אפיון:</span>
+                    @if (IsEditMode)
+                    {
+                        <select class="form-input" @bind="SchoolData.CharacterizationId">
+                            <option value="">בחר אפיון...</option>
+                        </select>
+                    }
+                    else
+                    {
+                        <span class="detail-field-value">@(SchoolData.CharacterizationName ?? "לא זמין")</span>
+                    }
+                </p>
+                
+                <p class="detail-field" style="margin-bottom: 12px;">
+                    <span class="detail-field-label" style="display: inline-block; min-width: 120px; font-weight: 600;">שלב חינוך:</span>
+                    @if (IsEditMode)
+                    {
+                        <select class="form-input" @bind="SchoolData.EducationStage">
+                            <option value="">בחר שלב...</option>
+                            <option value="תיכון">תיכון</option>
+                            <option value="יסודי">יסודי</option>
+                            <option value="יסודי ותיכון">יסודי ותיכון</option>
+                        </select>
+                    }
+                    else
+                    {
+                        <span class="detail-field-value">@(SchoolData.EducationStage ?? "לא זמין")</span>
+                    }
+                </p>
+                
+                <p class="detail-field" style="margin-bottom: 12px;">
+                    <span class="detail-field-label" style="display: inline-block; min-width: 120px; font-weight: 600;">רשות:</span>
+                    @if (IsEditMode)
+                    {
+                        <select class="form-input" @bind="SchoolData.CouncilId">
+                            <option value="">בחר רשות...</option>
+                        </select>
+                    }
+                    else
+                    {
+                        <span class="detail-field-value">@(SchoolData.CouncilName ?? "לא זמין")</span>
+                    }
+                </p>
+            </div>
+        </div>
+        
+        <!-- Address & Contact Section -->
+        <div class="detail-section">
+            <h4 class="detail-section-title" style="font-size: 16px; font-weight: 600; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #dee2e6;">כתובת ויצירת קשר</h4>
+            <div>
+                <p class="detail-field" style="margin-bottom: 12px;">
+                    <span class="detail-field-label" style="display: inline-block; min-width: 120px; font-weight: 600;">כתובת:</span>
+                    <span class="detail-field-value">
+                        @if (!string.IsNullOrEmpty(SchoolData.Street) || !string.IsNullOrEmpty(SchoolData.City))
+                        {
+                            @($"{SchoolData.Street} {SchoolData.HouseNumber}, {SchoolData.City}")
+                        }
+                        else
+                        {
+                            @("לא זמין")
+                        }
+                    </span>
+                </p>
+                
+                <p class="detail-field" style="margin-bottom: 12px;">
+                    <span class="detail-field-label" style="display: inline-block; min-width: 120px; font-weight: 600;">טלפון:</span>
+                    @if (IsEditMode)
+                    {
+                        <input type="tel" class="form-input" @bind="SchoolData.Phone" placeholder="02-1234567" />
+                    }
+                    else
+                    {
+                        <span class="detail-field-value">@(SchoolData.Phone ?? "לא זמין")</span>
+                    }
+                </p>
+                
+                <p class="detail-field" style="margin-bottom: 12px;">
+                    <span class="detail-field-label" style="display: inline-block; min-width: 120px; font-weight: 600;">דוא"ל:</span>
+                    @if (IsEditMode)
+                    {
+                        <input type="email" class="form-input" @bind="SchoolData.Email" placeholder="school@example.com" />
+                    }
+                    else
+                    {
+                        <span class="detail-field-value">@(SchoolData.Email ?? "לא זמין")</span>
+                    }
+                </p>
+            </div>
+        </div>
+        
+        <!-- Contact People Section - Full Width -->
+        <div class="detail-section" style="grid-column: span 2;">
+            <h4 class="detail-section-title" style="font-size: 16px; font-weight: 600; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #dee2e6;">אנשי קשר</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+                <p class="detail-field">
+                    <span class="detail-field-label" style="display: block; font-weight: 600; margin-bottom: 5px;">מנהל/ת:</span>
+                    <span class="detail-field-value">@(SchoolData.PrincipalName ?? "לא זמין")</span>
+                </p>
+                <p class="detail-field">
+                    <span class="detail-field-label" style="display: block; font-weight: 600; margin-bottom: 5px;">מפקח/ת:</span>
+                    <span class="detail-field-value">@(SchoolData.InspectorName ?? "לא זמין")</span>
+                </p>
+                <p class="detail-field">
+                    <span class="detail-field-label" style="display: block; font-weight: 600; margin-bottom: 5px;">איש קשר:</span>
+                    <span class="detail-field-value">@(SchoolData.ContactPersonName ?? "לא זמין")</span>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    @if (IsEditMode)
+    {
+        <div class="form-actions" style="margin-top: 20px; padding: 20px; border-top: 2px solid #dee2e6;">
+            <button class="btn-primary" @onclick="SaveChanges">שמור שינויים</button>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public SchoolDetailsDto? SchoolData { get; set; }
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public EventCallback<SchoolDetailsDto> OnSave { get; set; }
+
+    private async Task SaveChanges()
+    {
+        if (SchoolData != null)
+        {
+            await OnSave.InvokeAsync(SchoolData);
+        }
+    }
+}
+
+<style>
+    .detail-fields-grid {
+        direction: rtl;
+    }
+
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .form-group label {
+        font-weight: 600;
+        color: #495057;
+        font-size: 0.95rem;
+    }
+
+    .form-input {
+        padding: 10px;
+        border: 1px solid #dee2e6;
+        border-radius: 6px;
+        font-size: 1rem;
+        direction: rtl;
+        text-align: right;
+    }
+
+    .form-input:disabled {
+        background-color: #e9ecef;
+        cursor: not-allowed;
+    }
+
+    .form-value {
+        padding: 10px;
+        background-color: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        min-height: 38px;
+        display: flex;
+        align-items: center;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-start;
+    }
+
+    .btn-primary {
+        padding: 10px 24px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 600;
+        font-size: 1rem;
+    }
+
+    .btn-primary:hover {
+        background-color: #0056b3;
+    }
+</style>

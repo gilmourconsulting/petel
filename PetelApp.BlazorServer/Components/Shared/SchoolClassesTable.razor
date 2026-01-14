@@ -1,0 +1,57 @@
+@using PetelApp.BlazorServer.DTOs
+@inject IJSRuntime JSRuntime
+
+@if (Classes != null && Classes.Any())
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>שכבת גיל</th>
+                    <th>מספר כיתה</th>
+                    <th>שם כיתה</th>
+                    <th>שעת סיום</th>
+                    <th>מספר תלמידים</th>
+                    @if (IsEditMode)
+                    {
+                        <th>פעולות</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var cls in Classes)
+                {
+                    <tr>
+                        <td>@cls.Level</td>
+                        <td>@cls.ClassNumber</td>
+                        <td>@cls.ClassName</td>
+                        <td>@(cls.EndHour?.ToString("HH:mm") ?? "-")</td>
+                        <td>@cls.StudentCount</td>
+                        @if (IsEditMode)
+                        {
+                            <td>
+                                <button class="btn-icon" @onclick="() => OnEdit.InvokeAsync(cls)" title="עריכה">
+                                    <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                </button>
+                                <button class="btn-icon" @onclick="() => OnDelete.InvokeAsync(cls.Id)" title="מחיקה">
+                                    <img src="/images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                                </button>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <div class="empty-state">לא נמצאו כיתות</div>
+}
+
+@code {
+    [Parameter] public List<SchoolClassDto> Classes { get; set; } = new();
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public EventCallback<SchoolClassDto> OnEdit { get; set; }
+    [Parameter] public EventCallback<int> OnDelete { get; set; }
+}

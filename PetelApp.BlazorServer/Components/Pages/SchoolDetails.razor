@@ -1,436 +1,564 @@
-@page "/schooldetails/{SchoolId:int}"
+@page "/schooldetails"
+@layout MainLayout
+@using PetelApp.BlazorServer.DTOs
+@using PetelApp.BlazorServer.Services
+@using PetelApp.BlazorServer.Components.Shared
 @inject ApiService ApiService
-@inject SessionStateService SessionState
+@inject SessionStateService SessionStateService
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="school-title-section">
+    <div class="page-title-container">
+        <div class="page-title">@_schoolName</div>
+        <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
+        <div class="left-spacer"></div>
+    </div>
+</div>
 
 <div class="main-container">
     <div class="context-buttons-section">
-        <button class="context-btn" @onclick="RefreshData">רענן נתונים</button>
-        <button class="context-btn" @onclick="ToggleEditMode">
-            @(_isEditMode ? "בטל עריכה" : "ערוך פרטים")
-        </button>
-        <button class="context-btn" @onclick="ViewPrograms">תכניות לימוד</button>
         <div class="context-spacer"></div>
-        <button class="context-navigation-btn" @onclick="NavigateBack">חזור</button>
+        <button class="context-navigation-btn" @onclick="NavigateToSchoolDashboard" title="לדף בית הספר">
+            לדף בית הספר
+        </button>
     </div>
 
-    <div class="content-card">
-        @if (_loading)
+    <div class="students-content">
+        @if (_isLoading)
         {
-            <div class="loading-spinner">טוען...</div>
-        }
-        else if (_school == null)
-        {
-            <div class="error-message">לא נמצאו נתונים</div>
+            <div class="loading-spinner">טוען נתוני בית ספר...</div>
         }
         else
         {
-            <!-- Header with school name -->
-            <div class="school-header">
-                <h2>@_school.SchoolName</h2>
-                <span class="school-code">קוד: @_school.SchoolCode</span>
-            </div>
+            <div class="content-card">
+                <!-- School Details Card -->
+                <div class="detail-card @(_schoolDetailsExpanded ? "expanded" : "collapsed")">
+                    <div class="detail-card-header" @onclick="() => _schoolDetailsExpanded = !_schoolDetailsExpanded" style="cursor: pointer;">
+                        <h2 class="detail-card-title">פרטי בית הספר</h2>
+                        <div class="card-header-actions">
+                            <button class="btn-icon" @onclick:stopPropagation="true" @onclick="() => _schoolDetailsEditMode = !_schoolDetailsEditMode" title="עריכת פרטי בית ספר">
+                                <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                            </button>
+                            <button class="collapse-toggle">@(_schoolDetailsExpanded ? "×" : "+")</button>
+                        </div>
+                    </div>
+                    <div class="detail-card-content" style="display: @(_schoolDetailsExpanded ? "block" : "none");">
+                        <SchoolDetailsForm 
+                            SchoolData="@_schoolDetails"
+                            IsEditMode="@_schoolDetailsEditMode"
+                            OnSave="SaveSchoolDetails" />
+                    </div>
+                </div>
 
-            <!-- Basic Information -->
-            <div class="detail-card">
-                <div class="detail-card-header">
-                    <h3>מידע בסיסי</h3>
-                </div>
-                <div class="detail-card-content">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>שם בית ספר *</label>
-                            <input type="text" class="form-input" @bind="_school.SchoolName" disabled="@(!_isEditMode)" />
-                        </div>
-                        <div class="form-group">
-                            <label>קוד מוסד *</label>
-                            <input type="text" class="form-input" @bind="_school.SchoolCode" disabled="@(!_isEditMode)" />
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>מועצה</label>
-                            <input type="text" class="form-input" value="@_school.CouncilName" disabled />
-                        </div>
-                        <div class="form-group">
-                            <label>יישוב</label>
-                            <input type="text" class="form-input" @bind="_school.Settlement" disabled="@(!_isEditMode)" />
+                <!-- School Classes Card -->
+                <div class="detail-card @(_schoolClassesExpanded ? "expanded" : "collapsed")">
+                    <div class="detail-card-header" @onclick="() => _schoolClassesExpanded = !_schoolClassesExpanded" style="cursor: pointer;">
+                        <h2 class="detail-card-title">כיתות</h2>
+                        <div class="card-header-actions">
+                            <button class="btn-icon" @onclick:stopPropagation="true" @onclick="() => _classesEditMode = !_classesEditMode" title="עריכת כיתות">
+                                <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                            </button>
+                            @if (_classesEditMode)
+                            {
+                                <button class="btn-icon" @onclick:stopPropagation="true" @onclick="ShowAddClassModal" title="הוסף כיתה" style="display: @(_schoolClassesExpanded ? "inline-flex" : "none");">
+                                    <img src="/images/Plus icon.png" alt="הוסף" class="action-icon-natural">
+                                </button>
+                            }
+                            <button class="collapse-toggle">@(_schoolClassesExpanded ? "×" : "+")</button>
                         </div>
                     </div>
+                    <div class="detail-card-content" style="display: @(_schoolClassesExpanded ? "block" : "none");">
+                        <SchoolClassesTable 
+                            Classes="@_classes"
+                            IsEditMode="@_classesEditMode"
+                            OnEdit="EditClass"
+                            OnDelete="DeleteClass" />
+                    </div>
                 </div>
-            </div>
 
-            <!-- Contact Information -->
-            <div class="detail-card">
-                <div class="detail-card-header">
-                    <h3>פרטי קשר</h3>
-                </div>
-                <div class="detail-card-content">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>כתובת</label>
-                            <input type="text" class="form-input" @bind="_school.Address" disabled="@(!_isEditMode)" />
-                        </div>
-                        <div class="form-group">
-                            <label>עיר</label>
-                            <input type="text" class="form-input" @bind="_school.City" disabled="@(!_isEditMode)" />
+                <!-- School Attributes Card -->
+                <div class="detail-card @(_schoolAttributesExpanded ? "expanded" : "collapsed")">
+                    <div class="detail-card-header" @onclick="() => _schoolAttributesExpanded = !_schoolAttributesExpanded" style="cursor: pointer;">
+                        <h2 class="detail-card-title">מאפייני בית ספר</h2>
+                        <div class="card-header-actions">
+                            <button class="btn-icon" @onclick:stopPropagation="true" @onclick="() => _attributesEditMode = !_attributesEditMode" title="עריכת מאפיינים">
+                                <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                            </button>
+                            <button class="collapse-toggle">@(_schoolAttributesExpanded ? "×" : "+")</button>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>טלפון</label>
-                            <input type="tel" class="form-input" @bind="_school.Phone" disabled="@(!_isEditMode)" />
-                        </div>
-                        <div class="form-group">
-                            <label>דוא"ל</label>
-                            <input type="email" class="form-input" @bind="_school.Email" disabled="@(!_isEditMode)" />
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>שם מנהל</label>
-                            <input type="text" class="form-input" @bind="_school.PrincipalName" disabled="@(!_isEditMode)" />
-                        </div>
-                        <div class="form-group">
-                            <label>טלפון מנהל</label>
-                            <input type="tel" class="form-input" @bind="_school.PrincipalPhone" disabled="@(!_isEditMode)" />
-                        </div>
+                    <div class="detail-card-content" style="display: @(_schoolAttributesExpanded ? "block" : "none");">
+                        <SchoolAttributesForm
+                            Attributes="@_attributes"
+                            AttributeTypes="@_attributeTypes"
+                            IsEditMode="@_attributesEditMode"
+                            IsLoading="@_attributesLoading"
+                            OnSave="SaveAttributes" />
                     </div>
                 </div>
-            </div>
 
-            <!-- Academic Information -->
-            <div class="detail-card">
-                <div class="detail-card-header">
-                    <h3>מידע אקדמי</h3>
-                </div>
-                <div class="detail-card-content">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>סוג מוסד</label>
-                            <input type="text" class="form-input" @bind="_school.SchoolType" disabled="@(!_isEditMode)" />
-                        </div>
-                        <div class="form-group">
-                            <label>רשות</label>
-                            <input type="text" class="form-input" @bind="_school.Authority" disabled="@(!_isEditMode)" />
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>מספר תלמידים</label>
-                            <input type="number" class="form-input" value="@_school.StudentsCount" disabled />
-                        </div>
-                        <div class="form-group">
-                            <label>מספר כיתות</label>
-                            <input type="number" class="form-input" value="@_school.ClassesCount" disabled />
+                <!-- School Tracks Card -->
+                <div class="detail-card @(_schoolTracksExpanded ? "expanded" : "collapsed")">
+                    <div class="detail-card-header" @onclick="() => _schoolTracksExpanded = !_schoolTracksExpanded" style="cursor: pointer;">
+                        <h2 class="detail-card-title">מגמות</h2>
+                        <div class="card-header-actions">
+                            <button class="btn-icon" @onclick:stopPropagation="true" @onclick="() => _tracksEditMode = !_tracksEditMode" title="עריכת מגמות">
+                                <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                            </button>
+                            @if (_tracksEditMode)
+                            {
+                                <button class="btn-icon" @onclick:stopPropagation="true" @onclick="ShowAddTrackModal" title="הוסף מגמה" style="display: @(_schoolTracksExpanded ? "inline-flex" : "none");">
+                                    <img src="/images/Plus icon.png" alt="הוסף" class="action-icon-natural">
+                                </button>
+                            }
+                            <button class="collapse-toggle">@(_schoolTracksExpanded ? "×" : "+")</button>
                         </div>
                     </div>
+                    <div class="detail-card-content" style="display: @(_schoolTracksExpanded ? "block" : "none");">
+                        <SchoolTracksTable
+                            Tracks="@_tracks"
+                            IsEditMode="@_tracksEditMode"
+                            OnEdit="EditTrack"
+                            OnDelete="DeleteTrack" />
+                    </div>
                 </div>
-            </div>
 
-            <!-- Statistics -->
-            @if (_stats != null)
-            {
-                <div class="detail-card">
-                    <div class="detail-card-header">
-                        <h3>סטטיסטיקה</h3>
-                    </div>
-                    <div class="detail-card-content">
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <label>תלמידים פעילים</label>
-                                <strong>@_stats.ActiveStudents</strong>
-                            </div>
-                            <div class="stat-item">
-                                <label>כיתות פעילות</label>
-                                <strong>@_stats.ActiveClasses</strong>
-                            </div>
-                            <div class="stat-item">
-                                <label>תכניות לימוד</label>
-                                <strong>@_stats.ProgramsCount</strong>
-                            </div>
-                            <div class="stat-item">
-                                <label>שעות שבועיות</label>
-                                <strong>@_stats.WeeklyHours</strong>
-                            </div>
+                <!-- Additional Study Programs Card -->
+                <div class="detail-card @(_additionalStudyExpanded ? "expanded" : "collapsed")">
+                    <div class="detail-card-header" @onclick="() => _additionalStudyExpanded = !_additionalStudyExpanded" style="cursor: pointer;">
+                        <h2 class="detail-card-title">תל״ן (תכנית לימודים נוספת)</h2>
+                        <div class="card-header-actions">
+                            <button class="btn-icon" @onclick:stopPropagation="true" @onclick="() => _additionalStudyEditMode = !_additionalStudyEditMode" title="עריכת תל״ן">
+                                <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                            </button>
+                            @if (_additionalStudyEditMode)
+                            {
+                                <button class="btn-icon" @onclick:stopPropagation="true" @onclick="ShowAddProgramModal" title="הוסף תל״ן" style="display: @(_additionalStudyExpanded ? "inline-flex" : "none");">
+                                    <img src="/images/Plus icon.png" alt="הוסף" class="action-icon-natural">
+                                </button>
+                            }
+                            <button class="collapse-toggle">@(_additionalStudyExpanded ? "×" : "+")</button>
                         </div>
                     </div>
-                </div>
-            }
-
-            <!-- Additional Notes -->
-            <div class="detail-card">
-                <div class="detail-card-header">
-                    <h3>הערות</h3>
-                </div>
-                <div class="detail-card-content">
-                    <div class="form-group">
-                        <textarea class="form-input" rows="4" @bind="_school.Notes" disabled="@(!_isEditMode)"></textarea>
+                    <div class="detail-card-content" style="display: @(_additionalStudyExpanded ? "block" : "none");">
+                        <AdditionalStudyProgramsTable
+                            Programs="@_additionalStudyPrograms"
+                            IsEditMode="@_additionalStudyEditMode"
+                            OnEdit="EditProgram"
+                            OnDelete="DeleteProgram"
+                            OnViewHistory="ViewProgramHistory" />
                     </div>
                 </div>
             </div>
-
-            @if (_isEditMode)
-            {
-                <div class="form-actions">
-                    <button class="btn-primary" @onclick="SaveChanges" disabled="@_isSaving">
-                        @if (_isSaving)
-                        {
-                            <span>שומר...</span>
-                        }
-                        else
-                        {
-                            <span>שמור שינויים</span>
-                        }
-                    </button>
-                    <button class="btn-secondary" @onclick="CancelEdit">ביטול</button>
-                </div>
-            }
-
-            @if (!string.IsNullOrEmpty(_message))
-            {
-                <div class="@(_messageType == "success" ? "success-alert" : "error-alert")">
-                    @_message
-                </div>
-            }
         }
     </div>
 </div>
 
 @code {
-    [Parameter]
-    public int SchoolId { get; set; }
+    private bool _isLoading = true;
+    private string _schoolName = "ניהול בית ספר";
+    private string _yearDisplay = string.Empty;
 
-    private SchoolDto? _school;
-    private SchoolDto? _originalSchool;
-    private SchoolStatsDto? _stats;
-    
-    private bool _loading = true;
-    private bool _isEditMode = false;
-    private bool _isSaving = false;
-    private string? _message;
-    private string _messageType = "success";
+    // Card expansion states
+    private bool _schoolDetailsExpanded = true;
+    private bool _schoolClassesExpanded = false;
+    private bool _schoolAttributesExpanded = false;
+    private bool _schoolTracksExpanded = false;
+    private bool _additionalStudyExpanded = false;
+
+    // Edit mode states
+    private bool _schoolDetailsEditMode = false;
+    private bool _classesEditMode = false;
+    private bool _attributesEditMode = false;
+    private bool _tracksEditMode = false;
+    private bool _additionalStudyEditMode = false;
+
+    // Loading states
+    private bool _attributesLoading = true;
+
+    // Data
+    private SchoolDetailsDto? _schoolDetails;
+    private List<SchoolClassDto> _classes = new();
+    private List<SchoolAttributeDto> _attributes = new();
+    private List<SchoolAttributeTypeDto> _attributeTypes = new();
+    private List<SchoolTrackDto> _tracks = new();
+    private List<AdditionalStudyProgramDto> _additionalStudyPrograms = new();
 
     protected override async Task OnInitializedAsync()
     {
-        var session = await SessionState.GetSessionAsync();
-        if (session == null)
-        {
-            Navigation.NavigateTo("/login");
-            return;
-        }
-
-        await LoadSchoolDetails();
+        await LoadData();
     }
 
-    private async Task LoadSchoolDetails()
+    private async Task LoadData()
     {
-        _loading = true;
         try
         {
-            // Load school details
-            _school = await ApiService.GetAsync<SchoolDto>($"schools/{SchoolId}");
-            _originalSchool = _school != null ? CloneSchool(_school) : null;
+            _isLoading = true;
 
-            // Load statistics
-            _stats = await ApiService.GetAsync<SchoolStatsDto>($"schools/{SchoolId}/stats");
+            // Get school year display
+            var yearValueResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                "session/property/SelectedYearValue");
+            if (yearValueResponse != null && yearValueResponse.TryGetValue("value", out var yearValue))
+            {
+                _yearDisplay = $"שנת לימודים: {yearValue}";
+            }
+
+            // Get school name from session
+            var schoolNameResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                "session/property/SelectedSchoolName");
+            if (schoolNameResponse != null && schoolNameResponse.TryGetValue("value", out var schoolName))
+            {
+                _schoolName = schoolName;
+            }
+
+            // Get Hebrew year ID for attribute types
+            var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                "session/property/SelectedYearId");
+            int? yearId = null;
+            if (yearIdResponse != null && yearIdResponse.TryGetValue("value", out var yearIdStr))
+            {
+                yearId = int.Parse(yearIdStr);
+            }
+
+            // Get school year ID
+            var schoolYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                "session/property/SelectedSchoolYearId");
+            
+            if (schoolYearIdResponse != null && schoolYearIdResponse.TryGetValue("value", out var schoolYearIdStr))
+            {
+                var schoolYearId = int.Parse(schoolYearIdStr);
+
+                // Load attribute types first (needs Hebrew year ID)
+                if (yearId.HasValue)
+                {
+                    await LoadSchoolAttributeTypes(yearId.Value);
+                }
+
+                // Load all other data (uses school year ID)
+                await Task.WhenAll(
+                    LoadSchoolDetails(schoolYearId),
+                    LoadSchoolClasses(schoolYearId),
+                    LoadSchoolAttributes(schoolYearId),
+                    LoadSchoolTracks(schoolYearId),
+                    LoadAdditionalStudyPrograms(schoolYearId)
+                );
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading school details: {ex.Message}");
-            _message = "שגיאה בטעינת נתונים";
-            _messageType = "error";
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינת נתוני בית ספר: {ex.Message}");
         }
         finally
         {
-            _loading = false;
+            _isLoading = false;
         }
     }
 
-    private void ToggleEditMode()
+    private async Task LoadSchoolDetails(int schoolYearId)
     {
-        _isEditMode = !_isEditMode;
-        _message = null;
-    }
-
-    private void CancelEdit()
-    {
-        if (_originalSchool != null && _school != null)
-        {
-            _school = CloneSchool(_originalSchool);
-        }
-        _isEditMode = false;
-        _message = null;
-    }
-
-    private async Task SaveChanges()
-    {
-        _message = null;
-        _isSaving = true;
-
         try
         {
-            var response = await ApiService.PostAsync($"schools/{SchoolId}", _school);
+            var response = await ApiService.GetAsync<SchoolDetailsResponse>(
+                $"school/by-year/{schoolYearId}");
             
-            if (response.IsSuccessStatusCode)
+            if (response?.Success == true && response.Data != null)
             {
-                _message = "הנתונים נשמרו בהצלחה";
-                _messageType = "success";
-                _isEditMode = false;
-                _originalSchool = CloneSchool(_school!);
-            }
-            else
-            {
-                _message = "שגיאה בשמירת נתונים";
-                _messageType = "error";
+                _schoolDetails = response.Data;
             }
         }
         catch (Exception ex)
         {
-            _message = $"שגיאה: {ex.Message}";
-            _messageType = "error";
+            Console.WriteLine($"Error loading school details: {ex.Message}");
+        }
+    }
+
+    private async Task LoadSchoolClasses(int schoolYearId)
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<SchoolClassesResponse>(
+                $"schoolclasses/by-school-year/{schoolYearId}");
+            
+            if (response?.Success == true && response.Data != null)
+            {
+                _classes = response.Data;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading classes: {ex.Message}");
+        }
+    }
+
+    private async Task LoadSchoolAttributeTypes(int yearId)
+    {
+        try
+        {
+            Console.WriteLine($"🔍 Loading attribute types for Hebrew year ID: {yearId}");
+            
+            var response = await ApiService.GetAsync<SchoolAttributeTypesResponse>(
+                $"schoolattributes/attribute-types/{yearId}");
+            
+            if (response?.Success == true && response.Data != null)
+            {
+                _attributeTypes = response.Data;
+                Console.WriteLine($"✅ Loaded {_attributeTypes.Count} attribute types");
+                foreach (var attrType in _attributeTypes)
+                {
+                    Console.WriteLine($"  - {attrType.HebrewName} ({attrType.AttributeValueType})");
+                }
+            }
+            else
+            {
+                Console.WriteLine($"⚠️ Failed to load attribute types: {response?.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading attribute types: {ex.Message}");
         }
         finally
         {
-            _isSaving = false;
+            _attributesLoading = false;
         }
     }
 
-    private async Task RefreshData()
+    private async Task LoadSchoolAttributes(int schoolYearId)
     {
-        await LoadSchoolDetails();
-    }
-
-    private void ViewPrograms()
-    {
-        Navigation.NavigateTo($"/schoolprograms/{SchoolId}");
-    }
-
-    private void NavigateBack()
-    {
-        Navigation.NavigateTo("/schools");
-    }
-
-    private SchoolDto CloneSchool(SchoolDto source)
-    {
-        return new SchoolDto
+        try
         {
-            Id = source.Id,
-            SchoolName = source.SchoolName,
-            SchoolCode = source.SchoolCode,
-            CouncilName = source.CouncilName,
-            Settlement = source.Settlement,
-            Address = source.Address,
-            City = source.City,
-            Phone = source.Phone,
-            Email = source.Email,
-            PrincipalName = source.PrincipalName,
-            PrincipalPhone = source.PrincipalPhone,
-            SchoolType = source.SchoolType,
-            Authority = source.Authority,
-            StudentsCount = source.StudentsCount,
-            ClassesCount = source.ClassesCount,
-            Notes = source.Notes
-        };
+            var response = await ApiService.GetAsync<SchoolAttributesResponse>(
+                $"schoolattributes/by-school-year/{schoolYearId}");
+            
+            if (response?.Success == true && response.Data != null)
+            {
+                _attributes = response.Data;
+                Console.WriteLine($"✅ Loaded {_attributes.Count} school attributes");
+            }
+            else
+            {
+                Console.WriteLine($"⚠️ Failed to load attributes: {response?.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading attributes: {ex.Message}");
+        }
     }
 
-    private class SchoolDto
+    private async Task LoadSchoolTracks(int schoolYearId)
     {
-        public int Id { get; set; }
-        public string SchoolName { get; set; } = string.Empty;
-        public string SchoolCode { get; set; } = string.Empty;
-        public string? CouncilName { get; set; }
-        public string? Settlement { get; set; }
-        public string? Address { get; set; }
-        public string? City { get; set; }
-        public string? Phone { get; set; }
-        public string? Email { get; set; }
-        public string? PrincipalName { get; set; }
-        public string? PrincipalPhone { get; set; }
-        public string? SchoolType { get; set; }
-        public string? Authority { get; set; }
-        public int StudentsCount { get; set; }
-        public int ClassesCount { get; set; }
-        public string? Notes { get; set; }
+        try
+        {
+            var response = await ApiService.GetAsync<SchoolTracksResponse>(
+                $"schooltracks/by-school-year/{schoolYearId}");
+            
+            if (response?.Success == true && response.Data != null)
+            {
+                _tracks = response.Data;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading tracks: {ex.Message}");
+        }
     }
 
-    private class SchoolStatsDto
+    private async Task LoadAdditionalStudyPrograms(int schoolYearId)
     {
-        public int ActiveStudents { get; set; }
-        public int ActiveClasses { get; set; }
-        public int ProgramsCount { get; set; }
-        public int WeeklyHours { get; set; }
+        try
+        {
+            var response = await ApiService.GetAsync<AdditionalStudyProgramsResponse>(
+                $"schooladditionalstudyprograms/by-school-year/{schoolYearId}");
+            
+            if (response?.Success == true && response.Data != null)
+            {
+                _additionalStudyPrograms = response.Data;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading additional study programs: {ex.Message}");
+        }
+    }
+
+    private async Task SaveSchoolDetails(SchoolDetailsDto details)
+    {
+        try
+        {
+            var response = await ApiService.PutAsync<SchoolDetailsDto, ApiResponse<object>>(
+                $"school/details/{details.Id}",
+                details);
+
+            if (response?.Success == true)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "פרטי בית הספר נשמרו בהצלחה");
+                _schoolDetailsEditMode = false;
+                await LoadData();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירת פרטי בית הספר: {response?.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving school details: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירת פרטי בית הספר: {ex.Message}");
+        }
+    }
+
+    private async Task SaveAttributes(List<SchoolAttributeDto> attributes)
+    {
+        try
+        {
+            var schoolYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                "session/property/SelectedSchoolYearId");
+            
+            if (schoolYearIdResponse != null && schoolYearIdResponse.TryGetValue("value", out var schoolYearIdStr))
+            {
+                var schoolYearId = int.Parse(schoolYearIdStr);
+
+                var response = await ApiService.PutAsync<List<SchoolAttributeDto>, ApiResponse<object>>(
+                    $"schoolattributes/{schoolYearId}",
+                    attributes);
+
+                if (response?.Success == true)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "מאפייני בית הספר נשמרו בהצלחה");
+                    _attributesEditMode = false;
+                    await LoadData();
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירת מאפיינים: {response?.Message}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving attributes: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירת מאפיינים: {ex.Message}");
+        }
+    }
+
+    private async Task ShowAddClassModal()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "הוספת כיתה - ממשק מלא בפיתוח");
+    }
+
+    private async Task EditClass(SchoolClassDto classDto)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", $"עריכת כיתה {classDto.ClassName} - ממשק מלא בפיתוח");
+    }
+
+    private async Task DeleteClass(int classId)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם למחוק כיתה זו?");
+        if (!confirmed) return;
+
+        try
+        {
+            var success = await ApiService.DeleteAsync($"schoolclasses/{classId}");
+
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "הכיתה נמחקה בהצלחה");
+                await LoadData();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה במחיקת כיתה");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting class: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה במחיקת כיתה: {ex.Message}");
+        }
+    }
+
+    private async Task ShowAddProgramModal()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "הוספת תל״ן - ממשק מלא בפיתוח");
+    }
+
+    private async Task EditProgram(AdditionalStudyProgramDto program)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", $"עריכת תל״ן {program.Name} - ממשק מלא בפיתוח");
+    }
+
+    private async Task DeleteProgram(int programId)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם למחוק תל״ן זה?");
+        if (!confirmed) return;
+
+        try
+        {
+            var success = await ApiService.DeleteAsync($"additionalstudyprograms/{programId}");
+
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "התל״ן נמחק בהצלחה");
+                await LoadData();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה במחיקת תל״ן");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting program: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה במחיקת תל״ן: {ex.Message}");
+        }
+    }
+
+    private async Task ShowAddTrackModal()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "הוספת מגמה - ממשק מלא בפיתוח");
+    }
+
+    private async Task EditTrack(SchoolTrackDto track)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", $"עריכת מגמה {track.Track} - ממשק מלא בפיתוח");
+    }
+
+    private async Task DeleteTrack(int trackId)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם למחוק מגמה זו?");
+        if (!confirmed) return;
+
+        try
+        {
+            var success = await ApiService.DeleteAsync($"schooltracks/{trackId}");
+
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "המגמה נמחקה בהצלחה");
+                await LoadData();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה במחיקת מגמה");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting track: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה במחיקת מגמה: {ex.Message}");
+        }
+    }
+
+    private async Task ViewProgramHistory(int masterId)
+    {
+        await JSRuntime.InvokeVoidAsync("alert", $"היסטוריית גרסאות עבור תכנית {masterId} - בפיתוח");
+    }
+
+    private void NavigateToSchoolDashboard()
+    {
+        Navigation.NavigateTo("/schooldashboard");
     }
 }
-
-<style>
-    .school-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 30px;
-        padding-bottom: 20px;
-        border-bottom: 3px solid var(--primary-color, #2c3e50);
-    }
-
-    .school-header h2 {
-        margin: 0;
-        font-size: 2rem;
-        color: var(--primary-color, #2c3e50);
-    }
-
-    .school-code {
-        padding: 8px 16px;
-        background: var(--secondary-color, #6c757d);
-        color: white;
-        border-radius: 6px;
-        font-weight: 600;
-    }
-
-    .detail-card {
-        margin-bottom: 25px;
-        padding: 20px;
-        background: white;
-        border: 1px solid var(--border-color, #dee2e6);
-        border-radius: 8px;
-    }
-
-    .detail-card-header {
-        margin-bottom: 20px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid var(--border-color, #dee2e6);
-    }
-
-    .detail-card-header h3 {
-        margin: 0;
-        font-size: 1.3rem;
-        color: var(--primary-color, #2c3e50);
-    }
-
-    .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 20px;
-    }
-
-    .stat-item {
-        padding: 20px;
-        background: var(--card-background, #f8f9fa);
-        border: 1px solid var(--border-color, #dee2e6);
-        border-radius: 8px;
-        text-align: center;
-    }
-
-    .stat-item label {
-        display: block;
-        margin-bottom: 10px;
-        color: var(--text-secondary, #6c757d);
-        font-weight: 600;
-    }
-
-    .stat-item strong {
-        display: block;
-        font-size: 2rem;
-        color: var(--primary-color, #2c3e50);
-    }
-</style>

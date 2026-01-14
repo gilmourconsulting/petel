@@ -1,0 +1,133 @@
+@using PetelApp.BlazorServer.DTOs
+
+@if (IsLoading)
+{
+    <div class="empty-state">טוען מאפיינים...</div>
+}
+else if (AttributeTypes != null && AttributeTypes.Any())
+{
+    <div class="attributes-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; padding: 20px; direction: rtl;">
+        @foreach (var attrType in AttributeTypes.OrderBy(a => a.HebrewName))
+        {
+            var existingAttr = Attributes?.FirstOrDefault(a => a.AttributeTypeId == attrType.Id);
+            var value = existingAttr?.Value ?? string.Empty;
+            var displayValue = existingAttr?.DisplayValue ?? string.Empty;
+
+            <div class="attribute-item" style="padding: 12px; border: 1px solid #dee2e6; border-radius: 8px; background: #f8f9fa;">
+                <label style="display: block; margin-bottom: 5px; font-weight: 600;">@attrType.HebrewName</label>
+                
+                @if (attrType.AttributeValueType == "Boolean")
+                {
+                    var isChecked = value == "true" || value == "1" || value == "True" || value == "TRUE";
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <input type="checkbox" 
+                               checked="@isChecked" 
+                               disabled="@(!IsEditMode)"
+                               @onchange="@(e => UpdateAttribute(attrType.Id, GetBoolValue(e)))"
+                               style="width: 18px; height: 18px;" />
+                        <span>@(isChecked ? "כן" : "לא")</span>
+                    </div>
+                }
+                else if (attrType.AttributeValueType == "Integer")
+                {
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <input type="number" 
+                               value="@(value)" 
+                               disabled="@(!IsEditMode)"
+                               @onchange="@(e => UpdateAttribute(attrType.Id, GetStringValue(e)))"
+                               min="0"
+                               step="1"
+                               style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px; text-align: left;" />
+                        <span style="white-space: nowrap;">שעות</span>
+                    </div>
+                }
+                else if (attrType.AttributeValueType == "Decimal")
+                {
+                    <input type="number" 
+                           value="@(value)" 
+                           disabled="@(!IsEditMode)"
+                           @onchange="@(e => UpdateAttribute(attrType.Id, GetStringValue(e)))"
+                           min="0"
+                           step="0.01"
+                           style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px; text-align: left;" />
+                }
+                else if (attrType.AttributeValueType == "List")
+                {
+                    <select value="@value"
+                            disabled="@(!IsEditMode)"
+                            @onchange="@(e => UpdateAttribute(attrType.Id, GetStringValue(e)))"
+                            style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+                        <option value="">בחר...</option>
+                        @foreach (var option in attrType.PossibleValues.OrderBy(v => v.Sort_Order))
+                        {
+                            <option value="@option.Id">@option.Value</option>
+                        }
+                    </select>
+                }
+                else
+                {
+                    <!-- Default to text input for String type -->
+                    <input type="text" 
+                           value="@value" 
+                           disabled="@(!IsEditMode)"
+                           @onchange="@(e => UpdateAttribute(attrType.Id, GetStringValue(e)))"
+                           style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" />
+                }
+            </div>
+        }
+    </div>
+    
+    @if (IsEditMode)
+    {
+        <div class="form-actions" style="margin-top: 20px; padding: 20px; border-top: 2px solid #dee2e6;">
+            <button class="btn-primary" @onclick="SaveChanges">שמור שינויים</button>
+        </div>
+    }
+}
+else
+{
+    <div class="empty-state">לא נמצאו מאפיינים</div>
+}
+
+@code {
+    [Parameter] public List<SchoolAttributeDto> Attributes { get; set; } = new();
+    [Parameter] public List<SchoolAttributeTypeDto> AttributeTypes { get; set; } = new();
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public EventCallback<List<SchoolAttributeDto>> OnSave { get; set; }
+
+    private string GetBoolValue(ChangeEventArgs e)
+    {
+        return ((bool?)e.Value == true) ? "true" : "false";
+    }
+
+    private string GetStringValue(ChangeEventArgs e)
+    {
+        return e.Value?.ToString() ?? "";
+    }
+
+    private void UpdateAttribute(int attributeTypeId, string value)
+    {
+        var attr = Attributes.FirstOrDefault(a => a.AttributeTypeId == attributeTypeId);
+        if (attr != null)
+        {
+            attr.Value = value;
+        }
+        else
+        {
+            // Create new attribute if it doesn't exist
+            Attributes.Add(new SchoolAttributeDto
+            {
+                AttributeTypeId = attributeTypeId,
+                Value = value
+            });
+        }
+    }
+
+    private async Task SaveChanges()
+    {
+        await OnSave.InvokeAsync(Attributes);
+    }
+}
+
+
