@@ -40,6 +40,19 @@ body {
     gap: 20px;
 }
 
+.top-bar-center {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.top-bar-center .app-title {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    text-align: center;
+}
+
 .system-logo-section {
     display: flex;
     align-items: center;
@@ -367,6 +380,14 @@ body {
     max-height: 100%;
 }
 
+#dynamicContent {
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 20px;
+    height: 100%;
+    align-items: flex-start;
+}
+
 .content-header {
     margin-bottom: 30px;
 }
@@ -436,11 +457,12 @@ body {
     width: 250px;
     min-width: 250px;
     max-width: 250px;
-    /* Dynamic height based on screen size */
-    min-height: 250px;
-    height: calc(100vh - 280px);
-    /* Adjust based on top bar and margins */
-    max-height: calc(100vh - 200px);
+    /* Dynamic height based on screen size - increased for more content */
+    min-height: 350px;
+    height: calc(100vh - 220px);
+    /* Reduced from 280px to 220px for taller cards */
+    max-height: calc(100vh - 180px);
+    /* Reduced from 200px to 180px */
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
@@ -467,7 +489,8 @@ body {
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 6px;
+    /* Reduced from 8px to 6px for tighter spacing */
     padding: 0 4px;
 }
 
@@ -594,6 +617,7 @@ body {
 
 /* Add dashboard cards wrapper to contain the cards */
 .dashboard-cards-wrapper {
+    order: 1;
     display: flex;
     gap: 20px;
     flex-wrap: wrap;

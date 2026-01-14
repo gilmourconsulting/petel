@@ -1,11 +1,11 @@
 @page "/"
+@layout EmptyLayout
+@inject NavigationManager NavigationManager
 
 @code {
     protected override void OnInitialized()
     {
-        // Redirect to login page
-        NavigationManager.NavigateTo("/login", forceLoad: true);
+        // Redirect to login page without force reload
+        NavigationManager.NavigateTo("/login", forceLoad: false);
     }
 }
-
-@inject NavigationManager NavigationManager

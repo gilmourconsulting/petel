@@ -185,21 +185,6 @@
     {
         if (firstRender)
         {
-            // Check if user is already logged in
-            try
-            {
-                var token = await TokenService.GetTokenAsync();
-                if (!string.IsNullOrEmpty(token))
-                {
-                    Navigation.NavigateTo("/maindashboard");
-                    return;
-                }
-            }
-            catch
-            {
-                // Token check failed, continue with login
-            }
-
             // Load entities for the dropdown
             await LoadEntities();
             _logger.LogInformation("Loaded {Count} entities", _entities.Count);

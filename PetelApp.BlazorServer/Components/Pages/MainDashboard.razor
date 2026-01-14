@@ -1,87 +1,84 @@
 @page "/maindashboard"
+@layout MainLayout
 @inject ApiService ApiService
 @inject SessionStateService SessionState
 @inject NavigationManager Navigation
 
-<div class="main-container">
-    <div class="context-buttons-section">
-        <button class="context-btn" @onclick="@(() => ShowSchoolYear(_previousYearId, "previous"))">שנה קודמת</button>
-        <button class="context-btn" @onclick="@(() => ShowSchoolYear(_currentYearId, "current"))">שנה נוכחית</button>
-        <button class="context-btn" @onclick="@(() => ShowSchoolYear(_nextYearId, "next"))">שנה הבאה</button>
-        <div class="context-spacer"></div>
-        @if (_showEntityDetailsButton)
-        {
-            <button class="context-navigation-btn" @onclick="NavigateToEntityDetails">פרטי ישות</button>
-        }
-    </div>
+<!-- Context Buttons Section (RIGHT side) -->
+<div class="context-buttons-section">
+    <button class="context-btn" @onclick="PreviousYear">@_previousYearName</button>
+    <button class="context-btn active" @onclick="CurrentYear">@_currentYearName</button>
+    @if (_nextYearId > 0)
+    {
+        <button class="context-btn" @onclick="NextYear">@_nextYearName</button>
+    }
+    <div class="context-spacer"></div>
+    @if (_showEntityDetailsButton)
+    {
+        <button class="context-navigation-btn" @onclick="NavigateToEntityDetails">פרטי ישות</button>
+    }
+</div>
 
-    <div class="dashboard-flex-row">
-        <div class="dashboard-cards-wrapper">
-            <!-- Alerts Card -->
-            <div class="dashboard-card">
-                <div class="dashboard-card-header">
-                    <div class="dashboard-card-icon">🔔</div>
-                    <div class="dashboard-card-title">התראות</div>
-                    <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
-                         @onclick="@(() => ShowAddModal("alerts"))" title="הוספת התראה חדשה" />
-                </div>
-                <div class="internal-cards-container">
-                    @if (_alertsLoading)
-                    {
-                        <div class="loading-spinner">טוען התראות...</div>
-                    }
-                    else if (_alerts.Count == 0)
-                    {
-                        <div class="no-data-message">אין התראות להצגה</div>
-                    }
-                    else
-                    {
-                        @foreach (var alert in _alerts)
-                        {
-                            <div class="internal-card @GetAlertClass(alert.Level)">
-                                <div class="internal-card-title">@alert.Title</div>
-                                <div class="internal-card-content">@alert.Description</div>
-                                <div class="internal-card-footer">
-                                    <span class="internal-card-date">@alert.CreatedAt.ToString("dd/MM/yyyy")</span>
-                                    <span class="internal-card-status">@alert.Status</span>
-                                </div>
-                            </div>
-                        }
-                    }
-                </div>
+<!-- Dashboard Content (LEFT side, takes flex: 1) -->
+<div class="dashboard-flex-row">
+    <div class="dashboard-cards-wrapper">
+        <!-- Alerts Card -->
+        <div class="dashboard-card" id="alertsCard">
+            <div class="dashboard-card-header">
+                <div class="dashboard-card-icon">🔔</div>
+                <div class="dashboard-card-title">התראות</div>
             </div>
-
-            <!-- Events Card -->
-            <div class="dashboard-card">
-                <div class="dashboard-card-header">
-                    <div class="dashboard-card-icon">🗓</div>
-                    <div class="dashboard-card-title">אירועים</div>
-                    <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
-                         @onclick="@(() => ShowAddModal("events"))" title="הוספת אירוע חדש" />
-                </div>
-                <div class="internal-cards-container">
-                    @if (_eventsLoading)
+            <div class="internal-cards-container">
+                @if (_alertsLoading)
+                {
+                    <div class="loading-message">טוען התראות...</div>
+                }
+                else if (_alerts.Count == 0)
+                {
+                    <div class="no-data-message">אין התראות להצגה</div>
+                }
+                else
+                {
+                    @foreach (var alert in _alerts)
                     {
-                        <div class="loading-spinner">טוען אירועים...</div>
-                    }
-                    else if (_events.Count == 0)
-                    {
-                        <div class="no-data-message">אין אירועים להצגה</div>
-                    }
-                    else
-                    {
-                        @foreach (var evt in _events)
-                        {
-                            <div class="internal-card">
-                                <div class="internal-card-title">@evt.Title</div>
-                                <div class="internal-card-content">@evt.Description</div>
-                                <div class="internal-card-footer">
-                                    <span class="internal-card-date">@evt.EventDate.ToString("dd/MM/yyyy")</span>
-                                </div>
+                        <div class="internal-card">
+                            <div class="internal-card-content">@alert.Description</div>
+                            <div class="internal-card-footer">
+                                <span class="internal-card-date">@alert.CreatedAt.ToString("dd/MM/yyyy")</span>
                             </div>
-                        }
+                        </div>
                     }
-                </div>
+                }
+            </div>
+        </div>
+        
+        <!-- Events Card -->
+        <div class="dashboard-card" id="eventsCard">
+            <div class="dashboard-card-header">
+                <div class="dashboard-card-icon">🗓</div>
+                <div class="dashboard-card-title">אירועים</div>
+            </div>
+            <div class="internal-cards-container">
+                @if (_eventsLoading)
+                {
+                    <div class="loading-message">טוען אירועים...</div>
+                }
+                else if (_events.Count == 0)
+                {
+                    <div class="no-data-message">אין אירועים להצגה</div>
+                }
+                else
+                {
+                    @foreach (var evt in _events)
+                    {
+                        <div class="internal-card">
+                            <div class="internal-card-content">@evt.Description</div>
+                            <div class="internal-card-footer">
+                                <span class="internal-card-date">@(evt.EventDate?.ToString("dd/MM/yyyy") ?? evt.CreatedAt.ToString("dd/MM/yyyy"))</span>
+                            </div>
+                        </div>
+                    }
+                }
             </div>
         </div>
     </div>
@@ -89,14 +86,18 @@
 
 @code {
     private List<AlertDto> _alerts = new();
-    private List<EventDto> _events = new();
+    private List<AlertDto> _events = new();
     private bool _alertsLoading = true;
     private bool _eventsLoading = true;
     private bool _showEntityDetailsButton = false;
 
-    private int _previousYearId = 0;
-    private int _currentYearId = 0;
-    private int _nextYearId = 0;
+    private int _previousYearId;
+    private int _currentYearId;
+    private int _nextYearId;
+    
+    private string _previousYearName = "שנה קודמת";
+    private string _currentYearName = "שנה נוכחית";
+    private string _nextYearName = "שנה הבאה";
 
     protected override async Task OnInitializedAsync()
     {
@@ -107,9 +108,14 @@
             return;
         }
 
-        // Determine if entity details button should be shown
-        _showEntityDetailsButton = session.EntityTypeId == "2"; // School type
+        // Show entity details button for schools (EntityTypeId = 2)
+        _showEntityDetailsButton = session.EntityTypeId == "2";
 
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
         await LoadSchoolYears();
         await LoadAlerts();
         await LoadEvents();
@@ -119,25 +125,35 @@
     {
         try
         {
-            var years = await ApiService.GetAsync<List<SchoolYearDto>>("schoolyears");
-            if (years != null && years.Count > 0)
+            var attributes = await ApiService.GetAsync<List<SystemAttributeDto>>("systemattributes");
+            if (attributes != null)
             {
-                var currentYear = years.FirstOrDefault(y => y.IsCurrent);
-                if (currentYear != null)
+                var prev = attributes.FirstOrDefault(a => a.Name == "Previous Year");
+                var curr = attributes.FirstOrDefault(a => a.Name == "Current Year");
+                var next = attributes.FirstOrDefault(a => a.Name == "Next Year");
+
+                if (prev != null)
                 {
-                    _currentYearId = currentYear.Id;
-                    
-                    var currentIndex = years.IndexOf(currentYear);
-                    if (currentIndex > 0)
-                        _previousYearId = years[currentIndex - 1].Id;
-                    if (currentIndex < years.Count - 1)
-                        _nextYearId = years[currentIndex + 1].Id;
+                    _previousYearId = prev.ForeignId ?? 0;
+                    _previousYearName = prev.Value;
+                }
+                
+                if (curr != null)
+                {
+                    _currentYearId = curr.ForeignId ?? 0;
+                    _currentYearName = curr.Value;
+                }
+                
+                if (next?.ForeignId != null)
+                {
+                    _nextYearId = next.ForeignId.Value;
+                    _nextYearName = next.Value;
                 }
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading school years: {ex.Message}");
+            Console.WriteLine($"Error: {ex.Message}");
         }
     }
 
@@ -149,12 +165,12 @@
             var session = await SessionState.GetSessionAsync();
             if (session != null)
             {
-                _alerts = await ApiService.GetAsync<List<AlertDto>>($"alerts?entityId={session.EntityId}") ?? new();
+                _alerts = await ApiService.GetAsync<List<AlertDto>>($"alerts/entity/{session.EntityId}?isEvent=false") ?? new();
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading alerts: {ex.Message}");
+            Console.WriteLine($"Error: {ex.Message}");
         }
         finally
         {
@@ -170,13 +186,12 @@
             var session = await SessionState.GetSessionAsync();
             if (session != null)
             {
-                // Note: Adjust endpoint based on your API structure
-                _events = await ApiService.GetAsync<List<EventDto>>($"events?entityId={session.EntityId}") ?? new();
+                _events = await ApiService.GetAsync<List<AlertDto>>($"alerts/entity/{session.EntityId}?isEvent=true") ?? new();
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading events: {ex.Message}");
+            Console.WriteLine($"Error: {ex.Message}");
         }
         finally
         {
@@ -184,56 +199,12 @@
         }
     }
 
-    private void ShowSchoolYear(int yearId, string period)
-    {
-        // Implement school year filtering logic
-        Console.WriteLine($"Showing {period} year: {yearId}");
-    }
-
-    private void ShowAddModal(string type)
-    {
-        // Implement modal display logic
-        Console.WriteLine($"Show add modal for: {type}");
-    }
-
+    
     private void NavigateToEntityDetails()
     {
         Navigation.NavigateTo("/entitydetails");
     }
-
-    private string GetAlertClass(string level)
-    {
-        return level?.ToLower() switch
-        {
-            "high" => "alert-high",
-            "medium" => "alert-medium",
-            "low" => "alert-low",
-            _ => ""
-        };
-    }
-
-    private class AlertDto
-    {
-        public int Id { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
-        public string Level { get; set; } = string.Empty;
-        public DateTime CreatedAt { get; set; }
-    }
-
-    private class EventDto
-    {
-        public int Id { get; set; }
-        public string Title { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public DateTime EventDate { get; set; }
-    }
-
-    private class SchoolYearDto
-    {
-        public int Id { get; set; }
-        public string YearName { get; set; } = string.Empty;
-        public bool IsCurrent { get; set; }
-    }
+    private void PreviousYear() => Console.WriteLine("Previous year clicked");
+    private void CurrentYear() => Console.WriteLine("Current year clicked");
+    private void NextYear() => Console.WriteLine("Next year clicked");
 }

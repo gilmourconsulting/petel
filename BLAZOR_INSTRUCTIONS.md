@@ -48,6 +48,109 @@ app.MapRazorComponents<App>()
 **Why This Matters**:
 - Without `prerender: false`, Blazor tries to render on server first
 - ProtectedSessionStorage requires JavaScript, which doesn't exist during prerender
+
+## API Endpoint Patterns
+
+### Correct API Routes (from Backend Controllers)
+
+**AlertsController** (`/api/alerts`):
+- `GET /api/alerts/entity/{entityId}?isEvent=false` - Get alerts for entity
+- `GET /api/alerts/entity/{entityId}?isEvent=true` - Get events for entity
+- `POST /api/alerts` - Create new alert/event
+
+**SystemAttributes** (`/api/systemattributes`):
+- `GET /api/systemattributes` - Get all system attributes (includes year IDs)
+- System attribute names: "Previous Year", "Current Year", "Next Year"
+- `ForeignId` property contains the Hebrew year ID reference
+
+**SchoolYearsController** (`/api/schoolyears`):
+- `GET /api/schoolyears/by-year-and-school?yearId={yearId}&schoolId={schoolId}` - Get school_year ID
+
+**Key Pattern**: Events and Alerts share the same controller/endpoint, differentiated by `isEvent` query parameter.
+
+### Loading School Years
+
+**Frontend Pattern** - Use SystemAttributes to get year IDs:
+```csharp
+var attributes = await ApiService.GetAsync<List<SystemAttributeDto>>("systemattributes");
+
+var previousYear = attributes.FirstOrDefault(a => a.Name == "Previous Year");
+var currentYear = attributes.FirstOrDefault(a => a.Name == "Current Year");
+var nextYear = attributes.FirstOrDefault(a => a.Name == "Next Year");
+
+// Use ForeignId property for year ID
+if (currentYear != null)
+    _currentYearId = currentYear.ForeignId ?? 0;
+```
+
+### Alert/Event DTO Structure
+
+**CRITICAL**: Match exact API response field names and types from AlertsController.
+
+```csharp
+private class AlertDto
+{
+    public int Id { get; set; }
+    public int AlertType { get; set; }      // ✅ int FK to alert_types, not string
+    public int AlertLevel { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public int Status { get; set; }         // ✅ int from alert_links, not string
+    public int UserId { get; set; }
+    public bool IsEvent { get; set; }
+    public DateTime? EventDate { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public long LinkId { get; set; }
+}
+
+// Helper to display alert type name
+private string GetAlertTypeName(int alertTypeId)
+{
+    return alertTypeId switch
+    {
+        1 => "התראה כללית",
+        2 => "התראת חשבונות",
+        3 => "התראת תלמידים",
+        4 => "התראת מורים",
+        _ => $"סוג התראה {alertTypeId}"
+    };
+}
+```
+
+**Common Mistakes**:
+- ❌ `AlertType` as `string` - API returns `int` (FK to alert_types table)
+- ❌ `Status` as `string` - API returns `int` from `alert_links.alert_status`
+- ❌ `Level` as string - API returns `alertLevel` as `int`
+- ❌ Using `Title` property - API returns `alertType` field
+
+## Full-Width Page Layout Pattern
+
+### Problem: Pages Using MainLayout Get Constrained Width
+
+MainLayout includes side menu and layout containers which constrain page width. For pages needing full-width layouts (like dashboard), inline styling is required.
+
+**Full-Width Dashboard Pattern**:
+```razor
+@page "/maindashboard"
+
+<!-- Full-width layout bypassing MainLayout constraints -->
+<div class="page-container" style="width: 100%; height: 100vh; overflow-y: auto; background-color: #f5f5f5;">
+    <!-- Fixed collapsed side menu -->
+    <div class="side-menu collapsed" style="position: fixed; left: 0; top: 60px; width: 60px; height: calc(100vh - 60px); background-color: #2c3e50; z-index: 100;">
+        <!-- Placeholder for collapsed menu -->
+    </div>
+
+    <!-- Main content shifted right of menu -->
+    <div class="main-container" style="margin-left: 60px; width: calc(100% - 60px); min-height: 100vh; background-color: #f5f5f5;">
+        <!-- Page content here -->
+    </div>
+</div>
+```
+
+**Key Patterns**:
+- ✅ Use inline `style` attributes for full control
+- ✅ Side menu: `position: fixed; left: 0; width: 60px` for collapsed state
+- ✅ Main content: `margin-left: 60px; width: calc(100% - 60px)` to fill remaining space
+- ✅ Background color: `#f5f5f5` matches original HTML design
 - Results in: `"JavaScript interop calls cannot be issued during static rendering"`
 
 ### API Configuration

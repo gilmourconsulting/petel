@@ -20,12 +20,14 @@
     <link rel="stylesheet" href="/css/time-spinner.css" />
     <link rel="stylesheet" href="/css/system-attributes.css" />
     <link rel="stylesheet" href="/css/student.css" />
+    <link rel="stylesheet" href="/css/blazor-overrides.css" />
     
     <link rel="stylesheet" href="@Assets["PetelApp.BlazorServer.styles.css"]" />
     <HeadOutlet />
 </head>
 
 <body>
+    <!-- Blazor renders into body directly -->
     <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
     <script src="_framework/blazor.web.js"></script>
 </body>
