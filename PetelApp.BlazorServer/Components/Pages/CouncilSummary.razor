@@ -1,0 +1,224 @@
+@page "/councilsummary"
+@layout MainLayout
+@using PetelApp.BlazorServer.DTOs
+@using PetelApp.BlazorServer.Services
+@inject ApiService ApiService
+@inject SessionStateService SessionStateService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <button class="context-navigation-btn" @onclick="NavigateToSchoolList" title="לרשימת בתי ספר">
+            לרשימת בתי ספר
+        </button>
+        <button class="context-navigation-btn" @onclick="NavigateToMainDashboard" title="חזרה למסך הראשי">
+            חזרה למסך הראשי
+        </button>
+    </div>
+
+    <!-- Main content -->
+    <div class="students-content">
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">סיכום לפי רשויות</div>
+                <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
+                <div class="left-spacer"></div>
+            </div>
+        </div>
+
+        <div class="content-card">
+            @if (_isLoading)
+            {
+                <div class="loading-spinner">טוען נתוני רשויות...</div>
+            }
+            else if (_councils == null || _councils.Count == 0)
+            {
+                <div class="table-container">
+                    <div style="text-align: center; padding: 40px; color: #6c757d;">
+                        <p style="font-size: 1.1em; margin-bottom: 10px;">לא נמצאו נתוני רשויות לשנה נבחרת</p>
+                        <p>בחר שנת לימודים מהתפריט העליון</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th @onclick="() => SortTable(nameof(CouncilSummaryDto.CouncilName))" style="cursor: pointer;">
+                                    רשות שולחת @GetSortArrow(nameof(CouncilSummaryDto.CouncilName))
+                                </th>
+                                <th @onclick="() => SortTable(nameof(CouncilSummaryDto.NumberOfStudents))" style="cursor: pointer;">
+                                    מספר תלמידים @GetSortArrow(nameof(CouncilSummaryDto.NumberOfStudents))
+                                </th>
+                                <th @onclick="() => SortTable(nameof(CouncilSummaryDto.TotalRequested))" style="cursor: pointer;">
+                                    סה"כ נדרש @GetSortArrow(nameof(CouncilSummaryDto.TotalRequested))
+                                </th>
+                                <th>פעולות</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var council in _councils)
+                            {
+                                <tr>
+                                    <td>@council.CouncilName</td>
+                                    <td>@council.NumberOfStudents.ToString("N0")</td>
+                                    <td>@council.TotalRequested.ToString("N2") ₪</td>
+                                    <td>
+                                        <button class="btn-icon" @onclick="() => ViewCouncil(council.Id)" title="צפייה ברשות">
+                                            <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<CouncilSummaryDto> _councils = new();
+    private bool _isLoading = true;
+    private string _yearDisplay = string.Empty;
+    private string _sortColumn = nameof(CouncilSummaryDto.CouncilName);
+    private bool _sortAscending = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            _isLoading = true;
+
+            // Get year display
+            var yearValueResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                "session/property/SelectedYearValue");
+            
+            if (yearValueResponse != null && yearValueResponse.TryGetValue("value", out var yearValue))
+            {
+                _yearDisplay = $"שנת לימודים: {yearValue}";
+            }
+
+            // Get year ID from session
+            var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                "session/property/SelectedYearId");
+            
+            int? yearId = null;
+            if (yearIdResponse != null && yearIdResponse.TryGetValue("value", out var yearIdStr))
+            {
+                yearId = int.Parse(yearIdStr);
+            }
+
+            // Load councils summary
+            var endpoint = yearId.HasValue 
+                ? $"entities/councils/summary?yearId={yearId.Value}"
+                : "entities/councils/summary";
+
+            var response = await ApiService.GetAsync<CouncilSummaryResponse>(endpoint);
+
+            if (response?.Success == true && response.Data != null)
+            {
+                _councils = response.Data;
+                ApplySort();
+            }
+            else
+            {
+                _councils = new List<CouncilSummaryDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading council summary: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינת נתוני רשויות: {ex.Message}");
+            _councils = new List<CouncilSummaryDto>();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void SortTable(string columnName)
+    {
+        if (_sortColumn == columnName)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = columnName;
+            _sortAscending = true;
+        }
+
+        ApplySort();
+    }
+
+    private void ApplySort()
+    {
+        if (_councils == null || _councils.Count == 0) return;
+
+        _councils = _sortColumn switch
+        {
+            nameof(CouncilSummaryDto.CouncilName) => _sortAscending
+                ? _councils.OrderBy(c => c.CouncilName).ToList()
+                : _councils.OrderByDescending(c => c.CouncilName).ToList(),
+            nameof(CouncilSummaryDto.NumberOfStudents) => _sortAscending
+                ? _councils.OrderBy(c => c.NumberOfStudents).ToList()
+                : _councils.OrderByDescending(c => c.NumberOfStudents).ToList(),
+            nameof(CouncilSummaryDto.TotalRequested) => _sortAscending
+                ? _councils.OrderBy(c => c.TotalRequested).ToList()
+                : _councils.OrderByDescending(c => c.TotalRequested).ToList(),
+            _ => _councils
+        };
+    }
+
+    private string GetSortArrow(string columnName)
+    {
+        if (_sortColumn != columnName) return string.Empty;
+        return _sortAscending ? "▲" : "▼";
+    }
+
+    private async Task ViewCouncil(int councilId)
+    {
+        var council = _councils.FirstOrDefault(c => c.Id == councilId);
+        
+        if (council != null)
+        {
+            // Store selected council information in session
+            await ApiService.PostAsync<object, object>(
+                "session/property",
+                new { key = "SelectedCouncilId", value = councilId.ToString() });
+
+            await ApiService.PostAsync<object, object>(
+                "session/property",
+                new { key = "SelectedCouncilName", value = council.CouncilName });
+
+            // Navigate to council students page (will be implemented next)
+            Navigation.NavigateTo("/councilstudents");
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "הרשות המבוקשת לא נמצאה.");
+        }
+    }
+
+    private void NavigateToSchoolList()
+    {
+        Navigation.NavigateTo("/schoollist");
+    }
+
+    private void NavigateToMainDashboard()
+    {
+        Navigation.NavigateTo("/maindashboard");
+    }
+}
