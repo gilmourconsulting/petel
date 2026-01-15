@@ -25,7 +25,7 @@ else if (AttributeTypes != null && AttributeTypes.Any())
                                disabled="@(!IsEditMode)"
                                @onchange="@(e => UpdateAttribute(attrType.Id, GetBoolValue(e)))"
                                style="width: 18px; height: 18px;" />
-                        <span>@(isChecked ? "כן" : "לא")</span>
+                        <span style="color: @(isChecked ? "green" : "red"); font-weight: 600;">@(isChecked ? "כן" : "לא")</span>
                     </div>
                 }
                 else if (attrType.AttributeValueType == "Integer")

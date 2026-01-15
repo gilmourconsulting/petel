@@ -8,15 +8,10 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 
-<div class="school-title-section">
-    <div class="page-title-container">
-        <div class="page-title">@_schoolName</div>
-        <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
-        <div class="left-spacer"></div>
-    </div>
-</div>
+
 
 <div class="main-container">
+
     <div class="context-buttons-section">
         <div class="context-spacer"></div>
         <button class="context-navigation-btn" @onclick="NavigateToSchoolDashboard" title="לדף בית הספר">
@@ -25,6 +20,13 @@
     </div>
 
     <div class="students-content">
+        <div class="school-title-section">
+            <div class="page-title-container">
+                <div class="page-title">@_schoolName</div>
+                <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
+                <div class="left-spacer"></div>
+            </div>
+        </div>
         @if (_isLoading)
         {
             <div class="loading-spinner">טוען נתוני בית ספר...</div>
@@ -34,34 +36,38 @@
             <div class="content-card">
                 <!-- School Details Card -->
                 <div class="detail-card @(_schoolDetailsExpanded ? "expanded" : "collapsed")">
-                    <div class="detail-card-header" @onclick="() => _schoolDetailsExpanded = !_schoolDetailsExpanded" style="cursor: pointer;">
+                    <div class="detail-card-header" @onclick="() => _schoolDetailsExpanded = !_schoolDetailsExpanded"
+                        style="cursor: pointer;">
                         <h2 class="detail-card-title">פרטי בית הספר</h2>
                         <div class="card-header-actions">
-                            <button class="btn-icon" @onclick:stopPropagation="true" @onclick="() => _schoolDetailsEditMode = !_schoolDetailsEditMode" title="עריכת פרטי בית ספר">
+                            <button class="btn-icon" @onclick:stopPropagation="true"
+                                @onclick="() => _schoolDetailsEditMode = !_schoolDetailsEditMode"
+                                title="עריכת פרטי בית ספר">
                                 <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
                             </button>
                             <button class="collapse-toggle">@(_schoolDetailsExpanded ? "×" : "+")</button>
                         </div>
                     </div>
                     <div class="detail-card-content" style="display: @(_schoolDetailsExpanded ? "block" : "none");">
-                        <SchoolDetailsForm 
-                            SchoolData="@_schoolDetails"
-                            IsEditMode="@_schoolDetailsEditMode"
+                        <SchoolDetailsForm SchoolData="@_schoolDetails" IsEditMode="@_schoolDetailsEditMode"
                             OnSave="SaveSchoolDetails" />
                     </div>
                 </div>
 
                 <!-- School Classes Card -->
                 <div class="detail-card @(_schoolClassesExpanded ? "expanded" : "collapsed")">
-                    <div class="detail-card-header" @onclick="() => _schoolClassesExpanded = !_schoolClassesExpanded" style="cursor: pointer;">
+                    <div class="detail-card-header" @onclick="() => _schoolClassesExpanded = !_schoolClassesExpanded"
+                        style="cursor: pointer;">
                         <h2 class="detail-card-title">כיתות</h2>
                         <div class="card-header-actions">
-                            <button class="btn-icon" @onclick:stopPropagation="true" @onclick="() => _classesEditMode = !_classesEditMode" title="עריכת כיתות">
+                            <button class="btn-icon" @onclick:stopPropagation="true"
+                                @onclick="() => _classesEditMode = !_classesEditMode" title="עריכת כיתות">
                                 <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
                             </button>
                             @if (_classesEditMode)
                             {
-                                <button class="btn-icon" @onclick:stopPropagation="true" @onclick="ShowAddClassModal" title="הוסף כיתה" style="display: @(_schoolClassesExpanded ? "inline-flex" : "none");">
+                                <button class="btn-icon" @onclick:stopPropagation="true" @onclick="ShowAddClassModal"
+                                    title="הוסף כיתה" style="display: @(_schoolClassesExpanded ? "inline-flex" : "none");">
                                     <img src="/images/Plus icon.png" alt="הוסף" class="action-icon-natural">
                                 </button>
                             }
@@ -69,46 +75,44 @@
                         </div>
                     </div>
                     <div class="detail-card-content" style="display: @(_schoolClassesExpanded ? "block" : "none");">
-                        <SchoolClassesTable 
-                            Classes="@_classes"
-                            IsEditMode="@_classesEditMode"
-                            OnEdit="EditClass"
+                        <SchoolClassesTable Classes="@_classes" IsEditMode="@_classesEditMode" OnEdit="EditClass"
                             OnDelete="DeleteClass" />
                     </div>
                 </div>
 
                 <!-- School Attributes Card -->
                 <div class="detail-card @(_schoolAttributesExpanded ? "expanded" : "collapsed")">
-                    <div class="detail-card-header" @onclick="() => _schoolAttributesExpanded = !_schoolAttributesExpanded" style="cursor: pointer;">
+                    <div class="detail-card-header" @onclick="() => _schoolAttributesExpanded = !_schoolAttributesExpanded"
+                        style="cursor: pointer;">
                         <h2 class="detail-card-title">מאפייני בית ספר</h2>
                         <div class="card-header-actions">
-                            <button class="btn-icon" @onclick:stopPropagation="true" @onclick="() => _attributesEditMode = !_attributesEditMode" title="עריכת מאפיינים">
+                            <button class="btn-icon" @onclick:stopPropagation="true"
+                                @onclick="() => _attributesEditMode = !_attributesEditMode" title="עריכת מאפיינים">
                                 <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
                             </button>
                             <button class="collapse-toggle">@(_schoolAttributesExpanded ? "×" : "+")</button>
                         </div>
                     </div>
                     <div class="detail-card-content" style="display: @(_schoolAttributesExpanded ? "block" : "none");">
-                        <SchoolAttributesForm
-                            Attributes="@_attributes"
-                            AttributeTypes="@_attributeTypes"
-                            IsEditMode="@_attributesEditMode"
-                            IsLoading="@_attributesLoading"
-                            OnSave="SaveAttributes" />
+                        <SchoolAttributesForm Attributes="@_attributes" AttributeTypes="@_attributeTypes"
+                            IsEditMode="@_attributesEditMode" IsLoading="@_attributesLoading" OnSave="SaveAttributes" />
                     </div>
                 </div>
 
                 <!-- School Tracks Card -->
                 <div class="detail-card @(_schoolTracksExpanded ? "expanded" : "collapsed")">
-                    <div class="detail-card-header" @onclick="() => _schoolTracksExpanded = !_schoolTracksExpanded" style="cursor: pointer;">
+                    <div class="detail-card-header" @onclick="() => _schoolTracksExpanded = !_schoolTracksExpanded"
+                        style="cursor: pointer;">
                         <h2 class="detail-card-title">מגמות</h2>
                         <div class="card-header-actions">
-                            <button class="btn-icon" @onclick:stopPropagation="true" @onclick="() => _tracksEditMode = !_tracksEditMode" title="עריכת מגמות">
+                            <button class="btn-icon" @onclick:stopPropagation="true"
+                                @onclick="() => _tracksEditMode = !_tracksEditMode" title="עריכת מגמות">
                                 <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
                             </button>
                             @if (_tracksEditMode)
                             {
-                                <button class="btn-icon" @onclick:stopPropagation="true" @onclick="ShowAddTrackModal" title="הוסף מגמה" style="display: @(_schoolTracksExpanded ? "inline-flex" : "none");">
+                                <button class="btn-icon" @onclick:stopPropagation="true" @onclick="ShowAddTrackModal"
+                                    title="הוסף מגמה" style="display: @(_schoolTracksExpanded ? "inline-flex" : "none");">
                                     <img src="/images/Plus icon.png" alt="הוסף" class="action-icon-natural">
                                 </button>
                             }
@@ -116,25 +120,25 @@
                         </div>
                     </div>
                     <div class="detail-card-content" style="display: @(_schoolTracksExpanded ? "block" : "none");">
-                        <SchoolTracksTable
-                            Tracks="@_tracks"
-                            IsEditMode="@_tracksEditMode"
-                            OnEdit="EditTrack"
+                        <SchoolTracksTable Tracks="@_tracks" IsEditMode="@_tracksEditMode" OnEdit="EditTrack"
                             OnDelete="DeleteTrack" />
                     </div>
                 </div>
 
                 <!-- Additional Study Programs Card -->
                 <div class="detail-card @(_additionalStudyExpanded ? "expanded" : "collapsed")">
-                    <div class="detail-card-header" @onclick="() => _additionalStudyExpanded = !_additionalStudyExpanded" style="cursor: pointer;">
+                    <div class="detail-card-header" @onclick="() => _additionalStudyExpanded = !_additionalStudyExpanded"
+                        style="cursor: pointer;">
                         <h2 class="detail-card-title">תל״ן (תכנית לימודים נוספת)</h2>
                         <div class="card-header-actions">
-                            <button class="btn-icon" @onclick:stopPropagation="true" @onclick="() => _additionalStudyEditMode = !_additionalStudyEditMode" title="עריכת תל״ן">
+                            <button class="btn-icon" @onclick:stopPropagation="true"
+                                @onclick="() => _additionalStudyEditMode = !_additionalStudyEditMode" title="עריכת תל״ן">
                                 <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
                             </button>
                             @if (_additionalStudyEditMode)
                             {
-                                <button class="btn-icon" @onclick:stopPropagation="true" @onclick="ShowAddProgramModal" title="הוסף תל״ן" style="display: @(_additionalStudyExpanded ? "inline-flex" : "none");">
+                                <button class="btn-icon" @onclick:stopPropagation="true" @onclick="ShowAddProgramModal"
+                                    title="הוסף תל״ן" style="display: @(_additionalStudyExpanded ? "inline-flex" : "none");">
                                     <img src="/images/Plus icon.png" alt="הוסף" class="action-icon-natural">
                                 </button>
                             }
@@ -142,11 +146,8 @@
                         </div>
                     </div>
                     <div class="detail-card-content" style="display: @(_additionalStudyExpanded ? "block" : "none");">
-                        <AdditionalStudyProgramsTable
-                            Programs="@_additionalStudyPrograms"
-                            IsEditMode="@_additionalStudyEditMode"
-                            OnEdit="EditProgram"
-                            OnDelete="DeleteProgram"
+                        <AdditionalStudyProgramsTable Programs="@_additionalStudyPrograms"
+                            IsEditMode="@_additionalStudyEditMode" OnEdit="EditProgram" OnDelete="DeleteProgram"
                             OnViewHistory="ViewProgramHistory" />
                     </div>
                 </div>
@@ -154,6 +155,74 @@
         }
     </div>
 </div>
+
+<!-- Class Modal -->
+@if (_showClassModal)
+{
+    <div class="modal-overlay" @onclick="CloseClassModal">
+        <div class="modal-content modal-small" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(_isEditingClass ? "עריכת כיתה" : "הוספת כיתה חדשה")</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="classLevel">שכבה:</label>
+                    <select id="classLevel" class="form-control" @bind="_classModalData.Level">
+                        <option value="">בחר שכבה...</option>
+                        @foreach (var level in _gradeLevels)
+                        {
+                            <option value="@level">@level</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="classNumber">מספר כיתה:</label>
+                    <input type="text" id="classNumber" class="form-control" placeholder="הזן מספר כיתה"
+                        @bind="_classModalData.ClassNumber">
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        שעת סיום:
+                        <span class="text-muted" style="font-size: 0.85em;">(אופציונלי)</span>
+                    </label>
+
+                    <div class="d-flex gap-2 align-center" style="direction: ltr;">
+                        <!-- Hour Spinner -->
+                        <div class="d-flex flex-column align-center">
+                            <button type="button" class="time-spinner-btn" @onclick="() => AdjustTime(true, 1)">▲</button>
+                            <input type="text" value="@_classModalHour.ToString("00")" maxlength="2" readonly class="time-input">
+                            <button type="button" class="time-spinner-btn" @onclick="() => AdjustTime(true, -1)">▼</button>
+                            <small class="text-muted mt-1">שעה</small>
+                        </div>
+
+                        <span class="time-separator">:</span>
+
+                        <!-- Minute Spinner -->
+                        <div class="d-flex flex-column align-center">
+                            <button type="button" class="time-spinner-btn" @onclick="() => AdjustTime(false, 1)">▲</button>
+                            <input type="text" value="@_classModalMinute.ToString("00")" maxlength="2" readonly class="time-input">
+                            <button type="button" class="time-spinner-btn" @onclick="() => AdjustTime(false, -1)">▼</button>
+                            <small class="text-muted mt-1">דקות</small>
+                        </div>
+
+                        <!-- Clear Button -->
+                        <button type="button" @onclick="ClearEndTime" class="btn-secondary" style="margin-right: 10px;">נקה</button>
+                    </div>
+
+                    <small class="text-muted d-block mt-1" style="direction: rtl;">
+                        לדוגמה: 14:30
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="dialog-btn save" @onclick="SaveClassModal">אישור</button>
+                <button class="dialog-btn cancel" @onclick="CloseClassModal">ביטול</button>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     private bool _isLoading = true;
@@ -185,6 +254,14 @@
     private List<SchoolTrackDto> _tracks = new();
     private List<AdditionalStudyProgramDto> _additionalStudyPrograms = new();
 
+    // Class modal state
+    private bool _showClassModal = false;
+    private bool _isEditingClass = false;
+    private SchoolClassDto _classModalData = new();
+    private int _classModalHour = 13;
+    private int _classModalMinute = 0;
+    private string[] _gradeLevels = new[] { "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "י״א", "י״ב" };
+
     protected override async Task OnInitializedAsync()
     {
         await LoadData();
@@ -198,7 +275,7 @@
 
             // Get school year display
             var yearValueResponse = await ApiService.GetAsync<Dictionary<string, string>>(
-                "session/property/SelectedYearValue");
+            "session/property/SelectedYearValue");
             if (yearValueResponse != null && yearValueResponse.TryGetValue("value", out var yearValue))
             {
                 _yearDisplay = $"שנת לימודים: {yearValue}";
@@ -206,7 +283,7 @@
 
             // Get school name from session
             var schoolNameResponse = await ApiService.GetAsync<Dictionary<string, string>>(
-                "session/property/SelectedSchoolName");
+            "session/property/SelectedSchoolName");
             if (schoolNameResponse != null && schoolNameResponse.TryGetValue("value", out var schoolName))
             {
                 _schoolName = schoolName;
@@ -214,7 +291,7 @@
 
             // Get Hebrew year ID for attribute types
             var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
-                "session/property/SelectedYearId");
+            "session/property/SelectedYearId");
             int? yearId = null;
             if (yearIdResponse != null && yearIdResponse.TryGetValue("value", out var yearIdStr))
             {
@@ -223,8 +300,8 @@
 
             // Get school year ID
             var schoolYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
-                "session/property/SelectedSchoolYearId");
-            
+            "session/property/SelectedSchoolYearId");
+
             if (schoolYearIdResponse != null && schoolYearIdResponse.TryGetValue("value", out var schoolYearIdStr))
             {
                 var schoolYearId = int.Parse(schoolYearIdStr);
@@ -237,11 +314,11 @@
 
                 // Load all other data (uses school year ID)
                 await Task.WhenAll(
-                    LoadSchoolDetails(schoolYearId),
-                    LoadSchoolClasses(schoolYearId),
-                    LoadSchoolAttributes(schoolYearId),
-                    LoadSchoolTracks(schoolYearId),
-                    LoadAdditionalStudyPrograms(schoolYearId)
+                LoadSchoolDetails(schoolYearId),
+                LoadSchoolClasses(schoolYearId),
+                LoadSchoolAttributes(schoolYearId),
+                LoadSchoolTracks(schoolYearId),
+                LoadAdditionalStudyPrograms(schoolYearId)
                 );
             }
         }
@@ -261,8 +338,8 @@
         try
         {
             var response = await ApiService.GetAsync<SchoolDetailsResponse>(
-                $"school/by-year/{schoolYearId}");
-            
+            $"school/by-year/{schoolYearId}");
+
             if (response?.Success == true && response.Data != null)
             {
                 _schoolDetails = response.Data;
@@ -279,8 +356,8 @@
         try
         {
             var response = await ApiService.GetAsync<SchoolClassesResponse>(
-                $"schoolclasses/by-school-year/{schoolYearId}");
-            
+            $"schoolclasses/by-school-year/{schoolYearId}");
+
             if (response?.Success == true && response.Data != null)
             {
                 _classes = response.Data;
@@ -297,17 +374,17 @@
         try
         {
             Console.WriteLine($"🔍 Loading attribute types for Hebrew year ID: {yearId}");
-            
+
             var response = await ApiService.GetAsync<SchoolAttributeTypesResponse>(
-                $"schoolattributes/attribute-types/{yearId}");
-            
+            $"schoolattributes/attribute-types/{yearId}");
+
             if (response?.Success == true && response.Data != null)
             {
                 _attributeTypes = response.Data;
                 Console.WriteLine($"✅ Loaded {_attributeTypes.Count} attribute types");
                 foreach (var attrType in _attributeTypes)
                 {
-                    Console.WriteLine($"  - {attrType.HebrewName} ({attrType.AttributeValueType})");
+                    Console.WriteLine($" - {attrType.HebrewName} ({attrType.AttributeValueType})");
                 }
             }
             else
@@ -330,8 +407,8 @@
         try
         {
             var response = await ApiService.GetAsync<SchoolAttributesResponse>(
-                $"schoolattributes/by-school-year/{schoolYearId}");
-            
+            $"schoolattributes/by-school-year/{schoolYearId}");
+
             if (response?.Success == true && response.Data != null)
             {
                 _attributes = response.Data;
@@ -353,8 +430,8 @@
         try
         {
             var response = await ApiService.GetAsync<SchoolTracksResponse>(
-                $"schooltracks/by-school-year/{schoolYearId}");
-            
+            $"schooltracks/by-school-year/{schoolYearId}");
+
             if (response?.Success == true && response.Data != null)
             {
                 _tracks = response.Data;
@@ -371,8 +448,8 @@
         try
         {
             var response = await ApiService.GetAsync<AdditionalStudyProgramsResponse>(
-                $"schooladditionalstudyprograms/by-school-year/{schoolYearId}");
-            
+            $"schooladditionalstudyprograms/by-school-year/{schoolYearId}");
+
             if (response?.Success == true && response.Data != null)
             {
                 _additionalStudyPrograms = response.Data;
@@ -389,8 +466,8 @@
         try
         {
             var response = await ApiService.PutAsync<SchoolDetailsDto, ApiResponse<object>>(
-                $"school/details/{details.Id}",
-                details);
+            $"school/details/{details.Id}",
+            details);
 
             if (response?.Success == true)
             {
@@ -415,15 +492,28 @@
         try
         {
             var schoolYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
-                "session/property/SelectedSchoolYearId");
-            
+            "session/property/SelectedSchoolYearId");
+
             if (schoolYearIdResponse != null && schoolYearIdResponse.TryGetValue("value", out var schoolYearIdStr))
             {
                 var schoolYearId = int.Parse(schoolYearIdStr);
 
-                var response = await ApiService.PutAsync<List<SchoolAttributeDto>, ApiResponse<object>>(
-                    $"schoolattributes/{schoolYearId}",
-                    attributes);
+                // Transform to UpdateSchoolAttributesRequest format expected by backend
+                var request = new
+                {
+                    schoolYearId = schoolYearId,
+                    attributes = attributes.Select(attr => new
+                    {
+                        id = attr.Id != 0 ? (int?)attr.Id : null,
+                        attributeTypeId = attr.AttributeTypeId,
+                        value = attr.Value,
+                        version = attr.Version
+                    }).ToList()
+                };
+
+                var response = await ApiService.PostAsync<object, ApiResponse<object>>(
+                    "schoolAttributes/update",
+                    request);
 
                 if (response?.Success == true)
                 {
@@ -446,12 +536,202 @@
 
     private async Task ShowAddClassModal()
     {
-        await JSRuntime.InvokeVoidAsync("alert", "הוספת כיתה - ממשק מלא בפיתוח");
+        _classModalData = new SchoolClassDto();
+        _isEditingClass = false;
+        _showClassModal = true;
+
+        // Load default end hour from attributes
+        await LoadDefaultEndHour();
+        StateHasChanged();
     }
 
     private async Task EditClass(SchoolClassDto classDto)
     {
-        await JSRuntime.InvokeVoidAsync("alert", $"עריכת כיתה {classDto.ClassName} - ממשק מלא בפיתוח");
+        _classModalData = new SchoolClassDto
+        {
+            Id = classDto.Id,
+            SchoolYearId = classDto.SchoolYearId,
+            Level = classDto.Level,
+            ClassNumber = classDto.ClassNumber,
+            ClassName = classDto.ClassName,
+            EndHour = classDto.EndHour
+        };
+        _isEditingClass = true;
+
+        // Set time spinners from existing end hour
+        if (classDto.EndHour.HasValue)
+        {
+            _classModalHour = classDto.EndHour.Value.Hour;
+            _classModalMinute = classDto.EndHour.Value.Minute;
+        }
+        else
+        {
+            await LoadDefaultEndHour();
+        }
+
+        _showClassModal = true;
+        StateHasChanged();
+    }
+
+    private async Task LoadDefaultEndHour()
+    {
+        try
+        {
+            var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearId");
+            if (yearIdResponse != null && yearIdResponse.TryGetValue("value", out var yearIdStr))
+            {
+                var yearId = int.Parse(yearIdStr);
+                var response = await ApiService.GetAsync<SchoolAttributeTypesResponse>($"schoolattributes/attribute-types/{yearId}");
+
+                if (response?.Success == true && response.Data != null)
+                {
+                    var endHourAttr = response.Data.FirstOrDefault(a => a.Id == 8);
+                    if (endHourAttr != null && !string.IsNullOrEmpty(endHourAttr.Name))
+                    {
+                        var timeParts = endHourAttr.Name.Split(':');
+                        if (timeParts.Length >= 2)
+                        {
+                            _classModalHour = int.Parse(timeParts[0]);
+                            _classModalMinute = int.Parse(timeParts[1]);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading default end hour: {ex.Message}");
+        }
+
+        // Fallback to 13:00
+        _classModalHour = 13;
+        _classModalMinute = 0;
+    }
+
+    private void AdjustTime(bool isHour, int delta)
+    {
+        if (isHour)
+        {
+            _classModalHour += delta;
+            if (_classModalHour < 0) _classModalHour = 23;
+            if (_classModalHour > 23) _classModalHour = 0;
+        }
+        else
+        {
+            _classModalMinute += delta;
+            if (_classModalMinute < 0) _classModalMinute = 59;
+            if (_classModalMinute > 59) _classModalMinute = 0;
+        }
+    }
+
+    private void ClearEndTime()
+    {
+        _classModalHour = 0;
+        _classModalMinute = 0;
+    }
+
+    private void CloseClassModal()
+    {
+        _showClassModal = false;
+        _classModalData = new();
+    }
+
+    private async Task SaveClassModal()
+    {
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(_classModalData.Level) || string.IsNullOrWhiteSpace(_classModalData.ClassNumber))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "נא למלא את כל השדות הנדרשים");
+            return;
+        }
+
+        // Normalize Hebrew quotes
+        _classModalData.Level = _classModalData.Level.Replace("\"", "״").Replace("'", "׳");
+
+        // Check for duplicates
+        var exists = _classes.Any(c =>
+            c.Id != _classModalData.Id &&
+            c.Level == _classModalData.Level &&
+            c.ClassNumber == _classModalData.ClassNumber
+        );
+
+        if (exists)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"כיתה {_classModalData.Level} {_classModalData.ClassNumber} כבר קיימת");
+            return;
+        }
+
+        try
+        {
+            // Build end hour string
+            var endHourStr = $"{_classModalHour:00}:{_classModalMinute:00}:00";
+
+            var schoolYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolYearId");
+            if (schoolYearIdResponse != null && schoolYearIdResponse.TryGetValue("value", out var schoolYearIdStr))
+            {
+                var schoolYearId = int.Parse(schoolYearIdStr);
+
+                if (_isEditingClass)
+                {
+                    // Update existing class
+                    var updateRequest = new
+                    {
+                        level = _classModalData.Level,
+                        classNumber = _classModalData.ClassNumber,
+                        endHour = endHourStr
+                    };
+
+                    var response = await ApiService.PutAsync<object, ApiResponse<object>>(
+                        $"schoolclasses/{_classModalData.Id}",
+                        updateRequest
+                    );
+
+                    if (response?.Success == true)
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", "הכיתה עודכנה בהצלחה");
+                        _showClassModal = false;
+                        await LoadSchoolClasses(schoolYearId);
+                    }
+                    else
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בעדכון כיתה: {response?.Message}");
+                    }
+                }
+                else
+                {
+                    // Create new class
+                    var createRequest = new
+                    {
+                        schoolYearId = schoolYearId,
+                        level = _classModalData.Level,
+                        classNumber = _classModalData.ClassNumber,
+                        endHour = endHourStr
+                    };
+
+                    var response = await ApiService.PostAsync<object, ApiResponse<object>>(
+                        "schoolclasses",
+                        createRequest
+                    );
+
+                    if (response?.Success == true)
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", "הכיתה נוספה בהצלחה");
+                        _showClassModal = false;
+                        await LoadSchoolClasses(schoolYearId);
+                    }
+                    else
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בהוספת כיתה: {response?.Message}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error saving class: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירת כיתה: {ex.Message}");
+        }
     }
 
     private async Task DeleteClass(int classId)

@@ -26,23 +26,24 @@
 
     <!-- Dashboard Content -->
     <div class="dashboard-flex-row">
-        <div class="dashboard-cards-wrapper">
-            <!-- School Title Section -->
-            <div class="content-header">
-                <div class="page-title-container">
-                    <div class="page-title">@_schoolTitle</div>
-                    <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
-                    <div class="left-spacer"></div>
-                </div>
+        <!-- School Title Section -->
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">@_schoolTitle</div>
+                <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
+                <div class="left-spacer"></div>
             </div>
-            
+            <div class="dashboard-cards-wrapper">
+
+            </div>
+
             <!-- Alerts Card -->
             <div class="dashboard-card" id="alertsCard">
                 <div class="dashboard-card-header">
                     <div class="dashboard-card-icon">🔔</div>
                     <div class="dashboard-card-title">התראות</div>
                     <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
-                         @onclick="() => ShowAddModal(false)" title="הוספת התראה חדשה" style="cursor: pointer;" />
+                        @onclick="() => ShowAddModal(false)" title="הוספת התראה חדשה" style="cursor: pointer;" />
                 </div>
                 <div class="internal-cards-container">
                     @if (_alertsLoading)
@@ -67,14 +68,14 @@
                     }
                 </div>
             </div>
-            
+
             <!-- Events Card -->
             <div class="dashboard-card" id="eventsCard">
                 <div class="dashboard-card-header">
                     <div class="dashboard-card-icon">🗓</div>
                     <div class="dashboard-card-title">אירועים</div>
                     <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
-                         @onclick="() => ShowAddModal(true)" title="הוספת אירוע חדש" style="cursor: pointer;" />
+                        @onclick="() => ShowAddModal(true)" title="הוספת אירוע חדש" style="cursor: pointer;" />
                 </div>
                 <div class="internal-cards-container">
                     @if (_eventsLoading)
@@ -92,7 +93,8 @@
                             <div class="internal-card">
                                 <div class="internal-card-content">@evt.Description</div>
                                 <div class="internal-card-footer">
-                                    <span class="internal-card-date">@(evt.EventDate?.ToString("dd/MM/yyyy") ?? evt.CreatedAt.ToString("dd/MM/yyyy"))</span>
+                                    <span class="internal-card-date">@(evt.EventDate?.ToString("dd/MM/yyyy") ??
+                                                                        evt.CreatedAt.ToString("dd/MM/yyyy"))</span>
                                 </div>
                             </div>
                         }
@@ -109,7 +111,7 @@
     private bool _alertsLoading = true;
     private bool _eventsLoading = true;
     private bool _showBackToSchoolList = false;
-    
+
     private string _schoolTitle = "לוח בקרה של בית ספר";
     private string _yearDisplay = "";
     private string _schoolId = "";
@@ -132,10 +134,10 @@
     private async Task ConfigureContextButtons(SessionData session)
     {
         var entityTypeId = int.Parse(session.EntityTypeId);
-        
+
         // Show "Back to School List" button for multi-school entities only
         _showBackToSchoolList = entityTypeId != 1 && entityTypeId != 4;
-        
+
         Console.WriteLine($"📋 Entity type: {entityTypeId}, Show back button: {_showBackToSchoolList}");
     }
 
@@ -144,7 +146,7 @@
         try
         {
             var session = await SessionState.GetSessionAsync();
-            
+
             // Get year value for display
             var yearValueResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearValue");
             _yearDisplay = yearValueResponse?["value"] ?? "";
@@ -153,9 +155,9 @@
             var schoolNameResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolName");
             var schoolName = schoolNameResponse?["value"] ?? session?.EntityName ?? "";
 
-            _schoolTitle = !string.IsNullOrEmpty(_yearDisplay) 
-                ? $"{schoolName} - {_yearDisplay}" 
-                : schoolName;
+            _schoolTitle = !string.IsNullOrEmpty(_yearDisplay)
+            ? $"{schoolName} - {_yearDisplay}"
+            : schoolName;
 
             Console.WriteLine($"🏫 School title: {_schoolTitle}");
         }
@@ -172,8 +174,9 @@
         {
             var selectedYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearId");
             var selectedYearId = selectedYearIdResponse?["value"];
-            
-            var selectedSchoolIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolId");
+
+            var selectedSchoolIdResponse = await ApiService.GetAsync<Dictionary<string,
+            string>>("session/property/SelectedSchoolId");
             var selectedSchoolId = selectedSchoolIdResponse?["value"];
 
             Console.WriteLine($"🔎 Resolving SelectedSchoolYearId: yearId={selectedYearId}, schoolId={selectedSchoolId}");
@@ -185,7 +188,7 @@
             }
 
             var schoolYear = await ApiService.GetAsync<SchoolYearLookupDto>(
-                $"schoolYears/by-year-and-school?yearId={selectedYearId}&schoolId={selectedSchoolId}");
+            $"schoolYears/by-year-and-school?yearId={selectedYearId}&schoolId={selectedSchoolId}");
 
             if (schoolYear?.Id > 0)
             {
@@ -194,13 +197,13 @@
                     key = "SelectedSchoolYearId",
                     value = schoolYear.Id.ToString()
                 });
-                
+
                 Console.WriteLine($"✅ Stored SelectedSchoolYearId in session: {schoolYear.Id}");
             }
             else
             {
                 Console.WriteLine("⚠ school_year not found for given yearId/schoolId");
-                
+
                 await ApiService.PostAsync<object, object>("session/property", new
                 {
                     key = "SelectedSchoolYearId",
@@ -225,9 +228,10 @@
             if (entityTypeId == 5)
             {
                 // Multi-school network - use SelectedSchoolId
-                var selectedSchoolIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolId");
+                var selectedSchoolIdResponse = await ApiService.GetAsync<Dictionary<string,
+                string>>("session/property/SelectedSchoolId");
                 _schoolId = selectedSchoolIdResponse?["value"] ?? "";
-                
+
                 if (string.IsNullOrEmpty(_schoolId))
                 {
                     Console.WriteLine("⚠️ No SelectedSchoolId in session");

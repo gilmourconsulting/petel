@@ -193,7 +193,7 @@ body {
     color: var(--bar-text-color);
     padding: 2px 15px;
     text-align: center;
-    font-size: 18px;
+    font-size: 16px;
     border-top: 1px solid #444;
     z-index: 999;
     box-shadow: 0 -2px 4px rgba(0, 0, 0, 0.1);
@@ -376,9 +376,9 @@ body {
     padding: 30px;
     overflow-y: auto;
     overflow-x: hidden;
-    padding-bottom: 120px;
+    padding-bottom: 50px;
     /* Extra padding at bottom to prevent footer overlap */
-    max-height: 100%;
+    max-height: 90%;
 }
 
 #dynamicContent {
@@ -1218,6 +1218,17 @@ body {
     color: #666;
 }
 
+.form-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 0.95em;
+    font-family: inherit;
+    background-color: #fff;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
 .detail-status-active {
     color: var(--status-active);
     font-weight: 600;
@@ -1642,7 +1653,7 @@ body {
 
 .form-group input,
 .form-group select {
-    padding: 8px 12px;
+    padding: 2px 2px;
     border: 1px solid #ced4da;
     border-radius: 4px;
     font-size: 14px;
@@ -1942,6 +1953,61 @@ body {
     border-color: var(--input-focus-color);
     outline: none;
     box-shadow: var(--input-focus-shadow);
+}
+
+/* Time Spinner Styles */
+.time-spinner-btn {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    transition: all 0.2s;
+}
+
+.time-spinner-btn:hover {
+    background: #e9ecef;
+    border-color: #007bff;
+}
+
+.time-spinner-btn:active {
+    background: #dee2e6;
+}
+
+.time-input {
+    width: 50px;
+    padding: 8px;
+    text-align: center;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 16px;
+    font-weight: 600;
+    margin: 4px 0;
+}
+
+.time-separator {
+    font-size: 24px;
+    font-weight: bold;
+    color: #495057;
+    line-height: 1;
+}
+
+.d-flex {
+    display: flex;
+}
+
+.flex-column {
+    flex-direction: column;
+}
+
+.align-center {
+    align-items: center;
+}
+
+.gap-2 {
+    gap: 8px;
 }
 
 /* ============================================
