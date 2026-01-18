@@ -7,6 +7,7 @@
 @inject SessionStateService SessionStateService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject ILogger<Users> Logger
 
 <div class="school-title-section">
     <h1 class="page-title">ניהול משתמשים</h1>
@@ -26,6 +27,9 @@
         </SecureButton>
         <SecureButton ActionName="users_roles" ScreenName="@PageName" FunctionName="NavigateToRoles" OnClick="NavigateToRoles" CssClass="context-btn">
             ניהול תפקידים
+        </SecureButton>
+        <SecureButton ActionName="users_refreshcache" ScreenName="@PageName" FunctionName="RefreshSecurityCache" OnClick="RefreshSecurityCache" CssClass="context-btn">
+            רענן מטמון אבטחה
         </SecureButton>
     </div>
 
@@ -485,6 +489,32 @@
     private void NavigateToRoles()
     {
         Navigation.NavigateTo("/roles");
+    }
+
+    private async Task RefreshSecurityCache()
+    {
+        try
+        {
+            Logger.LogInformation("🔄 Refreshing security cache...");
+
+            var response = await ApiService.PostAsync<object, object>("roles/refresh-cache", new { });
+
+            if (response != null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "מטמון האבטחה רוענן בהצלחה! הפעולות החדשות זמינות כעת.");
+                Logger.LogInformation("✅ Security cache refreshed successfully");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה ברענון מטמון האבטחה");
+                Logger.LogError("❌ Failed to refresh security cache - null response");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "❌ Error refreshing security cache");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה ברענון מטמון האבטחה: {ex.Message}");
+        }
     }
 
     // Form model for user dialog

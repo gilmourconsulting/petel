@@ -84,11 +84,12 @@ namespace PetelApp.BlazorServer.Components.Pages
             try
             {
                 var allowed = await SecurityService.VerifyActionAsync(
-                    actionName,
-                    PageName,
-                    functionName,
-                    "PAGE_ACTION",
+                    actionName: actionName,
+                    screenName: PageName,
+                    functionName: functionName,
+                    eventType: "PAGE_ACTION",
                     actionType: 7, // Type 7 = Button/Click action from page
+                    reference: PageName, // ✅ Add reference parameter for auto-creation
                     actionParams: actionParams
                 );
 
@@ -128,11 +129,12 @@ namespace PetelApp.BlazorServer.Components.Pages
             try
             {
                 var allowed = await SecurityService.VerifyActionAsync(
-                    actionName,
-                    PageName,
-                    functionName,
-                    "PAGE_ACTION",
+                    actionName: actionName,
+                    screenName: PageName,
+                    functionName: functionName,
+                    eventType: "PAGE_ACTION",
                     actionType: 7, // Type 7 = Button/Click action from page
+                    reference: PageName, // ✅ Add reference parameter for auto-creation
                     actionParams: actionParams
                 );
 

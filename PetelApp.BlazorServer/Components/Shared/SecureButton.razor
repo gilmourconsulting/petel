@@ -92,11 +92,12 @@
             try
             {
                 _isVisible = await SecurityService.VerifyActionAsync(
-                    ActionName, 
-                    ScreenName, 
-                    FunctionName, 
-                    "BUTTON_VISIBLE_CHECK", 
+                    actionName: ActionName, 
+                    screenName: ScreenName, 
+                    functionName: FunctionName, 
+                    eventType: "BUTTON_VISIBLE_CHECK", 
                     actionType: 7, // Type 7 = Button/Click action
+                    reference: ScreenName, // ✅ Add reference parameter for auto-creation
                     actionParams: ActionParams
                 );
 
@@ -125,11 +126,12 @@
         {
             // Verify permission before executing action
             var allowed = await SecurityService.VerifyActionAsync(
-                ActionName,
-                ScreenName,
-                FunctionName,
-                "BUTTON_CLICK",
+                actionName: ActionName,
+                screenName: ScreenName,
+                functionName: FunctionName,
+                eventType: "BUTTON_CLICK",
                 actionType: 7, // Type 7 = Button/Click action
+                reference: ScreenName, // ✅ Add reference parameter for auto-creation
                 actionParams: ActionParams
             );
 

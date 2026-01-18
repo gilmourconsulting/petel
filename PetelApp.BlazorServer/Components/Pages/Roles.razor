@@ -7,6 +7,7 @@
 @inject SessionStateService SessionStateService
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
+@inject ILogger<Roles> Logger
 
 <div class="school-title-section">
     <h1 class="page-title">ניהול תפקידים</h1>
@@ -38,6 +39,9 @@
         </SecureButton>
         <SecureButton ActionName="roles_importcomplete" ScreenName="@PageName" FunctionName="ImportComplete" OnClick="ImportComplete" CssClass="context-btn">
             ייבוא מלא
+        </SecureButton>
+        <SecureButton ActionName="roles_refreshcache" ScreenName="@PageName" FunctionName="RefreshSecurityCache" OnClick="RefreshSecurityCache" CssClass="context-btn">
+            רענן מטמון אבטחה
         </SecureButton>
         <SecureButton ActionName="roles_users" ScreenName="@PageName" FunctionName="NavigateToUsers" OnClick="NavigateToUsers" CssClass="context-btn">
             חזרה לניהול משתמשים
@@ -385,6 +389,32 @@
     private async Task ImportComplete()
     {
         await JSRuntime.InvokeVoidAsync("alert", "ייבוא מלא יתווסף בהמשך");
+    }
+
+    private async Task RefreshSecurityCache()
+    {
+        try
+        {
+            Logger.LogInformation("🔄 Refreshing security cache...");
+
+            var response = await ApiService.PostAsync<object, object>("roles/refresh-cache", new { });
+
+            if (response != null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "מטמון האבטחה רוענן בהצלחה! הפעולות החדשות זמינות כעת.");
+                Logger.LogInformation("✅ Security cache refreshed successfully");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה ברענון מטמון האבטחה");
+                Logger.LogError("❌ Failed to refresh security cache - null response");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "❌ Error refreshing security cache");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה ברענון מטמון האבטחה: {ex.Message}");
+        }
     }
 
     private void NavigateToUsers()

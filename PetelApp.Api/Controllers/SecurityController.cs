@@ -185,7 +185,7 @@ namespace PetelApp.Api.Controllers
                     {
                         hasAccess = await _actionAuthService.VerifyMenuItemAccessAsync(userId, request.ActionName);
                     }
-                    else if (request.EventType == "ONCLICK_BUTTON")
+                    else if (request.EventType == "ONCLICK_BUTTON" || request.EventType == "BUTTON_CLICK")
                     {
                         hasAccess = await _actionAuthService.VerifyOnclickAccessAsync(
                             userId, 

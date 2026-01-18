@@ -239,7 +239,7 @@ namespace PetelApp.Api.Services
                     Reference = reference ?? screenName, // Use provided reference or fallback to screenName
                     Description = $"Auto-created from screen '{screenName}' function '{functionName}'",
                     ActionTypeId = actionTypeId,
-                    IsActive = true, // ✅ CRITICAL: Created as INACTIVE for security
+                    IsActive = true, // ✅ Created as ACTIVE but not assigned to any roles (still no access)
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
                     UserId = 1 // System user
@@ -430,8 +430,19 @@ namespace PetelApp.Api.Services
                 {
                     _logger.LogWarning("🚫 SECURITY: Action NOT REGISTERED in database - ActionName: {ActionName}", actionName);
                     
-                    // Auto-create the action (as INACTIVE) - use provided type and reference
-                    action = await AutoCreateMissingActionAsync(actionName, "unknown", actionName, actionType, reference);
+                    // Auto-create the action - use actionName to extract screen name if possible
+                    string screenName = "unknown";
+                    string functionName = actionName;
+                    
+                    // Try to extract screen name from action name (format: screenname_functionname)
+                    if (actionName.Contains('_'))
+                    {
+                        var parts = actionName.Split('_', 2);
+                        screenName = parts[0];
+                        functionName = parts.Length > 1 ? parts[1] : actionName;
+                    }
+                    
+                    action = await AutoCreateMissingActionAsync(actionName, screenName, functionName, actionType, reference);
                     
                     if (action != null)
                     {

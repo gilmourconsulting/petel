@@ -122,7 +122,7 @@ namespace PetelApp.BlazorServer.Services
                 functionName: "accessPage",
                 eventType: "PAGE_ACCESS",
                 actionType: 8,
-                reference: $"/{pageName}"
+                reference: pageName // ✅ Remove "/" prefix to fix database reference field
             );
         }
 
