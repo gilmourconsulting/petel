@@ -235,33 +235,73 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label for="trackClass">כיתה:</label>
-                    <select id="trackClass" class="form-control" @bind="_trackModalClassId">
+                    <select id="trackClass" class="form-control" @bind="_trackModalClassId" @bind:after="OnClassChanged">
                         <option value="0">בחר כיתה...</option>
                         @foreach (var cls in _classes)
                         {
-                            <option value="@cls.Id">@cls.Level @cls.ClassNumber</option>
+                            <option value="@cls.Id" data-level="@cls.Level">@cls.Level @cls.ClassNumber</option>
                         }
                     </select>
                 </div>
 
                 <div class="form-group">
                     <label for="trackTrack">מגמה:</label>
-                    <input type="number" id="trackTrack" class="form-control" placeholder="מזהה מגמה"
-                        @bind="_trackModalTrackId">
-                    <small class="text-muted">הזן מזהה מגמה זמני (יש לפתח dropdown מלא עם מגמות)</small>
+                    <select id="trackTrack" class="form-control" @bind="_trackModalTrackId" @bind:after="OnTrackChanged" disabled="@(_trackModalTracksLoading || !_availableTracks.Any())">
+                        @if (_trackModalTracksLoading)
+                        {
+                            <option value="0">טוען מגמות...</option>
+                        }
+                        else if (!_availableTracks.Any())
+                        {
+                            <option value="0">@(_trackModalClassId > 0 ? "אין מגמות זמינות" : "בחר תחילה כיתה...")</option>
+                        }
+                        else
+                        {
+                            <option value="0">בחר מגמה...</option>
+                            @foreach (var track in _availableTracks)
+                            {
+                                <option value="@track.Id">@track.Name</option>
+                            }
+                        }
+                    </select>
                 </div>
 
                 <div class="form-group">
-                    <label for="trackLevel">רמת מגמה (אופציונלי):</label>
-                    <input type="number" id="trackLevel" class="form-control" placeholder="מזהה רמה"
-                        @bind="_trackModalLevelId">
-                    <small class="text-muted">הזן מזהה רמה זמני (יש לפתח dropdown מלא עם רמות)</small>
+                    <label for="trackLevel">רמת מגמה:</label>
+                    <select id="trackLevel" class="form-control" @bind="_trackModalLevelId" @bind:after="OnLevelChanged" disabled="@(_trackModalLevelsLoading || !_availableLevels.Any())">
+                        @if (_trackModalLevelsLoading)
+                        {
+                            <option value="0">טוען רמות...</option>
+                        }
+                        else if (!_availableLevels.Any())
+                        {
+                            <option value="0">@(_trackModalTrackId > 0 ? "אין רמות זמינות" : "בחר תחילה מגמה...")</option>
+                        }
+                        else
+                        {
+                            <option value="0">בחר רמת מגמה...</option>
+                            @foreach (var level in _availableLevels)
+                            {
+                                <option value="@level.Id">@level.LevelName</option>
+                            }
+                        }
+                    </select>
                 </div>
 
                 <div class="form-group">
-                    <label for="trackHours">מספר שעות:</label>
+                    <label for="trackHours">
+                        מספר שעות:
+                        @if (!string.IsNullOrEmpty(_hoursConstraintText))
+                        {
+                            <span style="color: #6c757d; font-weight: normal; font-size: 0.9em;">@_hoursConstraintText</span>
+                        }
+                    </label>
                     <input type="number" id="trackHours" class="form-control" placeholder="הזן מספר שעות"
-                        min="0" step="0.5" @bind="_trackModalHours">
+                        min="0" step="1" @bind="_trackModalHours" @oninput="OnHoursInput">
+                    @if (_showHoursError)
+                    {
+                        <div style="color: #dc3545; font-size: 0.85em; margin-top: 5px;">@_hoursErrorText</div>
+                    }
                 </div>
             </div>
             <div class="modal-footer">
@@ -391,6 +431,18 @@
     private int? _trackModalLevelId = null;
     private decimal _trackModalHours = 0;
     private int _trackModalId = 0;
+    
+    // Track dropdown data
+    private List<TrackDto> _availableTracks = new();
+    private List<TrackLevelDto> _availableLevels = new();
+    private bool _trackModalTracksLoading = false;
+    private bool _trackModalLevelsLoading = false;
+    
+    // Track level constraints
+    private Dictionary<int, (int minHours, int? maxHours)> _trackLevelConstraints = new();
+    private string _hoursConstraintText = "";
+    private string _hoursErrorText = "";
+    private bool _showHoursError = false;
 
     // Additional Study Program modal state
     private bool _showProgramModal = false;
@@ -878,6 +930,12 @@
         _trackModalHours = 0;
         _trackModalId = 0;
         _isEditingTrack = false;
+        _availableTracks.Clear();
+        _availableLevels.Clear();
+        _trackLevelConstraints.Clear();
+        _hoursConstraintText = "";
+        _hoursErrorText = "";
+        _showHoursError = false;
         _showTrackModal = true;
         StateHasChanged();
     }
@@ -890,13 +948,239 @@
         _trackModalHours = track.WeeklyHours;
         _trackModalId = track.Id;
         _isEditingTrack = true;
+        _availableTracks.Clear();
+        _availableLevels.Clear();
+        _trackLevelConstraints.Clear();
+        _hoursConstraintText = "";
+        _hoursErrorText = "";
+        _showHoursError = false;
         _showTrackModal = true;
         StateHasChanged();
+        
+        // Load cascading data for edit mode
+        await OnClassChanged();
     }
 
     private void CloseTrackModal()
     {
         _showTrackModal = false;
+        _availableTracks.Clear();
+        _availableLevels.Clear();
+        _trackLevelConstraints.Clear();
+    }
+
+    private async Task OnClassChanged()
+    {
+        // Reset dependent dropdowns
+        _availableTracks.Clear();
+        _availableLevels.Clear();
+        _trackLevelConstraints.Clear();
+        _hoursConstraintText = "";
+        _hoursErrorText = "";
+        _showHoursError = false;
+        
+        if (_trackModalClassId == 0)
+        {
+            if (!_isEditingTrack)
+            {
+                _trackModalTrackId = 0;
+                _trackModalLevelId = null;
+            }
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            _trackModalTracksLoading = true;
+            StateHasChanged();
+
+            // Get class level
+            var selectedClass = _classes.FirstOrDefault(c => c.Id == _trackModalClassId);
+            if (selectedClass == null)
+            {
+                Console.WriteLine($"❌ Class not found: {_trackModalClassId}");
+                return;
+            }
+
+            var classLevel = selectedClass.Level.Replace("\"", "״").Replace("'", "׳");
+            
+            // Get year ID
+            var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearId");
+            if (yearIdResponse == null || !yearIdResponse.TryGetValue("value", out var yearIdStr))
+            {
+                Console.WriteLine("❌ Failed to get SelectedYearId");
+                return;
+            }
+
+            var yearId = int.Parse(yearIdStr);
+            Console.WriteLine($"📚 Loading tracks for year {yearId} and class level {classLevel}");
+
+            // Load tracks filtered by class level
+            var response = await ApiService.GetAsync<TracksResponse>(
+                $"tracks/by-year/{yearId}/class-level/{Uri.EscapeDataString(classLevel)}"
+            );
+
+            if (response?.Success == true && response.Data != null)
+            {
+                _availableTracks = response.Data;
+                Console.WriteLine($"✅ Loaded {_availableTracks.Count} tracks");
+                
+                // If editing and track is already selected, load its levels
+                if (_isEditingTrack && _trackModalTrackId > 0)
+                {
+                    await OnTrackChanged();
+                }
+            }
+            else
+            {
+                Console.WriteLine($"❌ Failed to load tracks: {response?.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading tracks: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("console.error", $"Error loading tracks: {ex.Message}");
+        }
+        finally
+        {
+            _trackModalTracksLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnTrackChanged()
+    {
+        // Reset dependent dropdown
+        _availableLevels.Clear();
+        _trackLevelConstraints.Clear();
+        _hoursConstraintText = "";
+        _hoursErrorText = "";
+        _showHoursError = false;
+
+        if (_trackModalTrackId == 0)
+        {
+            if (!_isEditingTrack)
+            {
+                _trackModalLevelId = null;
+            }
+            StateHasChanged();
+            return;
+        }
+
+        try
+        {
+            _trackModalLevelsLoading = true;
+            StateHasChanged();
+
+            Console.WriteLine($"📚 Loading track levels for track {_trackModalTrackId}");
+
+            // Load track levels
+            var response = await ApiService.GetAsync<TrackLevelsResponse>(
+                $"tracklevels/by-track/{_trackModalTrackId}"
+            );
+
+            if (response?.Success == true && response.Data != null)
+            {
+                _availableLevels = response.Data;
+                Console.WriteLine($"✅ Loaded {_availableLevels.Count} track levels");
+
+                // Store constraints
+                _trackLevelConstraints.Clear();
+                foreach (var level in _availableLevels)
+                {
+                    _trackLevelConstraints[level.Id] = (level.MinHours, level.MaxHours);
+                }
+
+                // If editing and level is already selected, show its constraints
+                if (_isEditingTrack && _trackModalLevelId.HasValue)
+                {
+                    OnLevelChanged();
+                }
+            }
+            else
+            {
+                Console.WriteLine($"❌ Failed to load track levels: {response?.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading track levels: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("console.error", $"Error loading track levels: {ex.Message}");
+        }
+        finally
+        {
+            _trackModalLevelsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void OnLevelChanged()
+    {
+        _hoursErrorText = "";
+        _showHoursError = false;
+
+        if (!_trackModalLevelId.HasValue || _trackModalLevelId.Value == 0)
+        {
+            _hoursConstraintText = "";
+            StateHasChanged();
+            return;
+        }
+
+        if (_trackLevelConstraints.TryGetValue(_trackModalLevelId.Value, out var constraints))
+        {
+            var minText = $"מינימום: {constraints.minHours}";
+            var maxText = constraints.maxHours.HasValue ? $", מקסימום: {constraints.maxHours.Value}" : "";
+            _hoursConstraintText = $"({minText}{maxText})";
+            
+            // Validate current hours value
+            ValidateHours();
+        }
+        
+        StateHasChanged();
+    }
+
+    private void OnHoursInput(ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out var hours))
+        {
+            _trackModalHours = hours;
+            ValidateHours();
+        }
+    }
+
+    private void ValidateHours()
+    {
+        if (!_trackModalLevelId.HasValue || _trackModalLevelId.Value == 0)
+        {
+            _showHoursError = false;
+            return;
+        }
+
+        if (!_trackLevelConstraints.TryGetValue(_trackModalLevelId.Value, out var constraints))
+        {
+            _showHoursError = false;
+            return;
+        }
+
+        var hours = (int)_trackModalHours;
+
+        if (hours < constraints.minHours)
+        {
+            _hoursErrorText = $"מספר השעות חייב להיות לפחות {constraints.minHours}";
+            _showHoursError = true;
+        }
+        else if (constraints.maxHours.HasValue && hours > constraints.maxHours.Value)
+        {
+            _hoursErrorText = $"מספר השעות לא יכול לעבור {constraints.maxHours.Value}";
+            _showHoursError = true;
+        }
+        else
+        {
+            _showHoursError = false;
+        }
+        
+        StateHasChanged();
     }
 
     private async Task SaveTrackModal()
@@ -905,6 +1189,25 @@
         {
             await JSRuntime.InvokeVoidAsync("alert", "נא למלא את כל השדות הנדרשים");
             return;
+        }
+
+        // Validate hours against constraints
+        if (_trackModalLevelId.HasValue && _trackModalLevelId.Value > 0)
+        {
+            if (_trackLevelConstraints.TryGetValue(_trackModalLevelId.Value, out var constraints))
+            {
+                var hours = (int)_trackModalHours;
+                if (hours < constraints.minHours)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", $"מספר השעות חייב להיות לפחות {constraints.minHours}");
+                    return;
+                }
+                if (constraints.maxHours.HasValue && hours > constraints.maxHours.Value)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", $"מספר השעות לא יכול לעבור {constraints.maxHours.Value}");
+                    return;
+                }
+            }
         }
 
         try
