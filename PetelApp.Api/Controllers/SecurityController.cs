@@ -195,8 +195,13 @@ namespace PetelApp.Api.Controllers
                     }
                     else
                     {
-                        // Generic action verification by action name
-                        hasAccess = await _actionAuthService.VerifyActionByNameAsync(userId, request.ActionName);
+                        // Generic action verification by action name - pass actionType and reference
+                        hasAccess = await _actionAuthService.VerifyActionByNameAsync(
+                            userId, 
+                            request.ActionName, 
+                            request.ActionType, 
+                            request.Reference
+                        );
                     }
     
                     // ✅ STEP 2: Log to audit trail (server-side, cannot be bypassed)
@@ -303,6 +308,8 @@ namespace PetelApp.Api.Controllers
             public string? ScreenName { get; set; }
             public string? FunctionName { get; set; }
             public string? EventType { get; set; }
+            public int ActionType { get; set; } = 7; // 7 = Button/Click, 8 = Page/Screen
+            public string? Reference { get; set; } // Optional reference field (page URL, menu href, etc.)
             public string? ActionParams { get; set; }
             public string? Description { get; set; }
         }

@@ -1,23 +1,61 @@
 @page "/students"
-@layout MainLayout  
+@layout MainLayout
+@inherits SecurePageBase
 @using PetelApp.BlazorServer.DTOs
 @using PetelApp.BlazorServer.Services
+@using PetelApp.BlazorServer.Components.Shared
 @inject ApiService ApiService
 @inject SessionStateService SessionStateService
-@inject NavigationManager Navigation
-@inject IJSRuntime JSRuntime
 
 <div class="main-container">
     <!-- Context buttons -->
     <div class="context-buttons-section">
-        <button class="context-btn" @onclick="RefreshData">רענן נתונים</button>
-        <button class="context-btn" @onclick="ShowUploadDialog">העלה קובץ תלמידים</button>
-        <button class="context-btn" @onclick="ShowBulkPricingDialog">תמחור מרוכז</button>
-        <button class="context-btn" @onclick="ShowGenerateDocumentsDialog">הפקת מסמכים</button>
+        <SecureButton
+            ActionName="students_refreshData"
+            ScreenName="@PageName"
+            FunctionName="RefreshData"
+            OnClick="RefreshData"
+            CssClass="context-btn">
+            רענן נתונים
+        </SecureButton>
+        
+        <SecureButton
+            ActionName="students_uploadFile"
+            ScreenName="@PageName"
+            FunctionName="ShowUploadDialog"
+            OnClick="ShowUploadDialog"
+            CssClass="context-btn">
+            העלה קובץ תלמידים
+        </SecureButton>
+        
+        <SecureButton
+            ActionName="students_bulkPricing"
+            ScreenName="@PageName"
+            FunctionName="ShowBulkPricingDialog"
+            OnClick="ShowBulkPricingDialog"
+            CssClass="context-btn">
+            תמחור מרוכז
+        </SecureButton>
+        
+        <SecureButton
+            ActionName="students_generateDocuments"
+            ScreenName="@PageName"
+            FunctionName="ShowGenerateDocumentsDialog"
+            OnClick="ShowGenerateDocumentsDialog"
+            CssClass="context-btn">
+            הפקת מסמכים
+        </SecureButton>
+        
         <div class="context-spacer"></div>
-        <button class="context-navigation-btn" @onclick="NavigateToSchoolDashboard" title="חזרה למסך בית הספר">
+        
+        <SecureButton
+            ActionName="students_backToSchool"
+            ScreenName="@PageName"
+            FunctionName="NavigateToSchoolDashboard"
+            OnClick="NavigateToSchoolDashboard"
+            CssClass="context-navigation-btn">
             חזרה למסך בית הספר
-        </button>
+        </SecureButton>
     </div>
 
     <!-- Students content -->
@@ -125,9 +163,16 @@
                                     {
                                         <tr>
                                             <td>
-                                                <button class="btn-icon" @onclick="() => ViewStudent(student.Id)" title="צפה בפרטי תלמיד">
+                                                <SecureButton
+                                                    ActionName="students_viewStudent"
+                                                    ScreenName="@PageName"
+                                                    FunctionName="ViewStudent"
+                                                    ActionParams="@($"studentId={student.Id},name={student.FirstName} {student.LastName}")"
+                                                    OnClick="() => ViewStudent(student.Id)"
+                                                    CssClass="btn-icon"
+                                                    HideIfNoAccess="true">
                                                     <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
-                                                </button>
+                                                </SecureButton>
                                             </td>
                                             <td>@student.IdNumber</td>
                                             <td>@student.FirstName</td>
@@ -304,7 +349,11 @@
     private string _documentProgressCurrentStudent = "";
     private List<string> _documentProgressErrors = new();
 
-    protected override async Task OnInitializedAsync()
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "students";
+
+    // Override page initialization after security check
+    protected override async Task OnPageInitializedAsync()
     {
         await LoadData();
     }
