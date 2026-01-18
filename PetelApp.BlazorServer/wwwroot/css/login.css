@@ -23,6 +23,7 @@ body {
     border-radius: var(--border-radius-large);
     box-shadow: var(--box-shadow-strong);
     padding: 40px;
+    height: auto;
     width: 100%;
     max-width: 420px;
     border: 1px solid rgba(255, 255, 255, 0.2);
