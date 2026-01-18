@@ -34,71 +34,69 @@
                 <div class="left-spacer"></div>
             </div>
             <div class="dashboard-cards-wrapper">
-
-            </div>
-
-            <!-- Alerts Card -->
-            <div class="dashboard-card" id="alertsCard">
-                <div class="dashboard-card-header">
-                    <div class="dashboard-card-icon">🔔</div>
-                    <div class="dashboard-card-title">התראות</div>
-                    <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
-                        @onclick="() => ShowAddModal(false)" title="הוספת התראה חדשה" style="cursor: pointer;" />
-                </div>
-                <div class="internal-cards-container">
-                    @if (_alertsLoading)
-                    {
-                        <div class="loading-message">טוען התראות...</div>
-                    }
-                    else if (_alerts.Count == 0)
-                    {
-                        <div class="no-data-message">אין התראות להצגה</div>
-                    }
-                    else
-                    {
-                        @foreach (var alert in _alerts)
+                <!-- Alerts Card -->
+                <div class="dashboard-card" id="alertsCard">
+                    <div class="dashboard-card-header">
+                        <div class="dashboard-card-icon">🔔</div>
+                        <div class="dashboard-card-title">התראות</div>
+                        <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
+                            @onclick="() => ShowAddModal(false)" title="הוספת התראה חדשה" style="cursor: pointer;" />
+                    </div>
+                    <div class="internal-cards-container">
+                        @if (_alertsLoading)
                         {
-                            <div class="internal-card">
-                                <div class="internal-card-content">@alert.Description</div>
-                                <div class="internal-card-footer">
-                                    <span class="internal-card-date">@alert.CreatedAt.ToString("dd/MM/yyyy")</span>
-                                </div>
-                            </div>
+                            <div class="loading-message">טוען התראות...</div>
                         }
-                    }
-                </div>
-            </div>
-
-            <!-- Events Card -->
-            <div class="dashboard-card" id="eventsCard">
-                <div class="dashboard-card-header">
-                    <div class="dashboard-card-icon">🗓</div>
-                    <div class="dashboard-card-title">אירועים</div>
-                    <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
-                        @onclick="() => ShowAddModal(true)" title="הוספת אירוע חדש" style="cursor: pointer;" />
-                </div>
-                <div class="internal-cards-container">
-                    @if (_eventsLoading)
-                    {
-                        <div class="loading-message">טוען אירועים...</div>
-                    }
-                    else if (_events.Count == 0)
-                    {
-                        <div class="no-data-message">אין אירועים להצגה</div>
-                    }
-                    else
-                    {
-                        @foreach (var evt in _events)
+                        else if (_alerts.Count == 0)
                         {
-                            <div class="internal-card">
-                                <div class="internal-card-content">@evt.Description</div>
-                                <div class="internal-card-footer">
-                                    <span class="internal-card-date">@(evt.EventDate?.ToString("dd/MM/yyyy") ??
-                                                                        evt.CreatedAt.ToString("dd/MM/yyyy"))</span>
-                                </div>
-                            </div>
+                            <div class="no-data-message">אין התראות להצגה</div>
                         }
-                    }
+                        else
+                        {
+                            @foreach (var alert in _alerts)
+                            {
+                                <div class="internal-card">
+                                    <div class="internal-card-content">@alert.Description</div>
+                                    <div class="internal-card-footer">
+                                        <span class="internal-card-date">@alert.CreatedAt.ToString("dd/MM/yyyy")</span>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+
+                <!-- Events Card -->
+                <div class="dashboard-card" id="eventsCard">
+                    <div class="dashboard-card-header">
+                        <div class="dashboard-card-icon">🗓</div>
+                        <div class="dashboard-card-title">אירועים</div>
+                        <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
+                            @onclick="() => ShowAddModal(true)" title="הוספת אירוע חדש" style="cursor: pointer;" />
+                    </div>
+                    <div class="internal-cards-container">
+                        @if (_eventsLoading)
+                        {
+                            <div class="loading-message">טוען אירועים...</div>
+                        }
+                        else if (_events.Count == 0)
+                        {
+                            <div class="no-data-message">אין אירועים להצגה</div>
+                        }
+                        else
+                        {
+                            @foreach (var evt in _events)
+                            {
+                                <div class="internal-card">
+                                    <div class="internal-card-content">@evt.Description</div>
+                                    <div class="internal-card-footer">
+                                        <span class="internal-card-date">@(evt.EventDate?.ToString("dd/MM/yyyy") ??
+                                                                            evt.CreatedAt.ToString("dd/MM/yyyy"))</span>
+                                    </div>
+                                </div>
+                            }
+                        }
+                    </div>
                 </div>
             </div>
         </div>
@@ -155,9 +153,7 @@
             var schoolNameResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolName");
             var schoolName = schoolNameResponse?["value"] ?? session?.EntityName ?? "";
 
-            _schoolTitle = !string.IsNullOrEmpty(_yearDisplay)
-            ? $"{schoolName} - {_yearDisplay}"
-            : schoolName;
+            _schoolTitle = $"{schoolName}";
 
             Console.WriteLine($"🏫 School title: {_schoolTitle}");
         }
