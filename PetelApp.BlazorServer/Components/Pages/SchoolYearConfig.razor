@@ -1,14 +1,19 @@
 @page "/schoolyearconfig"
+@inherits SecurePageBase
+@using PetelApp.BlazorServer.Components.Shared
 @inject ApiService ApiService
 @inject SessionStateService SessionState
 @inject NavigationManager Navigation
 
 <div class="main-container">
     <div class="context-buttons-section">
-        <button class="context-btn" @onclick="RefreshData">רענן נתונים</button>
-        <button class="context-btn" @onclick="ShowAddYearModal">הוסף שנה חדשה</button>
+        <SecureButton ActionName="schoolyearconfig_refreshData" ScreenName="@PageName" FunctionName="RefreshData" 
+                      OnClick="RefreshData" CssClass="context-btn">רענן נתונים</SecureButton>
+        <SecureButton ActionName="schoolyearconfig_addYear" ScreenName="@PageName" FunctionName="ShowAddYearModal" 
+                      OnClick="ShowAddYearModal" CssClass="context-btn">הוסף שנה חדשה</SecureButton>
         <div class="context-spacer"></div>
-        <button class="context-navigation-btn" @onclick="NavigateBack">חזור</button>
+        <SecureButton ActionName="schoolyearconfig_navigateBack" ScreenName="@PageName" FunctionName="NavigateBack" 
+                      OnClick="NavigateBack" CssClass="context-navigation-btn">חזור</SecureButton>
     </div>
 
     <div class="content-card">
@@ -193,7 +198,10 @@
     private string? _message;
     private string _messageType = "success";
 
-    protected override async Task OnInitializedAsync()
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "schoolyearconfig";
+
+    protected override async Task OnPageInitializedAsync()
     {
         var session = await SessionState.GetSessionAsync();
         if (session == null)

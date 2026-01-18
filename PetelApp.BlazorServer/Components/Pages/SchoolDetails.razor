@@ -1,5 +1,6 @@
 @page "/schooldetails"
 @layout MainLayout
+@inherits SecurePageBase
 @using PetelApp.BlazorServer.DTOs
 @using PetelApp.BlazorServer.Services
 @using PetelApp.BlazorServer.Components.Shared
@@ -14,9 +15,10 @@
 
     <div class="context-buttons-section">
         <div class="context-spacer"></div>
-        <button class="context-navigation-btn" @onclick="NavigateToSchoolDashboard" title="לדף בית הספר">
+        <SecureButton ActionName="schooldetails_backToSchoolDashboard" ScreenName="@PageName" FunctionName="NavigateToSchoolDashboard" 
+                      OnClick="NavigateToSchoolDashboard" CssClass="context-navigation-btn" Title="לדף בית הספר">
             לדף בית הספר
-        </button>
+        </SecureButton>
     </div>
 
     <div class="students-content">
@@ -639,7 +641,10 @@
     private bool _versionHistoryLoading = false;
     private List<AdditionalStudyProgramVersionDto> _versionHistory = new();
 
-    protected override async Task OnInitializedAsync()
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "schooldetails";
+
+    protected override async Task OnPageInitializedAsync()
     {
         await LoadData();
     }

@@ -1,4 +1,6 @@
 @page "/analytics"
+@inherits SecurePageBase
+@using PetelApp.BlazorServer.Components.Shared
 @inject ApiService ApiService
 @inject SessionStateService SessionState
 
@@ -87,22 +89,26 @@
     <div class="content-card">
         <h3>דוחות מהירים</h3>
         <div class="reports-grid">
-            <button class="report-button" @onclick="@(() => GenerateReport("students"))">
+            <SecureButton ActionName="analytics_studentsReport" ScreenName="@PageName" FunctionName="GenerateStudentsReport" 
+                          OnClick="GenerateStudentsReport" CssClass="report-button">
                 <div class="report-icon">📋</div>
                 <div class="report-label">דוח תלמידים</div>
-            </button>
-            <button class="report-button" @onclick="@(() => GenerateReport("budget"))">
+            </SecureButton>
+            <SecureButton ActionName="analytics_budgetReport" ScreenName="@PageName" FunctionName="GenerateBudgetReport" 
+                          OnClick="GenerateBudgetReport" CssClass="report-button">
                 <div class="report-icon">💵</div>
                 <div class="report-label">דוח תקציב</div>
-            </button>
-            <button class="report-button" @onclick="@(() => GenerateReport("hours"))">
+            </SecureButton>
+            <SecureButton ActionName="analytics_hoursReport" ScreenName="@PageName" FunctionName="GenerateHoursReport" 
+                          OnClick="GenerateHoursReport" CssClass="report-button">
                 <div class="report-icon">⏰</div>
                 <div class="report-label">דוח שעות</div>
-            </button>
-            <button class="report-button" @onclick="@(() => GenerateReport("summary"))">
+            </SecureButton>
+            <SecureButton ActionName="analytics_summaryReport" ScreenName="@PageName" FunctionName="GenerateSummaryReport" 
+                          OnClick="GenerateSummaryReport" CssClass="report-button">
                 <div class="report-icon">📊</div>
                 <div class="report-label">סיכום כללי</div>
-            </button>
+            </SecureButton>
         </div>
     </div>
 </div>
@@ -119,7 +125,10 @@
 
     private List<ChartDataItem> _classDistribution = new();
 
-    protected override async Task OnInitializedAsync()
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "analytics";
+
+    protected override async Task OnPageInitializedAsync()
     {
         var session = await SessionState.GetSessionAsync();
         if (session == null)
@@ -151,7 +160,27 @@
         }
     }
 
-    private void GenerateReport(string reportType)
+    private async Task GenerateStudentsReport()
+    {
+        await GenerateReport("students");
+    }
+
+    private async Task GenerateBudgetReport()
+    {
+        await GenerateReport("budget");
+    }
+
+    private async Task GenerateHoursReport()
+    {
+        await GenerateReport("hours");
+    }
+
+    private async Task GenerateSummaryReport()
+    {
+        await GenerateReport("summary");
+    }
+
+    private async Task GenerateReport(string reportType)
     {
         Console.WriteLine($"Generating report: {reportType}");
         // Implement report generation

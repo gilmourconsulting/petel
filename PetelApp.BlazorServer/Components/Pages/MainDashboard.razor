@@ -1,21 +1,27 @@
 @page "/maindashboard"
 @layout MainLayout
+@inherits SecurePageBase
+@using PetelApp.BlazorServer.Components.Shared
 @inject ApiService ApiService
 @inject SessionStateService SessionState
 @inject NavigationManager Navigation
 
 <!-- Context Buttons Section (RIGHT side) -->
 <div class="context-buttons-section">
-    <button class="context-btn" @onclick="PreviousYear">@_previousYearName</button>
-    <button class="context-btn active" @onclick="CurrentYear">@_currentYearName</button>
+    <SecureButton ActionName="maindashboard_previousYear" ScreenName="@PageName" FunctionName="PreviousYear" 
+                  OnClick="PreviousYear" CssClass="context-btn">@_previousYearName</SecureButton>
+    <SecureButton ActionName="maindashboard_currentYear" ScreenName="@PageName" FunctionName="CurrentYear" 
+                  OnClick="CurrentYear" CssClass="context-btn active">@_currentYearName</SecureButton>
     @if (_nextYearId > 0)
     {
-        <button class="context-btn" @onclick="NextYear">@_nextYearName</button>
+        <SecureButton ActionName="maindashboard_nextYear" ScreenName="@PageName" FunctionName="NextYear" 
+                      OnClick="NextYear" CssClass="context-btn">@_nextYearName</SecureButton>
     }
     <div class="context-spacer"></div>
     @if (_showEntityDetailsButton)
     {
-        <button class="context-navigation-btn" @onclick="NavigateToEntityDetails">פרטי ישות</button>
+        <SecureButton ActionName="maindashboard_entityDetails" ScreenName="@PageName" FunctionName="NavigateToEntityDetails" 
+                      OnClick="NavigateToEntityDetails" CssClass="context-navigation-btn">פרטי ישות</SecureButton>
     }
 </div>
 
@@ -99,7 +105,10 @@
     private string _currentYearName = "שנה נוכחית";
     private string _nextYearName = "שנה הבאה";
 
-    protected override async Task OnInitializedAsync()
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "maindashboard";
+
+    protected override async Task OnPageInitializedAsync()
     {
         var session = await SessionState.GetSessionAsync();
         if (session == null)

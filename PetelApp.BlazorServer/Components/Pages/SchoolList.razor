@@ -1,6 +1,8 @@
 @page "/schoollist"
 @layout MainLayout
+@inherits SecurePageBase
 @using PetelApp.BlazorServer.DTOs
+@using PetelApp.BlazorServer.Components.Shared
 @inject ApiService ApiService
 @inject SessionStateService SessionState
 @inject NavigationManager Navigation
@@ -9,16 +11,19 @@
 <div class="main-container">
     <!-- Context buttons -->
     <div class="context-buttons-section">
-        <button class="context-btn" @onclick="NavigateToEntityDocuments" title="צפייה במסמכי הישות">
+        <SecureButton ActionName="schoollist_entityDocuments" ScreenName="@PageName" FunctionName="NavigateToEntityDocuments" 
+                      OnClick="NavigateToEntityDocuments" CssClass="context-btn" Title="צפייה במסמכי הישות">
             מסמכי ישות
-        </button>
-        <button class="context-btn" @onclick="NavigateToCouncilsList" title="צפייה ברשימת הרשויות המשלחות">
+        </SecureButton>
+        <SecureButton ActionName="schoollist_councilsList" ScreenName="@PageName" FunctionName="NavigateToCouncilsList" 
+                      OnClick="NavigateToCouncilsList" CssClass="context-btn" Title="צפייה ברשימת הרשויות המשלחות">
             סיכום רשויות משלחות
-        </button>
+        </SecureButton>
         <div class="context-spacer"></div>
-        <button class="context-navigation-btn" @onclick="NavigateBackToDashboard" title="חזרה למסך הראשי">
+        <SecureButton ActionName="schoollist_backToDashboard" ScreenName="@PageName" FunctionName="NavigateBackToDashboard" 
+                      OnClick="NavigateBackToDashboard" CssClass="context-navigation-btn" Title="חזרה למסך הראשי">
             חזרה למסך הראשי
-        </button>
+        </SecureButton>
     </div>
 
     <!-- Main content -->
@@ -125,7 +130,10 @@
     private string _sortColumn = nameof(SchoolDto.Name);
     private bool _sortAscending = true;
 
-    protected override async Task OnInitializedAsync()
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "schoollist";
+
+    protected override async Task OnPageInitializedAsync()
     {
         var session = await SessionState.GetSessionAsync();
         if (session == null)

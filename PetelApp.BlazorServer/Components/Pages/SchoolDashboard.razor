@@ -1,6 +1,8 @@
 @page "/schooldashboard"
 @layout MainLayout
+@inherits SecurePageBase
 @using PetelApp.BlazorServer.DTOs
+@using PetelApp.BlazorServer.Components.Shared
 @inject ApiService ApiService
 @inject SessionStateService SessionState
 @inject NavigationManager Navigation
@@ -9,15 +11,19 @@
 <div class="main-container">
     <!-- Context buttons -->
     <div class="context-buttons-section">
-        <button class="context-btn" @onclick="NavigateToStudents">תלמידים</button>
-        <button class="context-btn" @onclick="NavigateToSchoolDetails">פרטי בית ספר</button>
-        <button class="context-btn" @onclick="NavigateToSchoolDocuments">מסמכים בית ספריים</button>
+        <SecureButton ActionName="schooldashboard_students" ScreenName="@PageName" FunctionName="NavigateToStudents" 
+                      OnClick="NavigateToStudents" CssClass="context-btn">תלמידים</SecureButton>
+        <SecureButton ActionName="schooldashboard_schoolDetails" ScreenName="@PageName" FunctionName="NavigateToSchoolDetails" 
+                      OnClick="NavigateToSchoolDetails" CssClass="context-btn">פרטי בית ספר</SecureButton>
+        <SecureButton ActionName="schooldashboard_schoolDocuments" ScreenName="@PageName" FunctionName="NavigateToSchoolDocuments" 
+                      OnClick="NavigateToSchoolDocuments" CssClass="context-btn">מסמכים בית ספריים</SecureButton>
         <div class="context-spacer"></div>
         @if (_showBackToSchoolList)
         {
-            <button class="context-navigation-btn" @onclick="NavigateBackToSchoolList" title="לרשימת בתי הספר">
+            <SecureButton ActionName="schooldashboard_backToSchoolList" ScreenName="@PageName" FunctionName="NavigateBackToSchoolList" 
+                          OnClick="NavigateBackToSchoolList" CssClass="context-navigation-btn" Title="לרשימת בתי הספר">
                 לרשימת בתי הספר
-            </button>
+            </SecureButton>
         }
         <button class="context-navigation-btn" @onclick="NavigateToMainDashboard" title="חזרה למסך הראשי">
             חזרה למסך הראשי
@@ -114,7 +120,10 @@
     private string _yearDisplay = "";
     private string _schoolId = "";
 
-    protected override async Task OnInitializedAsync()
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "schooldashboard";
+
+    protected override async Task OnPageInitializedAsync()
     {
         var session = await SessionState.GetSessionAsync();
         if (session == null)

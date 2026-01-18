@@ -1,5 +1,6 @@
 @page "/councilsummary"
 @layout MainLayout
+@inherits SecurePageBase
 @using PetelApp.BlazorServer.DTOs
 @using PetelApp.BlazorServer.Services
 @inject ApiService ApiService
@@ -10,12 +11,12 @@
 <div class="main-container">
     <!-- Context buttons -->
     <div class="context-buttons-section">
-        <button class="context-navigation-btn" @onclick="NavigateToSchoolList" title="לרשימת בתי ספר">
+        <SecureButton ActionName="councilsummary_schoollist" OnClick="NavigateToSchoolList" Class="context-navigation-btn" Title="לרשימת בתי ספר">
             לרשימת בתי ספר
-        </button>
-        <button class="context-navigation-btn" @onclick="NavigateToMainDashboard" title="חזרה למסך הראשי">
+        </SecureButton>
+        <SecureButton ActionName="councilsummary_maindashboard" OnClick="NavigateToMainDashboard" Class="context-navigation-btn" Title="חזרה למסך הראשי">
             חזרה למסך הראשי
-        </button>
+        </SecureButton>
     </div>
 
     <!-- Main content -->
@@ -68,9 +69,9 @@
                                     <td>@council.NumberOfStudents.ToString("N0")</td>
                                     <td>@council.TotalRequested.ToString("N2") ₪</td>
                                     <td>
-                                        <button class="btn-icon" @onclick="() => ViewCouncil(council.Id)" title="צפייה ברשות">
+                                        <SecureButton ActionName="councilsummary_viewcouncil" OnClick="() => ViewCouncil(council.Id)" Class="btn-icon" Title="צפייה ברשות">
                                             <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
-                                        </button>
+                                        </SecureButton>
                                     </td>
                                 </tr>
                             }
@@ -83,13 +84,15 @@
 </div>
 
 @code {
+    protected override string PageName => "councilsummary";
+    
     private List<CouncilSummaryDto> _councils = new();
     private bool _isLoading = true;
     private string _yearDisplay = string.Empty;
     private string _sortColumn = nameof(CouncilSummaryDto.CouncilName);
     private bool _sortAscending = true;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnPageInitializedAsync()
     {
         await LoadData();
     }

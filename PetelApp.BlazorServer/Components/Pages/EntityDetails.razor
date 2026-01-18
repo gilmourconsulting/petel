@@ -1,5 +1,7 @@
 @page "/entitydetails"
 @layout MainLayout
+@inherits SecurePageBase
+@using PetelApp.BlazorServer.Components.Shared
 @inject ApiService ApiService
 @inject SessionStateService SessionState
 @inject NavigationManager Navigation
@@ -10,7 +12,8 @@
 <div class="main-container">
     <!-- Context buttons -->
     <div class="context-buttons-section">
-        <button class="context-navigation-btn" @onclick="BackToDashboard">חזרה ללוח בקרה</button>
+        <SecureButton ActionName="entitydetails_backToDashboard" ScreenName="@PageName" FunctionName="BackToDashboard" 
+                      OnClick="BackToDashboard" CssClass="context-navigation-btn">חזרה ללוח בקרה</SecureButton>
     </div>
 
     <!-- Main content -->
@@ -206,7 +209,10 @@
     private string _pageTitle = "פרטי ישות";
     private int _currentUserEntityTypeId;
 
-    protected override async Task OnInitializedAsync()
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "entitydetails";
+
+    protected override async Task OnPageInitializedAsync()
     {
         var session = await SessionState.GetSessionAsync();
         if (session == null)

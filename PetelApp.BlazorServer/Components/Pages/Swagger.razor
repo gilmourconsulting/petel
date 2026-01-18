@@ -1,4 +1,5 @@
 @page "/swagger"
+@inherits SecurePageBase
 @inject ApiService ApiService
 @inject SessionStateService SessionState
 
@@ -11,9 +12,9 @@
         </p>
 
         <div class="swagger-actions">
-            <button class="btn-primary" @onclick="OpenSwaggerInNewTab">
+            <SecureButton ActionName="swagger_opennewtab" OnClick="OpenSwaggerInNewTab" CssClass="btn-primary">
                 פתח Swagger בחלון חדש
-            </button>
+            </SecureButton>
         </div>
 
         <!-- Embed Swagger UI -->
@@ -27,9 +28,11 @@
 </div>
 
 @code {
+    protected override string PageName => "swagger";
+    
     private string _swaggerUrl = "http://localhost:5082/swagger";
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnPageInitializedAsync()
     {
         var session = await SessionState.GetSessionAsync();
         if (session == null)

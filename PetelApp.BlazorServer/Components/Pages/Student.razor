@@ -1,5 +1,6 @@
 @page "/student"
 @layout MainLayout
+@inherits SecurePageBase
 @using PetelApp.BlazorServer.DTOs
 @using PetelApp.BlazorServer.Services
 @using PetelApp.BlazorServer.Components.Shared
@@ -11,19 +12,23 @@
 <div class="main-container">
     <!-- Context buttons -->
     <div class="context-buttons-section">
-        <button class="context-btn" @onclick="CalculateStudentPricing">
+        <SecureButton ActionName="student_calculatePricing" ScreenName="@PageName" FunctionName="CalculateStudentPricing" 
+                      OnClick="CalculateStudentPricing" CssClass="context-btn">
             חשב רכיבי תמחור לתלמיד
-        </button>
-        <button class="context-btn" @onclick="GenerateDocuments">
+        </SecureButton>
+        <SecureButton ActionName="student_generateDocuments" ScreenName="@PageName" FunctionName="GenerateDocuments" 
+                      OnClick="GenerateDocuments" CssClass="context-btn">
             עדכן רשימת מסמכים לתלמיד
-        </button>
+        </SecureButton>
         <div class="context-spacer"></div>
-        <button class="context-navigation-btn" @onclick="NavigateBackToSource">
+        <SecureButton ActionName="student_backToSource" ScreenName="@PageName" FunctionName="NavigateBackToSource" 
+                      OnClick="NavigateBackToSource" CssClass="context-navigation-btn">
             חזרה לרשימה
-        </button>
-        <button class="context-navigation-btn" @onclick="NavigateToSchoolDashboard">
+        </SecureButton>
+        <SecureButton ActionName="student_schoolDashboard" ScreenName="@PageName" FunctionName="NavigateToSchoolDashboard" 
+                      OnClick="NavigateToSchoolDashboard" CssClass="context-navigation-btn">
             לדף בית הספר
-        </button>
+        </SecureButton>
         <button class="context-navigation-btn" @onclick="NavigateToSchoolList">
             רשימת בתי ספר
         </button>
@@ -328,7 +333,10 @@
     private bool _entityDocsExpanded = false;
     private bool _pricingExpanded = true;
 
-    protected override async Task OnInitializedAsync()
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "student";
+
+    protected override async Task OnPageInitializedAsync()
     {
         await LoadStudentData();
     }

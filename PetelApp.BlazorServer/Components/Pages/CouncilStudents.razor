@@ -1,5 +1,6 @@
 @page "/councilstudents"
 @layout MainLayout
+@inherits SecurePageBase
 @using PetelApp.BlazorServer.DTOs
 @using PetelApp.BlazorServer.Services
 @inject ApiService ApiService
@@ -10,11 +11,13 @@
 <div class="main-container">
     <!-- Context buttons -->
     <div class="context-buttons-section">
-        <button class="context-btn" @onclick="RefreshData">רענן נתונים</button>
+        <SecureButton ActionName="councilstudents_refresh" OnClick="RefreshData" Class="context-btn">
+            רענן נתונים
+        </SecureButton>
         <div class="context-spacer"></div>
-        <button class="context-navigation-btn" @onclick="NavigateBackToCouncilSummary">
+        <SecureButton ActionName="councilstudents_councilsummary" OnClick="NavigateBackToCouncilSummary" Class="context-navigation-btn">
             חזרה לסיכום רשויות
-        </button>
+        </SecureButton>
     </div>
 
     <!-- Main content -->
@@ -121,9 +124,9 @@
                                     {
                                         <tr>
                                             <td>
-                                                <button class="btn-icon" @onclick="() => ViewStudent(student.Id)" title="צפה בפרטי תלמיד">
+                                                <SecureButton ActionName="councilstudents_viewstudent" OnClick="() => ViewStudent(student.Id)" Class="btn-icon" Title="צפה בפרטי תלמיד">
                                                     <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
-                                                </button>
+                                                </SecureButton>
                                             </td>
                                             <td>@student.IdNumber</td>
                                             <td>@student.FirstName</td>
@@ -146,6 +149,8 @@
 </div>
 
 @code {
+    protected override string PageName => "councilstudents";
+    
     private List<CouncilStudentDto> _students = new();
     private bool _isLoading = true;
     private string _councilName = string.Empty;
@@ -158,7 +163,7 @@
     private string _sortColumn = nameof(CouncilStudentDto.LastName);
     private bool _sortAscending = true;
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnPageInitializedAsync()
     {
         await LoadData();
     }

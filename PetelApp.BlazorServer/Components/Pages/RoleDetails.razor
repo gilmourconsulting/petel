@@ -1,16 +1,21 @@
 @page "/roledetails/{RoleId:int}"
+@inherits SecurePageBase
+@using PetelApp.BlazorServer.Components.Shared
 @inject ApiService ApiService
 @inject SessionStateService SessionState
 @inject NavigationManager Navigation
 
 <div class="main-container">
     <div class="context-buttons-section">
-        <button class="context-btn" @onclick="RefreshData">רענן נתונים</button>
-        <button class="context-btn" @onclick="ToggleEditMode">
+        <SecureButton ActionName="roledetails_refreshData" ScreenName="@PageName" FunctionName="RefreshData" 
+                      OnClick="RefreshData" CssClass="context-btn">רענן נתונים</SecureButton>
+        <SecureButton ActionName="roledetails_toggleEdit" ScreenName="@PageName" FunctionName="ToggleEditMode" 
+                      OnClick="ToggleEditMode" CssClass="context-btn">
             @(_isEditMode ? "בטל עריכה" : "ערוך תפקיד")
-        </button>
+        </SecureButton>
         <div class="context-spacer"></div>
-        <button class="context-navigation-btn" @onclick="NavigateToRoles">חזור לרשימת תפקידים</button>
+        <SecureButton ActionName="roledetails_backToRoles" ScreenName="@PageName" FunctionName="NavigateToRoles" 
+                      OnClick="NavigateToRoles" CssClass="context-navigation-btn">חזור לרשימת תפקידים</SecureButton>
     </div>
 
     <div class="content-card">
@@ -147,7 +152,10 @@
     private string? _message;
     private string _messageType = "success";
 
-    protected override async Task OnInitializedAsync()
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "roledetails";
+
+    protected override async Task OnPageInitializedAsync()
     {
         var session = await SessionState.GetSessionAsync();
         if (session == null)
