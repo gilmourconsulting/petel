@@ -29,4 +29,11 @@ namespace PetelApp.BlazorServer.DTOs
         public int FinishedStudents { get; set; }
         public int CouncilCount { get; set; }
     }
+
+    public class StudentListResponse
+    {
+        public bool Success { get; set; }
+        public List<StudentDto> Data { get; set; } = new();
+        public string? Message { get; set; }
+    }
 }

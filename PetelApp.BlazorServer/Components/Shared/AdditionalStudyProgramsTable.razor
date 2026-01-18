@@ -13,6 +13,7 @@
                     <th>תלמידים</th>
                     <th>עלות</th>
                     <th>סכום מאושר</th>
+                    <th>סטטוס אישור</th>
                     <th>גרסה</th>
                     @if (IsEditMode)
                     {
@@ -27,20 +28,37 @@
                         <td>@program.ClassName</td>
                         <td>@program.Name</td>
                         <td>@program.WeeklyHours.ToString("N2")</td>
-                        <td>@program.Sessions</td>
+                        <td>@program.NumberOfSessions</td>
                         <td>@program.NumberOfStudents</td>
                         <td>@(program.Cost?.ToString("C2") ?? "-")</td>
                         <td>@(program.ApprovedAmount?.ToString("C2") ?? "-")</td>
                         <td>
+                            @switch (program.ApprovalStatus)
+                            {
+                                case 0:
+                                    <span style="color: #856404; background: #fff3cd; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">לא מאושר</span>
+                                    break;
+                                case 1:
+                                    <span style="color: #155724; background: #d4edda; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">מאושר</span>
+                                    break;
+                                case 2:
+                                    <span style="color: #004085; background: #cce5ff; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">אישור חריג</span>
+                                    break;
+                                default:
+                                    <span>-</span>
+                                    break;
+                            }
+                        </td>
+                        <td>
                             @if (program.MasterId.HasValue)
                             {
                                 <button class="btn-link" @onclick="() => OnViewHistory.InvokeAsync(program.MasterId.Value)" title="היסטוריית גרסאות">
-                                    v@program.Version
+                                    v@(program.Version)
                                 </button>
                             }
                             else
                             {
-                                <span>v@program.Version</span>
+                                <span>v@(program.Version)</span>
                             }
                         </td>
                         @if (IsEditMode)

@@ -8,7 +8,7 @@ namespace PetelApp.BlazorServer.DTOs
         public string ClassName { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
         public decimal WeeklyHours { get; set; }
-        public int Sessions { get; set; }
+        public int NumberOfSessions { get; set; }
         public int NumberOfStudents { get; set; }
         public decimal? Cost { get; set; }
         public decimal? HourlyCost { get; set; }
@@ -60,5 +60,13 @@ namespace PetelApp.BlazorServer.DTOs
         public int NumberOfStudents { get; set; }
         public decimal? Cost { get; set; }
         public bool IsCurrent { get; set; }
+    }
+
+    public class MaxPriceResponse
+    {
+        public bool Success { get; set; }
+        public decimal? MaxPrice { get; set; }
+        public int StudentCount { get; set; }
+        public string? Message { get; set; }
     }
 }

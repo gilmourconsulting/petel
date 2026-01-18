@@ -316,14 +316,18 @@
 @if (_showProgramModal)
 {
     <div class="modal-overlay" @onclick="CloseProgramModal">
-        <div class="modal-content" @onclick:stopPropagation="true">
-            <div class="modal-header">
-                <h3>@(_isEditingProgram ? "עריכת תל״ן" : "הוספת תל״ן חדש")</h3>
+        <div class="modal-content" @onclick:stopPropagation="true" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header" style="padding: 12px 20px;">
+                <h3 style="margin: 0; display: inline-block;">@(_isEditingProgram ? "עריכת תל״ן" : "הוספת תל״ן חדש")</h3>
+                @if (!string.IsNullOrEmpty(_programUpdatedInfo))
+                {
+                    <span style="margin-right: 15px; font-size: 0.85em; color: #666;">@_programUpdatedInfo</span>
+                }
             </div>
             <div class="modal-body">
                 <div class="form-group">
                     <label for="programClass">כיתה: <span style="color: red;">*</span></label>
-                    <select id="programClass" class="form-control" @bind="_programModalData.ClassId">
+                    <select id="programClass" class="form-control" @bind="_programModalData.ClassId" @bind:after="OnProgramClassChanged">
                         <option value="0">בחר כיתה</option>
                         @foreach (var cls in _classes)
                         {
@@ -342,44 +346,203 @@
                     <div style="flex: 1;">
                         <label for="programHours">שעות שבועיות: <span style="color: red;">*</span></label>
                         <input type="number" id="programHours" class="form-control" placeholder="מספר שעות"
-                            min="0" step="0.5" @bind="_programModalData.WeeklyHours">
+                            min="0" step="0.5" @bind="_programModalData.WeeklyHours" @bind:after="OnWeeklyHoursChanged">
                     </div>
                     <div style="flex: 1;">
                         <label for="programSessions">מספר מפגשים: <span style="color: red;">*</span></label>
                         <input type="number" id="programSessions" class="form-control" placeholder="מספר מפגשים"
-                            min="1" @bind="_programModalData.Sessions">
-                        <small class="text-muted">ברירת מחדל: 30 מפגשים</small>
+                            min="1" @bind="_programModalData.NumberOfSessions" @bind:after="OnSessionsChanged">
+                        <small class="text-muted">@_sessionsRemarkText</small>
                     </div>
                 </div>
 
                 <div class="form-group">
                     <label for="programStudents">מספר תלמידים: <span style="color: red;">*</span></label>
-                    <input type="number" id="programStudents" class="form-control" placeholder="מספר תלמידים"
-                        min="1" @bind="_programModalData.NumberOfStudents">
+                    <div style="display: flex; gap: 8px; align-items: flex-start;">
+                        <input type="number" id="programStudents" class="form-control" placeholder="מספר תלמידים"
+                            min="1" @bind="_programModalData.NumberOfStudents" @bind:after="OnStudentCountChanged" style="flex: 1;">
+                        <button type="button" class="btn btn-secondary" @onclick="UpdateStudentCountFromClass" 
+                            title="עדכן לפי מספר תלמידים בכיתה" style="white-space: nowrap; padding: 8px 12px;">
+                            <img src="/images/view_icon.png" alt="עדכן" class="action-icon-natural" style="vertical-align: middle;">
+                            <span style="margin-right: 4px;">עדכן מכיתה</span>
+                        </button>
+                    </div>
                 </div>
 
+                <!-- Calculation Mode Toggle -->
+                <div style="margin-bottom: 20px; padding: 15px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;">
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600; font-size: 15px;">אופן חישוב:</label>
+                    <div style="display: flex; gap: 20px;">
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="radio" name="calculationMode" value="totalCost" 
+                                checked="@(_calculationMode == "totalCost")"
+                                @onchange="@(() => ChangeCalculationMode("totalCost"))"
+                                style="margin-left: 8px; cursor: pointer;">
+                            <span>לפי עלות כוללת</span>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="radio" name="calculationMode" value="hourlyCost"
+                                checked="@(_calculationMode == "hourlyCost")"
+                                @onchange="@(() => ChangeCalculationMode("hourlyCost"))"
+                                style="margin-left: 8px; cursor: pointer;">
+                            <span>לפי עלות שעתית</span>
+                        </label>
+                    </div>
+                    <small style="color: #6c757d; display: block; margin-top: 8px;">
+                        עלות כוללת = שעות שבועיות × מספר מפגשים × עלות שעתית
+                    </small>
+                </div>
+
+                <!-- Cost and Hourly Cost side by side -->
                 <div style="display: flex; gap: 15px; margin-bottom: 15px;">
                     <div style="flex: 1;">
-                        <label for="programCost">עלות:</label>
-                        <input type="number" id="programCost" class="form-control" placeholder="עלות"
-                            min="0" step="0.01" @bind="_programModalData.Cost" style="direction: ltr; text-align: left;">
+                        <label for="programCost">
+                            עלות:
+                            <span style="color: #6c757d; font-size: 0.85em;">@_costLabel</span>
+                        </label>
+                        <input type="number" id="programCost" class="form-control" placeholder="עלות כוללת"
+                            min="0" step="0.01" @bind="_programModalData.Cost" @bind:after="OnCostChanged"
+                            readonly="@(_calculationMode == "hourlyCost")"
+                            style="direction: ltr; text-align: left; background-color: @(_calculationMode == "hourlyCost" ? "#f8f9fa" : "#fff");">
+                        <small style="color: #6c757d; display: block; margin-top: 4px;">@_costHint</small>
                     </div>
                     <div style="flex: 1;">
-                        <label for="programHourlyCost">עלות שעתית:</label>
-                        <input type="number" id="programHourlyCost" class="form-control" placeholder="עלות שעתית"
-                            min="0" step="0.01" @bind="_programModalData.HourlyCost" style="direction: ltr; text-align: left;">
+                        <label for="programHourlyCost">
+                            עלות שעתית:
+                            <span style="color: #6c757d; font-size: 0.85em;">@_hourlyCostLabel</span>
+                        </label>
+                        <input type="number" id="programHourlyCost" class="form-control" placeholder="עלות לשעה"
+                            min="0" step="0.01" @bind="_programModalData.HourlyCost" @bind:after="OnHourlyCostChanged"
+                            readonly="@(_calculationMode == "totalCost")"
+                            style="direction: ltr; text-align: left; background-color: @(_calculationMode == "totalCost" ? "#f8f9fa" : "#fff");">
+                        <small style="color: #6c757d; display: block; margin-top: 4px;">@_hourlyCostHint</small>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="programApproved">סכום מאושר:</label>
-                    <input type="number" id="programApproved" class="form-control" placeholder="סכום מאושר"
-                        min="0" step="0.01" @bind="_programModalData.ApprovedAmount" style="direction: ltr; text-align: left;">
+                <!-- Approved Amount and Approval Status side by side -->
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="flex: 1;">
+                        <label for="programApproved">סכום מאושר:</label>
+                        <input type="number" id="programApproved" class="form-control" placeholder="הזן סכום מאושר"
+                            min="0" step="0.01" @bind="_programModalData.ApprovedAmount" @bind:after="OnApprovedAmountChanged"
+                            style="direction: ltr; text-align: left;">
+                        <small style="color: #6c757d; display: block; margin-top: 4px;">סכום בש"ח</small>
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="programApprovalStatus">סטטוס אישור:</label>
+                        <select id="programApprovalStatus" class="form-control" @bind="_programModalData.ApprovalStatus">
+                            <option value="0">לא מאושר</option>
+                            <option value="1">מאושר</option>
+                            <option value="2">אישור חריג</option>
+                        </select>
+                    </div>
                 </div>
+
+                <!-- Maximum Price Display -->
+                @if (_maxAllowedPrice.HasValue)
+                {
+                    <div style="margin-bottom: 15px; padding: 10px; background-color: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 4px;">
+                        <label style="display: block; font-weight: 600; color: #004085; margin-bottom: 5px;">
+                            סכום מקסימלי מותר:
+                        </label>
+                        <div style="font-size: 18px; font-weight: bold; color: #004085;">
+                            @_maxAllowedPrice.Value.ToString("C2")
+                            @if (_maxPriceTierStudents != _programModalData.NumberOfStudents && _maxPriceTierStudents > 0)
+                            {
+                                <br />
+                                <small style="font-size: 0.85em; font-weight: normal;">
+                                    (מבוסס על @_maxPriceTierStudents תלמידים)
+                                </small>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- Validation Error -->
+                @if (_showValidationError)
+                {
+                    <div style="padding: 10px; background-color: #f8d7da; border: 1px solid #f5c6cb; border-radius: 4px; color: #721c24; margin-bottom: 15px;">
+                        <strong>שגיאה:</strong> @_validationErrorText
+                    </div>
+                }
             </div>
             <div class="modal-footer">
                 <button class="dialog-btn save" @onclick="SaveProgramModal">אישור</button>
                 <button class="dialog-btn cancel" @onclick="CloseProgramModal">ביטול</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Version History Modal -->
+@if (_showVersionHistoryModal)
+{
+    <div class="modal-overlay" @onclick="CloseVersionHistoryModal">
+        <div class="modal-content" @onclick:stopPropagation="true" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h3>היסטוריית גרסאות - תל״ן</h3>
+            </div>
+            <div class="modal-body">
+                @if (_versionHistoryLoading)
+                {
+                    <div class="loading-spinner">טוען היסטוריה...</div>
+                }
+                else if (_versionHistory.Any())
+                {
+                    @foreach (var version in _versionHistory)
+                    {
+                        <div class="version-card" style="
+                            border: 1px solid #dee2e6;
+                            border-radius: 4px;
+                            padding: 15px;
+                            margin-bottom: 10px;
+                            background: @(version.IsLastVersion ? "#e7f3ff" : "#f8f9fa");
+                            direction: rtl;
+                        ">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <div><strong>@version.CreatedAt.ToString("g", new System.Globalization.CultureInfo("he-IL"))</strong></div>
+                                @if (version.IsLastVersion)
+                                {
+                                    <span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">גרסה נוכחית</span>
+                                }
+                                <div>על ידי: @(version.UserName ?? "לא ידוע")</div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div><strong>כיתה:</strong> @version.ClassName</div>
+                                <div><strong>שם:</strong> @version.Name</div>
+                                <div><strong>שעות שבועיות:</strong> @version.WeeklyHours</div>
+                                <div><strong>מפגשים:</strong> @version.NumberOfSessions</div>
+                                <div><strong>מספר תלמידים:</strong> @version.NumberOfStudents</div>
+                                <div><strong>עלות:</strong> @(version.Cost?.ToString("C2") ?? "לא הוגדר")</div>
+                                <div><strong>סכום מאושר:</strong> @(version.ApprovedAmount?.ToString("C2") ?? "לא הוגדר")</div>
+                                <div><strong>סטטוס אישור:</strong> 
+                                    @switch (version.ApprovalStatus)
+                                    {
+                                        case 0:
+                                            <span style="color: #856404;">לא מאושר</span>
+                                            break;
+                                        case 1:
+                                            <span style="color: #155724;">מאושר</span>
+                                            break;
+                                        case 2:
+                                            <span style="color: #004085;">אישור חריג</span>
+                                            break;
+                                        default:
+                                            <span>-</span>
+                                            break;
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="empty-state">לא נמצאה היסטוריה</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="dialog-btn cancel" @onclick="CloseVersionHistoryModal">סגור</button>
             </div>
         </div>
     </div>
@@ -448,6 +611,33 @@
     private bool _showProgramModal = false;
     private bool _isEditingProgram = false;
     private AdditionalStudyProgramDto _programModalData = new();
+    
+    // Calculation mode
+    private string _calculationMode = "totalCost";
+    private string _costLabel = "";
+    private string _hourlyCostLabel = "(מחושב אוטומטית)";
+    private string _costHint = "עלות כוללת בש\"ח";
+    private string _hourlyCostHint = "מחושב: עלות ÷ (שעות × מפגשים)";
+    
+    // Max price
+    private decimal? _maxAllowedPrice = null;
+    private int _maxPriceTierStudents = 0;
+    
+    // Validation
+    private bool _showValidationError = false;
+    private string _validationErrorText = "";
+    
+    // Sessions remark
+    private string _sessionsRemarkText = "ברירת מחדל: 30 מפגשים";
+    private int _requiredSessions = 30;
+    
+    // Updated info
+    private string _programUpdatedInfo = "";
+    
+    // Version History modal state
+    private bool _showVersionHistoryModal = false;
+    private bool _versionHistoryLoading = false;
+    private List<AdditionalStudyProgramVersionDto> _versionHistory = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -1280,13 +1470,28 @@
     }
 
     // Additional Study Program Modal Methods
+    // Additional Study Program Modal Methods
     private async Task ShowAddProgramModal()
     {
+        // Load sessions remark first to get required sessions
+        await LoadSessionsRemark();
+        
         _programModalData = new AdditionalStudyProgramDto
         {
-            Sessions = 30
+            NumberOfSessions = _requiredSessions,  // Use required sessions from backend
+            ApprovalStatus = 1  // Default to approved
         };
         _isEditingProgram = false;
+        _calculationMode = "totalCost";
+        _maxAllowedPrice = null;
+        _maxPriceTierStudents = 0;
+        _showValidationError = false;
+        _validationErrorText = "";
+        _programUpdatedInfo = "";
+        
+        // Update calculation mode labels
+        UpdateCalculationModeLabels();
+        
         _showProgramModal = true;
         StateHasChanged();
     }
@@ -1299,13 +1504,42 @@
             ClassId = program.ClassId,
             Name = program.Name,
             WeeklyHours = program.WeeklyHours,
-            Sessions = program.Sessions,
+            NumberOfSessions = program.NumberOfSessions,
             NumberOfStudents = program.NumberOfStudents,
             Cost = program.Cost,
             HourlyCost = program.HourlyCost,
-            ApprovedAmount = program.ApprovedAmount
+            ApprovedAmount = program.ApprovedAmount,
+            ApprovalStatus = program.ApprovalStatus,
+            Version = program.Version,
+            MasterId = program.MasterId
         };
         _isEditingProgram = true;
+        _calculationMode = "totalCost";
+        _maxAllowedPrice = null;
+        _maxPriceTierStudents = 0;
+        _showValidationError = false;
+        _validationErrorText = "";
+        
+        // Show updated info
+        if (program.CreatedAt != default)
+        {
+            var dateStr = program.CreatedAt.ToString("dd/MM/yyyy", new System.Globalization.CultureInfo("he-IL"));
+            var userStr = program.CreatedByUsername ?? "";
+            _programUpdatedInfo = !string.IsNullOrEmpty(userStr) ? $"{dateStr} - {userStr}" : dateStr;
+        }
+        
+        // Load sessions remark
+        await LoadSessionsRemark();
+        
+        // Update calculation mode labels
+        UpdateCalculationModeLabels();
+        
+        // Load max price if student count is set
+        if (_programModalData.NumberOfStudents > 0)
+        {
+            await LoadMaxPrice();
+        }
+        
         _showProgramModal = true;
         StateHasChanged();
     }
@@ -1313,6 +1547,285 @@
     private void CloseProgramModal()
     {
         _showProgramModal = false;
+        _maxAllowedPrice = null;
+        _showValidationError = false;
+    }
+
+    private async Task LoadSessionsRemark()
+    {
+        try
+        {
+            var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearId");
+            if (yearIdResponse != null && yearIdResponse.TryGetValue("value", out var yearIdStr))
+            {
+                var yearId = int.Parse(yearIdStr);
+                var response = await ApiService.GetAsync<Dictionary<string, object>>(
+                    $"schoolyearattributes/year/{yearId}/attribute/additional_study_sessions_required"
+                );
+                
+                if (response != null && response.TryGetValue("data", out var dataObj))
+                {
+                    var data = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(dataObj.ToString() ?? "{}");
+                    if (data != null && data.TryGetValue("value", out var value))
+                    {
+                        if (int.TryParse(value.ToString(), out int sessions))
+                        {
+                            _requiredSessions = sessions;
+                            _sessionsRemarkText = $"מספר מפגשים נדרש: {sessions}";
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // Fallback to default
+        }
+        
+        _requiredSessions = 30;
+        _sessionsRemarkText = "ברירת מחדל: 30 מפגשים";
+    }
+
+    private async Task ChangeCalculationMode(string mode)
+    {
+        _calculationMode = mode;
+        UpdateCalculationModeLabels();
+        await RecalculateCosts();
+    }
+
+    private void UpdateCalculationModeLabels()
+    {
+        if (_calculationMode == "totalCost")
+        {
+            _costLabel = "";
+            _hourlyCostLabel = "(מחושב אוטומטית)";
+            _costHint = "עלות כוללת בש\"ח";
+            _hourlyCostHint = "מחושב: עלות ÷ (שעות × מפגשים)";
+        }
+        else
+        {
+            _costLabel = "(מחושב אוטומטית)";
+            _hourlyCostLabel = "";
+            _costHint = "מחושב: שעות × מפגשים × עלות שעתית";
+            _hourlyCostHint = "עלות שעתית בש\"ח";
+        }
+    }
+
+    private async Task RecalculateCosts()
+    {
+        var hours = _programModalData.WeeklyHours;
+        var sessions = _programModalData.NumberOfSessions;
+        
+        if (hours <= 0 || sessions <= 0) return;
+        
+        if (_calculationMode == "totalCost")
+        {
+            // Calculate hourly cost from total cost
+            if (_programModalData.Cost.HasValue && _programModalData.Cost.Value > 0)
+            {
+                _programModalData.HourlyCost = Math.Round(_programModalData.Cost.Value / (hours * sessions), 2);
+            }
+        }
+        else
+        {
+            // Calculate total cost from hourly cost
+            if (_programModalData.HourlyCost.HasValue && _programModalData.HourlyCost.Value > 0)
+            {
+                _programModalData.Cost = Math.Round(_programModalData.HourlyCost.Value * hours * sessions, 2);
+            }
+        }
+        
+        // Check if sessions affects approval status
+        await UpdateApprovalStatusBasedOnValidation();
+        
+        StateHasChanged();
+    }
+
+    private async Task OnCostChanged()
+    {
+        if (_calculationMode == "totalCost")
+        {
+            await RecalculateCosts();
+        }
+    }
+
+    private async Task OnHourlyCostChanged()
+    {
+        if (_calculationMode == "hourlyCost")
+        {
+            await RecalculateCosts();
+        }
+    }
+
+    private async Task OnSessionsChanged()
+    {
+        await RecalculateCosts();
+    }
+
+    private async Task OnWeeklyHoursChanged()
+    {
+        await RecalculateCosts();
+        await ValidateApprovedAmount();
+    }
+
+    private async Task OnStudentCountChanged()
+    {
+        await LoadMaxPrice();
+        ValidateApprovedAmount();
+    }
+
+    private async Task UpdateStudentCountFromClass()
+    {
+        if (_programModalData.ClassId == 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "אנא בחר כיתה תחילה");
+            return;
+        }
+        
+        try
+        {
+            var schoolYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolYearId");
+            if (schoolYearIdResponse != null && schoolYearIdResponse.TryGetValue("value", out var schoolYearIdStr))
+            {
+                var schoolYearId = int.Parse(schoolYearIdStr);
+                
+                var response = await ApiService.GetAsync<StudentListResponse>($"students?schoolYearId={schoolYearId}");
+                
+                if (response?.Success == true && response.Data != null)
+                {
+                    var studentsInClass = response.Data.Count(s => s.ClassId == _programModalData.ClassId);
+                    _programModalData.NumberOfStudents = studentsInClass;
+                    
+                    Console.WriteLine($"✅ Updated student count: {studentsInClass} students in class");
+                    
+                    await OnStudentCountChanged();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error updating student count: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בעדכון מספר תלמידים");
+        }
+    }
+
+    private async Task LoadMaxPrice()
+    {
+        if (_programModalData.NumberOfStudents <= 0)
+        {
+            _maxAllowedPrice = null;
+            _maxPriceTierStudents = 0;
+            return;
+        }
+        
+        try
+        {
+            var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearId");
+            if (yearIdResponse != null && yearIdResponse.TryGetValue("value", out var yearIdStr))
+            {
+                var yearId = int.Parse(yearIdStr);
+                var students = _programModalData.NumberOfStudents;
+                
+                Console.WriteLine($"🔍 Fetching max price for yearId: {yearId}, students: {students}");
+                
+                var response = await ApiService.GetAsync<MaxPriceResponse>(
+                    $"schooladditionalstudyprograms/max-price?yearId={yearId}&students={students}"
+                );
+                
+                if (response?.Success == true && response.MaxPrice.HasValue)
+                {
+                    _maxAllowedPrice = response.MaxPrice.Value;
+                    _maxPriceTierStudents = response.StudentCount;
+                    
+                    Console.WriteLine($"✅ Max price: {_maxAllowedPrice:C2} (tier: {_maxPriceTierStudents} students)");
+                }
+                else
+                {
+                    _maxAllowedPrice = null;
+                    _maxPriceTierStudents = 0;
+                    Console.WriteLine("ℹ️ No max price defined");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error fetching max price: {ex.Message}");
+            _maxAllowedPrice = null;
+            _maxPriceTierStudents = 0;
+        }
+        
+        StateHasChanged();
+    }
+
+    private async Task OnProgramClassChanged()
+    {
+        // Auto-update student count when class is selected
+        if (_programModalData.ClassId > 0)
+        {
+            await UpdateStudentCountFromClass();
+        }
+    }
+
+    private async Task OnApprovedAmountChanged()
+    {
+        await ValidateApprovedAmount();
+        await UpdateApprovalStatusBasedOnValidation();
+    }
+
+    private async Task UpdateApprovalStatusBasedOnValidation()
+    {
+        // Only auto-update if this is a new program (not editing)
+        if (_isEditingProgram)
+        {
+            return;
+        }
+
+        // Check if sessions is below required
+        var sessionsBelowRequired = _programModalData.NumberOfSessions < _requiredSessions;
+        
+        // Check if approved amount exceeds max allowed
+        var approvedExceedsMax = false;
+        if (_programModalData.ApprovedAmount.HasValue && 
+            _programModalData.ApprovedAmount.Value > 0 && 
+            _maxAllowedPrice.HasValue && 
+            _programModalData.WeeklyHours > 0)
+        {
+            var maxAllowed = _maxAllowedPrice.Value * _programModalData.WeeklyHours;
+            approvedExceedsMax = _programModalData.ApprovedAmount.Value > maxAllowed;
+        }
+
+        // Set approval status based on validation
+        if (sessionsBelowRequired || approvedExceedsMax)
+        {
+            _programModalData.ApprovalStatus = 0;  // Not approved
+        }
+        else
+        {
+            _programModalData.ApprovalStatus = 1;  // Approved
+        }
+        
+        StateHasChanged();
+    }
+
+    private async Task ValidateApprovedAmount()
+    {
+        _showValidationError = false;
+        
+        if (!_programModalData.ApprovedAmount.HasValue || _programModalData.ApprovedAmount.Value == 0 || !_maxAllowedPrice.HasValue)
+        {
+            return;
+        }
+        
+        var maxAllowed = _maxAllowedPrice.Value * _programModalData.WeeklyHours;
+        
+        if (_programModalData.ApprovedAmount.Value > maxAllowed)
+        {
+            _validationErrorText = $"הסכום המאושר ({_programModalData.ApprovedAmount.Value:C2}) עולה על הסכום המקסימלי המותר ({maxAllowed:C2})";
+            _showValidationError = true;
+        }
+        
+        StateHasChanged();
     }
 
     private async Task SaveProgramModal()
@@ -1321,6 +1834,13 @@
             _programModalData.WeeklyHours <= 0 || _programModalData.NumberOfStudents <= 0)
         {
             await JSRuntime.InvokeVoidAsync("alert", "נא למלא את כל השדות הנדרשים");
+            return;
+        }
+        
+        // Validate approved amount
+        if (_showValidationError)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", _validationErrorText);
             return;
         }
 
@@ -1338,11 +1858,15 @@
                         classId = _programModalData.ClassId,
                         name = _programModalData.Name,
                         weeklyHours = _programModalData.WeeklyHours,
-                        sessions = _programModalData.Sessions,
+                        numberOfSessions = _programModalData.NumberOfSessions,
                         numberOfStudents = _programModalData.NumberOfStudents,
                         cost = _programModalData.Cost,
                         hourlyCost = _programModalData.HourlyCost,
-                        approvedAmount = _programModalData.ApprovedAmount
+                        approvedAmount = _programModalData.ApprovedAmount,
+                        approvalStatus = _programModalData.ApprovalStatus,
+                        calculationMode = _calculationMode,
+                        masterId = _programModalData.MasterId ?? _programModalData.Id,
+                        version = _programModalData.Version
                     };
 
                     var response = await ApiService.PutAsync<object, ApiResponse<object>>(
@@ -1369,11 +1893,13 @@
                         classId = _programModalData.ClassId,
                         name = _programModalData.Name,
                         weeklyHours = _programModalData.WeeklyHours,
-                        sessions = _programModalData.Sessions,
+                        numberOfSessions = _programModalData.NumberOfSessions,
                         numberOfStudents = _programModalData.NumberOfStudents,
                         cost = _programModalData.Cost,
                         hourlyCost = _programModalData.HourlyCost,
-                        approvedAmount = _programModalData.ApprovedAmount
+                        approvedAmount = _programModalData.ApprovedAmount,
+                        approvalStatus = _programModalData.ApprovalStatus,
+                        calculationMode = _calculationMode
                     };
 
                     var response = await ApiService.PostAsync<object, ApiResponse<object>>(
@@ -1482,7 +2008,48 @@
 
     private async Task ViewProgramHistory(int masterId)
     {
-        await JSRuntime.InvokeVoidAsync("alert", $"היסטוריית גרסאות עבור תכנית {masterId} - בפיתוח");
+        try
+        {
+            _showVersionHistoryModal = true;
+            _versionHistoryLoading = true;
+            _versionHistory.Clear();
+            StateHasChanged();
+
+            Console.WriteLine($"📜 Loading version history for master: {masterId}");
+
+            var response = await ApiService.GetAsync<ProgramVersionHistoryResponse>(
+                $"schoolAdditionalStudyPrograms/{masterId}/history"
+            );
+
+            if (response?.Success == true && response.Data != null)
+            {
+                _versionHistory = response.Data;
+                Console.WriteLine($"✅ Loaded {_versionHistory.Count} versions");
+            }
+            else
+            {
+                Console.WriteLine($"❌ Failed to load version history: {response?.Message}");
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת היסטוריית גרסאות");
+                _showVersionHistoryModal = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading version history: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה: {ex.Message}");
+            _showVersionHistoryModal = false;
+        }
+        finally
+        {
+            _versionHistoryLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CloseVersionHistoryModal()
+    {
+        _showVersionHistoryModal = false;
+        _versionHistory.Clear();
     }
 
     private void NavigateToSchoolDashboard()
