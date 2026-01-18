@@ -80,7 +80,7 @@ public List<SchoolAttributeType> GetAttributeTypesByYear(int yearId)
 {
     return _attributeTypes.Values
         .Where(t => t.YearId == yearId )
-        .OrderBy(t => t.Id)
+        .OrderBy(t => t.SortOrder)
         .ToList();
 }
 

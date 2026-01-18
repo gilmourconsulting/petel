@@ -7,7 +7,7 @@
 else if (AttributeTypes != null && AttributeTypes.Any())
 {
     <div class="attributes-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; padding: 20px; direction: rtl;">
-        @foreach (var attrType in AttributeTypes.OrderBy(a => a.HebrewName))
+        @foreach (var attrType in AttributeTypes.OrderBy(a => a.SortOrder))
         {
             var existingAttr = Attributes?.FirstOrDefault(a => a.AttributeTypeId == attrType.Id);
             var value = existingAttr?.Value ?? string.Empty;

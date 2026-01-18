@@ -19,6 +19,7 @@ namespace PetelApp.BlazorServer.DTOs
         public string HebrewName { get; set; } = string.Empty;
         public string AttributeValueType { get; set; } = string.Empty; // "Boolean", "Integer", "Decimal", "List", "String"
         public int YearId { get; set; }
+        public int SortOrder { get; set; }
         public List<SchoolAttributeTypeValueDto> PossibleValues { get; set; } = new();
     }
 

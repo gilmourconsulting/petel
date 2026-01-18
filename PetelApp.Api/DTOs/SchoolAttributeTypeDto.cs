@@ -7,6 +7,7 @@ namespace PetelApp.Api.DTOs
         public string HebrewName { get; set; } = string.Empty;
         public string AttributeValueType { get; set; } = string.Empty;
         public int? YearId { get; set; }
+        public int SortOrder { get; set; }
         public List<SchoolAttributeTypeValueDto>? PossibleValues { get; set; }
     }
 
