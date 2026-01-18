@@ -17,6 +17,8 @@ builder.Services.AddHttpClient();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<ApiService>();
 builder.Services.AddScoped<SessionStateService>();
+builder.Services.AddScoped<AuthenticationService>();
+builder.Services.AddScoped<SessionTimeoutService>();
 
 // Configure Blazor Server options
 builder.Services.AddServerSideBlazor()

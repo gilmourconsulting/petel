@@ -2,10 +2,15 @@
 @inject SessionStateService SessionState
 @inject NavigationManager Navigation
 @inject ApiService ApiService
+@inject AuthenticationService AuthService
+@inject SessionTimeoutService TimeoutService
 
-<div class="app-container">
-    <!-- Top Bar -->
-    <div class="top-bar">
+<AuthenticationGuard>
+    <SessionTimeoutWarning />
+    
+    <div class="app-container">
+        <!-- Top Bar -->
+        <div class="top-bar">
         <div class="top-bar-left">
             <div class="system-logo-section">
                 <div class="system-logo" @onclick="NavigateToMainDashboard" style="cursor: pointer;" title="חזור למסך הראשי">
@@ -259,14 +264,24 @@
         StateHasChanged();
     }
 
-    private void Logout()
+    private async Task Logout()
     {
-        // TODO: Call logout endpoint and clear session
-        Navigation.NavigateTo("/login", forceLoad: true);
+        await AuthService.LogoutAsync();
     }
     
     private void NavigateToMainDashboard()
     {
         Navigation.NavigateTo("/maindashboard");
     }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Initialize session timeout after first render
+            await TimeoutService.InitializeAsync();
+        }
+    }
 }
+
+</AuthenticationGuard>

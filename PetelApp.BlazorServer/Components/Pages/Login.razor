@@ -4,6 +4,7 @@
 @inject TokenService TokenService
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject SessionStateService SessionState
 
 <div class="login-container">
     <div class="logo">
@@ -185,6 +186,11 @@
     {
         if (firstRender)
         {
+            // Clear any existing session on login page load
+            await TokenService.ClearTokenAsync();
+            SessionState.ClearSession();
+            _logger.LogInformation("Cleared previous session on login page load");
+            
             // Load entities for the dropdown
             await LoadEntities();
             _logger.LogInformation("Loaded {Count} entities", _entities.Count);

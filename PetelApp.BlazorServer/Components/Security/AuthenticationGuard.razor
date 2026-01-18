@@ -1,0 +1,49 @@
+@inject AuthenticationService AuthService
+@inject NavigationManager NavigationManager
+@inject ILogger<AuthenticationGuard> Logger
+
+@if (_isAuthenticated)
+{
+    @ChildContent
+}
+else if (_isLoading)
+{
+    <div class="loading-container" style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+        <p>בודק אימות...</p>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    private bool _isAuthenticated = false;
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _isAuthenticated = await AuthService.IsAuthenticatedAsync();
+
+            if (!_isAuthenticated)
+            {
+                Logger.LogWarning("User not authenticated, redirecting to login");
+                NavigationManager.NavigateTo("/login", forceLoad: true);
+            }
+            else
+            {
+                Logger.LogDebug("User authenticated, rendering protected content");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error checking authentication in AuthenticationGuard");
+            NavigationManager.NavigateTo("/login", forceLoad: true);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

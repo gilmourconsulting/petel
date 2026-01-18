@@ -17,6 +17,11 @@
 - ✅ **API Service** - HTTP client wrapper with automatic JWT header injection
 - ✅ **BaseController Pattern** - Manual session validation (no `[Authorize]` attribute)
 - ✅ **Login Flow** - Multi-step login with entity selection and OTP support
+- ✅ **Authentication Service** - Automatic authentication checks and redirects to login
+- ✅ **Session Timeout Service** - Tracks idle time and auto-logout after configured timeout
+- ✅ **Authentication Guard Component** - Protects all authenticated pages from unauthorized access
+- ✅ **Session Timeout Warning** - Modal warning before auto-logout with continue/logout options
+- ✅ **Activity Tracking** - JavaScript interop tracks user activity (mouse, keyboard, scroll, touch)
 
 #### Layout & Navigation
 - ✅ **MainLayout** - Complete top bar, side menu, main content, and footer structure
@@ -110,6 +115,16 @@
   - `PostAsync<TRequest, TResponse>` - POST requests with body
 - ✅ **SessionStateService** - Session caching and management
 - ✅ **TokenService** - JWT token storage in ProtectedSessionStorage
+- ✅ **AuthenticationService** - Authentication state management and login redirects
+- ✅ **SessionTimeoutService** - Idle timeout tracking with auto-logout (10 min default)
+
+### 6. Security Components
+
+- ✅ **AuthenticationGuard** - Wraps MainLayout to protect all authenticated pages
+- ✅ **SessionTimeoutWarning** - Modal dialog warning users before auto-logout
+- ✅ **JavaScript Activity Tracking** - Detects user interactions to reset idle timer
+- ✅ **Automatic Session Clearing** - Login page clears previous sessions
+- ✅ **401 Redirect Handling** - Unauthorized API responses redirect to login
 
 ---
 
@@ -223,6 +238,11 @@ The following pages from the vanilla JS frontend still need to be migrated:
 - System version loads from database
 - User information displays correctly
 - Logout functionality works
+- **Authentication guards prevent unauthorized access**
+- **Session timeout with idle detection (10 min default, 2 min warning)**
+- **Automatic logout on inactivity with user warning**
+- **Activity tracking resets timeout on user interaction**
+- **Login page clears previous sessions**
 
 ### What Doesn't Work Yet ❌
 - Most application pages are not yet migrated
