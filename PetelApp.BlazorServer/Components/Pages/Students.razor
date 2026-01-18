@@ -4,6 +4,7 @@
 @using PetelApp.BlazorServer.DTOs
 @using PetelApp.BlazorServer.Services
 @using PetelApp.BlazorServer.Components.Shared
+@using PetelApp.BlazorServer.Components.Modals
 @inject ApiService ApiService
 @inject SessionStateService SessionStateService
 
@@ -194,6 +195,9 @@
     </div>
 </div>
 
+<!-- Student Upload Modal -->
+<StudentUploadModal @ref="_uploadModal" OnUploadComplete="RefreshData" />
+
 <!-- Bulk Pricing Progress Modal -->
 @if (_showBulkPricingProgress)
 {
@@ -328,6 +332,9 @@
 
     private string _sortColumn = nameof(StudentDto.LastName);
     private bool _sortAscending = true;
+
+    // Upload modal reference
+    private StudentUploadModal? _uploadModal;
 
     // Bulk pricing progress
     private bool _showBulkPricingProgress = false;
@@ -502,7 +509,14 @@
 
     private async Task ShowUploadDialog()
     {
-        await JSRuntime.InvokeVoidAsync("alert", "העלאת קובץ תלמידים - בהמשך יתווסף");
+        if (_uploadModal != null)
+        {
+            _uploadModal.Show();
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת חלון העלאה");
+        }
     }
 
     private async Task ShowBulkPricingDialog()

@@ -183,5 +183,35 @@ namespace PetelApp.BlazorServer.Services
                 throw;
             }
         }
+
+        /// <summary>
+        /// POST multipart/form-data request (for file uploads)
+        /// </summary>
+        public async Task<T?> PostMultipartAsync<T>(string endpoint, MultipartFormDataContent content)
+        {
+            try
+            {
+                var client = await GetAuthorizedClientAsync();
+                var url = $"{_baseUrl}/{endpoint}";
+                
+                _logger.LogDebug("POST multipart request to {Url}", url);
+                
+                var response = await client.PostAsync(url, content);
+                
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    _logger.LogWarning("Unauthorized multipart request to {Endpoint}", endpoint);
+                    return default;
+                }
+
+                response.EnsureSuccessStatusCode();
+                return await response.Content.ReadFromJsonAsync<T>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "POST multipart request failed for {Endpoint}", endpoint);
+                throw;
+            }
+        }
     }
 }
