@@ -5,7 +5,7 @@ namespace PetelApp.BlazorServer.DTOs
         public int Id { get; set; }
         public int SchoolYearId { get; set; }
         public string SchoolName { get; set; } = string.Empty;
-        public string? SchoolSymbol { get; set; }
+        public string? Symbol { get; set; }
         public int? CouncilId { get; set; }
         public string? CouncilName { get; set; }
         public int? CharacterizationId { get; set; }

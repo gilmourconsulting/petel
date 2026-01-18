@@ -224,6 +224,127 @@
     </div>
 }
 
+<!-- Track Modal -->
+@if (_showTrackModal)
+{
+    <div class="modal-overlay" @onclick="CloseTrackModal">
+        <div class="modal-content modal-small" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(_isEditingTrack ? "עריכת מגמה" : "הוספת מגמה חדשה")</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="trackClass">כיתה:</label>
+                    <select id="trackClass" class="form-control" @bind="_trackModalClassId">
+                        <option value="0">בחר כיתה...</option>
+                        @foreach (var cls in _classes)
+                        {
+                            <option value="@cls.Id">@cls.Level @cls.ClassNumber</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="trackTrack">מגמה:</label>
+                    <input type="number" id="trackTrack" class="form-control" placeholder="מזהה מגמה"
+                        @bind="_trackModalTrackId">
+                    <small class="text-muted">הזן מזהה מגמה זמני (יש לפתח dropdown מלא עם מגמות)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="trackLevel">רמת מגמה (אופציונלי):</label>
+                    <input type="number" id="trackLevel" class="form-control" placeholder="מזהה רמה"
+                        @bind="_trackModalLevelId">
+                    <small class="text-muted">הזן מזהה רמה זמני (יש לפתח dropdown מלא עם רמות)</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="trackHours">מספר שעות:</label>
+                    <input type="number" id="trackHours" class="form-control" placeholder="הזן מספר שעות"
+                        min="0" step="0.5" @bind="_trackModalHours">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="dialog-btn save" @onclick="SaveTrackModal">אישור</button>
+                <button class="dialog-btn cancel" @onclick="CloseTrackModal">ביטול</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Additional Study Program Modal -->
+@if (_showProgramModal)
+{
+    <div class="modal-overlay" @onclick="CloseProgramModal">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(_isEditingProgram ? "עריכת תל״ן" : "הוספת תל״ן חדש")</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="programClass">כיתה: <span style="color: red;">*</span></label>
+                    <select id="programClass" class="form-control" @bind="_programModalData.ClassId">
+                        <option value="0">בחר כיתה</option>
+                        @foreach (var cls in _classes)
+                        {
+                            <option value="@cls.Id">@cls.Level @cls.ClassNumber</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="programName">שם התל״ן: <span style="color: red;">*</span></label>
+                    <input type="text" id="programName" class="form-control" placeholder="הזן שם תל״ן"
+                        @bind="_programModalData.Name">
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="flex: 1;">
+                        <label for="programHours">שעות שבועיות: <span style="color: red;">*</span></label>
+                        <input type="number" id="programHours" class="form-control" placeholder="מספר שעות"
+                            min="0" step="0.5" @bind="_programModalData.WeeklyHours">
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="programSessions">מספר מפגשים: <span style="color: red;">*</span></label>
+                        <input type="number" id="programSessions" class="form-control" placeholder="מספר מפגשים"
+                            min="1" @bind="_programModalData.Sessions">
+                        <small class="text-muted">ברירת מחדל: 30 מפגשים</small>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="programStudents">מספר תלמידים: <span style="color: red;">*</span></label>
+                    <input type="number" id="programStudents" class="form-control" placeholder="מספר תלמידים"
+                        min="1" @bind="_programModalData.NumberOfStudents">
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="flex: 1;">
+                        <label for="programCost">עלות:</label>
+                        <input type="number" id="programCost" class="form-control" placeholder="עלות"
+                            min="0" step="0.01" @bind="_programModalData.Cost" style="direction: ltr; text-align: left;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="programHourlyCost">עלות שעתית:</label>
+                        <input type="number" id="programHourlyCost" class="form-control" placeholder="עלות שעתית"
+                            min="0" step="0.01" @bind="_programModalData.HourlyCost" style="direction: ltr; text-align: left;">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="programApproved">סכום מאושר:</label>
+                    <input type="number" id="programApproved" class="form-control" placeholder="סכום מאושר"
+                        min="0" step="0.01" @bind="_programModalData.ApprovedAmount" style="direction: ltr; text-align: left;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="dialog-btn save" @onclick="SaveProgramModal">אישור</button>
+                <button class="dialog-btn cancel" @onclick="CloseProgramModal">ביטול</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private bool _isLoading = true;
     private string _schoolName = "ניהול בית ספר";
@@ -261,6 +382,20 @@
     private int _classModalHour = 13;
     private int _classModalMinute = 0;
     private string[] _gradeLevels = new[] { "א", "ב", "ג", "ד", "ה", "ו", "ז", "ח", "ט", "י", "י״א", "י״ב" };
+
+    // Track modal state
+    private bool _showTrackModal = false;
+    private bool _isEditingTrack = false;
+    private int _trackModalClassId = 0;
+    private int _trackModalTrackId = 0;
+    private int? _trackModalLevelId = null;
+    private decimal _trackModalHours = 0;
+    private int _trackModalId = 0;
+
+    // Additional Study Program modal state
+    private bool _showProgramModal = false;
+    private bool _isEditingProgram = false;
+    private AdditionalStudyProgramDto _programModalData = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -734,6 +869,236 @@
         }
     }
 
+    // Track Modal Methods
+    private async Task ShowAddTrackModal()
+    {
+        _trackModalClassId = 0;
+        _trackModalTrackId = 0;
+        _trackModalLevelId = null;
+        _trackModalHours = 0;
+        _trackModalId = 0;
+        _isEditingTrack = false;
+        _showTrackModal = true;
+        StateHasChanged();
+    }
+
+    private async Task EditTrack(SchoolTrackDto track)
+    {
+        _trackModalClassId = track.ClassId;
+        _trackModalTrackId = track.TrackId;
+        _trackModalLevelId = track.TrackLevelId;
+        _trackModalHours = track.WeeklyHours;
+        _trackModalId = track.Id;
+        _isEditingTrack = true;
+        _showTrackModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseTrackModal()
+    {
+        _showTrackModal = false;
+    }
+
+    private async Task SaveTrackModal()
+    {
+        if (_trackModalClassId == 0 || _trackModalTrackId == 0 || _trackModalHours <= 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "נא למלא את כל השדות הנדרשים");
+            return;
+        }
+
+        try
+        {
+            var schoolYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolYearId");
+            if (schoolYearIdResponse != null && schoolYearIdResponse.TryGetValue("value", out var schoolYearIdStr))
+            {
+                var schoolYearId = int.Parse(schoolYearIdStr);
+
+                if (_isEditingTrack)
+                {
+                    var updateRequest = new
+                    {
+                        trackId = _trackModalTrackId,
+                        trackLevelId = _trackModalLevelId,
+                        classId = _trackModalClassId,
+                        weeklyHours = _trackModalHours
+                    };
+
+                    var response = await ApiService.PutAsync<object, ApiResponse<object>>(
+                        $"schooltracks/{_trackModalId}",
+                        updateRequest
+                    );
+
+                    if (response?.Success == true)
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", "המגמה עודכנה בהצלחה");
+                        _showTrackModal = false;
+                        await LoadSchoolTracks(schoolYearId);
+                    }
+                    else
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בעדכון מגמה: {response?.Message}");
+                    }
+                }
+                else
+                {
+                    var createRequest = new
+                    {
+                        schoolYearId = schoolYearId,
+                        trackId = _trackModalTrackId,
+                        trackLevelId = _trackModalLevelId,
+                        classId = _trackModalClassId,
+                        weeklyHours = _trackModalHours
+                    };
+
+                    var response = await ApiService.PostAsync<object, ApiResponse<object>>(
+                        "schooltracks",
+                        createRequest
+                    );
+
+                    if (response?.Success == true)
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", "המגמה נוספה בהצלחה");
+                        _showTrackModal = false;
+                        await LoadSchoolTracks(schoolYearId);
+                    }
+                    else
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בהוספת מגמה: {response?.Message}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error saving track: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירת מגמה: {ex.Message}");
+        }
+    }
+
+    // Additional Study Program Modal Methods
+    private async Task ShowAddProgramModal()
+    {
+        _programModalData = new AdditionalStudyProgramDto
+        {
+            Sessions = 30
+        };
+        _isEditingProgram = false;
+        _showProgramModal = true;
+        StateHasChanged();
+    }
+
+    private async Task EditProgram(AdditionalStudyProgramDto program)
+    {
+        _programModalData = new AdditionalStudyProgramDto
+        {
+            Id = program.Id,
+            ClassId = program.ClassId,
+            Name = program.Name,
+            WeeklyHours = program.WeeklyHours,
+            Sessions = program.Sessions,
+            NumberOfStudents = program.NumberOfStudents,
+            Cost = program.Cost,
+            HourlyCost = program.HourlyCost,
+            ApprovedAmount = program.ApprovedAmount
+        };
+        _isEditingProgram = true;
+        _showProgramModal = true;
+        StateHasChanged();
+    }
+
+    private void CloseProgramModal()
+    {
+        _showProgramModal = false;
+    }
+
+    private async Task SaveProgramModal()
+    {
+        if (_programModalData.ClassId == 0 || string.IsNullOrWhiteSpace(_programModalData.Name) ||
+            _programModalData.WeeklyHours <= 0 || _programModalData.NumberOfStudents <= 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "נא למלא את כל השדות הנדרשים");
+            return;
+        }
+
+        try
+        {
+            var schoolYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolYearId");
+            if (schoolYearIdResponse != null && schoolYearIdResponse.TryGetValue("value", out var schoolYearIdStr))
+            {
+                var schoolYearId = int.Parse(schoolYearIdStr);
+
+                if (_isEditingProgram)
+                {
+                    var updateRequest = new
+                    {
+                        classId = _programModalData.ClassId,
+                        name = _programModalData.Name,
+                        weeklyHours = _programModalData.WeeklyHours,
+                        sessions = _programModalData.Sessions,
+                        numberOfStudents = _programModalData.NumberOfStudents,
+                        cost = _programModalData.Cost,
+                        hourlyCost = _programModalData.HourlyCost,
+                        approvedAmount = _programModalData.ApprovedAmount
+                    };
+
+                    var response = await ApiService.PutAsync<object, ApiResponse<object>>(
+                        $"schooladditionalstudyprograms/{_programModalData.Id}",
+                        updateRequest
+                    );
+
+                    if (response?.Success == true)
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", "התל״ן עודכן בהצלחה");
+                        _showProgramModal = false;
+                        await LoadAdditionalStudyPrograms(schoolYearId);
+                    }
+                    else
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בעדכון תל״ן: {response?.Message}");
+                    }
+                }
+                else
+                {
+                    var createRequest = new
+                    {
+                        schoolYearId = schoolYearId,
+                        classId = _programModalData.ClassId,
+                        name = _programModalData.Name,
+                        weeklyHours = _programModalData.WeeklyHours,
+                        sessions = _programModalData.Sessions,
+                        numberOfStudents = _programModalData.NumberOfStudents,
+                        cost = _programModalData.Cost,
+                        hourlyCost = _programModalData.HourlyCost,
+                        approvedAmount = _programModalData.ApprovedAmount
+                    };
+
+                    var response = await ApiService.PostAsync<object, ApiResponse<object>>(
+                        "schooladditionalstudyprograms",
+                        createRequest
+                    );
+
+                    if (response?.Success == true)
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", "התל״ן נוסף בהצלחה");
+                        _showProgramModal = false;
+                        await LoadAdditionalStudyPrograms(schoolYearId);
+                    }
+                    else
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בהוספת תל״ן: {response?.Message}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error saving program: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירת תל״ן: {ex.Message}");
+        }
+    }
+
+
     private async Task DeleteClass(int classId)
     {
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם למחוק כיתה זו?");
@@ -760,16 +1125,6 @@
         }
     }
 
-    private async Task ShowAddProgramModal()
-    {
-        await JSRuntime.InvokeVoidAsync("alert", "הוספת תל״ן - ממשק מלא בפיתוח");
-    }
-
-    private async Task EditProgram(AdditionalStudyProgramDto program)
-    {
-        await JSRuntime.InvokeVoidAsync("alert", $"עריכת תל״ן {program.Name} - ממשק מלא בפיתוח");
-    }
-
     private async Task DeleteProgram(int programId)
     {
         var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם למחוק תל״ן זה?");
@@ -794,16 +1149,6 @@
             Console.WriteLine($"Error deleting program: {ex.Message}");
             await JSRuntime.InvokeVoidAsync("alert", $"שגיאה במחיקת תל״ן: {ex.Message}");
         }
-    }
-
-    private async Task ShowAddTrackModal()
-    {
-        await JSRuntime.InvokeVoidAsync("alert", "הוספת מגמה - ממשק מלא בפיתוח");
-    }
-
-    private async Task EditTrack(SchoolTrackDto track)
-    {
-        await JSRuntime.InvokeVoidAsync("alert", $"עריכת מגמה {track.Track} - ממשק מלא בפיתוח");
     }
 
     private async Task DeleteTrack(int trackId)

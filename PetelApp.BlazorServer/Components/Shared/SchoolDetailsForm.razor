@@ -17,11 +17,11 @@
                     <span class="detail-field-label">סמל בית ספר:</span>
                     @if (IsEditMode)
                     {
-                        <input type="text" class="form-input" @bind="SchoolData.SchoolSymbol" maxlength="8" />
+                        <input type="text" class="form-input" @bind="SchoolData.Symbol" maxlength="8" />
                     }
                     else
                     {
-                        <span class="detail-field-value">@(SchoolData.SchoolSymbol ?? "לא זמין")</span>
+                        <span class="detail-field-value">@(SchoolData.Symbol ?? "לא זמין")</span>
                     }
                 </p>
 
