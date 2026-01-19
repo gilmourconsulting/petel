@@ -1,4 +1,26 @@
 /* System Attributes Page Styles */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #dee2e6;
+}
+
+.page-header h2 {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: var(--font-size-xxl);
+    font-weight: 600;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
 .system-attributes-header {
     display: flex;
     justify-content: space-between;

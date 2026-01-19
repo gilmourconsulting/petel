@@ -185,6 +185,29 @@ namespace PetelApp.BlazorServer.Services
         }
 
         /// <summary>
+        /// DELETE request with response deserialization
+        /// </summary>
+        public async Task<T?> DeleteAsync<T>(string endpoint)
+        {
+            try
+            {
+                var client = await GetAuthorizedClientAsync();
+                var url = $"{_baseUrl}/{endpoint}";
+                
+                _logger.LogDebug("DELETE request to {Url}", url);
+                
+                var response = await client.DeleteAsync(url);
+                response.EnsureSuccessStatusCode();
+                return await response.Content.ReadFromJsonAsync<T>();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DELETE request with response failed for {Endpoint}", endpoint);
+                throw;
+            }
+        }
+
+        /// <summary>
         /// POST multipart/form-data request (for file uploads)
         /// </summary>
         public async Task<T?> PostMultipartAsync<T>(string endpoint, MultipartFormDataContent content)
