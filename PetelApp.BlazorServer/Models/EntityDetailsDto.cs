@@ -55,4 +55,20 @@ namespace PetelApp.BlazorServer.Models
         public string? City { get; set; }
         public string? PostCode { get; set; }
     }
+
+    public class EntityListDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int EntityTypeId { get; set; }
+        public string EntityTypeDescription { get; set; } = string.Empty;
+        public int? OwnerId { get; set; }
+        public string? OwnerName { get; set; }
+        public bool IsActive { get; set; }
+    }
+
+    public class CreateEntityResponseDto
+    {
+        public int EntityId { get; set; }
+    }
 }

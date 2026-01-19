@@ -153,6 +153,15 @@
 - ✅ **Potential owners dropdown** - Based on entity hierarchy
 - ✅ **Form validation** - Required field checks
 
+#### Entities List (Complete - 390 lines)
+- ✅ **Entities table** - All non-school entities with sorting
+- ✅ **Add entity modal** - Create new entities (distributors, councils, suppliers)
+- ✅ **Context buttons** - Add entity, back to dashboard
+- ✅ **Entity actions** - View details, delete (mark as inactive)
+- ✅ **Entity type filtering** - Shows only types 3, 5, 6 (not schools)
+- ✅ **Navigation** - Click-through to EntityDetails page
+- ✅ **Active status display** - Visual indicator for active/inactive entities
+
 #### Role Details (Complete)
 - ✅ **Role configuration** - Name, description, active status
 - ✅ **Permissions grid** - All actions with checkboxes
@@ -380,11 +389,12 @@
 
 ### What Works ✅
 - ✅ User login with entity selection and OTP
-- ✅ All 18 pages migrated and functional:
+- ✅ **All 19 pages migrated and functional**:
   - Login, MainDashboard, SchoolDashboard, SchoolList, SchoolDetails
-  - Students, Student (details), EntityDetails
+  - Students, Student (details), EntityDetails, Entities (list)
   - RoleDetails, SchoolYearConfig, Settings, About, Swagger, Analytics
   - CouncilSummary, CouncilStudents
+  - Test (debug page), Home (redirect), Users (list)
 - ✅ Navigation menu from database
 - ✅ Session management with 1-minute caching
 - ✅ Layout matches original design (top bar, footer, menu, context buttons)
@@ -540,10 +550,10 @@
 
 ## 📊 Progress Metrics
 
-- **Pages Migrated**: 18 of 18 (100%) ✅
+- **Pages Migrated**: 19 of 19 (100%) ✅
   - Login, MainDashboard, SchoolDashboard, SchoolList, SchoolDetails
-  - Students, Student, EntityDetails, RoleDetails, SchoolYearConfig
-  - Settings, About, Swagger, Analytics
+  - Students, Student, EntityDetails, Entities, RoleDetails, SchoolYearConfig
+  - Settings, About, Swagger, Analytics, Users
   - CouncilSummary, CouncilStudents
   - Test (debug page), Home (redirect)
 - **Core Infrastructure**: 100% complete ✅
