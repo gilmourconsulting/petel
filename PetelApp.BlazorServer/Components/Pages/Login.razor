@@ -41,88 +41,85 @@
         </div>
     }
 
-    @if (!_requiresOtp)
-    {
+    <div class="form-group">
+        <label for="entity" class="form-label">מוסד חינוכי/עיריה/רשת</label>
+        <div class="autocomplete-container">
+            <input type="text" 
+                   @ref="_entityInput"
+                   class="autocomplete-input" 
+                   placeholder="הזן לפחות 3 תווים לחיפוש..."
+                   value="@_searchText"
+                   @oninput="OnSearchTextChanged"
+                   @onkeydown="HandleAutocompleteKeyDown"
+                   @onfocus="OnAutocompleteFocus"
+                   autocomplete="off" />
+            <div class="autocomplete-arrow"></div>
+            <div class="autocomplete-dropdown @(_showDropdown ? "show" : "")">
+                @if (_filteredEntities.Count == 0 && _searchText.Length >= 3)
+                {
+                    <div class="autocomplete-no-results">לא נמצאו תוצאות</div>
+                }
+                else
+                {
+                    @for (int i = 0; i < _filteredEntities.Count; i++)
+                    {
+                        var entity = _filteredEntities[i];
+                        var index = i;
+                        <div class="autocomplete-option @(index == _selectedIndex ? "highlighted" : "") @(entity.Id == _selectedEntityId ? "selected" : "")"
+                             @onclick="@(() => SelectEntity(entity))"
+                             @onmouseenter="@(() => _selectedIndex = index)">
+                            @entity.Name
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+        <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">
+            בחר את הארגון שלך לפני הזנת פרטי ההתחברות
+        </small>
+    </div>
+
+    <div class="credentials-section @(_currentStep >= 2 ? "show" : "")" style="@(_currentStep >= 2 ? "display: block;" : "display: none;")">
         <div class="form-group">
-            <label for="entity" class="form-label">מוסד חינוכי/עיריה/רשת</label>
-            <div class="autocomplete-container">
-                <input type="text" 
-                       @ref="_entityInput"
-                       class="autocomplete-input" 
-                       placeholder="הזן לפחות 3 תווים לחיפוש..."
-                       value="@_searchText"
-                       @oninput="OnSearchTextChanged"
-                       @onkeydown="HandleAutocompleteKeyDown"
-                       @onfocus="OnAutocompleteFocus"
-                       autocomplete="off" />
-                <div class="autocomplete-arrow"></div>
-                <div class="autocomplete-dropdown @(_showDropdown ? "show" : "")">
-                    @if (_filteredEntities.Count == 0 && _searchText.Length >= 3)
-                    {
-                        <div class="autocomplete-no-results">לא נמצאו תוצאות</div>
-                    }
-                    else
-                    {
-                        @for (int i = 0; i < _filteredEntities.Count; i++)
-                        {
-                            var entity = _filteredEntities[i];
-                            var index = i;
-                            <div class="autocomplete-option @(index == _selectedIndex ? "highlighted" : "") @(entity.Id == _selectedEntityId ? "selected" : "")"
-                                 @onclick="@(() => SelectEntity(entity))"
-                                 @onmouseenter="@(() => _selectedIndex = index)">
-                                @entity.Name
-                            </div>
-                        }
-                    }
-                </div>
-            </div>
-            <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">
-                בחר את הארגון שלך לפני הזנת פרטי ההתחברות
-            </small>
+            <label for="username" class="form-label">שם משתמש</label>
+            <input type="text" 
+                   class="form-input" 
+                   @bind="_username"
+                   @onkeydown="HandleEnterKey"
+                   autocomplete="username" />
         </div>
 
-        <div class="credentials-section @(_currentStep >= 2 ? "show" : "")" style="@(_currentStep >= 2 ? "display: block;" : "display: none;")">
-            <div class="form-group">
-                <label for="username" class="form-label">שם משתמש</label>
-                <input type="text" 
-                       class="form-input" 
-                       @bind="_username"
-                       @onkeydown="HandleEnterKey"
-                       autocomplete="username" />
-            </div>
-
-            <div class="form-group">
-                <label for="password" class="form-label">סיסמה</label>
-                <input type="password" 
-                       class="form-input" 
-                       @bind="_password"
-                       @onkeydown="HandleEnterKey"
-                       autocomplete="current-password" />
-            </div>
+        <div class="form-group">
+            <label for="password" class="form-label">סיסמה</label>
+            <input type="password" 
+                   class="form-input" 
+                   @bind="_password"
+                   @onkeydown="HandleEnterKey"
+                   autocomplete="current-password" />
         </div>
+    </div>
 
-        <button type="button" 
-                class="login-button" 
-                @onclick="HandleLogin" 
-                disabled="@(_selectedEntityId == 0 || _isLoading)">
-            @if (_isLoading)
-            {
-                <span>מתחבר...</span>
-            }
-            else if (_selectedEntityId == 0)
-            {
-                <span>בחר ישות תחילה</span>
-            }
-            else
-            {
-                <span>התחבר</span>
-            }
-        </button>
-    }
-    else
-    {
-        <!-- OTP Verification -->
-        <div class="modal-content otp-modal" style="position: static; transform: none; max-width: 100%;">
+    <button type="button" 
+            class="login-button" 
+            @onclick="HandleLogin" 
+            disabled="@(_selectedEntityId == 0 || _isLoading)">
+        @if (_isLoading)
+        {
+            <span>מתחבר...</span>
+        }
+        else if (_selectedEntityId == 0)
+        {
+            <span>בחר ישות תחילה</span>
+        }
+        else
+        {
+            <span>התחבר</span>
+        }
+    </button>
+
+    <!-- OTP Modal Overlay -->
+    <div class="modal-overlay" style="display: @(_requiresOtp ? "flex" : "none");">
+        <div class="modal-content otp-modal">
             <div class="modal-header">
                 <h2>אימות דו-שלבי</h2>
             </div>
@@ -153,7 +150,7 @@
                 </button>
             </div>
         </div>
-    }
+    </div>
 
     <div class="form-footer">
         @_systemVersion
@@ -376,22 +373,31 @@
 
             var response = await ApiService.PostAsync<LoginRequest, LoginResponse>("auth/login", loginRequest);
 
-            if (response != null && response.Success)
+            if (response != null)
             {
+                // Check OTP requirements FIRST (before success check)
                 if (response.RequiresOtp)
                 {
                     _requiresOtp = true;
                     _tempToken = response.TempToken;
+                    return;
                 }
-                else
+
+                // Now check success flag (for actual login failures)
+                if (response.Success)
                 {
                     await TokenService.SetTokenAsync(response.Token);
                     Navigation.NavigateTo("/maindashboard");
                 }
+                else
+                {
+                    _errorMessage = response.Message ?? "שגיאה בהתחברות";
+                    _currentStep = 2;
+                }
             }
             else
             {
-                _errorMessage = response?.Message ?? "שגיאה בהתחברות";
+                _errorMessage = "שגיאה בהתחברות";
                 _currentStep = 2;
             }
         }
@@ -420,8 +426,8 @@
 
         try
         {
-            var otpRequest = new { Token = _tempToken, OtpCode = _otpCode };
-            var response = await ApiService.PostAsync<object, LoginResponse>("auth/verifyotp", otpRequest);
+            var otpRequest = new { TempToken = _tempToken, Code = _otpCode };
+            var response = await ApiService.PostAsync<object, LoginResponse>("otp/validate", otpRequest);
 
             if (response != null && response.Success)
             {
