@@ -11,5 +11,12 @@ namespace PetelApp.BlazorServer.DTOs
         public long FileSize { get; set; }
         public int DocumentTypeId { get; set; }
         public int StatusId { get; set; }
+        public int? DocumentStatusId { get; set; }
+    }
+
+    public class DocumentStatusTypeDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
     }
 }
