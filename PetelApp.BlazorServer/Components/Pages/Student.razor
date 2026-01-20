@@ -12,21 +12,22 @@
 <div class="main-container">
     <!-- Context buttons -->
     <div class="context-buttons-section">
-        <SecureButton ActionName="student_calculatePricing" ScreenName="@PageName" FunctionName="CalculateStudentPricing" 
-                      OnClick="CalculateStudentPricing" CssClass="context-btn">
+        <SecureButton ActionName="student_calculatePricing" ScreenName="@PageName"
+            FunctionName="CalculateStudentPricing" OnClick="CalculateStudentPricing" CssClass="context-btn">
             חשב רכיבי תמחור לתלמיד
         </SecureButton>
-        <SecureButton ActionName="student_generateDocuments" ScreenName="@PageName" FunctionName="GenerateDocuments" 
-                      OnClick="GenerateDocuments" CssClass="context-btn">
+        <SecureButton ActionName="student_generateDocuments" ScreenName="@PageName" FunctionName="GenerateDocuments"
+            OnClick="GenerateDocuments" CssClass="context-btn">
             עדכן רשימת מסמכים לתלמיד
         </SecureButton>
         <div class="context-spacer"></div>
-        <SecureButton ActionName="student_backToSource" ScreenName="@PageName" FunctionName="NavigateBackToSource" 
-                      OnClick="NavigateBackToSource" CssClass="context-navigation-btn">
+        <SecureButton ActionName="student_backToSource" ScreenName="@PageName" FunctionName="NavigateBackToSource"
+            OnClick="NavigateBackToSource" CssClass="context-navigation-btn">
             חזרה לרשימה
         </SecureButton>
-        <SecureButton ActionName="student_schoolDashboard" ScreenName="@PageName" FunctionName="NavigateToSchoolDashboard" 
-                      OnClick="NavigateToSchoolDashboard" CssClass="context-navigation-btn">
+        <SecureButton ActionName="student_schoolDashboard" ScreenName="@PageName"
+            FunctionName="NavigateToSchoolDashboard" OnClick="NavigateToSchoolDashboard"
+            CssClass="context-navigation-btn">
             לדף בית הספר
         </SecureButton>
         <button class="context-navigation-btn" @onclick="NavigateToSchoolList">
@@ -249,19 +250,20 @@
                                     {
                                         <!-- Pricing Summary -->
 
-                                        <div style="background: #f8f9fa; padding: 10px; border-radius: 20px; margin-bottom: 5px;">
-                                            <div style="display: flex; justify-content: space-around; text-align: center;">
+                                        <div style="background: #f8f9fa; padding: 10px; border-radius: 10px; margin-bottom: 5px;">
+                                            <div>
 
                                                 <span style="font-size: 0.9em; color: #666;">סה"כ רכיבים:</span>
                                                 <span style="font-size: 1.1em; font-weight: 500; color: #2c3e50;">
                                                     @_pricingSummary.ElementsTotal ₪ </span>
+                                                &nbsp;&nbsp;
 
-                                                <span style="font-size: 0.9em; color: #666;"> | חודשי רישום:</span>
+                                                <span style="font-size: 0.9em; color: #666;">חודשי רישום:</span>
                                                 <span style="font-size: 1.1em; font-weight: 500; color: #2c3e50;">
                                                     @_pricingSummary.EnrollmentMonths </span>
+                                                &nbsp;&nbsp;
 
-
-                                                <span style="font-size: 0.9em; color: #666;"> | עלות תלמיד:</span>
+                                                <span style="font-size: 0.9em; color: #666;">עלות תלמיד:</span>
                                                 <span style="font-size: 1.2em; font-weight: 700; color: #048f17;">
                                                     @_pricingSummary.StudentCost ₪ </span>
                                                 <span></span>

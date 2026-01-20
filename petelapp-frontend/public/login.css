@@ -125,6 +125,8 @@ body {
     height: 2px;
     background: var(--login-step-inactive);
     margin: 0px 10px;
+    align-self: flex-start;
+    margin-top: 15px;
 }
 
 /* Form Elements */
