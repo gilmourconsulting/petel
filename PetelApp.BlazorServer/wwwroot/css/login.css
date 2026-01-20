@@ -389,12 +389,12 @@ body {
 }
 
 .otp-modal .modal-header {
-    padding: 24px;
+    padding: 10px;
     border-bottom: 1px solid #e0e0e0;
     text-align: center;
 }
 
-.otp-modal .modal-header h2 {
+.otp-modal .modal-header  {
     margin: 0 0 8px 0;
     font-size: 24px;
     font-weight: normal;  /* ✅ NOT bold */

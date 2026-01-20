@@ -229,8 +229,11 @@ body {
     display: flex;
     background: var(--main-background);
     flex-direction: row-reverse;
-    height: calc(100vh - 16.67vh - 50px);
-    /* 16.67vh top bar + 50px footer (accounts for padding, border, and content height) */
+    gap: 20px;
+    direction: rtl;
+    width: 100%;
+    height: calc(100vh - var(--top-bar-height-minimal) - 50px);
+    /* Accounts for top bar and footer */
     overflow: hidden;
     margin-bottom: 0;
 }
@@ -374,11 +377,10 @@ body {
     flex: 1;
     background: var(--main-background);
     padding: 30px;
+    padding-bottom: 160px;
+    /* Extra padding to prevent expanded content from being hidden behind footer */
     overflow-y: auto;
     overflow-x: hidden;
-    padding-bottom: 50px;
-    /* Extra padding at bottom to prevent footer overlap */
-    max-height: 90%;
 }
 
 #dynamicContent {
@@ -904,13 +906,7 @@ body {
 }
 
 /* Students Page Styles */
-.main-container {
-    display: flex;
-    gap: 20px;
-    height: 100%;
-    direction: rtl;
-    width: 100%;
-}
+/* main-container defined globally above - do not duplicate */
 
 .students-content {
     flex: 1;
@@ -1980,7 +1976,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px;
+    padding: 10x;
     border-bottom: 1px solid #dee2e6;
 }
 

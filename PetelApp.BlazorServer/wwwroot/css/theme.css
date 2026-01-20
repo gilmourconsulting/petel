@@ -93,7 +93,8 @@
 
     /* Minimal top bar height */
     --top-bar-height-minimal: 60px; /* Fixed pixel height instead of vh */
-    --main-content-height-minimal: calc(100vh - 60px); /* Remaining height */
+    --footer-height: 50px; /* Footer height including padding and content */
+    --main-content-height-minimal: calc(100vh - 60px - 50px); /* Remaining height minus top bar and footer */
     
     /* Even more reduced spacing */
     --ultra-minimal-padding: 8px;
@@ -169,11 +170,11 @@
     align-items: center;
 }
 
-/* Adjust main container height accordingly */
+/* Adjust main container height accordingly 
 .main-container {
     height: var(--main-content-height-minimal) !important;
     min-height: var(--main-content-height-minimal) !important;
-}
+}*/
 
 /* Global minimal content padding */
 .main-content {
@@ -435,7 +436,7 @@ h3 {
 }
 
 .modal-header {
-    padding: 20px;
+    padding: 10px;
     border-bottom: 1px solid #dee2e6;
     display: flex;
     justify-content: space-between;

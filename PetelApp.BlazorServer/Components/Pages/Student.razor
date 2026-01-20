@@ -58,7 +58,7 @@
                 <div class="content-card">
                     <div class="detail-card expanded">
                         <div class="detail-card-header">
-                            <h2 class="detail-card-title">פרטי תלמיד</h2>
+                            <div class="detail-card-title">פרטי תלמיד</div>
                         </div>
                         <div class="detail-card-content">
                             <div class="detail-fields-grid">
@@ -110,7 +110,7 @@
 
                                 <!-- Additional Information Section -->
                                 <div class="detail-section">
-                                    <h4 class="detail-section-title">פרטים נוספים</h4>
+                                    <h4 class="detail-section-title">נתוני אג"ח</h4>
                                     <div>
                                         <p class="detail-field">
                                             <span class="detail-field-label">רשות שולחת:</span>
@@ -124,6 +124,11 @@
                                             <span class="detail-field-label">עלות:</span>
                                             <span class="detail-field-value">@(_student.Cost?.ToString("N2") ?? "לא                                            זמין")</span>
                                         </p>
+                                    </div>
+                                    </div>
+                                    <div class="detail-section">
+                                        <h4 class="detail-section-title">פרטים נוספים</h4>
+                                        <div>
                                         <p class="detail-field">
                                             <span class="detail-field-label">קטגוריית נכות:</span>
                                             <span class="detail-field-value">@(_student.DisabilityCategory?.ToString() ??
@@ -166,7 +171,7 @@
                         <div class="detail-card @(_studentDocsExpanded ? "expanded" : "collapsed")"
                             style="margin-bottom: 20px;">
                             <div class="detail-card-header" @onclick="() => _studentDocsExpanded = !_studentDocsExpanded">
-                                <h2 class="detail-card-title">מסמכי תלמיד</h2>
+                                <div class="detail-card-title">מסמכי תלמיד</div>
                                 <div class="card-header-actions">
                                     <button class="collapse-toggle" aria-label="הרחב/כווץ">
                                         @(_studentDocsExpanded ? "×" : "+")
@@ -186,7 +191,7 @@
                         <div class="detail-card @(_schoolDocsExpanded ? "expanded" : "collapsed")"
                             style="margin-bottom: 20px;">
                             <div class="detail-card-header" @onclick="() => _schoolDocsExpanded = !_schoolDocsExpanded">
-                                <h2 class="detail-card-title">מסמכי בית ספר</h2>
+                                <div class="detail-card-title">מסמכי בית ספר</div>
                                 <div class="card-header-actions">
                                     <button class="collapse-toggle" aria-label="הרחב/כווץ">
                                         @(_schoolDocsExpanded ? "×" : "+")
@@ -205,7 +210,7 @@
                         <!-- Entity Documents Section -->
                         <div class="detail-card @(_entityDocsExpanded ? "expanded" : "collapsed")">
                             <div class="detail-card-header" @onclick="() => _entityDocsExpanded = !_entityDocsExpanded">
-                                <h2 class="detail-card-title">מסמכי הרשת</h2>
+                                <div class="detail-card-title">מסמכי הרשת</div>
                                 <div class="card-header-actions">
                                     <button class="collapse-toggle" aria-label="הרחב/כווץ">
                                         @(_entityDocsExpanded ? "×" : "+")
@@ -224,9 +229,9 @@
 
                     <!-- Tab Content - Pricing -->
                     <div class="tab-content" style="display: @(_activeTab == "pricing" ? "block" : "none");">
-                        <div class="detail-card @(_pricingExpanded ? "expanded" : "collapsed")">
+                        <div class="detail-card @(_pricingExpanded ? "expanded" : "collapsed")" >
                             <div class="detail-card-header" @onclick="() => _pricingExpanded = !_pricingExpanded">
-                                <h2 class="detail-card-title">רכיבי תמחור</h2>
+                                <div class="detail-card-title">רכיבי תמחור</div>
                                 <div class="card-header-actions">
                                     <button class="collapse-toggle" aria-label="הרחב/כווץ">
                                         @(_pricingExpanded ? "×" : "+")

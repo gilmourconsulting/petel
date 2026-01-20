@@ -40,7 +40,7 @@
                 <div class="detail-card @(_schoolDetailsExpanded ? "expanded" : "collapsed")">
                     <div class="detail-card-header" @onclick="() => _schoolDetailsExpanded = !_schoolDetailsExpanded"
                         style="cursor: pointer;">
-                        <h2 class="detail-card-title">פרטי בית הספר</h2>
+                        <div class="detail-card-title">פרטי בית הספר</div>
                         <div class="card-header-actions">
                             <button class="btn-icon" @onclick:stopPropagation="true"
                                 @onclick="() => _schoolDetailsEditMode = !_schoolDetailsEditMode"
@@ -60,7 +60,7 @@
                 <div class="detail-card @(_schoolClassesExpanded ? "expanded" : "collapsed")">
                     <div class="detail-card-header" @onclick="() => _schoolClassesExpanded = !_schoolClassesExpanded"
                         style="cursor: pointer;">
-                        <h2 class="detail-card-title">כיתות</h2>
+                        <div class="detail-card-title">כיתות</div>
                         <div class="card-header-actions">
                             <button class="btn-icon" @onclick:stopPropagation="true"
                                 @onclick="() => _classesEditMode = !_classesEditMode" title="עריכת כיתות">
@@ -86,7 +86,7 @@
                 <div class="detail-card @(_schoolAttributesExpanded ? "expanded" : "collapsed")">
                     <div class="detail-card-header" @onclick="() => _schoolAttributesExpanded = !_schoolAttributesExpanded"
                         style="cursor: pointer;">
-                        <h2 class="detail-card-title">מאפייני בית ספר</h2>
+                        <div class="detail-card-title">מאפייני בית ספר</div>
                         <div class="card-header-actions">
                             <button class="btn-icon" @onclick:stopPropagation="true"
                                 @onclick="() => _attributesEditMode = !_attributesEditMode" title="עריכת מאפיינים">
@@ -105,7 +105,7 @@
                 <div class="detail-card @(_schoolTracksExpanded ? "expanded" : "collapsed")">
                     <div class="detail-card-header" @onclick="() => _schoolTracksExpanded = !_schoolTracksExpanded"
                         style="cursor: pointer;">
-                        <h2 class="detail-card-title">מגמות</h2>
+                        <div class="detail-card-title">מגמות</div>
                         <div class="card-header-actions">
                             <button class="btn-icon" @onclick:stopPropagation="true"
                                 @onclick="() => _tracksEditMode = !_tracksEditMode" title="עריכת מגמות">
@@ -131,7 +131,7 @@
                 <div class="detail-card @(_additionalStudyExpanded ? "expanded" : "collapsed")">
                     <div class="detail-card-header" @onclick="() => _additionalStudyExpanded = !_additionalStudyExpanded"
                         style="cursor: pointer;">
-                        <h2 class="detail-card-title">תל״ן (תכנית לימודים נוספת)</h2>
+                        <div class="detail-card-title">תל״ן (תכנית לימודים נוספת)</div>
                         <div class="card-header-actions">
                             <button class="btn-icon" @onclick:stopPropagation="true"
                                 @onclick="() => _additionalStudyEditMode = !_additionalStudyEditMode" title="עריכת תל״ן">
@@ -164,7 +164,7 @@
     <div class="modal-overlay" @onclick="CloseClassModal">
         <div class="modal-content modal-small" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h3>@(_isEditingClass ? "עריכת כיתה" : "הוספת כיתה חדשה")</h3>
+                <div>@(_isEditingClass ? "עריכת כיתה" : "הוספת כיתה חדשה")</div>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -232,7 +232,7 @@
     <div class="modal-overlay" @onclick="CloseTrackModal">
         <div class="modal-content modal-small" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h3>@(_isEditingTrack ? "עריכת מגמה" : "הוספת מגמה חדשה")</h3>
+                <div>@(_isEditingTrack ? "עריכת מגמה" : "הוספת מגמה חדשה")</div>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -320,7 +320,7 @@
     <div class="modal-overlay" @onclick="CloseProgramModal">
         <div class="modal-content" @onclick:stopPropagation="true" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header" style="padding: 12px 20px;">
-                <h3 style="margin: 0; display: inline-block;">@(_isEditingProgram ? "עריכת תל״ן" : "הוספת תל״ן חדש")</h3>
+                <div style="margin: 0; display: inline-block;">@(_isEditingProgram ? "עריכת תל״ן" : "הוספת תל״ן חדש")</div>
                 @if (!string.IsNullOrEmpty(_programUpdatedInfo))
                 {
                     <span style="margin-right: 15px; font-size: 0.85em; color: #666;">@_programUpdatedInfo</span>
@@ -482,7 +482,7 @@
     <div class="modal-overlay" @onclick="CloseVersionHistoryModal">
         <div class="modal-content" @onclick:stopPropagation="true" style="max-width: 800px; max-height: 80vh; overflow-y: auto;">
             <div class="modal-header">
-                <h3>היסטוריית גרסאות - תל״ן</h3>
+                <div>היסטוריית גרסאות - תל״ן</div>
             </div>
             <div class="modal-body">
                 @if (_versionHistoryLoading)

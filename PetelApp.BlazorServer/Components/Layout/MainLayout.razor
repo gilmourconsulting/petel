@@ -4,6 +4,7 @@
 @inject ApiService ApiService
 @inject AuthenticationService AuthService
 @inject SessionTimeoutService TimeoutService
+@inject IJSRuntime JSRuntime
 
 <AuthenticationGuard>
     <SessionTimeoutWarning />
@@ -52,7 +53,7 @@
         <NavMenu />
         
         <!-- Main Content Area -->
-        <div class="main-content">
+        <div class="main-content" id="mainContentScroller">
             <div id="dynamicContent">
                 @Body
             </div>
@@ -280,6 +281,68 @@
         {
             // Initialize session timeout after first render
             await TimeoutService.InitializeAsync();
+            
+            // Initialize scroll recalculation observer
+            await InitializeScrollObserver();
+        }
+    }
+
+    private async Task InitializeScrollObserver()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    const mainContent = document.getElementById('mainContentScroller');
+                    if (!mainContent) return;
+
+                    let resizeTimeout;
+                    const forceScrollRecalculation = () => {
+                        clearTimeout(resizeTimeout);
+                        resizeTimeout = setTimeout(() => {
+                            // Force browser to recalculate scroll dimensions
+                            const currentOverflow = mainContent.style.overflow;
+                            mainContent.style.overflow = 'hidden';
+                            mainContent.offsetHeight; // Force reflow
+                            mainContent.style.overflow = currentOverflow || 'auto';
+                        }, 50);
+                    };
+
+                    // Watch for DOM mutations (cards expanding/collapsing, content loading)
+                    const observer = new MutationObserver((mutations) => {
+                        // Check if any mutation affected element dimensions
+                        const hasContentChange = mutations.some(mutation => 
+                            mutation.type === 'childList' || 
+                            mutation.type === 'attributes' && 
+                            (mutation.attributeName === 'class' || mutation.attributeName === 'style')
+                        );
+                        
+                        if (hasContentChange) {
+                            forceScrollRecalculation();
+                        }
+                    });
+
+                    // Observe the dynamic content container
+                    const dynamicContent = document.getElementById('dynamicContent');
+                    if (dynamicContent) {
+                        observer.observe(dynamicContent, {
+                            childList: true,
+                            subtree: true,
+                            attributes: true,
+                            attributeFilter: ['class', 'style']
+                        });
+                    }
+
+                    // Also recalculate on window resize
+                    window.addEventListener('resize', forceScrollRecalculation);
+
+                    console.log('✅ Scroll observer initialized');
+                })();
+            ");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing scroll observer: {ex.Message}");
         }
     }
 }
