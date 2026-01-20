@@ -87,6 +87,7 @@ public async Task<IActionResult> GetAlertsByEntity(
             entityId, isEvent);
 
         // ✅ Join alerts with alert_links to get entity-specific status
+        // ✅ Include user and entity information for display
         var alerts = await _context.AlertLinks
             .Where(al => al.EntityId == entityId && al.IsLastVersion)
             .Join(
@@ -100,19 +101,35 @@ public async Task<IActionResult> GetAlertsByEntity(
                 })
             .Where(x => x.Alert.IsEvent == isEvent)
             .OrderByDescending(x => x.Alert.CreatedAt)
-            .Select(x => new
-            {
-                id = x.Alert.Id,
-                alertType = x.Alert.AlertType,
-                alertLevel = x.Alert.AlertLevel,
-                description = x.Alert.Description,
-                status = x.Link.AlertStatus,  // ✅ Status from alert_links, not alerts
-                userId = x.Alert.UserId,
-                isEvent = x.Alert.IsEvent,
-                eventDate = x.Alert.EventDate,
-                createdAt = x.Alert.CreatedAt,
-                linkId = x.Link.Id
-            })
+            .Join(
+                _context.Users,
+                x => x.Alert.UserId,
+                user => user.Id,
+                (x, user) => new
+                {
+                    x.Alert,
+                    x.Link,
+                    User = user
+                })
+            .Join(
+                _context.Entities,
+                x => x.User.EntityId,
+                entity => entity.Id,
+                (x, entity) => new
+                {
+                    id = x.Alert.Id,
+                    alertType = x.Alert.AlertType,
+                    alertLevel = x.Alert.AlertLevel,
+                    description = x.Alert.Description,
+                    status = x.Link.AlertStatus,  // ✅ Status from alert_links, not alerts
+                    userId = x.Alert.UserId,
+                    isEvent = x.Alert.IsEvent,
+                    eventDate = x.Alert.EventDate,
+                    createdAt = x.Alert.CreatedAt,
+                    linkId = x.Link.Id,
+                    entityId = entityId,  // ✅ Include entityId for frontend
+                    createdByEntityName = entity.Name  // ✅ Entity name of creator
+                })
             .ToListAsync();
 
         _logger.LogInformation(

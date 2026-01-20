@@ -17,7 +17,7 @@
                     <span class="detail-field-label">סמל בית ספר:</span>
                     @if (IsEditMode)
                     {
-                        <input type="text" class="form-input" @bind="SchoolData.Symbol" maxlength="8" />
+                        <input type="text" class="form-input-text-small" @bind="SchoolData.Symbol" maxlength="8" />
                     }
                     else
                     {
@@ -29,7 +29,7 @@
                     <span class="detail-field-label">אפיון:</span>
                     @if (IsEditMode)
                     {
-                        <select class="form-input" @bind="SchoolData.CharacterizationId">
+                        <select class="form-input-select" @bind="SchoolData.CharacterizationId">
                             <option value="">בחר אפיון...</option>
                         </select>
                     }
@@ -43,7 +43,7 @@
                     <span class="detail-field-label">שלב חינוך:</span>
                     @if (IsEditMode)
                     {
-                        <select class="form-input" @bind="SchoolData.EducationStage">
+                        <select class="form-input-select" @bind="SchoolData.EducationStage">
                             <option value="">בחר שלב...</option>
                             <option value="תיכון">תיכון</option>
                             <option value="יסודי">יסודי</option>
@@ -60,7 +60,7 @@
                     <span class="detail-field-label">רשות:</span>
                     @if (IsEditMode)
                     {
-                        <select class="form-input" @bind="SchoolData.CouncilId">
+                        <select class="form-input-select" @bind="SchoolData.CouncilId">
                             <option value="">בחר רשות...</option>
                         </select>
                     }
@@ -94,7 +94,7 @@
                     <span class="detail-field-label">טלפון:</span>
                     @if (IsEditMode)
                     {
-                        <input type="tel" class="form-input" @bind="SchoolData.Phone" placeholder="02-1234567" />
+                        <input type="tel" class="form-input-tel" @bind="SchoolData.Phone" placeholder="02-1234567" />
                     }
                     else
                     {
@@ -106,7 +106,7 @@
                     <span class="detail-field-label">דוא"ל:</span>
                     @if (IsEditMode)
                     {
-                        <input type="email" class="form-input" @bind="SchoolData.Email" placeholder="school@example.com" />
+                        <input type="email" class="form-input-email" @bind="SchoolData.Email" placeholder="school@example.com" />
                     }
                     else
                     {

@@ -11,10 +11,10 @@
 <div class="main-container">
     <!-- Context buttons -->
     <div class="context-buttons-section">
-        <SecureButton ActionName="councilsummary_schoollist" OnClick="NavigateToSchoolList" Class="context-navigation-btn" Title="לרשימת בתי ספר">
+        <SecureButton ActionName="councilsummary_schoollist" OnClick="NavigateToSchoolList" CssClass="context-navigation-btn" Title="לרשימת בתי ספר">
             לרשימת בתי ספר
         </SecureButton>
-        <SecureButton ActionName="councilsummary_maindashboard" OnClick="NavigateToMainDashboard" Class="context-navigation-btn" Title="חזרה למסך הראשי">
+        <SecureButton ActionName="councilsummary_maindashboard" OnClick="NavigateToMainDashboard" CssClass="context-navigation-btn" Title="חזרה למסך הראשי">
             חזרה למסך הראשי
         </SecureButton>
     </div>
@@ -69,7 +69,7 @@
                                     <td>@council.NumberOfStudents.ToString("N0")</td>
                                     <td>@council.TotalRequested.ToString("N2") ₪</td>
                                     <td>
-                                        <SecureButton ActionName="councilsummary_viewcouncil" OnClick="() => ViewCouncil(council.Id)" Class="btn-icon" Title="צפייה ברשות">
+                                        <SecureButton ActionName="councilsummary_viewcouncil" OnClick="() => ViewCouncil(council.Id)" CssClass="btn-icon" Title="צפייה ברשות">
                                             <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
                                         </SecureButton>
                                     </td>

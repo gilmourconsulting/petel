@@ -41,80 +41,43 @@
             </div>
             <div class="dashboard-cards-wrapper">
                 <!-- Alerts Card -->
-                <div class="dashboard-card" id="alertsCard">
-                    <div class="dashboard-card-header">
-                        <div class="dashboard-card-icon">🔔</div>
-                        <div class="dashboard-card-title">התראות</div>
-                        <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
-                            @onclick="() => ShowAddModal(false)" title="הוספת התראה חדשה" style="cursor: pointer;" />
-                    </div>
-                    <div class="internal-cards-container">
-                        @if (_alertsLoading)
-                        {
-                            <div class="loading-message">טוען התראות...</div>
-                        }
-                        else if (_alerts.Count == 0)
-                        {
-                            <div class="no-data-message">אין התראות להצגה</div>
-                        }
-                        else
-                        {
-                            @foreach (var alert in _alerts)
-                            {
-                                <div class="internal-card">
-                                    <div class="internal-card-content">@alert.Description</div>
-                                    <div class="internal-card-footer">
-                                        <span class="internal-card-date">@alert.CreatedAt.ToString("dd/MM/yyyy")</span>
-                                    </div>
-                                </div>
-                            }
-                        }
-                    </div>
-                </div>
+                <AlertsEventsCard Icon="🔔"
+                                  Title="התראות"
+                                  IsEvent="false"
+                                  AllowAdd="true"
+                                  Items="@_alerts"
+                                  IsLoading="@_alertsLoading"
+                                  OnAdd="@(() => ShowAddModal(false))"
+                                  OnItemClick="@HandleAlertClick" />
 
                 <!-- Events Card -->
-                <div class="dashboard-card" id="eventsCard">
-                    <div class="dashboard-card-header">
-                        <div class="dashboard-card-icon">🗓</div>
-                        <div class="dashboard-card-title">אירועים</div>
-                        <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
-                            @onclick="() => ShowAddModal(true)" title="הוספת אירוע חדש" style="cursor: pointer;" />
-                    </div>
-                    <div class="internal-cards-container">
-                        @if (_eventsLoading)
-                        {
-                            <div class="loading-message">טוען אירועים...</div>
-                        }
-                        else if (_events.Count == 0)
-                        {
-                            <div class="no-data-message">אין אירועים להצגה</div>
-                        }
-                        else
-                        {
-                            @foreach (var evt in _events)
-                            {
-                                <div class="internal-card">
-                                    <div class="internal-card-content">@evt.Description</div>
-                                    <div class="internal-card-footer">
-                                        <span class="internal-card-date">@(evt.EventDate?.ToString("dd/MM/yyyy") ??
-                                                                            evt.CreatedAt.ToString("dd/MM/yyyy"))</span>
-                                    </div>
-                                </div>
-                            }
-                        }
-                    </div>
-                </div>
+                <AlertsEventsCard Icon="🗓"
+                                  Title="אירועים"
+                                  IsEvent="true"
+                                  AllowAdd="true"
+                                  Items="@_events"
+                                  IsLoading="@_eventsLoading"
+                                  OnAdd="@(() => ShowAddModal(true))"
+                                  OnItemClick="@HandleEventClick" />
             </div>
         </div>
     </div>
 </div>
 
+<!-- Add Alert/Event Modal -->
+<AddAlertEventModal IsVisible="@_showAddModal"
+                    IsEvent="@_isEventModal"
+                    OnClose="@(() => _showAddModal = false)"
+                    OnSaved="@HandleModalSaved" />
+
 @code {
-    private List<AlertDto> _alerts = new();
-    private List<AlertDto> _events = new();
+    private List<AlertEventItemDto> _alerts = new();
+    private List<AlertEventItemDto> _events = new();
     private bool _alertsLoading = true;
     private bool _eventsLoading = true;
     private bool _showBackToSchoolList = false;
+    private bool _showAddModal = false;
+    private bool _isEventModal = false;
 
     private string _schoolTitle = "לוח בקרה של בית ספר";
     private string _yearDisplay = "";
@@ -266,7 +229,12 @@
         {
             if (!string.IsNullOrEmpty(_schoolId))
             {
-                _alerts = await ApiService.GetAsync<List<AlertDto>>($"alerts/entity/{_schoolId}?isEvent=false") ?? new();
+                _alerts = await ApiService.GetAsync<List<AlertEventItemDto>>($"alerts/entity/{_schoolId}?isEvent=false") ?? new();
+                Console.WriteLine($"📊 Loaded {_alerts.Count} alerts");
+                if (_alerts.Count > 0)
+                {
+                    Console.WriteLine($"📋 First alert entity name: '{_alerts[0].CreatedByEntityName}'");
+                }
             }
         }
         catch (Exception ex)
@@ -286,7 +254,7 @@
         {
             if (!string.IsNullOrEmpty(_schoolId))
             {
-                _events = await ApiService.GetAsync<List<AlertDto>>($"alerts/entity/{_schoolId}?isEvent=true") ?? new();
+                _events = await ApiService.GetAsync<List<AlertEventItemDto>>($"alerts/entity/{_schoolId}?isEvent=true") ?? new();
             }
         }
         catch (Exception ex)
@@ -299,9 +267,27 @@
         }
     }
 
-    private async Task ShowAddModal(bool isEvent)
+    private void ShowAddModal(bool isEvent)
     {
-        await JSRuntime.InvokeVoidAsync("alert", isEvent ? "הוספת אירוע - בפיתוח" : "הוספת התראה - בפיתוח");
+        _isEventModal = isEvent;
+        _showAddModal = true;
+    }
+
+    private async Task HandleModalSaved()
+    {
+        // Refresh the data after saving
+        await LoadAlerts();
+        await LoadEvents();
+    }
+
+    private void HandleAlertClick(AlertEventItemDto alert)
+    {
+        Console.WriteLine($"Alert clicked: {alert.Id}");
+    }
+
+    private void HandleEventClick(AlertEventItemDto evt)
+    {
+        Console.WriteLine($"Event clicked: {evt.Id}");
     }
 
     private void NavigateToStudents()
