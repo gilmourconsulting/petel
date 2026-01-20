@@ -3,6 +3,7 @@
 @inherits SecurePageBase
 @using PetelApp.BlazorServer.DTOs
 @using PetelApp.BlazorServer.Components.Shared
+@using PetelApp.BlazorServer.Components.Modals
 @inject ApiService ApiService
 @inject SessionStateService SessionState
 @inject NavigationManager Navigation
@@ -122,6 +123,9 @@
     </div>
 </div>
 
+<!-- Add School Modal -->
+<AddSchoolModal @ref="_addSchoolModal" OnSchoolAdded="LoadData" />
+
 @code {
     private List<SchoolDto> _schools = new();
     private List<SchoolDto> _sortedSchools = new();
@@ -129,6 +133,9 @@
     private string _yearDisplay = "";
     private string _sortColumn = nameof(SchoolDto.Name);
     private bool _sortAscending = true;
+
+    // Add school modal reference
+    private AddSchoolModal? _addSchoolModal;
 
     // REQUIRED by SecurePageBase
     protected override string PageName => "schoollist";
@@ -269,7 +276,14 @@
 
     private async Task ShowAddSchoolModal()
     {
-        await JSRuntime.InvokeVoidAsync("alert", "הוספת בית ספר - בפיתוח");
+        if (_addSchoolModal != null)
+        {
+            await _addSchoolModal.Show();
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת חלון הוספת בית ספר");
+        }
     }
 
     private void NavigateToEntityDocuments()
