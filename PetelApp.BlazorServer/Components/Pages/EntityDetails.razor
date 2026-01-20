@@ -58,8 +58,7 @@
                                         <span class="detail-field-label">שם:</span>
                                         @if (_isEditMode)
                                         {
-                                            <input type="text" @bind="_editModel.Name" @oninput="MarkAsChanged"
-                                                style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; direction: rtl; width: 250px;" />
+                                            <input type="text" class="form-input-text" @bind="_editModel.Name" @oninput="MarkAsChanged" />
                                         }
                                         else
                                         {
@@ -71,9 +70,9 @@
                                         <span class="detail-field-label">בעלות:</span>
                                         @if (_isEditMode)
                                         {
-                                            <select @bind="_editModel.OwnerId" @bind:after="MarkAsChanged"
+                                            <select class="form-input-select" @bind="_editModel.OwnerId" @bind:after="MarkAsChanged"
                                                 disabled="@_isOwnerDropdownLocked"
-                                                style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; direction: rtl; min-width: 200px; @(_isOwnerDropdownLocked ? "background-color: #e9ecef; cursor: not-allowed;" : "")">
+                                                style="@(_isOwnerDropdownLocked ? "background-color: #e9ecef; cursor: not-allowed;" : "")">
                                                 <option value="">בחר בעלות...</option>
                                                 @foreach (var owner in _potentialOwners)
                                                 {
@@ -96,8 +95,7 @@
                                         <span class="detail-field-label">סוג ישות:</span>
                                         @if (_isEditMode)
                                         {
-                                            <select @bind="_editModel.EntityTypeId" @bind:after="MarkAsChanged"
-                                                style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; direction: rtl; min-width: 200px;">
+                                            <select class="form-input-select" @bind="_editModel.EntityTypeId" @bind:after="MarkAsChanged">
                                                 <option value="0">בחר סוג ישות...</option>
                                                 @foreach (var type in _entityTypes.Where(t => new[] { 3, 5, 6 }.Contains(t.Id)))
                                                 {
@@ -115,9 +113,8 @@
                                         <span class="detail-field-label">מספר עוסק / ח.פ:</span>
                                         @if (_isEditMode)
                                         {
-                                            <input type="text" @bind="_editModel.TaxNumber" @oninput="MarkAsChanged"
-                                                placeholder="הזן מספר עוסק"
-                                                style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; direction: ltr; text-align: left; width: 150px;" />
+                                            <input type="text" class="form-input-number" @bind="_editModel.TaxNumber" @oninput="MarkAsChanged"
+                                                placeholder="הזן מספר עוסק" />
                                         }
                                         else
                                         {
@@ -146,9 +143,8 @@
                                         <span class="detail-field-label">טלפון:</span>
                                         @if (_isEditMode)
                                         {
-                                            <input type="tel" @bind="_editModel.Phone" @oninput="MarkAsChanged"
-                                                placeholder="02-1234567"
-                                                style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; direction: ltr; text-align: left; width: 150px;" />
+                                            <input type="tel" class="form-input-tel" @bind="_editModel.Phone" @oninput="MarkAsChanged"
+                                                placeholder="02-1234567" />
                                         }
                                         else
                                         {
@@ -160,9 +156,8 @@
                                         <span class="detail-field-label">דוא"ל:</span>
                                         @if (_isEditMode)
                                         {
-                                            <input type="email" @bind="_editModel.Email" @oninput="MarkAsChanged"
-                                                placeholder="entity@example.com"
-                                                style="padding: 4px 8px; border: 1px solid #dee2e6; border-radius: 4px; font-size: 14px; direction: ltr; text-align: left; width: 250px;" />
+                                            <input type="email" class="form-input-email" @bind="_editModel.Email" @oninput="MarkAsChanged"
+                                                placeholder="entity@example.com" />
                                         }
                                         else
                                         {

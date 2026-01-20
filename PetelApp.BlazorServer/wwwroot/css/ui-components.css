@@ -388,6 +388,64 @@
     background: white;
 }
 
+/* Inline Form Input Styles for Detail Pages */
+.form-input-text {
+    padding: 4px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 14px;
+    direction: rtl;
+    width: 250px;
+}
+
+.form-input-text-small {
+    padding: 4px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 14px;
+    direction: rtl;
+    width: 150px;
+}
+
+.form-input-select {
+    padding: 4px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 14px;
+    direction: rtl;
+    min-width: 200px;
+}
+
+.form-input-tel {
+    padding: 4px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 14px;
+    direction: ltr;
+    text-align: left;
+    width: 150px;
+}
+
+.form-input-email {
+    padding: 4px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 14px;
+    direction: ltr;
+    text-align: left;
+    width: 250px;
+}
+
+.form-input-number {
+    padding: 4px 8px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 14px;
+    direction: ltr;
+    text-align: left;
+    width: 150px;
+}
+
 .form-control:focus,
 .form-group input:focus,
 .form-group select:focus,

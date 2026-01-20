@@ -421,30 +421,7 @@ h3 {
     text-align: left;
 }
 
-/* Modal overlay and content */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10000;
-    direction: rtl;
-}
-
-.modal-content {
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    max-width: 90%;
-    max-height: 90vh;
-    overflow-y: auto;
-    animation: modalSlideIn 0.3s ease-out;
-}
+/* Modal styles moved to ui-components.css */
 
 @keyframes modalSlideIn {
     from {
@@ -502,58 +479,11 @@ h3 {
     font-weight: 500;
 }
 
-.form-control {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    font-size: 14px;
-    direction: rtl;
-}
+/* Form controls moved to ui-components.css */
 
-.form-control:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-}
+/* Buttons moved to ui-components.css */
 
-.form-control:disabled {
-    background-color: #e9ecef;
-    cursor: not-allowed;
-}
-
-.btn-primary {
-    background-color: #007bff;
-    color: white;
-    border: 1px solid #007bff;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.btn-primary:hover:not(:disabled) {
-    background-color: #0056b3;
-}
-
-.btn-primary:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.btn-secondary {
-    background-color: #6c757d;
-    color: white;
-    border: 1px solid #6c757d;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-}
-
-.btn-secondary:hover {
-    background-color: #5a6268;
-}
+/* All button and form control styles are in ui-components.css */
 
 .autocomplete-arrow {
     position: absolute;

@@ -12,15 +12,6 @@
     <!-- Context buttons -->
     <div class="context-buttons-section">
         <SecureButton
-            ActionName="students_refreshData"
-            ScreenName="@PageName"
-            FunctionName="RefreshData"
-            OnClick="RefreshData"
-            CssClass="context-btn">
-            רענן נתונים
-        </SecureButton>
-        
-        <SecureButton
             ActionName="students_uploadFile"
             ScreenName="@PageName"
             FunctionName="ShowUploadDialog"
@@ -35,7 +26,7 @@
             FunctionName="ShowBulkPricingDialog"
             OnClick="ShowBulkPricingDialog"
             CssClass="context-btn">
-            תמחור מרוכז
+            תמחור לכל לתלמידים
         </SecureButton>
         
         <SecureButton
@@ -44,7 +35,7 @@
             FunctionName="ShowGenerateDocumentsDialog"
             OnClick="ShowGenerateDocumentsDialog"
             CssClass="context-btn">
-            הפקת מסמכים
+            עדכן מסמכים לכל התלמידים
         </SecureButton>
         
         <div class="context-spacer"></div>
@@ -116,6 +107,17 @@
             <div class="detail-card expanded">
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">רשימת תלמידים</h2>
+                    <div class="card-header-actions">
+                        <SecureButton
+                            ActionName="students_refreshData"
+                            ScreenName="@PageName"
+                            FunctionName="RefreshData"
+                            OnClick="RefreshData"
+                            CssClass="btn-icon"
+                            title="רענן נתונים">
+                            <span style="font-size: 2em;">🔄</span>
+                        </SecureButton>
+                    </div>
                 </div>
                 <div class="detail-card-content" style="min-height: 400px; max-height: none;">
                     @if (_isLoading)
