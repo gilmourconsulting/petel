@@ -116,31 +116,74 @@
 
         try
         {
+            Console.WriteLine("🚀 Loading entity types...");
+            
             // Load entity types
             _entityTypes = await ApiService.GetAsync<List<EntityTypeDto>>("entities/entity-types") ?? new();
             
+            Console.WriteLine($"📋 Loaded {_entityTypes.Count} entity types");
+            
             if (_entityTypes.Count == 0)
             {
+                Console.WriteLine("❌ No entity types found");
                 await JSRuntime.InvokeVoidAsync("alert", "לא נמצאו סוגי גופים במערכת");
                 Close();
                 return;
             }
 
-            // Load owner options
-            var ownerResponse = await ApiService.GetAsync<OwnerOptionsResponseDto>("entities/owner-options");
+            Console.WriteLine("🏢 Loading owner options...");
             
-            if (ownerResponse == null || !ownerResponse.Success || ownerResponse.OwnerOptions.Count == 0)
+            // Get session first for logging and later use
+            var session = await SessionState.GetSessionAsync();
+            Console.WriteLine($"📋 Current session - EntityId: {session?.EntityId}, EntityTypeId: {session?.EntityTypeId}");
+            
+            // Load owner options - try to get raw response first for debugging
+            try
             {
-                await JSRuntime.InvokeVoidAsync("alert", "לא נמצאו אפשרויות בעלים");
-                Close();
-                return;
+                var ownerResponse = await ApiService.GetAsync<OwnerOptionsResponseDto>("entities/owner-options");
+                
+                Console.WriteLine($"📥 Owner response received: {ownerResponse != null}");
+                
+                if (ownerResponse != null)
+                {
+                    Console.WriteLine($"   Success: {ownerResponse.Success}");
+                    Console.WriteLine($"   OwnerOptions count: {ownerResponse.OwnerOptions?.Count ?? 0}");
+                    Console.WriteLine($"   IsLocked: {ownerResponse.IsLocked}");
+                    
+                    if (ownerResponse.OwnerOptions != null && ownerResponse.OwnerOptions.Count > 0)
+                    {
+                        foreach (var opt in ownerResponse.OwnerOptions)
+                        {
+                            Console.WriteLine($"      - Owner: {opt.Id} - {opt.Name}");
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("❌ Owner response is NULL");
+                }
+                
+                if (ownerResponse == null || !ownerResponse.Success || ownerResponse.OwnerOptions == null || ownerResponse.OwnerOptions.Count == 0)
+                {
+                    Console.WriteLine("❌ No owner options available");
+                    await JSRuntime.InvokeVoidAsync("alert", "לא נמצאו אפשרויות בעלים");
+                    Close();
+                    return;
+                }
+
+                _ownerOptions = ownerResponse.OwnerOptions;
+                _isOwnerLocked = ownerResponse.IsLocked;
+                
+                Console.WriteLine($"✅ Loaded {_ownerOptions.Count} owner options, isLocked={_isOwnerLocked}");
+            }
+            catch (Exception ownerEx)
+            {
+                Console.WriteLine($"❌ Exception loading owner options: {ownerEx.Message}");
+                Console.WriteLine($"   Stack: {ownerEx.StackTrace}");
+                throw;
             }
 
-            _ownerOptions = ownerResponse.OwnerOptions;
-            _isOwnerLocked = ownerResponse.IsLocked;
-
             // Get current entity ID for default selection
-            var session = await SessionState.GetSessionAsync();
             if (session != null && int.TryParse(session.EntityId, out var currentEntityId))
             {
                 // Set default owner to current entity or first option

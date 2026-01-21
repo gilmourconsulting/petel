@@ -14,8 +14,8 @@
         <div class="top-bar">
         <div class="top-bar-left">
             <div class="system-logo-section">
-                <div class="system-logo" @onclick="NavigateToMainDashboard" style="cursor: pointer;" title="חזור למסך הראשי">
-                    <img src="/images/petel_logo.png" alt="לוגו המערכת" />
+                <div class="system-logo" @onclick="NavigateToMainDashboard" style="cursor: pointer; @_logoStyle" title="חזור למסך הראשי">
+                    <img src="@_systemLogo" alt="לוגו המערכת" />
                 </div>
                 @if (_showDebugButton)
                 {
@@ -64,7 +64,7 @@
     <div class="system-footer">
         <div class="footer-content">
             <div class="system-logo">
-                <img src="/images/petel_logo.png" alt="לוגו המערכת" />
+                <img src="@_systemLogo" alt="לוגו המערכת" />
             </div>
             <span id="systemVersion">מערכת פט"ל | גרסה @_systemVersion</span>
         </div>
@@ -113,12 +113,15 @@
     private bool _showDebugModal = false;
     private bool _debugDataLoading = false;
     private string _debugData = string.Empty;
+    private string _systemLogo = "/images/petel_logo.png";
+    private string _logoStyle = "";
 
     protected override async Task OnInitializedAsync()
     {
         await LoadHeaderInfo();
         await LoadSystemVersion();
         await CheckDebugButtonVisibility();
+        await LoadSystemLogo();
     }
 
     private async Task LoadHeaderInfo()
@@ -176,6 +179,36 @@
         catch (Exception ex)
         {
             Console.WriteLine($"Error checking debug button visibility: {ex.Message}");
+        }
+    }
+
+    private async Task LoadSystemLogo()
+    {
+        try
+        {
+            var session = await SessionState.GetSessionAsync();
+            if (session == null || string.IsNullOrEmpty(session.EntityId))
+            {
+                Console.WriteLine("No entity ID in session");
+                return;
+            }
+
+            var distributorData = await ApiService.GetAsync<DistributorResponse>($"entities/{session.EntityId}/distributor");
+            if (distributorData != null && distributorData.Distributor == "Nativ")
+            {
+                _systemLogo = "/images/nativ-logo.png";
+                _logoStyle = "width: 175px; height: auto;";
+                Console.WriteLine("✅ System logo set to Nativ");
+            }
+            else
+            {
+                Console.WriteLine("✅ Using default Petel logo");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading system logo: {ex.Message}");
+            // Silently fail - keep default logo
         }
     }
 
@@ -424,6 +457,12 @@
         {
             Console.WriteLine($"Error initializing scroll observer: {ex.Message}");
         }
+    }
+
+    // DTO for distributor response
+    private class DistributorResponse
+    {
+        public string Distributor { get; set; } = string.Empty;
     }
 }
 

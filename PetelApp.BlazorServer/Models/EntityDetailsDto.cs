@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace PetelApp.BlazorServer.Models
 {
     public class EntityDetailsDto
@@ -23,20 +25,31 @@ namespace PetelApp.BlazorServer.Models
 
     public class EntityTypeDto
     {
+        [JsonPropertyName("id")]
         public int Id { get; set; }
+        
+        [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
     }
 
     public class OwnerOptionDto
     {
+        [JsonPropertyName("id")]
         public int Id { get; set; }
+        
+        [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
     }
 
     public class OwnerOptionsResponseDto
     {
+        [JsonPropertyName("success")]
         public bool Success { get; set; }
+        
+        [JsonPropertyName("ownerOptions")]
         public List<OwnerOptionDto> OwnerOptions { get; set; } = new();
+        
+        [JsonPropertyName("isLocked")]
         public bool IsLocked { get; set; }
     }
 

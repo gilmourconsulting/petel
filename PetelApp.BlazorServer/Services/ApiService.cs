@@ -16,6 +16,7 @@ namespace PetelApp.BlazorServer.Services
         private readonly TokenService _tokenService;
         private readonly ILogger<ApiService> _logger;
         private readonly string _baseUrl;
+        private readonly JsonSerializerOptions _jsonOptions;
 
         public ApiService(
             HttpClient httpClient,
@@ -30,6 +31,13 @@ namespace PetelApp.BlazorServer.Services
 
             // Set default timeout
             _httpClient.Timeout = TimeSpan.FromSeconds(apiSettings.Value.Timeout);
+            
+            // Configure JSON options to handle camelCase from backend API
+            _jsonOptions = new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            };
         }
 
         private async Task<HttpClient> GetAuthorizedClientAsync()
@@ -64,7 +72,7 @@ namespace PetelApp.BlazorServer.Services
                 
                 var response = await _httpClient.GetAsync(url);
                 response.EnsureSuccessStatusCode();
-                return await response.Content.ReadFromJsonAsync<T>();
+                return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
             }
             catch (Exception ex)
             {
@@ -84,14 +92,29 @@ namespace PetelApp.BlazorServer.Services
                 
                 var response = await client.GetAsync(url);
                 
+                _logger.LogInformation("GET {Endpoint} returned status {StatusCode}", endpoint, response.StatusCode);
+                
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
                     _logger.LogWarning("Unauthorized request to {Endpoint}", endpoint);
                     return default;
                 }
 
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("GET {Endpoint} failed with {StatusCode}: {Error}", endpoint, response.StatusCode, errorContent);
+                }
+
                 response.EnsureSuccessStatusCode();
-                return await response.Content.ReadFromJsonAsync<T>();
+                
+                // Read raw content for logging
+                var content = await response.Content.ReadAsStringAsync();
+                _logger.LogDebug("GET {Endpoint} response: {Content}", endpoint, content);
+                
+                // Deserialize with custom options
+                var result = JsonSerializer.Deserialize<T>(content, _jsonOptions);
+                return result;
             }
             catch (Exception ex)
             {
@@ -118,7 +141,7 @@ namespace PetelApp.BlazorServer.Services
                 }
 
                 response.EnsureSuccessStatusCode();
-                return await response.Content.ReadFromJsonAsync<TResponse>();
+                return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
             }
             catch (Exception ex)
             {
@@ -156,7 +179,7 @@ namespace PetelApp.BlazorServer.Services
                 
                 var response = await client.PutAsJsonAsync(url, data);
                 response.EnsureSuccessStatusCode();
-                return await response.Content.ReadFromJsonAsync<TResponse>();
+                return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
             }
             catch (Exception ex)
             {
@@ -198,7 +221,7 @@ namespace PetelApp.BlazorServer.Services
                 
                 var response = await client.DeleteAsync(url);
                 response.EnsureSuccessStatusCode();
-                return await response.Content.ReadFromJsonAsync<T>();
+                return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
             }
             catch (Exception ex)
             {
@@ -228,7 +251,7 @@ namespace PetelApp.BlazorServer.Services
                 }
 
                 response.EnsureSuccessStatusCode();
-                return await response.Content.ReadFromJsonAsync<T>();
+                return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
             }
             catch (Exception ex)
             {

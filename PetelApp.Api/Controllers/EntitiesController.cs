@@ -5,6 +5,7 @@ using PetelApp.Api.Data;
 using PetelApp.Api.Models;
 using PetelApp.Api.DTOs;
 using PetelApp.Api.Session;
+using System.Reflection.Metadata;
 
 namespace PetelApp.Api.Controllers
 {
@@ -819,7 +820,24 @@ public async Task<IActionResult> GetOwnerOptions()
             
             _logger.LogInformation("School entity: returning locked current entity {EntityId}", sessionEntityId);
         }
-        else if (entityTypeId == 2 || entityTypeId == 3 || entityTypeId == 5 || entityTypeId == 6)
+        else if (entityTypeId == 5) 
+        {      ownerOptions = await _context.Entities
+                .AsNoTracking()
+                .Where(e => e.IsActive && 
+                           e.Id == sessionEntityId)
+                .Select(e => new
+                {
+                    id = e.Id,
+                    name = e.Name,
+                    entityTypeId = e.EntityTypeId
+                })
+                .Cast<object>()
+                .ToListAsync();
+            
+            _logger.LogInformation("Own entity: returning {Count}  networks", ownerOptions.Count);
+  
+        }
+        else if (entityTypeId == 2 || entityTypeId == 3 ||  entityTypeId == 6)
         {
             // Network entity: Return networks owned by current entity (types 2,3,5,6)
             var allowedTypes = new[] { 2, 3, 5, 6 };
