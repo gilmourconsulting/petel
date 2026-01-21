@@ -255,15 +255,27 @@
                                                             <th>שם מגמה</th>
                                                             <th>זמין לכיתות</th>
                                                             <th>תאריך יצירה</th>
+                                                            <th>פעולות</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         @foreach (var track in _tracks)
                                                         {
                                                             <tr>
-                                                                <td>@track.TrackName</td>
-                                                                <td>@track.AvailableForGrades</td>
+                                                                <td>@track.Name</td>
+                                                                <td>@(track.AvailableForClasses != null && track.AvailableForClasses.Any() ? string.Join(", ", track.AvailableForClasses) : "כל הכיתות")</td>
                                                                 <td>@track.CreatedAt?.ToString("dd/MM/yyyy")</td>
+                                                                <td>
+                                                                    <button class="btn-icon" @onclick="() => SelectTrack(track.Id, track.Name)" title="צפה ברמות">
+                                                                        <img src="images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                                                    </button>
+                                                                    <button class="btn-icon" @onclick="() => EditTrack(track.Id)" title="ערוך">
+                                                                        <img src="images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                                                    </button>
+                                                                    <button class="btn-icon" @onclick="() => DeleteTrack(track.Id)" title="מחק">
+                                                                        <img src="images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                                                                    </button>
+                                                                </td>
                                                             </tr>
                                                         }
                                                     </tbody>
@@ -273,6 +285,120 @@
                                     }
                                 </div>
                             </div>
+
+                            <!-- Track Levels Card (shown when track selected) -->
+                            @if (_selectedTrackId.HasValue)
+                            {
+                                <div class="detail-card @(_trackLevelsExpanded ? "expanded" : "collapsed")" style="margin-top: 20px;">
+                                    <div class="detail-card-header" @onclick="() => _trackLevelsExpanded = !_trackLevelsExpanded">
+                                        <div class="detail-card-title">רמות מגמה - @_selectedTrackName</div>
+                                        <div class="card-header-actions">
+                                            <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                                @(_trackLevelsExpanded ? "×" : "+")
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="detail-card-content">
+                                        @if (_trackLevelsExpanded)
+                                        {
+                                            @if (_loadingTrackLevels)
+                                            {
+                                                <div class="loading-spinner">טוען...</div>
+                                            }
+                                            else if (_trackLevels.Count == 0)
+                                            {
+                                                <div class="info-message">אין רמות למגמה זו</div>
+                                            }
+                                            else
+                                            {
+                                                <div class="table-container">
+                                                    <table class="data-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>רמה</th>
+                                                                <th>שעות מינימליות</th>
+                                                                <th>שעות מקסימליות</th>
+                                                                <th>פעולות</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach (var level in _trackLevels)
+                                                            {
+                                                                <tr>
+                                                                    <td>@level.Level</td>
+                                                                    <td>@level.MinHours</td>
+                                                                    <td>@(level.MaxHours?.ToString() ?? "-")</td>
+                                                                    <td>
+                                                                        <button class="btn-icon" @onclick="() => SelectTrackLevel(level.Id, level.Level)" title="צפה בתמחור">
+                                                                            <img src="images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                                                        </button>
+                                                                        <button class="btn-icon" @onclick="() => EditTrackLevel(level.Id)" title="ערוך">
+                                                                            <img src="images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                                                        </button>
+                                                                        <button class="btn-icon" @onclick="() => DeleteTrackLevel(level.Id)" title="מחק">
+                                                                            <img src="images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            }
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            <!-- Track Pricing Card (shown when level selected) -->
+                            @if (_selectedLevelId.HasValue)
+                            {
+                                <div class="detail-card @(_trackPricingExpanded ? "expanded" : "collapsed")" style="margin-top: 20px;">
+                                    <div class="detail-card-header" @onclick="() => _trackPricingExpanded = !_trackPricingExpanded">
+                                        <div class="detail-card-title">תמחור רמה - @_selectedLevelName</div>
+                                        <div class="card-header-actions">
+                                            <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                                @(_trackPricingExpanded ? "×" : "+")
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="detail-card-content">
+                                        @if (_trackPricingExpanded)
+                                        {
+                                            @if (_loadingTrackPricing)
+                                            {
+                                                <div class="loading-spinner">טוען...</div>
+                                            }
+                                            else if (_trackPricing.Count == 0)
+                                            {
+                                                <div class="info-message">אין תמחור לרמה זו</div>
+                                            }
+                                            else
+                                            {
+                                                <div class="table-container">
+                                                    <table class="data-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>קטגוריה</th>
+                                                                <th>מחיר</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach (var item in _trackPricing)
+                                                            {
+                                                                <tr>
+                                                                    <td>@item.Category</td>
+                                                                    <td>@(item.Price.HasValue ? $"₪{item.Price.Value:F2}" : "-")</td>
+                                                                </tr>
+                                                            }
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                            }
                         </div>
 
                         <!-- Tab Content - Study Programs -->
@@ -306,6 +432,7 @@
                                                             <th>מזהה</th>
                                                             <th>מספר תלמידים</th>
                                                             <th>מחיר מקסימלי</th>
+                                                            <th>פעולות</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -315,6 +442,14 @@
                                                                 <td>@program.Id</td>
                                                                 <td>@program.Students</td>
                                                                 <td>@(program.Price.HasValue ? $"₪{program.Price.Value:F2}" : "-")</td>
+                                                                <td>
+                                                                    <button class="btn-icon" title="עריכה">
+                                                                        <img src="images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                                                    </button>
+                                                                    <button class="btn-icon" title="מחיקה">
+                                                                        <img src="images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                                                                    </button>
+                                                                </td>
                                                             </tr>
                                                         }
                                                     </tbody>
@@ -403,6 +538,16 @@
     private string _selectedPricingElementName = string.Empty;
     private bool _loadingCategories = false;
     
+    private int? _selectedTrackId;
+    private string _selectedTrackName = string.Empty;
+    private bool _loadingTrackLevels = false;
+    private List<TrackLevelDto> _trackLevels = new();
+    
+    private int? _selectedLevelId;
+    private string _selectedLevelName = string.Empty;
+    private bool _loadingTrackPricing = false;
+    private List<TrackPricingDto> _trackPricing = new();
+    
     private int _selectedYearId = 0;
     private SchoolYearDto? _selectedYear;
     private string _activeTab = "documents";
@@ -417,6 +562,8 @@
     private bool _pricingExpanded = true;
     private bool _pricingCategoriesExpanded = true;
     private bool _tracksExpanded = true;
+    private bool _trackLevelsExpanded = true;
+    private bool _trackPricingExpanded = true;
     private bool _studyProgramsExpanded = true;
     private bool _schoolAttributesExpanded = true;
 
@@ -596,6 +743,137 @@
             _tracks = new();
         }
     }
+    private async Task SelectTrack(int trackId, string trackName)
+    {
+        Console.WriteLine($"Selected track: {trackId} - {trackName}");
+        
+        _selectedTrackId = trackId;
+        _selectedTrackName = trackName;
+        _trackLevelsExpanded = true;
+        
+        await LoadTrackLevels(trackId);
+        StateHasChanged();
+    }
+
+    private async Task LoadTrackLevels(int trackId)
+    {
+        _loadingTrackLevels = true;
+        try
+        {
+            var endpoint = $"schoolyearconfig/tracks-levels/{trackId}";
+            _trackLevels = await ApiService.GetAsync<List<TrackLevelDto>>(endpoint) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading track levels: {ex.Message}");
+            _trackLevels = new();
+        }
+        finally
+        {
+            _loadingTrackLevels = false;
+        }
+    }
+
+    private async Task EditTrack(int trackId)
+    {
+        // TODO: Implement edit track modal
+        Console.WriteLine($"Edit track: {trackId}");
+        await JSRuntime.InvokeVoidAsync("alert", "עריכת מגמה - טרם מוטמע");
+    }
+
+    private async Task DeleteTrack(int trackId)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך למחוק מגמה זו?");
+        
+        if (!confirmed) return;
+
+        try
+        {
+            var endpoint = $"schoolyearconfig/tracks/{trackId}";
+            await ApiService.DeleteAsync(endpoint);
+            
+            _message = "המגמה נמחקה בהצלחה";
+            _messageType = "success";
+            
+            await LoadTracks();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting track: {ex.Message}");
+            _message = "שגיאה במחיקת המגמה";
+            _messageType = "error";
+            StateHasChanged();
+        }
+    }
+
+    private async Task SelectTrackLevel(int levelId, string levelName)
+    {
+        Console.WriteLine($"Selected track level: {levelId} - {levelName}");
+        
+        _selectedLevelId = levelId;
+        _selectedLevelName = levelName;
+        _trackPricingExpanded = true;
+        
+        await LoadTrackPricing(levelId);
+        StateHasChanged();
+    }
+
+    private async Task LoadTrackPricing(int levelId)
+    {
+        _loadingTrackPricing = true;
+        try
+        {
+            var endpoint = $"schoolyearconfig/tracks-pricing/{levelId}";
+            _trackPricing = await ApiService.GetAsync<List<TrackPricingDto>>(endpoint) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading track pricing: {ex.Message}");
+            _trackPricing = new();
+        }
+        finally
+        {
+            _loadingTrackPricing = false;
+        }
+    }
+
+    private async Task EditTrackLevel(int levelId)
+    {
+        // TODO: Implement edit track level modal
+        Console.WriteLine($"Edit track level: {levelId}");
+        await JSRuntime.InvokeVoidAsync("alert", "עריכת רמת מגמה - טרם מוטמע");
+    }
+
+    private async Task DeleteTrackLevel(int levelId)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך למחוק רמת מגמה זו?");
+        
+        if (!confirmed) return;
+
+        try
+        {
+            var endpoint = $"schoolyearconfig/tracks-levels/{levelId}";
+            await ApiService.DeleteAsync(endpoint);
+            
+            _message = "רמת המגמה נמחקה בהצלחה";
+            _messageType = "success";
+            
+            // Reload track levels
+            if (_selectedTrackId.HasValue)
+            {
+                await LoadTrackLevels(_selectedTrackId.Value);
+            }
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting track level: {ex.Message}");
+            _message = "שגיאה במחיקת רמת המגמה";
+            _messageType = "error";
+            StateHasChanged();
+        }
+    }
 
     private async Task LoadStudyPrograms()
     {
@@ -719,14 +997,41 @@
         [System.Text.Json.Serialization.JsonPropertyName("id")]
         public int Id { get; set; }
         
-        [System.Text.Json.Serialization.JsonPropertyName("trackName")]
-        public string TrackName { get; set; } = string.Empty;
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
         
-        [System.Text.Json.Serialization.JsonPropertyName("availableForGrades")]
-        public string? AvailableForGrades { get; set; }
+        [System.Text.Json.Serialization.JsonPropertyName("availableForClasses")]
+        public List<string>? AvailableForClasses { get; set; }
         
         [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
         public DateTime? CreatedAt { get; set; }
+    }
+
+    private class TrackLevelDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public int Id { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("level")]
+        public string Level { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("minHours")]
+        public int MinHours { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("maxHours")]
+        public int? MaxHours { get; set; }
+    }
+
+    private class TrackPricingDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public int Id { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("category")]
+        public int Category { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public decimal? Price { get; set; }
     }
 
     private class StudyProgramDto
