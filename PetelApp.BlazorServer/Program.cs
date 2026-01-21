@@ -4,10 +4,13 @@ using PetelApp.BlazorServer.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configure URLs - Azure App Service Linux expects port 8080
-// PORT environment variable is set by Azure
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+// Configure URLs - Only for Azure App Service Linux (non-Development)
+// In Development, launchSettings.json will be used instead
+if (!builder.Environment.IsDevelopment())
+{
+    var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
 
 // Add services to the container.
 builder.Services.AddRazorComponents()

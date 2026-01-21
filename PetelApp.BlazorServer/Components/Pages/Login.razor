@@ -152,6 +152,63 @@
         </div>
     </div>
 
+    <!-- OTP Setup Modal -->
+    <div class="modal-overlay" style="display: @(_requiresOtpSetup ? "flex" : "none");">
+        <div class="modal-content otp-setup-modal">
+            <div class="modal-header">
+                <h2>הגדרת אימות דו-שלבי</h2>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 20px;">אנא סרוק את קוד ה-QR באמצעות אפליקציית אימות:</p>
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    @if (!string.IsNullOrEmpty(_qrCodeUrl))
+                    {
+                        <img src="@_qrCodeUrl" 
+                             alt="QR Code" 
+                             style="border: 2px solid #ccc; padding: 10px; max-width: 250px;" />
+                    }
+                    else
+                    {
+                        <div class="loading-spinner">טוען QR...</div>
+                    }
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">או הזן את הקוד הבא באופן ידני:</label>
+                    <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; text-align: center; font-family: monospace; font-size: 16px; word-break: break-all;">
+                        @_manualSecret
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="setupOtpCode" style="display: block; margin-bottom: 8px; font-weight: 600;">הזן קוד אימות מהאפליקציה לאימות ההגדרה:</label>
+                    <input type="text" 
+                           class="form-input" 
+                           maxlength="6" 
+                           @bind="_setupOtpCode"
+                           @onkeydown="HandleSetupOtpEnterKey"
+                           placeholder="הזן 6 ספרות" 
+                           autocomplete="off" 
+                           inputmode="numeric" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" @onclick="CancelOtpSetup">ביטול</button>
+                <button type="button" class="btn-primary" @onclick="HandleOtpSetupVerification" disabled="@_isLoading">
+                    @if (_isLoading)
+                    {
+                        <span>מאמת...</span>
+                    }
+                    else
+                    {
+                        <span>אמת והמשך</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="form-footer">
         @_systemVersion
     </div>
@@ -178,6 +235,11 @@
     private bool _requiresOtp = false;
     private string _otpCode = "";
     private string? _tempToken;
+    
+    private bool _requiresOtpSetup = false;
+    private string? _qrCodeUrl;
+    private string? _manualSecret;
+    private string _setupOtpCode = "";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -375,7 +437,17 @@
 
             if (response != null)
             {
-                // Check OTP requirements FIRST (before success check)
+                // Check OTP setup requirement FIRST
+                if (response.RequiresOtpSetup)
+                {
+                    _logger.LogInformation("OTP setup required for user");
+                    _requiresOtpSetup = true;
+                    _tempToken = response.TempToken;
+                    await LoadOtpSetupQr();
+                    return;
+                }
+                
+                // Check OTP requirements (already set up)
                 if (response.RequiresOtp)
                 {
                     _requiresOtp = true;
@@ -456,6 +528,115 @@
         _tempToken = null;
         _currentStep = 2;
     }
+    
+    private async Task LoadOtpSetupQr()
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<OtpSetupResponse>($"otp/setup", _tempToken);
+            
+            if (response != null)
+            {
+                _qrCodeUrl = $"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={Uri.EscapeDataString(response.QrCodeUrl)}";
+                _manualSecret = response.Secret;
+                _logger.LogInformation("OTP setup QR loaded successfully");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load OTP setup QR");
+            _errorMessage = "שגיאה בטעינת QR להגדרת אימות";
+        }
+    }
+    
+    private async Task HandleSetupOtpEnterKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await HandleOtpSetupVerification();
+        }
+    }
+    
+    private async Task HandleOtpSetupVerification()
+    {
+        _errorMessage = "";
+
+        if (string.IsNullOrWhiteSpace(_setupOtpCode) || _setupOtpCode.Length != 6)
+        {
+            _errorMessage = "נא להזין קוד בן 6 ספרות";
+            return;
+        }
+
+        _isLoading = true;
+
+        try
+        {
+            var setupRequest = new { Code = _setupOtpCode };
+            var response = await ApiService.PostAsync<object, OtpSetupVerifyResponse>(
+                "otp/verify-setup", 
+                setupRequest,
+                _tempToken
+            );
+
+            if (response != null && response.Success)
+            {
+                _logger.LogInformation("OTP setup verified successfully, completing login");
+                
+                // Now complete the OTP login with the same code
+                await CompleteOtpLogin(_setupOtpCode);
+            }
+            else
+            {
+                _errorMessage = response?.Message ?? "קוד אימות שגוי, נסה שוב";
+                _setupOtpCode = "";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying OTP setup");
+            _errorMessage = $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+    
+    private async Task CompleteOtpLogin(string code)
+    {
+        try
+        {
+            var otpRequest = new { TempToken = _tempToken, Code = code };
+            var response = await ApiService.PostAsync<object, LoginResponse>("otp/validate", otpRequest);
+
+            if (response != null && response.Success)
+            {
+                await TokenService.SetTokenAsync(response.Token);
+                Navigation.NavigateTo("/maindashboard");
+            }
+            else
+            {
+                _errorMessage = response?.Message ?? "שגיאה בהשלמת ההתחברות";
+                CancelOtpSetup();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error completing OTP login");
+            _errorMessage = $"שגיאה: {ex.Message}";
+            CancelOtpSetup();
+        }
+    }
+    
+    private void CancelOtpSetup()
+    {
+        _requiresOtpSetup = false;
+        _setupOtpCode = "";
+        _qrCodeUrl = null;
+        _manualSecret = null;
+        _tempToken = null;
+        _currentStep = 2;
+    }
 
     private class EntityDto
     {
@@ -476,6 +657,7 @@
         public string Message { get; set; } = string.Empty;
         public string Token { get; set; } = string.Empty;
         public bool RequiresOtp { get; set; }
+        public bool RequiresOtpSetup { get; set; }
         public string? TempToken { get; set; }
     }
 
@@ -486,5 +668,17 @@
         public string Value { get; set; } = string.Empty;
         public string ValueType { get; set; } = string.Empty;
         public string? Description { get; set; }
+    }
+    
+    private class OtpSetupResponse
+    {
+        public string QrCodeUrl { get; set; } = string.Empty;
+        public string Secret { get; set; } = string.Empty;
+    }
+    
+    private class OtpSetupVerifyResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 }

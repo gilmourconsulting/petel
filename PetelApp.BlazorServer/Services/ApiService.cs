@@ -259,5 +259,83 @@ namespace PetelApp.BlazorServer.Services
                 throw;
             }
         }
+
+        /// <summary>
+        /// GET request with custom token (for OTP setup flow with temp token)
+        /// </summary>
+        public async Task<T?> GetAsync<T>(string endpoint, string? customToken)
+        {
+            try
+            {
+                var url = $"{_baseUrl}/{endpoint}";
+                
+                _logger.LogDebug("GET request with custom token to {Url}", url);
+                
+                // Create new request with custom token
+                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                if (!string.IsNullOrEmpty(customToken))
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", customToken);
+                }
+                
+                var response = await _httpClient.SendAsync(request);
+                
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    _logger.LogWarning("Unauthorized request to {Endpoint}", endpoint);
+                    return default;
+                }
+
+                response.EnsureSuccessStatusCode();
+                
+                var content = await response.Content.ReadAsStringAsync();
+                _logger.LogDebug("GET {Endpoint} response: {Content}", endpoint, content);
+                
+                var result = JsonSerializer.Deserialize<T>(content, _jsonOptions);
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GET request with custom token failed for {Endpoint}", endpoint);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// POST request with custom token (for OTP setup flow with temp token)
+        /// </summary>
+        public async Task<TResponse?> PostAsync<TRequest, TResponse>(string endpoint, TRequest data, string? customToken)
+        {
+            try
+            {
+                var url = $"{_baseUrl}/{endpoint}";
+                
+                _logger.LogDebug("POST request with custom token to {Url}", url);
+                
+                // Create new request with custom token
+                var request = new HttpRequestMessage(HttpMethod.Post, url);
+                if (!string.IsNullOrEmpty(customToken))
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", customToken);
+                }
+                request.Content = JsonContent.Create(data);
+                
+                var response = await _httpClient.SendAsync(request);
+                
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    _logger.LogWarning("Unauthorized request to {Endpoint}", endpoint);
+                    return default;
+                }
+
+                response.EnsureSuccessStatusCode();
+                return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "POST request with custom token failed for {Endpoint}", endpoint);
+                throw;
+            }
+        }
     }
 }
