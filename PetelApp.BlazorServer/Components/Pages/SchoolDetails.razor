@@ -896,9 +896,28 @@
     {
         try
         {
-            var response = await ApiService.PutAsync<SchoolDetailsDto, ApiResponse<object>>(
-            $"school/details/{details.Id}",
-            details);
+            // Prepare update DTO with required fields
+            var updateDto = new
+            {
+                SchoolYearId = details.SchoolYearId,
+                Symbol = details.Symbol,
+                CharacterizationId = details.CharacterizationId,
+                EducationStage = details.EducationStage,
+                CouncilId = details.CouncilId,
+                Street = details.Street,
+                HouseNumber = details.HouseNumber,
+                City = details.City,
+                PostCode = details.PostalCode,
+                Phone = details.Phone,
+                Email = details.Email,
+                PrincipalId = details.PrincipalId,
+                InspectorId = details.InspectorId,
+                ContactPersonId = details.ContactPersonId
+            };
+
+            var response = await ApiService.PutAsync<object, ApiResponse<object>>(
+                "school/update-details",
+                updateDto);
 
             if (response?.Success == true)
             {
