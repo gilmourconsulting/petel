@@ -122,7 +122,7 @@
                                         </p>
                                         <p class="detail-field">
                                             <span class="detail-field-label">עלות:</span>
-                                            <span class="detail-field-value">@(_student.Cost?.ToString("N2") ?? "לא                                            זמין")</span>
+                                            <span class="detail-field-value">@(_student.Cost?.ToString("N2") + " ₪" ?? "לא זמין")</span>
                                         </p>
                                     </div>
                                     </div>
@@ -260,7 +260,7 @@
 
                                                 <span style="font-size: 0.9em; color: #666;">סה"כ רכיבים:</span>
                                                 <span style="font-size: 1.1em; font-weight: 500; color: #2c3e50;">
-                                                    @_pricingSummary.ElementsTotal ₪ </span>
+                                                    @_pricingSummary.ElementsTotal.ToString("N2") ₪ </span>
                                                 &nbsp;&nbsp;
 
                                                 <span style="font-size: 0.9em; color: #666;">חודשי רישום:</span>
@@ -270,7 +270,7 @@
 
                                                 <span style="font-size: 0.9em; color: #666;">עלות תלמיד:</span>
                                                 <span style="font-size: 1.2em; font-weight: 700; color: #048f17;">
-                                                    @_pricingSummary.StudentCost ₪ </span>
+                                                    @_pricingSummary.StudentCost.ToString("N2") ₪ </span>
                                                 <span></span>
                                             </div>
                                         </div>
@@ -505,27 +505,92 @@
 
         try
         {
+            var studentName = $"{_student.FirstName} {_student.LastName}";
             var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
-            "האם לחשב רכיבי תמחור לתלמיד? פעולה זו עלולה לקחת זמן.");
+            $"האם לחשב רכיבי תמחור עבור {studentName}?\n\nפעולה זו תחליף את רכיבי התמחור הקיימים.");
 
             if (!confirmed) return;
 
             _pricingLoading = true;
             StateHasChanged();
 
-            var response = await ApiService.PostAsync<object, ApiResponse<object>>(
+            var response = await ApiService.PostAsync<PricingCalculationResponse, ApiResponse<PricingCalculationResponse>>(
             $"studentpricing/calculate/{_student.Id}?save=true",
-            new { });
+            new PricingCalculationResponse());
 
             if (response?.Success == true)
             {
-                await JSRuntime.InvokeVoidAsync("alert", "חישוב רכיבי התמחור הושלם בהצלחה");
+                var data = response.Data;
+                string message;
+
+                // Check if no changes were detected
+                if (data?.NoChangeDetected == true)
+                {
+                    message = "✅ חישוב התמחור הושלם בהצלחה!\n\n";
+                    message += "ℹ️ לא התגלו שינויים ברכיבי התמחור\n";
+
+                    if (data.ElementsCount.HasValue)
+                    {
+                        message += $"📊 {data.ElementsCount.Value} רכיבי תמחור תקפים\n";
+                    }
+
+                    if (data.TotalPrice.HasValue)
+                    {
+                        message += $"💰 סכום כולל: ₪{data.TotalPrice.Value:N2}\n";
+                    }
+
+                    message += "\nהנתונים הקיימים עדיין תקפים - לא נוצרה גרסה חדשה.";
+                }
+                else
+                {
+                    // Changes detected - new version created
+                    message = "✅ חישוב התמחור הושלם בהצלחה!\n\n";
+
+                    if (data?.ElementsCount.HasValue == true)
+                    {
+                        message += $"📊 {data.ElementsCount.Value} רכיבי תמחור חושבו\n";
+                    }
+
+                    if (data?.TotalPrice.HasValue == true)
+                    {
+                        message += $"💰 סכום כולל: ₪{data.TotalPrice.Value:N2}\n";
+                    }
+
+                    if (data?.Warnings != null && data.Warnings.Count > 0)
+                    {
+                        message += "\n⚠️ אזהרות:\n";
+                        var warningsToShow = data.Warnings.Take(3);
+                        foreach (var warning in warningsToShow)
+                        {
+                            message += $"  • {warning}\n";
+                        }
+                        if (data.Warnings.Count > 3)
+                        {
+                            message += $"  ... ו-{data.Warnings.Count - 3} אזהרות נוספות\n";
+                        }
+                    }
+
+                    // Update student ID if new version was created
+                    if (data?.NewStudentId.HasValue == true)
+                    {
+                        await ApiService.PostAsync($"session/property/SelectedStudentId", 
+                            new { value = data.NewStudentId.Value.ToString() });
+                        
+                        // Reload student data with new version BEFORE showing message
+                        await LoadStudentData();
+                    }
+                }
+
+                await JSRuntime.InvokeVoidAsync("alert", message);
 
                 // Reload pricing elements
                 await LoadPricingElements();
 
-                // Reload student data to get updated cost
-                await LoadStudentData();
+                // If no new version was created, just reload to get updated cost
+                if (data?.NewStudentId.HasValue != true)
+                {
+                    await LoadStudentData();
+                }
 
                 // Switch to pricing tab
                 _activeTab = "pricing";
@@ -553,18 +618,19 @@
 
         try
         {
-            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
-            "האם לעדכן רשימת מסמכים לתלמיד?");
-
-            if (!confirmed) return;
-
-            var response = await ApiService.PostAsync<object, ApiResponse<object>>(
+            var response = await ApiService.PostAsync<DocumentGenerationResponse, DocumentGenerationResponse>(
             $"documents/generate-student-documents?studentId={_student.Id}&yearId={_yearId.Value}",
-            new { });
+            new DocumentGenerationResponse());
 
-            if (response?.Success == true)
+            if (response != null)
             {
-                await JSRuntime.InvokeVoidAsync("alert", "רשימת המסמכים עודכנה בהצלחה");
+                var message = $"{response.Message}\n\n" +
+                    $"נוצרו: {response.AddedCount} מסמכים\n" +
+                    $"קיימים (דולגו): {response.SkippedCount} מסמכים\n" +
+                    $"לא רלוונטיים: {response.NotRequiredCount} מסמכים\n" +
+                    $"סה\"כ סוגי מסמכים: {response.TotalTypes}";
+
+                await JSRuntime.InvokeVoidAsync("alert", message);
 
                 // Reload all document tables
                 if (_studentDocsTable != null)
@@ -580,7 +646,7 @@
             }
             else
             {
-                await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בעדכון מסמכים: {response?.Message ?? "שגיאה לא ידועה"}");
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה בעדכון מסמכים: לא התקבלה תשובה מהשרת");
             }
         }
         catch (Exception ex)
@@ -668,5 +734,23 @@
         public decimal ElementsTotal { get; set; }
         public decimal StudentCost { get; set; }
         public int EnrollmentMonths { get; set; }
+    }
+
+    private class PricingCalculationResponse
+    {
+        public bool NoChangeDetected { get; set; }
+        public int? ElementsCount { get; set; }
+        public decimal? TotalPrice { get; set; }
+        public int? NewStudentId { get; set; }
+        public List<string>? Warnings { get; set; }
+    }
+
+    private class DocumentGenerationResponse
+    {
+        public string Message { get; set; } = string.Empty;
+        public int AddedCount { get; set; }
+        public int SkippedCount { get; set; }
+        public int NotRequiredCount { get; set; }
+        public int TotalTypes { get; set; }
     }
 }
