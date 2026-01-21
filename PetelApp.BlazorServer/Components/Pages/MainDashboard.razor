@@ -90,6 +90,9 @@
         _showEntityDetailsButton =  session.EntityTypeId != "1" && session.EntityTypeId != "4";
 
         await LoadData();
+        
+        // Check school year availability for school entities (entityType 1 or 4)
+        await CheckSchoolYearAvailability(session);
     }
 
     private async Task LoadData()
@@ -357,6 +360,92 @@
         catch (Exception ex)
         {
             Console.WriteLine($"❌ Error in LoadSchoolDashboard: {ex.Message}");
+        }
+    }
+    
+    private async Task CheckSchoolYearAvailability(SessionData session)
+    {
+        Console.WriteLine("🔍 Checking school year availability...");
+        
+        try
+        {
+            var entityTypeId = int.Parse(session.EntityTypeId);
+            
+            // Only check for school entities (entityTypeId = 1 or 4)
+            if (entityTypeId != 1 && entityTypeId != 4)
+            {
+                Console.WriteLine("⏭️ Not a school entity, skipping year availability check");
+                return;
+            }
+            
+            var schoolId = int.Parse(session.EntityId);
+            Console.WriteLine($"🏫 School entity detected, checking years for schoolId: {schoolId}");
+            
+            // Check each year type
+            var yearChecks = new[]
+            {
+                new { YearId = _previousYearId, SessionKey = "PreviousSchoolYearId", YearType = "previous" },
+                new { YearId = _currentYearId, SessionKey = "CurrentSchoolYearId", YearType = "current" },
+                new { YearId = _nextYearId, SessionKey = "NextSchoolYearId", YearType = "next" }
+            };
+            
+            foreach (var check in yearChecks)
+            {
+                if (check.YearId == 0)
+                {
+                    Console.WriteLine($"⚠️ No {check.YearType} year ID found, skipping");
+                    continue;
+                }
+                
+                try
+                {
+                    Console.WriteLine($"🌐 Checking {check.YearType} year with yearId: {check.YearId}, schoolId: {schoolId}");
+                    
+                    var schoolYear = await ApiService.GetAsync<Dictionary<string, object>>(
+                        $"schoolYears/by-year-and-school?yearId={check.YearId}&schoolId={schoolId}");
+                    
+                    if (schoolYear != null && schoolYear.ContainsKey("id"))
+                    {
+                        var schoolYearId = schoolYear["id"].ToString();
+                        Console.WriteLine($"✅ {check.YearType} year exists, school_year.id: {schoolYearId}");
+                        
+                        // Store school_year.id in backend session
+                        await ApiService.PostAsync<object, object>("session/property", new
+                        {
+                            key = check.SessionKey,
+                            value = schoolYearId
+                        });
+                    }
+                    else
+                    {
+                        Console.WriteLine($"❌ {check.YearType} year does NOT exist in school_years table");
+                        
+                        // Clear session property
+                        await ApiService.PostAsync<object, object>("session/property", new
+                        {
+                            key = check.SessionKey,
+                            value = ""
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Error checking {check.YearType} year: {ex.Message}");
+                    
+                    // Clear session property on error
+                    await ApiService.PostAsync<object, object>("session/property", new
+                    {
+                        key = check.SessionKey,
+                        value = ""
+                    });
+                }
+            }
+            
+            Console.WriteLine("✅ School year availability check complete");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error in CheckSchoolYearAvailability: {ex.Message}");
         }
     }
 }
