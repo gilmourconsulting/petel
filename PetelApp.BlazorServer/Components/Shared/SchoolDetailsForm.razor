@@ -1,6 +1,8 @@
 @using PetelApp.BlazorServer.DTOs
 @inject IJSRuntime JSRuntime
 
+<PersonSelectorModal @ref="_personSelector" />
+
 @if (SchoolData != null)
 {
     <div class="detail-fields-grid">
@@ -239,6 +241,9 @@
     private int? _hoveredCouncilId = null;
     private List<CouncilDto> _filteredCouncils = new();
 
+    // Person selector modal reference
+    private PersonSelectorModal? _personSelector;
+
     protected override void OnParametersSet()
     {
         Console.WriteLine($"OnParametersSet - Councils: {Councils.Count}, IsEditMode: {IsEditMode}");
@@ -308,112 +313,68 @@
 
     private async Task EditPrincipal()
     {
-        await EditPerson("principal", "מנהל", SchoolData.PrincipalId, SchoolData.PrincipalName,
-            (id, name) => {
-                SchoolData.PrincipalId = id;
-                SchoolData.PrincipalName = name;
-            });
+        if (_personSelector == null) return;
+
+        var currentPerson = SchoolData.PrincipalId != null ? new PersonSelectorModal.PersonInfo
+        {
+            Id = SchoolData.PrincipalId,
+            FirstName = SchoolData.PrincipalName?.Split(' ').FirstOrDefault() ?? "",
+            LastName = SchoolData.PrincipalName?.Split(' ').Skip(1).FirstOrDefault() ?? "",
+            Position = "מנהל"
+        } : null;
+
+        var result = await _personSelector.ShowAsync("בחירת מנהל", currentPerson);
+        
+        if (result != null)
+        {
+            SchoolData.PrincipalId = result.Id;
+            SchoolData.PrincipalName = $"{result.FirstName} {result.LastName}".Trim();
+            StateHasChanged();
+        }
     }
 
     private async Task EditInspector()
     {
-        await EditPerson("inspector", "מפקח", SchoolData.InspectorId, SchoolData.InspectorName,
-            (id, name) => {
-                SchoolData.InspectorId = id;
-                SchoolData.InspectorName = name;
-            });
+        if (_personSelector == null) return;
+
+        var currentPerson = SchoolData.InspectorId != null ? new PersonSelectorModal.PersonInfo
+        {
+            Id = SchoolData.InspectorId,
+            FirstName = SchoolData.InspectorName?.Split(' ').FirstOrDefault() ?? "",
+            LastName = SchoolData.InspectorName?.Split(' ').Skip(1).FirstOrDefault() ?? "",
+            Position = "מפקח"
+        } : null;
+
+        var result = await _personSelector.ShowAsync("בחירת מפקח", currentPerson);
+        
+        if (result != null)
+        {
+            SchoolData.InspectorId = result.Id;
+            SchoolData.InspectorName = $"{result.FirstName} {result.LastName}".Trim();
+            StateHasChanged();
+        }
     }
 
     private async Task EditContactPerson()
     {
-        await EditPerson("contactPerson", "איש קשר", SchoolData.ContactPersonId, SchoolData.ContactPersonName,
-            (id, name) => {
-                SchoolData.ContactPersonId = id;
-                SchoolData.ContactPersonName = name;
-            });
-    }
+        if (_personSelector == null) return;
 
-    private async Task EditPerson(string personType, string position, int? currentPersonId, string currentPersonName, Action<int?, string> updateAction)
-    {
-        try
+        var currentPerson = SchoolData.ContactPersonId != null ? new PersonSelectorModal.PersonInfo
         {
-            // Set current person type in JavaScript
-            await JSRuntime.InvokeVoidAsync("eval", $"window.PersonManagement.setCurrentPersonType('{personType}')");
+            Id = SchoolData.ContactPersonId,
+            FirstName = SchoolData.ContactPersonName?.Split(' ').FirstOrDefault() ?? "",
+            LastName = SchoolData.ContactPersonName?.Split(' ').Skip(1).FirstOrDefault() ?? "",
+            Position = "איש קשר"
+        } : null;
 
-            // Prepare current person data
-            var nameParts = currentPersonName?.Split(' ', 2) ?? new[] { "", "" };
-            var currentPerson = new
-            {
-                id = currentPersonId,
-                firstName = nameParts.Length > 0 ? nameParts[0] : "",
-                lastName = nameParts.Length > 1 ? nameParts[1] : "",
-                position = position
-            };
-
-            // Create callback function name
-            var callbackName = $"blazorPersonCallback_{Guid.NewGuid():N}";
-
-            // Create DotNet callback
-            var dotNetRef = DotNetObjectReference.Create(this);
-            await JSRuntime.InvokeVoidAsync("eval", $@"
-                window['{callbackName}'] = function(selectedPerson) {{
-                    if (selectedPerson) {{
-                        window.blazorPersonCallbackData = {{
-                            id: selectedPerson.id,
-                            name: (selectedPerson.firstName + ' ' + selectedPerson.lastName).trim()
-                        }};
-                    }} else {{
-                        window.blazorPersonCallbackData = null;
-                    }}
-                    delete window['{callbackName}'];
-                }}
-            ");
-
-            // Call person management modal
-            await JSRuntime.InvokeVoidAsync("eval", $@"
-                window.PersonManagement.showPersonEditModal(
-                    '{personType}',
-                    {System.Text.Json.JsonSerializer.Serialize(currentPerson)},
-                    window['{callbackName}']
-                )
-            ");
-
-            // Wait for modal to close and check result
-            await Task.Delay(500); // Give time for modal interaction
-            
-            // Poll for result
-            for (int i = 0; i < 100; i++) // Poll for up to 10 seconds
-            {
-                var hasResult = await JSRuntime.InvokeAsync<bool>("eval", "window.blazorPersonCallbackData !== undefined");
-                if (hasResult)
-                {
-                    var resultJson = await JSRuntime.InvokeAsync<string>("eval", "JSON.stringify(window.blazorPersonCallbackData)");
-                    await JSRuntime.InvokeVoidAsync("eval", "delete window.blazorPersonCallbackData");
-                    
-                    if (resultJson != "null")
-                    {
-                        var result = System.Text.Json.JsonSerializer.Deserialize<PersonCallbackResult>(resultJson);
-                        if (result != null)
-                        {
-                            updateAction(result.Id, result.Name);
-                            StateHasChanged();
-                        }
-                    }
-                    break;
-                }
-                await Task.Delay(100);
-            }
-        }
-        catch (Exception ex)
+        var result = await _personSelector.ShowAsync("בחירת איש קשר", currentPerson);
+        
+        if (result != null)
         {
-            Console.WriteLine($"Error editing person: {ex.Message}");
+            SchoolData.ContactPersonId = result.Id;
+            SchoolData.ContactPersonName = $"{result.FirstName} {result.LastName}".Trim();
+            StateHasChanged();
         }
-    }
-
-    private class PersonCallbackResult
-    {
-        public int? Id { get; set; }
-        public string Name { get; set; } = string.Empty;
     }
 
     private async Task SaveChanges()
