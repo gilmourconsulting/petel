@@ -178,9 +178,16 @@
 
 /* Global minimal content padding */
 .main-content {
-    padding: var(--ultra-minimal-padding) !important;
+    padding-top: var(--ultra-minimal-padding);
+    padding-left: var(--minimal-padding);
+    padding-right: var(--minimal-padding);
+    /* padding-bottom set in styles.css to account for footer clearance */
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden;
+    /* Ensures smooth scrolling behavior when content expands */
+    scroll-behavior: smooth;
+    scroll-padding-bottom: 80px;
 }
 
 /* Global minimal card styling */
