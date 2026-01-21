@@ -203,6 +203,7 @@
                                                                 <th>קטגוריה</th>
                                                                 <th>רמה נמוכה ביותר</th>
                                                                 <th>מחיר</th>
+                                                                <th>פעולות</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
@@ -212,6 +213,65 @@
                                                                     <td>@cat.Category</td>
                                                                     <td>@(cat.IsLowestLevel ? "כן" : "לא")</td>
                                                                     <td>@(cat.Price?.ToString("N2") ?? "-") ₪</td>
+                                                                    <td>
+                                                                        <button class="btn-icon" @onclick="() => SelectPricingCategory(cat.Id, cat.Category)" title="צפה בשלבים">
+                                                                            <img src="images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            }
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                            }
+
+                            <!-- Pricing Steps Card (shown when category selected) -->
+                            @if (_selectedCategoryId.HasValue)
+                            {
+                                <div class="detail-card @(_pricingStepsExpanded ? "expanded" : "collapsed")" style="margin-top: 20px;">
+                                    <div class="detail-card-header" @onclick="() => _pricingStepsExpanded = !_pricingStepsExpanded">
+                                        <div class="detail-card-title">שלבי תמחור - קטגוריה @_selectedCategoryNumber</div>
+                                        <div class="card-header-actions">
+                                            <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                                @(_pricingStepsExpanded ? "×" : "+")
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="detail-card-content">
+                                        @if (_pricingStepsExpanded)
+                                        {
+                                            @if (_loadingPricingSteps)
+                                            {
+                                                <div class="loading-spinner">טוען...</div>
+                                            }
+                                            else if (_pricingSteps.Count == 0)
+                                            {
+                                                <div class="info-message">אין שלבי תמחור לקטגוריה זו</div>
+                                            }
+                                            else
+                                            {
+                                                <div class="table-container">
+                                                    <table class="data-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>בדיקת אובייקט</th>
+                                                                <th>בדיקת רכיב אובייקט</th>
+                                                                <th>ערך רכיב אובייקט</th>
+                                                                <th>מחיר</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach (var step in _pricingSteps)
+                                                            {
+                                                                <tr>
+                                                                    <td>@step.ObjectCheck</td>
+                                                                    <td>@step.ObjectElementCheck</td>
+                                                                    <td>@step.ObjectElementValue</td>
+                                                                    <td>@(step.Price?.ToString("N2") ?? "-") ₪</td>
                                                                 </tr>
                                                             }
                                                         </tbody>
@@ -538,6 +598,11 @@
     private string _selectedPricingElementName = string.Empty;
     private bool _loadingCategories = false;
     
+    private int? _selectedCategoryId;
+    private int _selectedCategoryNumber = 0;
+    private bool _loadingPricingSteps = false;
+    private List<PricingStepDto> _pricingSteps = new();
+    
     private int? _selectedTrackId;
     private string _selectedTrackName = string.Empty;
     private bool _loadingTrackLevels = false;
@@ -561,6 +626,7 @@
     private bool _documentsExpanded = true;
     private bool _pricingExpanded = true;
     private bool _pricingCategoriesExpanded = true;
+    private bool _pricingStepsExpanded = true;
     private bool _tracksExpanded = true;
     private bool _trackLevelsExpanded = true;
     private bool _trackPricingExpanded = true;
@@ -727,6 +793,37 @@
         finally
         {
             _loadingCategories = false;
+        }
+    }
+
+    private async Task SelectPricingCategory(int categoryId, int categoryNumber)
+    {
+        Console.WriteLine($"Selected pricing category: {categoryId} - {categoryNumber}");
+        
+        _selectedCategoryId = categoryId;
+        _selectedCategoryNumber = categoryNumber;
+        _pricingStepsExpanded = true;
+        
+        await LoadPricingSteps(categoryId);
+        StateHasChanged();
+    }
+
+    private async Task LoadPricingSteps(int categoryId)
+    {
+        _loadingPricingSteps = true;
+        try
+        {
+            var endpoint = $"schoolyearconfig/pricing-steps/{categoryId}";
+            _pricingSteps = await ApiService.GetAsync<List<PricingStepDto>>(endpoint) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading pricing steps: {ex.Message}");
+            _pricingSteps = new();
+        }
+        finally
+        {
+            _loadingPricingSteps = false;
         }
     }
 
@@ -987,6 +1084,24 @@
         
         [System.Text.Json.Serialization.JsonPropertyName("isLowestLevel")]
         public bool IsLowestLevel { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public decimal? Price { get; set; }
+    }
+
+    private class PricingStepDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public int Id { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("objectCheck")]
+        public string ObjectCheck { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("objectElementCheck")]
+        public string ObjectElementCheck { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("objectElementValue")]
+        public string ObjectElementValue { get; set; } = string.Empty;
         
         [System.Text.Json.Serialization.JsonPropertyName("price")]
         public decimal? Price { get; set; }
