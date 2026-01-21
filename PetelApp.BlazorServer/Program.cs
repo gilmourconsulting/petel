@@ -4,6 +4,11 @@ using PetelApp.BlazorServer.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure URLs - Azure App Service Linux expects port 8080
+// PORT environment variable is set by Azure
+var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
+builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
@@ -38,17 +43,19 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
-    app.UseHttpsRedirection();
+    // IMPORTANT: Azure App Service handles HTTPS termination at load balancer
+    // Do NOT use HSTS or HTTPS redirection on App Service Linux
+    // app.UseHsts();
+    // app.UseHttpsRedirection();
 }
 
-// In development, don't force HTTPS redirect
+// Azure App Service handles HTTPS - no redirect needed
 // app.UseHttpsRedirection();
 
 
 app.UseAntiforgery();
 
-app.MapStaticAssets();
+app.UseStaticFiles();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
     .AddAdditionalAssemblies();
