@@ -996,13 +996,13 @@ body {
     border-radius: 8px;
     background: white;
     direction: rtl;
-    width: 100%;
-    /* Use full available width */
+    width: fit-content;
     max-width: 100%;
 }
 
 .data-table {
     width: auto;
+    min-width: auto;
     border-collapse: collapse;
     direction: rtl;
     text-align: right;

@@ -12,15 +12,33 @@
                     {
                         <th>פעולות</th>
                     }
-                    <th>שכבה</th>
-                    <th>מספר כיתה</th>
-                    <th>שעת סיום</th>
+                    <th @onclick="() => SortByColumn(nameof(SchoolClassDto.Level))" style="cursor: pointer;">
+                        שכבה
+                        @if (_sortColumn == nameof(SchoolClassDto.Level))
+                        {
+                            <span>@(_sortAscending ? " ▲" : " ▼")</span>
+                        }
+                    </th>
+                    <th @onclick="() => SortByColumn(nameof(SchoolClassDto.ClassNumber))" style="cursor: pointer;">
+                        מספר כיתה
+                        @if (_sortColumn == nameof(SchoolClassDto.ClassNumber))
+                        {
+                            <span>@(_sortAscending ? " ▲" : " ▼")</span>
+                        }
+                    </th>
+                    <th @onclick="() => SortByColumn(nameof(SchoolClassDto.EndHour))" style="cursor: pointer;">
+                        שעת סיום
+                        @if (_sortColumn == nameof(SchoolClassDto.EndHour))
+                        {
+                            <span>@(_sortAscending ? " ▲" : " ▼")</span>
+                        }
+                    </th>
                     <!--        <th>מספר תלמידים</th>-->
 
                 </tr>
             </thead>
             <tbody>
-                @foreach (var cls in Classes)
+                @foreach (var cls in SortedClasses)
                 {
                     <tr>
                         @if (IsEditMode)
@@ -55,4 +73,49 @@ else
     [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public EventCallback<SchoolClassDto> OnEdit { get; set; }
     [Parameter] public EventCallback<int> OnDelete { get; set; }
+
+    private string _sortColumn = nameof(SchoolClassDto.Level);
+    private bool _sortAscending = true;
+
+    private IEnumerable<SchoolClassDto> SortedClasses
+    {
+        get
+        {
+            if (Classes == null || !Classes.Any())
+                return new List<SchoolClassDto>();
+
+            IEnumerable<SchoolClassDto> sorted = Classes;
+
+            sorted = _sortColumn switch
+            {
+                nameof(SchoolClassDto.Level) => _sortAscending 
+                    ? sorted.OrderBy(c => c.Level).ThenBy(c => c.ClassNumber)
+                    : sorted.OrderByDescending(c => c.Level).ThenByDescending(c => c.ClassNumber),
+                nameof(SchoolClassDto.ClassNumber) => _sortAscending 
+                    ? sorted.OrderBy(c => c.ClassNumber).ThenBy(c => c.Level)
+                    : sorted.OrderByDescending(c => c.ClassNumber).ThenByDescending(c => c.Level),
+                nameof(SchoolClassDto.EndHour) => _sortAscending 
+                    ? sorted.OrderBy(c => c.EndHour).ThenBy(c => c.Level).ThenBy(c => c.ClassNumber)
+                    : sorted.OrderByDescending(c => c.EndHour).ThenBy(c => c.Level).ThenBy(c => c.ClassNumber),
+                _ => sorted.OrderBy(c => c.Level).ThenBy(c => c.ClassNumber)
+            };
+
+            return sorted;
+        }
+    }
+
+    private void SortByColumn(string columnName)
+    {
+        if (_sortColumn == columnName)
+        {
+            // Toggle sort direction if clicking same column
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            // New column - default to ascending
+            _sortColumn = columnName;
+            _sortAscending = true;
+        }
+    }
 }
