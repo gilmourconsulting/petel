@@ -1,16 +1,18 @@
 @page "/schoolyearconfig"
+@layout MainLayout
 @inherits SecurePageBase
+@using PetelApp.BlazorServer.DTOs
 @using PetelApp.BlazorServer.Components.Shared
+@using PetelApp.BlazorServer.Components.Modals
 @inject ApiService ApiService
 @inject SessionStateService SessionState
 @inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
 
 <div class="main-container">
     <div class="context-buttons-section">
         <SecureButton ActionName="schoolyearconfig_refreshData" ScreenName="@PageName" FunctionName="RefreshData" 
                       OnClick="RefreshData" CssClass="context-btn">רענן נתונים</SecureButton>
-        <SecureButton ActionName="schoolyearconfig_addYear" ScreenName="@PageName" FunctionName="ShowAddYearModal" 
-                      OnClick="ShowAddYearModal" CssClass="context-btn">הוסף שנה חדשה</SecureButton>
         <div class="context-spacer"></div>
         <SecureButton ActionName="schoolyearconfig_navigateBack" ScreenName="@PageName" FunctionName="NavigateBack" 
                       OnClick="NavigateBack" CssClass="context-navigation-btn">חזור</SecureButton>
@@ -31,54 +33,351 @@
             }
             else
             {
-                <div class="years-grid">
-                    @foreach (var year in _years)
-                    {
-                        <div class="year-card @(year.IsActive ? "active-year" : "")">
-                            <div class="year-header">
-                                <h3>@year.YearName</h3>
-                                @if (year.IsActive)
-                                {
-                                    <span class="badge-active">שנה פעילה</span>
-                                }
+                <div class="year-selection-section">
+                    <label for="yearSelect" class="form-label">בחר שנת לימודים:</label>
+                    <select id="yearSelect" @onchange="HandleYearChange" class="form-select">
+                        <option value="">-- בחר שנה --</option>
+                        @foreach (var year in _years)
+                        {
+                            <option value="@year.Id">@year.YearName</option>
+                        }
+                    </select>
+                </div>
+
+                @if (_selectedYearId > 0)
+                {
+                    <div class="content-card">
+                        <div class="tabs-header">
+                            <button class="tab-button @(_activeTab == "documents" ? "active" : "")" @onclick='() => SwitchTab("documents")'>מסמכים</button>
+                            <button class="tab-button @(_activeTab == "pricing" ? "active" : "")" @onclick='() => SwitchTab("pricing")'>רכיבי תמחור</button>
+                            <button class="tab-button @(_activeTab == "tracks" ? "active" : "")" @onclick='() => SwitchTab("tracks")'>מגמות</button>
+                            <button class="tab-button @(_activeTab == "studyprograms" ? "active" : "")" @onclick='() => SwitchTab("studyprograms")'>תוכניות לימוד נוספות</button>
+                            <button class="tab-button @(_activeTab == "schoolattributes" ? "active" : "")" @onclick='() => SwitchTab("schoolattributes")'>מאפייני בתי ספר</button>
+                        </div>
+
+                        <!-- Tab Content - Documents -->
+                        <div class="tab-content" style="display: @(_activeTab == "documents" ? "block" : "none");">
+                            <div class="detail-card @(_documentsExpanded ? "expanded" : "collapsed")">
+                                <div class="detail-card-header" @onclick="() => _documentsExpanded = !_documentsExpanded">
+                                    <div class="detail-card-title">סוגי מסמכים</div>
+                                    <div class="card-header-actions">
+                                        <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                            @(_documentsExpanded ? "×" : "+")
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="detail-card-content">
+                                    @if (_documentsExpanded)
+                                    {
+                                        @if (_loadingTabData)
+                                        {
+                                            <div class="loading-spinner">טוען...</div>
+                                        }
+                                        else if (_documentTypes.Count == 0)
+                                        {
+                                            <div class="info-message">אין סוגי מסמכים לשנה זו</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="table-container">
+                                                <table class="data-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>מזהה</th>
+                                                            <th>שם</th>
+                                                            <th>רמה</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var doc in _documentTypes)
+                                                        {
+                                                            <tr>
+                                                                <td>@doc.Id</td>
+                                                                <td>@doc.Name</td>
+                                                                <td>@doc.Level</td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }
+                                    }
+                                </div>
                             </div>
-                            
-                            <div class="year-details">
-                                <div class="detail-row">
-                                    <label>תאריך התחלה:</label>
-                                    <span>@year.StartDate?.ToString("dd/MM/yyyy")</span>
+                        </div>
+
+                        <!-- Tab Content - Pricing -->
+                        <div class="tab-content" style="display: @(_activeTab == "pricing" ? "block" : "none");">
+                            <!-- Pricing Elements Card -->
+                            <div class="detail-card @(_pricingExpanded ? "expanded" : "collapsed")" style="margin-bottom: 20px;">
+                                <div class="detail-card-header" @onclick="() => _pricingExpanded = !_pricingExpanded">
+                                    <div class="detail-card-title">רכיבי תמחור</div>
+                                    <div class="card-header-actions">
+                                        <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                            @(_pricingExpanded ? "×" : "+")
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="detail-row">
-                                    <label>תאריך סיום:</label>
-                                    <span>@year.EndDate?.ToString("dd/MM/yyyy")</span>
-                                </div>
-                                <div class="detail-row">
-                                    <label>מספר בתי ספר:</label>
-                                    <span>@year.SchoolsCount</span>
-                                </div>
-                                <div class="detail-row">
-                                    <label>מספר תלמידים:</label>
-                                    <span>@year.StudentsCount</span>
+                                <div class="detail-card-content">
+                                    @if (_pricingExpanded)
+                                    {
+                                        @if (_loadingTabData)
+                                        {
+                                            <div class="loading-spinner">טוען...</div>
+                                        }
+                                        else if (_pricingElements.Count == 0)
+                                        {
+                                            <div class="info-message">אין רכיבי תמחור לשנה זו</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="table-container">
+                                                <table class="data-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>סדר</th>
+                                                            <th>שם</th>
+                                                            <th>כותרת</th>
+                                                            <th>תיאור</th>
+                                                            <th>רמת חישוב</th>
+                                                            <th>תכונה לבדיקה</th>
+                                                            <th>תאריך יצירה</th>
+                                                            <th>פעולות</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var elem in _pricingElements.OrderBy(e => e.SortOrder))
+                                                        {
+                                                            <tr>
+                                                                <td>@elem.SortOrder</td>
+                                                                <td>@elem.Name</td>
+                                                                <td>@elem.Title</td>
+                                                                <td>@elem.Description</td>
+                                                                <td>@elem.CalculationLevel</td>
+                                                                <td>@elem.AttributeToCheck</td>
+                                                                <td>@elem.CreatedAt?.ToString("dd/MM/yyyy")</td>
+                                                                <td>
+                                                                    <button class="btn-icon" @onclick="() => SelectPricingElement(elem.Id, elem.Name)" title="הצג קטגוריות">
+                                                                        <img src="images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                                                    </button>
+                                                                </td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }
+                                    }
                                 </div>
                             </div>
 
-                            <div class="year-actions">
-                                <button class="btn-icon" @onclick="@(() => EditYear(year))" title="ערוך">
-                                    <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural" />
-                                </button>
-                                @if (!year.IsActive)
-                                {
-                                    <button class="btn-icon" @onclick="@(() => SetActiveYear(year.Id))" title="הגדר כשנה פעילה">
-                                        <span>✓</span>
-                                    </button>
-                                }
-                                <button class="btn-icon" @onclick="@(() => ManageAttributes(year.Id))" title="ניהול מאפיינים">
-                                    <img src="/images/view_icon.png" alt="מאפיינים" class="action-icon-natural" />
-                                </button>
+                            <!-- Pricing Categories Card (shown when element selected) -->
+                            @if (_selectedPricingElementId.HasValue)
+                            {
+                                <div class="detail-card @(_pricingCategoriesExpanded ? "expanded" : "collapsed")">
+                                    <div class="detail-card-header" @onclick="() => _pricingCategoriesExpanded = !_pricingCategoriesExpanded">
+                                        <div class="detail-card-title">קטגוריות תמחור - @_selectedPricingElementName</div>
+                                        <div class="card-header-actions">
+                                            <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                                @(_pricingCategoriesExpanded ? "×" : "+")
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="detail-card-content">
+                                        @if (_pricingCategoriesExpanded)
+                                        {
+                                            @if (_loadingCategories)
+                                            {
+                                                <div class="loading-spinner">טוען...</div>
+                                            }
+                                            else if (_pricingCategories.Count == 0)
+                                            {
+                                                <div class="info-message">אין קטגוריות תמחור לרכיב זה</div>
+                                            }
+                                            else
+                                            {
+                                                <div class="table-container">
+                                                    <table class="data-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>קטגוריה</th>
+                                                                <th>רמה נמוכה ביותר</th>
+                                                                <th>מחיר</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach (var cat in _pricingCategories.OrderBy(c => c.Category))
+                                                            {
+                                                                <tr>
+                                                                    <td>@cat.Category</td>
+                                                                    <td>@(cat.IsLowestLevel ? "כן" : "לא")</td>
+                                                                    <td>@(cat.Price?.ToString("N2") ?? "-") ₪</td>
+                                                                </tr>
+                                                            }
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Tab Content - Tracks -->
+                        <div class="tab-content" style="display: @(_activeTab == "tracks" ? "block" : "none");">
+                            <div class="detail-card @(_tracksExpanded ? "expanded" : "collapsed")">
+                                <div class="detail-card-header" @onclick="() => _tracksExpanded = !_tracksExpanded">
+                                    <div class="detail-card-title">מגמות</div>
+                                    <div class="card-header-actions">
+                                        <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                            @(_tracksExpanded ? "×" : "+")
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="detail-card-content">
+                                    @if (_tracksExpanded)
+                                    {
+                                        @if (_loadingTabData)
+                                        {
+                                            <div class="loading-spinner">טוען...</div>
+                                        }
+                                        else if (_tracks.Count == 0)
+                                        {
+                                            <div class="info-message">אין מגמות להצגה</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="table-container">
+                                                <table class="data-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>שם מגמה</th>
+                                                            <th>זמין לכיתות</th>
+                                                            <th>תאריך יצירה</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var track in _tracks)
+                                                        {
+                                                            <tr>
+                                                                <td>@track.TrackName</td>
+                                                                <td>@track.AvailableForGrades</td>
+                                                                <td>@track.CreatedAt?.ToString("dd/MM/yyyy")</td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }
+                                    }
+                                </div>
                             </div>
                         </div>
-                    }
-                </div>
+
+                        <!-- Tab Content - Study Programs -->
+                        <div class="tab-content" style="display: @(_activeTab == "studyprograms" ? "block" : "none");">
+                            <div class="detail-card @(_studyProgramsExpanded ? "expanded" : "collapsed")">
+                                <div class="detail-card-header" @onclick="() => _studyProgramsExpanded = !_studyProgramsExpanded">
+                                    <div class="detail-card-title">תוכניות לימוד נוספות</div>
+                                    <div class="card-header-actions">
+                                        <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                            @(_studyProgramsExpanded ? "×" : "+")
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="detail-card-content">
+                                    @if (_studyProgramsExpanded)
+                                    {
+                                        @if (_loadingTabData)
+                                        {
+                                            <div class="loading-spinner">טוען...</div>
+                                        }
+                                        else if (_studyPrograms.Count == 0)
+                                        {
+                                            <div class="info-message">אין תוכניות לימוד להצגה</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="table-container">
+                                                <table class="data-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>מזהה</th>
+                                                            <th>מספר תלמידים</th>
+                                                            <th>מחיר מקסימלי</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var program in _studyPrograms)
+                                                        {
+                                                            <tr>
+                                                                <td>@program.Id</td>
+                                                                <td>@program.Students</td>
+                                                                <td>@(program.Price.HasValue ? $"₪{program.Price.Value:F2}" : "-")</td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab Content - School Attributes -->
+                        <div class="tab-content" style="display: @(_activeTab == "schoolattributes" ? "block" : "none");">
+                            <div class="detail-card @(_schoolAttributesExpanded ? "expanded" : "collapsed")">
+                                <div class="detail-card-header" @onclick="() => _schoolAttributesExpanded = !_schoolAttributesExpanded">
+                                    <div class="detail-card-title">סוגי מאפיינים לשנת לימודים</div>
+                                    <div class="card-header-actions">
+                                        <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                            @(_schoolAttributesExpanded ? "×" : "+")
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="detail-card-content">
+                                    @if (_schoolAttributesExpanded)
+                                    {
+                                        @if (_loadingTabData)
+                                        {
+                                            <div class="loading-spinner">טוען...</div>
+                                        }
+                                        else if (_schoolAttributes.Count == 0)
+                                        {
+                                            <div class="info-message">אין מאפיינים להצגה</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="table-container">
+                                                <table class="data-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>שם המאפיין</th>
+                                                            <th>סוג</th>
+                                                            <th>סדר</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @foreach (var attr in _schoolAttributes.OrderBy(a => a.SortOrder))
+                                                        {
+                                                            <tr>
+                                                                <td>@attr.HebrewName</td>
+                                                                <td>@attr.AttributeValueType</td>
+                                                                <td>@attr.SortOrder</td>
+                                                            </tr>
+                                                        }
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
             }
         }
 
@@ -89,114 +388,37 @@
             </div>
         }
     </div>
-
-    <!-- Add/Edit Year Modal -->
-    @if (_showYearModal)
-    {
-        <div class="modal-overlay" @onclick="CloseYearModal">
-            <div class="modal-content" @onclick:stopPropagation="true">
-                <div class="modal-header">
-                    <h3>@(_editingYear?.Id > 0 ? "עריכת שנת לימוד" : "הוספת שנת לימוד חדשה")</h3>
-                    <button class="modal-close" @onclick="CloseYearModal">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="form-group">
-                        <label>שם שנה *</label>
-                        <input type="text" class="form-input" @bind="_editingYear!.YearName" />
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>תאריך התחלה</label>
-                            <input type="date" class="form-input" @bind="_editingYear.StartDate" />
-                        </div>
-                        <div class="form-group">
-                            <label>תאריך סיום</label>
-                            <input type="date" class="form-input" @bind="_editingYear.EndDate" />
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>
-                            <input type="checkbox" @bind="_editingYear.IsActive" />
-                            <span>שנה פעילה</span>
-                        </label>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn-primary" @onclick="SaveYear" disabled="@_isSaving">
-                        @(_isSaving ? "שומר..." : "שמור")
-                    </button>
-                    <button class="btn-secondary" @onclick="CloseYearModal">ביטול</button>
-                </div>
-            </div>
-        </div>
-    }
-
-    <!-- Attributes Modal -->
-    @if (_showAttributesModal)
-    {
-        <div class="modal-overlay" @onclick="CloseAttributesModal">
-            <div class="modal-content large" @onclick:stopPropagation="true">
-                <div class="modal-header">
-                    <h3>מאפייני שנת לימוד - @_selectedYear?.YearName</h3>
-                    <button class="modal-close" @onclick="CloseAttributesModal">×</button>
-                </div>
-                <div class="modal-body">
-                    @if (_loadingAttributes)
-                    {
-                        <div class="loading-spinner">טוען מאפיינים...</div>
-                    }
-                    else
-                    {
-                        <div class="attributes-list">
-                            @if (_attributes.Count == 0)
-                            {
-                                <p class="info-message">אין מאפיינים מוגדרים</p>
-                            }
-                            else
-                            {
-                                @foreach (var attr in _attributes)
-                                {
-                                    <div class="attribute-item">
-                                        <div class="attribute-header">
-                                            <strong>@attr.Name</strong>
-                                            @if (!string.IsNullOrEmpty(attr.Description))
-                                            {
-                                                <small>@attr.Description</small>
-                                            }
-                                        </div>
-                                        <input type="text" class="form-input" @bind="attr.Value" />
-                                    </div>
-                                }
-                            }
-                        </div>
-                        <button class="btn-secondary" @onclick="AddAttribute">הוסף מאפיין</button>
-                    }
-                </div>
-                <div class="modal-footer">
-                    <button class="btn-primary" @onclick="SaveAttributes" disabled="@_isSavingAttributes">
-                        @(_isSavingAttributes ? "שומר..." : "שמור שינויים")
-                    </button>
-                    <button class="btn-secondary" @onclick="CloseAttributesModal">סגור</button>
-                </div>
-            </div>
-        </div>
-    }
 </div>
 
 @code {
     private List<SchoolYearDto> _years = new();
-    private List<YearAttributeDto> _attributes = new();
-    private SchoolYearDto? _editingYear;
+    private List<SchoolAttributeDto> _schoolAttributes = new();
+    private List<DocumentTypeDto> _documentTypes = new();
+    private List<PricingElementDto> _pricingElements = new();
+    private List<PricingCategoryDto> _pricingCategories = new();
+    private List<TrackDto> _tracks = new();
+    private List<StudyProgramDto> _studyPrograms = new();
+    
+    private int? _selectedPricingElementId;
+    private string _selectedPricingElementName = string.Empty;
+    private bool _loadingCategories = false;
+    
+    private int _selectedYearId = 0;
     private SchoolYearDto? _selectedYear;
+    private string _activeTab = "documents";
     
     private bool _loading = true;
-    private bool _loadingAttributes = false;
-    private bool _isSaving = false;
-    private bool _isSavingAttributes = false;
-    private bool _showYearModal = false;
-    private bool _showAttributesModal = false;
+    private bool _loadingTabData = false;
     private string? _message;
     private string _messageType = "success";
+
+    // Collapsible card states
+    private bool _documentsExpanded = true;
+    private bool _pricingExpanded = true;
+    private bool _pricingCategoriesExpanded = true;
+    private bool _tracksExpanded = true;
+    private bool _studyProgramsExpanded = true;
+    private bool _schoolAttributesExpanded = true;
 
     // REQUIRED by SecurePageBase
     protected override string PageName => "schoolyearconfig";
@@ -218,7 +440,7 @@
         _loading = true;
         try
         {
-            _years = await ApiService.GetAsync<List<SchoolYearDto>>("schoolyears") ?? new();
+            _years = await ApiService.GetAsync<List<SchoolYearDto>>("schoolyearconfig/hebrew-years") ?? new();
         }
         catch (Exception ex)
         {
@@ -232,147 +454,193 @@
         }
     }
 
-    private void ShowAddYearModal()
+    private async Task HandleYearChange(ChangeEventArgs e)
     {
-        _editingYear = new SchoolYearDto { IsActive = false };
-        _showYearModal = true;
-    }
-
-    private void EditYear(SchoolYearDto year)
-    {
-        _editingYear = new SchoolYearDto
+        if (int.TryParse(e.Value?.ToString(), out int yearId))
         {
-            Id = year.Id,
-            YearName = year.YearName,
-            StartDate = year.StartDate,
-            EndDate = year.EndDate,
-            IsActive = year.IsActive
-        };
-        _showYearModal = true;
+            _selectedYearId = yearId;
+            _selectedYear = _years.FirstOrDefault(y => y.Id == yearId);
+            _activeTab = "documents";
+            await LoadTabData(_activeTab);
+        }
+        else
+        {
+            _selectedYearId = 0;
+            _selectedYear = null;
+            ClearAllData();
+        }
+        StateHasChanged();
     }
 
-    private void CloseYearModal()
+    private void ClearAllData()
     {
-        _showYearModal = false;
-        _editingYear = null;
+        _schoolAttributes.Clear();
+        _documentTypes.Clear();
+        _pricingElements.Clear();
+        _tracks.Clear();
+        _studyPrograms.Clear();
     }
 
-    private async Task SaveYear()
+    private async Task SwitchTab(string tabName)
     {
-        _isSaving = true;
+        _activeTab = tabName;
+        await LoadTabData(tabName);
+        StateHasChanged();
+    }
+
+    private async Task LoadTabData(string tabName)
+    {
+        if (_selectedYearId <= 0) return;
+
+        _loadingTabData = true;
         try
         {
-            HttpResponseMessage response;
-            if (_editingYear!.Id > 0)
+            switch (tabName)
             {
-                response = await ApiService.PostAsync($"schoolyears/{_editingYear.Id}", _editingYear);
+                case "documents":
+                    await LoadDocumentTypes();
+                    break;
+                case "pricing":
+                    await LoadPricingElements();
+                    break;
+                case "tracks":
+                    await LoadTracks();
+                    break;
+                case "studyprograms":
+                    await LoadStudyPrograms();
+                    break;
+                case "schoolattributes":
+                    await LoadSchoolAttributes();
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading tab data for {tabName}: {ex.Message}");
+        }
+        finally
+        {
+            _loadingTabData = false;
+        }
+    }
+
+    private async Task LoadDocumentTypes()
+    {
+        try
+        {
+            var endpoint = $"documents/document-types/{_selectedYearId}";
+            _documentTypes = await ApiService.GetAsync<List<DocumentTypeDto>>(endpoint) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading document types: {ex.Message}");
+            _documentTypes = new();
+        }
+    }
+
+    private async Task LoadPricingElements()
+    {
+        try
+        {
+            var endpoint = $"schoolyearconfig/pricing-elements/{_selectedYearId}";
+            _pricingElements = await ApiService.GetAsync<List<PricingElementDto>>(endpoint) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading pricing elements: {ex.Message}");
+            _pricingElements = new();
+        }
+    }
+
+    private async Task SelectPricingElement(int elementId, string elementName)
+    {
+        Console.WriteLine($"Selected pricing element: {elementId} - {elementName}");
+        
+        _selectedPricingElementId = elementId;
+        _selectedPricingElementName = elementName;
+        _pricingCategoriesExpanded = true;
+        
+        await LoadPricingCategories(elementId);
+        StateHasChanged();
+    }
+
+    private async Task LoadPricingCategories(int elementId)
+    {
+        _loadingCategories = true;
+        try
+        {
+            var endpoint = $"schoolyearconfig/pricing-categories/{elementId}";
+            _pricingCategories = await ApiService.GetAsync<List<PricingCategoryDto>>(endpoint) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading pricing categories: {ex.Message}");
+            _pricingCategories = new();
+        }
+        finally
+        {
+            _loadingCategories = false;
+        }
+    }
+
+    private async Task LoadTracks()
+    {
+        try
+        {
+            var endpoint = $"schoolyearconfig/tracks/{_selectedYearId}";
+            _tracks = await ApiService.GetAsync<List<TrackDto>>(endpoint) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading tracks: {ex.Message}");
+            _tracks = new();
+        }
+    }
+
+    private async Task LoadStudyPrograms()
+    {
+        try
+        {
+            var endpoint = $"schoolyearconfig/study-programs?yearId={_selectedYearId}";
+            _studyPrograms = await ApiService.GetAsync<List<StudyProgramDto>>(endpoint) ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading study programs: {ex.Message}");
+            _studyPrograms = new();
+        }
+    }
+
+    private async Task LoadSchoolAttributes()
+    {
+        try
+        {
+            var endpoint = $"schoolattributes/attribute-types/{_selectedYearId}";
+            var response = await ApiService.GetAsync<SchoolAttributeResponse>(endpoint);
+            
+            if (response?.Success == true && response.Data != null)
+            {
+                _schoolAttributes = response.Data;
             }
             else
             {
-                response = await ApiService.PostAsync("schoolyears", _editingYear);
-            }
-
-            if (response.IsSuccessStatusCode)
-            {
-                _message = "השינויים נשמרו בהצלחה";
-                _messageType = "success";
-                CloseYearModal();
-                await LoadYears();
-            }
-            else
-            {
-                _message = "שגיאה בשמירת נתונים";
-                _messageType = "error";
+                _schoolAttributes = new();
             }
         }
         catch (Exception ex)
         {
-            _message = $"שגיאה: {ex.Message}";
-            _messageType = "error";
+            Console.WriteLine($"Error loading school attributes: {ex.Message}");
+            _schoolAttributes = new();
         }
-        finally
-        {
-            _isSaving = false;
-        }
-    }
-
-    private async Task SetActiveYear(int yearId)
-    {
-        try
-        {
-            var response = await ApiService.PostAsync($"schoolyears/{yearId}/setactive", new { });
-            if (response.IsSuccessStatusCode)
-            {
-                _message = "השנה הוגדרה כפעילה";
-                _messageType = "success";
-                await LoadYears();
-            }
-        }
-        catch (Exception ex)
-        {
-            _message = $"שגיאה: {ex.Message}";
-            _messageType = "error";
-        }
-    }
-
-    private async Task ManageAttributes(int yearId)
-    {
-        _selectedYear = _years.FirstOrDefault(y => y.Id == yearId);
-        _showAttributesModal = true;
-        _loadingAttributes = true;
-
-        try
-        {
-            _attributes = await ApiService.GetAsync<List<YearAttributeDto>>($"schoolyearattributes/{yearId}") ?? new();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading attributes: {ex.Message}");
-        }
-        finally
-        {
-            _loadingAttributes = false;
-        }
-    }
-
-    private void AddAttribute()
-    {
-        _attributes.Add(new YearAttributeDto { YearId = _selectedYear!.Id });
-    }
-
-    private async Task SaveAttributes()
-    {
-        _isSavingAttributes = true;
-        try
-        {
-            var response = await ApiService.PostAsync($"schoolyearattributes/{_selectedYear!.Id}", _attributes);
-            if (response.IsSuccessStatusCode)
-            {
-                _message = "המאפיינים נשמרו בהצלחה";
-                _messageType = "success";
-            }
-        }
-        catch (Exception ex)
-        {
-            _message = $"שגיאה בשמירת מאפיינים: {ex.Message}";
-            _messageType = "error";
-        }
-        finally
-        {
-            _isSavingAttributes = false;
-        }
-    }
-
-    private void CloseAttributesModal()
-    {
-        _showAttributesModal = false;
-        _selectedYear = null;
-        _attributes.Clear();
     }
 
     private async Task RefreshData()
     {
         await LoadYears();
+        if (_selectedYearId > 0)
+        {
+            await LoadTabData(_activeTab);
+        }
     }
 
     private void NavigateBack()
@@ -382,123 +650,190 @@
 
     private class SchoolYearDto
     {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
         public int Id { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("hebrewYear")]
         public string YearName { get; set; } = string.Empty;
-        public DateTime? StartDate { get; set; }
-        public DateTime? EndDate { get; set; }
-        public bool IsActive { get; set; }
-        public int SchoolsCount { get; set; }
-        public int StudentsCount { get; set; }
     }
 
-    private class YearAttributeDto
+    private class DocumentTypeDto
     {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
         public int Id { get; set; }
-        public int YearId { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("level")]
+        public string Level { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("yearId")]
+        public int YearId { get; set; }
+    }
+
+    private class PricingElementDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public int Id { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
+        public string? Title { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("description")]
         public string? Description { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("sortOrder")]
+        public int SortOrder { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("calculationLevel")]
+        public string? CalculationLevel { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("attributeToCheck")]
+        public string? AttributeToCheck { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
+        public DateTime? CreatedAt { get; set; }
+    }
+
+    private class PricingCategoryDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public int Id { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("category")]
+        public int Category { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("isLowestLevel")]
+        public bool IsLowestLevel { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public decimal? Price { get; set; }
+    }
+
+    private class TrackDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public int Id { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("trackName")]
+        public string TrackName { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("availableForGrades")]
+        public string? AvailableForGrades { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("createdAt")]
+        public DateTime? CreatedAt { get; set; }
+    }
+
+    private class StudyProgramDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public int Id { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("students")]
+        public int Students { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("price")]
+        public decimal? Price { get; set; }
+    }
+
+    private class SchoolAttributeResponse
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("success")]
+        public bool Success { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public List<SchoolAttributeDto> Data { get; set; } = new();
+        
+        [System.Text.Json.Serialization.JsonPropertyName("message")]
+        public string? Message { get; set; }
+    }
+
+    private class SchoolAttributeDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public int Id { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("hebrewName")]
+        public string HebrewName { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("description")]
+        public string? Description { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("attributeValueType")]
+        public string AttributeValueType { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("value")]
         public string Value { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("yearId")]
+        public int YearId { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("sortOrder")]
+        public int SortOrder { get; set; }
     }
 }
 
 <style>
-    .years-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-        gap: 20px;
-    }
-
-    .year-card {
+    /* Component-specific layout only - reusing generic styles from main CSS */
+    .year-selection-section {
         padding: 20px;
-        background: white;
-        border: 2px solid var(--border-color, #dee2e6);
-        border-radius: 8px;
-        transition: box-shadow 0.3s;
-    }
-
-    .year-card:hover {
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-
-    .year-card.active-year {
-        border-color: var(--success-color, #28a745);
-        background: #f0fff4;
-    }
-
-    .year-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 2px solid var(--border-color, #dee2e6);
-    }
-
-    .year-header h3 {
-        margin: 0;
-        color: var(--primary-color, #2c3e50);
-    }
-
-    .badge-active {
-        padding: 5px 12px;
-        background: var(--success-color, #28a745);
-        color: white;
-        border-radius: 12px;
-        font-size: 0.85rem;
-        font-weight: 600;
-    }
-
-    .year-details {
-        margin-bottom: 15px;
-    }
-
-    .detail-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 8px 0;
-        border-bottom: 1px solid var(--border-color, #dee2e6);
-    }
-
-    .detail-row label {
-        font-weight: 600;
-        color: var(--text-secondary, #6c757d);
-    }
-
-    .year-actions {
-        display: flex;
-        gap: 10px;
-        justify-content: flex-end;
-    }
-
-    .attributes-list {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
         margin-bottom: 20px;
     }
 
-    .attribute-item {
-        padding: 15px;
-        background: var(--card-background, #f8f9fa);
+    .form-select {
+        padding: 8px 12px;
         border: 1px solid var(--border-color, #dee2e6);
-        border-radius: 6px;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 100%;
+        max-width: 400px;
+        direction: rtl;
+        cursor: pointer;
+        font-family: var(--primary-font);
     }
 
-    .attribute-header {
-        margin-bottom: 10px;
+    /* Override detail-card header to be simpler (no collapse functionality) */
+    .detail-card-header h3 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
     }
 
-    .attribute-header strong {
-        display: block;
-        margin-bottom: 5px;
+
+    .info-message {
+        padding: 20px;
+        text-align: center;
+        color: #6c757d;
+        background: #f8f9fa;
+        border-radius: 8px;
     }
 
-    .attribute-header small {
-        color: var(--text-secondary, #6c757d);
+    .success-alert {
+        padding: 12px 20px;
+        margin: 15px 0;
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+        border-radius: 4px;
     }
 
-    .modal-content.large {
-        width: 800px;
-        max-width: 95%;
+    .error-alert {
+        padding: 12px 20px;
+        margin: 15px 0;
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+        border-radius: 4px;
     }
 </style>
+
+
