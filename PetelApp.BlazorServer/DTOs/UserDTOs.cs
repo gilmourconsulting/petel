@@ -30,6 +30,7 @@ namespace PetelApp.BlazorServer.DTOs
     /// </summary>
     public class CreateUserRequest
     {
+        public int EntityId { get; set; }
         public string Username { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string? Phone { get; set; }
@@ -45,6 +46,7 @@ namespace PetelApp.BlazorServer.DTOs
     /// </summary>
     public class UpdateUserRequest
     {
+        public int EntityId { get; set; }
         public string Username { get; set; } = string.Empty;
         public string Email { get; set; } = string.Empty;
         public string? Phone { get; set; }
@@ -52,6 +54,14 @@ namespace PetelApp.BlazorServer.DTOs
         public string LastName { get; set; } = string.Empty;
         public bool IsActive { get; set; }
         public bool PasswordChangeRequired { get; set; }
+    }
+
+    /// <summary>
+    /// Request for changing user password
+    /// </summary>
+    public class ChangePasswordRequest
+    {
+        public string NewPassword { get; set; } = string.Empty;
     }
 
     /// <summary>
@@ -173,5 +183,29 @@ namespace PetelApp.BlazorServer.DTOs
         public int TotalUsers { get; set; }
         public int ActiveUsers { get; set; }
         public int InactiveUsers { get; set; }
+    }
+
+    /// <summary>
+    /// Entity data transfer object
+    /// </summary>
+    public class EntityDto
+    {
+        public int Id { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("name")]
+        public string EntityName { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("entity_type_id")]
+        public int? EntityTypeId { get; set; }
+    }
+
+    /// <summary>
+    /// Response wrapper for entities API calls
+    /// </summary>
+    public class EntitiesResponse
+    {
+        public bool Success { get; set; }
+        public List<EntityDto> Data { get; set; } = new();
+        public string? Message { get; set; }
     }
 }

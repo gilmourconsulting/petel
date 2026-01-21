@@ -111,6 +111,9 @@
                                             <SecureButton ActionName="users_edit" ScreenName="@PageName" FunctionName="EditUser" OnClick="() => EditUser(user)" CssClass="btn-icon" Title="ערוך משתמש">
                                                 <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
                                             </SecureButton>
+                                            <SecureButton ActionName="users_changepassword" ScreenName="@PageName" FunctionName="ShowChangePasswordDialog" OnClick="() => ShowChangePasswordDialog(user)" CssClass="btn-icon" Title="שנה סיסמה">
+                                                <img src="/images/upload_icon.png" alt="שנה סיסמה" class="action-icon-natural">
+                                            </SecureButton>
                                             <SecureButton ActionName="users_manageroles" ScreenName="@PageName" FunctionName="ManageUserRoles" OnClick="() => ManageUserRoles(user)" CssClass="btn-icon" Title="נהל תפקידים">
                                                 <img src="/images/stats_icon.png" alt="תפקידים" class="action-icon-natural">
                                             </SecureButton>
@@ -177,6 +180,18 @@
                         <ValidationMessage For="() => _userForm.Email" />
                     </div>
 
+                    <div class="form-group">
+                        <label for="entity">ישות *</label>
+                        <InputSelect id="entity" @bind-Value="_userForm.EntityId" class="form-control">
+                            <option value="0">-- בחר ישות --</option>
+                            @foreach (var entity in _entities)
+                            {
+                                <option value="@entity.Id">@entity.EntityName</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => _userForm.EntityId" />
+                    </div>
+
                     <div style="display: flex; gap: 15px;">
                         <div class="form-group" style="flex: 1;">
                             <label for="firstName">שם פרטי *</label>
@@ -229,6 +244,44 @@
     </div>
 }
 
+<!-- Change Password Dialog -->
+@if (_showChangePasswordDialog)
+{
+    <div class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>שינוי סיסמה למשתמש: @_changePasswordUserName</h3>
+                <button class="modal-close" @onclick="CloseChangePasswordDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="_changePasswordForm" OnValidSubmit="HandleChangePasswordSubmit">
+                    <DataAnnotationsValidator />
+                    
+                    <div class="form-group">
+                        <label for="newPassword">סיסמה חדשה *</label>
+                        <InputText id="newPassword" @bind-Value="_changePasswordForm.NewPassword" class="form-control" type="password" />
+                        <ValidationMessage For="() => _changePasswordForm.NewPassword" />
+                        <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">
+                            סיסמה חייבת להכיל לפחות 6 תווים
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirmPassword">אימות סיסמה חדשה *</label>
+                        <InputText id="confirmPassword" @bind-Value="_changePasswordForm.ConfirmPassword" class="form-control" type="password" />
+                        <ValidationMessage For="() => _changePasswordForm.ConfirmPassword" />
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" @onclick="CloseChangePasswordDialog">ביטול</button>
+                        <button type="submit" class="btn-primary">שנה סיסמה</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     protected override string PageName => "users";
 
@@ -236,6 +289,7 @@
     private List<UserDto> _filteredUsers = new();
     private bool _isLoading = true;
     private UserSummaryDto _summary = new();
+    private List<EntityDto> _entities = new();
 
     private string _sortColumn = nameof(UserDto.FullName);
     private bool _sortAscending = true;
@@ -246,9 +300,41 @@
     private UserFormModel _userForm = new();
     private int _editingUserId = 0;
 
+    // Change password dialog states
+    private bool _showChangePasswordDialog = false;
+    private ChangePasswordFormModel _changePasswordForm = new();
+    private int _changePasswordUserId = 0;
+    private string _changePasswordUserName = string.Empty;
+
     protected override async Task OnPageInitializedAsync()
     {
+        await LoadEntities();
         await LoadUsersData();
+    }
+
+    private async Task LoadEntities()
+    {
+        try
+        {
+            // Use the login endpoint which returns all active entities
+            var response = await ApiService.GetAsync<List<EntityDto>>("entities/login");
+
+            if (response != null)
+            {
+                _entities = response;
+                Console.WriteLine($"✅ Loaded {_entities.Count} entities");
+            }
+            else
+            {
+                _entities = new List<EntityDto>();
+                Console.WriteLine("⚠️ No entities returned from API");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading entities: {ex.Message}");
+            _entities = new List<EntityDto>();
+        }
     }
 
     private async Task LoadUsersData()
@@ -364,7 +450,8 @@
             FirstName = user.FirstName,
             LastName = user.LastName,
             IsActive = user.IsActive,
-            PasswordChangeRequired = user.PasswordChangeRequired
+            PasswordChangeRequired = user.PasswordChangeRequired,
+            EntityId = user.EntityId
         };
         _showUserDialog = true;
     }
@@ -391,7 +478,8 @@
                     FirstName = _userForm.FirstName,
                     LastName = _userForm.LastName,
                     IsActive = _userForm.IsActive,
-                    PasswordChangeRequired = _userForm.PasswordChangeRequired
+                    PasswordChangeRequired = _userForm.PasswordChangeRequired,
+                    EntityId = _userForm.EntityId
                 };
 
                 var response = await ApiService.PutAsync<UpdateUserRequest, object>($"users/{_editingUserId}", updateRequest);
@@ -414,7 +502,8 @@
                     LastName = _userForm.LastName,
                     Password = _userForm.Password,
                     IsActive = _userForm.IsActive,
-                    PasswordChangeRequired = _userForm.PasswordChangeRequired
+                    PasswordChangeRequired = _userForm.PasswordChangeRequired,
+                    EntityId = _userForm.EntityId
                 };
 
                 var response = await ApiService.PostAsync<CreateUserRequest, object>("users", createRequest);
@@ -481,6 +570,61 @@
         await JSRuntime.InvokeVoidAsync("alert", $"ניהול תפקידים למשתמש '{user.FullName}' יתווסף בהמשך");
     }
 
+    private void ShowChangePasswordDialog(UserDto user)
+    {
+        _changePasswordUserId = user.Id;
+        _changePasswordUserName = user.FullName;
+        _changePasswordForm = new ChangePasswordFormModel();
+        _showChangePasswordDialog = true;
+    }
+
+    private void CloseChangePasswordDialog()
+    {
+        _showChangePasswordDialog = false;
+        _changePasswordForm = new ChangePasswordFormModel();
+        _changePasswordUserId = 0;
+        _changePasswordUserName = string.Empty;
+    }
+
+    private async Task HandleChangePasswordSubmit()
+    {
+        try
+        {
+            // Validate passwords match
+            if (_changePasswordForm.NewPassword != _changePasswordForm.ConfirmPassword)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "הסיסמאות אינן תואמות");
+                return;
+            }
+
+            // Validate password length
+            if (_changePasswordForm.NewPassword.Length < 6)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "סיסמה חייבת להכיל לפחות 6 תווים");
+                return;
+            }
+
+            var request = new ChangePasswordRequest
+            {
+                NewPassword = _changePasswordForm.NewPassword
+            };
+
+            var response = await ApiService.PutAsync<ChangePasswordRequest, object>(
+                $"users/{_changePasswordUserId}/change-password", 
+                request);
+            
+            if (response != null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "הסיסמה שונתה בהצלחה");
+                CloseChangePasswordDialog();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשינוי הסיסמה: {ex.Message}");
+        }
+    }
+
     private void NavigateToMainDashboard()
     {
         Navigation.NavigateTo("/maindashboard");
@@ -528,6 +672,14 @@
         public string Password { get; set; } = string.Empty;
         public bool IsActive { get; set; } = true;
         public bool PasswordChangeRequired { get; set; } = true;
+        public int EntityId { get; set; }
+    }
+
+    // Form model for change password dialog
+    public class ChangePasswordFormModel
+    {
+        public string NewPassword { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
     }
 }
 

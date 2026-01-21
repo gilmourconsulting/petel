@@ -55,7 +55,6 @@ if (!app.Environment.IsDevelopment())
 // Azure App Service handles HTTPS - no redirect needed
 // app.UseHttpsRedirection();
 
-
 app.UseAntiforgery();
 
 app.UseStaticFiles();

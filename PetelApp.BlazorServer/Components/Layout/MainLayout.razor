@@ -15,7 +15,7 @@
         <div class="top-bar-left">
             <div class="system-logo-section">
                 <div class="system-logo" @onclick="NavigateToMainDashboard" style="cursor: pointer; @_logoStyle" title="חזור למסך הראשי">
-                    <img src="@_systemLogo" alt="לוגו המערכת" />
+                    <img src="@_topLogo" alt="לוגו המערכת" />
                 </div>
                 @if (_showDebugButton)
                 {
@@ -114,6 +114,9 @@
     private bool _debugDataLoading = false;
     private string _debugData = string.Empty;
     private string _systemLogo = "/images/petel_logo.png";
+    private string _nativLogo = "/images/nativ-logo.png";
+
+    private string _topLogo = "/images/petel_logo.png";
     private string _logoStyle = "";
 
     protected override async Task OnInitializedAsync()
@@ -196,7 +199,7 @@
             var distributorData = await ApiService.GetAsync<DistributorResponse>($"entities/{session.EntityId}/distributor");
             if (distributorData != null && distributorData.Distributor == "Nativ")
             {
-                _systemLogo = "/images/nativ-logo.png";
+                _topLogo = _nativLogo;
                 _logoStyle = "width: 175px; height: auto;";
                 Console.WriteLine("✅ System logo set to Nativ");
             }

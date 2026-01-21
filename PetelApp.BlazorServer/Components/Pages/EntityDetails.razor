@@ -235,10 +235,43 @@
             // Load entity types and owners first
             await Task.WhenAll(LoadEntityTypes(), LoadPotentialOwners());
 
-            // Load entity details
-            if (int.TryParse(session.EntityId, out int entityId))
+            // Determine which entity to load
+            int entityIdToLoad = 0;
+            
+            // First, check if we're viewing a specific entity (from Entities page)
+            try
             {
-                _entityDetails = await ApiService.GetAsync<EntityDetailsDto>($"entitydetails/{entityId}");
+                var viewEntityIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/ViewEntityId");
+                if (viewEntityIdResponse != null && viewEntityIdResponse.TryGetValue("value", out string? value) && 
+                    !string.IsNullOrWhiteSpace(value) && int.TryParse(value, out int viewEntityId))
+                {
+                    entityIdToLoad = viewEntityId;
+                    Console.WriteLine($"📋 Loading selected entity: {entityIdToLoad}");
+                    
+                    // Clear the ViewEntityId after reading it
+                    await ApiService.PostAsync<object, object>("session/property", new
+                    {
+                        key = "ViewEntityId",
+                        value = ""
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"ViewEntityId not found in session: {ex.Message}");
+            }
+            
+            // If no ViewEntityId, load the user's own entity (from dashboard)
+            if (entityIdToLoad == 0 && int.TryParse(session.EntityId, out int userEntityId))
+            {
+                entityIdToLoad = userEntityId;
+                Console.WriteLine($"📋 Loading user's own entity: {entityIdToLoad}");
+            }
+
+            // Load entity details
+            if (entityIdToLoad > 0)
+            {
+                _entityDetails = await ApiService.GetAsync<EntityDetailsDto>($"entitydetails/{entityIdToLoad}");
 
                 if (_entityDetails != null)
                 {
