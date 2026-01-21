@@ -27,7 +27,7 @@ namespace PetelApp.Api.Data
         public int ClassId { get; set; }
 
         [Column("weekly_hours")]
-        public int? WeeklyHours { get; set; }
+        public decimal? WeeklyHours { get; set; }
 
         [Required]
         [Column("user_id")]

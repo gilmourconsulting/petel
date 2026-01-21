@@ -80,7 +80,7 @@
                         </div>
                     </div>
                     <div class="detail-card-content" style="display: @(_schoolClassesExpanded ? "block" : "none");">
-                        <SchoolClassesTable Classes="@_classes" IsEditMode="@_classesEditMode" OnEdit="EditClass"
+                        <SchoolClassesTable Items="@_classes" IsEditMode="@_classesEditMode" OnEdit="EditClass"
                             OnDelete="DeleteClass" />
                     </div>
                 </div>
@@ -125,7 +125,7 @@
                         </div>
                     </div>
                     <div class="detail-card-content" style="display: @(_schoolTracksExpanded ? "block" : "none");">
-                        <SchoolTracksTable Tracks="@_tracks" IsEditMode="@_tracksEditMode" OnEdit="EditTrack"
+                        <SchoolTracksTable Items="@_tracks" IsEditMode="@_tracksEditMode" OnEdit="EditTrack"
                             OnDelete="DeleteTrack" />
                     </div>
                 </div>
@@ -151,7 +151,7 @@
                         </div>
                     </div>
                     <div class="detail-card-content" style="display: @(_additionalStudyExpanded ? "block" : "none");">
-                        <AdditionalStudyProgramsTable Programs="@_additionalStudyPrograms"
+                        <AdditionalStudyProgramsTable Items="@_additionalStudyPrograms"
                             IsEditMode="@_additionalStudyEditMode" OnEdit="EditProgram" OnDelete="DeleteProgram"
                             OnViewHistory="ViewProgramHistory" />
                     </div>

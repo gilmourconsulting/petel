@@ -109,7 +109,20 @@ namespace PetelApp.Api.Controllers
                     return Unauthorized(new { success = false, message = "לא נמצאה הפעלה פעילה. אנא התחבר מחדש." });
                 }
 
-                _logger.LogInformation("Creating school track for school year {SchoolYearId}", dto.SchoolYearId);
+                _logger.LogInformation("Creating school track - SchoolYearId: {SchoolYearId}, TrackId: {TrackId}, TrackLevelId: {TrackLevelId}, ClassId: {ClassId}, WeeklyHours: {WeeklyHours}", 
+                    dto.SchoolYearId, dto.TrackId, dto.TrackLevelId, dto.ClassId, dto.WeeklyHours);
+                
+                // ✅ Validate required fields
+                if (dto.SchoolYearId == 0 || dto.TrackId == 0 || dto.ClassId == 0 || dto.WeeklyHours <= 0)
+                {
+                    _logger.LogWarning("Invalid data - SchoolYearId: {SchoolYearId}, TrackId: {TrackId}, ClassId: {ClassId}, WeeklyHours: {WeeklyHours}",
+                        dto.SchoolYearId, dto.TrackId, dto.ClassId, dto.WeeklyHours);
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "נא למלא את כל השדות הנדרשים"
+                    });
+                }
 
                 // ✅ Validate hours against track level constraints if level is specified
                 if (dto.TrackLevelId.HasValue)

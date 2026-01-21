@@ -1,44 +1,22 @@
 @using PetelApp.BlazorServer.DTOs
 @inject IJSRuntime JSRuntime
+@inherits SortableTableBase<SchoolClassDto>
 
-@if (Classes != null && Classes.Any())
+@if (Items != null && Items.Any())
 {
     <div class="table-container">
         <table class="data-table">
             <thead>
                 <tr>
-
                     @if (IsEditMode)
                     {
-                        <th>פעולות</th>
+                        <th class="actions-column">פעולות</th>
                     }
-                    <th @onclick="() => SortByColumn(nameof(SchoolClassDto.Level))" style="cursor: pointer;">
-                        שכבה
-                        @if (_sortColumn == nameof(SchoolClassDto.Level))
-                        {
-                            <span>@(_sortAscending ? " ▲" : " ▼")</span>
-                        }
-                    </th>
-                    <th @onclick="() => SortByColumn(nameof(SchoolClassDto.ClassNumber))" style="cursor: pointer;">
-                        מספר כיתה
-                        @if (_sortColumn == nameof(SchoolClassDto.ClassNumber))
-                        {
-                            <span>@(_sortAscending ? " ▲" : " ▼")</span>
-                        }
-                    </th>
-                    <th @onclick="() => SortByColumn(nameof(SchoolClassDto.EndHour))" style="cursor: pointer;">
-                        שעת סיום
-                        @if (_sortColumn == nameof(SchoolClassDto.EndHour))
-                        {
-                            <span>@(_sortAscending ? " ▲" : " ▼")</span>
-                        }
-                    </th>
-                    <!--        <th>מספר תלמידים</th>-->
-
+                    @RenderHeaders()
                 </tr>
             </thead>
             <tbody>
-                @foreach (var cls in SortedClasses)
+                @foreach (var cls in _sortedItems)
                 {
                     <tr>
                         @if (IsEditMode)
@@ -69,53 +47,36 @@ else
 }
 
 @code {
-    [Parameter] public List<SchoolClassDto> Classes { get; set; } = new();
-    [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public EventCallback<SchoolClassDto> OnEdit { get; set; }
     [Parameter] public EventCallback<int> OnDelete { get; set; }
 
-    private string _sortColumn = nameof(SchoolClassDto.Level);
-    private bool _sortAscending = true;
+    protected override string GetDefaultSortColumn() => nameof(SchoolClassDto.Level);
 
-    private IEnumerable<SchoolClassDto> SortedClasses
+    protected override List<ColumnDefinition> DefineColumns()
     {
-        get
+        return new List<ColumnDefinition>
         {
-            if (Classes == null || !Classes.Any())
-                return new List<SchoolClassDto>();
-
-            IEnumerable<SchoolClassDto> sorted = Classes;
-
-            sorted = _sortColumn switch
-            {
-                nameof(SchoolClassDto.Level) => _sortAscending 
-                    ? sorted.OrderBy(c => c.Level).ThenBy(c => c.ClassNumber)
-                    : sorted.OrderByDescending(c => c.Level).ThenByDescending(c => c.ClassNumber),
-                nameof(SchoolClassDto.ClassNumber) => _sortAscending 
-                    ? sorted.OrderBy(c => c.ClassNumber).ThenBy(c => c.Level)
-                    : sorted.OrderByDescending(c => c.ClassNumber).ThenByDescending(c => c.Level),
-                nameof(SchoolClassDto.EndHour) => _sortAscending 
-                    ? sorted.OrderBy(c => c.EndHour).ThenBy(c => c.Level).ThenBy(c => c.ClassNumber)
-                    : sorted.OrderByDescending(c => c.EndHour).ThenBy(c => c.Level).ThenBy(c => c.ClassNumber),
-                _ => sorted.OrderBy(c => c.Level).ThenBy(c => c.ClassNumber)
-            };
-
-            return sorted;
-        }
+            new() { Label = "שכבה", PropertyName = nameof(SchoolClassDto.Level), IsSortable = true },
+            new() { Label = "מספר כיתה", PropertyName = nameof(SchoolClassDto.ClassNumber), IsSortable = true },
+            new() { Label = "שעת סיום", PropertyName = nameof(SchoolClassDto.EndHour), IsSortable = true }
+        };
     }
 
-    private void SortByColumn(string columnName)
+    protected override IEnumerable<SchoolClassDto> ApplySortLogic(List<SchoolClassDto> items, string columnName, bool ascending)
     {
-        if (_sortColumn == columnName)
+        // Classes have complex sorting with secondary sort keys
+        return columnName switch
         {
-            // Toggle sort direction if clicking same column
-            _sortAscending = !_sortAscending;
-        }
-        else
-        {
-            // New column - default to ascending
-            _sortColumn = columnName;
-            _sortAscending = true;
-        }
+            nameof(SchoolClassDto.Level) => ascending
+                ? items.OrderBy(c => c.Level).ThenBy(c => c.ClassNumber)
+                : items.OrderByDescending(c => c.Level).ThenByDescending(c => c.ClassNumber),
+            nameof(SchoolClassDto.ClassNumber) => ascending
+                ? items.OrderBy(c => c.ClassNumber).ThenBy(c => c.Level)
+                : items.OrderByDescending(c => c.ClassNumber).ThenByDescending(c => c.Level),
+            nameof(SchoolClassDto.EndHour) => ascending
+                ? items.OrderBy(c => c.EndHour).ThenBy(c => c.Level).ThenBy(c => c.ClassNumber)
+                : items.OrderByDescending(c => c.EndHour).ThenByDescending(c => c.Level).ThenByDescending(c => c.ClassNumber),
+            _ => items.OrderBy(c => c.Level).ThenBy(c => c.ClassNumber)
+        };
     }
 }

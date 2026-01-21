@@ -1,28 +1,21 @@
 @using PetelApp.BlazorServer.DTOs
+@inherits SortableTableBase<AdditionalStudyProgramDto>
 
-@if (Programs != null && Programs.Any())
+@if (Items != null && Items.Any())
 {
     <div class="table-container">
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>כיתה</th>
-                    <th>שם תכנית</th>
-                    <th>שעות שבועיות</th>
-                    <th>מפגשים</th>
-                    <th>תלמידים</th>
-                    <th>עלות</th>
-                    <th>סכום מאושר</th>
-                    <th>סטטוס אישור</th>
-                    <th>גרסה</th>
+                    @RenderHeaders()
                     @if (IsEditMode)
                     {
-                        <th>פעולות</th>
+                        <th class="actions-column">פעולות</th>
                     }
                 </tr>
             </thead>
             <tbody>
-                @foreach (var program in Programs)
+                @foreach (var program in _sortedItems)
                 {
                     <tr>
                         <td>@program.ClassName</td>
@@ -84,11 +77,59 @@ else
 }
 
 @code {
-    [Parameter] public List<AdditionalStudyProgramDto> Programs { get; set; } = new();
-    [Parameter] public bool IsEditMode { get; set; }
     [Parameter] public EventCallback<AdditionalStudyProgramDto> OnEdit { get; set; }
     [Parameter] public EventCallback<int> OnDelete { get; set; }
     [Parameter] public EventCallback<int> OnViewHistory { get; set; }
+
+    protected override string GetDefaultSortColumn() => nameof(AdditionalStudyProgramDto.ClassName);
+
+    protected override List<ColumnDefinition> DefineColumns()
+    {
+        return new List<ColumnDefinition>
+        {
+            new() { Label = "כיתה", PropertyName = nameof(AdditionalStudyProgramDto.ClassName), IsSortable = true },
+            new() { Label = "שם תכנית", PropertyName = nameof(AdditionalStudyProgramDto.Name), IsSortable = true },
+            new() { Label = "שעות שבועיות", PropertyName = nameof(AdditionalStudyProgramDto.WeeklyHours), IsSortable = true },
+            new() { Label = "מפגשים", PropertyName = nameof(AdditionalStudyProgramDto.NumberOfSessions), IsSortable = true },
+            new() { Label = "תלמידים", PropertyName = nameof(AdditionalStudyProgramDto.NumberOfStudents), IsSortable = true },
+            new() { Label = "עלות", PropertyName = nameof(AdditionalStudyProgramDto.Cost), IsSortable = true },
+            new() { Label = "סכום מאושר", PropertyName = nameof(AdditionalStudyProgramDto.ApprovedAmount), IsSortable = true },
+            new() { Label = "סטטוס אישור", PropertyName = nameof(AdditionalStudyProgramDto.ApprovalStatus), IsSortable = true },
+            new() { Label = "גרסה", PropertyName = "Version", IsSortable = false }
+        };
+    }
+
+    protected override IEnumerable<AdditionalStudyProgramDto> ApplySortLogic(List<AdditionalStudyProgramDto> items, string columnName, bool ascending)
+    {
+        return columnName switch
+        {
+            nameof(AdditionalStudyProgramDto.ClassName) => ascending
+                ? items.OrderBy(p => p.ClassName)
+                : items.OrderByDescending(p => p.ClassName),
+            nameof(AdditionalStudyProgramDto.Name) => ascending
+                ? items.OrderBy(p => p.Name)
+                : items.OrderByDescending(p => p.Name),
+            nameof(AdditionalStudyProgramDto.WeeklyHours) => ascending
+                ? items.OrderBy(p => p.WeeklyHours)
+                : items.OrderByDescending(p => p.WeeklyHours),
+            nameof(AdditionalStudyProgramDto.NumberOfSessions) => ascending
+                ? items.OrderBy(p => p.NumberOfSessions)
+                : items.OrderByDescending(p => p.NumberOfSessions),
+            nameof(AdditionalStudyProgramDto.NumberOfStudents) => ascending
+                ? items.OrderBy(p => p.NumberOfStudents)
+                : items.OrderByDescending(p => p.NumberOfStudents),
+            nameof(AdditionalStudyProgramDto.Cost) => ascending
+                ? items.OrderBy(p => p.Cost ?? 0)
+                : items.OrderByDescending(p => p.Cost ?? 0),
+            nameof(AdditionalStudyProgramDto.ApprovedAmount) => ascending
+                ? items.OrderBy(p => p.ApprovedAmount ?? 0)
+                : items.OrderByDescending(p => p.ApprovedAmount ?? 0),
+            nameof(AdditionalStudyProgramDto.ApprovalStatus) => ascending
+                ? items.OrderBy(p => p.ApprovalStatus)
+                : items.OrderByDescending(p => p.ApprovalStatus),
+            _ => items.OrderBy(p => p.ClassName)
+        };
+    }
 }
 
 <style>
