@@ -68,4 +68,11 @@ namespace PetelApp.BlazorServer.DTOs
         public int Id { get; set; }
         public string CouncilName { get; set; } = string.Empty;
     }
+
+    public class SystemAttributesResponse<T>
+    {
+        public bool Success { get; set; }
+        public List<T> Data { get; set; } = new();
+        public string? Message { get; set; }
+    }
 }

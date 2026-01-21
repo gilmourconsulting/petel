@@ -51,7 +51,10 @@
                         </div>
                     </div>
                     <div class="detail-card-content" style="display: @(_schoolDetailsExpanded ? "block" : "none");">
-                        <SchoolDetailsForm SchoolData="@_schoolDetails" IsEditMode="@_schoolDetailsEditMode"
+                        <SchoolDetailsForm SchoolData="@_schoolDetails" 
+                            Characterizations="@_characterizations"
+                            Councils="@_councils"
+                            IsEditMode="@_schoolDetailsEditMode"
                             OnSave="SaveSchoolDetails" />
                     </div>
                 </div>
@@ -579,6 +582,8 @@
     private List<SchoolAttributeTypeDto> _attributeTypes = new();
     private List<SchoolTrackDto> _tracks = new();
     private List<AdditionalStudyProgramDto> _additionalStudyPrograms = new();
+    private List<CharacterizationDto> _characterizations = new();
+    private List<CouncilDto> _councils = new();
 
     // Class modal state
     private bool _showClassModal = false;
@@ -694,6 +699,12 @@
                     await LoadSchoolAttributeTypes(yearId.Value);
                 }
 
+                // Load system attributes first
+                await Task.WhenAll(
+                LoadCharacterizations(),
+                LoadCouncils()
+                );
+
                 // Load all other data (uses school year ID)
                 await Task.WhenAll(
                 LoadSchoolDetails(schoolYearId),
@@ -712,6 +723,44 @@
         finally
         {
             _isLoading = false;
+        }
+    }
+
+    private async Task LoadCharacterizations()
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<SystemAttributesResponse<CharacterizationDto>>(
+            "systemAttributes/characterizations");
+
+            if (response?.Success == true && response.Data != null)
+            {
+                _characterizations = response.Data;
+                Console.WriteLine($"✅ Loaded {_characterizations.Count} characterizations");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading characterizations: {ex.Message}");
+        }
+    }
+
+    private async Task LoadCouncils()
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<SystemAttributesResponse<CouncilDto>>(
+            "systemAttributes/councils");
+
+            if (response?.Success == true && response.Data != null)
+            {
+                _councils = response.Data;
+                Console.WriteLine($"✅ Loaded {_councils.Count} councils");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading councils: {ex.Message}");
         }
     }
 
