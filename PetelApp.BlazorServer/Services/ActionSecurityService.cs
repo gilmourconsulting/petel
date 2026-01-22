@@ -12,15 +12,18 @@ namespace PetelApp.BlazorServer.Services
     {
         private readonly ApiService _apiService;
         private readonly SessionStateService _sessionState;
+        private readonly AuthenticationService _authService;
         private readonly ILogger<ActionSecurityService> _logger;
 
         public ActionSecurityService(
             ApiService apiService,
             SessionStateService sessionState,
+            AuthenticationService authService,
             ILogger<ActionSecurityService> logger)
         {
             _apiService = apiService;
             _sessionState = sessionState;
+            _authService = authService;
             _logger = logger;
         }
 
@@ -78,6 +81,13 @@ namespace PetelApp.BlazorServer.Services
 
                 _logger.LogWarning("🚫 Action denied: {Action} - {Message}", 
                     actionName, response?.Message ?? "No permission");
+                return false;
+            }
+            catch (HttpStatusException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                _logger.LogWarning("🔐 Authentication failed for action: {Action} - Token invalid or missing, redirecting to login", actionName);
+                // Token is invalid or missing - redirect to login
+                await _authService.LogoutAsync();
                 return false;
             }
             catch (Exception ex)

@@ -7,6 +7,25 @@ using PetelApp.BlazorServer.Models;
 namespace PetelApp.BlazorServer.Services
 {
     /// <summary>
+    /// Exception thrown when HTTP request returns non-success status code
+    /// </summary>
+    public class HttpStatusException : Exception
+    {
+        public System.Net.HttpStatusCode StatusCode { get; }
+        public string? ResponseContent { get; }
+
+        public HttpStatusException(
+            System.Net.HttpStatusCode statusCode,
+            string message,
+            string? responseContent = null)
+            : base(message)
+        {
+            StatusCode = statusCode;
+            ResponseContent = responseContent;
+        }
+    }
+
+    /// <summary>
     /// Centralized HTTP client service for all API calls
     /// Automatically includes JWT token in Authorization header
     /// </summary>
@@ -96,8 +115,13 @@ namespace PetelApp.BlazorServer.Services
                 
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
-                    _logger.LogWarning("Unauthorized request to {Endpoint}", endpoint);
-                    return default;
+                    _logger.LogWarning("Unauthorized request to {Endpoint} - invalid or missing token", endpoint);
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new HttpStatusException(
+                        System.Net.HttpStatusCode.Unauthorized,
+                        "Authentication required",
+                        errorContent
+                    );
                 }
 
                 if (!response.IsSuccessStatusCode)
@@ -136,8 +160,13 @@ namespace PetelApp.BlazorServer.Services
                 
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
-                    _logger.LogWarning("Unauthorized request to {Endpoint}", endpoint);
-                    return default;
+                    _logger.LogWarning("Unauthorized request to {Endpoint} - invalid or missing token", endpoint);
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new HttpStatusException(
+                        System.Net.HttpStatusCode.Unauthorized,
+                        "Authentication required",
+                        errorContent
+                    );
                 }
 
                 response.EnsureSuccessStatusCode();
@@ -178,6 +207,18 @@ namespace PetelApp.BlazorServer.Services
                 _logger.LogDebug("PUT request to {Url}", url);
                 
                 var response = await client.PutAsJsonAsync(url, data);
+                
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    _logger.LogWarning("Unauthorized request to {Endpoint} - invalid or missing token", endpoint);
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new HttpStatusException(
+                        System.Net.HttpStatusCode.Unauthorized,
+                        "Authentication required",
+                        errorContent
+                    );
+                }
+                
                 response.EnsureSuccessStatusCode();
                 return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
             }
@@ -198,6 +239,18 @@ namespace PetelApp.BlazorServer.Services
                 _logger.LogDebug("DELETE request to {Url}", url);
                 
                 var response = await client.DeleteAsync(url);
+                
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    _logger.LogWarning("Unauthorized request to {Endpoint} - invalid or missing token", endpoint);
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new HttpStatusException(
+                        System.Net.HttpStatusCode.Unauthorized,
+                        "Authentication required",
+                        errorContent
+                    );
+                }
+                
                 return response.IsSuccessStatusCode;
             }
             catch (Exception ex)
@@ -220,6 +273,18 @@ namespace PetelApp.BlazorServer.Services
                 _logger.LogDebug("DELETE request to {Url}", url);
                 
                 var response = await client.DeleteAsync(url);
+                
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    _logger.LogWarning("Unauthorized request to {Endpoint} - invalid or missing token", endpoint);
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new HttpStatusException(
+                        System.Net.HttpStatusCode.Unauthorized,
+                        "Authentication required",
+                        errorContent
+                    );
+                }
+                
                 response.EnsureSuccessStatusCode();
                 return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
             }
@@ -246,8 +311,13 @@ namespace PetelApp.BlazorServer.Services
                 
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
-                    _logger.LogWarning("Unauthorized multipart request to {Endpoint}", endpoint);
-                    return default;
+                    _logger.LogWarning("Unauthorized multipart request to {Endpoint} - invalid or missing token", endpoint);
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new HttpStatusException(
+                        System.Net.HttpStatusCode.Unauthorized,
+                        "Authentication required",
+                        errorContent
+                    );
                 }
 
                 response.EnsureSuccessStatusCode();

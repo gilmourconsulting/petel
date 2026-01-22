@@ -9,6 +9,7 @@ namespace PetelApp.BlazorServer.Services
     public class SessionStateService
     {
         private readonly ApiService _apiService;
+        private readonly AuthenticationService _authService;
         private readonly ILogger<SessionStateService> _logger;
         private SessionData? _cachedSession;
         private DateTime? _lastFetch;
@@ -18,9 +19,11 @@ namespace PetelApp.BlazorServer.Services
 
         public SessionStateService(
             ApiService apiService,
+            AuthenticationService authService,
             ILogger<SessionStateService> logger)
         {
             _apiService = apiService;
+            _authService = authService;
             _logger = logger;
         }
 
@@ -54,6 +57,13 @@ namespace PetelApp.BlazorServer.Services
                 }
 
                 return session;
+            }
+            catch (HttpStatusException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                _logger.LogWarning("Authentication failed when fetching session - Token invalid or missing, redirecting to login");
+                // Token is invalid or missing - redirect to login
+                await _authService.LogoutAsync();
+                return null;
             }
             catch (Exception ex)
             {
