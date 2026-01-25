@@ -53,8 +53,11 @@ namespace PetelApp.Api.Controllers
                     _logger.LogWarning(
                         "No school_year found for yearId={YearId}, schoolId={SchoolId}", 
                         yearId, schoolId);
-                    return NotFound(new 
+                    // Return 200 OK with null id instead of 404
+                    // This allows the client to handle gracefully when school year doesn't exist yet
+                    return Ok(new 
                     { 
+                        id = (int?)null,
                         success = false, 
                         message = "לא נמצאה שנת לימודים עבור בית הספר והשנה הנבחרים" 
                     });
@@ -64,7 +67,7 @@ namespace PetelApp.Api.Controllers
                     "Found school_year id={Id} for yearId={YearId}, schoolId={SchoolId}", 
                     schoolYear.Id, yearId, schoolId);
 
-                return Ok(new { id = schoolYear.Id });
+                return Ok(new { id = schoolYear.Id, success = true });
             }
             catch (Exception ex)
             {

@@ -55,37 +55,49 @@
             else if (_step == SelectionStep.UpdateContact)
             {
                 <div class="modal-body">
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">שם פרטי:</label>
-                        <input type="text" class="form-control" value="@_currentPerson?.FirstName" readonly 
-                               style="background: #e9ecef; cursor: not-allowed;" />
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">שם משפחה:</label>
-                        <input type="text" class="form-control" value="@_currentPerson?.LastName" readonly 
-                               style="background: #e9ecef; cursor: not-allowed;" />
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">טלפון:</label>
-                        <div style="display: flex; gap: 8px; direction: ltr;">
-                            <input type="text" class="form-control" @bind="_phonePrefix" placeholder="קידומת" maxlength="7"
-                                   style="width: 100px; text-align: left;" />
-                            <input type="text" class="form-control" @bind="_phoneNumber" placeholder="מספר טלפון" maxlength="10"
-                                   style="flex: 1; text-align: left;" />
+                    @if (_isLoading)
+                    {
+                        <div style="padding: 20px; text-align: center;">
+                            <div style="color: #007bff; font-weight: 600; margin-bottom: 10px;">מעדכן...</div>
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">דוא"ל:</label>
-                        <input type="email" class="form-control" @bind="_email" placeholder="example@domain.com"
-                               style="direction: ltr; text-align: left;" />
-                    </div>
+                    }
+                    else
+                    {
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">שם פרטי:</label>
+                            <input type="text" class="form-control" value="@_currentPerson?.FirstName" readonly 
+                                   style="background: #e9ecef; cursor: not-allowed;" />
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">שם משפחה:</label>
+                            <input type="text" class="form-control" value="@_currentPerson?.LastName" readonly 
+                                   style="background: #e9ecef; cursor: not-allowed;" />
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">טלפון:</label>
+                            <div style="display: flex; gap: 8px; direction: ltr;">
+                                <input type="text" class="form-control" @bind="_phonePrefix" placeholder="קידומת" maxlength="7"
+                                       style="width: 100px; text-align: left;" />
+                                <input type="text" class="form-control" @bind="_phoneNumber" placeholder="מספר טלפון" maxlength="10"
+                                       style="flex: 1; text-align: left;" />
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">דוא"ל:</label>
+                            <input type="email" class="form-control" @bind="_email" placeholder="example@domain.com"
+                                   style="direction: ltr; text-align: left;" />
+                        </div>
+                    }
                 </div>
                 <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button type="button" class="dialog-btn cancel" @onclick="Cancel">ביטול</button>
-                    <button type="button" class="dialog-btn save" @onclick="SaveContactUpdate">אישור</button>
+                    <button type="button" class="dialog-btn cancel" @onclick="Cancel" disabled="@_isLoading">ביטול</button>
+                    <button type="button" class="dialog-btn save" @onclick="SaveContactUpdate" disabled="@_isLoading">אישור</button>
                 </div>
             }
             else if (_step == SelectionStep.Search)
@@ -155,43 +167,55 @@
             else if (_step == SelectionStep.NewPerson)
             {
                 <div class="modal-body">
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">שם פרטי: <span style="color: red;">*</span></label>
-                        <input type="text" class="form-control" @bind="_newFirstName" placeholder="הזן שם פרטי" 
-                               style="direction: rtl;" />
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">שם משפחה: <span style="color: red;">*</span></label>
-                        <input type="text" class="form-control" @bind="_newLastName" placeholder="הזן שם משפחה" 
-                               style="direction: rtl;" />
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">טלפון:</label>
-                        <div style="display: flex; gap: 8px; direction: ltr;">
-                            <input type="text" class="form-control" @bind="_newPhonePrefix" placeholder="קידומת" maxlength="7"
-                                   style="width: 100px; text-align: left;" />
-                            <input type="text" class="form-control" @bind="_newPhoneNumber" placeholder="מספר טלפון" maxlength="10"
-                                   style="flex: 1; text-align: left;" />
+                    @if (_isLoading)
+                    {
+                        <div style="padding: 20px; text-align: center;">
+                            <div style="color: #007bff; font-weight: 600; margin-bottom: 10px;">שומר...</div>
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">דוא"ל:</label>
-                        <input type="email" class="form-control" @bind="_newEmail" placeholder="example@domain.com"
-                               style="direction: ltr; text-align: left;" />
-                    </div>
-                    
-                    <div style="margin-bottom: 15px;">
-                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">תפקיד:</label>
-                        <input type="text" class="form-control" value="@_newPosition" readonly 
-                               style="background: #e9ecef; cursor: not-allowed; direction: rtl;" />
-                    </div>
+                    }
+                    else
+                    {
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">שם פרטי: <span style="color: red;">*</span></label>
+                            <input type="text" class="form-control" @bind="_newFirstName" placeholder="הזן שם פרטי" 
+                                   style="direction: rtl;" />
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">שם משפחה: <span style="color: red;">*</span></label>
+                            <input type="text" class="form-control" @bind="_newLastName" placeholder="הזן שם משפחה" 
+                                   style="direction: rtl;" />
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">טלפון:</label>
+                            <div style="display: flex; gap: 8px; direction: ltr;">
+                                <input type="text" class="form-control" @bind="_newPhonePrefix" placeholder="קידומת" maxlength="7"
+                                       style="width: 100px; text-align: left;" />
+                                <input type="text" class="form-control" @bind="_newPhoneNumber" placeholder="מספר טלפון" maxlength="10"
+                                       style="flex: 1; text-align: left;" />
+                            </div>
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">דוא"ל:</label>
+                            <input type="email" class="form-control" @bind="_newEmail" placeholder="example@domain.com"
+                                   style="direction: ltr; text-align: left;" />
+                        </div>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="display: block; margin-bottom: 5px; font-weight: 600;">תפקיד:</label>
+                            <input type="text" class="form-control" value="@_newPosition" readonly 
+                                   style="background: #e9ecef; cursor: not-allowed; direction: rtl;" />
+                        </div>
+                    }
                 </div>
                 <div class="modal-footer" style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button type="button" class="dialog-btn cancel" @onclick="Cancel">ביטול</button>
-                    <button type="button" class="dialog-btn save" @onclick="SaveNewPerson">שמירה</button>
+                    <button type="button" class="dialog-btn cancel" @onclick="Cancel" disabled="@_isLoading">ביטול</button>
+                    <button type="button" class="dialog-btn save" @onclick="SaveNewPerson" disabled="@_isLoading">שמירה</button>
                 </div>
             }
         </div>
@@ -317,26 +341,49 @@
 
         try
         {
-            // TODO: Call API to create new person
-            // For now, create a temporary PersonInfo object
-            var newPerson = new PersonInfo
+            _isLoading = true;
+            StateHasChanged();
+
+            // Create DTO for API request
+            var createDto = new
             {
-                Id = null, // Will be assigned by backend
-                FirstName = _newFirstName,
-                LastName = _newLastName,
-                PhoneNumber = _newPhoneNumber,
-                PhoneNumberPrefix = _newPhonePrefix,
-                Email = _newEmail,
-                Position = _newPosition
+                idNumber = "0",  // Default value as per backend requirement
+                idType = 0,
+                firstName = _newFirstName,
+                lastName = _newLastName,
+                phoneNumberPrefix = _newPhonePrefix,
+                phoneNumber = _newPhoneNumber,
+                email = _newEmail,
+                position = _newPosition
             };
 
-            _isVisible = false;
-            _tcs?.SetResult(newPerson);
-            StateHasChanged();
+            // Call API to create person in database
+            var response = await ApiService.PostAsync<object, ApiResponse<PersonInfo>>(
+                "persons",
+                createDto
+            );
+
+            if (response?.Success == true && response.Data != null)
+            {
+                _isVisible = false;
+                _tcs?.SetResult(response.Data);
+                StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine($"Failed to create person: {response?.Message}");
+                // TODO: Show error message to user
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error creating new person: {ex.Message}");
+            // TODO: Show error message to user
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
         }
     }
 
@@ -396,23 +443,56 @@
 
     private async Task SaveContactUpdate()
     {
-        if (_currentPerson == null) return;
+        if (_currentPerson == null || _currentPerson.Id == null) return;
 
         try
         {
-            // TODO: Call API to update person contact details
-            // For now, just update the local object and return it
-            _currentPerson.PhoneNumber = _phoneNumber;
-            _currentPerson.PhoneNumberPrefix = _phonePrefix;
-            _currentPerson.Email = _email;
-
-            _isVisible = false;
-            _tcs?.SetResult(_currentPerson);
+            _isLoading = true;
             StateHasChanged();
+
+            // Create DTO for API request
+            var updateDto = new
+            {
+                id = _currentPerson.Id.Value,
+                idNumber = "0",
+                idType = 0,
+                phoneNumberPrefix = _phonePrefix,
+                phoneNumber = _phoneNumber,
+                email = _email
+            };
+
+            // Call API to update person contact details
+            var response = await ApiService.PutAsync<object, ApiResponse<object>>(
+                $"persons/{_currentPerson.Id.Value}",
+                updateDto
+            );
+
+            if (response?.Success == true)
+            {
+                // Update local object with new values
+                _currentPerson.PhoneNumber = _phoneNumber;
+                _currentPerson.PhoneNumberPrefix = _phonePrefix;
+                _currentPerson.Email = _email;
+
+                _isVisible = false;
+                _tcs?.SetResult(_currentPerson);
+                StateHasChanged();
+            }
+            else
+            {
+                Console.WriteLine($"Failed to update person: {response?.Message}");
+                // TODO: Show error message to user
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error updating contact: {ex.Message}");
+            // TODO: Show error message to user
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
         }
     }
 

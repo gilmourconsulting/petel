@@ -21,7 +21,8 @@ $AppServicePlan = "petel-test-plan"
 $BlazorAppName = "petel-test-blazor"
 $ApiAppName = "petel-test-api"
 $ApiHostname = "petel-test-api-ahafcqfnh6drcdbd.israelcentral-01.azurewebsites.net"
-$Runtime = "DOTNETCORE:8.0"
+$BlazorRuntime = "DOTNETCORE:8.0"
+$ApiRuntime = "DOTNETCORE:9.0"
 
 # Paths
 $RootPath = "c:\dev\PetelFullApp"
@@ -117,7 +118,7 @@ if (-not $ApiOnly) {
         az webapp create --resource-group $ResourceGroup `
             --plan $AppServicePlan `
             --name $BlazorAppName `
-            --runtime $Runtime | Out-Null
+            --runtime $BlazorRuntime | Out-Null
         Write-Success "Blazor app service created"
     } else {
         Write-Host "Blazor app service exists" -ForegroundColor Gray
@@ -182,7 +183,7 @@ if (-not $BlazorOnly) {
         az webapp create --resource-group $ResourceGroup `
             --plan $AppServicePlan `
             --name $ApiAppName `
-            --runtime $Runtime | Out-Null
+            --runtime $ApiRuntime | Out-Null
         Write-Success "API app service created"
     } else {
         Write-Host "API app service exists" -ForegroundColor Gray
