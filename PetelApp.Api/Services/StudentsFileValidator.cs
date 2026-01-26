@@ -11,10 +11,12 @@ namespace PetelApp.Api.Services
 {
     public static class StudentsFileValidator
     {
+        // ✅ Optional fields: gender, street, house_number, post_code
+        // ✅ Default for gender in database is 99 (unknown)
         public static readonly string[] MandatoryFields = new[]
         {
-            "id_number", "first_name", "last_name", "gender", "class", "start_date", "end_date",
-            "disability_category", "street", "house_number", "city", "post_code", "sending_council"
+            "id_number", "first_name", "last_name", "class", "start_date", "end_date",
+            "disability_category", "city", "sending_council"
         };
 
         /// <summary>

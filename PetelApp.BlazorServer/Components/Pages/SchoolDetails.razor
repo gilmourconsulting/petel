@@ -172,7 +172,8 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label for="classLevel">שכבה:</label>
-                    <select id="classLevel" class="form-control" @bind="_classModalData.Level">
+                    <select id="classLevel" class="form-control" @bind="_classModalData.Level"
+                            style="width: 100%; padding: 8px; font-size: 14px; height: auto;">
                         <option value="">בחר שכבה...</option>
                         @foreach (var level in _gradeLevels)
                         {

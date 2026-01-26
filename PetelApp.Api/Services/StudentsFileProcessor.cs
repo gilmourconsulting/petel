@@ -151,8 +151,8 @@ namespace PetelApp.Api.Services
             if (string.IsNullOrWhiteSpace(row.LastName))
                 return (false, "שם משפחה חסר");
 
-            // Validate gender
-            if (string.IsNullOrWhiteSpace(row.Gender) || !new[] { "1", "2", "זכר", "נקבה" }.Contains(row.Gender))
+            // ✅ Gender is optional - validate only if provided
+            if (!string.IsNullOrWhiteSpace(row.Gender) && !new[] { "1", "2", "99", "זכר", "נקבה" }.Contains(row.Gender))
                 return (false, "מין לא תקין");
 
             // Validate class
@@ -172,21 +172,15 @@ namespace PetelApp.Api.Services
             if (!string.IsNullOrWhiteSpace(row.DisabilityCategory) && !int.TryParse(row.DisabilityCategory, out _))
                 return (false, "קטגוריית נכות לא תקינה");
 
-            // Validate address fields
-            if (string.IsNullOrWhiteSpace(row.Street))
-                return (false, "רחוב חסר");
-
-            if (string.IsNullOrWhiteSpace(row.HouseNumber))
-                return (false, "מספר בית חסר");
-
-            if (row.HouseNumber.Trim().Length > 6)
+            // ✅ Address fields - only HouseNumber length validation if provided
+            if (!string.IsNullOrWhiteSpace(row.HouseNumber) && row.HouseNumber.Trim().Length > 6)
                 return (false, "מספר בית ארוך מדי (מקסימום 6 תווים)");
 
+            // Validate city (required)
             if (string.IsNullOrWhiteSpace(row.City))
                 return (false, "עיר חסרה");
 
-            if (string.IsNullOrWhiteSpace(row.PostCode))
-                return (false, "מיקוד חסר");
+            // ✅ Postcode is optional - no validation needed
 
             // Validate sending council (integer or 99999 for none)
             if (string.IsNullOrWhiteSpace(row.SendingCouncil))
@@ -209,10 +203,10 @@ namespace PetelApp.Api.Services
                    existing.StartDate?.ToString("yyyy-MM-dd") != DateTime.Parse(row.StartDate, hebrewCulture).ToString("yyyy-MM-dd") ||
                    existing.EndDate?.ToString("yyyy-MM-dd") != DateTime.Parse(row.EndDate, hebrewCulture).ToString("yyyy-MM-dd") ||
                    existing.DisabilityCategory != rowDisabilityCategory ||
-                   existing.Street != row.Street ||
-                   existing.HouseNumber != row.HouseNumber.Trim() ||
+                   existing.Street != (row.Street ?? string.Empty) || // ✅ Optional field
+                   existing.HouseNumber != (row.HouseNumber?.Trim() ?? string.Empty) || // ✅ Optional field
                    existing.City != row.City ||
-                   existing.PostCode != row.PostCode ||
+                   existing.PostCode != (row.PostCode ?? string.Empty) || // ✅ Optional field
                    existing.SendingCouncil != councilId;
         }
 
@@ -244,10 +238,10 @@ namespace PetelApp.Api.Services
                     student.DisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory)
                         ? null
                         : (int?)int.Parse(row.DisabilityCategory);
-                    student.Street = row.Street;
-                    student.HouseNumber = row.HouseNumber.Trim();
+                    student.Street = row.Street ?? string.Empty; // ✅ Optional field
+                    student.HouseNumber = row.HouseNumber?.Trim() ?? string.Empty; // ✅ Optional field
                     student.City = row.City;
-                    student.PostCode = row.PostCode;
+                    student.PostCode = row.PostCode ?? string.Empty; // ✅ Optional field
                     student.SendingCouncil = councilId;
                     student.StatusId = 1;
                 });
@@ -312,10 +306,10 @@ namespace PetelApp.Api.Services
                     newVersion.DisabilityCategory = string.IsNullOrWhiteSpace(row.DisabilityCategory)
                         ? null
                         : (int?)int.Parse(row.DisabilityCategory);
-                    newVersion.Street = row.Street;
-                    newVersion.HouseNumber = row.HouseNumber.Trim();
+                    newVersion.Street = row.Street ?? string.Empty; // ✅ Optional field
+                    newVersion.HouseNumber = row.HouseNumber?.Trim() ?? string.Empty; // ✅ Optional field
                     newVersion.City = row.City;
-                    newVersion.PostCode = row.PostCode;
+                    newVersion.PostCode = row.PostCode ?? string.Empty; // ✅ Optional field
                     newVersion.SendingCouncil = councilId;
                     newVersion.StatusId = 1;
                     // Note: Cost is NOT updated here - it's preserved from existing version
@@ -327,15 +321,20 @@ namespace PetelApp.Api.Services
             }
         }
 
-        private int? ParseGender(string gender)
+        private int? ParseGender(string? gender)
         {
-            return gender?.ToUpper() switch
+            // ✅ Default to 99 (unknown) for null/empty values
+            if (string.IsNullOrWhiteSpace(gender))
+                return 99;
+
+            return gender.ToUpper() switch
             {
                 "1" => 1,
                 "2" => 2,
+                "99" => 99,
                 "זכר" => 1,
                 "נקבה" => 2,
-                _ => 99 // Default unknown
+                _ => 99 // Default unknown for unrecognized values
             };
         }
     }
@@ -348,15 +347,15 @@ namespace PetelApp.Api.Services
         public required string IdNumber { get; set; }
         public required string FirstName { get; set; }
         public required string LastName { get; set; }
-        public required string Gender { get; set; }
+        public string? Gender { get; set; } // ✅ Optional - defaults to 99 (unknown)
         public required string Class { get; set; }
         public required string StartDate { get; set; }
         public required string EndDate { get; set; }
         public string? DisabilityCategory { get; set; }
-        public required string Street { get; set; }
-        public required string HouseNumber { get; set; }
+        public string? Street { get; set; } // ✅ Optional
+        public string? HouseNumber { get; set; } // ✅ Optional
         public required string City { get; set; }
-        public required string PostCode { get; set; }
+        public string? PostCode { get; set; } // ✅ Optional
         public required string SendingCouncil { get; set; }
     }
 
