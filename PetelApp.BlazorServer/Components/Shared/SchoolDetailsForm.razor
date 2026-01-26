@@ -2,6 +2,7 @@
 @inject IJSRuntime JSRuntime
 
 <PersonSelectorModal @ref="_personSelector" />
+<AddressEditorModal @ref="_addressEditor" Councils="@Councils" />
 
 @if (SchoolData != null)
 {
@@ -148,6 +149,12 @@
                             @("לא זמין")
                         }
                     </span>
+                    @if (IsEditMode)
+                    {
+                        <button class="btn-icon" @onclick="EditAddress" title="עריכת כתובת">
+                            <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                        </button>
+                    }
                 </p>
 
                 <p class="detail-field">
@@ -243,6 +250,9 @@
 
     // Person selector modal reference
     private PersonSelectorModal? _personSelector;
+    
+    // Address editor modal reference
+    private AddressEditorModal? _addressEditor;
 
     protected override void OnParametersSet()
     {
@@ -373,6 +383,35 @@
         {
             SchoolData.ContactPersonId = result.Id;
             SchoolData.ContactPersonName = $"{result.FirstName} {result.LastName}".Trim();
+            StateHasChanged();
+        }
+    }
+
+    private async Task EditAddress()
+    {
+        if (_addressEditor == null || SchoolData == null) return;
+
+        var currentAddress = new AddressEditorModal.AddressInfo
+        {
+            Street = SchoolData.Street ?? "",
+            HouseNumber = SchoolData.HouseNumber ?? "",
+            City = SchoolData.City ?? "",
+            CouncilId = SchoolData.CouncilId,
+            PostalCode = SchoolData.PostalCode ?? ""
+        };
+
+        var result = await _addressEditor.ShowAsync(currentAddress);
+        
+        if (result != null)
+        {
+            SchoolData.Street = result.Street;
+            SchoolData.HouseNumber = result.HouseNumber;
+            SchoolData.City = result.City;
+            SchoolData.CouncilId = result.CouncilId;
+            SchoolData.CouncilName = result.City;
+            SchoolData.PostalCode = result.PostalCode;
+            
+            Console.WriteLine($"✅ Address updated: {result.FormattedAddress}");
             StateHasChanged();
         }
     }
