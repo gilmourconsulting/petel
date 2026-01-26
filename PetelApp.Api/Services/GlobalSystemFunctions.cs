@@ -106,7 +106,8 @@ namespace PetelApp.Api.Services
 
         /// <summary>
         /// Gets council ID by council name
-        /// Compares pure Hebrew text of council short names
+        /// ✅ Loads councils once and uses computed NormalizedName property for matching
+        /// ✅ Compares pure Hebrew text (letters + numbers only)
         /// </summary>
         /// <param name="councilName">Council name</param>
         /// <returns>Council ID or null if not found</returns>
@@ -114,10 +115,11 @@ namespace PetelApp.Api.Services
         {
             var pureInputName = PureHebrewText(councilName);
 
+            // ✅ Load councils once, then use computed NormalizedName property
             var councils = await _context.Councils.ToListAsync();
 
             var matchedCouncil = councils
-                .FirstOrDefault(c => PureHebrewText(c.Name) == pureInputName);
+                .FirstOrDefault(c => c.NormalizedName == pureInputName);
 
             return matchedCouncil?.Id;
         }

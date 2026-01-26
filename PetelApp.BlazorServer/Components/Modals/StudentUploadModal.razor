@@ -292,22 +292,36 @@
             }
         }
 
-        // Validate required fields
-        var requiredFields = new[] { "id_number", "first_name", "last_name", "gender", "start_date", "end_date", 
-            "street", "house_number", "city", "post_code", "sending_council" };
+        // Validate required fields (excluding optional fields: gender, street, house_number, post_code)
+        var requiredFields = new[] { "id_number", "first_name", "last_name", "start_date", "end_date", 
+            "city", "sending_council" };
         var mappedFields = reverseMapping.Keys.ToList();
 
-        // Check class mapping
+        // Check class mapping - must be EITHER class name OR (level + number), not both
         var hasClassName = mappedFields.Contains("class");
         var hasClassLevel = mappedFields.Contains("class_level");
         var hasClassNumber = mappedFields.Contains("class_number");
         var hasClassParts = hasClassLevel && hasClassNumber;
 
+        // ✅ Prevent mapping both class name AND level/number
+        if (hasClassName && (hasClassLevel || hasClassNumber))
+        {
+            var errorMsg = "❌ שגיאה: לא ניתן למפות גם כיתה (שם מלא) וגם שכבה/מספר כיתה\n\n";
+            errorMsg += "יש לבחור אחת מהאפשרויות הבאות:\n";
+            errorMsg += "• כיתה (שם מלא) - לדוגמה: \"א1\", \"ב2\"\n";
+            errorMsg += "• כיתה (שכבה) + מספר כיתה (מקבילה) - לדוגמה: שכבה=\"א\", מספר=\"1\"";
+
+            _statusMessage = errorMsg;
+            _statusType = "error";
+            StateHasChanged();
+            return;
+        }
+
         if (!hasClassName && !hasClassParts)
         {
             var errorMsg = "❌ שגיאה: יש למפות כיתה בדרך אחת מהאפשרויות הבאות:\n";
             errorMsg += "• כיתה (שם מלא) - לדוגמה: \"א1\", \"ב2\"\n";
-            errorMsg += "• שכבה + מספר כיתה - לדוגמה: שכבה=\"א\", מספר=\"1\"";
+            errorMsg += "• כיתה (שכבה) + מספר כיתה (מקבילה) - לדוגמה: שכבה=\"א\", מספר=\"1\"";
 
             if (hasClassLevel && !hasClassNumber)
                 errorMsg += "\n\n⚠️ מופתה רק שכבה, חסר מספר כיתה";
@@ -370,21 +384,21 @@
 
             if (response != null && response.Success)
             {
-                var summaryMessage = $"✅ הקובץ עובד בהצלחה!\n\n" +
-                    $"📊 סיכום העלאה:\n" +
-                    $"➕ נוצרו: {response.Created}\n" +
-                    $"✏️ עודכנו: {response.Updated}\n" +
-                    $"➖ ללא שינוי: {response.Unchanged}\n";
+                var summaryMessage = $"✅ הקובץ עובד בהצלחה!<br><br>" +
+                    $"📊 סיכום העלאה:<br>" +
+                    $"➕ נוצרו: {response.Created}<br>" +
+                    $"✏️ עודכנו: {response.Updated}<br>" +
+                    $"➖ ללא שינוי: {response.Unchanged}<br>";
 
                 if (response.Errors > 0)
                 {
-                    summaryMessage += $"\n❌ שגיאות: {response.Errors}";
+                    summaryMessage += $"<br>❌ שגיאות: {response.Errors}";
                     if (response.Details?.ErrorList != null && response.Details.ErrorList.Any())
                     {
-                        var errorDetails = string.Join("\n", response.Details.ErrorList.Take(5));
-                        summaryMessage += "\n\n⚠️ שגיאות:\n" + errorDetails;
-                        if (response.Details.ErrorList.Count > 5)
-                            summaryMessage += "\n... ועוד";
+                        // ✅ Show all errors with scrollable container
+                        var errorItems = string.Join("", response.Details.ErrorList.Select(e => $"<div style='padding: 8px; border-bottom: 1px solid #f0f0f0; background: #fff3cd;'>{e}</div>"));
+                        summaryMessage += $"<br><br><div style='font-weight: bold; margin-bottom: 10px;'>⚠️ רשימת שגיאות:</div>" +
+                            $"<div style='max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; background: white; direction: rtl;'>{errorItems}</div>";
                     }
                 }
 

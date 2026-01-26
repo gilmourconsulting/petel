@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using PetelApp.Api.Services;
 
 namespace PetelApp.Api.Data
 {
@@ -32,5 +33,9 @@ namespace PetelApp.Api.Data
         // Computed property for backward compatibility
         [NotMapped]
         public string ShortName => Name;
+
+        // ✅ Computed property for efficient Hebrew text matching (in-memory)
+        [NotMapped]
+        public string NormalizedName => GlobalFunctions.PureHebrewText(Name);
     }
 }
