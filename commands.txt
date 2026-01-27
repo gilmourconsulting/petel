@@ -1,6 +1,6 @@
 dotnet run
 
 
-cd \dev\PetelFullApp\petelapp-frontend
+cd \dev\PetelFullApp\PetelApp.BlazorServer
 
-npx serve public 
+dotnet run 

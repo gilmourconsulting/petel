@@ -2,27 +2,29 @@
 
 ## Architecture Overview
 
-**Educational Management System**: .NET 9 Web API backend + Vanilla JavaScript RTL frontend for Hebrew schools/educational institutions.
+**Educational Management System**: .NET 9 Web API backend + Blazor Server frontend for Hebrew schools/educational institutions.
 
 - **Backend**: ASP.NET Core Web API (`PetelApp.Api/`) with PostgreSQL + Entity Framework Core
-- **Frontend**: Vanilla HTML/CSS/JS SPA (`petelapp-frontend/public/`) with Hebrew RTL support
+- **Frontend**: Blazor Server (`PetelApp.BlazorServer/`) with Hebrew RTL support and interactive UI
 - **Database**: PostgreSQL with `petel_schema` namespace
 - **Background Jobs**: Hangfire for system attribute loading and scheduled tasks
+
+**Note**: The old vanilla JS frontend (`petelapp-frontend/`) has been archived and replaced with Blazor Server.
 
 ## Critical Development Workflows
 
 ### Local Development Setup
 ```bash
-# Start backend (from root)
+# Start backend API (from root)
 cd PetelApp.Api && dotnet run
 # OR: double-click "Start Local Api.cmd"
 
-# Start frontend (from root) 
-cd petelapp-frontend && npx serve public
-# OR: double-click "Start Frontend.cmd"
+# Start Blazor frontend (from root) 
+cd PetelApp.BlazorServer && dotnet run
+# OR: double-click "Start Blazor Server.cmd"
 ```
 
-Backend runs on `http://localhost:5082`, frontend on `http://localhost:3000`
+Backend API runs on `http://localhost:5082`, Blazor frontend runs on `https://localhost:5001` or `http://localhost:5000`
 
 ## Configuration Management
 
