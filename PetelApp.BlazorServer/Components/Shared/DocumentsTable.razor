@@ -41,7 +41,7 @@
                     {
                         <tr>
                             <td>
-                                @if (AllowDownload)
+                                @if (AllowDownload && doc.FileSize > 0)
                                 {
                                     <button class="btn-icon" @onclick="() => ViewDocument(doc.Id)" title="צפה במסמך">
                                         <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
@@ -208,7 +208,7 @@
         }
     }
 
-    private async Task ViewDocument(int documentId)
+    private async Task ViewDocument(long documentId)
     {
         try
         {
@@ -216,7 +216,12 @@
 
             var token = await TokenService.GetTokenAsync();
             var baseUrl = ApiSettings.Value.BaseUrl;
-            var downloadUrl = $"{baseUrl}/documents/{documentId}/download";
+
+            Console.WriteLine($"👁️ BaseURL: {baseUrl}");
+
+            var downloadUrl = $"{baseUrl}/Documents/{documentId}/download";
+
+            Console.WriteLine($"👁️ DLURL: {downloadUrl}");
 
             // Use JavaScript to fetch and open the document with auth header
             await JSRuntime.InvokeVoidAsync("eval", $@"
@@ -407,7 +412,7 @@
         return $"{Math.Round(size, 2)} {sizes[i]}";
     }
 
-    private async Task DeleteDocument(int documentId)
+    private async Task DeleteDocument(long documentId)
     {
         try
         {

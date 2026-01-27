@@ -99,6 +99,10 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
               "http://localhost:3000", 
               "http://localhost:5173",
+              "http://localhost:5000",      // ✅ Blazor Server HTTP
+              "https://localhost:5001",     // ✅ Blazor Server HTTPS
+              "http://localhost:5293",      // ✅ Blazor Server alternate port
+              "https://localhost:7293",     // ✅ Blazor Server alternate HTTPS port
               "https://petel-test-api-ahafcqfnh6drcdbd.israelcentral-01.azurewebsites.net",
               "https://petel.site")
               .AllowAnyMethod()

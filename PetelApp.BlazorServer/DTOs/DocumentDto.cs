@@ -2,7 +2,7 @@ namespace PetelApp.BlazorServer.DTOs
 {
     public class DocumentDto
     {
-        public int Id { get; set; }
+        public long Id { get; set; }
         public string DocumentType { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string StatusName { get; set; } = string.Empty;
