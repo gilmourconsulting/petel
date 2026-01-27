@@ -43,6 +43,8 @@ public DbSet<Status> Statuses { get; set; }
             public DbSet<MenuItem> MenuItems { get; set; }
         public DbSet<HebrewYear> HebrewYears { get; set; }
         public DbSet<SchoolYearAttribute> SchoolYearAttributes { get; set; }
+        public DbSet<TransactionAccountType> TransactionAccountTypes { get; set; }
+        public DbSet<TransactionAccount> TransactionAccounts { get; set; }
 
         //  DbSets for Council and SchoolClass
         public DbSet<School> Schools { get; set; }
@@ -859,6 +861,66 @@ modelBuilder.Entity<SystemAction>(entity =>
                     .WithMany()
                     .HasForeignKey(sya => sya.YearId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // TransactionAccountType configuration
+            modelBuilder.Entity<TransactionAccountType>(entity =>
+            {
+                entity.ToTable("transaction_account_types");
+
+                // Indexes
+                entity.HasIndex(e => e.Name).IsUnique();
+                entity.HasIndex(e => e.IsActive);
+
+                // Relationships
+                entity.HasOne(tat => tat.CreatedByUser)
+                    .WithMany()
+                    .HasForeignKey(tat => tat.CreatedUser)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(tat => tat.UpdatedByUser)
+                    .WithMany()
+                    .HasForeignKey(tat => tat.UpdateUser)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // TransactionAccount configuration
+            modelBuilder.Entity<TransactionAccount>(entity =>
+            {
+                entity.ToTable("transaction_accounts");
+
+                // Indexes for performance
+                entity.HasIndex(e => e.OwnerEntityId);
+                entity.HasIndex(e => e.RelatedEntityId);
+                entity.HasIndex(e => e.AccountTypeId);
+                entity.HasIndex(e => e.IsActive);
+                entity.HasIndex(e => new { e.OwnerEntityId, e.RelatedEntityId, e.AccountTypeId }).IsUnique();
+
+                // Configure relationships
+                entity.HasOne(ta => ta.OwnerEntity)
+                    .WithMany()
+                    .HasForeignKey(ta => ta.OwnerEntityId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(ta => ta.RelatedEntity)
+                    .WithMany()
+                    .HasForeignKey(ta => ta.RelatedEntityId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(ta => ta.AccountType)
+                    .WithMany(at => at.TransactionAccounts)
+                    .HasForeignKey(ta => ta.AccountTypeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(ta => ta.CreatedByUser)
+                    .WithMany()
+                    .HasForeignKey(ta => ta.CreatedUser)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(ta => ta.UpdatedByUser)
+                    .WithMany()
+                    .HasForeignKey(ta => ta.UpdateUser)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
         }
