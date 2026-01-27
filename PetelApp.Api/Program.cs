@@ -14,24 +14,44 @@ using System.IO;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var logsPath = Path.Combine(Directory.GetCurrentDirectory(), "logs");
-if (!Directory.Exists(logsPath))
+// Determine logs path based on environment
+var logsPath = builder.Environment.IsProduction() || builder.Environment.EnvironmentName == "test"
+    ? Path.Combine(Environment.GetEnvironmentVariable("HOME") ?? "/tmp", "LogFiles", "Application")
+    : Path.Combine(Directory.GetCurrentDirectory(), "logs");
+
+// Create logs directory if it doesn't exist and we have permissions
+try
 {
-    Directory.CreateDirectory(logsPath);
+    if (!Directory.Exists(logsPath))
+    {
+        Directory.CreateDirectory(logsPath);
+    }
+}
+catch (Exception ex)
+{
+    // If we can't create the directory, fall back to console-only logging
+    Console.WriteLine($"Warning: Could not create logs directory at {logsPath}: {ex.Message}");
+    logsPath = null;
 }
 
-// Configure Serilog for file logging
-Log.Logger = new LoggerConfiguration()
+// Configure Serilog
+var loggerConfig = new LoggerConfiguration()
     .MinimumLevel.Information()
     .MinimumLevel.Override("Microsoft.AspNetCore", Serilog.Events.LogEventLevel.Warning)
-    .WriteTo.Console()
-    .WriteTo.File(
+    .WriteTo.Console();
+
+// Only add file logging if we have a valid logs path
+if (!string.IsNullOrEmpty(logsPath))
+{
+    loggerConfig.WriteTo.File(
         path: Path.Combine(logsPath, "petelapp-.txt"),
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 7,
         outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss} [{Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}"
-    )
-    .CreateLogger();
+    );
+}
+
+Log.Logger = loggerConfig.CreateLogger();
 // Use Serilog instead of default logging
 builder.Host.UseSerilog();
 
@@ -567,7 +587,7 @@ app.MapControllers();
 // This allows direct navigation to /schooldetails, /students, etc.
 app.MapFallback(async context =>
 {
-    // Don't use fallback for API requests, Swagger, or Hangfire
+    // API only - no SPA fallback (Blazor is deployed separately)
     if (context.Request.Path.StartsWithSegments("/api") ||
         context.Request.Path.StartsWithSegments("/swagger") ||
         context.Request.Path.StartsWithSegments("/hangfire"))
@@ -576,9 +596,10 @@ app.MapFallback(async context =>
         return;
     }
     
-    // Serve index.html for all other routes
-    context.Response.ContentType = "text/html";
-    await context.Response.SendFileAsync("wwwroot/index.html");
+    // Return 404 for all other routes (not an API endpoint)
+    context.Response.StatusCode = 404;
+    context.Response.ContentType = "text/plain";
+    await context.Response.WriteAsync("API Only - Frontend is deployed separately");
 });
 
 // ✅ Add before app.Run() for key generation utility
