@@ -1,0 +1,82 @@
+@using PetelApp.BlazorServer.DTOs
+@inject IJSRuntime JSRuntime
+@inherits SortableTableBase<SchoolClassDto>
+
+@if (Items != null && Items.Any())
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    @if (IsEditMode)
+                    {
+                        <th class="actions-column">פעולות</th>
+                    }
+                    @RenderHeaders()
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var cls in _sortedItems)
+                {
+                    <tr>
+                        @if (IsEditMode)
+                        {
+                            <td>
+                                <button class="btn-icon" @onclick="() => OnEdit.InvokeAsync(cls)" title="עריכה">
+                                    <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                </button>
+                                <button class="btn-icon" @onclick="() => OnDelete.InvokeAsync(cls.Id)" title="מחיקה">
+                                    <img src="/images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                                </button>
+                            </td>
+                        }
+                        <td>@cls.Level</td>
+                        <td>@cls.ClassNumber</td>
+                        <td>@(cls.EndHour?.ToString("HH:mm") ?? "-")</td>
+                        <!--          <td>@cls.StudentCount</td>-->
+
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <div class="empty-state">לא נמצאו כיתות</div>
+}
+
+@code {
+    [Parameter] public EventCallback<SchoolClassDto> OnEdit { get; set; }
+    [Parameter] public EventCallback<int> OnDelete { get; set; }
+
+    protected override string GetDefaultSortColumn() => nameof(SchoolClassDto.Level);
+
+    protected override List<ColumnDefinition> DefineColumns()
+    {
+        return new List<ColumnDefinition>
+        {
+            new() { Label = "שכבה", PropertyName = nameof(SchoolClassDto.Level), IsSortable = true },
+            new() { Label = "מספר כיתה", PropertyName = nameof(SchoolClassDto.ClassNumber), IsSortable = true },
+            new() { Label = "שעת סיום", PropertyName = nameof(SchoolClassDto.EndHour), IsSortable = true }
+        };
+    }
+
+    protected override IEnumerable<SchoolClassDto> ApplySortLogic(List<SchoolClassDto> items, string columnName, bool ascending)
+    {
+        // Classes have complex sorting with secondary sort keys
+        return columnName switch
+        {
+            nameof(SchoolClassDto.Level) => ascending
+                ? items.OrderBy(c => c.Level).ThenBy(c => c.ClassNumber)
+                : items.OrderByDescending(c => c.Level).ThenByDescending(c => c.ClassNumber),
+            nameof(SchoolClassDto.ClassNumber) => ascending
+                ? items.OrderBy(c => c.ClassNumber).ThenBy(c => c.Level)
+                : items.OrderByDescending(c => c.ClassNumber).ThenByDescending(c => c.Level),
+            nameof(SchoolClassDto.EndHour) => ascending
+                ? items.OrderBy(c => c.EndHour).ThenBy(c => c.Level).ThenBy(c => c.ClassNumber)
+                : items.OrderByDescending(c => c.EndHour).ThenByDescending(c => c.Level).ThenByDescending(c => c.ClassNumber),
+            _ => items.OrderBy(c => c.Level).ThenBy(c => c.ClassNumber)
+        };
+    }
+}

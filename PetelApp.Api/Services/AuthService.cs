@@ -272,7 +272,9 @@ namespace PetelApp.Api.Services
                 await _context.SaveChangesAsync();
 
                 // ✅ Check OTP status BEFORE password expiration
-                if (GetOtpEnabled() && user.OtpEnabled)
+                // System OTP enabled = ALL users must use OTP
+                // System OTP disabled = Only users with otp_enabled flag use OTP
+                if (GetOtpEnabled() || user.OtpEnabled)
                 {
                     if (!user.OtpVerified)
                     {

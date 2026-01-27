@@ -1,0 +1,149 @@
+@using PetelApp.BlazorServer.DTOs
+@inherits SortableTableBase<AdditionalStudyProgramDto>
+
+@if (Items != null && Items.Any())
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    @RenderHeaders()
+                    @if (IsEditMode)
+                    {
+                        <th class="actions-column">פעולות</th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var program in _sortedItems)
+                {
+                    <tr>
+                        <td>@program.ClassName</td>
+                        <td>@program.Name</td>
+                        <td>@program.WeeklyHours.ToString("N2")</td>
+                        <td>@program.NumberOfSessions</td>
+                        <td>@program.NumberOfStudents</td>
+                        <td>@(program.Cost?.ToString("C2") ?? "-")</td>
+                        <td>@(program.ApprovedAmount?.ToString("C2") ?? "-")</td>
+                        <td>
+                            @switch (program.ApprovalStatus)
+                            {
+                                case 0:
+                                    <span style="color: #856404; background: #fff3cd; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">לא מאושר</span>
+                                    break;
+                                case 1:
+                                    <span style="color: #155724; background: #d4edda; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">מאושר</span>
+                                    break;
+                                case 2:
+                                    <span style="color: #004085; background: #cce5ff; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">אישור חריג</span>
+                                    break;
+                                default:
+                                    <span>-</span>
+                                    break;
+                            }
+                        </td>
+                        <td>
+                            @if (program.MasterId.HasValue)
+                            {
+                                <button class="btn-link" @onclick="() => OnViewHistory.InvokeAsync(program.MasterId.Value)" title="היסטוריית גרסאות">
+                                    v@(program.Version)
+                                </button>
+                            }
+                            else
+                            {
+                                <span>v@(program.Version)</span>
+                            }
+                        </td>
+                        @if (IsEditMode)
+                        {
+                            <td>
+                                <button class="btn-icon" @onclick="() => OnEdit.InvokeAsync(program)" title="עריכה">
+                                    <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                </button>
+                                <button class="btn-icon" @onclick="() => OnDelete.InvokeAsync(program.Id)" title="מחיקה">
+                                    <img src="/images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                                </button>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <div class="empty-state">לא נמצאו תכניות תל״ן</div>
+}
+
+@code {
+    [Parameter] public EventCallback<AdditionalStudyProgramDto> OnEdit { get; set; }
+    [Parameter] public EventCallback<int> OnDelete { get; set; }
+    [Parameter] public EventCallback<int> OnViewHistory { get; set; }
+
+    protected override string GetDefaultSortColumn() => nameof(AdditionalStudyProgramDto.ClassName);
+
+    protected override List<ColumnDefinition> DefineColumns()
+    {
+        return new List<ColumnDefinition>
+        {
+            new() { Label = "כיתה", PropertyName = nameof(AdditionalStudyProgramDto.ClassName), IsSortable = true },
+            new() { Label = "שם תכנית", PropertyName = nameof(AdditionalStudyProgramDto.Name), IsSortable = true },
+            new() { Label = "שעות שבועיות", PropertyName = nameof(AdditionalStudyProgramDto.WeeklyHours), IsSortable = true },
+            new() { Label = "מפגשים", PropertyName = nameof(AdditionalStudyProgramDto.NumberOfSessions), IsSortable = true },
+            new() { Label = "תלמידים", PropertyName = nameof(AdditionalStudyProgramDto.NumberOfStudents), IsSortable = true },
+            new() { Label = "עלות", PropertyName = nameof(AdditionalStudyProgramDto.Cost), IsSortable = true },
+            new() { Label = "סכום מאושר", PropertyName = nameof(AdditionalStudyProgramDto.ApprovedAmount), IsSortable = true },
+            new() { Label = "סטטוס אישור", PropertyName = nameof(AdditionalStudyProgramDto.ApprovalStatus), IsSortable = true },
+            new() { Label = "גרסה", PropertyName = "Version", IsSortable = false }
+        };
+    }
+
+    protected override IEnumerable<AdditionalStudyProgramDto> ApplySortLogic(List<AdditionalStudyProgramDto> items, string columnName, bool ascending)
+    {
+        return columnName switch
+        {
+            nameof(AdditionalStudyProgramDto.ClassName) => ascending
+                ? items.OrderBy(p => p.ClassName)
+                : items.OrderByDescending(p => p.ClassName),
+            nameof(AdditionalStudyProgramDto.Name) => ascending
+                ? items.OrderBy(p => p.Name)
+                : items.OrderByDescending(p => p.Name),
+            nameof(AdditionalStudyProgramDto.WeeklyHours) => ascending
+                ? items.OrderBy(p => p.WeeklyHours)
+                : items.OrderByDescending(p => p.WeeklyHours),
+            nameof(AdditionalStudyProgramDto.NumberOfSessions) => ascending
+                ? items.OrderBy(p => p.NumberOfSessions)
+                : items.OrderByDescending(p => p.NumberOfSessions),
+            nameof(AdditionalStudyProgramDto.NumberOfStudents) => ascending
+                ? items.OrderBy(p => p.NumberOfStudents)
+                : items.OrderByDescending(p => p.NumberOfStudents),
+            nameof(AdditionalStudyProgramDto.Cost) => ascending
+                ? items.OrderBy(p => p.Cost ?? 0)
+                : items.OrderByDescending(p => p.Cost ?? 0),
+            nameof(AdditionalStudyProgramDto.ApprovedAmount) => ascending
+                ? items.OrderBy(p => p.ApprovedAmount ?? 0)
+                : items.OrderByDescending(p => p.ApprovedAmount ?? 0),
+            nameof(AdditionalStudyProgramDto.ApprovalStatus) => ascending
+                ? items.OrderBy(p => p.ApprovalStatus)
+                : items.OrderByDescending(p => p.ApprovalStatus),
+            _ => items.OrderBy(p => p.ClassName)
+        };
+    }
+}
+
+<style>
+    .btn-link {
+        background: none;
+        border: none;
+        color: #007bff;
+        text-decoration: underline;
+        cursor: pointer;
+        padding: 0;
+        font: inherit;
+    }
+
+    .btn-link:hover {
+        color: #0056b3;
+    }
+</style>

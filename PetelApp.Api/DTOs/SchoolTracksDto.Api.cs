@@ -9,7 +9,7 @@ namespace PetelApp.Api.DTOs
         public string TrackLevel { get; set; } = string.Empty;
         public int ClassId { get; set; }
         public string ClassName { get; set; } = string.Empty;
-        public int WeeklyHours { get; set; }
+        public decimal WeeklyHours { get; set; }
     }
 
     public class CreateSchoolTrackDto
@@ -18,7 +18,7 @@ namespace PetelApp.Api.DTOs
         public int TrackId { get; set; }
         public int? TrackLevelId { get; set; }
         public int ClassId { get; set; }
-        public int WeeklyHours { get; set; }
+        public decimal WeeklyHours { get; set; }
     }
 
     public class UpdateSchoolTrackDto
@@ -26,6 +26,6 @@ namespace PetelApp.Api.DTOs
         public int Id { get; set; }
         public int? TrackLevelId { get; set; }
         public int ClassId { get; set; }
-        public int WeeklyHours { get; set; }
+        public decimal WeeklyHours { get; set; }
     }
 }

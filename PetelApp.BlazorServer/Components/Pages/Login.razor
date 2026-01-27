@@ -1,0 +1,684 @@
+@page "/login"
+@layout EmptyLayout
+@inject ApiService ApiService
+@inject TokenService TokenService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject SessionStateService SessionState
+
+<div class="login-container">
+    <div class="logo">
+        <img src="/images/petel_logo.png" alt="לוגו המערכת" />
+    </div>
+    <div class="spacer"></div>
+
+    <div class="login-header">
+        <h1 class="login-title">מערכת ניהול אגרות תלמידי חוץ</h1>
+        <p class="login-subtitle">בחר את הארגון שלך ולאחר מכן הזן את פרטי ההתחברות</p>
+    </div>
+
+    <div class="step-indicator">
+        <div class="step @(_currentStep >= 1 ? "active" : "") @(_currentStep > 1 ? "completed" : "")">
+            <span class="step-number">1</span>
+            <span>בחר ארגון</span>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step @(_currentStep >= 2 ? "active" : "") @(_currentStep > 2 ? "completed" : "")">
+            <span class="step-number">2</span>
+            <span>הזן פרטים</span>
+        </div>
+        <div class="step-divider"></div>
+        <div class="step @(_currentStep >= 3 ? "active" : "")">
+            <span class="step-number">3</span>
+            <span>התחבר</span>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="error-message" style="display: block;">
+            @_errorMessage
+        </div>
+    }
+
+    <div class="form-group">
+        <label for="entity" class="form-label">מוסד חינוכי/עיריה/רשת</label>
+        <div class="autocomplete-container">
+            <input type="text" 
+                   @ref="_entityInput"
+                   class="autocomplete-input" 
+                   placeholder="הזן לפחות 3 תווים לחיפוש..."
+                   value="@_searchText"
+                   @oninput="OnSearchTextChanged"
+                   @onkeydown="HandleAutocompleteKeyDown"
+                   @onfocus="OnAutocompleteFocus"
+                   autocomplete="off" />
+            <div class="autocomplete-arrow"></div>
+            <div class="autocomplete-dropdown @(_showDropdown ? "show" : "")">
+                @if (_filteredEntities.Count == 0 && _searchText.Length >= 3)
+                {
+                    <div class="autocomplete-no-results">לא נמצאו תוצאות</div>
+                }
+                else
+                {
+                    @for (int i = 0; i < _filteredEntities.Count; i++)
+                    {
+                        var entity = _filteredEntities[i];
+                        var index = i;
+                        <div class="autocomplete-option @(index == _selectedIndex ? "highlighted" : "") @(entity.Id == _selectedEntityId ? "selected" : "")"
+                             @onclick="@(() => SelectEntity(entity))"
+                             @onmouseenter="@(() => _selectedIndex = index)">
+                            @entity.Name
+                        </div>
+                    }
+                }
+            </div>
+        </div>
+        <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">
+            בחר את הארגון שלך לפני הזנת פרטי ההתחברות
+        </small>
+    </div>
+
+    <div class="credentials-section @(_currentStep >= 2 ? "show" : "")" style="@(_currentStep >= 2 ? "display: block;" : "display: none;")">
+        <div class="form-group">
+            <label for="username" class="form-label">שם משתמש</label>
+            <input type="text" 
+                   class="form-input" 
+                   @bind="_username"
+                   @onkeydown="HandleEnterKey"
+                   autocomplete="username" />
+        </div>
+
+        <div class="form-group">
+            <label for="password" class="form-label">סיסמה</label>
+            <input type="password" 
+                   class="form-input" 
+                   @bind="_password"
+                   @onkeydown="HandleEnterKey"
+                   autocomplete="current-password" />
+        </div>
+    </div>
+
+    <button type="button" 
+            class="login-button" 
+            @onclick="HandleLogin" 
+            disabled="@(_selectedEntityId == 0 || _isLoading)">
+        @if (_isLoading)
+        {
+            <span>מתחבר...</span>
+        }
+        else if (_selectedEntityId == 0)
+        {
+            <span>בחר ישות תחילה</span>
+        }
+        else
+        {
+            <span>התחבר</span>
+        }
+    </button>
+
+    <!-- OTP Modal Overlay -->
+    <div class="modal-overlay" style="display: @(_requiresOtp ? "flex" : "none");">
+        <div class="modal-content otp-modal">
+            <div class="modal-header">
+                <h2>אימות דו-שלבי</h2>
+            </div>
+            <div class="modal-body">
+                <div class="otp-input-container">
+                    <input type="text" 
+                           class="form-input" 
+                           maxlength="6" 
+                           @bind="_otpCode"
+                           @onkeydown="HandleOtpEnterKey"
+                           placeholder="הזן 6 ספרות" 
+                           autocomplete="off" 
+                           inputmode="numeric" />
+                    <small>הזן את קוד האימות בן 6 הספרות מאפליקציית האימות שלך</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" @onclick="CancelOtp">ביטול</button>
+                <button type="button" class="btn-primary" @onclick="HandleOtpVerification" disabled="@_isLoading">
+                    @if (_isLoading)
+                    {
+                        <span>מאמת...</span>
+                    }
+                    else
+                    {
+                        <span>אמת</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- OTP Setup Modal -->
+    <div class="modal-overlay" style="display: @(_requiresOtpSetup ? "flex" : "none");">
+        <div class="modal-content otp-setup-modal">
+            <div class="modal-header">
+                <h2>הגדרת אימות דו-שלבי</h2>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 20px;">אנא סרוק את קוד ה-QR באמצעות אפליקציית אימות:</p>
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    @if (!string.IsNullOrEmpty(_qrCodeUrl))
+                    {
+                        <img src="@_qrCodeUrl" 
+                             alt="QR Code" 
+                             style="border: 2px solid #ccc; padding: 10px; max-width: 250px;" />
+                    }
+                    else
+                    {
+                        <div class="loading-spinner">טוען QR...</div>
+                    }
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">או הזן את הקוד הבא באופן ידני:</label>
+                    <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; text-align: center; font-family: monospace; font-size: 16px; word-break: break-all;">
+                        @_manualSecret
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="setupOtpCode" style="display: block; margin-bottom: 8px; font-weight: 600;">הזן קוד אימות מהאפליקציה לאימות ההגדרה:</label>
+                    <input type="text" 
+                           class="form-input" 
+                           maxlength="6" 
+                           @bind="_setupOtpCode"
+                           @onkeydown="HandleSetupOtpEnterKey"
+                           placeholder="הזן 6 ספרות" 
+                           autocomplete="off" 
+                           inputmode="numeric" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" @onclick="CancelOtpSetup">ביטול</button>
+                <button type="button" class="btn-primary" @onclick="HandleOtpSetupVerification" disabled="@_isLoading">
+                    @if (_isLoading)
+                    {
+                        <span>מאמת...</span>
+                    }
+                    else
+                    {
+                        <span>אמת והמשך</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-footer">
+        @_systemVersion
+    </div>
+</div>
+
+@code {
+    [Inject] private ILogger<Login> _logger { get; set; } = default!;
+
+    private ElementReference _entityInput;
+    private string _searchText = "";
+    private string _username = "";
+    private string _password = "";
+    private int _selectedEntityId = 0;
+    private string _selectedEntityName = "";
+    private string _errorMessage = "";
+    private bool _isLoading = false;
+    private List<EntityDto> _entities = new();
+    private List<EntityDto> _filteredEntities = new();
+    private bool _showDropdown = false;
+    private int _selectedIndex = -1;
+    private int _currentStep = 1;
+    private string _systemVersion = "טוען...";
+
+    private bool _requiresOtp = false;
+    private string _otpCode = "";
+    private string? _tempToken;
+    
+    private bool _requiresOtpSetup = false;
+    private string? _qrCodeUrl;
+    private string? _manualSecret;
+    private string _setupOtpCode = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Clear any existing session on login page load
+            await TokenService.ClearTokenAsync();
+            SessionState.ClearSession();
+            _logger.LogInformation("Cleared previous session on login page load");
+            
+            // Load entities for the dropdown
+            await LoadEntities();
+            _logger.LogInformation("Loaded {Count} entities", _entities.Count);
+            
+            // Load system version
+            await LoadSystemVersion();
+            _logger.LogInformation("System version loaded: {Version}", _systemVersion);
+            
+            StateHasChanged();
+            
+            // Set focus to entity input after rendering with delay
+            try
+            {
+                await Task.Delay(200);
+                await _entityInput.FocusAsync();
+                _logger.LogInformation("Focus set to entity input");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to focus input");
+            }
+        }
+    }
+
+    private async Task LoadEntities()
+    {
+        try
+        {
+            _entities = await ApiService.GetPublicAsync<List<EntityDto>>("entities/login") ?? new();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load entities");
+            _entities = new List<EntityDto>();
+        }
+    }
+
+    private async Task LoadSystemVersion()
+    {
+        try
+        {
+            // Query by ID since we know System Version is attribute ID 1
+            var allAttributes = await ApiService.GetPublicAsync<List<SystemAttributeResponse>>("systemattributes");
+            var systemVersionAttr = allAttributes?.FirstOrDefault(a => a.Id == 1 || a.Description == "System Version");
+            
+            if (systemVersionAttr != null && !string.IsNullOrEmpty(systemVersionAttr.Value))
+            {
+                _systemVersion = $"מערכת ניהול - גרסה {systemVersionAttr.Value}";
+            }
+            else
+            {
+                _systemVersion = "מערכת ניהול";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load system version");
+            _systemVersion = "מערכת ניהול";
+        }
+    }
+
+    private void OnSearchTextChanged(ChangeEventArgs e)
+    {
+        _searchText = e.Value?.ToString() ?? "";
+        FilterEntities();
+    }
+
+    private void OnAutocompleteFocus()
+    {
+        if (_searchText.Length >= 3)
+        {
+            FilterEntities();
+        }
+    }
+
+    private void FilterEntities()
+    {
+        if (_searchText.Length < 3)
+        {
+            _filteredEntities = new();
+            _showDropdown = false;
+            return;
+        }
+
+        var searchLower = _searchText.ToLower();
+        _filteredEntities = _entities
+            .Where(e => e.Name.ToLower().Contains(searchLower))
+            .Take(10)
+            .ToList();
+
+        _showDropdown = true;
+        _selectedIndex = -1;
+    }
+
+    private void SelectEntity(EntityDto entity)
+    {
+        _selectedEntityId = entity.Id;
+        _selectedEntityName = entity.Name;
+        _searchText = entity.Name;
+        _showDropdown = false;
+        _currentStep = 2;
+        _errorMessage = "";
+    }
+
+    private async Task HandleAutocompleteKeyDown(KeyboardEventArgs e)
+    {
+        if (!_showDropdown || _filteredEntities.Count == 0)
+        {
+            if (e.Key != "ArrowDown" && e.Key != "ArrowUp" && e.Key != "Enter" && e.Key != "Escape")
+                return;
+        }
+
+        if (e.Key == "ArrowDown")
+        {
+            _selectedIndex = Math.Min(_selectedIndex + 1, _filteredEntities.Count - 1);
+        }
+        else if (e.Key == "ArrowUp")
+        {
+            _selectedIndex = Math.Max(_selectedIndex - 1, 0);
+        }
+        else if (e.Key == "Enter" && _selectedIndex >= 0)
+        {
+            SelectEntity(_filteredEntities[_selectedIndex]);
+        }
+        else if (e.Key == "Escape")
+        {
+            _showDropdown = false;
+        }
+    }
+
+    private async Task HandleEnterKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await HandleLogin();
+        }
+    }
+
+    private async Task HandleOtpEnterKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await HandleOtpVerification();
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        _errorMessage = "";
+        _currentStep = 3;
+
+        if (string.IsNullOrWhiteSpace(_username))
+        {
+            _errorMessage = "נא להזין שם משתמש";
+            _currentStep = 2;
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_password))
+        {
+            _errorMessage = "נא להזין סיסמה";
+            _currentStep = 2;
+            return;
+        }
+
+        if (_selectedEntityId == 0)
+        {
+            _errorMessage = "נא לבחור ישות";
+            _currentStep = 1;
+            return;
+        }
+
+        _isLoading = true;
+
+        try
+        {
+            var loginRequest = new LoginRequest
+            {
+                Username = _username,
+                Password = _password,
+                EntityId = _selectedEntityId
+            };
+
+            var response = await ApiService.PostAsync<LoginRequest, LoginResponse>("auth/login", loginRequest);
+
+            if (response != null)
+            {
+                // Check OTP setup requirement FIRST
+                if (response.RequiresOtpSetup)
+                {
+                    _logger.LogInformation("OTP setup required for user");
+                    _requiresOtpSetup = true;
+                    _tempToken = response.TempToken;
+                    await LoadOtpSetupQr();
+                    return;
+                }
+                
+                // Check OTP requirements (already set up)
+                if (response.RequiresOtp)
+                {
+                    _requiresOtp = true;
+                    _tempToken = response.TempToken;
+                    return;
+                }
+
+                // Now check success flag (for actual login failures)
+                if (response.Success)
+                {
+                    await TokenService.SetTokenAsync(response.Token);
+                    Navigation.NavigateTo("/maindashboard");
+                }
+                else
+                {
+                    _errorMessage = response.Message ?? "שגיאה בהתחברות";
+                    _currentStep = 2;
+                }
+            }
+            else
+            {
+                _errorMessage = "שגיאה בהתחברות";
+                _currentStep = 2;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"שגיאה: {ex.Message}";
+            _currentStep = 2;
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task HandleOtpVerification()
+    {
+        _errorMessage = "";
+
+        if (string.IsNullOrWhiteSpace(_otpCode) || _otpCode.Length != 6)
+        {
+            _errorMessage = "נא להזין קוד בן 6 ספרות";
+            return;
+        }
+
+        _isLoading = true;
+
+        try
+        {
+            var otpRequest = new { TempToken = _tempToken, Code = _otpCode };
+            var response = await ApiService.PostAsync<object, LoginResponse>("otp/validate", otpRequest);
+
+            if (response != null && response.Success)
+            {
+                await TokenService.SetTokenAsync(response.Token);
+                Navigation.NavigateTo("/maindashboard");
+            }
+            else
+            {
+                _errorMessage = response?.Message ?? "קוד אימות שגוי";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void CancelOtp()
+    {
+        _requiresOtp = false;
+        _otpCode = "";
+        _tempToken = null;
+        _currentStep = 2;
+    }
+    
+    private async Task LoadOtpSetupQr()
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<OtpSetupResponse>($"otp/setup", _tempToken);
+            
+            if (response != null)
+            {
+                _qrCodeUrl = $"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={Uri.EscapeDataString(response.QrCodeUrl)}";
+                _manualSecret = response.Secret;
+                _logger.LogInformation("OTP setup QR loaded successfully");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load OTP setup QR");
+            _errorMessage = "שגיאה בטעינת QR להגדרת אימות";
+        }
+    }
+    
+    private async Task HandleSetupOtpEnterKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await HandleOtpSetupVerification();
+        }
+    }
+    
+    private async Task HandleOtpSetupVerification()
+    {
+        _errorMessage = "";
+
+        if (string.IsNullOrWhiteSpace(_setupOtpCode) || _setupOtpCode.Length != 6)
+        {
+            _errorMessage = "נא להזין קוד בן 6 ספרות";
+            return;
+        }
+
+        _isLoading = true;
+
+        try
+        {
+            var setupRequest = new { Code = _setupOtpCode };
+            var response = await ApiService.PostAsync<object, OtpSetupVerifyResponse>(
+                "otp/verify-setup", 
+                setupRequest,
+                _tempToken
+            );
+
+            if (response != null && response.Success)
+            {
+                _logger.LogInformation("OTP setup verified successfully, completing login");
+                
+                // Now complete the OTP login with the same code
+                await CompleteOtpLogin(_setupOtpCode);
+            }
+            else
+            {
+                _errorMessage = response?.Message ?? "קוד אימות שגוי, נסה שוב";
+                _setupOtpCode = "";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error verifying OTP setup");
+            _errorMessage = $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+    
+    private async Task CompleteOtpLogin(string code)
+    {
+        try
+        {
+            var otpRequest = new { TempToken = _tempToken, Code = code };
+            var response = await ApiService.PostAsync<object, LoginResponse>("otp/validate", otpRequest);
+
+            if (response != null && response.Success)
+            {
+                await TokenService.SetTokenAsync(response.Token);
+                Navigation.NavigateTo("/maindashboard");
+            }
+            else
+            {
+                _errorMessage = response?.Message ?? "שגיאה בהשלמת ההתחברות";
+                CancelOtpSetup();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error completing OTP login");
+            _errorMessage = $"שגיאה: {ex.Message}";
+            CancelOtpSetup();
+        }
+    }
+    
+    private void CancelOtpSetup()
+    {
+        _requiresOtpSetup = false;
+        _setupOtpCode = "";
+        _qrCodeUrl = null;
+        _manualSecret = null;
+        _tempToken = null;
+        _currentStep = 2;
+    }
+
+    private class EntityDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private class LoginRequest
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public int EntityId { get; set; }
+    }
+
+    private class LoginResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public string Token { get; set; } = string.Empty;
+        public bool RequiresOtp { get; set; }
+        public bool RequiresOtpSetup { get; set; }
+        public string? TempToken { get; set; }
+    }
+
+    private class SystemAttributeResponse
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Value { get; set; } = string.Empty;
+        public string ValueType { get; set; } = string.Empty;
+        public string? Description { get; set; }
+    }
+    
+    private class OtpSetupResponse
+    {
+        public string QrCodeUrl { get; set; } = string.Empty;
+        public string Secret { get; set; } = string.Empty;
+    }
+    
+    private class OtpSetupVerifyResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+    }
+}

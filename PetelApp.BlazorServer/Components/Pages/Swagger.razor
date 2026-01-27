@@ -1,0 +1,68 @@
+@page "/swagger"
+@inherits SecurePageBase
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+
+<div class="main-container">
+    <div class="content-card">
+        <h2>Swagger API Documentation</h2>
+        <p class="swagger-description">
+            תיעוד מלא של ממשקי ה-API של מערכת פתל. 
+            ניתן לצפות בכל הנקודות הקצה, לבחון את הפרמטרים ולבדוק את התגובות.
+        </p>
+
+        <div class="swagger-actions">
+            <SecureButton ActionName="swagger_opennewtab" OnClick="OpenSwaggerInNewTab" CssClass="btn-primary">
+                פתח Swagger בחלון חדש
+            </SecureButton>
+        </div>
+
+        <!-- Embed Swagger UI -->
+        <div class="swagger-container">
+            <iframe src="@_swaggerUrl" 
+                    title="Swagger API Documentation"
+                    style="width: 100%; height: 800px; border: 1px solid #dee2e6; border-radius: 8px;">
+            </iframe>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override string PageName => "swagger";
+    
+    private string _swaggerUrl = "http://localhost:5082/swagger";
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null)
+        {
+            // Note: Swagger might be accessible without authentication
+            // Adjust based on your security requirements
+        }
+
+        // Construct Swagger URL from API base URL
+        _swaggerUrl = "http://localhost:5082/swagger";
+    }
+
+    private void OpenSwaggerInNewTab()
+    {
+        // Use JSInterop in production for proper window.open
+        Console.WriteLine($"Opening Swagger: {_swaggerUrl}");
+    }
+}
+
+<style>
+    .swagger-description {
+        margin-bottom: 20px;
+        color: var(--text-secondary, #6c757d);
+    }
+
+    .swagger-actions {
+        margin-bottom: 20px;
+    }
+
+    .swagger-container {
+        margin-top: 20px;
+    }
+</style>

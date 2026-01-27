@@ -1,0 +1,472 @@
+﻿@inherits LayoutComponentBase
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+@inject ApiService ApiService
+@inject AuthenticationService AuthService
+@inject SessionTimeoutService TimeoutService
+@inject IJSRuntime JSRuntime
+
+<AuthenticationGuard>
+    <SessionTimeoutWarning />
+    
+    <div class="app-container">
+        <!-- Top Bar -->
+        <div class="top-bar">
+        <div class="top-bar-left">
+            <div class="system-logo-section">
+                <div class="system-logo" @onclick="NavigateToMainDashboard" style="cursor: pointer; @_logoStyle" title="חזור למסך הראשי">
+                    <img src="@_topLogo" alt="לוגו המערכת" />
+                </div>
+                @if (_showDebugButton)
+                {
+                    <button class="debug-btn" @onclick="ShowSessionDebug" title="הצג נתוני סשן">
+                        🔍 Debug Session
+                    </button>
+                }
+            </div>
+        </div>
+
+        <div class="top-bar-center">
+            <div class="app-title">מערכת לניהול אגרות תלמידי חוץ</div>
+        </div>
+
+        <div class="top-bar-right">
+            <div class="user-section">
+                <div class="user-name" id="userName">@_username</div>
+            </div>
+
+            <div class="entity-section">
+                <div class="entity-logo" id="entityLogo">🏢</div>
+                <div class="entity-info">
+                    <div class="entity-name" id="entityName">@_entityName</div>
+                    <div class="entity-type" id="entityType">@_entityType</div>
+                </div>
+            </div>
+
+            <button class="logout-btn" @onclick="Logout">🚪 יציאה</button>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Side Menu (LEFT side) -->
+        <NavMenu />
+        
+        <!-- Main Content Area -->
+        <div class="main-content" id="mainContentScroller">
+            <div id="dynamicContent">
+                @Body
+            </div>
+        </div>
+    </div>
+
+    <!-- System Footer -->
+    <div class="system-footer">
+        <div class="footer-content">
+            <div class="system-logo">
+                <img src="@_systemLogo" alt="לוגו המערכת" />
+            </div>
+            <span id="systemVersion">מערכת פט"ל | גרסה @_systemVersion</span>
+        </div>
+    </div>
+</div>
+
+<!-- Debug Modal -->
+@if (_showDebugModal)
+{
+    <div class="debug-modal" style="display: block;" @onclick="CloseDebugModal">
+        <div class="debug-modal-content" @onclick:stopPropagation="true">
+            <div class="debug-modal-header">
+                <h3>נתוני סשן נוכחי</h3>
+                <span class="debug-modal-close" @onclick="CloseDebugModal">&times;</span>
+            </div>
+            <div class="debug-json-container">
+                @if (_debugDataLoading)
+                {
+                    <p>טוען נתוני סשן...</p>
+                }
+                else
+                {
+                    <pre>@_debugData</pre>
+                }
+            </div>
+            <div style="margin-top: 15px; text-align: center;">
+                <button @onclick="RefreshDebugData" class="btn-secondary">רענן נתונים</button>
+                <button @onclick="CloseDebugModal" class="btn-secondary" style="margin-right: 10px;">סגור</button>
+            </div>
+        </div>
+    </div>
+}
+
+<div id="blazor-error-ui" data-nosnippet>
+    אירעה שגיאה לא מטופלת.
+    <a href="." class="reload">טען מחדש</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private string _systemVersion = "1.0";
+    private string _entityName = "";
+    private string _entityType = "";
+    private string _username = "";
+    private bool _showDebugButton = false;
+    private bool _showDebugModal = false;
+    private bool _debugDataLoading = false;
+    private string _debugData = string.Empty;
+    private string _systemLogo = "/images/petel_logo.png";
+    private string _nativLogo = "/images/nativ-logo.png";
+
+    private string _topLogo = "/images/petel_logo.png";
+    private string _logoStyle = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadHeaderInfo();
+        await LoadSystemVersion();
+        await CheckDebugButtonVisibility();
+        await LoadSystemLogo();
+    }
+
+    private async Task LoadHeaderInfo()
+    {
+        try
+        {
+            var session = await SessionState.GetSessionAsync();
+            if (session != null)
+            {
+                _username = session.UserFullName ?? session.Username;
+                _entityName = session.EntityName ?? "שם הישות";
+                _entityType = session.EntityTypeName ?? "סוג הישות";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading header info: {ex.Message}");
+        }
+    }
+
+    private async Task LoadSystemVersion()
+    {
+        try
+        {
+            var attributes = await ApiService.GetAsync<List<SystemAttributeDto>>("systemattributes");
+            if (attributes != null)
+            {
+                var versionAttr = attributes.FirstOrDefault(a => a.Name == "System Version");
+                if (versionAttr != null)
+                {
+                    _systemVersion = versionAttr.Value ?? "1.0";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading system version: {ex.Message}");
+        }
+    }
+
+    private async Task CheckDebugButtonVisibility()
+    {
+        try
+        {
+            var attributes = await ApiService.GetAsync<List<SystemAttributeDto>>("systemattributes");
+            if (attributes != null)
+            {
+                var debugAttr = attributes.FirstOrDefault(a => a.Id == 9999 || a.Name == "Show debug button");
+                if (debugAttr != null)
+                {
+                    _showDebugButton = debugAttr.Value?.ToLower() == "true" || debugAttr.Value == "1";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error checking debug button visibility: {ex.Message}");
+        }
+    }
+
+    private async Task LoadSystemLogo()
+    {
+        try
+        {
+            var session = await SessionState.GetSessionAsync();
+            if (session == null || string.IsNullOrEmpty(session.EntityId))
+            {
+                Console.WriteLine("No entity ID in session");
+                return;
+            }
+
+            var distributorData = await ApiService.GetAsync<DistributorResponse>($"entities/{session.EntityId}/distributor");
+            if (distributorData != null && distributorData.Distributor == "Nativ")
+            {
+                _topLogo = _nativLogo;
+                _logoStyle = "width: 175px; height: auto;";
+                Console.WriteLine("✅ System logo set to Nativ");
+            }
+            else
+            {
+                Console.WriteLine("✅ Using default Petel logo");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading system logo: {ex.Message}");
+            // Silently fail - keep default logo
+        }
+    }
+
+    private async Task ShowSessionDebug()
+    {
+        _showDebugModal = true;
+        _debugDataLoading = true;
+        StateHasChanged();
+        
+        await LoadDebugData();
+    }
+
+    private async Task LoadDebugData()
+    {
+        try
+        {
+            var session = await SessionState.GetSessionAsync();
+            
+            // Get session properties
+            var sessionProperties = new Dictionary<string, string>();
+            string? propertiesError = null;
+            try
+            {
+                sessionProperties = await ApiService.GetAsync<Dictionary<string, string>>("session/properties") ?? new();
+            }
+            catch (Exception ex)
+            {
+                propertiesError = ex.Message;
+            }
+            
+            // Get user actions
+            var userActions = new List<object>();
+            string? userActionsError = null;
+            try
+            {
+                userActions = await ApiService.GetAsync<List<object>>("security/user-actions") ?? new();
+            }
+            catch (Exception ex)
+            {
+                userActionsError = ex.Message;
+            }
+
+            var debugData = new
+            {
+                sessionInfo = session,
+                sessionProperties = new
+                {
+                    properties = sessionProperties,
+                    error = propertiesError
+                },
+                userRoles = session?.Roles ?? new List<int>(),
+                userActions = new
+                {
+                    count = userActions.Count,
+                    actions = userActions,
+                    error = userActionsError
+                }
+            };
+
+            _debugData = System.Text.Json.JsonSerializer.Serialize(debugData, new System.Text.Json.JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            });
+        }
+        catch (Exception ex)
+        {
+            _debugData = $"שגיאה בטעינת נתוני סשן: {ex.Message}";
+        }
+        finally
+        {
+            _debugDataLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RefreshDebugData()
+    {
+        _debugDataLoading = true;
+        StateHasChanged();
+        await LoadDebugData();
+    }
+
+    private void CloseDebugModal()
+    {
+        _showDebugModal = false;
+        StateHasChanged();
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+    }
+    
+    private void NavigateToMainDashboard()
+    {
+        Navigation.NavigateTo("/maindashboard");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Initialize session timeout after first render
+            await TimeoutService.InitializeAsync();
+            
+            // Initialize scroll recalculation observer
+            await InitializeScrollObserver();
+        }
+    }
+
+    private async Task InitializeScrollObserver()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("eval", @"
+                (function() {
+                    const mainContent = document.getElementById('mainContentScroller');
+                    if (!mainContent) return;
+
+                    let resizeTimeout;
+                    const cardHeights = new Map(); // Store heights for each card
+                    
+                    // Measure actual footer dimensions
+                    const footer = document.querySelector('.system-footer');
+                    const footerHeight = footer ? footer.offsetHeight : 50;
+                    
+                    console.log('📐 Footer height:', footerHeight + 'px');
+                    
+                    const adjustContentCardHeight = (detailCard, isExpanding) => {
+                        // Find the parent content-card
+                        const contentCard = detailCard.closest('.content-card');
+                        if (!contentCard) return;
+
+                        // Get the detail card content
+                        const cardContent = detailCard.querySelector('.detail-card-content');
+                        if (!cardContent) return;
+
+                        const cardId = detailCard.id || detailCard.getAttribute('data-card-id') || 
+                                      Array.from(contentCard.querySelectorAll('.detail-card')).indexOf(detailCard);
+
+                        if (isExpanding) {
+                            // Store the collapsed height before expansion
+                            const collapsedHeight = 36; // Assume default collapsed height
+                            cardHeights.set(cardId, collapsedHeight);
+                            
+                            // Wait for expansion animation to complete
+                            setTimeout(() => {
+                                const expandedHeight = detailCard.offsetHeight;
+                                const heightDiff = expandedHeight - collapsedHeight;
+                                
+                                console.log('📏 Card expansion:', {
+                                    cardId: cardId,
+                                    collapsedHeight: collapsedHeight + 'px',
+                                    expandedHeight: expandedHeight + 'px',
+                                    difference: heightDiff + 'px'
+                                });
+                                
+                                if (heightDiff > 0) {
+                                    // Grow the content-card by the difference
+                                    const currentHeight = contentCard.clientHeight;
+                                    const newHeight = currentHeight + heightDiff;
+                                    contentCard.style.height = newHeight + 'px';
+                                    contentCard.style.minHeight = newHeight + 'px';
+                                    
+                                    console.log('✅ Content card grown to:', newHeight + 'px');
+                                }
+                            }, 350); // Match CSS transition time
+                        } else {
+                            // Collapsing - shrink back to stored height
+                            const expandedHeight = detailCard.offsetHeight;
+                            
+                            setTimeout(() => {
+                                const collapsedHeight = cardHeights.get(cardId) || detailCard.offsetHeight;
+                                const heightDiff = expandedHeight - collapsedHeight;
+                                
+                                console.log('📏 Card collapse:', {
+                                    cardId: cardId,
+                                    expandedHeight: expandedHeight + 'px',
+                                    collapsedHeight: collapsedHeight + 'px',
+                                    difference: heightDiff + 'px'
+                                });
+                                
+                                if (heightDiff > 0) {
+                                    // Shrink the content-card by the difference
+                                    const currentHeight = contentCard.offsetHeight;
+                                    const newHeight = Math.max(currentHeight - heightDiff, 0);
+                                    
+                                    if (newHeight > 0) {
+                                        contentCard.style.height = newHeight + 'px';
+                                        contentCard.style.minHeight = newHeight + 'px';
+                                        
+                                        console.log('✅ Content card shrunk to:', newHeight + 'px');
+                                    } else {
+                                        // Reset to auto if calculation results in 0
+                                        contentCard.style.height = 'auto';
+                                        contentCard.style.minHeight = '0';
+                                    }
+                                }
+                                
+                                cardHeights.delete(cardId);
+                            }, 350);
+                        }
+                    };
+
+                    // Watch for DOM mutations (cards expanding/collapsing, content loading)
+                    const observer = new MutationObserver((mutations) => {
+                        mutations.forEach(mutation => {
+                            // Check for class changes on detail-card (collapsed <-> expanded)
+                            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                                const target = mutation.target;
+                                if (target.classList && target.classList.contains('detail-card')) {
+                                    const isExpanded = target.classList.contains('expanded');
+                                    const wasExpanded = mutation.oldValue && mutation.oldValue.includes('expanded');
+                                    
+                                    // Detect expansion or collapse
+                                    if (isExpanded && !wasExpanded) {
+                                        console.log('🔽 Card expanding...');
+                                        adjustContentCardHeight(target, true);
+                                    } else if (!isExpanded && wasExpanded) {
+                                        console.log('🔼 Card collapsing...');
+                                        adjustContentCardHeight(target, false);
+                                    }
+                                }
+                            }
+                        });
+                    });
+
+                    // Observe the dynamic content container
+                    const dynamicContent = document.getElementById('dynamicContent');
+                    if (dynamicContent) {
+                        observer.observe(dynamicContent, {
+                            childList: true,
+                            subtree: true,
+                            attributes: true,
+                            attributeFilter: ['class'],
+                            attributeOldValue: true  // Required to detect class changes
+                        });
+                    }
+
+                    console.log('✅ Smart content-card height adjustment initialized');
+                })();
+            ");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error initializing scroll observer: {ex.Message}");
+        }
+    }
+
+    // DTO for distributor response
+    private class DistributorResponse
+    {
+        public string Distributor { get; set; } = string.Empty;
+    }
+}
+
+</AuthenticationGuard>

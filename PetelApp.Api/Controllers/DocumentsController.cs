@@ -646,6 +646,16 @@ namespace PetelApp.Api.Controllers
                             }
                             else
                             {
+                                // ✅ Check if matching attribute was found
+                                if (matchingAttribute == null)
+                                {
+                                    notRequiredCount++;
+                                    _logger.LogInformation(
+                                        "Document type {TypeId} not required - school attribute type '{AttributeType}' not found",
+                                        docType.Id, docType.ObjectElementCheck);
+                                    continue;
+                                }
+
                                 var attributeType = matchingAttribute.SchoolAttributeType?.AttributeValueType?.ToLower();
                                 var attributeValue = matchingAttribute.Value;
                                 var requiredValue = docType.ObjectElementValue;

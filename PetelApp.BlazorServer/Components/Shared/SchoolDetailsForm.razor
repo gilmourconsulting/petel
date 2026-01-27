@@ -1,0 +1,426 @@
+@using PetelApp.BlazorServer.DTOs
+@inject IJSRuntime JSRuntime
+
+<PersonSelectorModal @ref="_personSelector" />
+<AddressEditorModal @ref="_addressEditor" Councils="@Councils" />
+
+@if (SchoolData != null)
+{
+    <div class="detail-fields-grid">
+        <!-- Basic Information Section -->
+        <div class="detail-section">
+            <h4 class="detail-section-title">פרטים בסיסיים</h4>
+
+            <div>
+                <p class="detail-field">
+                    <span class="detail-field-label">סמל בית ספר:</span>
+                    @if (IsEditMode)
+                    {
+                        <input type="text" class="form-input-text-small" @bind="SchoolData.Symbol" maxlength="8" />
+                    }
+                    else
+                    {
+                        <span class="detail-field-value">@(SchoolData.Symbol ?? "לא זמין")</span>
+                    }
+                </p>
+
+                <p class="detail-field">
+                    <span class="detail-field-label">אפיון:</span>
+                    @if (IsEditMode)
+                    {
+                        <select class="form-input-select" @bind="SchoolData.CharacterizationId">
+                            <option value="">בחר אפיון...</option>
+                            @foreach (var characterization in Characterizations)
+                            {
+                                <option value="@characterization.Id">@characterization.Name</option>
+                            }
+                        </select>
+                    }
+                    else
+                    {
+                        <span class="detail-field-value">@(SchoolData.CharacterizationName ?? "לא זמין")</span>
+                    }
+                </p>
+
+                <p class="detail-field">
+                    <span class="detail-field-label">שלב חינוך:</span>
+                    @if (IsEditMode)
+                    {
+                        <select class="form-input-select" @bind="SchoolData.EducationStage">
+                            <option value="">בחר שלב...</option>
+                            <option value="תיכון">תיכון</option>
+                            <option value="יסודי">יסודי</option>
+                            <option value="יסודי ותיכון">יסודי ותיכון</option>
+                        </select>
+                    }
+                    else
+                    {
+                        <span class="detail-field-value">@(SchoolData.EducationStage ?? "לא זמין")</span>
+                    }
+                </p>
+
+                <p class="detail-field">
+                    <span class="detail-field-label">רשות:</span>
+                    @if (IsEditMode)
+                    {
+                        <span style="position: relative; display: inline-block; width: 300px;">
+                            <input type="text" 
+                                   class="form-input-text" 
+                                   placeholder="הקלד לחיפוש רשות..."
+                                   value="@_councilSearchText"
+                                   @oninput="OnCouncilSearchInput"
+                                   @onfocus="OnCouncilFocus"
+                                   autocomplete="off"
+                                   style="width: 100%;" />
+                            
+                            @if (_showCouncilDropdown && _filteredCouncils.Any())
+                            {
+                                <div @onmousedown:preventDefault="true"
+                                     style="position: absolute; 
+                                            top: 100%; 
+                                            left: 0; 
+                                            right: 0;
+                                            max-height: 250px; 
+                                            overflow-y: auto; 
+                                            background: white; 
+                                            border: 1px solid #ccc; 
+                                            border-radius: 4px; 
+                                            z-index: 1000; 
+                                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                                            margin-top: 4px;">
+                                    @foreach (var council in _filteredCouncils)
+                                    {
+                                        <div @onclick="() => SelectCouncil(council)"
+                                             @onmouseover="@(() => _hoveredCouncilId = council.Id)"
+                                             @onmouseout="@(() => _hoveredCouncilId = null)"
+                                             style="padding: 10px 12px; 
+                                                    cursor: pointer; 
+                                                    border-bottom: 1px solid #f0f0f0;
+                                                    text-align: right;
+                                                    background-color: @((_hoveredCouncilId == council.Id) ? "#f0f0f0" : "white");">
+                                            @council.CouncilName
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else if (_showCouncilDropdown && !_filteredCouncils.Any() && !string.IsNullOrWhiteSpace(_councilSearchText))
+                            {
+                                <div style="position: absolute; 
+                                            top: 100%; 
+                                            left: 0; 
+                                            right: 0;
+                                            background: white; 
+                                            border: 1px solid #ccc; 
+                                            border-radius: 4px; 
+                                            z-index: 1000; 
+                                            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                                            padding: 12px; 
+                                            color: #999;
+                                            text-align: right;
+                                            margin-top: 4px;">
+                                    לא נמצאו תוצאות
+                                </div>
+                            }
+                        </span>
+                    }
+                    else
+                    {
+                        <span class="detail-field-value">@(SchoolData.CouncilName ?? "לא זמין")</span>
+                    }
+                </p>
+
+            </div>
+
+        </div>
+
+        <!-- Address & Contact Section -->
+        <div class="detail-section">
+            <h4 class="detail-section-title">כתובת ויצירת קשר</h4>
+            <div>
+                <p class="detail-field">
+                    <span class="detail-field-label">כתובת:</span>
+                    <span class="detail-field-value">
+                        @if (!string.IsNullOrEmpty(SchoolData.Street) || !string.IsNullOrEmpty(SchoolData.City))
+                        {
+                            @($"{SchoolData.Street} {SchoolData.HouseNumber}, {SchoolData.City}")
+                        }
+                        else
+                        {
+                            @("לא זמין")
+                        }
+                    </span>
+                    @if (IsEditMode)
+                    {
+                        <button class="btn-icon" @onclick="EditAddress" title="עריכת כתובת">
+                            <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                        </button>
+                    }
+                </p>
+
+                <p class="detail-field">
+                    <span class="detail-field-label">טלפון:</span>
+                    @if (IsEditMode)
+                    {
+                        <input type="tel" class="form-input-tel" @bind="SchoolData.Phone" placeholder="02-1234567" />
+                    }
+                    else
+                    {
+                        <span class="detail-field-value">@(SchoolData.Phone ?? "לא זמין")</span>
+                    }
+                </p>
+
+                <p class="detail-field">
+                    <span class="detail-field-label">דוא"ל:</span>
+                    @if (IsEditMode)
+                    {
+                        <input type="email" class="form-input-email" @bind="SchoolData.Email"
+                            placeholder="school@example.com" />
+                    }
+                    else
+                    {
+                        <span class="detail-field-value">@(SchoolData.Email ?? "לא זמין")</span>
+                    }
+                </p>
+            </div>
+        </div>
+
+        <!-- Contact People Section - Full Width -->
+        <div class="detail-section">
+            <h4 class="detail-section-title">אנשי קשר</h4>
+
+            <p class="detail-field">
+                <span class="detail-field-label">מנהל/ת:</span>
+                <span class="detail-field-value">@(SchoolData.PrincipalName ?? "לא זמין")</span>
+                @if (IsEditMode)
+                {
+                    <button class="btn-icon" @onclick="EditPrincipal" title="עריכת מנהל/ת">
+                        <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
+                }
+            </p>
+            <p class="detail-field">
+                <span class="detail-field-label">מפקח/ת:</span>
+                <span class="detail-field-value">@(SchoolData.InspectorName ?? "לא זמין")</span>
+                @if (IsEditMode)
+                {
+                    <button class="btn-icon" @onclick="EditInspector" title="עריכת מפקח/ת">
+                        <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
+                }
+            </p>
+            <p class="detail-field">
+                <span class="detail-field-label">איש קשר:</span>
+                <span class="detail-field-value">@(SchoolData.ContactPersonName ?? "לא זמין")</span>
+                @if (IsEditMode)
+                {
+                    <button class="btn-icon" @onclick="EditContactPerson" title="עריכת איש קשר">
+                        <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                    </button>
+                }
+            </p>
+
+        </div>
+        @if (IsEditMode)
+        {
+            <div class="detail-section">
+                <p class="detail-field">
+                <div class="form-actions">
+                    <button class="btn-primary" @onclick="SaveChanges">שמור שינויים</button>
+                </div>
+                </p>
+            </div>
+        }
+    </div>
+
+
+}
+
+@code {
+    [Parameter] public SchoolDetailsDto? SchoolData { get; set; }
+    [Parameter] public List<CharacterizationDto> Characterizations { get; set; } = new();
+    [Parameter] public List<CouncilDto> Councils { get; set; } = new();
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public EventCallback<SchoolDetailsDto> OnSave { get; set; }
+
+    // Council autocomplete state
+    private string _councilSearchText = "";
+    private bool _showCouncilDropdown = false;
+    private int? _hoveredCouncilId = null;
+    private List<CouncilDto> _filteredCouncils = new();
+
+    // Person selector modal reference
+    private PersonSelectorModal? _personSelector;
+    
+    // Address editor modal reference
+    private AddressEditorModal? _addressEditor;
+
+    protected override void OnParametersSet()
+    {
+        Console.WriteLine($"OnParametersSet - Councils: {Councils.Count}, IsEditMode: {IsEditMode}");
+        
+        // Initialize council search text with current selection
+        if (SchoolData?.CouncilId != null)
+        {
+            var selectedCouncil = Councils.FirstOrDefault(c => c.Id == SchoolData.CouncilId);
+            if (selectedCouncil != null)
+            {
+                _councilSearchText = selectedCouncil.CouncilName;
+                Console.WriteLine($"Set council text to: {_councilSearchText}");
+            }
+        }
+        else
+        {
+            _councilSearchText = "";
+        }
+    }
+
+    private void FilterCouncils()
+    {
+        if (string.IsNullOrWhiteSpace(_councilSearchText))
+        {
+            _filteredCouncils = Councils.Take(50).ToList(); // Show first 50 when empty
+        }
+        else
+        {
+            _filteredCouncils = Councils
+                .Where(c => c.CouncilName.Contains(_councilSearchText, StringComparison.OrdinalIgnoreCase))
+                .Take(50)
+                .ToList();
+        }
+    }
+
+    private void OnCouncilSearchInput(ChangeEventArgs e)
+    {
+        _councilSearchText = e.Value?.ToString() ?? "";
+        FilterCouncils();
+        _showCouncilDropdown = true;
+    }
+
+    private void OnCouncilFocus()
+    {
+        // Show all councils when focusing empty field
+        if (string.IsNullOrWhiteSpace(_councilSearchText))
+        {
+            _filteredCouncils = Councils.Take(50).ToList();
+        }
+        else
+        {
+            FilterCouncils();
+        }
+        _showCouncilDropdown = true;
+    }
+
+    private void SelectCouncil(CouncilDto council)
+    {
+        if (SchoolData != null)
+        {
+            SchoolData.CouncilId = council.Id;
+            SchoolData.CouncilName = council.CouncilName;
+            _councilSearchText = council.CouncilName;
+            _showCouncilDropdown = false;
+        }
+    }
+
+    private async Task EditPrincipal()
+    {
+        if (_personSelector == null) return;
+
+        var currentPerson = SchoolData.PrincipalId != null ? new PersonSelectorModal.PersonInfo
+        {
+            Id = SchoolData.PrincipalId,
+            FirstName = SchoolData.PrincipalName?.Split(' ').FirstOrDefault() ?? "",
+            LastName = SchoolData.PrincipalName?.Split(' ').Skip(1).FirstOrDefault() ?? "",
+            Position = "מנהל"
+        } : null;
+
+        var result = await _personSelector.ShowAsync("בחירת מנהל", currentPerson);
+        
+        if (result != null)
+        {
+            SchoolData.PrincipalId = result.Id;
+            SchoolData.PrincipalName = $"{result.FirstName} {result.LastName}".Trim();
+            StateHasChanged();
+        }
+    }
+
+    private async Task EditInspector()
+    {
+        if (_personSelector == null) return;
+
+        var currentPerson = SchoolData.InspectorId != null ? new PersonSelectorModal.PersonInfo
+        {
+            Id = SchoolData.InspectorId,
+            FirstName = SchoolData.InspectorName?.Split(' ').FirstOrDefault() ?? "",
+            LastName = SchoolData.InspectorName?.Split(' ').Skip(1).FirstOrDefault() ?? "",
+            Position = "מפקח"
+        } : null;
+
+        var result = await _personSelector.ShowAsync("בחירת מפקח", currentPerson);
+        
+        if (result != null)
+        {
+            SchoolData.InspectorId = result.Id;
+            SchoolData.InspectorName = $"{result.FirstName} {result.LastName}".Trim();
+            StateHasChanged();
+        }
+    }
+
+    private async Task EditContactPerson()
+    {
+        if (_personSelector == null) return;
+
+        var currentPerson = SchoolData.ContactPersonId != null ? new PersonSelectorModal.PersonInfo
+        {
+            Id = SchoolData.ContactPersonId,
+            FirstName = SchoolData.ContactPersonName?.Split(' ').FirstOrDefault() ?? "",
+            LastName = SchoolData.ContactPersonName?.Split(' ').Skip(1).FirstOrDefault() ?? "",
+            Position = "איש קשר"
+        } : null;
+
+        var result = await _personSelector.ShowAsync("בחירת איש קשר", currentPerson);
+        
+        if (result != null)
+        {
+            SchoolData.ContactPersonId = result.Id;
+            SchoolData.ContactPersonName = $"{result.FirstName} {result.LastName}".Trim();
+            StateHasChanged();
+        }
+    }
+
+    private async Task EditAddress()
+    {
+        if (_addressEditor == null || SchoolData == null) return;
+
+        var currentAddress = new AddressEditorModal.AddressInfo
+        {
+            Street = SchoolData.Street ?? "",
+            HouseNumber = SchoolData.HouseNumber ?? "",
+            City = SchoolData.City ?? "",
+            CouncilId = SchoolData.CouncilId,
+            PostalCode = SchoolData.PostalCode ?? ""
+        };
+
+        var result = await _addressEditor.ShowAsync(currentAddress);
+        
+        if (result != null)
+        {
+            SchoolData.Street = result.Street;
+            SchoolData.HouseNumber = result.HouseNumber;
+            SchoolData.City = result.City;
+            SchoolData.CouncilId = result.CouncilId;
+            SchoolData.CouncilName = result.City;
+            SchoolData.PostalCode = result.PostalCode;
+            
+            Console.WriteLine($"✅ Address updated: {result.FormattedAddress}");
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveChanges()
+    {
+        if (SchoolData != null)
+        {
+            await OnSave.InvokeAsync(SchoolData);
+        }
+    }
+}

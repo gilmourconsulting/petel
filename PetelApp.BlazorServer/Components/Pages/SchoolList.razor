@@ -1,0 +1,323 @@
+@page "/schoollist"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelApp.BlazorServer.DTOs
+@using PetelApp.BlazorServer.Components.Shared
+@using PetelApp.BlazorServer.Components.Modals
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <SecureButton ActionName="schoollist_entityDocuments" ScreenName="@PageName" FunctionName="NavigateToEntityDocuments" 
+                      OnClick="NavigateToEntityDocuments" CssClass="context-btn" Title="צפייה במסמכי הישות">
+            מסמכי ישות
+        </SecureButton>
+        <SecureButton ActionName="schoollist_councilsList" ScreenName="@PageName" FunctionName="NavigateToCouncilsList" 
+                      OnClick="NavigateToCouncilsList" CssClass="context-btn" Title="צפייה ברשימת הרשויות המשלחות">
+            סיכום רשויות משלחות
+        </SecureButton>
+        <div class="context-spacer"></div>
+        <SecureButton ActionName="schoollist_backToDashboard" ScreenName="@PageName" FunctionName="NavigateBackToDashboard" 
+                      OnClick="NavigateBackToDashboard" CssClass="context-navigation-btn" Title="חזרה למסך הראשי">
+            חזרה למסך הראשי
+        </SecureButton>
+    </div>
+
+    <!-- Main content -->
+    <div class="students-content">
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">רשימת בתי ספר</div>
+                <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
+                <div class="left-spacer"></div>
+            </div>
+            <div class="content-card">
+                <div class="header-actions">
+                    <button class="btn-icon" title="הוספת בית ספר חדש" @onclick="ShowAddSchoolModal">
+                        <img src="/images/Plus icon.png" alt="הוספת בית ספר חדש" class="action-icon-natural">
+                    </button>
+                </div>
+                <div class="content-card">
+                    <!-- Schools table -->
+                    <div class="schools-table-section">
+                        <div id="schoolsTableContainer">
+                            @if (_isLoading)
+                            {
+                                <div class="loading-spinner">
+                                    <p>טוען רשימת בתי ספר...</p>
+                                </div>
+                            }
+                            else if (_schools.Count == 0)
+                            {
+                                <div class="alert alert-info">לא נמצאו בתי ספר</div>
+                            }
+                            else
+                            {
+                                <div class="table-container" style="overflow-x: auto; max-width: 100%;">
+                                    <table class="data-table" style="min-width: 1200px;">
+                                        <thead>
+                                            <tr>
+                                                <th>פעולות</th>
+                                                <th @onclick="() => SortTable(nameof(SchoolDto.Name))">
+                                                    שם בית ספר @GetSortIcon(nameof(SchoolDto.Name))
+                                                </th>
+                                                <th @onclick="() => SortTable(nameof(SchoolDto.Symbol))">
+                                                    סמל מוסד @GetSortIcon(nameof(SchoolDto.Symbol))
+                                                </th>
+                                                <th>כתובת</th>
+                                                <th @onclick="() => SortTable(nameof(SchoolDto.PrincipalName))">
+                                                    שם המנהל @GetSortIcon(nameof(SchoolDto.PrincipalName))
+                                                </th>
+                                                <th @onclick="() => SortTable(nameof(SchoolDto.InspectorName))">
+                                                    שם המפקח @GetSortIcon(nameof(SchoolDto.InspectorName))
+                                                </th>
+                                                <th>אפיון המוסד</th>
+                                                <th @onclick="() => SortTable(nameof(SchoolDto.ContactPerson))">
+                                                    איש קשר במוסד @GetSortIcon(nameof(SchoolDto.ContactPerson))
+                                                </th>
+                                                <th @onclick="() => SortTable(nameof(SchoolDto.EducationStage))">
+                                                    שלב חינוך @GetSortIcon(nameof(SchoolDto.EducationStage))
+                                                </th>
+                                                <th @onclick="() => SortTable(nameof(SchoolDto.OwnerName))">
+                                                    בעלים @GetSortIcon(nameof(SchoolDto.OwnerName))
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var school in _sortedSchools)
+                                            {
+                                                <tr>
+                                                    <td>
+                                                        <div class="actions-cell">
+                                                            <button class="btn btn-sm btn-icon" 
+                                                                    @onclick="() => ViewSchool(school.Id, school.Name)" 
+                                                                    title="צפייה">
+                                                                <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                    <td>@school.Name</td>
+                                                    <td>@school.Symbol</td>
+                                                    <td>@school.Address</td>
+                                                    <td>@school.PrincipalName</td>
+                                                    <td>@school.InspectorName</td>
+                                                    <td>@school.CharacterizationName</td>
+                                                    <td>@school.ContactPerson</td>
+                                                    <td>@school.EducationStage</td>
+                                                    <td>@school.OwnerName</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add School Modal -->
+<AddSchoolModal @ref="_addSchoolModal" OnSchoolAdded="LoadData" />
+
+@code {
+    private List<SchoolDto> _schools = new();
+    private List<SchoolDto> _sortedSchools = new();
+    private bool _isLoading = true;
+    private string _yearDisplay = "";
+    private string _sortColumn = nameof(SchoolDto.Name);
+    private bool _sortAscending = true;
+
+    // Add school modal reference
+    private AddSchoolModal? _addSchoolModal;
+
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "schoollist";
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            // Get year value for display from backend session
+            var yearValueResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearValue");
+            _yearDisplay = yearValueResponse?["value"] ?? "";
+
+            // Get year ID for API call from backend session
+            var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearId");
+            var yearId = yearIdResponse?["value"];
+            
+            if (string.IsNullOrEmpty(yearId))
+            {
+                Console.WriteLine("❌ No SelectedYearId in session");
+                return;
+            }
+
+            // Fetch schools from API
+            _schools = await ApiService.GetAsync<List<SchoolDto>>($"entities/schools?yearId={yearId}") ?? new();
+            
+            Console.WriteLine($"🏫 Loaded {_schools.Count} schools");
+            
+            // Apply initial sort
+            ApplySort();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading schools: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת רשימת בתי ספר");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void SortTable(string column)
+    {
+        if (_sortColumn == column)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = true;
+        }
+
+        ApplySort();
+    }
+
+    private void ApplySort()
+    {
+        _sortedSchools = _sortColumn switch
+        {
+            nameof(SchoolDto.Name) => _sortAscending 
+                ? _schools.OrderBy(s => s.Name).ToList() 
+                : _schools.OrderByDescending(s => s.Name).ToList(),
+            nameof(SchoolDto.Symbol) => _sortAscending 
+                ? _schools.OrderBy(s => s.Symbol).ToList() 
+                : _schools.OrderByDescending(s => s.Symbol).ToList(),
+            nameof(SchoolDto.PrincipalName) => _sortAscending 
+                ? _schools.OrderBy(s => s.PrincipalName).ToList() 
+                : _schools.OrderByDescending(s => s.PrincipalName).ToList(),
+            nameof(SchoolDto.InspectorName) => _sortAscending 
+                ? _schools.OrderBy(s => s.InspectorName).ToList() 
+                : _schools.OrderByDescending(s => s.InspectorName).ToList(),
+            nameof(SchoolDto.ContactPerson) => _sortAscending 
+                ? _schools.OrderBy(s => s.ContactPerson).ToList() 
+                : _schools.OrderByDescending(s => s.ContactPerson).ToList(),
+            nameof(SchoolDto.EducationStage) => _sortAscending 
+                ? _schools.OrderBy(s => s.EducationStage).ToList() 
+                : _schools.OrderByDescending(s => s.EducationStage).ToList(),
+            nameof(SchoolDto.OwnerName) => _sortAscending 
+                ? _schools.OrderBy(s => s.OwnerName).ToList() 
+                : _schools.OrderByDescending(s => s.OwnerName).ToList(),
+            _ => _schools.OrderBy(s => s.Name).ToList()
+        };
+    }
+
+    private string GetSortIcon(string column)
+    {
+        if (_sortColumn != column) return "";
+        return _sortAscending ? "▲" : "▼";
+    }
+
+    private async Task ViewSchool(int schoolId, string schoolName)
+    {
+        Console.WriteLine($"🔍 Viewing school: {schoolId} - {schoolName}");
+
+        try
+        {
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedSchoolId",
+                value = schoolId.ToString()
+            });
+            
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedSchoolName",
+                value = schoolName
+            });
+            
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "NavigationSource",
+                value = "schoollist"
+            });
+
+            Console.WriteLine("✅ School selection stored in session");
+            Navigation.NavigateTo("/schooldashboard");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error viewing school: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בבחירת בית הספר");
+        }
+    }
+
+    private async Task ShowAddSchoolModal()
+    {
+        if (_addSchoolModal != null)
+        {
+            await _addSchoolModal.Show();
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת חלון הוספת בית ספר");
+        }
+    }
+
+    private void NavigateToEntityDocuments()
+    {
+        Navigation.NavigateTo("/entitydocuments");
+    }
+
+    private void NavigateToCouncilsList()
+    {
+        Navigation.NavigateTo("/councilsummary");
+    }
+
+    private async Task NavigateBackToDashboard()
+    {
+        try
+        {
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "NavigationSource",
+                value = "schoollist"
+            });
+            
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "ReturnToDashboard",
+                value = "true"
+            });
+            
+            Navigation.NavigateTo("/maindashboard");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error navigating to dashboard: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בחזרה ללוח הבקרה");
+        }
+    }
+}

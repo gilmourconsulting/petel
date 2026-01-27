@@ -1,0 +1,441 @@
+@using PetelApp.BlazorServer.DTOs
+@using PetelApp.BlazorServer.Services
+@using PetelApp.BlazorServer.Models
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.Extensions.Options
+@inject ApiService ApiService
+@inject IJSRuntime JSRuntime
+@inject IOptions<ApiSettings> ApiSettings
+@inject TokenService TokenService
+
+<div class="documents-table-wrapper">
+    @if (_isLoading)
+    {
+        <div class="loading-spinner">טוען מסמכים...</div>
+    }
+    else if (_documents == null || _documents.Count == 0)
+    {
+        <div style="text-align: center; color: #666; padding: 20px;">
+            אין מסמכים להצגה
+        </div>
+    }
+    else
+    {
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>סוג מסמך</th>
+                        <th>תיאור</th>
+                        <th>סטטוס</th>
+                        @if (ShowEntityName)
+                        {
+                            <th>שם ישות</th>
+                        }
+                        <th>עדכון אחרון</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var doc in _documents)
+                    {
+                        <tr>
+                            <td>
+                                @if (AllowDownload && doc.FileSize > 0)
+                                {
+                                    <button class="btn-icon" @onclick="() => ViewDocument(doc.Id)" title="צפה במסמך">
+                                        <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                    </button>
+                                }
+                                @if (AllowUpload)
+                                {
+                                    <button class="btn-icon" @onclick="() => ShowUploadModal(doc)" title="העלה מסמך">
+                                        <img src="/images/upload_icon.png" alt="העלאה" class="action-icon-natural">
+                                    </button>
+                                }
+                                @if (AllowDelete && doc.FileSize > 0)
+                                {
+                                    <button class="btn-icon" @onclick="() => DeleteDocument(doc.Id)" title="מחק מסמך">
+                                        <img src="/images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                                    </button>
+                                }
+                            </td>
+                            <td>@doc.DocumentType</td>
+                            <td>@doc.Description</td>
+                            <td>@doc.StatusName</td>
+                            @if (ShowEntityName)
+                            {
+                                <td>@doc.EntityName</td>
+                            }
+                            <td>@doc.CreatedAt.ToString("dd/MM/yyyy")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<!-- Upload Modal -->
+@if (_showUploadModal && _selectedDocument != null)
+{
+    <div class="modal-overlay" @onclick="CloseUploadModal">
+        <div class="modal-content" @onclick:stopPropagation="true" style="max-width: 500px; direction: rtl;">
+            <div class="modal-header">
+                <h3>העלאת מסמך</h3>
+                <button class="modal-close" @onclick="CloseUploadModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 15px; padding: 10px; background-color: #f0f8ff; border-radius: 4px;">
+                    <strong>סוג מסמך:</strong> @_selectedDocument.DocumentType<br/>
+                    <strong>תיאור:</strong> @_selectedDocument.Description
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">
+                        בחר קובץ <span style="color: red;">*</span>
+                    </label>
+                    <InputFile OnChange="HandleFileSelected" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" />
+                    @if (!string.IsNullOrEmpty(_selectedFileName))
+                    {
+                        <small style="display: block; margin-top: 5px; color: #666;">
+                            קובץ נבחר: @_selectedFileName (@_selectedFileSize)
+                        </small>
+                    }
+                </div>
+
+                <div class="form-group" style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 600;">
+                        סטטוס <span style="color: red;">*</span>
+                    </label>
+                    <select @bind="_selectedStatusId" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+                        <option value="0">-- בחר סטטוס --</option>
+                        @foreach (var status in _documentStatusTypes)
+                        {
+                            <option value="@status.Id">@status.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" @onclick="ProcessUpload" disabled="@_isUploading">
+                    @if (_isUploading)
+                    {
+                        <span>מעלה...</span>
+                    }
+                    else
+                    {
+                        <span>
+                            <img src="/images/upload_icon.png" alt="העלאה" class="action-icon-natural" style="vertical-align: middle;">
+                            העלה מסמך
+                        </span>
+                    }
+                </button>
+                <button class="btn-secondary" @onclick="CloseUploadModal" disabled="@_isUploading">ביטול</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string EntityType { get; set; } = "student"; // 'student', 'school', 'entity', 'entity-hierarchy'
+    [Parameter] public int? EntityId { get; set; }
+    [Parameter] public int? YearId { get; set; }
+    [Parameter] public bool AllowDownload { get; set; } = true;
+    [Parameter] public bool AllowUpload { get; set; } = true;
+    [Parameter] public bool AllowDelete { get; set; } = true;
+    [Parameter] public bool ShowEntityName { get; set; } = false;
+    [Parameter] public EventCallback OnDocumentsChanged { get; set; }
+
+    private List<DocumentDto> _documents = new();
+    private bool _isLoading = true;
+    private bool _showUploadModal = false;
+    private bool _isUploading = false;
+    private DocumentDto? _selectedDocument = null;
+    private IBrowserFile? _selectedFile = null;
+    private string _selectedFileName = string.Empty;
+    private string _selectedFileSize = string.Empty;
+    private int _selectedStatusId = 0;
+    private List<DocumentStatusTypeDto> _documentStatusTypes = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDocuments();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (EntityId.HasValue)
+        {
+            await LoadDocuments();
+        }
+    }
+
+    public async Task Reload()
+    {
+        await LoadDocuments();
+    }
+
+    private async Task LoadDocuments()
+    {
+        try
+        {
+            _isLoading = true;
+            StateHasChanged();
+
+            string endpoint = EntityType switch
+            {
+                "student" => $"documents/by-student-id?studentId={EntityId}&yearId={YearId}",
+                "school" => $"documents/by-entity?entityId={EntityId}&yearId={YearId}",
+                "entity" => $"documents/by-entity?entityId={EntityId}&yearId={YearId}",
+                "entity-hierarchy" => $"documents/by-entity-hierarchy?entityId={EntityId}&yearId={YearId}",
+                _ => throw new ArgumentException($"Invalid EntityType: {EntityType}")
+            };
+
+            _documents = await ApiService.GetAsync<List<DocumentDto>>(endpoint) ?? new();
+
+            Console.WriteLine($"✅ Loaded {_documents.Count} documents for {EntityType} {EntityId}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading documents: {ex.Message}");
+            _documents = new();
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ViewDocument(long documentId)
+    {
+        try
+        {
+            Console.WriteLine($"👁️ Viewing document: {documentId}");
+
+            var token = await TokenService.GetTokenAsync();
+            var baseUrl = ApiSettings.Value.BaseUrl;
+
+            Console.WriteLine($"👁️ BaseURL: {baseUrl}");
+
+            var downloadUrl = $"{baseUrl}/Documents/{documentId}/download";
+
+            Console.WriteLine($"👁️ DLURL: {downloadUrl}");
+
+            // Use JavaScript to fetch and open the document with auth header
+            await JSRuntime.InvokeVoidAsync("eval", $@"
+                (async function() {{
+                    try {{
+                        const response = await fetch('{downloadUrl}', {{
+                            method: 'GET',
+                            headers: {{
+                                'Authorization': 'Bearer {token}',
+                                'X-View-Mode': 'inline'
+                            }}
+                        }});
+                        
+                        if (!response.ok) {{
+                            throw new Error('Failed to fetch document');
+                        }}
+                        
+                        const blob = await response.blob();
+                        const objectUrl = URL.createObjectURL(blob);
+                        const viewWindow = window.open(objectUrl, '_blank');
+                        
+                        if (viewWindow) {{
+                            viewWindow.addEventListener('load', () => {{
+                                setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+                            }});
+                        }}
+                        
+                        setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+                    }} catch (error) {{
+                        console.error('Error viewing document:', error);
+                        alert('שגיאה בפתיחת המסמך');
+                    }}
+                }})();
+            ");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error viewing document: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בפתיחת המסמך");
+        }
+    }
+
+    private async Task ShowUploadModal(DocumentDto document)
+    {
+        try
+        {
+            Console.WriteLine($"📤 Showing upload modal for document: {document.Id}");
+
+            _selectedDocument = document;
+            _selectedFile = null;
+            _selectedFileName = string.Empty;
+            _selectedFileSize = string.Empty;
+            _selectedStatusId = document.DocumentStatusId ?? 0;
+
+            // Load document status types
+            await LoadDocumentStatusTypes();
+
+            _showUploadModal = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error showing upload modal: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בפתיחת חלון העלאה");
+        }
+    }
+
+    private void CloseUploadModal()
+    {
+        _showUploadModal = false;
+        _selectedDocument = null;
+        _selectedFile = null;
+        _selectedFileName = string.Empty;
+        _selectedFileSize = string.Empty;
+        _selectedStatusId = 0;
+        StateHasChanged();
+    }
+
+    private async Task LoadDocumentStatusTypes()
+    {
+        try
+        {
+            _documentStatusTypes = await ApiService.GetAsync<List<DocumentStatusTypeDto>>("documents/status-types") ?? new();
+            Console.WriteLine($"✅ Loaded {_documentStatusTypes.Count} document status types");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading document status types: {ex.Message}");
+            _documentStatusTypes = new();
+        }
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+        _selectedFileName = e.File.Name;
+        _selectedFileSize = FormatFileSize(e.File.Size);
+        StateHasChanged();
+    }
+
+    private async Task ProcessUpload()
+    {
+        if (_selectedFile == null)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "אנא בחר קובץ להעלאה");
+            return;
+        }
+
+        if (_selectedStatusId == 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "אנא בחר סטטוס");
+            return;
+        }
+
+        if (_selectedDocument == null)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה: מסמך לא נבחר");
+            return;
+        }
+
+        try
+        {
+            _isUploading = true;
+            StateHasChanged();
+
+            Console.WriteLine($"📤 Uploading file to document {_selectedDocument.Id}");
+
+            // Create multipart form data
+            using var content = new MultipartFormDataContent();
+
+            // Add file
+            var fileContent = new StreamContent(_selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024)); // 10MB limit
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(_selectedFile.ContentType);
+            content.Add(fileContent, "file", _selectedFile.Name);
+
+            // Add status ID
+            content.Add(new StringContent(_selectedStatusId.ToString()), "statusId");
+
+            // Upload to API
+            var response = await ApiService.PostMultipartAsync<Dictionary<string, object>>(
+                $"documents/{_selectedDocument.Id}/upload",
+                content
+            );
+
+            if (response != null && response.ContainsKey("success") && (bool)response["success"])
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "הקובץ הועלה בהצלחה");
+                Console.WriteLine("✅ File uploaded successfully");
+
+                CloseUploadModal();
+                await LoadDocuments();
+                await OnDocumentsChanged.InvokeAsync();
+            }
+            else
+            {
+                var message = response?.ContainsKey("message") == true 
+                    ? response["message"].ToString() 
+                    : "שגיאה בהעלאת הקובץ";
+                await JSRuntime.InvokeVoidAsync("alert", message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error uploading file: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בהעלאת הקובץ: {ex.Message}");
+        }
+        finally
+        {
+            _isUploading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        if (bytes == 0) return "0 B";
+        
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        int i = 0;
+        double size = bytes;
+        
+        while (size >= 1024 && i < sizes.Length - 1)
+        {
+            size /= 1024;
+            i++;
+        }
+        
+        return $"{Math.Round(size, 2)} {sizes[i]}";
+    }
+
+    private async Task DeleteDocument(long documentId)
+    {
+        try
+        {
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך למחוק מסמך זה?");
+            if (!confirmed) return;
+
+            var response = await ApiService.DeleteAsync($"documents/{documentId}");
+
+            if (response != null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "המסמך נמחק בהצלחה");
+                await LoadDocuments();
+                await OnDocumentsChanged.InvokeAsync();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה במחיקת מסמך");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error deleting document: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה במחיקת מסמך");
+        }
+    }
+}

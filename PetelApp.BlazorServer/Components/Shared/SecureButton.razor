@@ -1,0 +1,160 @@
+@* PetelApp.BlazorServer/Components/Shared/SecureButton.razor *@
+@inject ActionSecurityService SecurityService
+@inject IJSRuntime JSRuntime
+
+@* Renders a button that verifies permissions before executing action *@
+
+@if (_isVisible)
+{
+    <button 
+        class="@CssClass" 
+        disabled="@(_isProcessing || Disabled)"
+        @onclick="HandleClickAsync"
+        title="@Title">
+        @if (_isProcessing)
+        {
+            <span class="spinner-border spinner-border-sm" style="margin-left: 5px;"></span>
+        }
+        @ChildContent
+    </button>
+}
+
+@code {
+    /// <summary>
+    /// Action identifier (e.g., "students_addStudent")
+    /// Format: {screenName}_{functionName}
+    /// </summary>
+    [Parameter, EditorRequired]
+    public string ActionName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Screen/page name where action is performed
+    /// </summary>
+    [Parameter, EditorRequired]
+    public string ScreenName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Function name being executed
+    /// </summary>
+    [Parameter, EditorRequired]
+    public string FunctionName { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Optional action parameters (e.g., "studentId=123")
+    /// </summary>
+    [Parameter]
+    public string? ActionParams { get; set; }
+
+    /// <summary>
+    /// Event callback to execute if action is allowed
+    /// </summary>
+    [Parameter]
+    public EventCallback OnClick { get; set; }
+
+    /// <summary>
+    /// Button content (text, icons, etc.)
+    /// </summary>
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// CSS classes for button styling
+    /// </summary>
+    [Parameter]
+    public string CssClass { get; set; } = "btn btn-primary";
+
+    /// <summary>
+    /// Button title attribute (tooltip)
+    /// </summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>
+    /// Disable button (independent of security)
+    /// </summary>
+    [Parameter]
+    public bool Disabled { get; set; }
+
+    /// <summary>
+    /// Hide button if user lacks permission (vs showing disabled)
+    /// </summary>
+    [Parameter]
+    public bool HideIfNoAccess { get; set; } = false;
+
+    private bool _isProcessing = false;
+    private bool _isVisible = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check if user has access to this button (if HideIfNoAccess is enabled)
+        if (HideIfNoAccess && !string.IsNullOrEmpty(ActionName))
+        {
+            try
+            {
+                _isVisible = await SecurityService.VerifyActionAsync(
+                    actionName: ActionName, 
+                    screenName: ScreenName, 
+                    functionName: FunctionName, 
+                    eventType: "BUTTON_VISIBLE_CHECK", 
+                    actionType: 7, // Type 7 = Button/Click action
+                    reference: ScreenName, // ✅ Add reference parameter for auto-creation
+                    actionParams: ActionParams
+                );
+
+                if (!_isVisible)
+                {
+                    Console.WriteLine($"🙈 Button hidden - no access: {ActionName}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error checking button visibility: {ex.Message}");
+                // FAIL-SECURE: Hide button on error
+                _isVisible = false;
+            }
+        }
+    }
+
+    private async Task HandleClickAsync()
+    {
+        if (_isProcessing) return;
+
+        _isProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            // Verify permission before executing action
+            var allowed = await SecurityService.VerifyActionAsync(
+                actionName: ActionName,
+                screenName: ScreenName,
+                functionName: FunctionName,
+                eventType: "BUTTON_CLICK",
+                actionType: 7, // Type 7 = Button/Click action
+                reference: ScreenName, // ✅ Add reference parameter for auto-creation
+                actionParams: ActionParams
+            );
+
+            if (!allowed)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", 
+                    SecurityService.GetAccessDeniedMessage(ActionName));
+                return;
+            }
+
+            // Execute the action
+            await OnClick.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error executing secure action: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", 
+                "שגיאה בביצוע הפעולה. אנא נסה שוב.");
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+}

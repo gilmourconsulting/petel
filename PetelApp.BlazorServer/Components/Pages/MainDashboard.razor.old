@@ -1,0 +1,248 @@
+@page "/maindashboard"
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+
+<h3>Main Dashboard</h3>
+
+<p>Dashboard content will go here</p>
+
+@code {
+    private List<AlertDto> _alerts = new();
+    private List<AlertDto> _events = new(); // Events are also AlertDto with IsEvent=true
+    private bool _alertsLoading = true;
+    private bool _eventsLoading = true;
+    private bool _showEntityDetailsButton = false;
+
+    private int _previousYearId = 0;
+    private int _currentYearId = 0;
+    private int _nextYearId = 0;
+    
+    private string _previousYearName = "שנה קודמת";
+    private string _currentYearName = "שנה נוכחית";
+    private string _nextYearName = "שנה הבאה";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        // Determine if entity details button should be shown
+        _showEntityDetailsButton = session.EntityTypeId == "2"; // School type
+
+        await LoadSchoolYears();
+        await LoadAlerts();
+        await LoadEvents();
+    }
+            <!-- Alerts Card -->
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <div class="dashboard-card-icon">🔔</div>
+                    <div class="dashboard-card-title">התראות</div>
+                    <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
+                         @onclick="@(() => ShowAddModal("alerts"))" title="הוספת התראה חדשה" />
+                </div>
+                <div class="internal-cards-container">
+                    @if (_alertsLoading)
+                    {
+                        <div class="loading-spinner">טוען התראות...</div>
+                    }
+                    else if (_alerts.Count == 0)
+                    {
+                        <div class="no-data-message">אין התראות להצגה</div>
+                    }
+                    else
+                    {
+                        @foreach (var alert in _alerts)
+                        {
+                            <div class="internal-card @GetAlertClass(alert.AlertLevel)">
+                                <div class="internal-card-title">@GetAlertTypeName(alert.AlertType)</div>
+                                <div class="internal-card-content">@alert.Description</div>
+                                <div class="internal-card-footer">
+                                    <span class="internal-card-date">@alert.CreatedAt.ToString("dd/MM/yyyy")</span>
+                                    <span class="internal-card-status">סטטוס: @alert.Status</span>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+
+            <!-- Events Card -->
+            <div class="dashboard-card">
+                <div class="dashboard-card-header">
+                    <div class="dashboard-card-icon">🗓</div>
+                    <div class="dashboard-card-title">אירועים</div>
+                    <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
+                         @onclick="@(() => ShowAddModal("events"))" title="הוספת אירוע חדש" />
+                </div>
+                <div class="internal-cards-container">
+                    @if (_eventsLoading)
+                    {
+                        <div class="loading-spinner">טוען אירועים...</div>
+                    }
+                    else if (_events.Count == 0)
+                    {
+                        <div class="no-data-message">אין אירועים להצגה</div>
+                    }
+                    else
+                    {
+                        @foreach (var evt in _events)
+                        {
+                            <div class="internal-card">
+                                <div class="internal-card-title">@GetAlertTypeName(evt.AlertType)</div>
+                                <div class="internal-card-content">@evt.Description</div>
+                                <div class="internal-card-footer">
+                                    <span class="internal-card-date">@(evt.EventDate?.ToString("dd/MM/yyyy") ?? evt.CreatedAt.ToString("dd/MM/yyyy"))</span>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+        </div>
+    
+    <div class="context-buttons-section">
+        <button class="context-btn" @onclick="@(() => ShowSchoolYear(_previousYearId, \"previous\"))">@_previousYearName</button>
+        <button class="context-btn" @onclick="@(() => ShowSchoolYear(_currentYearId, \"current\"))">@_currentYearName</button>
+        @if (_nextYearId > 0)
+        {
+            <button class="context-btn" @onclick="@(() => ShowSchoolYear(_nextYearId, \"next\"))">@_nextYearName</button>
+        }
+        <div class="context-spacer"></div>
+        @if (_showEntityDetailsButton)
+        {
+            <button class="context-navigation-btn" @onclick="NavigateToEntityDetails">פרטי ישות</button>
+        }
+    </div>
+</div>
+
+    private async Task LoadSchoolYears()
+    {
+        try
+        {
+            // Load year IDs and names from system attributes (Hebrew years)
+            var attributes = await ApiService.GetAsync<List<SystemAttributeDto>>("systemattributes");
+            if (attributes != null)
+            {
+                var previousYearAttr = attributes.FirstOrDefault(a => a.Name == "Previous Year");
+                var currentYearAttr = attributes.FirstOrDefault(a => a.Name == "Current Year");
+                var nextYearAttr = attributes.FirstOrDefault(a => a.Name == "Next Year");
+
+                if (previousYearAttr != null)
+                {
+                    _previousYearId = previousYearAttr.ForeignId ?? 0;
+                    _previousYearName = previousYearAttr.Value ?? "שנה קודמת";
+                }
+                
+                if (currentYearAttr != null)
+                {
+                    _currentYearId = currentYearAttr.ForeignId ?? 0;
+                    _currentYearName = currentYearAttr.Value ?? "שנה נוכחית";
+                }
+                
+                if (nextYearAttr != null && nextYearAttr.ForeignId.HasValue)
+                {
+                    _nextYearId = nextYearAttr.ForeignId.Value;
+                    _nextYearName = nextYearAttr.Value ?? "שנה הבאה";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading school years: {ex.Message}");
+        }
+    }
+
+    private async Task LoadAlerts()
+    {
+        _alertsLoading = true;
+        try
+        {
+            var session = await SessionState.GetSessionAsync();
+            if (session != null)
+            {
+                // Use correct AlertsController endpoint: /api/alerts/entity/{entityId}
+                _alerts = await ApiService.GetAsync<List<AlertDto>>($"alerts/entity/{session.EntityId}?isEvent=false") ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading alerts: {ex.Message}");
+        }
+        finally
+        {
+            _alertsLoading = false;
+        }
+    }
+
+    private async Task LoadEvents()
+    {
+        _eventsLoading = true;
+        try
+        {
+            var session = await SessionState.GetSessionAsync();
+            if (session != null)
+            {
+                // Events are also handled by AlertsController with isEvent=true
+                _events = await ApiService.GetAsync<List<AlertDto>>($"alerts/entity/{session.EntityId}?isEvent=true") ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading events: {ex.Message}");
+        }
+        finally
+        {
+            _eventsLoading = false;
+        }
+    }
+
+    private void ShowSchoolYear(int yearId, string period)
+    {
+        // Implement school year filtering logic
+        Console.WriteLine($"Showing {period} year: {yearId}");
+    }
+
+    private void ShowAddModal(string type)
+    {
+        // Implement modal display logic
+        Console.WriteLine($"Show add modal for: {type}");
+    }
+
+    private void NavigateToEntityDetails()
+    {
+        Navigation.NavigateTo("/entitydetails");
+    }
+
+    private string GetAlertClass(int level)
+    {
+        // Map alert level ID to CSS class
+        return level switch
+        {
+            1 => "alert-high",    // High priority
+            2 => "alert-medium",  // Medium priority
+            3 => "alert-low",     // Low priority
+            _ => ""
+        };
+    }
+
+    private string GetAlertTypeName(int alertTypeId)
+    {
+        // TODO: Load from API alert_types table for dynamic names
+        // For now, use common alert type mappings
+        return alertTypeId switch
+        {
+            1 => "התראה כללית",
+            2 => "התראת חשבונות",
+            3 => "התראת תלמידים",
+            4 => "התראת מורים",
+            _ => $"סוג התראה {alertTypeId}"
+        };
+    }
+
+}

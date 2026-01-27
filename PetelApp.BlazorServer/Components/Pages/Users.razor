@@ -1,0 +1,774 @@
+@page "/users"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelApp.BlazorServer.DTOs
+@using PetelApp.BlazorServer.Services
+@inject ApiService ApiService
+@inject SessionStateService SessionStateService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject ILogger<Users> Logger
+
+<div class="school-title-section">
+    <h1 class="page-title">ניהול משתמשים</h1>
+</div>
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <SecureButton ActionName="users_refresh" ScreenName="@PageName" FunctionName="RefreshData" OnClick="RefreshData" CssClass="context-btn">
+            רענן נתונים
+        </SecureButton>
+        <SecureButton ActionName="users_create" ScreenName="@PageName" FunctionName="ShowCreateUserDialog" OnClick="ShowCreateUserDialog" CssClass="context-btn">
+            הוסף משתמש חדש
+        </SecureButton>
+        <SecureButton ActionName="users_maindashboard" ScreenName="@PageName" FunctionName="NavigateToMainDashboard" OnClick="NavigateToMainDashboard" CssClass="context-btn">
+            חזרה לדף ראשי
+        </SecureButton>
+        <SecureButton ActionName="users_roles" ScreenName="@PageName" FunctionName="NavigateToRoles" OnClick="NavigateToRoles" CssClass="context-btn">
+            ניהול תפקידים
+        </SecureButton>
+        <SecureButton ActionName="users_refreshcache" ScreenName="@PageName" FunctionName="RefreshSecurityCache" OnClick="RefreshSecurityCache" CssClass="context-btn">
+            רענן מטמון אבטחה
+        </SecureButton>
+    </div>
+
+    <!-- Main content area -->
+    <div class="students-content">
+        <div class="content-card">
+            <h2 class="page-title">ניהול משתמשים</h2>
+
+            <!-- Users summary info -->
+            <div class="users-summary">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <div class="summary-icon">👥</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@_summary.TotalUsers</div>
+                            <div class="summary-label">סה"כ משתמשים</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">✅</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@_summary.ActiveUsers</div>
+                            <div class="summary-label">משתמשים פעילים</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">🚫</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@_summary.InactiveUsers</div>
+                            <div class="summary-label">משתמשים לא פעילים</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users table -->
+            <div class="users-table-section">
+                <h3>רשימת משתמשים</h3>
+                @if (_isLoading)
+                {
+                    <div class="loading-spinner">טוען נתוני משתמשים...</div>
+                }
+                else if (_users.Count == 0)
+                {
+                    <div class="no-data-message">לא נמצאו משתמשים</div>
+                }
+                else
+                {
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>פעולות</th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.Username))" style="cursor: pointer;">
+                                        שם משתמש @GetSortArrow(nameof(UserDto.Username))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.FullName))" style="cursor: pointer;">
+                                        שם מלא @GetSortArrow(nameof(UserDto.FullName))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.Email))" style="cursor: pointer;">
+                                        אימייל @GetSortArrow(nameof(UserDto.Email))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.Phone))" style="cursor: pointer;">
+                                        טלפון @GetSortArrow(nameof(UserDto.Phone))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.IsActive))" style="cursor: pointer;">
+                                        סטטוס @GetSortArrow(nameof(UserDto.IsActive))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.LastLogin))" style="cursor: pointer;">
+                                        כניסה אחרונה @GetSortArrow(nameof(UserDto.LastLogin))
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in _users)
+                                {
+                                    <tr>
+                                        <td>
+                                            <SecureButton ActionName="users_edit" ScreenName="@PageName" FunctionName="EditUser" OnClick="() => EditUser(user)" CssClass="btn-icon" Title="ערוך משתמש">
+                                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                                            </SecureButton>
+                                            <SecureButton ActionName="users_changepassword" ScreenName="@PageName" FunctionName="ShowChangePasswordDialog" OnClick="() => ShowChangePasswordDialog(user)" CssClass="btn-icon" Title="שנה סיסמה">
+                                                <img src="/images/upload_icon.png" alt="שנה סיסמה" class="action-icon-natural">
+                                            </SecureButton>
+                                            <SecureButton ActionName="users_manageroles" ScreenName="@PageName" FunctionName="ManageUserRoles" OnClick="() => ManageUserRoles(user)" CssClass="btn-icon" Title="נהל תפקידים">
+                                                <img src="/images/stats_icon.png" alt="תפקידים" class="action-icon-natural">
+                                            </SecureButton>
+                                            @if (user.IsLocked)
+                                            {
+                                                <SecureButton ActionName="users_unlock" ScreenName="@PageName" FunctionName="UnlockUser" OnClick="() => UnlockUser(user)" CssClass="btn-icon" Title="בטל נעילה">
+                                                    <img src="/images/view_icon.png" alt="בטל נעילה" class="action-icon-natural">
+                                                </SecureButton>
+                                            }
+                                            else
+                                            {
+                                                <SecureButton ActionName="users_lock" ScreenName="@PageName" FunctionName="LockUser" OnClick="() => LockUser(user)" CssClass="btn-icon" Title="נעל משתמש">
+                                                    <img src="/images/delete_icon.png" alt="נעל" class="action-icon-natural">
+                                                </SecureButton>
+                                            }
+                                        </td>
+                                        <td>@user.Username</td>
+                                        <td>@user.FullName</td>
+                                        <td>@user.Email</td>
+                                        <td>@(user.Phone ?? "")</td>
+                                        <td>
+                                            <span class="status-badge @(user.IsActive ? "active" : "inactive")">
+                                                @(user.IsActive ? "פעיל" : "לא פעיל")
+                                            </span>
+                                            @if (user.IsLocked)
+                                            {
+                                                <span class="status-badge locked">נעול</span>
+                                            }
+                                        </td>
+                                        <td>@(user.LastLogin?.ToString("dd/MM/yyyy HH:mm") ?? "אף פעם")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit User Dialog -->
+@if (_showUserDialog)
+{
+    <div class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>@(_isEditMode ? "ערוך משתמש" : "משתמש חדש")</h3>
+                <button class="modal-close" @onclick="CloseUserDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="_userForm" OnValidSubmit="HandleUserSubmit">
+                    <DataAnnotationsValidator />
+                    
+                    <div class="form-group">
+                        <label for="username">שם משתמש *</label>
+                        <InputText id="username" @bind-Value="_userForm.Username" class="form-control" />
+                        <ValidationMessage For="() => _userForm.Username" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">אימייל *</label>
+                        <InputText id="email" @bind-Value="_userForm.Email" class="form-control" type="email" />
+                        <ValidationMessage For="() => _userForm.Email" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="entity">ישות *</label>
+                        <InputSelect id="entity" @bind-Value="_userForm.EntityId" class="form-control">
+                            <option value="0">-- בחר ישות --</option>
+                            @foreach (var entity in _entities)
+                            {
+                                <option value="@entity.Id">@entity.EntityName</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="() => _userForm.EntityId" />
+                    </div>
+
+                    <div style="display: flex; gap: 15px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="firstName">שם פרטי *</label>
+                            <InputText id="firstName" @bind-Value="_userForm.FirstName" class="form-control" />
+                            <ValidationMessage For="() => _userForm.FirstName" />
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label for="lastName">שם משפחה *</label>
+                            <InputText id="lastName" @bind-Value="_userForm.LastName" class="form-control" />
+                            <ValidationMessage For="() => _userForm.LastName" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">טלפון</label>
+                        <InputText id="phone" @bind-Value="_userForm.Phone" class="form-control" />
+                        <ValidationMessage For="() => _userForm.Phone" />
+                    </div>
+
+                    @if (!_isEditMode)
+                    {
+                        <div class="form-group">
+                            <label for="password">סיסמה *</label>
+                            <InputText id="password" @bind-Value="_userForm.Password" class="form-control" type="password" />
+                            <ValidationMessage For="() => _userForm.Password" />
+                        </div>
+                    }
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <InputCheckbox @bind-Value="_userForm.IsActive" />
+                            משתמש פעיל
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <InputCheckbox @bind-Value="_userForm.PasswordChangeRequired" />
+                            דרוש שינוי סיסמה בכניסה הבאה
+                        </label>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" @onclick="CloseUserDialog">ביטול</button>
+                        <button type="submit" class="btn-primary">@(_isEditMode ? "שמור" : "צור משתמש")</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Change Password Dialog -->
+@if (_showChangePasswordDialog)
+{
+    <div class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>שינוי סיסמה למשתמש: @_changePasswordUserName</h3>
+                <button class="modal-close" @onclick="CloseChangePasswordDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="_changePasswordForm" OnValidSubmit="HandleChangePasswordSubmit">
+                    <DataAnnotationsValidator />
+                    
+                    <div class="form-group">
+                        <label for="newPassword">סיסמה חדשה *</label>
+                        <InputText id="newPassword" @bind-Value="_changePasswordForm.NewPassword" class="form-control" type="password" />
+                        <ValidationMessage For="() => _changePasswordForm.NewPassword" />
+                        <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">
+                            סיסמה חייבת להכיל לפחות 6 תווים
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirmPassword">אימות סיסמה חדשה *</label>
+                        <InputText id="confirmPassword" @bind-Value="_changePasswordForm.ConfirmPassword" class="form-control" type="password" />
+                        <ValidationMessage For="() => _changePasswordForm.ConfirmPassword" />
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" @onclick="CloseChangePasswordDialog">ביטול</button>
+                        <button type="submit" class="btn-primary">שנה סיסמה</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    protected override string PageName => "users";
+
+    private List<UserDto> _users = new();
+    private List<UserDto> _filteredUsers = new();
+    private bool _isLoading = true;
+    private UserSummaryDto _summary = new();
+    private List<EntityDto> _entities = new();
+
+    private string _sortColumn = nameof(UserDto.FullName);
+    private bool _sortAscending = true;
+
+    // Dialog states
+    private bool _showUserDialog = false;
+    private bool _isEditMode = false;
+    private UserFormModel _userForm = new();
+    private int _editingUserId = 0;
+
+    // Change password dialog states
+    private bool _showChangePasswordDialog = false;
+    private ChangePasswordFormModel _changePasswordForm = new();
+    private int _changePasswordUserId = 0;
+    private string _changePasswordUserName = string.Empty;
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        await LoadEntities();
+        await LoadUsersData();
+    }
+
+    private async Task LoadEntities()
+    {
+        try
+        {
+            // Use the login endpoint which returns all active entities
+            var response = await ApiService.GetAsync<List<EntityDto>>("entities/login");
+
+            if (response != null)
+            {
+                _entities = response;
+                Console.WriteLine($"✅ Loaded {_entities.Count} entities");
+            }
+            else
+            {
+                _entities = new List<EntityDto>();
+                Console.WriteLine("⚠️ No entities returned from API");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading entities: {ex.Message}");
+            _entities = new List<EntityDto>();
+        }
+    }
+
+    private async Task LoadUsersData()
+    {
+        try
+        {
+            _isLoading = true;
+
+            var response = await ApiService.GetAsync<UsersResponse>("users");
+
+            if (response?.Success == true && response.Data != null)
+            {
+                _users = response.Data;
+                UpdateSummary();
+                ApplySort();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת נתוני המשתמשים");
+                _users = new List<UserDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading users: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינת נתוני המשתמשים: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void UpdateSummary()
+    {
+        _summary = new UserSummaryDto
+        {
+            TotalUsers = _users.Count,
+            ActiveUsers = _users.Count(u => u.IsActive),
+            InactiveUsers = _users.Count(u => !u.IsActive)
+        };
+    }
+
+    private void SortTable(string columnName)
+    {
+        if (_sortColumn == columnName)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = columnName;
+            _sortAscending = true;
+        }
+
+        ApplySort();
+    }
+
+    private void ApplySort()
+    {
+        _users = _sortColumn switch
+        {
+            nameof(UserDto.Username) => _sortAscending
+                ? _users.OrderBy(u => u.Username).ToList()
+                : _users.OrderByDescending(u => u.Username).ToList(),
+            nameof(UserDto.FullName) => _sortAscending
+                ? _users.OrderBy(u => u.FullName).ToList()
+                : _users.OrderByDescending(u => u.FullName).ToList(),
+            nameof(UserDto.Email) => _sortAscending
+                ? _users.OrderBy(u => u.Email).ToList()
+                : _users.OrderByDescending(u => u.Email).ToList(),
+            nameof(UserDto.Phone) => _sortAscending
+                ? _users.OrderBy(u => u.Phone ?? "").ToList()
+                : _users.OrderByDescending(u => u.Phone ?? "").ToList(),
+            nameof(UserDto.IsActive) => _sortAscending
+                ? _users.OrderBy(u => u.IsActive).ToList()
+                : _users.OrderByDescending(u => u.IsActive).ToList(),
+            nameof(UserDto.LastLogin) => _sortAscending
+                ? _users.OrderBy(u => u.LastLogin ?? DateTime.MinValue).ToList()
+                : _users.OrderByDescending(u => u.LastLogin ?? DateTime.MinValue).ToList(),
+            _ => _users
+        };
+    }
+
+    private string GetSortArrow(string columnName)
+    {
+        if (_sortColumn != columnName) return string.Empty;
+        return _sortAscending ? "▲" : "▼";
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadUsersData();
+    }
+
+    private void ShowCreateUserDialog()
+    {
+        _isEditMode = false;
+        _editingUserId = 0;
+        _userForm = new UserFormModel();
+        _showUserDialog = true;
+    }
+
+    private void EditUser(UserDto user)
+    {
+        _isEditMode = true;
+        _editingUserId = user.Id;
+        _userForm = new UserFormModel
+        {
+            Username = user.Username,
+            Email = user.Email,
+            Phone = user.Phone,
+            FirstName = user.FirstName,
+            LastName = user.LastName,
+            IsActive = user.IsActive,
+            PasswordChangeRequired = user.PasswordChangeRequired,
+            EntityId = user.EntityId
+        };
+        _showUserDialog = true;
+    }
+
+    private void CloseUserDialog()
+    {
+        _showUserDialog = false;
+        _userForm = new UserFormModel();
+        _editingUserId = 0;
+        _isEditMode = false;
+    }
+
+    private async Task HandleUserSubmit()
+    {
+        try
+        {
+            if (_isEditMode)
+            {
+                var updateRequest = new UpdateUserRequest
+                {
+                    Username = _userForm.Username,
+                    Email = _userForm.Email,
+                    Phone = _userForm.Phone,
+                    FirstName = _userForm.FirstName,
+                    LastName = _userForm.LastName,
+                    IsActive = _userForm.IsActive,
+                    PasswordChangeRequired = _userForm.PasswordChangeRequired,
+                    EntityId = _userForm.EntityId
+                };
+
+                var response = await ApiService.PutAsync<UpdateUserRequest, object>($"users/{_editingUserId}", updateRequest);
+                
+                if (response != null)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "המשתמש עודכן בהצלחה");
+                    CloseUserDialog();
+                    await LoadUsersData();
+                }
+            }
+            else
+            {
+                var createRequest = new CreateUserRequest
+                {
+                    Username = _userForm.Username,
+                    Email = _userForm.Email,
+                    Phone = _userForm.Phone,
+                    FirstName = _userForm.FirstName,
+                    LastName = _userForm.LastName,
+                    Password = _userForm.Password,
+                    IsActive = _userForm.IsActive,
+                    PasswordChangeRequired = _userForm.PasswordChangeRequired,
+                    EntityId = _userForm.EntityId
+                };
+
+                var response = await ApiService.PostAsync<CreateUserRequest, object>("users", createRequest);
+                
+                if (response != null)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "המשתמש נוצר בהצלחה");
+                    CloseUserDialog();
+                    await LoadUsersData();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירת המשתמש: {ex.Message}");
+        }
+    }
+
+    private async Task LockUser(UserDto user)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"האם אתה בטוח שברצונך לנעול את המשתמש '{user.FullName}'?"))
+        {
+            try
+            {
+                var response = await ApiService.PostAsync<object, object>($"users/{user.Id}/lock", new { });
+                
+                if (response != null)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "המשתמש ננעל בהצלחה");
+                    await LoadUsersData();
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בנעילת המשתמש: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task UnlockUser(UserDto user)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"האם אתה בטוח שברצונך לבטל את נעילת המשתמש '{user.FullName}'?"))
+        {
+            try
+            {
+                var response = await ApiService.PostAsync<object, object>($"users/{user.Id}/unlock", new { });
+                
+                if (response != null)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "נעילת המשתמש בוטלה בהצלחה");
+                    await LoadUsersData();
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בביטול נעילת המשתמש: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ManageUserRoles(UserDto user)
+    {
+        // TODO: Implement role management dialog
+        await JSRuntime.InvokeVoidAsync("alert", $"ניהול תפקידים למשתמש '{user.FullName}' יתווסף בהמשך");
+    }
+
+    private void ShowChangePasswordDialog(UserDto user)
+    {
+        _changePasswordUserId = user.Id;
+        _changePasswordUserName = user.FullName;
+        _changePasswordForm = new ChangePasswordFormModel();
+        _showChangePasswordDialog = true;
+    }
+
+    private void CloseChangePasswordDialog()
+    {
+        _showChangePasswordDialog = false;
+        _changePasswordForm = new ChangePasswordFormModel();
+        _changePasswordUserId = 0;
+        _changePasswordUserName = string.Empty;
+    }
+
+    private async Task HandleChangePasswordSubmit()
+    {
+        try
+        {
+            // Validate passwords match
+            if (_changePasswordForm.NewPassword != _changePasswordForm.ConfirmPassword)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "הסיסמאות אינן תואמות");
+                return;
+            }
+
+            // Validate password length
+            if (_changePasswordForm.NewPassword.Length < 6)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "סיסמה חייבת להכיל לפחות 6 תווים");
+                return;
+            }
+
+            var request = new ChangePasswordRequest
+            {
+                NewPassword = _changePasswordForm.NewPassword
+            };
+
+            var response = await ApiService.PutAsync<ChangePasswordRequest, object>(
+                $"users/{_changePasswordUserId}/change-password", 
+                request);
+            
+            if (response != null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "הסיסמה שונתה בהצלחה");
+                CloseChangePasswordDialog();
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשינוי הסיסמה: {ex.Message}");
+        }
+    }
+
+    private void NavigateToMainDashboard()
+    {
+        Navigation.NavigateTo("/maindashboard");
+    }
+
+    private void NavigateToRoles()
+    {
+        Navigation.NavigateTo("/roles");
+    }
+
+    private async Task RefreshSecurityCache()
+    {
+        try
+        {
+            Logger.LogInformation("🔄 Refreshing security cache...");
+
+            var response = await ApiService.PostAsync<object, object>("roles/refresh-cache", new { });
+
+            if (response != null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "מטמון האבטחה רוענן בהצלחה! הפעולות החדשות זמינות כעת.");
+                Logger.LogInformation("✅ Security cache refreshed successfully");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה ברענון מטמון האבטחה");
+                Logger.LogError("❌ Failed to refresh security cache - null response");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "❌ Error refreshing security cache");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה ברענון מטמון האבטחה: {ex.Message}");
+        }
+    }
+
+    // Form model for user dialog
+    public class UserFormModel
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string? Phone { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public bool IsActive { get; set; } = true;
+        public bool PasswordChangeRequired { get; set; } = true;
+        public int EntityId { get; set; }
+    }
+
+    // Form model for change password dialog
+    public class ChangePasswordFormModel
+    {
+        public string NewPassword { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}
+
+<style>
+    .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+
+    .summary-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 12px;
+        padding: 20px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .summary-icon {
+        font-size: 40px;
+        opacity: 0.8;
+    }
+
+    .summary-info {
+        flex: 1;
+        text-align: right;
+    }
+
+    .summary-value {
+        font-size: 2em;
+        font-weight: 700;
+        color: #2c3e50;
+        line-height: 1;
+        margin-bottom: 5px;
+    }
+
+    .summary-label {
+        font-size: 0.9em;
+        color: #666;
+        font-weight: 500;
+    }
+
+    .status-badge {
+        padding: 4px 8px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        font-weight: 500;
+        margin-left: 5px;
+    }
+
+    .status-badge.active {
+        background-color: #d4edda;
+        color: #155724;
+    }
+
+    .status-badge.inactive {
+        background-color: #f8d7da;
+        color: #721c24;
+    }
+
+    .status-badge.locked {
+        background-color: #fff3cd;
+        color: #856404;
+    }
+
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+    }
+
+    .no-data-message {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+        font-size: 1.1em;
+    }
+</style>

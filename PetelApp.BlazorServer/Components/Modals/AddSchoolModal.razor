@@ -1,0 +1,277 @@
+@using PetelApp.BlazorServer.Models
+@using PetelApp.BlazorServer.Services
+@using PetelApp.BlazorServer.DTOs
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject IJSRuntime JSRuntime
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" @onclick="HandleOverlayClick">
+        <div class="modal-content" style="max-width: 500px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div>הוספת בית ספר חדש</div>
+                <button class="close-btn" @onclick="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_isLoading)
+                {
+                    <div class="loading-spinner">טוען...</div>
+                }
+                else
+                {
+                    <form @onsubmit="HandleSubmit">
+                        <div class="form-group">
+                            <label for="schoolName">שם בית הספר *</label>
+                            <input type="text" 
+                                   id="schoolName" 
+                                   @bind="_schoolName" 
+                                   class="form-control" 
+                                   required 
+                                   maxlength="255"
+                                   placeholder="הזן שם בית ספר">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="entityType">סוג גוף *</label>
+                            <select id="entityType" 
+                                    @bind="_entityTypeId" 
+                                    class="form-control" 
+                                    disabled 
+                                    required>
+                                @foreach (var et in _entityTypes)
+                                {
+                                    <option value="@et.Id" selected="@(et.Id == 4)">
+                                        @et.Name
+                                    </option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="owner">בעלים *</label>
+                            <select id="owner" 
+                                    @bind="_ownerId" 
+                                    class="form-control" 
+                                    disabled="@_isOwnerLocked"
+                                    required>
+                                @foreach (var owner in _ownerOptions)
+                                {
+                                    <option value="@owner.Id">
+                                        @owner.Name
+                                    </option>
+                                }
+                            </select>
+                            @if (_isOwnerLocked)
+                            {
+                                <p class="form-help-text" style="margin-top: 5px; font-size: 0.9em; color: #666;">
+                                    הבעלות נעולה לגוף הנוכחי
+                                </p>
+                            }
+                        </div>
+
+                        <div class="form-actions" style="margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
+                            <button type="button" 
+                                    class="btn btn-secondary" 
+                                    @onclick="Close">
+                                ביטול
+                            </button>
+                            <button type="submit" 
+                                    class="btn btn-primary"
+                                    disabled="@_isSubmitting">
+                                @(_isSubmitting ? "שומר..." : "אישור")
+                            </button>
+                        </div>
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public EventCallback OnSchoolAdded { get; set; }
+
+    private bool _isVisible = false;
+    private bool _isLoading = false;
+    private bool _isSubmitting = false;
+    private string _schoolName = string.Empty;
+    private int _entityTypeId = 4; // Default to school type
+    private int _ownerId;
+    private bool _isOwnerLocked = false;
+
+    private List<EntityTypeDto> _entityTypes = new();
+    private List<OwnerOptionDto> _ownerOptions = new();
+
+    public async Task Show()
+    {
+        _isVisible = true;
+        _isLoading = true;
+        _schoolName = string.Empty;
+        _entityTypeId = 4;
+        _isSubmitting = false;
+
+        StateHasChanged();
+
+        try
+        {
+            Console.WriteLine("🚀 Loading entity types...");
+            
+            // Load entity types
+            _entityTypes = await ApiService.GetAsync<List<EntityTypeDto>>("entities/entity-types") ?? new();
+            
+            Console.WriteLine($"📋 Loaded {_entityTypes.Count} entity types");
+            
+            if (_entityTypes.Count == 0)
+            {
+                Console.WriteLine("❌ No entity types found");
+                await JSRuntime.InvokeVoidAsync("alert", "לא נמצאו סוגי גופים במערכת");
+                Close();
+                return;
+            }
+
+            Console.WriteLine("🏢 Loading owner options...");
+            
+            // Get session first for logging and later use
+            var session = await SessionState.GetSessionAsync();
+            Console.WriteLine($"📋 Current session - EntityId: {session?.EntityId}, EntityTypeId: {session?.EntityTypeId}");
+            
+            // Load owner options - try to get raw response first for debugging
+            try
+            {
+                var ownerResponse = await ApiService.GetAsync<OwnerOptionsResponseDto>("entities/owner-options");
+                
+                Console.WriteLine($"📥 Owner response received: {ownerResponse != null}");
+                
+                if (ownerResponse != null)
+                {
+                    Console.WriteLine($"   Success: {ownerResponse.Success}");
+                    Console.WriteLine($"   OwnerOptions count: {ownerResponse.OwnerOptions?.Count ?? 0}");
+                    Console.WriteLine($"   IsLocked: {ownerResponse.IsLocked}");
+                    
+                    if (ownerResponse.OwnerOptions != null && ownerResponse.OwnerOptions.Count > 0)
+                    {
+                        foreach (var opt in ownerResponse.OwnerOptions)
+                        {
+                            Console.WriteLine($"      - Owner: {opt.Id} - {opt.Name}");
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("❌ Owner response is NULL");
+                }
+                
+                if (ownerResponse == null || !ownerResponse.Success || ownerResponse.OwnerOptions == null || ownerResponse.OwnerOptions.Count == 0)
+                {
+                    Console.WriteLine("❌ No owner options available");
+                    await JSRuntime.InvokeVoidAsync("alert", "לא נמצאו אפשרויות בעלים");
+                    Close();
+                    return;
+                }
+
+                _ownerOptions = ownerResponse.OwnerOptions;
+                _isOwnerLocked = ownerResponse.IsLocked;
+                
+                Console.WriteLine($"✅ Loaded {_ownerOptions.Count} owner options, isLocked={_isOwnerLocked}");
+            }
+            catch (Exception ownerEx)
+            {
+                Console.WriteLine($"❌ Exception loading owner options: {ownerEx.Message}");
+                Console.WriteLine($"   Stack: {ownerEx.StackTrace}");
+                throw;
+            }
+
+            // Get current entity ID for default selection
+            if (session != null && int.TryParse(session.EntityId, out var currentEntityId))
+            {
+                // Set default owner to current entity or first option
+                _ownerId = _ownerOptions.Any(o => o.Id == currentEntityId) 
+                    ? currentEntityId 
+                    : _ownerOptions.First().Id;
+            }
+            else
+            {
+                _ownerId = _ownerOptions.First().Id;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading modal data: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינת טופס: {ex.Message}");
+            Close();
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void Close()
+    {
+        _isVisible = false;
+        StateHasChanged();
+    }
+
+    private void HandleOverlayClick()
+    {
+        Close();
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(_schoolName))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "נא להזין שם בית ספר");
+            return;
+        }
+
+        _isSubmitting = true;
+        StateHasChanged();
+
+        try
+        {
+            var response = await ApiService.PostAsync<object, ApiResponse<EntityDetailsDto>>(
+                "entities/create-school",
+                new
+                {
+                    name = _schoolName.Trim(),
+                    entityTypeId = _entityTypeId,
+                    ownerId = _ownerId
+                });
+
+            if (response?.Success == true)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "בית הספר נוצר בהצלחה!");
+                
+                // Clear session school properties
+                await ApiService.PostAsync<object, object>("session/property", new { key = "SelectedSchoolId", value = "" });
+                await ApiService.PostAsync<object, object>("session/property", new { key = "SelectedSchoolName", value = "" });
+                await ApiService.PostAsync<object, object>("session/property", new { key = "SelectedSchoolType", value = "" });
+                await ApiService.PostAsync<object, object>("session/property", new { key = "SelectedSchoolOwner", value = "" });
+                await ApiService.PostAsync<object, object>("session/property", new { key = "SelectedSchoolYearId", value = "" });
+                
+                Close();
+                
+                // Notify parent to reload data
+                await OnSchoolAdded.InvokeAsync();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה ביצירת בית הספר");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error creating school: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה ביצירת בית הספר: {ex.Message}");
+        }
+        finally
+        {
+            _isSubmitting = false;
+            StateHasChanged();
+        }
+    }
+}

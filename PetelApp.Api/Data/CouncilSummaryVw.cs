@@ -26,5 +26,12 @@ namespace PetelApp.Api.Data
 
         [Column("total_requested_amount")]
         public decimal TotalRequestedAmount { get; set; }
+
+        [Column("owner_id")]
+        public int? OwnerId { get; set; }
+
+        [Column("owner_name")]
+        [MaxLength(255)]
+        public string? OwnerName { get; set; }
     }
 }

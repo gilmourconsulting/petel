@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Npgsql;
 using PetelApp.Api.Data;
 using System;
 using System.Collections.Generic;
@@ -188,7 +189,12 @@ namespace PetelApp.Api.Services
         /// This is called when an action is referenced but not registered
         /// The action is created as INACTIVE and must be manually activated and assigned to roles
         /// </summary>
-        private async Task<SystemAction?> AutoCreateMissingActionAsync(string actionName, string screenName, string functionName)
+        private async Task<SystemAction?> AutoCreateMissingActionAsync(
+            string actionName, 
+            string screenName, 
+            string functionName, 
+            int actionType = 7, 
+            string? reference = null)
         {
             try
             {
@@ -197,9 +203,27 @@ namespace PetelApp.Api.Services
                 using var scope = _scopeFactory.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                // Determine action type (default to "Button" type with ID 2)
-                // You can adjust this logic based on your action type IDs
-                int actionTypeId = 7; // Button type
+                // ✅ CRITICAL: Check if action already exists in database (cache might be out of sync)
+                var existingAction = await context.Set<SystemAction>()
+                    .FirstOrDefaultAsync(a => a.Name == actionName);
+
+                if (existingAction != null)
+                {
+                    _logger.LogWarning("⚠️ Action already exists in database but not in cache - ActionName: {ActionName} (ID: {ActionId})", 
+                        actionName, existingAction.Id);
+                    
+                    // Update cache with existing action
+                    lock (_cacheLock)
+                    {
+                        _actionsCache[actionName.ToLower()] = existingAction;
+                        _actionsCache[existingAction.Id.ToString()] = existingAction;
+                    }
+                    
+                    return existingAction;
+                }
+
+                // Use provided action type or default to Button (7)
+                int actionTypeId = actionType;
                 
                 // Create display name from function name (convert camelCase to Title Case)
                 var displayName = System.Text.RegularExpressions.Regex.Replace(
@@ -212,23 +236,56 @@ namespace PetelApp.Api.Services
                 {
                     Name = actionName,
                     DisplayName = displayName,
-                    Reference = screenName,
+                    Reference = reference ?? screenName, // Use provided reference or fallback to screenName
                     Description = $"Auto-created from screen '{screenName}' function '{functionName}'",
                     ActionTypeId = actionTypeId,
-                    IsActive = true, // ✅ CRITICAL: Created as INACTIVE for security
+                    IsActive = true, // ✅ Created as ACTIVE but not assigned to any roles (still no access)
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
                     UserId = 1 // System user
                 };
 
                 context.Set<SystemAction>().Add(newAction);
-                await context.SaveChangesAsync();
+                
+                try
+                {
+                    await context.SaveChangesAsync();
+                    
+                    _logger.LogInformation("✅ Auto-created action: {ActionName} (ID: {ActionId}) - INACTIVE - must be activated manually", 
+                        newAction.Name, newAction.Id);
 
-                _logger.LogInformation("✅ Auto-created action: {ActionName} (ID: {ActionId}) - INACTIVE - must be activated manually", 
-                    newAction.Name, newAction.Id);
+                    // Update cache with new action
+                    lock (_cacheLock)
+                    {
+                        _actionsCache[newAction.Name.ToLower()] = newAction;
+                        _actionsCache[newAction.Id.ToString()] = newAction;
+                    }
 
-                // DO NOT add to cache since it's inactive
-                return newAction;
+                    return newAction;
+                }
+                catch (DbUpdateException dbEx) when (dbEx.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+                {
+                    // Handle duplicate key constraint - another thread/request created it first
+                    _logger.LogWarning("⚡ Race condition detected - Action created by another request: {ActionName}", actionName);
+                    
+                    // Fetch the action that was created by the other request
+                    var raceAction = await context.Set<SystemAction>()
+                        .FirstOrDefaultAsync(a => a.Name == actionName);
+                    
+                    if (raceAction != null)
+                    {
+                        // Update cache with the action created by other request
+                        lock (_cacheLock)
+                        {
+                            _actionsCache[raceAction.Name.ToLower()] = raceAction;
+                            _actionsCache[raceAction.Id.ToString()] = raceAction;
+                        }
+                        
+                        return raceAction;
+                    }
+                    
+                    throw; // Re-throw if we can't find the action
+                }
             }
             catch (Exception ex)
             {
@@ -340,7 +397,11 @@ namespace PetelApp.Api.Services
         /// Used for API calls, file uploads, and other non-button actions
         /// ✅ FAIL-SECURE: Actions not in database are AUTO-CREATED as INACTIVE then BLOCKED
         /// </summary>
-        public async Task<bool> VerifyActionByNameAsync(int userId, string actionName)
+        public async Task<bool> VerifyActionByNameAsync(
+            int userId, 
+            string actionName, 
+            int actionType = 7, 
+            string? reference = null)
         {
             try
             {
@@ -369,8 +430,19 @@ namespace PetelApp.Api.Services
                 {
                     _logger.LogWarning("🚫 SECURITY: Action NOT REGISTERED in database - ActionName: {ActionName}", actionName);
                     
-                    // Auto-create the action (as INACTIVE) - generic action without screen context
-                    action = await AutoCreateMissingActionAsync(actionName, "unknown", actionName);
+                    // Auto-create the action - use actionName to extract screen name if possible
+                    string screenName = "unknown";
+                    string functionName = actionName;
+                    
+                    // Try to extract screen name from action name (format: screenname_functionname)
+                    if (actionName.Contains('_'))
+                    {
+                        var parts = actionName.Split('_', 2);
+                        screenName = parts[0];
+                        functionName = parts.Length > 1 ? parts[1] : actionName;
+                    }
+                    
+                    action = await AutoCreateMissingActionAsync(actionName, screenName, functionName, actionType, reference);
                     
                     if (action != null)
                     {

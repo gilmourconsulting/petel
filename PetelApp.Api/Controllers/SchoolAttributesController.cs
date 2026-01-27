@@ -49,7 +49,8 @@ public class SchoolAttributesController : BaseController
                 Name = t.Name,
                 HebrewName = t.HebrewName,
                 AttributeValueType  = t.AttributeValueType,
-                YearId = t.YearId
+                YearId = t.YearId,
+                SortOrder = t.SortOrder
             }).ToList();
     
             // For List type attributes, load possible values from cache

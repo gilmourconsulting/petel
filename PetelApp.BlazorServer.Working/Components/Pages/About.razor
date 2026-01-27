@@ -1,0 +1,172 @@
+@page "/about"
+@inject SessionStateService SessionState
+
+<div class="main-container" dir="rtl">
+    <div class="content-card">
+        <div class="about-header">
+            <img src="/images/petel_logo.png" alt="לוגו מערכת פתל" class="about-logo" />
+            <h1 class="about-title">מערכת פט"ל</h1>
+            <p class="about-subtitle">מערכת לניהול תלמידים חיצוניים</p>
+        </div>
+
+        <div class="about-section">
+            <h2>אודות המערכת</h2>
+            <p>
+                מערכת פט"ל היא מערכת מתקדמת לניהול תלמידים חיצוניים, המיועדת לבתי ספר ומועצות חינוך.
+                המערכת מספקת כלים מקיפים למעקב אחר תלמידים, תכניות לימוד, תמחור ודיווח.
+            </p>
+        </div>
+
+        <div class="about-section">
+            <h2>תכונות עיקריות</h2>
+            <ul class="features-list">
+                <li>ניהול תלמידים ומעקב אחר התקדמותם</li>
+                <li>ניהול תכניות לימוד ושעות תקציב</li>
+                <li>מערכת תמחור מתקדמת</li>
+                <li>ניהול מסמכים ודוקומנטציה</li>
+                <li>התראות ואירועים</li>
+                <li>דוחות וניתוחים סטטיסטיים</li>
+                <li>אבטחה מתקדמת ברמת פעולה</li>
+                <li>תמיכה מלאה בעברית וממשק RTL</li>
+            </ul>
+        </div>
+
+        <div class="about-section">
+            <h2>מידע טכני</h2>
+            <div class="tech-info">
+                <div class="tech-item">
+                    <strong>גרסה:</strong> 2.0.0
+                </div>
+                <div class="tech-item">
+                    <strong>טכנולוגיה:</strong> Blazor Server (.NET 9)
+                </div>
+                <div class="tech-item">
+                    <strong>מסד נתונים:</strong> PostgreSQL
+                </div>
+                <div class="tech-item">
+                    <strong>אחסון:</strong> Azure Cloud
+                </div>
+            </div>
+        </div>
+
+        <div class="about-section">
+            <h2>אבטחה</h2>
+            <p>
+                המערכת כוללת אבטחה מתקדמת ברמת פעולה (Action-Based Security), אימות דו-שלבי (OTP),
+                הצפנת נתונים רגישים ורישום מלא של כל הפעולות (Audit Trail).
+            </p>
+        </div>
+
+        <div class="about-footer">
+            <p>© 2026 מערכת פט"ל. כל הזכויות שמורות.</p>
+            <p>גרסת Blazor Server - עודכן ב-13 בינואר 2026</p>
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // Ensure user is authenticated
+        var session = await SessionState.GetSessionAsync();
+        if (session == null)
+        {
+            // Redirect to login if not authenticated
+        }
+    }
+}
+
+<style>
+    .about-header {
+        text-align: center;
+        padding: 40px 20px;
+        border-bottom: 2px solid var(--border-color, #dee2e6);
+        margin-bottom: 30px;
+    }
+
+    .about-logo {
+        width: 120px;
+        height: 120px;
+        margin-bottom: 20px;
+    }
+
+    .about-title {
+        font-size: 2.5rem;
+        color: var(--primary-color, #2c3e50);
+        margin-bottom: 10px;
+    }
+
+    .about-subtitle {
+        font-size: 1.2rem;
+        color: var(--text-secondary, #6c757d);
+    }
+
+    .about-section {
+        margin-bottom: 30px;
+        padding: 20px;
+        background: var(--card-background, #f8f9fa);
+        border-radius: 8px;
+    }
+
+    .about-section h2 {
+        color: var(--primary-color, #2c3e50);
+        margin-bottom: 15px;
+        font-size: 1.5rem;
+    }
+
+    .about-section p {
+        line-height: 1.8;
+        color: var(--text-primary, #333);
+    }
+
+    .features-list {
+        list-style-type: none;
+        padding-right: 0;
+    }
+
+    .features-list li {
+        padding: 10px 0;
+        padding-right: 30px;
+        position: relative;
+    }
+
+    .features-list li:before {
+        content: "✓";
+        position: absolute;
+        right: 0;
+        color: var(--success-color, #28a745);
+        font-weight: bold;
+        font-size: 1.2rem;
+    }
+
+    .tech-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+
+    .tech-item {
+        padding: 15px;
+        background: white;
+        border-radius: 6px;
+        border: 1px solid var(--border-color, #dee2e6);
+    }
+
+    .tech-item strong {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--primary-color, #2c3e50);
+    }
+
+    .about-footer {
+        text-align: center;
+        padding: 30px 20px;
+        border-top: 2px solid var(--border-color, #dee2e6);
+        margin-top: 40px;
+        color: var(--text-secondary, #6c757d);
+    }
+
+    .about-footer p {
+        margin: 5px 0;
+    }
+</style>

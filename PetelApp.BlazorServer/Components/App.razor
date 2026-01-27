@@ -1,0 +1,38 @@
+﻿@using Microsoft.AspNetCore.Components.Web
+
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <title>מערכת פט"ל</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/images/petel_logo.png" />
+    
+    <!-- Petel CSS Files -->
+    <link rel="stylesheet" href="/css/theme.css" />
+    <link rel="stylesheet" href="/css/styles.css" />
+    <link rel="stylesheet" href="/css/login.css" />
+    <link rel="stylesheet" href="/css/ui-components.css" />
+    <link rel="stylesheet" href="/css/time-spinner.css" />
+    <link rel="stylesheet" href="/css/system-attributes.css" />
+    <link rel="stylesheet" href="/css/student.css" />
+    <link rel="stylesheet" href="/css/blazor-overrides.css" />
+    
+    <link rel="stylesheet" href="PetelApp.BlazorServer.styles.css" />
+    <HeadOutlet />
+    
+    <!-- Session timeout activity tracking -->
+    <script src="/js/sessionTimeout.js"></script>
+</head>
+
+<body>
+    <!-- Blazor renders into body directly -->
+    <Routes @rendermode="new InteractiveServerRenderMode(prerender: false)" />
+    <script src="_framework/blazor.web.js?v=20260121-2115"></script>
+</body>
+
+</html>

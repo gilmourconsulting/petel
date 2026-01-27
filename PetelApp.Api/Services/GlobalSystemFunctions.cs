@@ -21,7 +21,8 @@ namespace PetelApp.Api.Services
 
         /// <summary>
         /// Extracts only Hebrew letters and numbers from a string
-        /// Removes spaces, dashes, and other non-Hebrew/non-numeric characters
+        /// Removes spaces, dashes, punctuation, and all other non-Hebrew/non-numeric characters
+        /// ✅ Used for council name comparison in file uploads
         /// </summary>
         /// <param name="text">Input string</param>
         /// <returns>String containing only Hebrew letters (א-ת) and digits (0-9)</returns>
@@ -32,6 +33,7 @@ namespace PetelApp.Api.Services
 
             // Hebrew Unicode range for letters: \u05D0-\u05EA (א-ת)
             // Digits: 0-9
+            // ✅ Removes ALL other characters including spaces, dashes, quotes, etc.
             return Regex.Replace(text, @"[^\u05D0-\u05EA0-9]", string.Empty);
         }
 
@@ -104,7 +106,8 @@ namespace PetelApp.Api.Services
 
         /// <summary>
         /// Gets council ID by council name
-        /// Compares pure Hebrew text of council short names
+        /// ✅ Loads councils once and uses computed NormalizedName property for matching
+        /// ✅ Compares pure Hebrew text (letters + numbers only)
         /// </summary>
         /// <param name="councilName">Council name</param>
         /// <returns>Council ID or null if not found</returns>
@@ -112,10 +115,11 @@ namespace PetelApp.Api.Services
         {
             var pureInputName = PureHebrewText(councilName);
 
+            // ✅ Load councils once, then use computed NormalizedName property
             var councils = await _context.Councils.ToListAsync();
 
             var matchedCouncil = councils
-                .FirstOrDefault(c => PureHebrewText(c.Name) == pureInputName);
+                .FirstOrDefault(c => c.NormalizedName == pureInputName);
 
             return matchedCouncil?.Id;
         }

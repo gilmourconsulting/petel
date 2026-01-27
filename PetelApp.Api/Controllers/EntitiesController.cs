@@ -5,6 +5,7 @@ using PetelApp.Api.Data;
 using PetelApp.Api.Models;
 using PetelApp.Api.DTOs;
 using PetelApp.Api.Session;
+using System.Reflection.Metadata;
 
 namespace PetelApp.Api.Controllers
 {
@@ -819,7 +820,24 @@ public async Task<IActionResult> GetOwnerOptions()
             
             _logger.LogInformation("School entity: returning locked current entity {EntityId}", sessionEntityId);
         }
-        else if (entityTypeId == 2 || entityTypeId == 3 || entityTypeId == 5 || entityTypeId == 6)
+        else if (entityTypeId == 5) 
+        {      ownerOptions = await _context.Entities
+                .AsNoTracking()
+                .Where(e => e.IsActive && 
+                           e.Id == sessionEntityId)
+                .Select(e => new
+                {
+                    id = e.Id,
+                    name = e.Name,
+                    entityTypeId = e.EntityTypeId
+                })
+                .Cast<object>()
+                .ToListAsync();
+            
+            _logger.LogInformation("Own entity: returning {Count}  networks", ownerOptions.Count);
+  
+        }
+        else if (entityTypeId == 2 || entityTypeId == 3 ||  entityTypeId == 6)
         {
             // Network entity: Return networks owned by current entity (types 2,3,5,6)
             var allowedTypes = new[] { 2, 3, 5, 6 };
@@ -880,6 +898,17 @@ public async Task<IActionResult> GetOwnerOptions()
                     _logger.LogWarning("No valid session found for council summary request");
                     return Unauthorized(new { success = false, message = "נדרש אימות" });
                 }
+
+                if (!int.TryParse(session.EntityId, out int sessionEntityId))
+                {
+                    _logger.LogError("Invalid EntityId in session: {EntityId}", session.EntityId);
+                    return BadRequest(new { success = false, message = "Invalid session entity ID" });
+                }
+
+                // Check if user is admin (userId = 1)
+                bool isAdmin = session.UserId == "1";
+                _logger.LogInformation("GetCouncilSummary request - IsAdmin: {IsAdmin}, SessionEntityId: {EntityId}", 
+                    isAdmin, sessionEntityId);
         
                 // Get SelectedYearId from session if not provided
                 if (!yearId.HasValue)
@@ -898,22 +927,41 @@ public async Task<IActionResult> GetOwnerOptions()
                 }
         
                 _logger.LogInformation("Loading council summary for year {YearId}", yearId.Value);
-        
-                var councilSummary = await _context.CouncilSummaryVw
+
+                // Get entity IDs owned by current user's entity (for hierarchical filtering)
+                var ownedEntityIds = await _context.Entities
                     .AsNoTracking()
-                    .Where(cs => cs.YearId == yearId.Value)
-                    .OrderBy(cs => cs.CouncilName)  // Changed from CouncilShortName
-                    .Select(cs => new
-                    {
-                        id = cs.CouncilId,
-                        councilName = cs.CouncilName ?? "לא ידוע",  // Simplified
-                        numberOfStudents = cs.NumberOfStudents,
-                        totalRequested = cs.TotalRequestedAmount,
-                        totalRequestedFormatted = cs.TotalRequestedAmount.ToString("N2") + " ₪"
-                    })
+                    .Where(e => e.Owner.Id == sessionEntityId)
+                    .Select(e => e.Id)
                     .ToListAsync();
+                    
+                _logger.LogInformation("Found {Count} entities owned by current user for council filtering", ownedEntityIds.Count);
         
-                _logger.LogInformation("Found {Count} councils with students for year {YearId}", 
+                // Apply ownership filtering and aggregate results
+                // The view may have multiple rows per council (one per owner), so we need to group
+                var councilData = await _context.CouncilSummaryVw
+                    .AsNoTracking()
+                    .Where(cs => cs.YearId == yearId.Value &&
+                           (isAdmin || 
+                            cs.OwnerId == sessionEntityId || 
+                            (cs.OwnerId.HasValue && ownedEntityIds.Contains(cs.OwnerId.Value))))
+                    .ToListAsync();
+
+                // Aggregate by council (sum students and costs across all owners)
+                var councilSummary = councilData
+                    .GroupBy(cs => new { cs.CouncilId, cs.CouncilName })
+                    .Select(g => new
+                    {
+                        id = g.Key.CouncilId,
+                        councilName = g.Key.CouncilName ?? "לא ידוע",
+                        numberOfStudents = g.Sum(x => x.NumberOfStudents),
+                        totalRequested = g.Sum(x => x.TotalRequestedAmount),
+                        totalRequestedFormatted = g.Sum(x => x.TotalRequestedAmount).ToString("N2") + " ₪"
+                    })
+                    .OrderBy(cs => cs.councilName)
+                    .ToList();
+        
+                _logger.LogInformation("Found {Count} councils with students for year {YearId} after ownership filtering", 
                     councilSummary.Count, yearId.Value);
         
                 return Ok(new
