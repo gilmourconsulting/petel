@@ -7,7 +7,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "🔀 Merge move_to_blazor to main" -ForegroundColor Cyan
+Write-Host "[MERGE] Merge move_to_blazor to main" -ForegroundColor Cyan
 Write-Host "===============================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -16,7 +16,7 @@ $currentBranch = git branch --show-current
 Write-Host "Current branch: $currentBranch" -ForegroundColor Gray
 
 if ($currentBranch -ne "move_to_blazor") {
-    Write-Host "⚠️  Warning: You're not on move_to_blazor branch" -ForegroundColor Yellow
+    Write-Host "[WARNING] You're not on move_to_blazor branch" -ForegroundColor Yellow
     $continue = Read-Host "Continue anyway? (y/n)"
     if ($continue -ne 'y' -and $continue -ne 'Y') {
         Write-Host "Aborting." -ForegroundColor Red
@@ -28,7 +28,7 @@ Write-Host ""
 # Check for uncommitted changes
 $status = git status --porcelain
 if ($status) {
-    Write-Host "❌ You have uncommitted changes:" -ForegroundColor Red
+    Write-Host "[ERROR] You have uncommitted changes:" -ForegroundColor Red
     git status --short
     Write-Host ""
     Write-Host "Please commit or stash your changes before merging." -ForegroundColor Yellow
@@ -37,7 +37,7 @@ if ($status) {
 }
 
 # Show commits that will be merged
-Write-Host "📊 Commits to be merged:" -ForegroundColor Yellow
+Write-Host "[INFO] Commits to be merged:" -ForegroundColor Yellow
 git log main..move_to_blazor --oneline | Select-Object -First 10
 Write-Host ""
 
@@ -50,19 +50,19 @@ if ($confirm -ne 'y' -and $confirm -ne 'Y') {
 Write-Host ""
 
 # Switch to main
-Write-Host "📌 Switching to main branch..." -ForegroundColor Cyan
+Write-Host "[GIT] Switching to main branch..." -ForegroundColor Cyan
 git checkout main
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Failed to checkout main branch" -ForegroundColor Red
+    Write-Host "[ERROR] Failed to checkout main branch" -ForegroundColor Red
     exit 1
 }
 Write-Host ""
 
 # Pull latest changes
-Write-Host "📥 Pulling latest changes from origin/main..." -ForegroundColor Cyan
+Write-Host "[GIT] Pulling latest changes from origin/main..." -ForegroundColor Cyan
 git pull origin main
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "❌ Failed to pull from origin/main" -ForegroundColor Red
+    Write-Host "[ERROR] Failed to pull from origin/main" -ForegroundColor Red
     Write-Host "Switching back to move_to_blazor..." -ForegroundColor Yellow
     git checkout move_to_blazor
     exit 1
@@ -70,13 +70,13 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host ""
 
 # Perform merge
-Write-Host "🔀 Merging move_to_blazor into main..." -ForegroundColor Cyan
+Write-Host "[GIT] Merging move_to_blazor into main..." -ForegroundColor Cyan
 git merge move_to_blazor --no-ff
 $mergeResult = $LASTEXITCODE
 
 if ($mergeResult -ne 0) {
     Write-Host ""
-    Write-Host "❌ Merge conflicts detected!" -ForegroundColor Red
+    Write-Host "[ERROR] Merge conflicts detected!" -ForegroundColor Red
     Write-Host ""
     Write-Host "Conflicting files:" -ForegroundColor Yellow
     git status --short | Where-Object { $_ -match "^(UU|AA|DD)" }
@@ -91,43 +91,43 @@ if ($mergeResult -ne 0) {
     exit 1
 }
 
-Write-Host "✅ Merge successful!" -ForegroundColor Green
+Write-Host "[OK] Merge successful!" -ForegroundColor Green
 Write-Host ""
 
 # Run tests (optional)
 if (-not $SkipTests) {
-    Write-Host "🧪 Running tests..." -ForegroundColor Cyan
+    Write-Host "[TEST] Running tests..." -ForegroundColor Cyan
     
     # Test API
     Write-Host "   Testing API build..." -ForegroundColor Gray
     Push-Location PetelApp.Api
-    dotnet build
+    dotnet build --nologo --verbosity quiet
     $apiBuildResult = $LASTEXITCODE
     Pop-Location
     
     if ($apiBuildResult -ne 0) {
-        Write-Host "   ⚠️  API build failed" -ForegroundColor Yellow
+        Write-Host "   [WARNING] API build failed" -ForegroundColor Yellow
     } else {
-        Write-Host "   ✅ API build successful" -ForegroundColor Green
+        Write-Host "   [OK] API build successful" -ForegroundColor Green
     }
     
     # Test Blazor
     Write-Host "   Testing Blazor build..." -ForegroundColor Gray
     Push-Location PetelApp.BlazorServer
-    dotnet build
+    dotnet build --nologo --verbosity quiet
     $blazorBuildResult = $LASTEXITCODE
     Pop-Location
     
     if ($blazorBuildResult -ne 0) {
-        Write-Host "   ⚠️  Blazor build failed" -ForegroundColor Yellow
+        Write-Host "   [WARNING] Blazor build failed" -ForegroundColor Yellow
     } else {
-        Write-Host "   ✅ Blazor build successful" -ForegroundColor Green
+        Write-Host "   [OK] Blazor build successful" -ForegroundColor Green
     }
     
     Write-Host ""
     
     if ($apiBuildResult -ne 0 -or $blazorBuildResult -ne 0) {
-        Write-Host "⚠️  Some builds failed. Please review before pushing." -ForegroundColor Yellow
+        Write-Host "[WARNING] Some builds failed. Please review before pushing." -ForegroundColor Yellow
         $pushAnyway = Read-Host "Push to origin/main anyway? (y/n)"
         if ($pushAnyway -ne 'y' -and $pushAnyway -ne 'Y') {
             Write-Host "Not pushing. Fix builds and run: git push origin main" -ForegroundColor Gray
@@ -137,22 +137,22 @@ if (-not $SkipTests) {
 }
 
 # Push to origin
-Write-Host "📤 Pushing to origin/main..." -ForegroundColor Cyan
+Write-Host "[GIT] Pushing to origin/main..." -ForegroundColor Cyan
 $pushConfirm = Read-Host "Push changes to origin/main? (y/n)"
 if ($pushConfirm -eq 'y' -or $pushConfirm -eq 'Y') {
     git push origin main
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "❌ Push failed" -ForegroundColor Red
+        Write-Host "[ERROR] Push failed" -ForegroundColor Red
         exit 1
     }
-    Write-Host "✅ Pushed to origin/main!" -ForegroundColor Green
+    Write-Host "[OK] Pushed to origin/main!" -ForegroundColor Green
 } else {
-    Write-Host "⏸️  Skipped push. Run manually: git push origin main" -ForegroundColor Gray
+    Write-Host "[SKIP] Skipped push. Run manually: git push origin main" -ForegroundColor Gray
 }
 Write-Host ""
 
 # Optional: Delete feature branch
-Write-Host "🗑️  Branch Cleanup" -ForegroundColor Cyan
+Write-Host "[CLEANUP] Branch Cleanup" -ForegroundColor Cyan
 $deleteBranch = Read-Host "Delete move_to_blazor branch? (local and remote) (y/n)"
 if ($deleteBranch -eq 'y' -or $deleteBranch -eq 'Y') {
     Write-Host "   Deleting local branch..." -ForegroundColor Gray
@@ -161,7 +161,7 @@ if ($deleteBranch -eq 'y' -or $deleteBranch -eq 'Y') {
     Write-Host "   Deleting remote branch..." -ForegroundColor Gray
     git push origin --delete move_to_blazor
     
-    Write-Host "   ✅ Branch deleted" -ForegroundColor Green
+    Write-Host "   [OK] Branch deleted" -ForegroundColor Green
 } else {
     Write-Host "   Branch kept. Delete later with:" -ForegroundColor Gray
     Write-Host "   git branch -d move_to_blazor" -ForegroundColor Gray
@@ -170,13 +170,13 @@ if ($deleteBranch -eq 'y' -or $deleteBranch -eq 'Y') {
 Write-Host ""
 
 # Success summary
-Write-Host "🎉 Merge Complete!" -ForegroundColor Green
+Write-Host "[SUCCESS] Merge Complete!" -ForegroundColor Green
 Write-Host ""
 Write-Host "Summary:" -ForegroundColor Cyan
-Write-Host "   ✅ Merged move_to_blazor into main" -ForegroundColor Green
-Write-Host "   ✅ Pushed to origin/main" -ForegroundColor Green
+Write-Host "   [OK] Merged move_to_blazor into main" -ForegroundColor Green
+Write-Host "   [OK] Pushed to origin/main" -ForegroundColor Green
 if ($deleteBranch -eq 'y' -or $deleteBranch -eq 'Y') {
-    Write-Host "   ✅ Deleted move_to_blazor branch" -ForegroundColor Green
+    Write-Host "   [OK] Deleted move_to_blazor branch" -ForegroundColor Green
 }
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
