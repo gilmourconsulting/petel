@@ -66,8 +66,11 @@ namespace PetelApp.Api.Services
         {
             _logger.LogInformation("Processing student record: {IdNumber}", row.IdNumber);
 
+            // Check if ID validation is enabled via system attribute
+            bool validateIdChecksum = await ShouldValidateIdNumberAsync();
+
             // Validate data format
-            var (isValid, formatError) = ValidateRowFormat(row);
+            var (isValid, formatError) = ValidateRowFormat(row, validateIdChecksum);
             if (!isValid)
             {
                 result.Errors.Add($"{row.IdNumber} - שגיאת פורמט: {formatError}");
@@ -137,11 +140,15 @@ namespace PetelApp.Api.Services
             }
         }
 
-        private (bool isValid, string? error) ValidateRowFormat(StudentFileRow row)
+        private (bool isValid, string? error) ValidateRowFormat(StudentFileRow row, bool validateIdChecksum = false)
         {
             // Validate ID number (9 digits)
             if (string.IsNullOrWhiteSpace(row.IdNumber) || row.IdNumber.Length != 9 || !row.IdNumber.All(char.IsDigit))
                 return (false, "מספר תעודת זהות לא תקין");
+
+            // Validate Israeli ID checksum if enabled
+            if (validateIdChecksum && !IsValidIsraeliId(row.IdNumber))
+                return (false, "מספר תעודת זהות לא תקין - ספרת ביקורת שגויה");
 
             // Validate first name
             if (string.IsNullOrWhiteSpace(row.FirstName))
@@ -336,6 +343,68 @@ namespace PetelApp.Api.Services
                 "נקבה" => 2,
                 _ => 99 // Default unknown for unrecognized values
             };
+        }
+
+        /// <summary>
+        /// Check if ID number validation is enabled via system attribute.
+        /// </summary>
+        private async Task<bool> ShouldValidateIdNumberAsync()
+        {
+            try
+            {
+                var attribute = await _context.SystemAttributes
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(a => a.Name == "validate_israeli_id_checksum");
+
+                if (attribute != null && bool.TryParse(attribute.Value, out bool isEnabled))
+                {
+                    _logger.LogInformation("Israeli ID validation enabled: {IsEnabled}", isEnabled);
+                    return isEnabled;
+                }
+
+                _logger.LogInformation("Israeli ID validation attribute not found, defaulting to false");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error checking ID validation setting, defaulting to false");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Validates Israeli ID number using checksum algorithm.
+        /// Uses the Luhn-like algorithm for Israeli ID validation.
+        /// </summary>
+        private bool IsValidIsraeliId(string idNumber)
+        {
+            if (string.IsNullOrWhiteSpace(idNumber) || idNumber.Length != 9 || !idNumber.All(char.IsDigit))
+                return false;
+
+            int sum = 0;
+            for (int i = 0; i < 9; i++)
+            {
+                int digit = int.Parse(idNumber[i].ToString());
+                
+                // Multiply by 1 or 2 alternately (1 for even positions, 2 for odd positions)
+                int multipliedValue = digit * ((i % 2) + 1);
+                
+                // If result is greater than 9, subtract 9
+                if (multipliedValue > 9)
+                    multipliedValue -= 9;
+                
+                sum += multipliedValue;
+            }
+
+            // Valid if sum is divisible by 10
+            bool isValid = sum % 10 == 0;
+            
+            if (!isValid)
+            {
+                _logger.LogWarning("Invalid Israeli ID checksum for {IdNumber}, sum={Sum}", idNumber, sum);
+            }
+            
+            return isValid;
         }
     }
 
