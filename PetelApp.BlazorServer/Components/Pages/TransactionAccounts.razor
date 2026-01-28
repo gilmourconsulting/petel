@@ -107,6 +107,7 @@
                             <table class="data-table" style="min-width: 1200px;">
                                 <thead>
                                     <tr>
+                                        <th style="text-align: center;">פעולות</th>
                                         <th></th>
                                         <th @onclick="() => SortTable(nameof(TransactionAccountDto.AccountName))" style="cursor: pointer;">
                                             שם חשבון @GetSortArrow(nameof(TransactionAccountDto.AccountName))
@@ -124,13 +125,60 @@
                                             סטטוס @GetSortArrow(nameof(TransactionAccountDto.IsActive))
                                         </th>
                                         <th>תיאור</th>
-                                        <th style="text-align: center;">פעולות</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     @foreach (var account in _filteredAccounts)
                                     {
                                         <tr style="@(account.IsActive ? "" : "background-color: #f8f9fa; opacity: 0.7;")">
+                                            <td style="text-align: center;">
+                                                <div style="display: flex; gap: 5px; justify-content: center;">
+                                                    <SecureButton
+                                                        ActionName="accounts_viewAccount"
+                                                        ScreenName="@PageName"
+                                                        FunctionName="ViewAccount"
+                                                        OnClick="() => ViewAccount(account.Id)"
+                                                        CssClass="btn-icon"
+                                                        title="צפייה בחשבון">
+                                                        <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                                    </SecureButton>
+                                                    
+                                                    <SecureButton
+                                                        ActionName="accounts_editAccount"
+                                                        ScreenName="@PageName"
+                                                        FunctionName="EditAccount"
+                                                        OnClick="() => EditAccount(account.Id)"
+                                                        CssClass="btn-icon"
+                                                        title="עריכת חשבון">
+                                                        <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                                    </SecureButton>
+                                                    
+                                                    @if (account.IsActive)
+                                                    {
+                                                        <SecureButton
+                                                            ActionName="accounts_deactivateAccount"
+                                                            ScreenName="@PageName"
+                                                            FunctionName="DeactivateAccount"
+                                                            OnClick="() => DeactivateAccount(account.Id)"
+                                                            CssClass="btn-icon"
+                                                            title="השבת חשבון">
+                                                            <img src="/images/delete_icon.png" alt="השבת" class="action-icon-natural">
+                                                        </SecureButton>
+                                                    }
+                                                    else
+                                                    {
+                                                        <SecureButton
+                                                            ActionName="accounts_activateAccount"
+                                                            ScreenName="@PageName"
+                                                            FunctionName="ActivateAccount"
+                                                            OnClick="() => ActivateAccount(account.Id)"
+                                                            CssClass="btn-icon"
+                                                            title="הפעל חשבון">
+                                                            <img src="/images/Plus icon.png" alt="הפעל" class="action-icon-natural">
+                                                        </SecureButton>
+                                                    }
+                                                </div>
+                                            </td>
                                             <td style="width: 50px;">
                                                 @if (account.IsActive)
                                                 {
@@ -167,54 +215,6 @@
                                             <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@account.Description">
                                                 @account.Description
                                             </td>
-                                            <td style="text-align: center;">
-                                                <div style="display: flex; gap: 5px; justify-content: center;">
-                                                    <SecureButton
-                                                        ActionName="accounts_viewAccount"
-                                                        ScreenName="@PageName"
-                                                        FunctionName="ViewAccount"
-                                                        OnClick="() => ViewAccount(account.Id)"
-                                                        CssClass="btn-icon"
-                                                        title="צפייה בחשבון">
-                                                        <span style="font-size: 1.2em;">👁️</span>
-                                                    </SecureButton>
-                                                    
-                                                    <SecureButton
-                                                        ActionName="accounts_editAccount"
-                                                        ScreenName="@PageName"
-                                                        FunctionName="EditAccount"
-                                                        OnClick="() => EditAccount(account.Id)"
-                                                        CssClass="btn-icon"
-                                                        title="עריכת חשבון">
-                                                        <span style="font-size: 1.2em;">✏️</span>
-                                                    </SecureButton>
-                                                    
-                                                    @if (account.IsActive)
-                                                    {
-                                                        <SecureButton
-                                                            ActionName="accounts_deactivateAccount"
-                                                            ScreenName="@PageName"
-                                                            FunctionName="DeactivateAccount"
-                                                            OnClick="() => DeactivateAccount(account.Id)"
-                                                            CssClass="btn-icon"
-                                                            title="השבת חשבון">
-                                                            <span style="font-size: 1.2em;">🚫</span>
-                                                        </SecureButton>
-                                                    }
-                                                    else
-                                                    {
-                                                        <SecureButton
-                                                            ActionName="accounts_activateAccount"
-                                                            ScreenName="@PageName"
-                                                            FunctionName="ActivateAccount"
-                                                            OnClick="() => ActivateAccount(account.Id)"
-                                                            CssClass="btn-icon"
-                                                            title="הפעל חשבון">
-                                                            <span style="font-size: 1.2em;">✅</span>
-                                                        </SecureButton>
-                                                    }
-                                                </div>
-                                            </td>
                                         </tr>
                                     }
                                 </tbody>
@@ -227,35 +227,171 @@
     </div>
 </div>
 
-<style>
-    .badge {
-        padding: 4px 12px;
-        border-radius: 12px;
-        font-size: 0.85em;
-        font-weight: 600;
-        text-align: center;
-        display: inline-block;
-        min-width: 60px;
-    }
+<!-- Add Account Modal -->
+@if (_showAddDialog)
+{
+    <div class="modal-overlay" @onclick="CloseAddDialog">
+        <div class="modal-content modal-medium" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 class="modal-title">הוסף חשבון חדש</h3>
+                <button type="button" class="modal-close" @onclick="CloseAddDialog">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="accountType">סוג חשבון: <span style="color: red;">*</span></label>
+                    <select id="accountType" @bind="_newAccount.AccountTypeId" @bind:after="OnAccountTypeChanged" class="form-control" required>
+                        <option value="0">-- בחר סוג חשבון --</option>
+                        @foreach (var type in _accountTypes)
+                        {
+                            <option value="@type.Id">@type.Description</option>
+                        }
+                    </select>
+                </div>
 
-    .badge-success {
-        background-color: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
-    }
+                <div class="form-group">
+                    <label for="relatedEntity">ישות קשורה: <span style="color: red;">*</span></label>
+                    <div style="display: flex; gap: 8px; align-items: flex-start;">
+                        <select id="relatedEntity" @bind="_newAccount.RelatedEntityId" @bind:after="OnEntityChanged" class="form-control" required style="flex: 1;">
+                            <option value="0">-- בחר ישות --</option>
+                            @foreach (var entity in _availableEntities)
+                            {
+                                <option value="@entity.Id">@entity.EntityName</option>
+                            }
+                        </select>
+                        @if (_selectedAccountTypeName == "external_students_fees")
+                        {
+                            <button type="button" class="btn btn-secondary" @onclick="ShowCreateCouncilEntityDialog" style="white-space: nowrap;">
+                                צור ישות מועצה
+                            </button>
+                        }
+                    </div>
+                    <small class="form-text text-muted">הישות עבורה מתנהל החשבון</small>
+                </div>
 
-    .badge-warning {
-        background-color: #fff3cd;
-        color: #856404;
-        border: 1px solid #ffeaa7;
-    }
+                <div class="form-group">
+                    <label for="accountName">שם החשבון: <span style="color: red;">*</span></label>
+                    <input type="text" id="accountName" @bind="_newAccount.AccountName" class="form-control" placeholder="לדוגמה: עמותת רשת בית יעקב" required />
+                </div>
 
-    .table-container {
-        overflow-x: auto;
-        max-width: 100%;
-    }
+                <div class="form-group">
+                    <label for="accountDescription">תיאור:</label>
+                    <textarea id="accountDescription" @bind="_newAccount.Description" class="form-control" rows="3" placeholder="תיאור אופציונלי לחשבון"></textarea>
+                </div>
 
-    .data-table {
-        min-width: 1200px;
-    }
-</style>
+                <div class="form-group">
+                    <label for="initialBalance">יתרה התחלתית:</label>
+                    <input type="number" id="initialBalance" @bind="_newAccount.Balance" class="form-control" step="0.01" placeholder="0.00" style="direction: ltr; text-align: left;" />
+                    <small class="form-text text-muted">ברירת מחדל: 0.00</small>
+                </div>
+
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" @bind="_newAccount.IsActive" />
+                        <span>פעיל</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseAddDialog">ביטול</button>
+                <button type="button" class="btn btn-primary" @onclick="SaveNewAccount">שמור</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // All code-behind logic is in TransactionAccounts.razor.cs
+}
+
+<!-- Create Council Entity Modal -->
+@if (_showCreateCouncilDialog)
+{
+    <div class="modal-overlay" @onclick="CloseCreateCouncilDialog">
+        <div class="modal-content" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3>צור ישות מועצה</h3>
+                <button type="button" class="modal-close" @onclick="CloseCreateCouncilDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="councilSearch">חפש מועצה:</label>
+                    <div style="position: relative;">
+                        <input type="text" 
+                               id="councilSearch" 
+                               value="@_councilSearchText" 
+                               @oninput="OnCouncilSearchInput"
+                               @onfocus="OnCouncilFocus"
+                               class="form-control" 
+                               placeholder="הקלד לחיפוש מועצה..."
+                               autocomplete="off" />
+                        
+                        @if (_showCouncilDropdown && _filteredCouncils.Any())
+                        {
+                            <div @onmousedown:preventDefault="true"
+                                 style="position: absolute; 
+                                        top: 100%; 
+                                        left: 0; 
+                                        right: 0;
+                                        max-height: 250px; 
+                                        overflow-y: auto; 
+                                        background: white; 
+                                        border: 1px solid #dee2e6; 
+                                        border-radius: 4px; 
+                                        z-index: 1000; 
+                                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                                        margin-top: 4px;">
+                                @foreach (var council in _filteredCouncils.Take(20))
+                                {
+                                    <div @onclick="() => SelectCouncil(council)"
+                                         @onmouseover="@(() => _hoveredCouncilId = council.Id)"
+                                         @onmouseout="@(() => _hoveredCouncilId = null)"
+                                         style="padding: 10px 12px; 
+                                                cursor: pointer; 
+                                                border-bottom: 1px solid #f0f0f0;
+                                                text-align: right;
+                                                background-color: @((_hoveredCouncilId == council.Id) ? "#f0f0f0" : "white");">
+                                        @council.CouncilName
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else if (_showCouncilDropdown && !_filteredCouncils.Any() && !string.IsNullOrWhiteSpace(_councilSearchText))
+                        {
+                            <div style="position: absolute; 
+                                        top: 100%; 
+                                        left: 0; 
+                                        right: 0;
+                                        background: white; 
+                                        border: 1px solid #dee2e6; 
+                                        border-radius: 4px; 
+                                        z-index: 1000; 
+                                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                                        padding: 12px; 
+                                        color: #999;
+                                        text-align: right;
+                                        margin-top: 4px;">
+                                לא נמצאו תוצאות
+                            </div>
+                        }
+                        
+                        @if (_selectedCouncil != null)
+                        {
+                            <div class="selected-council" style="margin-top: 8px; padding: 8px; background: #e7f3ff; border-radius: 4px;">
+                                <strong>מועצה נבחרה:</strong> @_selectedCouncil.CouncilName
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseCreateCouncilDialog">ביטול</button>
+                <button type="button" class="btn btn-primary" @onclick="CreateCouncilEntity" disabled="@(_selectedCouncil == null)">
+                    צור ישות
+                </button>
+            </div>
+        </div>
+    </div>
+}
+

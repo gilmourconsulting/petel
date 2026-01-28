@@ -227,6 +227,54 @@ namespace PetelApp.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Get available entities for transaction accounts (all active non-school entities)
+        /// </summary>
+        [HttpGet("available-entities")]
+        public async Task<IActionResult> GetAvailableEntities([FromQuery] int? entityTypeId = null)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                var query = _context.Entities
+                    .AsNoTracking()
+                    .Where(e => e.IsActive && e.EntityTypeId != 1 && e.EntityTypeId != 4); // Exclude school types
+
+                // Optional filter by entity type (e.g., only councils)
+                if (entityTypeId.HasValue)
+                {
+                    query = query.Where(e => e.EntityTypeId == entityTypeId.Value);
+                }
+
+                var entities = await query
+                    .OrderBy(e => e.Name)
+                    .Select(e => new
+                    {
+                        id = e.Id,
+                        name = e.Name,
+                        entity_type_id = e.EntityTypeId
+                    })
+                    .ToListAsync();
+
+                return Ok(new { success = true, data = entities });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving available entities");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בטעינת ישויות",
+                    error = ex.Message
+                });
+            }
+        }
+
         #endregion
 
         #region POST Endpoints
@@ -324,6 +372,20 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
+                _logger.LogInformation("CreateCouncilEntity called with CouncilId: {CouncilId}", request?.CouncilId);
+
+                if (request == null)
+                {
+                    _logger.LogError("Request body is null");
+                    return BadRequest(new { success = false, message = "נתוני הבקשה חסרים" });
+                }
+
+                if (request.CouncilId <= 0)
+                {
+                    _logger.LogError("Invalid CouncilId: {CouncilId}", request.CouncilId);
+                    return BadRequest(new { success = false, message = "מזהה מועצה לא תקין" });
+                }
+
                 var session = GetCurrentSession();
                 if (session == null)
                 {
@@ -380,7 +442,13 @@ namespace PetelApp.Api.Controllers
                 {
                     success = true,
                     message = "ישות מועצה נוצרה בהצלחה",
-                    entityId = councilEntity.Id
+                    data = new
+                    {
+                        id = councilEntity.Id,
+                        entityName = councilEntity.Name,
+                        entityTypeId = councilEntity.EntityTypeId,
+                        isActive = councilEntity.IsActive
+                    }
                 });
             }
             catch (Exception ex)

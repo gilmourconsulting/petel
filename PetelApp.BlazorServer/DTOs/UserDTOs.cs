@@ -197,6 +197,39 @@ namespace PetelApp.BlazorServer.DTOs
         
         [System.Text.Json.Serialization.JsonPropertyName("entity_type_id")]
         public int? EntityTypeId { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("is_active")]
+        public bool? IsActive { get; set; }
+    }
+
+    /// <summary>
+    /// Response for create council entity API call
+    /// </summary>
+    public class CreateCouncilEntityResponse
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("success")]
+        public bool Success { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("message")]
+        public string Message { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public CreateCouncilEntityData? Data { get; set; }
+    }
+
+    public class CreateCouncilEntityData
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("id")]
+        public int Id { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("entityName")]
+        public string EntityName { get; set; } = string.Empty;
+        
+        [System.Text.Json.Serialization.JsonPropertyName("entityTypeId")]
+        public int? EntityTypeId { get; set; }
+        
+        [System.Text.Json.Serialization.JsonPropertyName("isActive")]
+        public bool? IsActive { get; set; }
     }
 
     /// <summary>

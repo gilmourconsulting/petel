@@ -927,6 +927,7 @@ function cleanupMyPage() { /* ... */ }
 
 **Standard Table Component**:
 - **ALL tables must use ReusableTable component** from `table-component.js`
+- **Action buttons column MUST be the first column in all tables** for consistency and accessibility
 - Constructor: `new ReusableTable(containerId, options)`
 - Options: `{ tableName, isReadOnly, allowAdd, allowEdit, allowDelete }`
 - Columns format: `{ key, label, sortable, readOnly, render }`
@@ -941,8 +942,6 @@ const table = new ReusableTable('tableContainer', {
 });
 
 const columns = [
-    { key: 'id', label: 'מספר', sortable: true, readOnly: true },
-    { key: 'name', label: 'שם', sortable: true, readOnly: false },
     {
         key: 'actions',
         label: 'פעולות',
@@ -953,7 +952,9 @@ const columns = [
                 <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
             </button>
         `
-    }
+    },
+    { key: 'id', label: 'מספר', sortable: true, readOnly: true },
+    { key: 'name', label: 'שם', sortable: true, readOnly: false }
 ];
 
 table.init(data, columns);

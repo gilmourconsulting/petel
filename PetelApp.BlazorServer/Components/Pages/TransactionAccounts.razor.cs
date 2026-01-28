@@ -24,6 +24,22 @@ namespace PetelApp.BlazorServer.Components.Pages
         private string? _sortColumn = null;
         private bool _sortAscending = true;
 
+        // Add Account Modal
+        private bool _showAddDialog = false;
+        private CreateAccountDto _newAccount = new();
+        private List<AccountTypeDto> _accountTypes = new();
+        private List<EntityDto> _availableEntities = new();
+        private string _selectedAccountTypeName = "";
+
+        // Create Council Entity Modal
+        private bool _showCreateCouncilDialog = false;
+        private string _councilSearchText = "";
+        private List<CouncilDto> _allCouncils = new();
+        private List<CouncilDto> _filteredCouncils = new();
+        private CouncilDto? _selectedCouncil = null;
+        private bool _showCouncilDropdown = false;
+        private int? _hoveredCouncilId = null;
+
         /// <summary>
         /// Called after page access verified - load initial data
         /// </summary>
@@ -153,8 +169,345 @@ namespace PetelApp.BlazorServer.Components.Pages
         /// </summary>
         private async Task ShowAddAccountDialog()
         {
-            await JSRuntime.InvokeVoidAsync("alert", "פונקציונליות הוספת חשבון תיושם בשלב הבא");
-            // TODO: Implement add account modal
+            var executed = await ExecuteSecureActionAsync(
+                actionName: "accounts_addAccount",
+                functionName: "ShowAddAccountDialog",
+                action: async () =>
+                {
+                    // Load account types only
+                    await LoadAccountTypes();
+                    
+                    // Initialize new account
+                    _newAccount = new CreateAccountDto
+                    {
+                        IsActive = true,
+                        Balance = 0
+                    };
+                    
+                    // Clear entities list - will be loaded when account type is selected
+                    _availableEntities = new List<EntityDto>();
+                    _selectedAccountTypeName = "";
+                    
+                    _showAddDialog = true;
+                    StateHasChanged();
+                }
+            );
+        }
+
+        /// <summary>
+        /// Load account types from API
+        /// </summary>
+        private async Task LoadAccountTypes()
+        {
+            try
+            {
+                // API returns { success: true, data: [...] }
+                var response = await ApiService.GetAsync<ApiResponse<List<AccountTypeDto>>>("transactionaccounts/account-types");
+                _accountTypes = response?.Data ?? new List<AccountTypeDto>();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading account types: {ex.Message}");
+                _accountTypes = new List<AccountTypeDto>();
+            }
+        }
+
+        /// <summary>
+        /// Load available entities for the related entity dropdown
+        /// Filters by entity type based on selected account type
+        /// </summary>
+        private async Task LoadAvailableEntities()
+        {
+            try
+            {
+                Console.WriteLine($"🔍 LoadAvailableEntities called. Selected account type: {_selectedAccountTypeName}");
+                
+                string endpoint;
+                
+                // Build endpoint with optional entity type filter
+                if (_selectedAccountTypeName == "external_students_fees")
+                {
+                    Console.WriteLine("🔽 Requesting only council entities (type 2)");
+                    endpoint = "transactionaccounts/available-entities?entityTypeId=2";
+                }
+                else
+                {
+                    Console.WriteLine("🔽 Requesting all available entities");
+                    endpoint = "transactionaccounts/available-entities";
+                }
+                
+                var response = await ApiService.GetAsync<ApiResponse<List<EntityDto>>>(endpoint);
+                _availableEntities = response?.Data ?? new List<EntityDto>();
+
+                Console.WriteLine($"✅ Loaded {_availableEntities.Count} entities");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error loading entities: {ex.Message}");
+                _availableEntities = new List<EntityDto>();
+            }
+        }
+
+        /// <summary>
+        /// Close add dialog
+        /// </summary>
+        private void CloseAddDialog()
+        {
+            _showAddDialog = false;
+            _newAccount = new CreateAccountDto();
+            _selectedAccountTypeName = "";
+        }
+
+        /// <summary>
+        /// Handle account type change - reload entities based on type
+        /// </summary>
+        private async Task OnAccountTypeChanged()
+        {
+            Console.WriteLine($"🔄 Account type changed. AccountTypeId: {_newAccount.AccountTypeId}");
+            
+            // Get selected account type name
+            var selectedType = _accountTypes.FirstOrDefault(t => t.Id == _newAccount.AccountTypeId);
+            _selectedAccountTypeName = selectedType?.Name ?? "";
+            
+            Console.WriteLine($"📋 Selected account type name: {_selectedAccountTypeName}");
+
+            // Clear selected entity
+            _newAccount.RelatedEntityId = 0;
+            
+            // Clear account name - will be set when entity is selected
+            _newAccount.AccountName = "";
+
+            // Reload entities with new filter
+            await LoadAvailableEntities();
+            
+            Console.WriteLine($"✅ Loaded {_availableEntities.Count} entities after filtering");
+            
+            StateHasChanged();
+        }
+        
+        /// <summary>
+        /// Handle entity selection - update default account name
+        /// </summary>
+        private void OnEntityChanged()
+        {
+            if (_newAccount.RelatedEntityId == 0)
+            {
+                _newAccount.AccountName = "";
+                return;
+            }
+            
+            var selectedEntity = _availableEntities.FirstOrDefault(e => e.Id == _newAccount.RelatedEntityId);
+            var selectedType = _accountTypes.FirstOrDefault(t => t.Id == _newAccount.AccountTypeId);
+            
+            if (selectedEntity != null && selectedType != null)
+            {
+                _newAccount.AccountName = $"{selectedType.Description} - {selectedEntity.EntityName}";
+                Console.WriteLine($"✅ Set default account name: {_newAccount.AccountName}");
+            }
+            
+            StateHasChanged();
+        }
+
+        /// <summary>
+        /// Show create council entity dialog
+        /// </summary>
+        private async Task ShowCreateCouncilEntityDialog()
+        {
+            try
+            {
+                // Load all councils (no year required)
+                var response = await ApiService.GetAsync<ApiResponse<List<CouncilDto>>>("systemattributes/councils");
+                _allCouncils = response?.Data ?? new List<CouncilDto>();
+
+                // Get all existing council entities to filter them out
+                // Since EntityDto doesn't expose council_id, we'll show all councils
+                // and let the API handle the duplicate check on create
+                
+                _councilSearchText = "";
+                _filteredCouncils = new List<CouncilDto>();
+                _selectedCouncil = null;
+                _showCreateCouncilDialog = true;
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading councils: {ex.Message}");
+                await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינת מועצות: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Filter councils based on search text
+        /// </summary>
+        private void FilterCouncils()
+        {
+            if (string.IsNullOrWhiteSpace(_councilSearchText))
+            {
+                _filteredCouncils = _allCouncils.Take(50).ToList(); // Show first 50 when empty
+            }
+            else
+            {
+                _filteredCouncils = _allCouncils
+                    .Where(c => c.CouncilName.Contains(_councilSearchText, StringComparison.OrdinalIgnoreCase))
+                    .Take(50)
+                    .ToList();
+            }
+        }
+
+        /// <summary>
+        /// Handle council search input
+        /// </summary>
+        private void OnCouncilSearchInput(ChangeEventArgs e)
+        {
+            _councilSearchText = e.Value?.ToString() ?? "";
+            FilterCouncils();
+            _showCouncilDropdown = true;
+            StateHasChanged();
+        }
+
+        /// <summary>
+        /// Handle council input focus
+        /// </summary>
+        private void OnCouncilFocus()
+        {
+            // Show councils when focusing
+            if (string.IsNullOrWhiteSpace(_councilSearchText))
+            {
+                _filteredCouncils = _allCouncils.Take(50).ToList();
+            }
+            else
+            {
+                FilterCouncils();
+            }
+            _showCouncilDropdown = true;
+            StateHasChanged();
+        }
+
+        /// <summary>
+        /// Select a council from the autocomplete
+        /// </summary>
+        private void SelectCouncil(CouncilDto council)
+        {
+            _selectedCouncil = council;
+            _councilSearchText = council.CouncilName;
+            _showCouncilDropdown = false;
+            _filteredCouncils = new List<CouncilDto>();
+            StateHasChanged();
+        }
+
+        /// <summary>
+        /// Create entity for selected council
+        /// </summary>
+        private async Task CreateCouncilEntity()
+        {
+            if (_selectedCouncil == null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "נא לבחור מועצה");
+                return;
+            }
+
+            try
+            {
+                var createRequest = new
+                {
+                    CouncilId = _selectedCouncil.Id
+                };
+
+                var response = await ApiService.PostAsync<object, CreateCouncilEntityResponse>(
+                    "transactionaccounts/create-council-entity",
+                    createRequest
+                );
+
+                if (response?.Success == true)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", $"הישות עבור {_selectedCouncil.CouncilName} נוצרה בהצלחה");
+
+                    // Close council dialog
+                    CloseCreateCouncilDialog();
+
+                    // Reload available entities
+                    await LoadAvailableEntities();
+
+                    // Auto-select the new entity
+                    if (response.Data != null)
+                    {
+                        _newAccount.RelatedEntityId = response.Data.Id;
+                        StateHasChanged();
+                    }
+                }
+                else
+                {
+                    string errorMsg = response?.Message ?? "שגיאה לא ידועה";
+                    await JSRuntime.InvokeVoidAsync("alert", $"שגיאה: {errorMsg}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error creating council entity: {ex.Message}");
+                await JSRuntime.InvokeVoidAsync("alert", $"שגיאה ביצירת ישות: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Close create council dialog
+        /// </summary>
+        private void CloseCreateCouncilDialog()
+        {
+            _showCreateCouncilDialog = false;
+            _councilSearchText = "";
+            _filteredCouncils = new List<CouncilDto>();
+            _selectedCouncil = null;
+            _showCouncilDropdown = false;
+            _hoveredCouncilId = null;
+        }
+
+        /// <summary>
+        /// Save new account
+        /// </summary>
+        private async Task SaveNewAccount()
+        {
+            // Validation
+            if (_newAccount.AccountTypeId == 0)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "נא לבחור סוג חשבון");
+                return;
+            }
+
+            if (_newAccount.RelatedEntityId == 0)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "נא לבחור ישות קשורה");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_newAccount.AccountName))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "נא להזין שם חשבון");
+                return;
+            }
+
+            try
+            {
+                var response = await ApiService.PostAsync<CreateAccountDto, ApiResponse<object>>(
+                    "transactionaccounts",
+                    _newAccount
+                );
+
+                if (response?.Success == true)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "החשבון נוסף בהצלחה");
+                    CloseAddDialog();
+                    await LoadData(); // Refresh the list
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", $"שגיאה: {response?.Message}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error saving account: {ex.Message}");
+                await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירת החשבון: {ex.Message}");
+            }
         }
 
         /// <summary>
@@ -320,5 +673,28 @@ namespace PetelApp.BlazorServer.Components.Pages
         public bool Success { get; set; }
         public string? Message { get; set; }
         public T? Data { get; set; }
+    }
+
+    /// <summary>
+    /// DTO for creating a new account
+    /// </summary>
+    public class CreateAccountDto
+    {
+        public int AccountTypeId { get; set; }
+        public int RelatedEntityId { get; set; }
+        public string AccountName { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public decimal Balance { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+
+    /// <summary>
+    /// DTO for account type
+    /// </summary>
+    public class AccountTypeDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
     }
 }

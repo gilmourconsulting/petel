@@ -169,7 +169,14 @@ namespace PetelApp.BlazorServer.Services
                     );
                 }
 
-                response.EnsureSuccessStatusCode();
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("POST request failed for {Endpoint}: {StatusCode} - {ErrorContent}", 
+                        endpoint, response.StatusCode, errorContent);
+                    throw new HttpRequestException($"Response status code does not indicate success: {(int)response.StatusCode} ({response.ReasonPhrase}). Details: {errorContent}");
+                }
+
                 return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
             }
             catch (Exception ex)
