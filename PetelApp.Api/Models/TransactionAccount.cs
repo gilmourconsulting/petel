@@ -102,6 +102,11 @@ namespace PetelApp.Api.Models
         public virtual TransactionAccountType AccountType { get; set; } = null!;
 
         /// <summary>
+        /// Collection of transactions associated with this account
+        /// </summary>
+        public virtual ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
+
+        /// <summary>
         /// Navigation property to the user who created this record
         /// </summary>
         public virtual User? CreatedByUser { get; set; }

@@ -512,6 +512,16 @@ namespace PetelApp.BlazorServer.Components.Pages
 
         /// <summary>
         /// View account details
+        /// <summary>
+        /// Navigate to account transactions view
+        /// </summary>
+        private void ViewTransactions(int accountId)
+        {
+            NavigationManager.NavigateTo($"/accounttransactions/{accountId}");
+        }
+
+        /// <summary>
+        /// View account details (deprecated - replaced with ViewTransactions)
         /// </summary>
         private async Task ViewAccount(int accountId)
         {

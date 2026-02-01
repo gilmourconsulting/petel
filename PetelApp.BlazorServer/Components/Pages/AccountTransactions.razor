@@ -1,0 +1,314 @@
+@page "/accounttransactions/{AccountId:int}"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelApp.BlazorServer.DTOs
+@using PetelApp.BlazorServer.Services
+@inject ApiService ApiService
+@inject SessionStateService SessionStateService
+@inject NavigationManager NavigationManager
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <SecureButton
+            ActionName="accounttransactions_addTransaction"
+            ScreenName="@PageName"
+            FunctionName="ShowAddTransactionDialog"
+            OnClick="ShowAddTransactionDialog"
+            CssClass="context-btn">
+            הוסף תנועה
+        </SecureButton>
+        
+        <div class="context-spacer"></div>
+        
+        <SecureButton
+            ActionName="accounttransactions_backToAccounts"
+            ScreenName="@PageName"
+            FunctionName="NavigateBackToAccounts"
+            OnClick="NavigateBackToAccounts"
+            CssClass="context-navigation-btn">
+            חזרה לחשבונות
+        </SecureButton>
+        
+        <SecureButton
+            ActionName="accounttransactions_refreshData"
+            ScreenName="@PageName"
+            FunctionName="RefreshData"
+            OnClick="RefreshData"
+            CssClass="context-navigation-btn">
+            רענן נתונים
+        </SecureButton>
+    </div>
+
+    <!-- Account Transactions content -->
+    <div class="students-content">
+        <!-- Page Title Section -->
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">תנועות חשבון</div>
+                <div class="text-branded" style="text-align: center;">@_accountName</div>
+                <div class="left-spacer"></div>
+            </div>
+        </div>
+
+        <!-- Account Summary Card -->
+        @if (_account != null)
+        {
+            <div class="dashboard-cards-wrapper" style="margin-bottom: 20px;">
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <!-- Account Balance Card -->
+                    <div class="summary-card" style="min-width: 250px; background: linear-gradient(135deg, @(_account.Balance >= 0 ? "#d4edda" : "#f8d7da") 0%, @(_account.Balance >= 0 ? "#c3e6cb" : "#f5c6cb") 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                        <div style="font-size: 40px; opacity: 0.8;">💰</div>
+                        <div style="flex: 1; text-align: right;">
+                            <div style="font-size: 2em; font-weight: 700; color: #2c3e50; line-height: 1; margin-bottom: 5px;">₪@_account.Balance.ToString("N2")</div>
+                            <div style="font-size: 0.9em; color: #666; font-weight: 500;">יתרה נוכחית</div>
+                        </div>
+                    </div>
+
+                    <!-- Total Transactions Card -->
+                    <div class="summary-card" style="min-width: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                        <div style="font-size: 40px; opacity: 0.8;">📊</div>
+                        <div style="flex: 1; text-align: right;">
+                            <div style="font-size: 2em; font-weight: 700; color: #2c3e50; line-height: 1; margin-bottom: 5px;">@_totalTransactions</div>
+                            <div style="font-size: 0.9em; color: #666; font-weight: 500;">סה"כ תנועות</div>
+                        </div>
+                    </div>
+
+                    <!-- Account Type Card -->
+                    <div class="summary-card" style="min-width: 200px; background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                        <div style="font-size: 40px; opacity: 0.8;">📁</div>
+                        <div style="flex: 1; text-align: right;">
+                            <div style="font-size: 1.2em; font-weight: 600; color: #2c3e50; margin-bottom: 5px;">@_account.AccountTypeName</div>
+                            <div style="font-size: 0.9em; color: #666; font-weight: 500;">סוג חשבון</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Filters Card -->
+        <div class="content-card" style="margin-bottom: 20px;">
+            <div class="detail-card @(_showFilters ? "expanded" : "collapsed")">
+                <div class="detail-card-header" @onclick="ToggleFilters">
+                    <h2 class="detail-card-title">סינון תנועות</h2>
+                    <div class="card-header-actions">
+                        <button class="collapse-toggle" aria-label="הרחב/כווץ">@(_showFilters ? "×" : "+")</button>
+                    </div>
+                </div>
+                <div class="detail-card-content">
+                    <div class="form-row" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                        <div class="form-group">
+                            <label for="filterStartDate">מתאריך:</label>
+                            <input type="date" id="filterStartDate" @bind="_filterStartDate" class="form-control" />
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="filterEndDate">עד תאריך:</label>
+                            <input type="date" id="filterEndDate" @bind="_filterEndDate" class="form-control" />
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="filterTransactionType">סוג תנועה:</label>
+                            <select id="filterTransactionType" @bind="_filterTransactionTypeId" class="form-control">
+                                <option value="">הכל</option>
+                                @foreach (var type in _transactionTypes)
+                                {
+                                    <option value="@type.Id">@type.Description</option>
+                                }
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="filterMinAmount">סכום מינימלי:</label>
+                            <input type="number" id="filterMinAmount" @bind="_filterMinAmount" class="form-control" step="0.01" placeholder="0.00" style="direction: ltr; text-align: left;" />
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="filterMaxAmount">סכום מקסימלי:</label>
+                            <input type="number" id="filterMaxAmount" @bind="_filterMaxAmount" class="form-control" step="0.01" placeholder="0.00" style="direction: ltr; text-align: left;" />
+                        </div>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                        <button type="button" class="btn btn-secondary" @onclick="ClearFilters">נקה סינון</button>
+                        <button type="button" class="btn btn-primary" @onclick="ApplyFilters">החל סינון</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Transactions Table Section -->
+        <div class="content-card">
+            <div class="detail-card expanded">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">רשימת תנועות</h2>
+                    <div class="card-header-actions">
+                        <SecureButton
+                            ActionName="accounttransactions_refreshData"
+                            ScreenName="@PageName"
+                            FunctionName="RefreshData"
+                            OnClick="RefreshData"
+                            CssClass="btn-icon"
+                            title="רענן נתונים">
+                            <span style="font-size: 2em;">🔄</span>
+                        </SecureButton>
+                    </div>
+                </div>
+                <div class="detail-card-content" style="min-height: 400px; max-height: none;">
+                    @if (_isLoading)
+                    {
+                        <div class="loading-spinner">טוען נתונים...</div>
+                    }
+                    else if (_transactions == null || _transactions.Count == 0)
+                    {
+                        <div class="no-data-message">אין תנועות להצגה</div>
+                    }
+                    else
+                    {
+                        <div class="table-container" style="overflow-x: auto;">
+                            <table class="data-table" style="min-width: 1200px;">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 100px;">פעולות</th>
+                                        <th style="width: 120px;">תאריך</th>
+                                        <th style="width: 200px;">סוג תנועה</th>
+                                        <th style="width: 120px; text-align: left;">סכום (₪)</th>
+                                        <th>תיאור</th>
+                                        <th style="width: 150px;">תלמיד</th>
+                                        <th style="width: 120px;">שנת לימוד</th>
+                                        <th style="width: 120px;">משתמש</th>
+                                        <th style="width: 150px;">תאריך יצירה</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var transaction in _transactions)
+                                    {
+                                        <tr style="background-color: @(transaction.IsCredit ? "#f0fff4" : "#fff5f5");">
+                                            <td>
+                                                <SecureButton
+                                                    ActionName="accounttransactions_viewTransaction"
+                                                    ScreenName="@PageName"
+                                                    FunctionName="ViewTransactionDetails"
+                                                    OnClick="() => ViewTransactionDetails(transaction.Id)"
+                                                    CssClass="btn-icon"
+                                                    title="צפה בפירוט">
+                                                    <span style="font-size: 1.5em;">👁️</span>
+                                                </SecureButton>
+                                            </td>
+                                            <td>@transaction.TransactionDate.ToString("dd/MM/yyyy")</td>
+                                            <td>
+                                                <span style="display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 0.85em; background-color: @(transaction.IsCredit ? "#c6f6d5" : "#fed7d7"); color: @(transaction.IsCredit ? "#22543d" : "#742a2a");">
+                                                    @transaction.TransactionTypeDescription
+                                                </span>
+                                            </td>
+                                            <td style="text-align: left; direction: ltr; font-weight: 600; color: @(transaction.IsCredit ? "#38a169" : "#e53e3e");">
+                                                @(transaction.IsCredit ? "+" : "-")@transaction.Amount.ToString("N2")
+                                            </td>
+                                            <td>@transaction.Description</td>
+                                            <td>@(transaction.RelatedStudentName ?? "-")</td>
+                                            <td>@(transaction.SchoolYearName ?? "-")</td>
+                                            <td>@transaction.Username</td>
+                                            <td>@transaction.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction Details Modal -->
+@if (_showDetailsModal && _selectedTransaction != null)
+{
+    <div class="modal-overlay" @onclick="CloseDetailsModal">
+        <div class="modal-content modal-large" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 class="modal-title">פירוט תנועה</h3>
+                <button type="button" class="modal-close" @onclick="CloseDetailsModal">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Transaction Info -->
+                <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px;">
+                        <div>
+                            <strong>תאריך:</strong> @_selectedTransaction.TransactionDate.ToString("dd/MM/yyyy")
+                        </div>
+                        <div>
+                            <strong>סוג תנועה:</strong> @_selectedTransaction.TransactionTypeDescription
+                        </div>
+                        <div>
+                            <strong>סכום כולל:</strong> 
+                            <span style="font-weight: 600; color: @(_selectedTransaction.IsCredit ? "#38a169" : "#e53e3e");">
+                                ₪@_selectedTransaction.Amount.ToString("N2")
+                            </span>
+                        </div>
+                        <div>
+                            <strong>משתמש:</strong> @_selectedTransaction.Username
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(_selectedTransaction.RelatedStudentName))
+                        {
+                            <div>
+                                <strong>תלמיד:</strong> @_selectedTransaction.RelatedStudentName
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(_selectedTransaction.SchoolYearName))
+                        {
+                            <div>
+                                <strong>שנת לימוד:</strong> @_selectedTransaction.SchoolYearName
+                            </div>
+                        }
+                    </div>
+                    <div style="margin-top: 10px;">
+                        <strong>תיאור:</strong> @_selectedTransaction.Description
+                    </div>
+                </div>
+
+                <!-- Transaction Details Breakdown -->
+                <h4 style="margin-bottom: 15px; color: #2c3e50;">פירוט רכיבי התנועה</h4>
+                @if (_transactionDetails != null && _transactionDetails.Count > 0)
+                {
+                    <table class="data-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>סוג פירוט</th>
+                                <th>תיאור</th>
+                                <th style="width: 150px; text-align: left;">סכום (₪)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var detail in _transactionDetails)
+                            {
+                                <tr>
+                                    <td>@detail.DetailTypeDescription</td>
+                                    <td>@detail.Description</td>
+                                    <td style="text-align: left; direction: ltr; font-weight: 600;">@detail.Amount.ToString("N2")</td>
+                                </tr>
+                            }
+                            <tr style="background-color: #f8f9fa; font-weight: 700;">
+                                <td colspan="2" style="text-align: right;">סה"כ:</td>
+                                <td style="text-align: left; direction: ltr; color: @(_selectedTransaction.IsCredit ? "#38a169" : "#e53e3e");">@_transactionDetails.Sum(d => d.Amount).ToString("N2")</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                }
+                else
+                {
+                    <div class="no-data-message">אין פירוטים להצגה</div>
+                }
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseDetailsModal">סגור</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // All code-behind logic is in AccountTransactions.razor.cs
+}

@@ -45,6 +45,10 @@ public DbSet<Status> Statuses { get; set; }
         public DbSet<SchoolYearAttribute> SchoolYearAttributes { get; set; }
         public DbSet<TransactionAccountType> TransactionAccountTypes { get; set; }
         public DbSet<TransactionAccount> TransactionAccounts { get; set; }
+        public DbSet<TransactionType> TransactionTypes { get; set; }
+        public DbSet<TransactionDetailType> TransactionDetailTypes { get; set; }
+        public DbSet<Transaction> Transactions { get; set; }
+        public DbSet<TransactionDetail> TransactionDetails { get; set; }
 
         //  DbSets for Council and SchoolClass
         public DbSet<School> Schools { get; set; }
@@ -921,6 +925,89 @@ modelBuilder.Entity<SystemAction>(entity =>
                     .WithMany()
                     .HasForeignKey(ta => ta.UpdateUser)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // TransactionType configuration
+            modelBuilder.Entity<TransactionType>(entity =>
+            {
+                entity.ToTable("transaction_types");
+                entity.HasIndex(e => e.Name).IsUnique();
+                entity.HasIndex(e => e.IsActive);
+            });
+
+            // TransactionDetailType configuration
+            modelBuilder.Entity<TransactionDetailType>(entity =>
+            {
+                entity.ToTable("transaction_detail_types");
+                entity.HasIndex(e => e.Name).IsUnique();
+                entity.HasIndex(e => e.IsActive);
+            });
+
+            // Transaction configuration
+            modelBuilder.Entity<Transaction>(entity =>
+            {
+                entity.ToTable("transactions");
+
+                // Indexes for performance
+                entity.HasIndex(e => e.AccountId);
+                entity.HasIndex(e => e.TransactionTypeId);
+                entity.HasIndex(e => e.TransactionDate);
+                entity.HasIndex(e => e.RelatedTransactionId);
+                entity.HasIndex(e => e.RelatedStudentId);
+                entity.HasIndex(e => e.SchoolYearId);
+                entity.HasIndex(e => e.UserId);
+
+                // Configure relationships
+                entity.HasOne(t => t.TransactionAccount)
+                    .WithMany(ta => ta.Transactions)
+                    .HasForeignKey(t => t.AccountId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(t => t.TransactionType)
+                    .WithMany(tt => tt.Transactions)
+                    .HasForeignKey(t => t.TransactionTypeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(t => t.RelatedTransaction)
+                    .WithMany(t => t.RelatedTransactions)
+                    .HasForeignKey(t => t.RelatedTransactionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(t => t.RelatedStudent)
+                    .WithMany()
+                    .HasForeignKey(t => t.RelatedStudentId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(t => t.SchoolYear)
+                    .WithMany()
+                    .HasForeignKey(t => t.SchoolYearId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(t => t.User)
+                    .WithMany()
+                    .HasForeignKey(t => t.UserId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // TransactionDetail configuration
+            modelBuilder.Entity<TransactionDetail>(entity =>
+            {
+                entity.ToTable("transaction_details");
+
+                // Indexes for performance
+                entity.HasIndex(e => e.TransactionId);
+                entity.HasIndex(e => e.DetailTypeId);
+
+                // Configure relationships
+                entity.HasOne(td => td.Transaction)
+                    .WithMany(t => t.TransactionDetails)
+                    .HasForeignKey(td => td.TransactionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(td => td.DetailType)
+                    .WithMany(dt => dt.TransactionDetails)
+                    .HasForeignKey(td => td.DetailTypeId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
         }
