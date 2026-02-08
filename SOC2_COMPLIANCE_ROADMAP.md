@@ -22,7 +22,7 @@ The Petel system has achieved **significant SOC 2 readiness** following the Blaz
 
 ### Remaining Work ❌
 - ✅ Security headers (1 day - High Priority) - **COMPLETED 2026-02-02**
-- ❌ Rate limiting (3 days - High Priority)
+- ✅ Rate limiting (3 days - High Priority) - **COMPLETED 2026-02-02**
 - ❌ Azure Front Door + WAF configuration (Infrastructure team)
 - ❌ Application Insights integration (1 day)
 - ❌ Formal security documentation (2-3 weeks)
@@ -87,20 +87,22 @@ The Petel system has achieved **significant SOC 2 readiness** following the Blaz
   - Headers only applied in non-development environments
   - Blazor CSP adapted for framework requirements (unsafe-inline for scripts)
 
-**2. Rate Limiting (Priority: HIGH)**
+**2. Rate Limiting (Priority: HIGH)** ✅ **COMPLETED 2026-02-02**
 - **Effort:** 3 days
 - **Owner:** Development team
-- **Package:** AspNetCoreRateLimit
-- **Commands:**
-  ```bash
-  cd PetelApp.Api
-  dotnet add package AspNetCoreRateLimit
-  ```
-- **Configuration Required:**
-  - Login endpoint: 5 attempts per 15 minutes per IP
-  - OTP verify: 3 attempts per 15 minutes per user
-  - General API: 100 requests per minute per user
-  - Files to modify: `Program.cs`, new `RateLimitConfiguration.cs`
+- **Status:** Implemented with environment-based feature flag
+- **Details:**
+  - Added AspNetCoreRateLimit package (v5.0.0)
+  - Created RateLimitConfiguration.cs helper class
+  - Added feature flag: `Features:RateLimitingEnabled` in appsettings
+  - Configured rate limits:
+    - Login: 5 attempts per 15 minutes per IP
+    - OTP verify: 3 attempts per 15 minutes per IP
+    - General API: 100 requests per minute
+    - General API: 1000 requests per hour
+  - Disabled in Development (testing friendly)
+  - Enabled in Test and Production environments
+  - Hebrew error messages for production
 
 **3. Application Insights (Priority: MEDIUM)**
 - **Effort:** 1 day
@@ -790,12 +792,12 @@ az security auto-provisioning-setting update \
 
 ### Month 1: Quick Technical Wins
 **Weeks 1-2: Development Team**
-- ✅ Day 1: Implement security headers (API + Blazor)
-- ✅ Day 2-4: Implement rate limiting
-  - AspNetCoreRateLimit package
-  - Configure rules (login, OTP, general API)
-  - Test rate limit behavior
-- ✅ Day 5: Integrate Application Insights SDK
+- ✅ Day 1: Implement security headers (API + Blazor) - **COMPLETED 2026-02-02**
+- ✅ Day 2-4: Implement rate limiting - **COMPLETED 2026-02-02**
+  - AspNetCoreRateLimit package added
+  - Environment-based feature flag implemented
+  - Rate limits configured and tested
+- ⏳ Day 5: Integrate Application Insights SDK
   - Add package to both projects
   - Configure instrumentation key from Azure
   - Test custom event logging
@@ -949,10 +951,10 @@ az security auto-provisioning-setting update \
 **Primary Owner:** Lead Developer
 
 **Immediate Tasks (Month 1):**
-- Implement security headers
-- Implement rate limiting
-- Integrate Application Insights SDK
-- Create automated log purging job
+- ✅ Implement security headers - **COMPLETED 2026-02-02**
+- ✅ Implement rate limiting - **COMPLETED 2026-02-02**
+- ⏳ Integrate Application Insights SDK
+- ⏳ Create automated log purging job
 
 **Ongoing Tasks:**
 - Security code reviews

@@ -9,6 +9,7 @@ using Hangfire.PostgreSql;
 using PetelApp.Api.Session;
 using Serilog;
 using System.IO;
+using AspNetCoreRateLimit;
 
 
 
@@ -168,6 +169,13 @@ if (!string.IsNullOrEmpty(hangfireConnectionString))
 }
 
 builder.Services.AddLogging();
+
+// Rate Limiting (configurable per environment)
+var rateLimitingEnabled = builder.Configuration.GetValue<bool>("Features:RateLimitingEnabled", false);
+if (rateLimitingEnabled)
+{
+    builder.Services.AddRateLimiting(builder.Configuration);
+}
 
 // ✅ ADD THIS CODE HERE - Check for migration command BEFORE building app
 if (args.Length > 0 && args[0] == "migrate-encrypt-data")
@@ -586,6 +594,12 @@ app.Use(async (context, next) =>
     }
     await next();
 });
+
+// Rate Limiting (if enabled)
+if (rateLimitingEnabled)
+{
+    app.UseIpRateLimiting();
+}
 
 app.UseCors("AllowFrontend");
 app.UseSession();
