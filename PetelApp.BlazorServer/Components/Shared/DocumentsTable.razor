@@ -215,52 +215,81 @@
             Console.WriteLine($"👁️ Viewing document: {documentId}");
 
             var token = await TokenService.GetTokenAsync();
+            if (string.IsNullOrEmpty(token))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "לא נמצא אסימון אימות. אנא התחבר מחדש.");
+                return;
+            }
+
             var baseUrl = ApiSettings.Value.BaseUrl;
-
-            Console.WriteLine($"👁️ BaseURL: {baseUrl}");
-
             var downloadUrl = $"{baseUrl}/Documents/{documentId}/download";
 
-            Console.WriteLine($"👁️ DLURL: {downloadUrl}");
+            Console.WriteLine($"👁️ Opening document from: {downloadUrl}");
 
-            // Use JavaScript to fetch and open the document with auth header
-            await JSRuntime.InvokeVoidAsync("eval", $@"
-                (async function() {{
-                    try {{
-                        const response = await fetch('{downloadUrl}', {{
+            // Use a more robust approach that doesn't depend on circuit staying alive
+            var jsCode = @"
+                (async function(url, token) {
+                    try {
+                        const response = await fetch(url, {
                             method: 'GET',
-                            headers: {{
-                                'Authorization': 'Bearer {token}',
+                            headers: {
+                                'Authorization': 'Bearer ' + token,
                                 'X-View-Mode': 'inline'
-                            }}
-                        }});
+                            }
+                        });
                         
-                        if (!response.ok) {{
-                            throw new Error('Failed to fetch document');
-                        }}
+                        if (!response.ok) {
+                            const errorText = await response.text();
+                            console.error('Document fetch failed:', response.status, errorText);
+                            alert('שגיאה בטעינת המסמך: ' + response.status);
+                            return;
+                        }
                         
                         const blob = await response.blob();
                         const objectUrl = URL.createObjectURL(blob);
+                        
+                        // Open in new window immediately
                         const viewWindow = window.open(objectUrl, '_blank');
                         
-                        if (viewWindow) {{
-                            viewWindow.addEventListener('load', () => {{
-                                setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-                            }});
-                        }}
+                        if (!viewWindow) {
+                            alert('לא ניתן לפתוח חלון חדש. אנא אפשר חלונות קופצים.');
+                            URL.revokeObjectURL(objectUrl);
+                            return;
+                        }
+                        
+                        // Clean up after window loads or timeout
+                        viewWindow.addEventListener('load', () => {
+                            setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+                        });
                         
                         setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-                    }} catch (error) {{
+                        
+                    } catch (error) {
                         console.error('Error viewing document:', error);
-                        alert('שגיאה בפתיחת המסמך');
-                    }}
-                }})();
-            ");
+                        alert('שגיאה בפתיחת המסמך: ' + error.message);
+                    }
+                })
+            ";
+
+            await JSRuntime.InvokeVoidAsync("eval", $"{jsCode}('{downloadUrl}', '{token}')");
+            
+            Console.WriteLine("✅ Document view initiated");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error viewing document: {ex.Message}");
-            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בפתיחת המסמך");
+            Console.WriteLine($"❌ Error initiating document view: {ex.Message}");
+            // Don't try to show alert if circuit is disconnected
+            if (ex is not Microsoft.JSInterop.JSDisconnectedException)
+            {
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "שגיאה בפתיחת המסמך");
+                }
+                catch
+                {
+                    // Ignore JS interop failures during cleanup
+                }
+            }
         }
     }
 
@@ -360,15 +389,23 @@
             // Add status ID
             content.Add(new StringContent(_selectedStatusId.ToString()), "statusId");
 
-            // Upload to API
+            // Add existing document ID for replacement
+            content.Add(new StringContent(_selectedDocument.Id.ToString()), "existingDocumentId");
+
+            // Add document type ID (required by API validation even though it's not used for replacement)
+            content.Add(new StringContent(_selectedDocument.DocumentTypeId.ToString()), "documentTypeId");
+
+            // Upload to API (note: endpoint is just "documents/upload", not "documents/{id}/upload")
             var response = await ApiService.PostMultipartAsync<Dictionary<string, object>>(
-                $"documents/{_selectedDocument.Id}/upload",
+                "documents/upload",
                 content
             );
 
-            if (response != null && response.ContainsKey("success") && (bool)response["success"])
+            if (response != null && response.ContainsKey("id"))
             {
-                await JSRuntime.InvokeVoidAsync("alert", "הקובץ הועלה בהצלחה");
+                // Success - API returns object with id, description, version, etc.
+                var message = response.ContainsKey("message") ? response["message"].ToString() : "הקובץ הועלה בהצלחה";
+                await JSRuntime.InvokeVoidAsync("alert", message);
                 Console.WriteLine("✅ File uploaded successfully");
 
                 CloseUploadModal();
@@ -377,8 +414,9 @@
             }
             else
             {
-                var message = response?.ContainsKey("message") == true 
-                    ? response["message"].ToString() 
+                // Error - API returns object with error property
+                var message = response?.ContainsKey("error") == true 
+                    ? response["error"].ToString() 
                     : "שגיאה בהעלאת הקובץ";
                 await JSRuntime.InvokeVoidAsync("alert", message);
             }

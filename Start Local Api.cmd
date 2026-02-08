@@ -1,2 +1,4 @@
 @echo off
-start cmd /k "cd /d C:\dev\PetelFullApp\PetelApp.Api && dotnet run"
+echo Starting backend Api
+cd /d "%~dp0PetelApp.Api"
+dotnet run

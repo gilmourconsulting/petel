@@ -195,33 +195,44 @@ namespace PetelApp.Api.Controllers
         {
             try
             {
+                // Validate session first
                 var session = GetCurrentSession();
+                if (session == null)
+                {
+                    _logger.LogWarning("Unauthorized document access attempt for document {DocumentId}", id);
+                    return Unauthorized(new { error = "נדרש אימות" });
+                }
 
                 // ✅ Check if this is a view request (from header instead of query string)
                 var isViewMode = Request.Headers.ContainsKey("X-View-Mode") &&
                                  Request.Headers["X-View-Mode"] == "inline";
 
-                if (isViewMode)
-                {
-                    _logger.LogInformation("Document view access: {DocumentId}", id);
-                }
+                _logger.LogInformation("Document {Mode} request by user {UserId} for document {DocumentId}",
+                    isViewMode ? "view" : "download", session.UserId, id);
 
                 var document = await _context.Documents
+                    .AsNoTracking() // Read-only query for better performance
                     .Include(d => d.DocumentType)
                     .FirstOrDefaultAsync(d => d.Id == id);
 
                 if (document == null)
                 {
+                    _logger.LogWarning("Document {DocumentId} not found", id);
                     return NotFound(new { error = "מסמך לא נמצא" });
                 }
 
                 if (document.FileBlob == null || document.FileBlob.Length == 0)
                 {
+                    _logger.LogWarning("Document {DocumentId} has no file attached", id);
                     return NotFound(new { error = "אין קובץ מצורף למסמך" });
                 }
 
+                _logger.LogDebug("Document {DocumentId}: FileBlob size = {Size} bytes, FileEncoding = {Encoding}",
+                    id, document.FileBlob.Length, document.FileEncoding ?? "null");
+
                 // Determine content type based on file extension
-                var contentType = document.FileEncoding?.ToLower() switch
+                var fileExtension = document.FileEncoding?.ToLower() ?? string.Empty;
+                var contentType = fileExtension switch
                 {
                     "pdf" => "application/pdf",
                     "doc" => "application/msword",
@@ -236,22 +247,46 @@ namespace PetelApp.Api.Controllers
                     _ => "application/octet-stream"
                 };
 
-                // ✅ Use saved filename
+                // ✅ Use saved filename with null safety
                 var fileName = !string.IsNullOrEmpty(document.FileName)
                     ? document.FileName
                     : !string.IsNullOrEmpty(document.Description)
-                        ? $"{document.Description}.{document.FileEncoding}"
-                        : $"document_{document.Id}.{document.FileEncoding}";
+                        ? $"{document.Description}.{fileExtension}"
+                        : $"document_{document.Id}.{fileExtension}";
+
+                // Sanitize filename to prevent header injection
+                fileName = fileName.Replace("\"", "").Replace("\r", "").Replace("\n", "");
 
                 // ✅ Use inline for view mode, attachment for download
                 var disposition = isViewMode ? "inline" : "attachment";
 
-                Response.Headers.Append("Content-Disposition", $"{disposition}; filename=\"{fileName}\"");
-                Response.Headers.Append("X-Content-Type-Options", "nosniff");
+                try
+                {
+                    // Encode filename for HTTP header (supports Hebrew and other non-ASCII characters)
+                    // Use RFC 2231 encoding for proper Unicode filename support
+                    var encodedFileName = Uri.EscapeDataString(fileName);
+                    
+                    // Use both formats for maximum browser compatibility:
+                    // - filename="..." for ASCII fallback (use document ID if name has non-ASCII)
+                    // - filename*=UTF-8''... for proper Unicode support (RFC 2231)
+                    var asciiSafeName = System.Text.RegularExpressions.Regex.IsMatch(fileName, @"^[\x20-\x7E]+$") 
+                        ? fileName 
+                        : $"document_{document.Id}.{fileExtension}";
+                    
+                    Response.Headers.Append("Content-Disposition", 
+                        $"{disposition}; filename=\"{asciiSafeName}\"; filename*=UTF-8''{encodedFileName}");
+                    Response.Headers.Append("X-Content-Type-Options", "nosniff");
+                }
+                catch (Exception headerEx)
+                {
+                    _logger.LogError(headerEx, "Error setting response headers for document {DocumentId}", id);
+                    throw;
+                }
 
-                _logger.LogInformation("Document {Action}: {DocumentId}, FileName: {FileName}, Size: {Size}KB",
+                _logger.LogInformation("Serving document {Action}: {DocumentId}, ContentType: {ContentType}, FileName: {FileName}, Size: {Size}KB",
                     disposition == "inline" ? "viewed" : "downloaded",
                     id,
+                    contentType,
                     fileName,
                     document.FileBlob.Length / 1024);
 
@@ -259,8 +294,9 @@ namespace PetelApp.Api.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error accessing document {DocumentId}", id);
-                return StatusCode(500, new { error = "שגיאה בגישה למסמך" });
+                _logger.LogError(ex, "Error accessing document {DocumentId}. Exception type: {ExceptionType}, Message: {Message}",
+                    id, ex.GetType().Name, ex.Message);
+                return StatusCode(500, new { error = "שגיאה בגישה למסמך", details = ex.Message });
             }
         }
 
