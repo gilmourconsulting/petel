@@ -59,6 +59,12 @@
                                         <img src="/images/upload_icon.png" alt="העלאה" class="action-icon-natural">
                                     </button>
                                 }
+                                @if (AllowApprove && doc.StatusId != 1 && doc.StatusId != 3)
+                                {
+                                    <button class="btn-icon" @onclick="() => ApproveDocument(doc.Id)" title="אשר מסמך">
+                                        <img src="/images/apporove_icon.png" alt="אישור" class="action-icon-natural">
+                                    </button>
+                                }
                                 @if (AllowDelete && doc.FileSize > 0)
                                 {
                                     <button class="btn-icon" @onclick="() => DeleteDocument(doc.Id)" title="מחק מסמך">
@@ -149,6 +155,7 @@
     [Parameter] public int? YearId { get; set; }
     [Parameter] public bool AllowDownload { get; set; } = true;
     [Parameter] public bool AllowUpload { get; set; } = true;
+    [Parameter] public bool AllowApprove { get; set; } = true;
     [Parameter] public bool AllowDelete { get; set; } = true;
     [Parameter] public bool ShowEntityName { get; set; } = false;
     [Parameter] public EventCallback OnDocumentsChanged { get; set; }
@@ -480,6 +487,44 @@
         {
             Console.WriteLine($"❌ Error deleting document: {ex.Message}");
             await JSRuntime.InvokeVoidAsync("alert", "שגיאה במחיקת מסמך");
+        }
+    }
+
+    private async Task ApproveDocument(long documentId)
+    {
+        try
+        {
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך לאשר מסמך זה?");
+            if (!confirmed) return;
+
+            Console.WriteLine($"✅ Approving document: {documentId}");
+
+            var response = await ApiService.PostAsync<object, Dictionary<string, object>>(
+                $"documents/{documentId}/approve",
+                new { }
+            );
+
+            if (response != null && response.ContainsKey("success") && (bool)response["success"])
+            {
+                var message = response.ContainsKey("message") ? response["message"].ToString() : "המסמך אושר בהצלחה";
+                await JSRuntime.InvokeVoidAsync("alert", message);
+                Console.WriteLine("✅ Document approved successfully");
+
+                await LoadDocuments();
+                await OnDocumentsChanged.InvokeAsync();
+            }
+            else
+            {
+                var message = response?.ContainsKey("error") == true 
+                    ? response["error"].ToString() 
+                    : "שגיאה באישור המסמך";
+                await JSRuntime.InvokeVoidAsync("alert", message);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error approving document: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה באישור המסמך: {ex.Message}");
         }
     }
 }

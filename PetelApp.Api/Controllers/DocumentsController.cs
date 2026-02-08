@@ -73,6 +73,7 @@ namespace PetelApp.Api.Controllers
                         d.Description,
                         DocumentType = d.DocumentType.Name,
                         DocumentTypeId = d.DocumentTypeId,
+                        StatusId = d.StatusId,
                         StatusName = _context.Set<DocumentStatusType>()
                             .Where(s => s.Id == d.StatusId)
                             .Select(s => s.Name)
@@ -158,6 +159,7 @@ namespace PetelApp.Api.Controllers
                         d.Description,
                         DocumentType = d.DocumentType.Name,
                         DocumentTypeId = d.DocumentTypeId,
+                        StatusId = d.StatusId,
                         StatusName = _context.Set<DocumentStatusType>()
                             .Where(s => s.Id == d.StatusId)
                             .Select(s => s.Name)
@@ -367,6 +369,7 @@ namespace PetelApp.Api.Controllers
                         d.Description,
                         DocumentType = d.DocumentType.Name,
                         DocumentTypeId = d.DocumentTypeId,
+                        StatusId = d.StatusId,
                         StatusName = _context.Set<DocumentStatusType>()
                             .Where(s => s.Id == d.StatusId)
                             .Select(s => s.Name)
@@ -389,6 +392,7 @@ namespace PetelApp.Api.Controllers
                     d.Description,
                     d.DocumentType,
                     d.DocumentTypeId,
+                    d.StatusId,
                     d.StatusName,
                     d.CreatedAt,
                     d.FileSize,
@@ -1221,6 +1225,101 @@ namespace PetelApp.Api.Controllers
                 return StatusCode(500, new { error = "שגיאה בהעלאת המסמך" });
             }
         }
+
+        /// <summary>
+        /// Approve document - creates a new version with approved status (3)
+        /// </summary>
+        [HttpPost("{id}/approve")]
+        public async Task<IActionResult> ApproveDocument(long id)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                // Get existing document
+                var existingDoc = await _context.Documents
+                    .Include(d => d.DocumentLinks)
+                    .FirstOrDefaultAsync(d => d.Id == id && d.IsLastVersion);
+
+                if (existingDoc == null)
+                {
+                    return NotFound(new { success = false, error = "מסמך לא נמצא" });
+                }
+
+                // Check if document can be approved
+                if (existingDoc.StatusId == 1)
+                {
+                    return BadRequest(new { success = false, error = "לא ניתן לאשר מסמך שלא קיים" });
+                }
+
+                if (existingDoc.StatusId == 3)
+                {
+                    return BadRequest(new { success = false, error = "המסמך כבר מאושר" });
+                }
+
+                // Mark existing document as not last version
+                existingDoc.IsLastVersion = false;
+                _context.Documents.Update(existingDoc);
+
+                // Get user ID for audit fields
+                int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
+                // Create new document with approved status (3)
+                var approvedDocument = new Document
+                {
+                    MasterDocumentId = existingDoc.MasterDocumentId ?? existingDoc.Id,
+                    Description = existingDoc.Description,
+                    DocumentTypeId = existingDoc.DocumentTypeId,
+                    StatusId = 3, // Approved status
+                    FileBlob = existingDoc.FileBlob,
+                    FileEncoding = existingDoc.FileEncoding,
+                    FileName = existingDoc.FileName,
+                    Version = existingDoc.Version + 1,
+                    IsLastVersion = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                _context.Documents.Add(approvedDocument);
+                await _context.SaveChangesAsync();
+
+                // Copy document links from existing document
+                foreach (var existingLink in existingDoc.DocumentLinks)
+                {
+                    var newLink = new DocumentLink
+                    {
+                        DocumentId = approvedDocument.Id,
+                        EntityId = existingLink.EntityId,
+                        SchoolStudentId = existingLink.SchoolStudentId
+                    };
+                    _context.DocumentLinks.Add(newLink);
+                }
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Document approved. Old: {OldId} (v{OldVer}, status {OldStatus}), New: {NewId} (v{NewVer}, status 3), Master: {MasterId}",
+                    id, existingDoc.Version, existingDoc.StatusId, approvedDocument.Id, approvedDocument.Version, approvedDocument.MasterDocumentId);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "המסמך אושר בהצלחה",
+                    id = approvedDocument.Id,
+                    version = approvedDocument.Version,
+                    statusId = approvedDocument.StatusId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error approving document {DocumentId}", id);
+                return StatusCode(500, new { success = false, error = "שגיאה באישור המסמך" });
+            }
+        }
+
         /// <summary>
         /// Delete document
         /// </summary>
