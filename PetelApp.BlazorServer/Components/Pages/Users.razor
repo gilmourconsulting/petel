@@ -129,6 +129,9 @@
                                                     <img src="/images/lock_icon.png" alt="נעל" class="action-icon-natural">
                                                 </SecureButton>
                                             }
+                                            <SecureButton ActionName="users_resetotp" ScreenName="@PageName" FunctionName="ResetOtpVerification" OnClick="() => ResetOtpVerification(user)" CssClass="btn-icon" Title="אפס אימות דו-שלבי">
+                                                <img src="/images/reset_icon.png" alt="אפס OTP" class="action-icon-natural">
+                                            </SecureButton>
                                         </td>
                                         <td>@user.Username</td>
                                         <td>@user.FullName</td>
@@ -560,6 +563,27 @@
             catch (Exception ex)
             {
                 await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בביטול נעילת המשתמש: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ResetOtpVerification(UserDto user)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"האם אתה בטוח שברצונך לאפס את אימות הדו-שלבי של המשתמש '{user.FullName}'? פעולה זו תבטל את הגדרות ה-OTP הקיימות."))
+        {
+            try
+            {
+                var response = await ApiService.PostAsync<object, object>($"users/{user.Id}/reset-otp", new { });
+                
+                if (response != null)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "אימות דו-שלבי אופס בהצלחה");
+                    await LoadUsersData();
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"שגיאה באיפוס אימות דו-שלבי: {ex.Message}");
             }
         }
     }

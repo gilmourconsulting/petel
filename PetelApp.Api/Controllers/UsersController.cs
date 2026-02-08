@@ -202,6 +202,56 @@ namespace PetelApp.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Reset OTP verification for a user
+        /// Sets otp_secret to null and otp_verified to false
+        /// </summary>
+        [HttpPost("{id}/reset-otp")]
+        public async Task<IActionResult> ResetOtpVerification(int id)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                var user = await _context.Users.FindAsync(id);
+                if (user == null)
+                {
+                    return NotFound(new { success = false, message = "משתמש לא נמצא" });
+                }
+
+                // Reset OTP verification
+                user.OtpSecret = null;
+                user.OtpVerified = false;
+                user.FailedOtpAttempts = 0;
+                user.UpdatedAt = DateTime.UtcNow;
+                user.UpdateUser = int.TryParse(session.UserId, out int adminId) ? adminId : null;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("OTP verification reset for user {UserId} by admin {AdminId}", id, session.UserId);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "אימות דו-שלבי אופס בהצלחה"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error resetting OTP verification for user {UserId}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה באיפוס אימות דו-שלבי",
+                    error = ex.Message
+                });
+            }
+        }
+
 
         /// <summary>
         /// Force user to change password on next login

@@ -19,6 +19,9 @@ namespace PetelApp.Api.Data
         public bool IsLastVersion { get; set; }
 
         public DateTime CreatedAt { get; set; }
+        
+        [Column("user_id")]
+        public int? UserId { get; set; }
 
         // Navigation properties
         public DocumentType? DocumentType { get; set; }

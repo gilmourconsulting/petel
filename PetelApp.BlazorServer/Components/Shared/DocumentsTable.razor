@@ -7,6 +7,7 @@
 @inject IJSRuntime JSRuntime
 @inject IOptions<ApiSettings> ApiSettings
 @inject TokenService TokenService
+@inject ActionSecurityService SecurityService
 
 <div class="documents-table-wrapper">
     @if (_isLoading)
@@ -39,6 +40,7 @@
                         {
                             <th>שם ישות</th>
                         }
+                        <th>משתמש</th>
                         <th>עדכון אחרון</th>
                     </tr>
                 </thead>
@@ -61,9 +63,16 @@
                                 }
                                 @if (AllowApprove && doc.StatusId != 1 && doc.StatusId != 3)
                                 {
-                                    <button class="btn-icon" @onclick="() => ApproveDocument(doc.Id)" title="אשר מסמך">
-                                        <img src="/images/apporove_icon.png" alt="אישור" class="action-icon-natural">
-                                    </button>
+                                    <SecureButton 
+                                        ActionName="@($"{ScreenName}_approveDocument")"
+                                        ScreenName="@ScreenName"
+                                        FunctionName="ApproveDocument"
+                                        ActionParams="@($"documentId={doc.Id}")"
+                                        OnClick="() => ApproveDocument(doc.Id)"
+                                        CssClass="btn-icon"
+                                        Title="אשר מסמך">
+                                        <img src="/images/approve_icon.png" alt="אישור" class="action-icon-natural">
+                                    </SecureButton>
                                 }
                                 @if (AllowDelete && doc.FileSize > 0)
                                 {
@@ -79,6 +88,7 @@
                             {
                                 <td>@doc.EntityName</td>
                             }
+                            <td>@(doc.Username ?? "")</td>
                             <td>@doc.CreatedAt.ToString("dd/MM/yyyy")</td>
                         </tr>
                     }
@@ -153,6 +163,7 @@
     [Parameter] public string EntityType { get; set; } = "student"; // 'student', 'school', 'entity', 'entity-hierarchy'
     [Parameter] public int? EntityId { get; set; }
     [Parameter] public int? YearId { get; set; }
+    [Parameter] public string ScreenName { get; set; } = "documents"; // Screen name for security context
     [Parameter] public bool AllowDownload { get; set; } = true;
     [Parameter] public bool AllowUpload { get; set; } = true;
     [Parameter] public bool AllowApprove { get; set; } = true;
@@ -494,6 +505,7 @@
     {
         try
         {
+            // Confirmation dialog before approval
             var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך לאשר מסמך זה?");
             if (!confirmed) return;
 
@@ -504,21 +516,32 @@
                 new { }
             );
 
-            if (response != null && response.ContainsKey("success") && (bool)response["success"])
+            if (response != null && response.ContainsKey("success"))
             {
-                var message = response.ContainsKey("message") ? response["message"].ToString() : "המסמך אושר בהצלחה";
-                await JSRuntime.InvokeVoidAsync("alert", message);
-                Console.WriteLine("✅ Document approved successfully");
+                // Handle JsonElement for success field
+                var successValue = response["success"];
+                bool isSuccess = successValue is System.Text.Json.JsonElement jsonElement 
+                    ? jsonElement.GetBoolean() 
+                    : Convert.ToBoolean(successValue);
 
-                await LoadDocuments();
-                await OnDocumentsChanged.InvokeAsync();
+                if (isSuccess)
+                {
+                    var message = response.ContainsKey("message") ? response["message"].ToString() : "המסמך אושר בהצלחה";
+                    await JSRuntime.InvokeVoidAsync("alert", message);
+                    Console.WriteLine("✅ Document approved successfully");
+
+                    await LoadDocuments();
+                    await OnDocumentsChanged.InvokeAsync();
+                }
+                else
+                {
+                    var message = response.ContainsKey("error") ? response["error"].ToString() : "שגיאה באישור המסמך";
+                    await JSRuntime.InvokeVoidAsync("alert", message);
+                }
             }
             else
             {
-                var message = response?.ContainsKey("error") == true 
-                    ? response["error"].ToString() 
-                    : "שגיאה באישור המסמך";
-                await JSRuntime.InvokeVoidAsync("alert", message);
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה באישור המסמך");
             }
         }
         catch (Exception ex)

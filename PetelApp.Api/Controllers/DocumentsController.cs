@@ -80,7 +80,11 @@ namespace PetelApp.Api.Controllers
                             .FirstOrDefault() ?? "לא מוגדר",
                         CreatedAt = d.CreatedAt,
                         FileSize = d.FileBlob != null ? d.FileBlob.Length : 0,
-                        HasFile = d.FileBlob != null
+                        HasFile = d.FileBlob != null,
+                        UserId = d.UserId,
+                        Username = d.UserId.HasValue 
+                            ? _context.Users.Where(u => u.Id == d.UserId.Value).Select(u => u.Username).FirstOrDefault() 
+                            : null
                     })
                     .ToListAsync();
 
@@ -167,6 +171,10 @@ namespace PetelApp.Api.Controllers
                         CreatedAt = d.CreatedAt,
                         FileSize = d.FileBlob != null ? d.FileBlob.Length : 0,
                         HasFile = d.FileBlob != null,
+                        UserId = d.UserId,
+                        Username = d.UserId.HasValue 
+                            ? _context.Users.Where(u => u.Id == d.UserId.Value).Select(u => u.Username).FirstOrDefault() 
+                            : null,
                         // ✅ Include which student version this document is linked to
                         LinkedStudentId = d.DocumentLinks
                             .Where(dl => dl.SchoolStudentId.HasValue &&
@@ -377,6 +385,10 @@ namespace PetelApp.Api.Controllers
                         CreatedAt = d.CreatedAt,
                         FileSize = d.FileBlob != null ? d.FileBlob.Length : 0,
                         HasFile = d.FileBlob != null,
+                        UserId = d.UserId,
+                        Username = d.UserId.HasValue 
+                            ? _context.Users.Where(u => u.Id == d.UserId.Value).Select(u => u.Username).FirstOrDefault() 
+                            : null,
                         // Get the entity ID from document links
                         EntityId = d.DocumentLinks
                             .Where(dl => dl.EntityId.HasValue)
@@ -397,6 +409,8 @@ namespace PetelApp.Api.Controllers
                     d.CreatedAt,
                     d.FileSize,
                     d.HasFile,
+                    d.UserId,
+                    d.Username,
                     d.EntityId,
                     // Lookup entity name from dictionary
                     EntityName = entityIdToNameMap.TryGetValue(d.EntityId, out var name) ? name : "לא ידוע"
@@ -521,7 +535,8 @@ namespace PetelApp.Api.Controllers
                         CreatedAt = DateTime.UtcNow,
                         MasterDocumentId = null,
                         FileBlob = null,
-                        FileEncoding = string.Empty
+                        FileEncoding = string.Empty,
+                        UserId = int.TryParse(session.UserId, out int uid) ? uid : (int?)null
                     };
 
                     _context.Documents.Add(newDocument);
@@ -763,7 +778,8 @@ namespace PetelApp.Api.Controllers
                         CreatedAt = DateTime.UtcNow,
                         MasterDocumentId = null,
                         FileBlob = null,
-                        FileEncoding = string.Empty
+                        FileEncoding = string.Empty,
+                        UserId = int.TryParse(session.UserId, out int uid) ? uid : (int?)null
                     };
 
                     _context.Documents.Add(newDocument);
@@ -956,7 +972,8 @@ namespace PetelApp.Api.Controllers
                             CreatedAt = DateTime.UtcNow,
                             MasterDocumentId = null,
                             FileBlob = null,
-                            FileEncoding = string.Empty
+                            FileEncoding = string.Empty,
+                            UserId = int.TryParse(session.UserId, out int uid) ? uid : (int?)null
                         };
         
                         _context.Documents.Add(newDocument);
@@ -1178,7 +1195,8 @@ namespace PetelApp.Api.Controllers
                         FileName = originalFileName,
                         Version = existingDoc.Version + 1,
                         IsLastVersion = true,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = DateTime.UtcNow,
+                        UserId = userId
                     };
 
                     _context.Documents.Add(document);
@@ -1280,7 +1298,8 @@ namespace PetelApp.Api.Controllers
                     FileName = existingDoc.FileName,
                     Version = existingDoc.Version + 1,
                     IsLastVersion = true,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow,
+                    UserId = userId
                 };
 
                 _context.Documents.Add(approvedDocument);

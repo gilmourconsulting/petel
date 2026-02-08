@@ -12,6 +12,8 @@ namespace PetelApp.BlazorServer.DTOs
         public int DocumentTypeId { get; set; }
         public int StatusId { get; set; }
         public int? DocumentStatusId { get; set; }
+        public int? UserId { get; set; }
+        public string? Username { get; set; }
     }
 
     public class DocumentStatusTypeDto
