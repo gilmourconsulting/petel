@@ -57,6 +57,23 @@ if (!app.Environment.IsDevelopment())
 
 app.UseAntiforgery();
 
+// Security Headers (SOC 2 Compliance)
+app.Use(async (context, next) =>
+{
+    if (!app.Environment.IsDevelopment())
+    {
+        context.Response.Headers.Add("X-Frame-Options", "DENY");
+        context.Response.Headers.Add("X-Content-Type-Options", "nosniff");
+        context.Response.Headers.Add("X-XSS-Protection", "1; mode=block");
+        context.Response.Headers.Add("Referrer-Policy", "strict-origin-when-cross-origin");
+        context.Response.Headers.Add("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+        // CSP for Blazor Server needs to allow 'unsafe-inline' for scripts due to framework requirements
+        context.Response.Headers.Add("Content-Security-Policy", 
+            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none';");
+    }
+    await next();
+});
+
 app.UseStaticFiles();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode()
