@@ -112,7 +112,7 @@
                                                 <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
                                             </SecureButton>
                                             <SecureButton ActionName="users_changepassword" ScreenName="@PageName" FunctionName="ShowChangePasswordDialog" OnClick="() => ShowChangePasswordDialog(user)" CssClass="btn-icon" Title="שנה סיסמה">
-                                                <img src="/images/upload_icon.png" alt="שנה סיסמה" class="action-icon-natural">
+                                                <img src="/images/change_password.png" alt="שנה סיסמה" class="action-icon-natural">
                                             </SecureButton>
                                             <SecureButton ActionName="users_manageroles" ScreenName="@PageName" FunctionName="ManageUserRoles" OnClick="() => ManageUserRoles(user)" CssClass="btn-icon" Title="נהל תפקידים">
                                                 <img src="/images/stats_icon.png" alt="תפקידים" class="action-icon-natural">
@@ -120,13 +120,13 @@
                                             @if (user.IsLocked)
                                             {
                                                 <SecureButton ActionName="users_unlock" ScreenName="@PageName" FunctionName="UnlockUser" OnClick="() => UnlockUser(user)" CssClass="btn-icon" Title="בטל נעילה">
-                                                    <img src="/images/view_icon.png" alt="בטל נעילה" class="action-icon-natural">
+                                                    <img src="/images/unlock_icon.png" alt="בטל נעילה" class="action-icon-natural">
                                                 </SecureButton>
                                             }
                                             else
                                             {
                                                 <SecureButton ActionName="users_lock" ScreenName="@PageName" FunctionName="LockUser" OnClick="() => LockUser(user)" CssClass="btn-icon" Title="נעל משתמש">
-                                                    <img src="/images/delete_icon.png" alt="נעל" class="action-icon-natural">
+                                                    <img src="/images/lock_icon.png" alt="נעל" class="action-icon-natural">
                                                 </SecureButton>
                                             }
                                         </td>
