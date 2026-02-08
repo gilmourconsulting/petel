@@ -303,7 +303,7 @@
             _selectedFile = null;
             _selectedFileName = string.Empty;
             _selectedFileSize = string.Empty;
-            _selectedStatusId = document.DocumentStatusId ?? 0;
+            _selectedStatusId = document.DocumentStatusId ?? 2; // Default to "התקבל" (ID: 2)
 
             // Load document status types
             await LoadDocumentStatusTypes();

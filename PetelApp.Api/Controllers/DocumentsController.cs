@@ -1159,6 +1159,9 @@ namespace PetelApp.Api.Controllers
                     existingDoc.IsLastVersion = false;
                     _context.Documents.Update(existingDoc);
 
+                    // Get user ID for audit fields
+                    int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
                     // ✅ Create new document with incremented version
                     document = new Document
                     {
@@ -1170,7 +1173,8 @@ namespace PetelApp.Api.Controllers
                         FileEncoding = fileExtension,
                         FileName = originalFileName,
                         Version = existingDoc.Version + 1,
-                        IsLastVersion = true
+                        IsLastVersion = true,
+                        CreatedAt = DateTime.UtcNow
                     };
 
                     _context.Documents.Add(document);
