@@ -152,7 +152,7 @@
 
         // Focus the street input after render
         await Task.Delay(100);
-        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('addressStreet')?.focus()");
+        await JSRuntime.InvokeVoidAsync("BlazorHelpers.focusElement", "addressStreet");
 
         return await _tcs.Task;
     }

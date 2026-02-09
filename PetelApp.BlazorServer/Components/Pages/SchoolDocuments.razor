@@ -144,30 +144,10 @@
             Console.WriteLine($"📄 Generating documents for school {_schoolId} in year {_yearId}");
 
             // Show loading message
-            await JSRuntime.InvokeVoidAsync("eval", @"
-                const loadingDiv = document.createElement('div');
-                loadingDiv.id = 'schoolDocumentGenerationLoading';
-                loadingDiv.style.cssText = `
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    background: white;
-                    padding: 30px;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                    z-index: 10000;
-                    text-align: center;
-                    direction: rtl;
-                `;
-                loadingDiv.innerHTML = `
-                    <div style='font-size: 18px; font-weight: bold; margin-bottom: 15px;'>
-                        מייצר מסמכים חסרים לבית הספר...
-                    </div>
-                    <div style='font-size: 14px; color: #666;'>אנא המתן</div>
-                `;
-                document.body.appendChild(loadingDiv);
-            ");
+            await JSRuntime.InvokeVoidAsync("BlazorHelpers.showLoadingOverlay", 
+                "schoolDocumentGenerationLoading", 
+                "מייצר מסמכים חסרים לבית הספר...", 
+                "אנא המתן");
 
             // Build API URL with both schoolYearId and yearId
             var apiUrl = $"documents/generate-school-documents?schoolId={_schoolId}&yearId={_yearId}";
@@ -183,10 +163,7 @@
             );
 
             // Remove loading message
-            await JSRuntime.InvokeVoidAsync("eval", @"
-                const loading = document.getElementById('schoolDocumentGenerationLoading');
-                if (loading) loading.remove();
-            ");
+            await JSRuntime.InvokeVoidAsync("BlazorHelpers.removeElement", "schoolDocumentGenerationLoading");
 
             if (result != null)
             {
@@ -220,10 +197,7 @@
         catch (Exception ex)
         {
             // Remove loading message on error
-            await JSRuntime.InvokeVoidAsync("eval", @"
-                const loading = document.getElementById('schoolDocumentGenerationLoading');
-                if (loading) loading.remove();
-            ");
+            await JSRuntime.InvokeVoidAsync("BlazorHelpers.removeElement", "schoolDocumentGenerationLoading");
 
             Console.WriteLine($"❌ Error generating school documents: {ex.Message}");
             await JSRuntime.InvokeVoidAsync("alert", $"שגיאה ביצירת מסמכים לבית הספר: {ex.Message}");

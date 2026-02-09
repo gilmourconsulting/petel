@@ -250,52 +250,8 @@
 
             Console.WriteLine($"👁️ Opening document from: {downloadUrl}");
 
-            // Use a more robust approach that doesn't depend on circuit staying alive
-            var jsCode = @"
-                (async function(url, token) {
-                    try {
-                        const response = await fetch(url, {
-                            method: 'GET',
-                            headers: {
-                                'Authorization': 'Bearer ' + token,
-                                'X-View-Mode': 'inline'
-                            }
-                        });
-                        
-                        if (!response.ok) {
-                            const errorText = await response.text();
-                            console.error('Document fetch failed:', response.status, errorText);
-                            alert('שגיאה בטעינת המסמך: ' + response.status);
-                            return;
-                        }
-                        
-                        const blob = await response.blob();
-                        const objectUrl = URL.createObjectURL(blob);
-                        
-                        // Open in new window immediately
-                        const viewWindow = window.open(objectUrl, '_blank');
-                        
-                        if (!viewWindow) {
-                            alert('לא ניתן לפתוח חלון חדש. אנא אפשר חלונות קופצים.');
-                            URL.revokeObjectURL(objectUrl);
-                            return;
-                        }
-                        
-                        // Clean up after window loads or timeout
-                        viewWindow.addEventListener('load', () => {
-                            setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
-                        });
-                        
-                        setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
-                        
-                    } catch (error) {
-                        console.error('Error viewing document:', error);
-                        alert('שגיאה בפתיחת המסמך: ' + error.message);
-                    }
-                })
-            ";
-
-            await JSRuntime.InvokeVoidAsync("eval", $"{jsCode}('{downloadUrl}', '{token}')");
+            // Use CSP-compliant helper function
+            await JSRuntime.InvokeVoidAsync("BlazorHelpers.viewFileWithAuth", downloadUrl, token);
             
             Console.WriteLine("✅ Document view initiated");
         }

@@ -137,30 +137,10 @@
             Console.WriteLine($"📄 Generating documents for entity {_entityId} in year {_yearId}");
 
             // Show loading message
-            await JSRuntime.InvokeVoidAsync("eval", @"
-                const loadingDiv = document.createElement('div');
-                loadingDiv.id = 'entityDocumentGenerationLoading';
-                loadingDiv.style.cssText = `
-                    position: fixed;
-                    top: 50%;
-                    left: 50%;
-                    transform: translate(-50%, -50%);
-                    background: white;
-                    padding: 30px;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                    z-index: 10000;
-                    text-align: center;
-                    direction: rtl;
-                `;
-                loadingDiv.innerHTML = `
-                    <div style='font-size: 18px; font-weight: bold; margin-bottom: 15px;'>
-                        מייצר מסמכים חסרים לישות...
-                    </div>
-                    <div style='font-size: 14px; color: #666;'>אנא המתן</div>
-                `;
-                document.body.appendChild(loadingDiv);
-            ");
+            await JSRuntime.InvokeVoidAsync("BlazorHelpers.showLoadingOverlay", 
+                "entityDocumentGenerationLoading", 
+                "מייצר מסמכים חסרים לישות...", 
+                "אנא המתן");
 
             // Call the generate documents API endpoint
             var result = await ApiService.PostAsync<object, Dictionary<string, object>>(
@@ -169,10 +149,7 @@
             );
 
             // Remove loading message
-            await JSRuntime.InvokeVoidAsync("eval", @"
-                const loading = document.getElementById('entityDocumentGenerationLoading');
-                if (loading) loading.remove();
-            ");
+            await JSRuntime.InvokeVoidAsync("BlazorHelpers.removeElement", "entityDocumentGenerationLoading");
 
             if (result != null)
             {
@@ -200,10 +177,7 @@
         catch (Exception ex)
         {
             // Remove loading message on error
-            await JSRuntime.InvokeVoidAsync("eval", @"
-                const loading = document.getElementById('entityDocumentGenerationLoading');
-                if (loading) loading.remove();
-            ");
+            await JSRuntime.InvokeVoidAsync("BlazorHelpers.removeElement", "entityDocumentGenerationLoading");
 
             Console.WriteLine($"❌ Error generating entity documents: {ex.Message}");
             await JSRuntime.InvokeVoidAsync("alert", $"שגיאה ביצירת מסמכים לישות: {ex.Message}");

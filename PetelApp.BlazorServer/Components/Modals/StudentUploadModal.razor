@@ -189,7 +189,7 @@
     {
         try
         {
-            await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('studentFile').click()");
+            await JSRuntime.InvokeVoidAsync("FileUploadHelper.triggerFileInput", "studentFile");
         }
         catch (Exception ex)
         {
