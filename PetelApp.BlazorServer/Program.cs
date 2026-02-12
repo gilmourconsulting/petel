@@ -41,6 +41,13 @@ builder.Services.AddServerSideBlazor()
 
 var app = builder.Build();
 
+var cspImgSrcAllowlist = builder.Configuration
+    .GetSection("Security:Csp:ImgSrc")
+    .Get<string[]>() ?? Array.Empty<string>();
+
+var cspImgSrcDirective = "img-src 'self' data: blob:" +
+    (cspImgSrcAllowlist.Length > 0 ? " " + string.Join(" ", cspImgSrcAllowlist) : "");
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -69,7 +76,7 @@ app.Use(async (context, next) =>
         context.Response.Headers.Add("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
         // CSP for Blazor Server needs to allow 'unsafe-inline' for scripts due to framework requirements
         context.Response.Headers.Add("Content-Security-Policy", 
-            "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none';");
+            $"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; {cspImgSrcDirective}; connect-src 'self'; frame-ancestors 'none';");
     }
     await next();
 });

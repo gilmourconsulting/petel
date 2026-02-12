@@ -128,6 +128,12 @@ namespace PetelApp.BlazorServer.Services
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
                     _logger.LogError("GET {Endpoint} failed with {StatusCode}: {Error}", endpoint, response.StatusCode, errorContent);
+                    
+                    // Handle rate limiting specifically
+                    if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                    {
+                        throw new HttpRequestException($"Rate limit exceeded. Please wait before retrying. Details: {errorContent}");
+                    }
                 }
 
                 response.EnsureSuccessStatusCode();
@@ -149,41 +155,73 @@ namespace PetelApp.BlazorServer.Services
 
         public async Task<TResponse?> PostAsync<TRequest, TResponse>(string endpoint, TRequest data)
         {
-            try
-            {
-                var client = await GetAuthorizedClientAsync();
-                var url = $"{_baseUrl}/{endpoint}";
-                
-                _logger.LogDebug("POST request to {Url}", url);
-                
-                var response = await client.PostAsJsonAsync(url, data);
-                
-                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-                {
-                    _logger.LogWarning("Unauthorized request to {Endpoint} - invalid or missing token", endpoint);
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    throw new HttpStatusException(
-                        System.Net.HttpStatusCode.Unauthorized,
-                        "Authentication required",
-                        errorContent
-                    );
-                }
+            return await PostAsync<TRequest, TResponse>(endpoint, data, 0);
+        }
 
-                if (!response.IsSuccessStatusCode)
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogError("POST request failed for {Endpoint}: {StatusCode} - {ErrorContent}", 
-                        endpoint, response.StatusCode, errorContent);
-                    throw new HttpRequestException($"Response status code does not indicate success: {(int)response.StatusCode} ({response.ReasonPhrase}). Details: {errorContent}");
-                }
-
-                return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
-            }
-            catch (Exception ex)
+        public async Task<TResponse?> PostAsync<TRequest, TResponse>(string endpoint, TRequest data, int maxRetries = 0)
+        {
+            for (int attempt = 0; attempt <= maxRetries; attempt++)
             {
-                _logger.LogError(ex, "POST request failed for {Endpoint}", endpoint);
-                throw;
+                try
+                {
+                    var client = await GetAuthorizedClientAsync();
+                    var url = $"{_baseUrl}/{endpoint}";
+                    
+                    _logger.LogDebug("POST request to {Url} (attempt {Attempt})", url, attempt + 1);
+                    
+                    var response = await client.PostAsJsonAsync(url, data);
+                    
+                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                    {
+                        _logger.LogWarning("Unauthorized request to {Endpoint} - invalid or missing token", endpoint);
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        throw new HttpStatusException(
+                            System.Net.HttpStatusCode.Unauthorized,
+                            "Authentication required",
+                            errorContent
+                        );
+                    }
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        _logger.LogError("POST request failed for {Endpoint}: {StatusCode} - {ErrorContent}", 
+                            endpoint, response.StatusCode, errorContent);
+                        
+                        // Handle rate limiting with retry
+                        if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests && attempt < maxRetries)
+                        {
+                            var delayMs = (int)Math.Pow(2, attempt) * 1000; // Exponential backoff
+                            _logger.LogWarning("Rate limited on {Endpoint}, retrying in {Delay}ms (attempt {Attempt})", 
+                                endpoint, delayMs, attempt + 1);
+                            await Task.Delay(delayMs);
+                            continue;
+                        }
+                        
+                        // Handle rate limiting specifically
+                        if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                        {
+                            throw new HttpRequestException($"Rate limit exceeded. Please wait before retrying. Details: {errorContent}");
+                        }
+                        
+                        throw new HttpRequestException($"Response status code does not indicate success: {(int)response.StatusCode} ({response.ReasonPhrase}). Details: {errorContent}");
+                    }
+
+                    return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
+                }
+                catch (HttpRequestException) when (attempt == maxRetries)
+                {
+                    // Re-throw on final attempt
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "POST request failed for {Endpoint} (attempt {Attempt})", endpoint, attempt + 1);
+                    if (attempt == maxRetries) throw;
+                }
             }
+            
+            return default; // Should never reach here
         }
 
         public async Task<HttpResponseMessage> PostAsync<TRequest>(string endpoint, TRequest data)
@@ -337,9 +375,7 @@ namespace PetelApp.BlazorServer.Services
             }
         }
 
-        /// <summary>
-        /// GET request with custom token (for OTP setup flow with temp token)
-        /// </summary>
+
         public async Task<T?> GetAsync<T>(string endpoint, string? customToken)
         {
             try
@@ -406,6 +442,65 @@ namespace PetelApp.BlazorServer.Services
                 }
 
                 response.EnsureSuccessStatusCode();
+                return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "POST request with custom token failed for {Endpoint}", endpoint);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// POST request with custom token (for OTP setup flow with temp token)
+        /// </summary>
+        public async Task<TResponse?> PostWithTokenAsync<TRequest, TResponse>(string endpoint, TRequest data, string? customToken)
+        {
+            try
+            {
+                var url = $"{_baseUrl}/{endpoint}";
+                
+                _logger.LogDebug("POST request with custom token to {Url}", url);
+                
+                // Create new request with custom token
+                var request = new HttpRequestMessage(HttpMethod.Post, url);
+                if (!string.IsNullOrEmpty(customToken))
+                {
+                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", customToken);
+                }
+                
+                // Add JSON content
+                var jsonContent = JsonSerializer.Serialize(data, _jsonOptions);
+                request.Content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
+                
+                var response = await _httpClient.SendAsync(request);
+                
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    _logger.LogWarning("Unauthorized request to {Endpoint}", endpoint);
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new HttpStatusException(
+                        System.Net.HttpStatusCode.Unauthorized,
+                        "Authentication required",
+                        errorContent
+                    );
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("POST request with custom token failed for {Endpoint}: {StatusCode} - {ErrorContent}", 
+                        endpoint, response.StatusCode, errorContent);
+                    
+                    // Handle rate limiting specifically
+                    if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                    {
+                        throw new HttpRequestException($"Rate limit exceeded. Please wait before retrying. Details: {errorContent}");
+                    }
+                    
+                    throw new HttpRequestException($"Response status code does not indicate success: {(int)response.StatusCode} ({response.ReasonPhrase}). Details: {errorContent}");
+                }
+
                 return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
             }
             catch (Exception ex)

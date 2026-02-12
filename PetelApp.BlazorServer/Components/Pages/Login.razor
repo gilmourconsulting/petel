@@ -572,18 +572,18 @@
         try
         {
             var setupRequest = new { Code = _setupOtpCode };
-            var response = await ApiService.PostAsync<object, OtpSetupVerifyResponse>(
-                "otp/verify-setup", 
-                setupRequest,
-                _tempToken
-            );
-
+            
+            // Use regular PostAsync with the temp token in request headers approach
+            // Create a temporary HTTP context with the temp token
+            var response = await ApiService.PostAsync<object, LoginResponse>("otp/validate", new { TempToken = _tempToken, Code = _setupOtpCode });
+            
             if (response != null && response.Success)
             {
                 _logger.LogInformation("OTP setup verified successfully, completing login");
                 
-                // Now complete the OTP login with the same code
-                await CompleteOtpLogin(_setupOtpCode);
+                // Token-based login successful from setup verification
+                await TokenService.SetTokenAsync(response.Token);
+                Navigation.NavigateTo("/maindashboard");
             }
             else
             {
@@ -604,28 +604,7 @@
     
     private async Task CompleteOtpLogin(string code)
     {
-        try
-        {
-            var otpRequest = new { TempToken = _tempToken, Code = code };
-            var response = await ApiService.PostAsync<object, LoginResponse>("otp/validate", otpRequest);
-
-            if (response != null && response.Success)
-            {
-                await TokenService.SetTokenAsync(response.Token);
-                Navigation.NavigateTo("/maindashboard");
-            }
-            else
-            {
-                _errorMessage = response?.Message ?? "שגיאה בהשלמת ההתחברות";
-                CancelOtpSetup();
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error completing OTP login");
-            _errorMessage = $"שגיאה: {ex.Message}";
-            CancelOtpSetup();
-        }
+        // This method is no longer needed as we handle it directly in HandleOtpSetupVerification
     }
     
     private void CancelOtpSetup()

@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options; 
-using PetelApp.Api.Configuration;  
-
+using PetelApp.Api.Configuration;
 using PetelApp.Api.Data;
 using PetelApp.Api.Services;
 using Hangfire;
@@ -10,6 +9,7 @@ using PetelApp.Api.Session;
 using Serilog;
 using System.IO;
 using AspNetCoreRateLimit;
+using System.Net.Http.Headers;
 
 
 
@@ -134,6 +134,10 @@ builder.Services.AddHostedService<SystemAttributeLoaderHostedService>();
 builder.Services.AddScoped<SystemAttributeService>();
 builder.Services.AddScoped<GlobalFunctions>();
 
+// Memory Cache (required by DatabaseConfigurationService)
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<DatabaseConfigurationService>();
+
 builder.Services.AddScoped<StudentPricingService>();
 builder.Services.AddScoped<StudentService>();
 builder.Services.AddScoped<DataMigrationService>();
@@ -174,8 +178,11 @@ builder.Services.AddLogging();
 var rateLimitingEnabled = builder.Configuration.GetValue<bool>("Features:RateLimitingEnabled", false);
 if (rateLimitingEnabled)
 {
-    builder.Services.AddRateLimiting(builder.Configuration);
+    // Use database-driven rate limiting configuration
+    builder.Services.AddDatabaseRateLimiting();
 }
+// Note: Database configuration service is already registered above
+// Database-driven rate limiting check will happen during app startup
 
 // ✅ ADD THIS CODE HERE - Check for migration command BEFORE building app
 if (args.Length > 0 && args[0] == "migrate-encrypt-data")
@@ -557,6 +564,31 @@ if (args.Length > 0 && args[0] == "test-decrypt")
 var app = builder.Build();
 
 
+// ✅ Initialize database-driven configuration
+try
+{
+    using var scope = app.Services.CreateScope();
+    var configService = scope.ServiceProvider.GetService<DatabaseConfigurationService>();
+    if (configService != null)
+    {
+        // Check if rate limiting should be enabled via database
+        var dbRateLimitEnabled = await configService.GetConfigAsync("Features.RateLimitingEnabled", false);
+        if (dbRateLimitEnabled && !rateLimitingEnabled)
+        {
+            app.Logger.LogInformation("Rate limiting enabled via database configuration");
+            // Note: Rate limiting middleware will be conditionally applied
+        }
+
+        var securityConfig = await configService.GetSecurityConfigAsync();
+        app.Logger.LogInformation("Database configuration loaded: OTP={OtpEnabled}, SessionTimeout={Timeout}min", 
+            securityConfig.OtpEnabled, securityConfig.SessionTimeoutMinutes);
+    }
+}
+catch (Exception ex)
+{
+    app.Logger.LogWarning(ex, "Could not load database configuration during startup");
+}
+
 //  Initialize JWT service in UserSessionService
 var sessionService = app.Services.GetRequiredService<UserSessionService>();
 var jwtService = app.Services.GetRequiredService<JwtTokenService>();
@@ -594,6 +626,9 @@ app.Use(async (context, next) =>
     }
     await next();
 });
+
+// Database-driven configuration middleware
+app.UseMiddleware<DatabaseRateLimitMiddleware>();
 
 // Rate Limiting (if enabled)
 if (rateLimitingEnabled)
