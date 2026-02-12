@@ -7,17 +7,28 @@
         <table class="data-table">
             <thead>
                 <tr>
-                    @RenderHeaders()
                     @if (IsEditMode)
                     {
                         <th class="actions-column">פעולות</th>
                     }
+                    @RenderHeaders()
                 </tr>
             </thead>
             <tbody>
                 @foreach (var program in _sortedItems)
                 {
                     <tr>
+                        @if (IsEditMode)
+                        {
+                            <td>
+                                <button class="btn-icon" @onclick="() => OnEdit.InvokeAsync(program)" title="עריכה">
+                                    <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                </button>
+                                <button class="btn-icon" @onclick="() => OnDelete.InvokeAsync(program.Id)" title="מחיקה">
+                                    <img src="/images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                                </button>
+                            </td>
+                        }
                         <td>@program.ClassName</td>
                         <td>@program.Name</td>
                         <td>@program.WeeklyHours.ToString("N2")</td>
@@ -54,17 +65,7 @@
                                 <span>v@(program.Version)</span>
                             }
                         </td>
-                        @if (IsEditMode)
-                        {
-                            <td>
-                                <button class="btn-icon" @onclick="() => OnEdit.InvokeAsync(program)" title="עריכה">
-                                    <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
-                                </button>
-                                <button class="btn-icon" @onclick="() => OnDelete.InvokeAsync(program.Id)" title="מחיקה">
-                                    <img src="/images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
-                                </button>
-                            </td>
-                        }
+
                     </tr>
                 }
             </tbody>

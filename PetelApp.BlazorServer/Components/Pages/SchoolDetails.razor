@@ -6,9 +6,9 @@
 @using PetelApp.BlazorServer.Components.Shared
 @inject ApiService ApiService
 @inject SessionStateService SessionStateService
-@inject NavigationManager Navigation
-@inject IJSRuntime JSRuntime
 
+@* inject NavigationManager Navigation
+ inject IJSRuntime JSRuntime *@
 
 
 <div class="main-container">
@@ -322,7 +322,7 @@
 @if (_showProgramModal)
 {
     <div class="modal-overlay" @onclick="CloseProgramModal">
-        <div class="modal-content" @onclick:stopPropagation="true" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+        <div class="modal-content" @onclick:stopPropagation="true" style="max-width: 1000px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header" style="padding: 12px 20px;">
                 <div style="margin: 0; display: inline-block;">@(_isEditingProgram ? "עריכת תל״ן" : "הוספת תל״ן חדש")</div>
                 @if (!string.IsNullOrEmpty(_programUpdatedInfo))
@@ -331,28 +331,31 @@
                 }
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label for="programClass">כיתה: <span style="color: red;">*</span></label>
-                    <select id="programClass" class="form-control" @bind="_programModalData.ClassId" @bind:after="OnProgramClassChanged">
-                        <option value="0">בחר כיתה</option>
-                        @foreach (var cls in _classes)
-                        {
-                            <option value="@cls.Id">@cls.Level @cls.ClassNumber</option>
-                        }
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="programName">שם התל״ן: <span style="color: red;">*</span></label>
-                    <input type="text" id="programName" class="form-control" placeholder="הזן שם תל״ן"
-                        @bind="_programModalData.Name">
-                </div>
-
+                <!-- Class and Name on same line -->
                 <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div style="flex: 1;">
+                        <label for="programClass">כיתה: <span style="color: red;">*</span></label>
+                        <select id="programClass" class="form-control" @bind="_programModalData.ClassId" @bind:after="OnProgramClassChanged">
+                            <option value="0">בחר כיתה</option>
+                            @foreach (var cls in _classes)
+                            {
+                                <option value="@cls.Id">@cls.Level @cls.ClassNumber</option>
+                            }
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="programName">שם התל״ן: <span style="color: red;">*</span></label>
+                        <input type="text" id="programName" class="form-control" placeholder="הזן שם תל״ן"
+                            @bind="_programModalData.Name">
+                    </div>
+                </div>
+
+                <!-- Weekly hours, sessions, student count and update button on same line -->
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: flex-start;">
                     <div style="flex: 1;">
                         <label for="programHours">שעות שבועיות: <span style="color: red;">*</span></label>
                         <input type="number" id="programHours" class="form-control" placeholder="מספר שעות"
-                            min="0" step="0.5" @bind="_programModalData.WeeklyHours" @bind:after="OnWeeklyHoursChanged">
+                            min="0" step="1" @bind="_programModalData.WeeklyHours" @bind:after="OnWeeklyHoursChanged">
                     </div>
                     <div style="flex: 1;">
                         <label for="programSessions">מספר מפגשים: <span style="color: red;">*</span></label>
@@ -360,16 +363,14 @@
                             min="1" @bind="_programModalData.NumberOfSessions" @bind:after="OnSessionsChanged">
                         <small class="text-muted">@_sessionsRemarkText</small>
                     </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="programStudents">מספר תלמידים: <span style="color: red;">*</span></label>
-                    <div style="display: flex; gap: 8px; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <label for="programStudents">מספר תלמידים: <span style="color: red;">*</span></label>
                         <input type="number" id="programStudents" class="form-control" placeholder="מספר תלמידים"
-                            min="1" @bind="_programModalData.NumberOfStudents" @bind:after="OnStudentCountChanged" style="flex: 1;">
+                            min="1" @bind="_programModalData.NumberOfStudents" @bind:after="OnStudentCountChanged">
+                    </div>
+                    <div style="padding-top: 25px;">
                         <button type="button" class="btn btn-secondary" @onclick="UpdateStudentCountFromClass" 
-                            title="עדכן לפי מספר תלמידים בכיתה" style="white-space: nowrap; padding: 8px 12px;">
-                            <img src="/images/view_icon.png" alt="עדכן" class="action-icon-natural" style="vertical-align: middle;">
+                            title="עדכן לפי מספר תלמידים בכיתה" style="white-space: nowrap; padding: 8px 12px; height: 38px;">
                             <span style="margin-right: 4px;">עדכן מכיתה</span>
                         </button>
                     </div>
@@ -394,9 +395,6 @@
                             <span>לפי עלות שעתית</span>
                         </label>
                     </div>
-                    <small style="color: #6c757d; display: block; margin-top: 8px;">
-                        עלות כוללת = שעות שבועיות × מספר מפגשים × עלות שעתית
-                    </small>
                 </div>
 
                 <!-- Cost and Hourly Cost side by side -->
@@ -436,33 +434,78 @@
                     </div>
                     <div style="flex: 1;">
                         <label for="programApprovalStatus">סטטוס אישור:</label>
-                        <select id="programApprovalStatus" class="form-control" @bind="_programModalData.ApprovalStatus">
+                        <select id="programApprovalStatus" class="form-control" @bind="_programModalData.ApprovalStatus" @bind:after="OnApprovalStatusChanged">
                             <option value="0">לא מאושר</option>
                             <option value="1">מאושר</option>
-                            <option value="2">אישור חריג</option>
+                            @if (_canApproveHighAmount)
+                            {
+                                <option value="2">אישור חריג</option>
+                            }
                         </select>
+                        @if (!_canApproveHighAmount)
+                        {
+                            <small style="color: #6c757d; display: block; margin-top: 4px;">אין הרשאה לאישור חריג</small>
+                        }
                     </div>
                 </div>
 
-                <!-- Maximum Price Display -->
-                @if (_maxAllowedPrice.HasValue)
-                {
-                    <div style="margin-bottom: 15px; padding: 10px; background-color: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 4px;">
-                        <label style="display: block; font-weight: 600; color: #004085; margin-bottom: 5px;">
-                            סכום מקסימלי מותר:
-                        </label>
-                        <div style="font-size: 18px; font-weight: bold; color: #004085;">
-                            @_maxAllowedPrice.Value.ToString("C2")
-                            @if (_maxPriceTierStudents != _programModalData.NumberOfStudents && _maxPriceTierStudents > 0)
-                            {
-                                <br />
-                                <small style="font-size: 0.85em; font-weight: normal;">
-                                    (מבוסס על @_maxPriceTierStudents תלמידים)
-                                </small>
-                            }
+                <!-- Information Amounts - Side by Side -->
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <!-- Maximum Price Display -->
+                    @if (_maxAllowedPrice.HasValue && _programModalData.WeeklyHours > 0)
+                    {
+                        <div style="flex: 1; padding: 8px; background-color: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 4px;">
+                            <label style="display: block; font-weight: 600; color: #004085; margin-bottom: 3px; font-size: 0.9em;">
+                                סכום מקסימלי מותר לתכנית:
+                            </label>
+                            <div style="font-size: 16px; font-weight: bold; color: #004085;">
+                                @((_maxAllowedPrice.Value * _programModalData.WeeklyHours).ToString("C2"))
+                                @if (_maxPriceTierStudents != _programModalData.NumberOfStudents && _maxPriceTierStudents > 0)
+                                {
+                                    <br />
+                                    <small style="font-size: 0.75em; font-weight: normal;">
+                                        (מבוסס על @_maxPriceTierStudents תלמידים)
+                                    </small>
+                                }
+                            </div>
+                            <small style="color: #6c757d; display: block; margin-top: 3px; font-size: 0.75em;">
+                                @_maxAllowedPrice.Value.ToString("C2") לשעה × @_programModalData.WeeklyHours שעות
+                            </small>
                         </div>
-                    </div>
-                }
+                    }
+
+                    <!-- Class Total Approved Amount -->
+                    @if (_classTotalApprovedAmount.HasValue && _programModalData.ClassId > 0)
+                    {
+                        <div style="flex: 1; padding: 8px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px;">
+                            <label style="display: block; font-weight: 600; color: #856404; margin-bottom: 3px; font-size: 0.9em;">
+                                סה"כ מאושר לכיתה:
+                            </label>
+                            <div style="font-size: 16px; font-weight: bold; color: #856404;">
+                                @_classTotalApprovedAmount.Value.ToString("C2")
+                            </div>
+                            <small style="color: #6c757d; display: block; margin-top: 3px; font-size: 0.75em;">
+                                סכום כל התכניות המאושרות בכיתה זו
+                            </small>
+                        </div>
+                    }
+
+                    <!-- Class Total Allowed Amount -->
+                    @if (_classTotalAllowedAmount.HasValue && _programModalData.ClassId > 0)
+                    {
+                        <div style="flex: 1; padding: 8px; background-color: #d1ecf1; border: 1px solid #17a2b8; border-radius: 4px;">
+                            <label style="display: block; font-weight: 600; color: #0c5460; margin-bottom: 3px; font-size: 0.9em;">
+                                סה"כ מקסימום מותר לכיתה:
+                            </label>
+                            <div style="font-size: 16px; font-weight: bold; color: #0c5460;">
+                                @_classTotalAllowedAmount.Value.ToString("C2")
+                            </div>
+                            <small style="color: #6c757d; display: block; margin-top: 3px; font-size: 0.75em;">
+                                סכום מקסימום לפי שעות ומספר תלמידים
+                            </small>
+                        </div>
+                    }
+                </div>
 
                 <!-- Validation Error -->
                 @if (_showValidationError)
@@ -635,12 +678,19 @@
     private bool _showValidationError = false;
     private string _validationErrorText = "";
     
+    // Permissions
+    private bool _canApproveHighAmount = false;
+    
     // Sessions remark
     private string _sessionsRemarkText = "ברירת מחדל: 30 מפגשים";
     private int _requiredSessions = 30;
     
     // Updated info
     private string _programUpdatedInfo = "";
+    
+    // Class total
+    private decimal? _classTotalApprovedAmount = null;
+    private decimal? _classTotalAllowedAmount = null;
     
     // Version History modal state
     private bool _showVersionHistoryModal = false;
@@ -652,7 +702,31 @@
 
     protected override async Task OnPageInitializedAsync()
     {
+        await LoadUserPermissions();
         await LoadData();
+    }
+
+    private async Task LoadUserPermissions()
+    {
+        try
+        {
+            // Check if user has approve_high_additional_study action (type 11)
+            _canApproveHighAmount = await SecurityService.VerifyActionAsync(
+                actionName: "approve_high_additional_study",
+                screenName: PageName,
+                functionName: "LoadUserPermissions",
+                eventType: "PERMISSION_CHECK",
+                actionType: 11, // Type 11 = Permission check for conditional UI
+                reference: PageName,
+                actionParams: null
+            );
+            Console.WriteLine($"🔒 User can approve high amount: {_canApproveHighAmount}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading permissions: {ex.Message}");
+            _canApproveHighAmount = false;
+        }
     }
 
     private async Task LoadData()
@@ -1559,6 +1633,8 @@
         _calculationMode = "totalCost";
         _maxAllowedPrice = null;
         _maxPriceTierStudents = 0;
+        _classTotalApprovedAmount = null;
+        _classTotalAllowedAmount = null;
         _showValidationError = false;
         _validationErrorText = "";
         _programUpdatedInfo = "";
@@ -1591,6 +1667,8 @@
         _calculationMode = "totalCost";
         _maxAllowedPrice = null;
         _maxPriceTierStudents = 0;
+        _classTotalApprovedAmount = null;
+        _classTotalAllowedAmount = null;
         _showValidationError = false;
         _validationErrorText = "";
         
@@ -1614,6 +1692,13 @@
             await LoadMaxPrice();
         }
         
+        // Load class total
+        if (_programModalData.ClassId > 0)
+        {
+            await LoadClassTotalApprovedAmount();
+            await LoadClassTotalAllowedAmount();
+        }
+        
         _showProgramModal = true;
         StateHasChanged();
     }
@@ -1622,6 +1707,8 @@
     {
         _showProgramModal = false;
         _maxAllowedPrice = null;
+        _classTotalApprovedAmount = null;
+        _classTotalAllowedAmount = null;
         _showValidationError = false;
     }
 
@@ -1645,7 +1732,7 @@
                         if (int.TryParse(value.ToString(), out int sessions))
                         {
                             _requiredSessions = sessions;
-                            _sessionsRemarkText = $"מספר מפגשים נדרש: {sessions}";
+                            _sessionsRemarkText = $"נדרש: {sessions}";
                             return;
                         }
                     }
@@ -1784,6 +1871,117 @@
         }
     }
 
+    private async Task LoadClassTotalApprovedAmount()
+    {
+        if (_programModalData.ClassId <= 0)
+        {
+            _classTotalApprovedAmount = null;
+            return;
+        }
+
+        try
+        {
+            // Get all programs for this class
+            var classPrograms = _additionalStudyPrograms
+                .Where(p => p.ClassId == _programModalData.ClassId)
+                .ToList();
+
+            // Group by MasterId to get only last versions
+            var lastVersionPrograms = classPrograms
+                .GroupBy(p => p.MasterId ?? p.Id) // Group by MasterId, or by Id if it's a master record
+                .Select(g => g.OrderByDescending(p => p.Id).First()) // Get the latest version (highest Id)
+                .ToList();
+
+            // Exclude current program if editing (we'll add it separately with modal's values)
+            if (_isEditingProgram)
+            {
+                lastVersionPrograms = lastVersionPrograms
+                    .Where(p => p.Id != _programModalData.Id)
+                    .ToList();
+            }
+
+            // Filter for approved statuses (1 = approved, 2 = special approval)
+            var approvedPrograms = lastVersionPrograms
+                .Where(p => p.ApprovedAmount.HasValue && 
+                           (p.ApprovalStatus == 1 || p.ApprovalStatus == 2))
+                .ToList();
+
+            // Sum approved amounts from other programs
+            var otherProgramsTotal = approvedPrograms.Sum(p => p.ApprovedAmount.Value);
+
+            // Add current program's approved amount if it has approved/special approval status
+            var currentProgramAmount = 0m;
+            if (_programModalData.ApprovedAmount.HasValue && 
+                (_programModalData.ApprovalStatus == 1 || _programModalData.ApprovalStatus == 2))
+            {
+                currentProgramAmount = _programModalData.ApprovedAmount.Value;
+            }
+
+            _classTotalApprovedAmount = otherProgramsTotal + currentProgramAmount;
+
+            Console.WriteLine($"📊 Class total approved: {_classTotalApprovedAmount:C2} (Other: {otherProgramsTotal:C2} + Current: {currentProgramAmount:C2}) from {approvedPrograms.Count} other programs");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error calculating class total: {ex.Message}");
+            _classTotalApprovedAmount = null;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task LoadClassTotalAllowedAmount()
+    {
+        if (_programModalData.ClassId <= 0 || !_maxAllowedPrice.HasValue)
+        {
+            _classTotalAllowedAmount = null;
+            return;
+        }
+
+        try
+        {
+            // Get all programs for this class
+            var classPrograms = _additionalStudyPrograms
+                .Where(p => p.ClassId == _programModalData.ClassId)
+                .ToList();
+
+            // Group by MasterId to get only last versions
+            var lastVersionPrograms = classPrograms
+                .GroupBy(p => p.MasterId ?? p.Id)
+                .Select(g => g.OrderByDescending(p => p.Id).First())
+                .ToList();
+
+            // Exclude current program if editing (we'll add it separately with modal's values)
+            if (_isEditingProgram)
+            {
+                lastVersionPrograms = lastVersionPrograms
+                    .Where(p => p.Id != _programModalData.Id)
+                    .ToList();
+            }
+
+            // Sum weekly hours from other programs
+            var otherProgramsHours = lastVersionPrograms.Sum(p => p.WeeklyHours);
+
+            // Add current program's weekly hours
+            var currentProgramHours = _programModalData.WeeklyHours;
+
+            // Total hours for the class
+            var totalClassHours = otherProgramsHours + currentProgramHours;
+
+            // Calculate total allowed: max price per hour × total hours
+            _classTotalAllowedAmount = _maxAllowedPrice.Value * totalClassHours;
+
+            Console.WriteLine($"📊 Class total allowed: {_maxAllowedPrice.Value:C2}/h × {totalClassHours}h (Other: {otherProgramsHours}h + Current: {currentProgramHours}h) = {_classTotalAllowedAmount:C2}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error calculating class total allowed: {ex.Message}");
+            _classTotalAllowedAmount = null;
+        }
+
+        StateHasChanged();
+    }
+
     private async Task LoadMaxPrice()
     {
         if (_programModalData.NumberOfStudents <= 0)
@@ -1838,13 +2036,27 @@
         if (_programModalData.ClassId > 0)
         {
             await UpdateStudentCountFromClass();
+            await LoadClassTotalApprovedAmount();
+            await LoadClassTotalAllowedAmount();
+        }
+        else
+        {
+            _classTotalApprovedAmount = null;
+            _classTotalAllowedAmount = null;
         }
     }
 
     private async Task OnApprovedAmountChanged()
     {
+        await LoadClassTotalApprovedAmount();
         await ValidateApprovedAmount();
         await UpdateApprovalStatusBasedOnValidation();
+    }
+
+    private async Task OnApprovalStatusChanged()
+    {
+        await LoadClassTotalApprovedAmount();
+        await ValidateApprovedAmount();
     }
 
     private async Task UpdateApprovalStatusBasedOnValidation()
@@ -1886,16 +2098,37 @@
     {
         _showValidationError = false;
         
-        if (!_programModalData.ApprovedAmount.HasValue || _programModalData.ApprovedAmount.Value == 0 || !_maxAllowedPrice.HasValue)
+        if (!_programModalData.ApprovedAmount.HasValue || _programModalData.ApprovedAmount.Value == 0 || _programModalData.ClassId <= 0)
         {
             return;
         }
         
-        var maxAllowed = _maxAllowedPrice.Value * _programModalData.WeeklyHours;
+        // Calculate total approved for class (including current program)
+        var otherProgramsApproved = _additionalStudyPrograms
+            .Where(p => p.ClassId == _programModalData.ClassId && 
+                       p.Id != _programModalData.Id &&
+                       p.ApprovedAmount.HasValue)
+            .Sum(p => p.ApprovedAmount.Value);
         
-        if (_programModalData.ApprovedAmount.Value > maxAllowed)
+        var totalClassApproved = otherProgramsApproved + _programModalData.ApprovedAmount.Value;
+        
+        // Get total allowed for class (need to include current program's potential max)
+        decimal totalClassAllowed = 0;
+        
+        if (_classTotalAllowedAmount.HasValue)
         {
-            _validationErrorText = $"הסכום המאושר ({_programModalData.ApprovedAmount.Value:C2}) עולה על הסכום המקסימלי המותר ({maxAllowed:C2})";
+            totalClassAllowed = _classTotalAllowedAmount.Value;
+        }
+        
+        // Add current program's max allowed
+        if (_maxAllowedPrice.HasValue && _programModalData.WeeklyHours > 0)
+        {
+            totalClassAllowed += _maxAllowedPrice.Value * _programModalData.WeeklyHours;
+        }
+        
+        if (totalClassApproved > _classTotalAllowedAmount && _classTotalAllowedAmount > 0)
+        {
+            _validationErrorText = $"סה\"כ מאושר לכיתה ({totalClassApproved:C2}) עולה על הסכום המקסימלי המותר לכיתה ({_classTotalAllowedAmount:C2})";
             _showValidationError = true;
         }
         
@@ -1911,8 +2144,15 @@
             return;
         }
         
-        // Validate approved amount
-        if (_showValidationError)
+        // Check permission for exceptional approval
+        if (_programModalData.ApprovalStatus == 2 && !_canApproveHighAmount)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "אין לך הרשאה לאשר אישור חריג");
+            return;
+        }
+        
+        // Validate approved amount - allow saving if status is "לא מאושר" (0)
+        if (_showValidationError && _programModalData.ApprovalStatus != 0)
         {
             await JSRuntime.InvokeVoidAsync("alert", _validationErrorText);
             return;

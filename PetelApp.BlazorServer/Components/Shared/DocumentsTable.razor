@@ -434,26 +434,49 @@
     {
         try
         {
-            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך למחוק מסמך זה?");
+            var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך למחוק את הקובץ? הרשומה תישאר עם סטטוס 'לא קיים'");
             if (!confirmed) return;
 
-            var response = await ApiService.DeleteAsync($"documents/{documentId}");
+            Console.WriteLine($"🗑️ Deleting file for document: {documentId}");
 
-            if (response != null)
+            // Call endpoint to delete file blob and update status to "לא קיים" (1)
+            var response = await ApiService.PostAsync<object, Dictionary<string, object>>(
+                $"documents/{documentId}/delete-file",
+                new { }
+            );
+
+            if (response != null && response.ContainsKey("success"))
             {
-                await JSRuntime.InvokeVoidAsync("alert", "המסמך נמחק בהצלחה");
-                await LoadDocuments();
-                await OnDocumentsChanged.InvokeAsync();
+                // Handle JsonElement for success field
+                var successValue = response["success"];
+                bool isSuccess = successValue is System.Text.Json.JsonElement jsonElement 
+                    ? jsonElement.GetBoolean() 
+                    : Convert.ToBoolean(successValue);
+
+                if (isSuccess)
+                {
+                    var message = response.ContainsKey("message") ? response["message"].ToString() : "הקובץ נמחק בהצלחה";
+                    await JSRuntime.InvokeVoidAsync("alert", message);
+                    Console.WriteLine("✅ File deleted successfully");
+
+                    await LoadDocuments();
+                    await OnDocumentsChanged.InvokeAsync();
+                }
+                else
+                {
+                    var message = response.ContainsKey("error") ? response["error"].ToString() : "שגיאה במחיקת הקובץ";
+                    await JSRuntime.InvokeVoidAsync("alert", message);
+                }
             }
             else
             {
-                await JSRuntime.InvokeVoidAsync("alert", "שגיאה במחיקת מסמך");
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה במחיקת הקובץ");
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error deleting document: {ex.Message}");
-            await JSRuntime.InvokeVoidAsync("alert", "שגיאה במחיקת מסמך");
+            Console.WriteLine($"❌ Error deleting document file: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה במחיקת הקובץ: {ex.Message}");
         }
     }
 
