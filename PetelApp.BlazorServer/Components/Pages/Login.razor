@@ -130,7 +130,7 @@
                            maxlength="6" 
                            @bind="_otpCode"
                            @onkeydown="HandleOtpEnterKey"
-                           @onkeydown:preventDefault="true"
+                           @onkeydown:stopPropagation="true"
                            placeholder="הזן 6 ספרות" 
                            autocomplete="off" 
                            inputmode="numeric" />
@@ -189,7 +189,7 @@
                            maxlength="6" 
                            @bind="_setupOtpCode"
                            @onkeydown="HandleSetupOtpEnterKey"
-                           @onkeydown:preventDefault="true"
+                           @onkeydown:stopPropagation="true"
                            placeholder="הזן 6 ספרות" 
                            autocomplete="off" 
                            inputmode="numeric" />
