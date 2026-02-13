@@ -247,8 +247,16 @@ namespace PetelApp.Api.Controllers
                 {
                     user.FailedOtpAttempts = 0;
                     user.LastFailedAttempt = null;
-                    await _context.SaveChangesAsync();
                 }
+
+                // ✅ NEW: Mark OTP as verified if this is first-time setup validation
+                if (!user.OtpVerified)
+                {
+                    user.OtpVerified = true;
+                    _logger.LogInformation("OTP setup completed for user {UserId} - marked as verified", user.Id);
+                }
+
+                await _context.SaveChangesAsync();
 
                 // ✅ NEW: Check password expiration AFTER successful OTP (more secure)
                 var (isExpired, expirationMessage) = CheckPasswordExpiration(user);

@@ -38,6 +38,9 @@ namespace PetelApp.Api.Configuration
                 options.IpRules = new List<IpRateLimitPolicy>();
             });
 
+                        // Register rate limit configuration (required by AspNetCoreRateLimit library)
+            services.AddSingleton<IRateLimitConfiguration, AspNetCoreRateLimit.RateLimitConfiguration>();
+
             // Add rate limit stores
             services.AddInMemoryRateLimiting();
 

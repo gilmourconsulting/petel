@@ -6,7 +6,7 @@
 # ============================================
 
 param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory = $true)]
     [ValidateSet('test', 'staging', 'production')]
     [string]$Environment,
     
@@ -21,35 +21,35 @@ $ProgressPreference = "SilentlyContinue"
 
 # Configuration based on environment
 $envConfig = @{
-    'test' = @{
-        ResourceGroup = 'petel-test-rg'
+    'test'       = @{
+        ResourceGroup  = 'petel-test-rg'
         AppServicePlan = 'petel-test-plan'
-        BlazorAppName = 'petel-test-blazor'
-        ApiAppName = 'petel-test-api'
-        ApiUrl = 'https://petel-test-api.azurewebsites.net'
-        Location = 'israelcentral'
-        BlazorRuntime = 'DOTNETCORE:8.0'
-        ApiRuntime = 'DOTNETCORE:9.0'
+        BlazorAppName  = 'petel-test-blazor'
+        ApiAppName     = 'petel-test-api'
+        ApiUrl         = 'https://petel-test-api.azurewebsites.net'
+        Location       = 'israelcentral'
+        BlazorRuntime  = 'DOTNETCORE:8.0'
+        ApiRuntime     = 'DOTNETCORE:9.0'
     }
-    'staging' = @{
-        ResourceGroup = 'petel-staging-rg'
+    'staging'    = @{
+        ResourceGroup  = 'petel-staging-rg'
         AppServicePlan = 'petel-staging-plan'
-        BlazorAppName = 'petel-staging-blazor'
-        ApiAppName = 'petel-staging-api'
-        ApiUrl = 'https://petel-staging-api.azurewebsites.net'
-        Location = 'israelcentral'
-        BlazorRuntime = 'DOTNETCORE:8.0'
-        ApiRuntime = 'DOTNETCORE:9.0'
+        BlazorAppName  = 'petel-staging-blazor'
+        ApiAppName     = 'petel-staging-api'
+        ApiUrl         = 'https://petel-staging-api.azurewebsites.net'
+        Location       = 'israelcentral'
+        BlazorRuntime  = 'DOTNETCORE:8.0'
+        ApiRuntime     = 'DOTNETCORE:9.0'
     }
     'production' = @{
-        ResourceGroup = 'petel-prod-rg'
+        ResourceGroup  = 'petel-prod-rg'
         AppServicePlan = 'petel-prod-plan'
-        BlazorAppName = 'petel-prod-blazor'
-        ApiAppName = 'petel-prod-api'
-        ApiUrl = 'https://petel-prod-api.azurewebsits.net'
-        Location = 'israelcentral'
-        BlazorRuntime = 'DOTNETCORE:8.0'
-        ApiRuntime = 'DOTNETCORE:9.0'
+        BlazorAppName  = 'petel-prod-blazor'
+        ApiAppName     = 'petel-prod-api'
+        ApiUrl         = 'https://petel-prod-api.azurewebsits.net'
+        Location       = 'israelcentral'
+        BlazorRuntime  = 'DOTNETCORE:8.0'
+        ApiRuntime     = 'DOTNETCORE:9.0'
     }
 }
 
@@ -96,7 +96,8 @@ function Test-AzureCli {
     try {
         az account show | Out-Null
         return $true
-    } catch {
+    }
+    catch {
         return $false
     }
 }
@@ -181,30 +182,41 @@ if (-not $ApiOnly) {
             --name $BlazorAppName `
             --runtime $BlazorRuntime | Out-Null
         Write-Success "Blazor app service created"
-    } else {
+    }
+    else {
         Write-Host "Blazor app service exists" -ForegroundColor Gray
     }
     
     Write-Host "Configuring Blazor app..." -ForegroundColor Gray
+    $aspnetEnv = if ($Environment -eq 'test') { 'Staging' } elseif ($Environment -eq 'staging') { 'Staging' } else { 'Production' }
     az webapp config appsettings set `
         --resource-group $ResourceGroup `
         --name $BlazorAppName `
-        --settings ASPNETCORE_ENVIRONMENT="Production" | Out-Null
+        --settings ASPNETCORE_ENVIRONMENT="$aspnetEnv" | Out-Null
     
     Write-Host "Deploying Blazor application..." -ForegroundColor Gray
-    az webapp deploy `
+    $deployResult = az webapp deploy `
         --resource-group $ResourceGroup `
         --name $BlazorAppName `
         --src-path "blazor-deploy-$Environment.zip" `
         --type zip `
         --restart true `
-        --timeout 300 2>&1 | Select-String -Pattern "Status:|successful" | Out-Null
+        --timeout 300 `
+        --only-show-errors 2>&1
     
-    if ($LASTEXITCODE -eq 0) {
+    if ($deployResult -like "*Deployment successful*" -or $deployResult -like "*status*") {
         Write-Success "Blazor deployment completed"
-    } else {
-        Write-ErrorMsg "Blazor deployment failed"
-        exit 1
+    }
+    else {
+        Write-Host "Deployment output:" -ForegroundColor Yellow
+        Write-Host $deployResult
+        if ($LASTEXITCODE -ne 0) {
+            Write-ErrorMsg "Blazor deployment failed"
+            exit 1
+        }
+        else {
+            Write-Success "Blazor deployment completed (check output above for details)"
+        }
     }
 }
 
@@ -258,35 +270,44 @@ if (-not $BlazorOnly) {
             --name $ApiAppName `
             --runtime $ApiRuntime | Out-Null
         Write-Success "API app service created"
-    } else {
+    }
+    else {
         Write-Host "API app service exists" -ForegroundColor Gray
     }
     
     Write-Host "Configuring API app..." -ForegroundColor Gray
+    $aspnetEnv = if ($Environment -eq 'test') { 'Staging' } elseif ($Environment -eq 'staging') { 'Staging' } else { 'Production' }
     az webapp config appsettings set `
         --resource-group $ResourceGroup `
         --name $ApiAppName `
-        --settings ASPNETCORE_ENVIRONMENT="Production" | Out-Null
+        --settings ASPNETCORE_ENVIRONMENT="$aspnetEnv" | Out-Null
     
     Write-Host "Deploying API application..." -ForegroundColor Gray
-    az webapp deploy `
+    $deployResult = az webapp deploy `
         --resource-group $ResourceGroup `
         --name $ApiAppName `
         --src-path "api-deploy-$Environment.zip" `
         --type zip `
         --restart true `
-        --timeout 300 2>&1 | Select-String -Pattern "Status:|successful" | Out-Null
+        --timeout 300 2>&1
+
     
+    
+    $deployOutput = $deployResult | Out-String
+
     if ($LASTEXITCODE -eq 0) {
         Write-Success "API deployment completed"
-    } else {
-        Write-ErrorMsg "API deployment failed"
+    }
+    elseif ($LASTEXITCODE -ne 0) {
+        Write-Host "Deployment output:" -ForegroundColor Yellow
+        Write-Host $deployOutput
+        Write-ErrorMsg "API deployment failed with exit code $LASTEXITCODE"
         exit 1
     }
 }
 
 # Configure IP Restrictions
-if (-not $SkipIpRestrictions -and -not $BlazorOnly -and -not $ApiOnly) {
+if (-not $SkipIpRestrictions -and -not $c -and -not $ApiOnly) {
     Write-Step "Configuring IP Restrictions"
     
     Write-Host "Getting Blazor outbound IPs..." -ForegroundColor Gray
@@ -326,7 +347,8 @@ if (-not $SkipIpRestrictions -and -not $BlazorOnly -and -not $ApiOnly) {
     
     if ($addedCount -gt 0) {
         Write-Success "Added $addedCount IP restriction rule(s)"
-    } else {
+    }
+    else {
         Write-Host "All IP restrictions already configured" -ForegroundColor Gray
     }
 }
@@ -343,10 +365,12 @@ if (-not $ApiOnly) {
         $blazorResponse = Invoke-WebRequest "https://$BlazorAppName.azurewebsites.net" -UseBasicParsing -TimeoutSec 20
         if ($blazorResponse.Content -like "*Blazor*" -or $blazorResponse.Content -like "*_framework*") {
             Write-Success "Blazor app is responding (Status: $($blazorResponse.StatusCode))"
-        } else {
+        }
+        else {
             Write-Host "WARNING: Blazor app responded but content looks unexpected" -ForegroundColor Yellow
         }
-    } catch {
+    }
+    catch {
         Write-Host "WARNING: Could not verify Blazor app: $($_.Exception.Message)" -ForegroundColor Yellow
     }
 }
@@ -356,10 +380,12 @@ if (-not $BlazorOnly) {
     try {
         $apiResponse = Invoke-WebRequest "$ApiUrl" -UseBasicParsing -TimeoutSec 20
         Write-Success "API is responding (Status: $($apiResponse.StatusCode))"
-    } catch {
+    }
+    catch {
         if ($_.Exception.Response.StatusCode -eq 'NotFound') {
             Write-Success "API is responding (404 expected for root)"
-        } else {
+        }
+        else {
             Write-Host "WARNING: Could not verify API: $($_.Exception.Message)" -ForegroundColor Yellow
         }
     }

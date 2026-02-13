@@ -130,6 +130,7 @@
                            maxlength="6" 
                            @bind="_otpCode"
                            @onkeydown="HandleOtpEnterKey"
+                           @onkeydown:preventDefault="true"
                            placeholder="הזן 6 ספרות" 
                            autocomplete="off" 
                            inputmode="numeric" />
@@ -188,6 +189,7 @@
                            maxlength="6" 
                            @bind="_setupOtpCode"
                            @onkeydown="HandleSetupOtpEnterKey"
+                           @onkeydown:preventDefault="true"
                            placeholder="הזן 6 ספרות" 
                            autocomplete="off" 
                            inputmode="numeric" />
@@ -508,12 +510,20 @@
             }
             else
             {
+                // Close modal and show error on main screen
+                _requiresOtp = false;
+                _otpCode = "";
                 _errorMessage = response?.Message ?? "קוד אימות שגוי";
+                _currentStep = 2;
             }
         }
         catch (Exception ex)
         {
+            // Close modal and show error on main screen
+            _requiresOtp = false;
+            _otpCode = "";
             _errorMessage = $"שגיאה: {ex.Message}";
+            _currentStep = 2;
         }
         finally
         {
@@ -571,30 +581,52 @@
 
         try
         {
+            // Step 1: Verify setup with dedicated endpoint
             var setupRequest = new { Code = _setupOtpCode };
+            var verifyResponse = await ApiService.PostAsync<object, OtpSetupVerifyResponse>(
+                "otp/verify-setup", 
+                setupRequest, 
+                _tempToken);
             
-            // Use regular PostAsync with the temp token in request headers approach
-            // Create a temporary HTTP context with the temp token
-            var response = await ApiService.PostAsync<object, LoginResponse>("otp/validate", new { TempToken = _tempToken, Code = _setupOtpCode });
-            
-            if (response != null && response.Success)
+            if (verifyResponse == null || !verifyResponse.Success)
             {
-                _logger.LogInformation("OTP setup verified successfully, completing login");
-                
-                // Token-based login successful from setup verification
-                await TokenService.SetTokenAsync(response.Token);
+                // Close modal and show error on main screen
+                _requiresOtpSetup = false;
+                _setupOtpCode = "";
+                _errorMessage = verifyResponse?.Message ?? "קוד אימות שגוי, נסה שוב";
+                _currentStep = 2;
+                return;
+            }
+
+            _logger.LogInformation("OTP setup verified successfully, completing login");
+            
+            // Step 2: Complete login with validate endpoint
+            var loginResponse = await ApiService.PostAsync<object, LoginResponse>(
+                "otp/validate", 
+                new { TempToken = _tempToken, Code = _setupOtpCode });
+            
+            if (loginResponse != null && loginResponse.Success)
+            {
+                await TokenService.SetTokenAsync(loginResponse.Token);
                 Navigation.NavigateTo("/maindashboard");
             }
             else
             {
-                _errorMessage = response?.Message ?? "קוד אימות שגוי, נסה שוב";
+                // Close modal and show error on main screen
+                _requiresOtpSetup = false;
                 _setupOtpCode = "";
+                _errorMessage = loginResponse?.Message ?? "שגיאה בהשלמת ההתחברות";
+                _currentStep = 2;
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error verifying OTP setup");
+            // Close modal and show error on main screen
+            _requiresOtpSetup = false;
+            _setupOtpCode = "";
             _errorMessage = $"שגיאה: {ex.Message}";
+            _currentStep = 2;
         }
         finally
         {
