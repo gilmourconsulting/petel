@@ -1,0 +1,11 @@
+pgAdmin Configuration
+Right-click "Servers" → "Register" → "Server"
+General Tab: Name = "Petel Production"
+Connection Tab:
+Host: petel-prod-db-4407.postgres.database.azure.com
+Port: 5432
+Maintenance database: petelappdb
+Username: peteldbadmin
+Password: fTEgVkIMc53WqBsdQphbuvLK!@#
+Save password: ✅
+SSL Tab: SSL mode = Require

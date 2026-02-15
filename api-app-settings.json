@@ -1,0 +1,57 @@
+[
+  {
+    "name": "ConnectionStrings__DefaultConnection",
+    "value": "@Microsoft.KeyVault(SecretUri=https://petel-kv-prod-6581.vault.azure.net/secrets/ConnectionStrings--DefaultConnection/)",
+    "slotSetting": false
+  },
+  {
+    "name": "ConnectionStrings__HangfireConnection",
+    "value": "@Microsoft.KeyVault(SecretUri=https://petel-kv-prod-6581.vault.azure.net/secrets/ConnectionStrings--HangfireConnection/)",
+    "slotSetting": false
+  },
+  {
+    "name": "Security__Jwt__SecretKey",
+    "value": "@Microsoft.KeyVault(SecretUri=https://petel-kv-prod-6581.vault.azure.net/secrets/Security--Jwt--SecretKey/)",
+    "slotSetting": false
+  },
+  {
+    "name": "Security__DataEncryption__EncryptionKey",
+    "value": "@Microsoft.KeyVault(SecretUri=https://petel-kv-prod-6581.vault.azure.net/secrets/Security--DataEncryption--EncryptionKey/)",
+    "slotSetting": false
+  },
+  {
+    "name": "Database__SchemaName",
+    "value": "petel_schema",
+    "slotSetting": false
+  },
+  {
+    "name": "Security__Jwt__Issuer",
+    "value": "Petel ATH",
+    "slotSetting": false
+  },
+  {
+    "name": "Security__Jwt__Audience",
+    "value": "PetelAppUsers",
+    "slotSetting": false
+  },
+  {
+    "name": "Security__Jwt__ExpirationHours",
+    "value": "8",
+    "slotSetting": false
+  },
+  {
+    "name": "Security__RateLimiting__RequestsPerMinute",
+    "value": "100",
+    "slotSetting": false
+  },
+  {
+    "name": "Security__RateLimiting__BurstSize",
+    "value": "200",
+    "slotSetting": false
+  },
+  {
+    "name": "ASPNETCORE_ENVIRONMENT",
+    "value": "Production",
+    "slotSetting": false
+  }
+]

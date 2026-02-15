@@ -1,0 +1,124 @@
+PRODUCTION ENVIRONMENT - RESOURCE DETAILS
+Created: February 15, 2026 @ 18:43
+==========================================
+
+RESOURCE GROUP
+  Name: petel-prod-rg
+  Location: israelcentral
+
+APP SERVICE PLAN
+  Name: petel-prod-plan
+  SKU: P1V3 (Premium)
+  OS: Linux
+
+API APP SERVICE
+  Name: petel-prod-api
+  URL: https://petel-prod-api.azurewebsites.net
+  Runtime: .NET 9.0
+  Always On: Enabled
+  TLS: 1.2 minimum
+
+BLAZOR APP SERVICE
+  Name: petel-prod-blazor
+  URL: https://petel-prod-blazor.azurewebsites.net
+  Runtime: .NET 8.0
+  WebSockets: Enabled
+  Always On: Enabled
+  TLS: 1.2 minimum
+
+POSTGRESQL DATABASE
+  Server: petel-prod-db-4407.postgres.database.azure.com
+  Database: petelappdb
+  Admin User: peteldbadmin
+  SKU: Standard_D2ds_v4 (2 vCores, 8GB RAM)
+  Storage: 128GB
+  Version: PostgreSQL 14
+  High Availability: Disabled
+  Public Access: Enabled (configure firewall rules as needed)
+  
+  ⚠️ CREDENTIALS: See production-db-credentials-20260215-184336.txt
+  ⚠️ DELETE credentials file after storing in Key Vault!
+
+KEY VAULT
+  Name: petel-kv-prod-6581
+  URL: https://petel-kv-prod-6581.vault.azure.net
+  SKU: Standard
+  Access Policies Configured:
+    - petel-prod-api (managed identity)
+    - petel-prod-blazor (managed identity)
+
+CORS CONFIGURATION
+  API allows requests from: https://petel-prod-blazor.azurewebsites.net
+
+==========================================
+NEXT STEPS
+==========================================
+
+1. RESTORE YOUR DATABASE
+   Connection: petel-prod-db-4407.postgres.database.azure.com
+   Database: petelappdb
+   Use pgAdmin, DBeaver, or pg_restore command
+
+2. GENERATE SECURITY KEYS
+   Run these PowerShell commands:
+   
+   # JWT Secret Key
+   -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 64 | ForEach-Object {[char]$_})
+   
+   # AES Encryption Key
+   $aes = New-Object byte[] 32; [System.Security.Cryptography.RNGCryptoServiceProvider]::Create().GetBytes($aes); [Convert]::ToBase64String($aes)
+
+3. ADD SECRETS TO KEY VAULT
+   Replace <VALUES> with your actual credentials:
+   
+   $kv = "petel-kv-prod-6581"
+   $dbConn = "Host=petel-prod-db-4407.postgres.database.azure.com;Database=petelappdb;Username=peteldbadmin;Password=<YOUR_DB_PASSWORD>;SslMode=Require"
+   
+   az keyvault secret set --vault-name $kv --name "ConnectionStrings--DefaultConnection" --value $dbConn
+   az keyvault secret set --vault-name $kv --name "ConnectionStrings--HangfireConnection" --value $dbConn
+   az keyvault secret set --vault-name $kv --name "Security--Jwt--SecretKey" --value "<YOUR_JWT_SECRET>"
+   az keyvault secret set --vault-name $kv --name "Security--DataEncryption--EncryptionKey" --value "<YOUR_AES_KEY>"
+
+4. CONFIGURE APP SERVICE KEY VAULT REFERENCES
+   
+   $api = "petel-prod-api"
+   $rg = "petel-prod-rg"
+   $kv = "petel-kv-prod-6581"
+   
+   az webapp config appsettings set --name $api --resource-group $rg --settings `
+       "ConnectionStrings__DefaultConnection=@Microsoft.KeyVault(SecretUri=https://$kv.vault.azure.net/secrets/ConnectionStrings--DefaultConnection/)" `
+       "ConnectionStrings__HangfireConnection=@Microsoft.KeyVault(SecretUri=https://$kv.vault.azure.net/secrets/ConnectionStrings--HangfireConnection/)" `
+       "Security__Jwt__SecretKey=@Microsoft.KeyVault(SecretUri=https://$kv.vault.azure.net/secrets/Security--Jwt--SecretKey/)" `
+       "Security__DataEncryption__EncryptionKey=@Microsoft.KeyVault(SecretUri=https://$kv.vault.azure.net/secrets/Security--DataEncryption--EncryptionKey/)"
+
+5. DEPLOY APPLICATION
+   
+   .\Deploy-ToAzure.ps1 -Environment production
+
+6. SETUP FRONT DOOR WITH WAF
+   
+   .\Setup-Production-FrontDoor.ps1
+
+==========================================
+DOCUMENTATION
+==========================================
+
+Quick Start: PRODUCTION_QUICK_START.md
+Full Guide: PRODUCTION_DEPLOYMENT_GUIDE.md
+Checklist: PRODUCTION_CHECKLIST.md
+
+==========================================
+MONITORING
+==========================================
+
+View API logs:
+  az webapp log tail --name petel-prod-api --resource-group petel-prod-rg
+
+View Blazor logs:
+  az webapp log tail --name petel-prod-blazor --resource-group petel-prod-rg
+
+Test API health:
+  curl https://petel-prod-api.azurewebsites.net/api/health
+
+Test Blazor:
+  curl https://petel-prod-blazor.azurewebsites.net/
