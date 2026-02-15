@@ -124,17 +124,24 @@
                 <h2>אימות דו-שלבי</h2>
             </div>
             <div class="modal-body">
+                @if (!string.IsNullOrEmpty(_otpErrorMessage))
+                {
+                    <div class="error-message" style="display: block; margin-bottom: 15px;">
+                        @_otpErrorMessage
+                    </div>
+                }
                 <div class="otp-input-container">
                     <input type="text" 
                            class="form-input" 
                            maxlength="6" 
                            @bind="_otpCode"
+                           @bind:event="oninput"
                            @onkeydown="HandleOtpEnterKey"
                            @onkeydown:stopPropagation="true"
                            placeholder="הזן 6 ספרות" 
                            autocomplete="off" 
                            inputmode="numeric" />
-                    <small>הזן את קוד האימות בן 6 הספרות מאפליקציית האימות שלך</small>
+                    <small>הזן את קוד האימות בן 6 הספרות מאפליקציית האימות</small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -160,6 +167,12 @@
                 <h2>הגדרת אימות דו-שלבי</h2>
             </div>
             <div class="modal-body">
+                @if (!string.IsNullOrEmpty(_otpSetupErrorMessage))
+                {
+                    <div class="error-message" style="display: block; margin-bottom: 15px;">
+                        @_otpSetupErrorMessage
+                    </div>
+                }
                 <p style="margin-bottom: 20px;">אנא סרוק את קוד ה-QR באמצעות אפליקציית אימות:</p>
                 
                 <div style="text-align: center; margin: 20px 0;">
@@ -188,6 +201,7 @@
                            class="form-input" 
                            maxlength="6" 
                            @bind="_setupOtpCode"
+                           @bind:event="oninput"
                            @onkeydown="HandleSetupOtpEnterKey"
                            @onkeydown:stopPropagation="true"
                            placeholder="הזן 6 ספרות" 
@@ -237,11 +251,13 @@
     private bool _requiresOtp = false;
     private string _otpCode = "";
     private string? _tempToken;
+    private string _otpErrorMessage = "";
     
     private bool _requiresOtpSetup = false;
     private string? _qrCodeUrl;
     private string? _manualSecret;
     private string _setupOtpCode = "";
+    private string _otpSetupErrorMessage = "";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -477,7 +493,7 @@
         }
         catch (Exception ex)
         {
-            _errorMessage = $"שגיאה: {ex.Message}";
+            _errorMessage = ExtractErrorMessage(ex.Message);
             _currentStep = 2;
         }
         finally
@@ -488,11 +504,11 @@
 
     private async Task HandleOtpVerification()
     {
-        _errorMessage = "";
+        _otpErrorMessage = "";
 
         if (string.IsNullOrWhiteSpace(_otpCode) || _otpCode.Length != 6)
         {
-            _errorMessage = "נא להזין קוד בן 6 ספרות";
+            _otpErrorMessage = "נא להזין קוד בן 6 ספרות";
             return;
         }
 
@@ -510,20 +526,16 @@
             }
             else
             {
-                // Close modal and show error on main screen
-                _requiresOtp = false;
+                // Keep modal open and show error within modal
                 _otpCode = "";
-                _errorMessage = response?.Message ?? "קוד אימות שגוי";
-                _currentStep = 2;
+                _otpErrorMessage = response?.Message ?? "קוד אימות שגוי";
             }
         }
         catch (Exception ex)
         {
-            // Close modal and show error on main screen
-            _requiresOtp = false;
+            // Keep modal open and show error within modal
             _otpCode = "";
-            _errorMessage = $"שגיאה: {ex.Message}";
-            _currentStep = 2;
+            _otpErrorMessage = ExtractErrorMessage(ex.Message);
         }
         finally
         {
@@ -535,6 +547,7 @@
     {
         _requiresOtp = false;
         _otpCode = "";
+        _otpErrorMessage = "";
         _tempToken = null;
         _currentStep = 2;
     }
@@ -569,11 +582,11 @@
     
     private async Task HandleOtpSetupVerification()
     {
-        _errorMessage = "";
+        _otpSetupErrorMessage = "";
 
         if (string.IsNullOrWhiteSpace(_setupOtpCode) || _setupOtpCode.Length != 6)
         {
-            _errorMessage = "נא להזין קוד בן 6 ספרות";
+            _otpSetupErrorMessage = "נא להזין קוד בן 6 ספרות";
             return;
         }
 
@@ -590,11 +603,9 @@
             
             if (verifyResponse == null || !verifyResponse.Success)
             {
-                // Close modal and show error on main screen
-                _requiresOtpSetup = false;
+                // Keep modal open and show error within modal
                 _setupOtpCode = "";
-                _errorMessage = verifyResponse?.Message ?? "קוד אימות שגוי, נסה שוב";
-                _currentStep = 2;
+                _otpSetupErrorMessage = verifyResponse?.Message ?? "קוד אימות שגוי, נסה שוב";
                 return;
             }
 
@@ -612,21 +623,17 @@
             }
             else
             {
-                // Close modal and show error on main screen
-                _requiresOtpSetup = false;
+                // Keep modal open and show error within modal
                 _setupOtpCode = "";
-                _errorMessage = loginResponse?.Message ?? "שגיאה בהשלמת ההתחברות";
-                _currentStep = 2;
+                _otpSetupErrorMessage = loginResponse?.Message ?? "שגיאה בהשלמת ההתחברות";
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error verifying OTP setup");
-            // Close modal and show error on main screen
-            _requiresOtpSetup = false;
+            // Keep modal open and show error within modal
             _setupOtpCode = "";
-            _errorMessage = $"שגיאה: {ex.Message}";
-            _currentStep = 2;
+            _otpSetupErrorMessage = ExtractErrorMessage(ex.Message);
         }
         finally
         {
@@ -643,10 +650,44 @@
     {
         _requiresOtpSetup = false;
         _setupOtpCode = "";
+        _otpSetupErrorMessage = "";
         _qrCodeUrl = null;
         _manualSecret = null;
         _tempToken = null;
         _currentStep = 2;
+    }
+
+    private string ExtractErrorMessage(string exceptionMessage)
+    {
+        try
+        {
+            // Try to extract message from "Details: {json}" pattern
+            var detailsIndex = exceptionMessage.IndexOf("Details: {");
+            if (detailsIndex >= 0)
+            {
+                var jsonStart = exceptionMessage.IndexOf('{', detailsIndex);
+                var jsonEnd = exceptionMessage.LastIndexOf('}');
+                if (jsonStart >= 0 && jsonEnd > jsonStart)
+                {
+                    var json = exceptionMessage.Substring(jsonStart, jsonEnd - jsonStart + 1);
+                    
+                    // Parse JSON to extract message field
+                    var messagePattern = @"""message"":""([^""]+)""";
+                    var match = System.Text.RegularExpressions.Regex.Match(json, messagePattern);
+                    if (match.Success)
+                    {
+                        return match.Groups[1].Value;
+                    }
+                }
+            }
+            
+            // Fallback: return original message if parsing fails
+            return exceptionMessage;
+        }
+        catch
+        {
+            return exceptionMessage;
+        }
     }
 
     private class EntityDto
