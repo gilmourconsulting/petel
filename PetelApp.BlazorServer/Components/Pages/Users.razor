@@ -22,7 +22,7 @@
         <SecureButton ActionName="users_create" ScreenName="@PageName" FunctionName="ShowCreateUserDialog" OnClick="ShowCreateUserDialog" CssClass="context-btn">
             הוסף משתמש חדש
         </SecureButton>
-        <SecureButton ActionName="users_maindashboard" ScreenName="@PageName" FunctionName="NavigateToMainDashboard" OnClick="NavigateToMainDashboard" CssClass="context-btn">
+        <SecureButton ActionName="users_maindashboard" ScreenName="@PageName" FunctionName="NavigateToMainDashboard" OnClick="NavigateToMainDashboard" CssClass="context-navigation-btn">
             חזרה לדף ראשי
         </SecureButton>
         <SecureButton ActionName="users_roles" ScreenName="@PageName" FunctionName="NavigateToRoles" OnClick="NavigateToRoles" CssClass="context-btn">
@@ -285,6 +285,100 @@
     </div>
 }
 
+<!-- Manage Roles Dialog -->
+@if (_showManageRolesDialog)
+{
+    <div class="modal-overlay" @onclick="CloseManageRolesDialog">
+        <div class="modal-content" style="min-width: 800px; max-width: 90%;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>ניהול תפקידים עבור: @_manageRolesUserName</h3>
+                <button class="modal-close" @onclick="CloseManageRolesDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Current Roles Section -->
+                @if (_userCurrentRoles.Count > 0)
+                {
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">תפקידים נוכחיים (@_userCurrentRoles.Count)</h4>
+                        <div style="border: 1px solid #dee2e6; border-radius: 8px; padding: 10px; background-color: #f8f9fa; max-height: 200px; overflow-y: auto;">
+                            @foreach (var role in _userCurrentRoles)
+                            {
+                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px; margin-bottom: 8px; background-color: white; border: 1px solid #dee2e6; border-radius: 4px;">
+                                    <span style="font-weight: 500;">@role.Name</span>
+                                    <button type="button" class="btn-icon" @onclick="() => RemoveRoleFromUser(role.Id)" title="הסר תפקיד">
+                                        <img src="images/delete_icon.png" alt="הסר" class="action-icon-natural">
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <!-- Add Roles Section (Two-Column Pattern) -->
+                <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">הוסף תפקידים</h4>
+                <div style="display: flex; gap: 20px; direction: rtl;">
+                    <!-- Available Roles -->
+                    <div style="flex: 1;">
+                        <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">תפקידים זמינים</h4>
+                        <input type="text" @bind="_availableRolesSearchTerm" @bind:event="oninput" @onkeyup="FilterAvailableRoles"
+                               placeholder="חיפוש תפקיד..."
+                               style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #dee2e6; border-radius: 4px; direction: rtl;">
+                        <div style="border: 2px dashed #dee2e6; border-radius: 8px; min-height: 300px; max-height: 300px; overflow-y: auto; padding: 10px; background-color: #f8f9fa;">
+                            @if (_filteredAvailableRoles == null || _filteredAvailableRoles.Count == 0)
+                            {
+                                <p style="text-align: center; color: #6c757d; padding: 20px;">אין תפקידים זמינים</p>
+                            }
+                            else
+                            {
+                                @foreach (var role in _filteredAvailableRoles)
+                                {
+                                    <div class="action-item" @onclick="() => SelectRole(role)">
+                                        <div class="action-item-name">@role.Name</div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <small style="display: block; margin-top: 5px; color: #6c757d;">
+                            לחץ על תפקיד כדי לבחור
+                        </small>
+                    </div>
+
+                    <!-- Selected Roles to Add -->
+                    <div style="flex: 1;">
+                        <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">תפקידים נבחרים (@_selectedRolesToAdd.Count)</h4>
+                        <div style="height: 34px; margin-bottom: 10px;"></div>
+                        <div style="border: 2px solid #28a745; border-radius: 8px; min-height: 300px; max-height: 300px; overflow-y: auto; padding: 10px; background-color: #f8f9fa;">
+                            @if (_selectedRolesToAdd.Count == 0)
+                            {
+                                <p style="text-align: center; color: #6c757d; padding: 20px;">בחר תפקידים</p>
+                            }
+                            else
+                            {
+                                @foreach (var role in _selectedRolesToAdd)
+                                {
+                                    <div class="action-item" @onclick="() => DeselectRole(role)">
+                                        <div class="action-item-name">@role.Name</div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <small style="display: block; margin-top: 5px; color: #6c757d;">
+                            לחץ על תפקיד כדי להסיר
+                        </small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" @onclick="CloseManageRolesDialog">ביטול</button>
+                <button type="button" class="btn-primary" @onclick="SubmitRoleChanges" 
+                        disabled="@(_selectedRolesToAdd.Count == 0)">
+                    הוסף תפקידים (@_selectedRolesToAdd.Count)
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     protected override string PageName => "users";
 
@@ -308,6 +402,16 @@
     private ChangePasswordFormModel _changePasswordForm = new();
     private int _changePasswordUserId = 0;
     private string _changePasswordUserName = string.Empty;
+
+    // Role management dialog states
+    private bool _showManageRolesDialog = false;
+    private int _manageRolesUserId = 0;
+    private string _manageRolesUserName = string.Empty;
+    private List<RoleDto> _userCurrentRoles = new();
+    private List<RoleDto> _availableRoles = new();
+    private List<RoleDto> _filteredAvailableRoles = new();
+    private List<RoleDto> _selectedRolesToAdd = new();
+    private string _availableRolesSearchTerm = string.Empty;
 
     protected override async Task OnPageInitializedAsync()
     {
@@ -590,8 +694,191 @@
 
     private async Task ManageUserRoles(UserDto user)
     {
-        // TODO: Implement role management dialog
-        await JSRuntime.InvokeVoidAsync("alert", $"ניהול תפקידים למשתמש '{user.FullName}' יתווסף בהמשך");
+        try
+        {
+            _manageRolesUserId = user.Id;
+            _manageRolesUserName = user.FullName;
+            
+            // Load all roles and user's current roles
+            await LoadUserRoles();
+            
+            _showManageRolesDialog = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading user roles: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת תפקידי המשתמש");
+        }
+    }
+
+    private void CloseManageRolesDialog()
+    {
+        _showManageRolesDialog = false;
+        _manageRolesUserId = 0;
+        _manageRolesUserName = string.Empty;
+        _userCurrentRoles.Clear();
+        _availableRoles.Clear();
+        _filteredAvailableRoles.Clear();
+        _selectedRolesToAdd.Clear();
+        _availableRolesSearchTerm = string.Empty;
+    }
+
+    private async Task LoadUserRoles()
+    {
+        try
+        {
+            // Load user's current roles
+            var currentRolesResponse = await ApiService.GetAsync<ApiResponse<List<RoleDto>>>($"users/{_manageRolesUserId}/roles");
+            if (currentRolesResponse?.Data != null)
+            {
+                _userCurrentRoles = currentRolesResponse.Data;
+            }
+            else
+            {
+                _userCurrentRoles = new List<RoleDto>();
+            }
+
+            // Load all available roles (roles user doesn't have)
+            var availableRolesResponse = await ApiService.GetAsync<ApiResponse<List<RoleDto>>>("roles");
+            if (availableRolesResponse?.Data != null)
+            {
+                // Filter out roles the user already has
+                _availableRoles = availableRolesResponse.Data
+                    .Where(r => !_userCurrentRoles.Any(ur => ur.Id == r.Id))
+                    .ToList();
+                _filteredAvailableRoles = _availableRoles;
+            }
+            else
+            {
+                _availableRoles = new List<RoleDto>();
+                _filteredAvailableRoles = new List<RoleDto>();
+            }
+
+            _selectedRolesToAdd.Clear();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading roles: {ex.Message}");
+            throw;
+        }
+    }
+
+    private void SelectRole(RoleDto role)
+    {
+        if (!_selectedRolesToAdd.Any(r => r.Id == role.Id))
+        {
+            _selectedRolesToAdd.Add(role);
+            FilterAvailableRoles(); // Re-filter to remove from available list
+        }
+    }
+
+    private void DeselectRole(RoleDto role)
+    {
+        _selectedRolesToAdd.RemoveAll(r => r.Id == role.Id);
+        FilterAvailableRoles(); // Re-filter to add back to available list
+    }
+
+    private void FilterAvailableRoles()
+    {
+        var searchTerm = _availableRolesSearchTerm?.ToLower() ?? string.Empty;
+        
+        _filteredAvailableRoles = _availableRoles
+            .Where(r => !_selectedRolesToAdd.Any(s => s.Id == r.Id)) // Exclude selected
+            .Where(r => string.IsNullOrEmpty(searchTerm) ||
+                       r.Name.ToLower().Contains(searchTerm))
+            .ToList();
+    }
+
+    private async Task RemoveRoleFromUser(int roleId)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך להסיר תפקיד זה מהמשתמש?");
+        
+        if (!confirmed) return;
+
+        try
+        {
+            var success = await ApiService.DeleteAsync($"roles/{roleId}/users/{_manageRolesUserId}");
+            
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "התפקיד הוסר בהצלחה");
+                await LoadUserRoles(); // Reload roles
+                await LoadUsersData(); // Refresh user list
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה בהסרת התפקיד");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error removing role: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בהסרת התפקיד");
+        }
+    }
+
+    private async Task SubmitRoleChanges()
+    {
+        if (_selectedRolesToAdd.Count == 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "אנא בחר לפחות תפקיד אחד");
+            return;
+        }
+
+        try
+        {
+            int successCount = 0;
+            int failCount = 0;
+            var errors = new List<string>();
+
+            foreach (var role in _selectedRolesToAdd)
+            {
+                try
+                {
+                    var response = await ApiService.PostAsync<object, object>(
+                        $"roles/{role.Id}/users", 
+                        new { userId = _manageRolesUserId });
+                    
+                    if (response != null)
+                    {
+                        successCount++;
+                    }
+                    else
+                    {
+                        failCount++;
+                        errors.Add($"{role.Name}: שגיאה");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    failCount++;
+                    errors.Add($"{role.Name}: {ex.Message}");
+                }
+            }
+
+            var message = "";
+            if (successCount > 0)
+            {
+                message += $"✅ {successCount} תפקידים נוספו בהצלחה\n";
+            }
+            if (failCount > 0)
+            {
+                message += $"❌ {failCount} תפקידים נכשלו";
+            }
+
+            await JSRuntime.InvokeVoidAsync("alert", message);
+
+            if (successCount > 0)
+            {
+                CloseManageRolesDialog();
+                await LoadUsersData();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error adding roles: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה כללית בהוספת התפקידים");
+        }
     }
 
     private void ShowChangePasswordDialog(UserDto user)
@@ -705,94 +992,18 @@
         public string NewPassword { get; set; } = string.Empty;
         public string ConfirmPassword { get; set; } = string.Empty;
     }
+
+    // DTOs
+    private class ApiResponse<T>
+    {
+        public bool Success { get; set; }
+        public T? Data { get; set; }
+        public string? Message { get; set; }
+    }
+
+    private class RoleDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
 }
-
-<style>
-    .summary-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 20px;
-        margin-bottom: 30px;
-    }
-
-    .summary-card {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        border-radius: 12px;
-        padding: 20px;
-        display: flex;
-        align-items: center;
-        gap: 15px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .summary-icon {
-        font-size: 40px;
-        opacity: 0.8;
-    }
-
-    .summary-info {
-        flex: 1;
-        text-align: right;
-    }
-
-    .summary-value {
-        font-size: 2em;
-        font-weight: 700;
-        color: #2c3e50;
-        line-height: 1;
-        margin-bottom: 5px;
-    }
-
-    .summary-label {
-        font-size: 0.9em;
-        color: #666;
-        font-weight: 500;
-    }
-
-    .status-badge {
-        padding: 4px 8px;
-        border-radius: 12px;
-        font-size: 0.8em;
-        font-weight: 500;
-        margin-left: 5px;
-    }
-
-    .status-badge.active {
-        background-color: #d4edda;
-        color: #155724;
-    }
-
-    .status-badge.inactive {
-        background-color: #f8d7da;
-        color: #721c24;
-    }
-
-    .status-badge.locked {
-        background-color: #fff3cd;
-        color: #856404;
-    }
-
-    .form-group {
-        margin-bottom: 15px;
-    }
-
-    .form-group label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: 600;
-    }
-
-    .checkbox-label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        cursor: pointer;
-    }
-
-    .no-data-message {
-        text-align: center;
-        padding: 40px;
-        color: #6c757d;
-        font-size: 1.1em;
-    }
-</style>

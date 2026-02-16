@@ -20,7 +20,7 @@
         <SecureButton ActionName="roledetails_refresh" ScreenName="@PageName" FunctionName="RefreshData"
                       OnClick="RefreshRoleDetails" CssClass="context-btn">רענן נתונים</SecureButton>
         <SecureButton ActionName="roledetails_back" ScreenName="@PageName" FunctionName="NavigateBack"
-                      OnClick="NavigateToRoles" CssClass="context-btn">חזרה לרשימת תפקידים</SecureButton>
+                      OnClick="NavigateToRoles" CssClass="context-navigation-btn">חזרה לרשימת תפקידים</SecureButton>
     </div>
 
     <!-- Main content area -->
@@ -73,7 +73,7 @@
 
                 <!-- Section 2: Users with this Role -->
                 <div class="detail-card @(_usersExpanded ? "expanded" : "collapsed")">
-                    <div class="detail-card-header" @onclick='(e) => ToggleSection(2, e)'>
+                    <div class="detail-card-header" @onclick="() => ToggleSection(2)">
                         <h2 class="detail-card-title">משתמשים בעלי תפקיד זה</h2>
                         <div class="card-header-actions">
                             <SecureButton ActionName="roledetails_addUsers" ScreenName="@PageName" FunctionName="AddUsers"
@@ -97,6 +97,7 @@
                                             <th @onclick='() => SortUsers("Username")'>שם משתמש</th>
                                             <th @onclick='() => SortUsers("FullName")'>שם מלא</th>
                                             <th @onclick='() => SortUsers("IsActive")'>סטטוס</th>
+                                            <th>פעולות</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -115,6 +116,12 @@
                                                         <span class="status-badge inactive">לא פעיל</span>
                                                     }
                                                 </td>
+                                                <td>
+                                                    <SecureButton ActionName="roledetails_removeUser" ScreenName="@PageName" FunctionName="RemoveUser"
+                                                                  OnClick="() => RemoveUser(user.Id)" CssClass="btn-icon" Title="הסר משתמש">
+                                                        <img src="images/delete_icon.png" alt="הסר" class="action-icon-natural">
+                                                    </SecureButton>
+                                                </td>
                                             </tr>
                                         }
                                     </tbody>
@@ -126,7 +133,7 @@
 
                 <!-- Section 3: Actions for this Role -->
                 <div class="detail-card @(_actionsExpanded ? "expanded" : "collapsed")">
-                    <div class="detail-card-header" @onclick='(e) => ToggleSection(3, e)'>
+                    <div class="detail-card-header" @onclick="() => ToggleSection(3)">
                         <h2 class="detail-card-title">פעולות המותרות לתפקיד</h2>
                         <div class="card-header-actions">
                             <SecureButton ActionName="roledetails_addActions" ScreenName="@PageName" FunctionName="AddActions"
@@ -168,7 +175,7 @@
                                                 <td>
                                                     <SecureButton ActionName="roledetails_removeAction" ScreenName="@PageName" FunctionName="RemoveAction"
                                                                   OnClick="() => RemoveAction(action.ActionId)" CssClass="btn-icon" Title="הסר פעולה">
-                                                        <img src="delete_icon.png" alt="הסר" class="action-icon-natural">
+                                                        <img src="images/delete_icon.png" alt="הסר" class="action-icon-natural">
                                                     </SecureButton>
                                                 </td>
                                             </tr>
@@ -463,15 +470,8 @@
         Navigation.NavigateTo("/roles");
     }
 
-    private void ToggleSection(int section, Microsoft.AspNetCore.Components.Web.MouseEventArgs? e = null)
+    private void ToggleSection(int section)
     {
-        // Don't toggle if click was on a button
-        if (e != null)
-        {
-            // In Blazor, we can't easily check the target, so we rely on @onclick:stopPropagation on buttons
-            return;
-        }
-
         switch (section)
         {
             case 1:
@@ -785,6 +785,37 @@
         {
             Console.WriteLine($"Error adding actions: {ex.Message}");
             _message = "שגיאה כללית בהוספת הפעולות";
+            _messageType = "error";
+        }
+    }
+
+    private async Task RemoveUser(int userId)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך להסיר את המשתמש הזה מהתפקיד?");
+        
+        if (!confirmed) return;
+
+        try
+        {
+            var success = await ApiService.DeleteAsync($"roles/{RoleId}/users/{userId}");
+            
+            if (success)
+            {
+                _message = "המשתמש הוסר בהצלחה";
+                _messageType = "success";
+                await RefreshRoleDetails();
+                ClearMessageAfterDelay();
+            }
+            else
+            {
+                _message = "שגיאה בהסרת המשתמש";
+                _messageType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error removing user: {ex.Message}");
+            _message = "שגיאה בהסרת המשתמש";
             _messageType = "error";
         }
     }
