@@ -561,6 +561,349 @@ if (args.Length > 0 && args[0] == "test-decrypt")
     return;
 }
 
+// ✅ NEW COMMAND: Re-encrypt data with old key
+if (args.Length > 0 && args[0] == "reencrypt-with-old-key")
+{
+    if (args.Length < 2)
+    {
+        Console.WriteLine("Usage: dotnet run -- reencrypt-with-old-key <old-key-base64> [table-name] [column-name]");
+        Console.WriteLine("");
+        Console.WriteLine("Example:");
+        Console.WriteLine("  dotnet run -- reencrypt-with-old-key 'YOUR_OLD_TEST_KEY_HERE' school_students id_number");
+        Console.WriteLine("");
+        Console.WriteLine("This command decrypts data with the old (test) key and re-encrypts with the current (production) key.");
+        return;
+    }
+    
+    var oldKey = args[1];
+    var tableName = args.Length > 2 ? args[2] : "school_students";
+    var columnName = args.Length > 3 ? args[3] : "id_number";
+    
+    Console.WriteLine("========================================");
+    Console.WriteLine("RE-ENCRYPTING WITH OLD KEY");
+    Console.WriteLine("========================================");
+    Console.WriteLine($"Table: petel_schema.{tableName}");
+    Console.WriteLine($"Column: {columnName}");
+    Console.WriteLine($"Old key (first 20 chars): {oldKey.Substring(0, Math.Min(20, oldKey.Length))}...");
+    Console.WriteLine("");
+    Console.WriteLine("⚠️  WARNING: This will modify production data!");
+    Console.WriteLine("⚠️  Ensure you have a database backup before proceeding.");
+    Console.WriteLine("");
+    Console.Write("Type 'YES' to continue: ");
+    var confirmation = Console.ReadLine();
+    
+    if (confirmation != "YES")
+    {
+        Console.WriteLine("❌ Operation cancelled.");
+        return;
+    }
+    
+    var serviceProvider = builder.Services.BuildServiceProvider();
+    using var scope = serviceProvider.CreateScope();
+    var migrationService = scope.ServiceProvider.GetRequiredService<DataMigrationService>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    
+    try
+    {
+        Console.WriteLine("");
+        Console.WriteLine("🔄 Starting re-encryption...");
+        Console.WriteLine("");
+        
+        var (reencrypted, errors) = await migrationService.ReencryptWithOldKeyAsync(oldKey, tableName, columnName);
+        
+        Console.WriteLine("");
+        Console.WriteLine("========================================");
+        Console.WriteLine($"✅ RE-ENCRYPTION COMPLETE");
+        Console.WriteLine($"   Re-encrypted: {reencrypted} records");
+        Console.WriteLine($"   Errors: {errors}");
+        Console.WriteLine("========================================");
+        
+        if (errors > 0)
+        {
+            Console.WriteLine("");
+            Console.WriteLine("⚠️  Some records failed to re-encrypt. Check logs for details.");
+        }
+        
+        return;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("");
+        Console.WriteLine($"❌ RE-ENCRYPTION FAILED: {ex.Message}");
+        logger.LogError(ex, "Re-encryption with old key failed");
+        return;
+    }
+}
+
+// ✅ NEW COMMAND: Import and re-encrypt from test database export
+if (args.Length > 0 && args[0] == "import-and-reencrypt")
+{
+    if (args.Length < 4)
+    {
+        Console.WriteLine("Usage: dotnet run -- import-and-reencrypt <csv-file-path> <table-name> <column-names>");
+        Console.WriteLine("");
+        Console.WriteLine("Example:");
+        Console.WriteLine("  dotnet run -- import-and-reencrypt data.csv school_students \"id_number,street\"");
+        Console.WriteLine("");
+        Console.WriteLine("This command reads plaintext data from CSV, encrypts with current key, and updates production.");
+        return;
+    }
+    
+    var csvFilePath = args[1];
+    var tableName = args[2];
+    var columnNames = args[3].Split(',');
+    
+    if (!System.IO.File.Exists(csvFilePath))
+    {
+        Console.WriteLine($"❌ File not found: {csvFilePath}");
+        return;
+    }
+    
+    Console.WriteLine("========================================");
+    Console.WriteLine("IMPORT AND RE-ENCRYPT FROM CSV");
+    Console.WriteLine("========================================");
+    Console.WriteLine($"File: {csvFilePath}");
+    Console.WriteLine($"Table: petel_schema.{tableName}");
+    Console.WriteLine($"Columns: {string.Join(", ", columnNames)}");
+    Console.WriteLine("");
+    Console.WriteLine("⚠️  WARNING: This will update production data!");
+    Console.WriteLine("");
+    Console.Write("Type 'YES' to continue: ");
+    var confirmation = Console.ReadLine();
+    
+    if (confirmation != "YES")
+    {
+        Console.WriteLine("❌ Operation cancelled.");
+        return;
+    }
+    
+    var serviceProvider = builder.Services.BuildServiceProvider();
+    using var scope = serviceProvider.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var encryption = scope.ServiceProvider.GetRequiredService<DataEncryptionService>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    
+    try
+    {
+        Console.WriteLine("");
+        Console.WriteLine("🔄 Processing CSV file...");
+        Console.WriteLine("");
+        
+        var lines = System.IO.File.ReadAllLines(csvFilePath);
+        var header = lines[0].Split(',');
+        
+        // Verify header
+        if (header[0] != "id")
+        {
+            Console.WriteLine($"❌ CSV must have 'id' as first column. Got: {header[0]}");
+            return;
+        }
+        
+        var updated = 0;
+        var errors = 0;
+        var connection = context.Database.GetDbConnection();
+        
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            await connection.OpenAsync();
+        }
+        
+        for (int i = 1; i < lines.Length; i++)
+        {
+            var values = lines[i].Split(',');
+            if (values.Length < columnNames.Length + 1)
+            {
+                logger.LogWarning($"Row {i + 1} has insufficient columns, skipping");
+                continue;
+            }
+            
+            try
+            {
+                var id = int.Parse(values[0]);
+                
+                // Build UPDATE statement
+                var setClauses = new List<string>();
+                var parameters = new List<System.Data.Common.DbParameter>();
+                
+                for (int j = 0; j < columnNames.Length; j++)
+                {
+                    var columnName = columnNames[j].Trim();
+                    var plainValue = values[j + 1];
+                    
+                    if (!string.IsNullOrWhiteSpace(plainValue))
+                    {
+                        // Encrypt the plain value
+                        var encryptedValue = encryption.Encrypt(plainValue);
+                        
+                        setClauses.Add($"{columnName} = @param{j}");
+                        
+                        var param = connection.CreateCommand().CreateParameter();
+                        param.ParameterName = $"@param{j}";
+                        param.Value = encryptedValue;
+                        parameters.Add(param);
+                    }
+                }
+                
+                if (setClauses.Count > 0)
+                {
+                    var updateSql = $"UPDATE petel_schema.{tableName} SET {string.Join(", ", setClauses)} WHERE id = @id";
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = updateSql;
+                    
+                    foreach (var param in parameters)
+                    {
+                        cmd.Parameters.Add(param);
+                    }
+                    
+                    var idParam = cmd.CreateParameter();
+                    idParam.ParameterName = "@id";
+                    idParam.Value = id;
+                    cmd.Parameters.Add(idParam);
+                    
+                    await cmd.ExecuteNonQueryAsync();
+                    updated++;
+                    
+                    if (updated % 100 == 0)
+                    {
+                        Console.WriteLine($"Progress: {updated}/{lines.Length - 1} records updated");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, $"Error updating row {i + 1}");
+                errors++;
+            }
+        }
+        
+        Console.WriteLine("");
+        Console.WriteLine("========================================");
+        Console.WriteLine($"✅ IMPORT COMPLETE");
+        Console.WriteLine($"   Updated: {updated} records");
+        Console.WriteLine($"   Errors: {errors}");
+        Console.WriteLine("========================================");
+        
+        return;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("");
+        Console.WriteLine($"❌ IMPORT FAILED: {ex.Message}");
+        logger.LogError(ex, "Import and re-encrypt failed");
+        return;
+    }
+}
+
+// ✅ NEW COMMAND: Export decrypted data to CSV
+if (args.Length > 0 && args[0] == "export-encrypted-data")
+{
+    if (args.Length < 4)
+    {
+        Console.WriteLine("Usage: dotnet run -- export-encrypted-data <table-name> <column-names> <output-file>");
+        Console.WriteLine("");
+        Console.WriteLine("Example:");
+        Console.WriteLine("  dotnet run -- export-encrypted-data school_students \"id_number,street\" output.csv");
+        Console.WriteLine("");
+        Console.WriteLine("This command exports encrypted columns as plaintext CSV.");
+        return;
+    }
+    
+    var tableName = args[1];
+    var columnNames = args[2].Split(',');
+    var outputFile = args[3];
+    
+    var serviceProvider = builder.Services.BuildServiceProvider();
+    using var scope = serviceProvider.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var encryption = scope.ServiceProvider.GetRequiredService<DataEncryptionService>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    
+    try
+    {
+        Console.WriteLine($"🔄 Exporting decrypted data from petel_schema.{tableName}...");
+        Console.WriteLine($"   Columns: {string.Join(", ", columnNames)}");
+        Console.WriteLine($"   Output: {outputFile}");
+        Console.WriteLine("");
+        
+        var connection = context.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            await connection.OpenAsync();
+        }
+        
+        // Build SELECT query
+        var columnList = "id," + string.Join(",", columnNames);
+        var whereClause = string.Join(" OR ", columnNames.Select(c => $"{c.Trim()} IS NOT NULL"));
+        var selectSql = $"SELECT {columnList} FROM petel_schema.{tableName} WHERE {whereClause}";
+        
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = selectSql;
+        
+        using var writer = new System.IO.StreamWriter(outputFile);
+        
+        // Write header
+        writer.WriteLine(columnList);
+        
+        var exported = 0;
+        var errors = 0;
+        
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            var rowValues = new List<string>();
+            
+            // ID (not encrypted)
+            rowValues.Add(reader.GetInt32(0).ToString());
+            
+            // Encrypted columns - must manually decrypt since we're using raw SQL
+            for (int i = 1; i <= columnNames.Length; i++)
+            {
+                if (reader.IsDBNull(i))
+                {
+                    rowValues.Add("");
+                }
+                else
+                {
+                    try
+                    {
+                        var encryptedValue = reader.GetString(i);
+                        var decryptedValue = encryption.Decrypt(encryptedValue);
+                        rowValues.Add(decryptedValue);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogWarning(ex, $"Failed to decrypt row {reader.GetInt32(0)}, column {columnNames[i - 1]}");
+                        rowValues.Add("");
+                        errors++;
+                    }
+                }
+            }
+            
+            writer.WriteLine(string.Join(",", rowValues));
+            exported++;
+            
+            if (exported % 100 == 0)
+            {
+                Console.WriteLine($"Progress: {exported} records exported...");
+            }
+        }
+        
+        Console.WriteLine("");
+        Console.WriteLine($"✅ Export complete:");
+        Console.WriteLine($"   Exported: {exported} records");
+        Console.WriteLine($"   Errors: {errors}");
+        Console.WriteLine($"   File: {outputFile}");
+        return;
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("");
+        Console.WriteLine($"❌ EXPORT FAILED: {ex.Message}");
+        logger.LogError(ex, "Export failed");
+        return;
+    }
+}
+
 var app = builder.Build();
 
 

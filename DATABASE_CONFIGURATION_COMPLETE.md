@@ -70,15 +70,15 @@ cd PetelApp.BlazorServer && dotnet run     # Blazor frontend
 - `RateLimit.HourlyLimit` - Max API calls per hour
 
 ### Security
-- `Security.OtpEnabled` - Two-factor authentication requirement
+- `Security_OtpEnabled` - Two-factor authentication requirement
 - `Security.SessionTimeoutMinutes` - Session expiry time
 - `Security.MaxPasswordAttempts` - Failed password attempts before lockout
 - `Security.MaxOtpAttempts` - Failed OTP attempts before lockout
-- `Security.OtpIssuer` - Application name in OTP apps
+- `Security_OtpIssuer` - Application name in OTP apps
 
 ### System
-- `System.MaintenanceMode` - Global maintenance mode toggle
-- `System.MaintenanceMessage` - Custom maintenance message
+- `System_MaintenanceMode` - Global maintenance mode toggle
+- `System_MaintenanceMessage` - Custom maintenance message
 
 ## 🛡️ Security Features
 
@@ -150,7 +150,7 @@ Recovery: Increase limits gradually as traffic normalizes
 ### Emergency Maintenance
 ```
 Scenario: Critical security patch requires immediate system isolation  
-Action: Enable System.MaintenanceMode with descriptive message
+Action: Enable System_MaintenanceMode with descriptive message
 Result: All user traffic blocked, admin access maintained
 Recovery: Disable maintenance mode after patch deployment
 ```

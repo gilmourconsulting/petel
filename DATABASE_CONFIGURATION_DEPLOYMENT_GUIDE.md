@@ -54,15 +54,15 @@ Rate Limiting:
 - RateLimit.HourlyLimit = 3000 (per hour)
 
 Security:
-- Security.OtpEnabled = true
+- Security_OtpEnabled = true
 - Security.SessionTimeoutMinutes = 30
 - Security.MaxPasswordAttempts = 5
 - Security.MaxOtpAttempts = 3
-- Security.OtpIssuer = "Petel System"
+- Security_OtpIssuer = "Petel System"
 
 System:
-- System.MaintenanceMode = false
-- System.MaintenanceMessage = "המערכת נמצאת במצב תחזוקה..."
+- System_MaintenanceMode = false
+- System_MaintenanceMessage = "המערכת נמצאת במצב תחזוקה..."
 ```
 
 ## Testing Guide
@@ -235,7 +235,7 @@ Solution: Verify database configuration values and restart application
 ### Maintenance Mode Stuck
 ```
 Symptom: All API calls return 503 even after disabling maintenance
-Check: System.MaintenanceMode value in database
+Check: System_MaintenanceMode value in database
 Solution: Manually set to 'false' in database or use admin UI
 ```
 

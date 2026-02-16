@@ -752,7 +752,7 @@ public async Task SecureButton_WhenDenied_ShouldNotExecuteAction()
     var mockSecurity = new Mock<ActionSecurityService>();
     mockSecurity.Setup(s => s.VerifyActionAsync(...)).ReturnsAsync(false);
     
-    var button = new SecureButton { SecurityService = mockSecurity.Object };
+    var button = new SecureButton { SecurityService = mockSecurity_Object };
     var actionExecuted = false;
     button.OnClick = EventCallback.Factory.Create(this, () => actionExecuted = true);
     

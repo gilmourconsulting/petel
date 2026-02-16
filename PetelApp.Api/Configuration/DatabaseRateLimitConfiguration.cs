@@ -245,10 +245,10 @@ namespace PetelApp.Api.Configuration
                 using var scope = _serviceProvider.CreateScope();
                 var configService = scope.ServiceProvider.GetRequiredService<DatabaseConfigurationService>();
                 
-                var maintenanceMode = await configService.GetConfigAsync("System.MaintenanceMode", false);
+                var maintenanceMode = await configService.GetConfigAsync("System_MaintenanceMode", false);
                 if (maintenanceMode)
                 {
-                    var message = await configService.GetConfigAsync("System.MaintenanceMessage", 
+                    var message = await configService.GetConfigAsync("System_MaintenanceMessage", 
                         "המערכת בתחזוקה. אנא נסו שוב מאוחר יותר.");
                     
                     context.Response.StatusCode = 503;

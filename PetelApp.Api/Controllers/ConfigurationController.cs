@@ -42,8 +42,8 @@ namespace PetelApp.Api.Controllers
                     "Environment.Name",
                     "Environment.RateLimitMultiplier", 
                     "System.EnableDetailedLogging",
-                    "System.MaintenanceMode",
-                    "System.MaintenanceMessage"
+                    "System_MaintenanceMode",
+                    "System_MaintenanceMessage"
                 );
 
                 return Ok(new
@@ -137,10 +137,10 @@ namespace PetelApp.Api.Controllers
                 var updates = new Dictionary<string, object>
                 {
                     ["Features.RateLimitingEnabled"] = request.Enabled,
-                    ["RateLimit.LoginAttemptsLimit"] = request.LoginLimit,
-                    ["RateLimit.OtpValidationLimit"] = request.OtpLimit,
-                    ["RateLimit.ApiRequestsLimit"] = request.ApiLimit,
-                    ["RateLimit.ApiHourlyLimit"] = request.HourlyLimit
+                    ["RateLimit_LoginAttemptsLimit"] = request.LoginLimit,
+                    ["RateLimit_OtpValidationLimit"] = request.OtpLimit,
+                    ["RateLimit_ApiRequestsLimit"] = request.ApiLimit,
+                    ["RateLimit_ApiHourlyLimit"] = request.HourlyLimit
                 };
 
                 var success = true;
@@ -206,10 +206,10 @@ namespace PetelApp.Api.Controllers
 
             try
             {
-                await _configService.SetConfigAsync("System.MaintenanceMode", request.Enabled);
+                await _configService.SetConfigAsync("System_MaintenanceMode", request.Enabled);
                 if (!string.IsNullOrEmpty(request.Message))
                 {
-                    await _configService.SetConfigAsync("System.MaintenanceMessage", request.Message);
+                    await _configService.SetConfigAsync("System_MaintenanceMessage", request.Message);
                 }
 
                 _logger.LogInformation("Maintenance mode {Status} by user {UserId}", 

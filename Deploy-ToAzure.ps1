@@ -289,7 +289,8 @@ if (-not $BlazorOnly) {
         --src-path "api-deploy-$Environment.zip" `
         --type zip `
         --restart true `
-        --timeout 300 2>&1
+        --timeout 300 `
+        --only-show-errors 2>&1
 
     
     

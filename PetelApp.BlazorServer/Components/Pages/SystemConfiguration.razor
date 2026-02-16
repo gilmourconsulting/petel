@@ -379,8 +379,8 @@
                 
                 if (allConfigResponse.Data?.System != null)
                 {
-                    _maintenanceMode = Convert.ToBoolean(allConfigResponse.Data.System.GetValueOrDefault("System.MaintenanceMode", false));
-                    _maintenanceMessage = allConfigResponse.Data.System.GetValueOrDefault("System.MaintenanceMessage", "")?.ToString() ?? "";
+                    _maintenanceMode = Convert.ToBoolean(allConfigResponse.Data.System.GetValueOrDefault("System_MaintenanceMode", false));
+                    _maintenanceMessage = allConfigResponse.Data.System.GetValueOrDefault("System_MaintenanceMessage", "")?.ToString() ?? "";
                 }
             }
         }

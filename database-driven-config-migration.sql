@@ -11,7 +11,7 @@ INSERT INTO petel_schema.system_attributes (name, description, value, value_type
 ('Security.MaxPasswordAttempts', 'Maximum failed password attempts before lockout', '5', 'integer'),
 ('Security.MaxOtpAttempts', 'Maximum failed OTP attempts before lockout', '3', 'integer'), 
 ('Security.PasswordExpirationMonths', 'Password expiration period in months', '6', 'integer'),
-('Security.OtpIssuer', 'OTP issuer name displayed in authenticator apps', 'Petel External Students System', 'string'),
+('Security_OtpIssuer', 'OTP issuer name displayed in authenticator apps', 'Petel External Students System', 'string'),
 
 -- Rate Limiting - Login Endpoints
 ('RateLimit.LoginAttemptsLimit', 'Maximum login attempts per period', '10', 'integer'),
@@ -36,8 +36,8 @@ INSERT INTO petel_schema.system_attributes (name, description, value, value_type
 
 -- System Behavior
 ('System.EnableDetailedLogging', 'Enable detailed API request/response logging', 'false', 'boolean'),
-('System.MaintenanceMode', 'Put system in maintenance mode', 'false', 'boolean'),
-('System.MaintenanceMessage', 'Message displayed during maintenance', 'המערכת בתחזוקה. אנא נסו שוב מאוחר יותר.', 'string')
+('System_MaintenanceMode', 'Put system in maintenance mode', 'false', 'boolean'),
+('System_MaintenanceMessage', 'Message displayed during maintenance', 'המערכת בתחזוקה. אנא נסו שוב מאוחר יותר.', 'string')
 
 ON CONFLICT (name) DO UPDATE SET
     value = EXCLUDED.value,

@@ -55,6 +55,14 @@ namespace PetelApp.Api.Controllers
             return _securitySettings.PasswordExpirationMonths;
         }
 
+        private string GetOtpIssuer()
+        {
+            var attribute = _systemAttributeCache.GetAttributeByName("Security_OtpIssuer");
+            if (attribute != null && !string.IsNullOrWhiteSpace(attribute.Value))
+                return attribute.Value;
+            return _securitySettings.OtpIssuer;
+        }
+
         /// <summary>
         /// GET /api/otp/setup - Generate QR code for user to scan
         /// Requires TempToken from initial login
@@ -85,12 +93,12 @@ namespace PetelApp.Api.Controllers
                 user.OtpVerified = false;
                 await _context.SaveChangesAsync();
 
-                // Generate QR code URL
-                var issuer = _securitySettings.OtpIssuer ?? "Petel System";
+                // Generate QR code URL - get issuer from database with config fallback
+                var issuer = GetOtpIssuer();
                 var username = user.Username;
                 var qrCodeUrl = $"otpauth://totp/{Uri.EscapeDataString(issuer)}:{Uri.EscapeDataString(username)}?secret={secret}&issuer={Uri.EscapeDataString(issuer)}";
 
-                _logger.LogInformation("OTP setup initiated for user {UserId}", user.Id);
+                _logger.LogInformation("OTP setup initiated for user {UserId} with issuer '{Issuer}'", user.Id, issuer);
 
                 return Ok(new OtpSetupResponseDto
                 {
