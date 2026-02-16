@@ -14,6 +14,12 @@
 
     <div class="login-header">
         <h1 class="login-title">מערכת ניהול אגרות תלמידי חוץ</h1>
+        @if (!string.IsNullOrEmpty(_environmentIndicator))
+        {
+            <div style="background: #ff9800; color: white; padding: 8px 16px; border-radius: 4px; font-weight: bold; margin: 10px auto; max-width: fit-content;">
+                @_environmentIndicator
+            </div>
+        }
         <p class="login-subtitle">בחר את הארגון שלך ולאחר מכן הזן את פרטי ההתחברות</p>
     </div>
 
@@ -247,6 +253,7 @@
     private int _selectedIndex = -1;
     private int _currentStep = 1;
     private string _systemVersion = "טוען...";
+    private string _environmentIndicator = "";
 
     private bool _requiresOtp = false;
     private string _otpCode = "";
@@ -263,31 +270,58 @@
     {
         if (firstRender)
         {
-            // Clear any existing session on login page load
-            await TokenService.ClearTokenAsync();
-            SessionState.ClearSession();
-            _logger.LogInformation("Cleared previous session on login page load");
-            
-            // Load entities for the dropdown
-            await LoadEntities();
-            _logger.LogInformation("Loaded {Count} entities", _entities.Count);
-            
-            // Load system version
-            await LoadSystemVersion();
-            _logger.LogInformation("System version loaded: {Version}", _systemVersion);
-            
-            StateHasChanged();
-            
-            // Set focus to entity input after rendering with delay
             try
             {
-                await Task.Delay(200);
-                await _entityInput.FocusAsync();
-                _logger.LogInformation("Focus set to entity input");
+                // Clear any existing session on login page load
+                await TokenService.ClearTokenAsync();
+                SessionState.ClearSession();
+                _logger.LogInformation("Cleared previous session on login page load");
+                
+                // Load entities for the dropdown
+                await LoadEntities();
+                _logger.LogInformation("Loaded {Count} entities", _entities.Count);
+                
+                // Load system version
+                await LoadSystemVersion();
+                _logger.LogInformation("System version loaded: {Version}", _systemVersion);
+                
+                // Load environment indicator
+                await LoadEnvironmentIndicator();
+                _logger.LogInformation("Environment indicator loaded: {Env}", _environmentIndicator);
+                
+                StateHasChanged();
+                
+                // Set focus to entity input after rendering with delay
+                try
+                {
+                    await Task.Delay(200);
+                    await _entityInput.FocusAsync();
+                    _logger.LogInformation("Focus set to entity input");
+                }
+                catch (JSDisconnectedException)
+                {
+                    _logger.LogDebug("Circuit disconnected during focus attempt");
+                }
+                catch (TaskCanceledException)
+                {
+                    _logger.LogDebug("Focus operation cancelled");
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to focus input");
+                }
+            }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "Component disposed during initialization");
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "Initialization cancelled");
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to focus input");
+                _logger.LogError(ex, "Error during first render initialization");
             }
         }
     }
@@ -326,6 +360,44 @@
         {
             _logger.LogError(ex, "Failed to load system version");
             _systemVersion = "מערכת ניהול";
+        }
+    }
+
+    private async Task LoadEnvironmentIndicator()
+    {
+        try
+        {
+            var allAttributes = await ApiService.GetPublicAsync<List<SystemAttributeResponse>>("systemattributes");
+            var envAttr = allAttributes?.FirstOrDefault(a => 
+                string.Equals(a.Name, "System_Environment", StringComparison.OrdinalIgnoreCase));
+            
+            if (envAttr != null && !string.IsNullOrEmpty(envAttr.Value))
+            {
+                var envValue = envAttr.Value.Trim().ToLowerInvariant();
+                
+                _logger.LogInformation($"Environment attribute found: '{envAttr.Value}' -> '{envValue}'");
+                
+                if (envValue == "development")
+                {
+                    _environmentIndicator = "DEV";
+                    _logger.LogInformation("Environment indicator set to: DEV");
+                }
+                else if (envValue == "test")
+                {
+                    _environmentIndicator = "סביבת בדיקות";
+                    _logger.LogInformation("Environment indicator set to: סביבת בדיקות");
+                }
+                // Production or any other value: don't show anything
+            }
+            else
+            {
+                _logger.LogWarning("System_Environment attribute not found or empty");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load environment indicator");
+            // Silently fail - environment indicator is optional
         }
     }
 

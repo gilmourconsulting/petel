@@ -31,25 +31,22 @@ namespace PetelApp.BlazorServer.Services
     /// </summary>
     public class ApiService
     {
-        private readonly HttpClient _httpClient;
+        private readonly IHttpClientFactory _httpClientFactory;
         private readonly TokenService _tokenService;
         private readonly ILogger<ApiService> _logger;
         private readonly string _baseUrl;
         private readonly JsonSerializerOptions _jsonOptions;
 
         public ApiService(
-            HttpClient httpClient,
+            IHttpClientFactory httpClientFactory,
             TokenService tokenService,
             IOptions<ApiSettings> apiSettings,
             ILogger<ApiService> logger)
         {
-            _httpClient = httpClient;
+            _httpClientFactory = httpClientFactory;
             _tokenService = tokenService;
             _logger = logger;
             _baseUrl = apiSettings.Value.BaseUrl;
-
-            // Set default timeout
-            _httpClient.Timeout = TimeSpan.FromSeconds(apiSettings.Value.Timeout);
             
             // Configure JSON options to handle camelCase from backend API
             _jsonOptions = new JsonSerializerOptions
@@ -61,12 +58,14 @@ namespace PetelApp.BlazorServer.Services
 
         private async Task<HttpClient> GetAuthorizedClientAsync()
         {
+            var client = _httpClientFactory.CreateClient("PetelApi");
+            
             try
             {
                 var token = await _tokenService.GetTokenAsync();
                 if (!string.IsNullOrEmpty(token))
                 {
-                    _httpClient.DefaultRequestHeaders.Authorization =
+                    client.DefaultRequestHeaders.Authorization =
                         new AuthenticationHeaderValue("Bearer", token);
                 }
             }
@@ -75,7 +74,7 @@ namespace PetelApp.BlazorServer.Services
                 // Token retrieval failed (e.g., during prerender or no circuit)
                 _logger.LogDebug(ex, "Could not retrieve token, proceeding without auth header");
             }
-            return _httpClient;
+            return client;
         }
 
         /// <summary>
@@ -85,13 +84,24 @@ namespace PetelApp.BlazorServer.Services
         {
             try
             {
+                var client = _httpClientFactory.CreateClient("PetelApi");
                 var url = $"{_baseUrl}/{endpoint}";
                 
                 _logger.LogDebug("Public GET request to {Url}", url);
                 
-                var response = await _httpClient.GetAsync(url);
+                var response = await client.GetAsync(url);
                 response.EnsureSuccessStatusCode();
                 return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "HttpClient disposed during request to {Endpoint}", endpoint);
+                return default;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "Request cancelled for {Endpoint}", endpoint);
+                return default;
             }
             catch (Exception ex)
             {
@@ -145,6 +155,16 @@ namespace PetelApp.BlazorServer.Services
                 // Deserialize with custom options
                 var result = JsonSerializer.Deserialize<T>(content, _jsonOptions);
                 return result;
+            }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "HttpClient disposed during GET request to {Endpoint}", endpoint);
+                return default;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "GET request cancelled for {Endpoint}", endpoint);
+                return default;
             }
             catch (Exception ex)
             {
@@ -209,6 +229,16 @@ namespace PetelApp.BlazorServer.Services
 
                     return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
                 }
+                catch (ObjectDisposedException ex) when (attempt == maxRetries)
+                {
+                    _logger.LogWarning(ex, "HttpClient disposed during POST request to {Endpoint}", endpoint);
+                    return default;
+                }
+                catch (TaskCanceledException ex) when (attempt == maxRetries)
+                {
+                    _logger.LogDebug(ex, "POST request cancelled for {Endpoint}", endpoint);
+                    return default;
+                }
                 catch (HttpRequestException) when (attempt == maxRetries)
                 {
                     // Re-throw on final attempt
@@ -234,6 +264,16 @@ namespace PetelApp.BlazorServer.Services
                 _logger.LogDebug("POST request to {Url}", url);
                 
                 return await client.PostAsJsonAsync(url, data);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "HttpClient disposed during POST request to {Endpoint}", endpoint);
+                throw;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "POST request cancelled for {Endpoint}", endpoint);
+                throw;
             }
             catch (Exception ex)
             {
@@ -267,6 +307,16 @@ namespace PetelApp.BlazorServer.Services
                 response.EnsureSuccessStatusCode();
                 return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
             }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "HttpClient disposed during PUT request to {Endpoint}", endpoint);
+                return default;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "PUT request cancelled for {Endpoint}", endpoint);
+                return default;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "PUT request failed for {Endpoint}", endpoint);
@@ -297,6 +347,16 @@ namespace PetelApp.BlazorServer.Services
                 }
                 
                 return response.IsSuccessStatusCode;
+            }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "HttpClient disposed during DELETE request to {Endpoint}", endpoint);
+                return false;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "DELETE request cancelled for {Endpoint}", endpoint);
+                return false;
             }
             catch (Exception ex)
             {
@@ -333,6 +393,16 @@ namespace PetelApp.BlazorServer.Services
                 response.EnsureSuccessStatusCode();
                 return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
             }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "HttpClient disposed during DELETE request to {Endpoint}", endpoint);
+                return default;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "DELETE request cancelled for {Endpoint}", endpoint);
+                return default;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "DELETE request with response failed for {Endpoint}", endpoint);
@@ -368,6 +438,16 @@ namespace PetelApp.BlazorServer.Services
                 response.EnsureSuccessStatusCode();
                 return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
             }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "HttpClient disposed during multipart POST to {Endpoint}", endpoint);
+                return default;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "Multipart POST cancelled for {Endpoint}", endpoint);
+                return default;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "POST multipart request failed for {Endpoint}", endpoint);
@@ -380,6 +460,7 @@ namespace PetelApp.BlazorServer.Services
         {
             try
             {
+                var client = _httpClientFactory.CreateClient("PetelApi");
                 var url = $"{_baseUrl}/{endpoint}";
                 
                 _logger.LogDebug("GET request with custom token to {Url}", url);
@@ -391,7 +472,7 @@ namespace PetelApp.BlazorServer.Services
                     request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", customToken);
                 }
                 
-                var response = await _httpClient.SendAsync(request);
+                var response = await client.SendAsync(request);
                 
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
@@ -407,6 +488,16 @@ namespace PetelApp.BlazorServer.Services
                 var result = JsonSerializer.Deserialize<T>(content, _jsonOptions);
                 return result;
             }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "HttpClient disposed during GET with custom token to {Endpoint}", endpoint);
+                return default;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "GET with custom token cancelled for {Endpoint}", endpoint);
+                return default;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "GET request with custom token failed for {Endpoint}", endpoint);
@@ -421,6 +512,7 @@ namespace PetelApp.BlazorServer.Services
         {
             try
             {
+                var client = _httpClientFactory.CreateClient("PetelApi");
                 var url = $"{_baseUrl}/{endpoint}";
                 
                 _logger.LogDebug("POST request with custom token to {Url}", url);
@@ -433,7 +525,7 @@ namespace PetelApp.BlazorServer.Services
                 }
                 request.Content = JsonContent.Create(data);
                 
-                var response = await _httpClient.SendAsync(request);
+                var response = await client.SendAsync(request);
                 
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
@@ -443,6 +535,16 @@ namespace PetelApp.BlazorServer.Services
 
                 response.EnsureSuccessStatusCode();
                 return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "HttpClient disposed during POST with custom token to {Endpoint}", endpoint);
+                return default;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "POST with custom token cancelled for {Endpoint}", endpoint);
+                return default;
             }
             catch (Exception ex)
             {
@@ -458,6 +560,7 @@ namespace PetelApp.BlazorServer.Services
         {
             try
             {
+                var client = _httpClientFactory.CreateClient("PetelApi");
                 var url = $"{_baseUrl}/{endpoint}";
                 
                 _logger.LogDebug("POST request with custom token to {Url}", url);
@@ -473,7 +576,7 @@ namespace PetelApp.BlazorServer.Services
                 var jsonContent = JsonSerializer.Serialize(data, _jsonOptions);
                 request.Content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
                 
-                var response = await _httpClient.SendAsync(request);
+                var response = await client.SendAsync(request);
                 
                 if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
                 {
@@ -502,6 +605,16 @@ namespace PetelApp.BlazorServer.Services
                 }
 
                 return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "HttpClient disposed during POST with token to {Endpoint}", endpoint);
+                return default;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "POST with token cancelled for {Endpoint}", endpoint);
+                return default;
             }
             catch (Exception ex)
             {

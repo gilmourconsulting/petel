@@ -20,8 +20,15 @@ builder.Services.AddRazorComponents()
 builder.Services.Configure<ApiSettings>(
     builder.Configuration.GetSection("ApiSettings"));
 
-// Add HTTP client and services
-builder.Services.AddHttpClient();
+// ✅ FIX: Configure HttpClient as named client with proper lifetime
+var apiSettings = builder.Configuration.GetSection("ApiSettings").Get<ApiSettings>();
+builder.Services.AddHttpClient("PetelApi", client =>
+{
+    client.BaseAddress = new Uri(apiSettings?.BaseUrl ?? "http://localhost:5082");
+    client.Timeout = TimeSpan.FromSeconds(apiSettings?.Timeout ?? 30);
+})
+.SetHandlerLifetime(TimeSpan.FromMinutes(10)); // Prevent frequent recreation
+
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<ApiService>();
 builder.Services.AddScoped<SessionStateService>();
@@ -37,6 +44,8 @@ builder.Services.AddServerSideBlazor()
         options.DisconnectedCircuitMaxRetained = 100;
         options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(3);
         options.JSInteropDefaultCallTimeout = TimeSpan.FromMinutes(1);
+        // ✅ FIX: Increase max buffer size for SignalR
+        options.MaxBufferedUnacknowledgedRenderBatches = 10;
     });
 
 var app = builder.Build();
@@ -52,15 +61,7 @@ var cspImgSrcDirective = "img-src 'self' data: blob:" +
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    // IMPORTANT: Azure App Service handles HTTPS termination at load balancer
-    // Do NOT use HSTS or HTTPS redirection on App Service Linux
-    // app.UseHsts();
-    // app.UseHttpsRedirection();
 }
-
-// Azure App Service handles HTTPS - no redirect needed
-// app.UseHttpsRedirection();
 
 app.UseAntiforgery();
 
@@ -74,7 +75,6 @@ app.Use(async (context, next) =>
         context.Response.Headers.Add("X-XSS-Protection", "1; mode=block");
         context.Response.Headers.Add("Referrer-Policy", "strict-origin-when-cross-origin");
         context.Response.Headers.Add("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
-        // CSP for Blazor Server needs to allow 'unsafe-inline' for scripts due to framework requirements
         context.Response.Headers.Add("Content-Security-Policy", 
             $"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; {cspImgSrcDirective}; connect-src 'self'; frame-ancestors 'none';");
     }

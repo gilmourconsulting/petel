@@ -10,18 +10,25 @@ namespace PetelApp.Api.Services
 {
     /// <summary>
     /// Service for generating and validating JWT tokens for session authentication
+    /// Loads JWT settings from database (system_attributes) with config file fallback
     /// </summary>
     public class JwtTokenService
     {
         private readonly SecuritySettings.JwtSettings _jwtSettings;
+        private readonly SystemAttributeCache _systemAttributeCache;
         private readonly ILogger<JwtTokenService> _logger;
         private readonly TokenValidationParameters _tokenValidationParameters;
+        private readonly string _issuer;
+        private readonly string _audience;
+        private readonly int _expirationHours;
 
         public JwtTokenService(
             IOptions<SecuritySettings> securitySettings,
+            SystemAttributeCache systemAttributeCache,
             ILogger<JwtTokenService> logger)
         {
             _jwtSettings = securitySettings.Value.Jwt;
+            _systemAttributeCache = systemAttributeCache;
             _logger = logger;
 
             // Validate configuration
@@ -31,6 +38,14 @@ namespace PetelApp.Api.Services
                     "JWT SecretKey must be at least 32 characters long. Configure in appsettings.json Security:Jwt:SecretKey");
             }
 
+            // Load JWT settings from database with config fallback
+            _issuer = LoadJwtIssuer();
+            _audience = LoadJwtAudience();
+            _expirationHours = LoadJwtExpirationHours();
+
+            _logger.LogInformation("JWT Service initialized - Issuer: {Issuer}, Audience: {Audience}, Expiration: {Hours}h",
+                _issuer, _audience, _expirationHours);
+
             // Setup token validation parameters
             _tokenValidationParameters = new TokenValidationParameters
             {
@@ -38,12 +53,84 @@ namespace PetelApp.Api.Services
                 IssuerSigningKey = new SymmetricSecurityKey(
                     Encoding.UTF8.GetBytes(_jwtSettings.SecretKey)),
                 ValidateIssuer = true,
-                ValidIssuer = _jwtSettings.Issuer,
+                ValidIssuer = _issuer,
                 ValidateAudience = true,
-                ValidAudience = _jwtSettings.Audience,
+                ValidAudience = _audience,
                 ValidateLifetime = true,
                 ClockSkew = TimeSpan.FromMinutes(5)
             };
+        }
+
+        /// <summary>
+        /// Load JWT Issuer from database, fallback to config
+        /// </summary>
+        private string LoadJwtIssuer()
+        {
+            try
+            {
+                var attribute = _systemAttributeCache.GetAttributeByName("JWT_Issuer");
+                if (attribute != null && !string.IsNullOrWhiteSpace(attribute.Value))
+                {
+                    _logger.LogInformation("Loaded JWT Issuer from database: {Issuer}", attribute.Value);
+                    return attribute.Value;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load JWT Issuer from database, using config fallback");
+            }
+
+            _logger.LogInformation("Using JWT Issuer from config: {Issuer}", _jwtSettings.Issuer);
+            return _jwtSettings.Issuer;
+        }
+
+        /// <summary>
+        /// Load JWT Audience from database, fallback to config
+        /// </summary>
+        private string LoadJwtAudience()
+        {
+            try
+            {
+                var attribute = _systemAttributeCache.GetAttributeByName("JWT_Audience");
+                if (attribute != null && !string.IsNullOrWhiteSpace(attribute.Value))
+                {
+                    _logger.LogInformation("Loaded JWT Audience from database: {Audience}", attribute.Value);
+                    return attribute.Value;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load JWT Audience from database, using config fallback");
+            }
+
+            _logger.LogInformation("Using JWT Audience from config: {Audience}", _jwtSettings.Audience);
+            return _jwtSettings.Audience;
+        }
+
+        /// <summary>
+        /// Load JWT Expiration Hours from database, fallback to config
+        /// </summary>
+        private int LoadJwtExpirationHours()
+        {
+            try
+            {
+                var attribute = _systemAttributeCache.GetAttributeByName("JWT_ExpirationHours");
+                if (attribute != null && !string.IsNullOrWhiteSpace(attribute.Value))
+                {
+                    if (int.TryParse(attribute.Value, out int hours) && hours > 0)
+                    {
+                        _logger.LogInformation("Loaded JWT Expiration from database: {Hours} hours", hours);
+                        return hours;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load JWT Expiration from database, using config fallback");
+            }
+
+            _logger.LogInformation("Using JWT Expiration from config: {Hours} hours", _jwtSettings.ExpirationHours);
+            return _jwtSettings.ExpirationHours;
         }
 
         /// <summary>
@@ -71,9 +158,9 @@ namespace PetelApp.Api.Services
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddHours(_jwtSettings.ExpirationHours),
-                Issuer = _jwtSettings.Issuer,
-                Audience = _jwtSettings.Audience,
+                Expires = DateTime.UtcNow.AddHours(_expirationHours),
+                Issuer = _issuer,
+                Audience = _audience,
                 SigningCredentials = credentials
             };
 
@@ -108,8 +195,8 @@ namespace PetelApp.Api.Services
             {
                 Subject = new ClaimsIdentity(claims),
                 Expires = DateTime.UtcNow.AddMinutes(10),
-                Issuer = _jwtSettings.Issuer,
-                Audience = _jwtSettings.Audience,
+                Issuer = _issuer,
+                Audience = _audience,
                 SigningCredentials = credentials
             };
 

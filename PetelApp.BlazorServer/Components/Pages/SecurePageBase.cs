@@ -35,10 +35,22 @@ namespace PetelApp.BlazorServer.Components.Pages
                 if (!allowed)
                 {
                     Console.WriteLine($"🚫 Page access denied: {PageName}");
-                    await JSRuntime.InvokeVoidAsync("alert", "אין לך הרשאה לגשת לעמוד זה");
                     
-                    // Go back to previous page (not home, not login)
-                    await JSRuntime.InvokeVoidAsync("history.back");
+                    try
+                    {
+                        await JSRuntime.InvokeVoidAsync("alert", "אין לך הרשאה לגשת לעמוד זה");
+                        await JSRuntime.InvokeVoidAsync("history.back");
+                    }
+                    catch (JSDisconnectedException)
+                    {
+                        // Circuit disconnected - user likely navigated away
+                        Console.WriteLine("Circuit disconnected during access denial");
+                    }
+                    catch (TaskCanceledException)
+                    {
+                        // Operation cancelled
+                        Console.WriteLine("JS interop cancelled during access denial");
+                    }
                     return;
                 }
 
@@ -47,13 +59,33 @@ namespace PetelApp.BlazorServer.Components.Pages
                 // Call derived class initialization
                 await OnPageInitializedAsync();
             }
+            catch (JSDisconnectedException ex)
+            {
+                // Circuit disconnected - this is normal during disposal
+                Console.WriteLine($"Circuit disconnected in page initialization: {ex.Message}");
+            }
+            catch (TaskCanceledException ex)
+            {
+                // Operation cancelled - this is normal
+                Console.WriteLine($"Page initialization cancelled: {ex.Message}");
+            }
             catch (Exception ex)
             {
                 Console.WriteLine($"❌ Error in page initialization: {ex.Message}");
-                await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת העמוד");
                 
-                // On error, also go back to previous page
-                await JSRuntime.InvokeVoidAsync("history.back");
+                try
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת העמוד");
+                    await JSRuntime.InvokeVoidAsync("history.back");
+                }
+                catch (JSDisconnectedException)
+                {
+                    // Ignore - circuit already disconnected
+                }
+                catch (TaskCanceledException)
+                {
+                    // Ignore - operation cancelled
+                }
             }
         }
 
