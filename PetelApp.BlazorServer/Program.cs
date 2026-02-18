@@ -57,6 +57,22 @@ var cspImgSrcAllowlist = builder.Configuration
 var cspImgSrcDirective = "img-src 'self' data: blob:" +
     (cspImgSrcAllowlist.Length > 0 ? " " + string.Join(" ", cspImgSrcAllowlist) : "");
 
+// Build connect-src directive to include API URL
+var apiBaseUrl = apiSettings?.BaseUrl ?? "";
+var apiOrigin = "";
+if (!string.IsNullOrEmpty(apiBaseUrl))
+{
+    try
+    {
+        var uri = new Uri(apiBaseUrl);
+        apiOrigin = $"{uri.Scheme}://{uri.Host}";
+    }
+    catch { }
+}
+var cspConnectSrcDirective = string.IsNullOrEmpty(apiOrigin) 
+    ? "connect-src 'self'" 
+    : $"connect-src 'self' {apiOrigin}";
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -76,7 +92,7 @@ app.Use(async (context, next) =>
         context.Response.Headers.Add("Referrer-Policy", "strict-origin-when-cross-origin");
         context.Response.Headers.Add("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
         context.Response.Headers.Add("Content-Security-Policy", 
-            $"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; {cspImgSrcDirective}; connect-src 'self'; frame-ancestors 'none';");
+            $"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; {cspImgSrcDirective}; {cspConnectSrcDirective}; frame-ancestors 'none';");
     }
     await next();
 });

@@ -60,6 +60,8 @@ namespace PetelApp.Api.Controllers
                     {
                         Id = s.Id,
                         IdNumber = s.IdNumber,
+                        MasterStudentId = s.MasterStudentId,
+                        Version = s.Version,
                         ClassId = s.ClassId,
                         StartDate = s.StartDate,
                         EndDate = s.EndDate,
@@ -100,6 +102,97 @@ namespace PetelApp.Api.Controllers
                 {
                     success = false,
                     message = "שגיאה בטעינת נתוני תלמידים",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Get a single student by ID with school year information
+        /// </summary>
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetStudentById(int id)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                var student = await _context.SchoolStudents
+                    .AsNoTracking()
+                    .Where(s => s.Id == id)
+                    .Select(s => new
+                    {
+                        Id = s.Id,
+                        IdNumber = s.IdNumber,
+                        FirstName = s.FirstName,
+                        LastName = s.LastName,
+                        MasterStudentId = s.MasterStudentId,
+                        Version = s.Version,
+                        SchoolYearId = s.SchoolYearId,
+                        ClassId = s.ClassId,
+                        ClassName = _context.SchoolClasses
+                            .Where(sc => sc.Id == s.ClassId)
+                            .Select(sc => sc.Name)
+                            .FirstOrDefault(),
+                        StartDate = s.StartDate,
+                        EndDate = s.EndDate,
+                        Gender = s.Gender,
+                        Street = s.Street,
+                        HouseNumber = s.HouseNumber,
+                        City = s.City,
+                        PostCode = s.PostCode,
+                        SendingCouncil = s.SendingCouncil,
+                        CouncilName = _context.Councils
+                            .Where(c => c.Id == s.SendingCouncil)
+                            .Select(c => c.Name)
+                            .FirstOrDefault(),
+                        DisabilityCategory = s.DisabilityCategory,
+                        Cost = s.Cost,
+                        Status = s.Status != null ? s.Status.Name : null,
+                        // Navigation context fields
+                        SchoolId = _context.SchoolYears
+                            .Where(sy => sy.Id == s.SchoolYearId)
+                            .Select(sy => sy.SchoolId)
+                            .FirstOrDefault(),
+                        SchoolName = _context.SchoolYears
+                            .Where(sy => sy.Id == s.SchoolYearId)
+                            .Join(_context.Entities,
+                                sy => sy.SchoolId,
+                                e => e.Id,
+                                (sy, e) => e.Name)
+                            .FirstOrDefault(),
+                        YearId = _context.SchoolYears
+                            .Where(sy => sy.Id == s.SchoolYearId)
+                            .Select(sy => sy.YearId)
+                            .FirstOrDefault(),
+                        YearValue = _context.SchoolYears
+                            .Where(sy => sy.Id == s.SchoolYearId)
+                            .Join(_context.HebrewYears,
+                                sy => sy.YearId,
+                                y => y.Id,
+                                (sy, y) => y.HebrewYearText)
+                            .FirstOrDefault()
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (student == null)
+                {
+                    return NotFound(new { success = false, message = "תלמיד לא נמצא" });
+                }
+
+                return Ok(student);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading student {StudentId}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בטעינת פרטי תלמיד",
                     error = ex.Message
                 });
             }

@@ -145,6 +145,8 @@ namespace PetelApp.Api.Controllers
                     .Include(t => t.User)
                     .Include(t => t.TransactionDetails)
                         .ThenInclude(td => td.DetailType)
+                    .Include(t => t.TransactionDetails)
+                        .ThenInclude(td => td.RelatedStudent)
                     .FirstOrDefaultAsync(t => t.Id == transactionId);
 
                 if (transaction == null)
@@ -184,7 +186,11 @@ namespace PetelApp.Api.Controllers
                         DetailTypeName = td.DetailType.Name,
                         DetailTypeDescription = td.DetailType.Description,
                         td.Description,
-                        td.Amount
+                        td.Amount,
+                        td.RelatedStudentId,
+                        RelatedStudentName = td.RelatedStudent != null 
+                            ? $"{td.RelatedStudent.FirstName} {td.RelatedStudent.LastName}" 
+                            : null
                     }).ToList()
                 };
 

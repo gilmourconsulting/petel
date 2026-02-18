@@ -4,6 +4,8 @@ namespace PetelApp.BlazorServer.DTOs
     {
         public int Id { get; set; }
         public string? IdNumber { get; set; }
+        public int MasterStudentId { get; set; }
+        public int Version { get; set; }
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
         public int? Gender { get; set; }

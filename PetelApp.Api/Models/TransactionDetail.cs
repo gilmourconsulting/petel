@@ -30,6 +30,10 @@ namespace PetelApp.Api.Models
         [Column("amount", TypeName = "decimal(18, 2)")]
         public decimal Amount { get; set; }
 
+        [ForeignKey("RelatedStudent")]
+        [Column("related_student_id")]
+        public int? RelatedStudentId { get; set; }
+
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -45,5 +49,6 @@ namespace PetelApp.Api.Models
         // Navigation properties
         public virtual Transaction Transaction { get; set; } = null!;
         public virtual TransactionDetailType DetailType { get; set; } = null!;
+        public virtual SchoolStudent? RelatedStudent { get; set; }
     }
 }

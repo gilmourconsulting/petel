@@ -6,8 +6,6 @@
 @using PetelApp.BlazorServer.Components.Shared
 @inject ApiService ApiService
 @inject SessionStateService SessionStateService
-@inject NavigationManager Navigation
-@inject IJSRuntime JSRuntime
 
 <div class="main-container">
     <!-- Context buttons -->
@@ -21,6 +19,12 @@
             עדכן רשימת מסמכים לתלמיד
         </SecureButton>
         <div class="context-spacer"></div>
+        @if (_isFromTransactionDetails)
+        {
+            <button class="context-navigation-btn" @onclick="NavigateBackToTransaction">
+                חזרה לתנועה
+            </button>
+        }
         <SecureButton ActionName="student_backToSource" ScreenName="@PageName" FunctionName="NavigateBackToSource"
             OnClick="NavigateBackToSource" CssClass="context-navigation-btn">
             חזרה לרשימה
@@ -323,6 +327,7 @@
     private string _pageTitle = "פרטי התלמיד";
     private string _yearDisplay = string.Empty;
     private string _activeTab = "documents";
+    private bool _isFromTransactionDetails = false;
 
     // Document context IDs
     private int? _schoolId;
@@ -389,6 +394,66 @@
                 _student = studentsResponse.Data.FirstOrDefault(s => s.Id == studentId);
             }
 
+            // If student not found in current school year, check if it's an old version
+            if (_student == null)
+            {
+                Console.WriteLine($"Student {studentId} not found in school year {schoolYearId}. Checking for old version...");
+                
+                try
+                {
+                    // Get the student record to find master_student_id
+                    var oldStudentResponse = await ApiService.GetAsync<Dictionary<string, object>>($"students/{studentId}");
+                    
+                    if (oldStudentResponse != null && oldStudentResponse.ContainsKey("masterStudentId"))
+                    {
+                        var masterStudentIdObj = oldStudentResponse["masterStudentId"];
+                        int masterStudentId;
+                        
+                        // Handle both int and JsonElement cases
+                        if (masterStudentIdObj is int intValue)
+                        {
+                            masterStudentId = intValue;
+                        }
+                        else if (masterStudentIdObj is System.Text.Json.JsonElement jsonElement && jsonElement.TryGetInt32(out var parsedValue))
+                        {
+                            masterStudentId = parsedValue;
+                        }
+                        else
+                        {
+                            throw new Exception("Unable to parse master_student_id");
+                        }
+                        
+                        Console.WriteLine($"Found master_student_id: {masterStudentId}. Looking for last version in school year {schoolYearId}...");
+                        
+                        // Find the last version of this master_student_id in the current school year
+                        _student = studentsResponse?.Data?
+                            .Where(s => s.MasterStudentId == masterStudentId)
+                            .OrderByDescending(s => s.Version)
+                            .FirstOrDefault();
+                        
+                        if (_student != null)
+                        {
+                            Console.WriteLine($"✅ Found last version: Student ID {_student.Id}, Version {_student.Version}");
+                            
+                            // Update session with the correct (last version) student ID
+                            await ApiService.PostAsync("session/property", 
+                                new { key = "SelectedStudentId", value = _student.Id.ToString() });
+                            
+                            studentId = _student.Id; // Update local variable
+                        }
+                        else
+                        {
+                            Console.WriteLine($"❌ No version of master_student_id {masterStudentId} found in school year {schoolYearId}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Error checking for old version: {ex.Message}");
+                }
+            }
+
+            // Final check - if still not found, show error
             if (_student == null)
             {
                 await JSRuntime.InvokeVoidAsync("alert", "תלמיד לא נמצא");
@@ -415,6 +480,16 @@
             if (yearIdResponse != null && yearIdResponse.TryGetValue("value", out var yearIdStr))
             {
                 _yearId = int.Parse(yearIdStr);
+            }
+
+            // Check navigation source to show appropriate back button
+            var navigationSourceResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+            $"session/property/NavigationSource");
+
+            if (navigationSourceResponse != null && navigationSourceResponse.TryGetValue("value", out var navSource))
+            {
+                _isFromTransactionDetails = navSource == "transactiondetails";
+                Console.WriteLine($"Navigation source: {navSource}, Show transaction button: {_isFromTransactionDetails}");
             }
 
             // Get school and entity IDs from school_year
@@ -678,6 +753,11 @@
         }
 
         Navigation.NavigateTo("/students");
+    }
+
+    private void NavigateBackToTransaction()
+    {
+        Navigation.NavigateTo("/accounttransactions");
     }
 
     private void NavigateToSchoolDashboard()

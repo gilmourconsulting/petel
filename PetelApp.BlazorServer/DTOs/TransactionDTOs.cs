@@ -30,6 +30,8 @@ namespace PetelApp.BlazorServer.DTOs
         public string DetailTypeDescription { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public decimal Amount { get; set; }
+        public int? RelatedStudentId { get; set; }
+        public string? RelatedStudentName { get; set; }
     }
 
     public class TransactionTypeDto

@@ -515,9 +515,14 @@ namespace PetelApp.BlazorServer.Components.Pages
         /// <summary>
         /// Navigate to account transactions view
         /// </summary>
-        private void ViewTransactions(int accountId)
+        private async Task ViewTransactions(int accountId)
         {
-            NavigationManager.NavigateTo($"/accounttransactions/{accountId}");
+            // Store account ID in session
+            await ApiService.PostAsync<object, object>(
+                "session/property",
+                new { key = "SelectedAccountId", value = accountId.ToString() });
+
+            NavigationManager.NavigateTo("/accounttransactions");
         }
 
         /// <summary>
@@ -673,16 +678,6 @@ namespace PetelApp.BlazorServer.Components.Pages
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
-    }
-
-    /// <summary>
-    /// Generic API response wrapper
-    /// </summary>
-    public class ApiResponse<T>
-    {
-        public bool Success { get; set; }
-        public string? Message { get; set; }
-        public T? Data { get; set; }
     }
 
     /// <summary>

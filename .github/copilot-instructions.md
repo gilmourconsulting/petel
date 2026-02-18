@@ -155,88 +155,80 @@ using Microsoft.Extensions.Options;  // ✅ Required for IOptions<T>
 using PetelApp.Api.Configuration;    // ✅ Required for DatabaseSettings
 ```
 
-#### Frontend Configuration Requirements
+#### Blazor Frontend Configuration Requirements
 
 **1. Environment Configuration Pattern**
 
-**CRITICAL**: Frontend API URLs must be in environment configuration files - **NEVER hardcoded**.
+**CRITICAL**: Blazor API URLs must be in appsettings files - **NEVER hardcoded**.
 
-```javascript
-// ✅ CORRECT - env-config.js (development)
-window.ENV_CONFIG = {
-    API_BASE_URL: 'http://localhost:5082/api',
-    ENVIRONMENT: 'development'
-};
+```json
+// ✅ CORRECT - appsettings.Development.json
+{
+  "ApiSettings": {
+    "BaseUrl": "http://localhost:5082/api",
+    "Timeout": 30
+  }
+}
 
-// ✅ Create environment-specific files
-// env-config.production.js
-window.ENV_CONFIG = {
-    API_BASE_URL: 'https://api.petel-system.co.il/api',
-    ENVIRONMENT: 'production'
-};
-
-// env-config.staging.js
-window.ENV_CONFIG = {
-    API_BASE_URL: 'https://staging-api.petel-system.co.il/api',
-    ENVIRONMENT: 'staging'
-};
-```
-
-**2. Centralized Configuration Usage**
-
-```javascript
-// ✅ CORRECT - config.js uses environment configuration
-const ENV_CONFIG = window.ENV_CONFIG || {
-    API_BASE_URL: 'http://localhost:5082/api',
-    ENVIRONMENT: 'development'
-};
-
-const AppConfig = {
-    apiBaseUrl: ENV_CONFIG.API_BASE_URL,
-    environment: ENV_CONFIG.ENVIRONMENT,
-    
-    getApiUrl(endpoint) {
-        return `${this.apiBaseUrl}/${endpoint}`;
-    },
-    
-    getDefaultFetchOptions() {
-        const authToken = sessionStorage.getItem('authToken');
-        return {
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': authToken ? `Bearer ${authToken}` : ''
-            }
-        };
+// appsettings.Staging.json
+{
+  "ApiSettings": {
+    "BaseUrl": "https://petel-test-api.azurewebsites.net/api",
+    "Timeout": 30
+  },
+  "Security": {
+    "Csp": {
+      "ImgSrc": ["https://api.qrserver.com"]
     }
-};
+  }
+}
 
-window.AppConfig = AppConfig;
+// appsettings.Production.json
+{
+  "ApiSettings": {
+    "BaseUrl": "https://petel-prod-api.azurewebsites.net/api",
+    "Timeout": 30
+  },
+  "Security": {
+    "Csp": {
+      "ImgSrc": ["https://api.qrserver.com"]
+    }
+  }
+}
 ```
 
-**3. HTML Load Order**
+**2. Content Security Policy Configuration**
 
-```html
-<head>
-    <!-- ✅ Load environment config FIRST -->
-    <script src="env-config.js"></script>
-    <!-- Then load other scripts -->
-    <script src="config.js"></script>
-</head>
+CSP is automatically configured in `Program.cs` to include the API origin:
+
+```csharp
+// Build connect-src directive to include API URL
+var apiBaseUrl = apiSettings?.BaseUrl ?? "";
+var apiOrigin = "";
+if (!string.IsNullOrEmpty(apiBaseUrl))
+{
+    var uri = new Uri(apiBaseUrl);
+    apiOrigin = $"{uri.Scheme}://{uri.Host}";
+}
+var cspConnectSrcDirective = string.IsNullOrEmpty(apiOrigin) 
+    ? "connect-src 'self'" 
+    : $"connect-src 'self' {apiOrigin}";
 ```
 
-**4. Anti-Patterns to Avoid**
+**3. Anti-Patterns to Avoid**
 
-```javascript
-// ❌ WRONG - Hardcoded API URL
-const apiUrl = 'http://localhost:5082/api';  // NO!
+```csharp
+// ❌ WRONG - Hardcoded API URL in code
+var apiUrl = "http://localhost:5082/api";  // NO!
 
-// ❌ WRONG - Duplicate AppConfig declaration
-const AppConfig = {
-    apiBaseUrl: 'http://localhost:5082/api'  // NO!
-};
+// ❌ WRONG - Hardcoded CSP without API origin
+context.Response.Headers.Add("Content-Security-Policy", 
+    "connect-src 'self'");  // NO! This blocks external API calls
 
-// ✅ CORRECT - Use centralized configuration
-const response = await fetch(AppConfig.getApiUrl('schools'));
+// ✅ CORRECT - Use configuration
+@inject IOptions<ApiSettings> ApiSettings
+
+var response = await ApiService.GetAsync<DataModel>("endpoint");
 ```
 
 ### Configuration Checklist for New Features
@@ -252,46 +244,64 @@ When adding new features, verify:
 6. ✅ Required using statements in `AppDbContext`
 7. ✅ `IOptions<DatabaseSettings>` injected into `AppDbContext` constructor
 
-**Frontend:**
-1. ✅ API URLs use `AppConfig.getApiUrl()` helper
+**Blazor Frontend:**
+1. ✅ API URLs configured in `appsettings.{Environment}.json`
 2. ✅ NO hardcoded URLs anywhere in code
-3. ✅ Environment-specific config files exist
-4. ✅ `env-config.js` loaded BEFORE `config.js`
-5. ✅ NO duplicate `AppConfig` declarations in pages
-6. ✅ Deployment scripts copy correct env config
+3. ✅ Environment-specific appsettings files exist
+4. ✅ CSP directives include API origin for `connect-src`
 
 ### Deployment Configuration
 
-**1. Backend Deployment**
+**Unified Deployment Script**: `Deploy-ToAzure.ps1`
 
-Environment-specific `appsettings.json` files:
+The application uses a single, flexible PowerShell deployment script for all environments:
+
+```powershell
+# Deploy both API and Blazor to production
+.\Deploy-ToAzure.ps1 -Environment production
+
+# Deploy to test environment
+.\Deploy-ToAzure.ps1 -Environment test
+
+# Deploy to staging
+.\Deploy-ToAzure.ps1 -Environment staging
+
+# Deploy only API
+.\Deploy-ToAzure.ps1 -Environment production -ApiOnly
+
+# Deploy only Blazor
+.\Deploy-ToAzure.ps1 -Environment production -BlazorOnly
+
+# Skip build (use existing publish folders)
+.\Deploy-ToAzure.ps1 -Environment production -SkipBuild
+
+# Skip IP restrictions configuration
+.\Deploy-ToAzure.ps1 -Environment production -SkipIpRestrictions
+```
+
+**Environment-Specific Configuration**:
+
+**API** (`PetelApp.Api/`):
 - `appsettings.Development.json` - Local development
-- `appsettings.Staging.json` - Staging environment
+- `appsettings.Staging.json` - Test and Staging environments
 - `appsettings.Production.json` - Production environment
 
-**2. Frontend Deployment**
+**Blazor** (`PetelApp.BlazorServer/`):
+- `appsettings.Development.json` - Local development
+- `appsettings.Staging.json` - Test and Staging environments
+- `appsettings.Production.json` - Production environment (includes API URL and CSP allowlist)
 
-Deployment script pattern:
+**Deployment Process**:
+1. Builds project in Release configuration
+2. Creates deployment package (zip)
+3. Deploys to Azure App Service
+4. Configures environment variables (`ASPNETCORE_ENVIRONMENT`)
+5. Optionally configures IP restrictions for API access
 
-```bash
-#!/bin/bash
-ENVIRONMENT=$1
-
-if [ -z "$ENVIRONMENT" ]; then
-    echo "Usage: ./deploy.sh [development|staging|production]"
-    exit 1
-fi
-
-echo "🚀 Deploying for environment: $ENVIRONMENT"
-
-if [ -f "public/env-config.$ENVIRONMENT.js" ]; then
-    cp "public/env-config.$ENVIRONMENT.js" "public/env-config.js"
-    echo "✅ Using env-config.$ENVIRONMENT.js"
-else
-    echo "❌ Environment config file not found"
-    exit 1
-fi
-```
+**Azure Resources by Environment**:
+- **Test**: `petel-test-rg`, `petel-test-api`, `petel-test-blazor`
+- **Staging**: `petel-staging-rg`, `petel-staging-api`, `petel-staging-blazor`
+- **Production**: `petel-prod-rg`, `petel-prod-api`, `petel-prod-blazor`
 
 ### Common Configuration Errors and Fixes
 
@@ -304,14 +314,15 @@ fi
 - **Cause**: Missing using statement
 - **Fix**: Add `using Microsoft.Extensions.Options;` to `AppDbContext.cs`
 
-**Error: `Identifier 'AppConfig' has already been declared`**
-- **Cause**: Duplicate `AppConfig` declaration in page
-- **Fix**: Remove page-level declaration, use centralized `config.js`
+**Error: CSP blocks API connections (`connect-src 'self'`)**
+- **Cause**: Content Security Policy doesn't include API origin
+- **Fix**: API URL is automatically extracted from `ApiSettings.BaseUrl` in `Program.cs`
+- **Fix**: Verify CSP includes `connect-src 'self' https://api-domain.com`
 
-**Error: API calls return 404**
-- **Cause**: Wrong API URL for environment
-- **Fix**: Verify correct `env-config.js` is deployed
-- **Fix**: Check `window.AppConfig.apiBaseUrl` in browser console
+**Error: API calls fail in production**
+- **Cause**: Wrong API URL in Blazor configuration
+- **Fix**: Verify `appsettings.Production.json` has correct `ApiSettings.BaseUrl`
+- **Fix**: Check Azure App Service configuration for `ASPNETCORE_ENVIRONMENT=Production`
 
 ### Benefits of This Architecture
 

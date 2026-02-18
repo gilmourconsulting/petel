@@ -997,6 +997,7 @@ modelBuilder.Entity<SystemAction>(entity =>
                 // Indexes for performance
                 entity.HasIndex(e => e.TransactionId);
                 entity.HasIndex(e => e.DetailTypeId);
+                entity.HasIndex(e => e.RelatedStudentId);
 
                 // Configure relationships
                 entity.HasOne(td => td.Transaction)
@@ -1008,6 +1009,11 @@ modelBuilder.Entity<SystemAction>(entity =>
                     .WithMany(dt => dt.TransactionDetails)
                     .HasForeignKey(td => td.DetailTypeId)
                     .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(td => td.RelatedStudent)
+                    .WithMany()
+                    .HasForeignKey(td => td.RelatedStudentId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
 
         }

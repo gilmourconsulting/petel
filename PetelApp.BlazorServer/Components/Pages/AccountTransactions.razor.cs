@@ -4,22 +4,24 @@ using PetelApp.BlazorServer.DTOs;
 
 namespace PetelApp.BlazorServer.Components.Pages
 {
-    public partial class AccountTransactions
+    public partial class AccountTransactions : SecurePageBase
     {
-        [Parameter]
-        public int AccountId { get; set; }
-
         // Page security identifier
         protected override string PageName => "accounttransactions";
+
+        // Account ID loaded from session
+        private int _accountId;
 
         // State
         private bool _isLoading = true;
         private bool _showFilters = false;
-        private bool _showDetailsModal = false;
+        private bool _loadingDetails = false;
+        private int? _expandedTransactionId = null;
 
         // Account data
         private TransactionAccountDto? _account;
         private string _accountName = string.Empty;
+        private decimal _calculatedBalance = 0m;
 
         // Transactions data
         private List<TransactionDto> _transactions = new();
@@ -27,7 +29,6 @@ namespace PetelApp.BlazorServer.Components.Pages
         private int _totalTransactions = 0;
 
         // Transaction details
-        private TransactionDto? _selectedTransaction;
         private List<TransactionDetailDto> _transactionDetails = new();
 
         // Lookup data
@@ -42,6 +43,19 @@ namespace PetelApp.BlazorServer.Components.Pages
 
         protected override async Task OnPageInitializedAsync()
         {
+            // Get account ID from session
+            var accountIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                "session/property/SelectedAccountId");
+
+            if (accountIdResponse == null || !accountIdResponse.TryGetValue("value", out var accountIdStr))
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "לא נבחר חשבון");
+                NavigationManager.NavigateTo("/transactionaccounts");
+                return;
+            }
+
+            _accountId = int.Parse(accountIdStr);
+
             await LoadAccountData();
             await LoadLookupData();
             await LoadTransactions();
@@ -51,15 +65,29 @@ namespace PetelApp.BlazorServer.Components.Pages
         {
             try
             {
-                _account = await ApiService.GetAsync<TransactionAccountDto>($"transactionaccounts/{AccountId}");
-                if (_account != null)
+                // Use ApiResponse wrapper to match the backend response structure
+                var response = await ApiService.GetAsync<ApiResponse<TransactionAccountDto>>($"transactionaccounts/{_accountId}");
+                if (response?.Success == true && response.Data != null)
                 {
+                    _account = response.Data;
                     _accountName = _account.AccountName;
+                    Console.WriteLine($"✅ Account loaded: {_accountName}");
+                }
+                else
+                {
+                    Console.WriteLine($"❌ Failed to load account: {response?.Message}");
+                    // Fallback: try as direct object
+                    _account = await ApiService.GetAsync<TransactionAccountDto>($"transactionaccounts/{_accountId}");
+                    if (_account != null)
+                    {
+                        _accountName = _account.AccountName;
+                        Console.WriteLine($"✅ Account loaded (fallback): {_accountName}");
+                    }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error loading account: {ex.Message}");
+                Console.WriteLine($"❌ Error loading account: {ex.Message}");
                 await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת נתוני חשבון");
             }
         }
@@ -101,11 +129,14 @@ namespace PetelApp.BlazorServer.Components.Pages
                     queryParams.Add($"maxAmount={_filterMaxAmount.Value}");
 
                 var query = queryParams.Count > 0 ? "?" + string.Join("&", queryParams) : "";
-                var endpoint = $"transactions/account/{AccountId}{query}";
+                var endpoint = $"transactions/account/{_accountId}{query}";
 
                 _transactions = await ApiService.GetAsync<List<TransactionDto>>(endpoint) ?? new();
                 _filteredTransactions = _transactions;
                 _totalTransactions = _transactions.Count;
+                
+                // Calculate balance from actual transactions
+                CalculateBalance();
             }
             catch (Exception ex)
             {
@@ -113,6 +144,7 @@ namespace PetelApp.BlazorServer.Components.Pages
                 await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת עסקאות");
                 _transactions = new();
                 _filteredTransactions = new();
+                _calculatedBalance = 0m;
             }
             finally
             {
@@ -121,33 +153,43 @@ namespace PetelApp.BlazorServer.Components.Pages
             }
         }
 
-        private async Task ViewTransactionDetails(int transactionId)
+        private async Task ToggleTransactionDetails(int transactionId)
         {
+            // If clicking the same transaction, collapse it
+            if (_expandedTransactionId == transactionId)
+            {
+                _expandedTransactionId = null;
+                _transactionDetails = new();
+                StateHasChanged();
+                return;
+            }
+
+            // Otherwise, expand the new transaction
+            _expandedTransactionId = transactionId;
+            _loadingDetails = true;
+            StateHasChanged();
+
             try
             {
                 var result = await ApiService.GetAsync<TransactionWithDetailsDto>($"transactions/{transactionId}/details");
                 
                 if (result != null)
                 {
-                    _selectedTransaction = result.Transaction;
                     _transactionDetails = result.Details;
-                    _showDetailsModal = true;
-                    StateHasChanged();
                 }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Error loading transaction details: {ex.Message}");
                 await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת פירוט עסקה");
+                _expandedTransactionId = null;
+                _transactionDetails = new();
             }
-        }
-
-        private void CloseDetailsModal()
-        {
-            _showDetailsModal = false;
-            _selectedTransaction = null;
-            _transactionDetails = new();
-            StateHasChanged();
+            finally
+            {
+                _loadingDetails = false;
+                StateHasChanged();
+            }
         }
 
         private void ToggleFilters()
@@ -178,6 +220,13 @@ namespace PetelApp.BlazorServer.Components.Pages
             await JSRuntime.InvokeVoidAsync("alert", "הוספת עסקה תתווסף בגרסה הבאה");
         }
 
+        private void CalculateBalance()
+        {
+            // Calculate balance from all transactions
+            // Credit transactions add to balance, debit transactions subtract
+            _calculatedBalance = _transactions.Sum(t => t.IsCredit ? t.Amount : -t.Amount);
+        }
+
         private async Task RefreshData()
         {
             await LoadAccountData();
@@ -187,6 +236,72 @@ namespace PetelApp.BlazorServer.Components.Pages
         private void NavigateBackToAccounts()
         {
             NavigationManager.NavigateTo("/transactionaccounts");
+        }
+
+        private async Task NavigateToStudent(int studentId)
+        {
+            try
+            {
+                // Fetch student data with all navigation context
+                var response = await ApiService.GetAsync<Dictionary<string, object>>($"students/{studentId}");
+                
+                if (response == null)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "לא נמצא תלמיד");
+                    return;
+                }
+
+                // Extract all required session properties from response
+                var schoolYearId = response.ContainsKey("schoolYearId") ? response["schoolYearId"]?.ToString() : null;
+                var schoolId = response.ContainsKey("schoolId") ? response["schoolId"]?.ToString() : null;
+                var schoolName = response.ContainsKey("schoolName") ? response["schoolName"]?.ToString() : null;
+                var yearId = response.ContainsKey("yearId") ? response["yearId"]?.ToString() : null;
+                var yearValue = response.ContainsKey("yearValue") ? response["yearValue"]?.ToString() : null;
+
+                if (string.IsNullOrEmpty(schoolYearId) || string.IsNullOrEmpty(schoolId) || 
+                    string.IsNullOrEmpty(schoolName) || string.IsNullOrEmpty(yearId) || 
+                    string.IsNullOrEmpty(yearValue))
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "נתוני תלמיד חסרים");
+                    return;
+                }
+
+                // Set all required session properties for student navigation
+                await ApiService.PostAsync<object, object>(
+                    "session/property",
+                    new { key = "SelectedStudentId", value = studentId.ToString() });
+
+                await ApiService.PostAsync<object, object>(
+                    "session/property",
+                    new { key = "SelectedSchoolYearId", value = schoolYearId });
+
+                await ApiService.PostAsync<object, object>(
+                    "session/property",
+                    new { key = "SelectedSchoolId", value = schoolId });
+
+                await ApiService.PostAsync<object, object>(
+                    "session/property",
+                    new { key = "SelectedSchoolName", value = schoolName });
+
+                await ApiService.PostAsync<object, object>(
+                    "session/property",
+                    new { key = "SelectedYearId", value = yearId });
+
+                await ApiService.PostAsync<object, object>(
+                    "session/property",
+                    new { key = "SelectedYearValue", value = yearValue });
+
+                await ApiService.PostAsync<object, object>(
+                    "session/property",
+                    new { key = "NavigationSource", value = "transactiondetails" });
+
+                NavigationManager.NavigateTo("/student");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error navigating to student: {ex.Message}");
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה בניווט לתלמיד");
+            }
         }
     }
 }

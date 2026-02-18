@@ -92,20 +92,31 @@ builder.Services.AddSession(options =>
     options.Cookie.Name = ".PetelApp.Session";
 });
 
-// CORS
+// ✅ Configure CORS settings from configuration
+builder.Services.Configure<CorsSettings>(
+    builder.Configuration.GetSection("Cors"));
+
+// CORS - Combine localhost origins (for development) with configured origins
+var corsSettings = builder.Configuration.GetSection("Cors").Get<CorsSettings>();
+var configuredOrigins = corsSettings?.AllowedOrigins ?? Array.Empty<string>();
+
+var localhostOrigins = new[]
+{
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:5000",      // Blazor Server HTTP
+    "https://localhost:5001",     // Blazor Server HTTPS
+    "http://localhost:5293",      // Blazor Server alternate port
+    "https://localhost:7293"      // Blazor Server alternate HTTPS port
+};
+
+var allAllowedOrigins = localhostOrigins.Concat(configuredOrigins).ToArray();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(
-              "http://localhost:3000", 
-              "http://localhost:5173",
-              "http://localhost:5000",      // ✅ Blazor Server HTTP
-              "https://localhost:5001",     // ✅ Blazor Server HTTPS
-              "http://localhost:5293",      // ✅ Blazor Server alternate port
-              "https://localhost:7293",     // ✅ Blazor Server alternate HTTPS port
-              "https://petel-test-api-ahafcqfnh6drcdbd.israelcentral-01.azurewebsites.net",
-              "https://petel.site")
+        policy.WithOrigins(allAllowedOrigins)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
@@ -954,6 +965,9 @@ if (app.Environment.IsDevelopment() || app.Environment.EnvironmentName == "Test"
 app.UseHttpsRedirection();
 app.UseRouting();
 
+// ✅ CORS must be called after UseRouting() and before other middleware
+app.UseCors("AllowFrontend");
+
 // Security Headers (SOC 2 Compliance)
 app.Use(async (context, next) =>
 {
@@ -979,7 +993,6 @@ if (rateLimitingEnabled)
     app.UseIpRateLimiting();
 }
 
-app.UseCors("AllowFrontend");
 app.UseSession();
 
 
