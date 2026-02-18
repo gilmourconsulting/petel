@@ -17,7 +17,10 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 # Israeli IP ranges - comprehensive list covering major ISPs
+# Updated: February 18, 2026 - Option A (Priority 1-3)
+# Source: https://www.ipdeny.com/ipblocks/data/aggregated/il-aggregated.zone
 $israeliIpRanges = @(
+    # Previously configured ranges
     "79.176.0.0/13",
     "80.178.0.0/15",
     "80.246.0.0/15",
@@ -55,14 +58,106 @@ $israeliIpRanges = @(
     "188.120.128.0/17",
     "212.116.128.0/17",
     "213.57.0.0/17",
-    # Major Israeli ISPs
     "212.179.0.0/16",
     "77.125.0.0/16",
     "31.154.0.0/16",
     "31.168.0.0/16",
     "87.70.0.0/16",
     "95.86.0.0/16",
-    "103.209.0.0/16"
+    "103.209.0.0/16",
+    
+    # Manually added ranges from production
+    "103.209.0.0/32",
+    "147.236.0.0/16",
+    "185.24.0.0/16",
+    "78.138.0.0/16",
+    "84.228.0.0/16",
+    
+    # Priority 1: Critical ISP blocks
+    "77.124.0.0/14",
+    "31.12.76.0/22",
+    "31.40.220.0/22",
+    "31.44.128.0/20",
+    "62.0.0.0/16",
+    "62.90.0.0/16",
+    "81.218.0.0/16",
+    "83.130.0.0/16",
+    "132.64.0.0/13",
+    "212.143.0.0/16",
+    "213.8.0.0/16",
+    "5.29.0.0/16",
+    "37.142.0.0/16",
+    "46.116.0.0/15",
+    "46.120.0.0/15",
+    "46.210.0.0/16",
+    "85.250.0.0/16",
+    "176.12.128.0/17",
+    "176.13.0.0/16",
+    "2.52.0.0/14",
+    "5.102.192.0/18",
+    "62.219.0.0/16",
+    "80.230.0.0/16",
+    "81.5.0.0/18",
+    "82.80.0.0/15",
+    "82.102.128.0/18",
+    "94.159.128.0/17",
+    "95.35.0.0/16",
+    "132.72.0.0/14",
+    "132.76.0.0/15",
+    "132.78.0.0/16",
+    "147.233.0.0/16",
+    "147.234.0.0/17",
+    "147.235.0.0/16",
+    "192.114.0.0/15",
+    "192.116.0.0/15",
+    "192.118.0.0/16",
+    
+    # Priority 2: Business & Cloud Infrastructure
+    "84.94.0.0/15",
+    "84.108.0.0/14",
+    "85.130.128.0/17",
+    "109.64.0.0/14",
+    "109.253.0.0/16",
+    "138.134.0.0/16",
+    "141.226.0.0/18",
+    "62.56.128.0/19",
+    "62.128.32.0/19",
+    "80.74.96.0/19",
+    "81.199.0.0/20",
+    "89.208.0.0/21",
+    "93.172.0.0/15",
+    "176.228.0.0/14",
+    "188.64.200.0/21",
+    "188.120.128.0/19",
+    "212.25.64.0/18",
+    "212.68.128.0/19",
+    "212.117.128.0/19",
+    "217.132.0.0/16",
+    
+    # Priority 3: Additional ISPs & Regional
+    "5.100.248.0/21",
+    "5.144.48.0/20",
+    "37.19.112.0/20",
+    "37.44.200.0/22",
+    "37.60.40.0/21",
+    "62.182.192.0/21",
+    "78.138.4.0/22",
+    "85.155.128.0/20",
+    "86.104.226.0/24",
+    "88.202.216.0/21",
+    "91.135.96.0/20",
+    "91.143.224.0/20",
+    "93.157.80.0/21",
+    "95.142.16.0/20",
+    "95.175.32.0/19",
+    "109.160.128.0/17",
+    "109.226.0.0/18",
+    "109.234.16.0/21",
+    "144.249.128.0/18",
+    "146.185.56.0/21",
+    "149.49.0.0/16",
+    "164.138.112.0/20",
+    "167.17.128.0/19"
 )
 
 # Environment configurations
@@ -137,17 +232,45 @@ function Apply-IpRestrictions {
         Write-Host "  [OK] Existing restrictions cleared" -ForegroundColor Green
     }
     
+    # Get existing IP restrictions
+    Write-Host "  Checking existing IP restrictions..." -ForegroundColor Gray
+    $existingRules = az webapp config access-restriction show `
+        --name $AppName `
+        --resource-group $ResourceGroup `
+        --query "ipSecurityRestrictions[?name!='Allow all' && name!='Deny all']" -o json 2>$null | ConvertFrom-Json
+    
+    $existingIPs = @()
+    if ($existingRules) {
+        $existingIPs = $existingRules | ForEach-Object { $_.ip_address } | Where-Object { $_ }
+    }
+    Write-Host "  Found $($existingIPs.Count) existing IP rules" -ForegroundColor Gray
+    
     # Add Israeli IP ranges
-    Write-Host "  Adding $($israeliIpRanges.Count) Israeli IP ranges..." -ForegroundColor Gray
+    Write-Host "  Processing $($israeliIpRanges.Count) Israeli IP ranges..." -ForegroundColor Gray
     
     $priority = 100
     $ruleNumber = 1
+    $addedCount = 0
+    $skippedCount = 0
     
     foreach ($ipRange in $israeliIpRanges) {
+        # Check if IP already exists
+        if ($existingIPs -contains $ipRange) {
+            Write-Host "    [$ruleNumber/$($israeliIpRanges.Count)] Skipped: $ipRange (already exists)" -ForegroundColor DarkGray
+            $skippedCount++
+            $ruleNumber++
+            continue
+        }
+        
         $ruleName = "Allow-Israeli-$ruleNumber"
         
+        # Find available priority
+        while ($existingRules.priority -contains $priority) {
+            $priority++
+        }
+        
         # Try to add the rule
-        $result = az webapp config access-restriction add `
+        $null = az webapp config access-restriction add `
             --name $AppName `
             --resource-group $ResourceGroup `
             --rule-name $ruleName `
@@ -156,11 +279,11 @@ function Apply-IpRestrictions {
             --priority $priority 2>&1
         
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "    [$ruleNumber/$($israeliIpRanges.Count)] Added: $ipRange" -ForegroundColor Gray
+            Write-Host "    [$ruleNumber/$($israeliIpRanges.Count)] Added: $ipRange (priority $priority)" -ForegroundColor Green
+            $addedCount++
         }
         else {
-            # Rule might already exist, try to continue
-            Write-Host "    [$ruleNumber/$($israeliIpRanges.Count)] Skipped: $ipRange (may already exist)" -ForegroundColor DarkGray
+            Write-Host "    [$ruleNumber/$($israeliIpRanges.Count)] Failed: $ipRange" -ForegroundColor Red
         }
         
         $priority++
@@ -171,13 +294,16 @@ function Apply-IpRestrictions {
     $finalRules = az webapp config access-restriction show `
         --name $AppName `
         --resource-group $ResourceGroup `
-        --query "ipSecurityRestrictions[?name!='Allow all']" -o json 2>$null | ConvertFrom-Json
+        --query "ipSecurityRestrictions[?name!='Allow all' && name!='Deny all']" -o json 2>$null | ConvertFrom-Json
     
     $ruleCount = ($finalRules | Measure-Object).Count
     
     Write-Host ""
-    Write-Host "  [OK] $AppType configured with $ruleCount IP restriction rules" -ForegroundColor Green
-    Write-Host "  [OK] Only Israeli traffic allowed" -ForegroundColor Green
+    Write-Host "  ✅ $AppType configured:" -ForegroundColor Green
+    Write-Host "     Added: $addedCount new rules" -ForegroundColor Green
+    Write-Host "     Skipped: $skippedCount existing rules" -ForegroundColor Gray
+    Write-Host "     Total: $ruleCount IP restriction rules" -ForegroundColor Cyan
+    Write-Host "  ✅ Only Israeli traffic allowed" -ForegroundColor Green
 }
 
 # Apply to requested environments
