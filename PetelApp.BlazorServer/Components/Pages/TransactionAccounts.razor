@@ -37,7 +37,7 @@
         <!-- Page Title Section -->
         <div class="content-header">
             <div class="page-title-container">
-                <div class="page-title">חשבונות עסקאות</div>
+                <div class="page-title">חשבונות</div>
                 <div class="text-branded" style="text-align: center;">@_entityDisplay</div>
                 <div class="left-spacer"></div>
             </div>
@@ -46,29 +46,21 @@
         <!-- Summary Cards -->
         <div class="dashboard-cards-wrapper" style="margin-bottom: 20px;">
             <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                <!-- Total Accounts Card -->
-                <div class="summary-card" style="min-width: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
-                    <div style="font-size: 40px; opacity: 0.8;">💰</div>
-                    <div style="flex: 1; text-align: right;">
-                        <div style="font-size: 2em; font-weight: 700; color: #2c3e50; line-height: 1; margin-bottom: 5px;">@_totalAccounts</div>
-                        <div style="font-size: 0.9em; color: #666; font-weight: 500;">סה"כ חשבונות</div>
-                    </div>
-                </div>
 
-                <!-- Active Accounts Card -->
-                <div class="summary-card" style="min-width: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
-                    <div style="font-size: 40px; opacity: 0.8;">✅</div>
-                    <div style="flex: 1; text-align: right;">
-                        <div style="font-size: 2em; font-weight: 700; color: #2c3e50; line-height: 1; margin-bottom: 5px;">@_activeAccounts</div>
-                        <div style="font-size: 0.9em; color: #666; font-weight: 500;">חשבונות פעילים</div>
-                    </div>
-                </div>
+
 
                 <!-- Total Balance Card -->
                 <div class="summary-card" style="min-width: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
-                    <div style="font-size: 40px; opacity: 0.8;">💵</div>
-                    <div style="flex: 1; text-align: right;">
-                        <div style="font-size: 2em; font-weight: 700; color: #2c3e50; line-height: 1; margin-bottom: 5px;">@_totalBalance.ToString("N2")</div>
+
+                    <div style="flex: 1; text-align: left;">
+                                 @if (_totalBalance >= 0)
+                                                {
+                                                    <span style="font-size: 2em; color: #28a745; font-weight: 700; line-height: 1">@_totalBalance.ToString("N2") ₪</span>
+                                                }
+                                                else
+                                                {
+                                                    <span style="font-size: 2em; color: #dc3545; font-weight: 700; line-height: 1">@_totalBalance.ToString("N2") ₪</span>
+                                                }
                         <div style="font-size: 0.9em; color: #666; font-weight: 500;">יתרה כוללת (₪)</div>
                     </div>
                 </div>
@@ -192,7 +184,7 @@
                                             <td style="font-weight: 600;">@account.AccountName</td>
                                             <td>@account.RelatedEntityName</td>
                                             <td>@account.AccountTypeName</td>
-                                            <td style="text-align: left; direction: ltr; font-family: monospace;">
+                                            <td style="text-align: right; direction: ltr; font-family: monospace;">
                                                 @if (account.Balance >= 0)
                                                 {
                                                     <span style="color: #28a745; font-weight: 600;">@account.Balance.ToString("N2") ₪</span>

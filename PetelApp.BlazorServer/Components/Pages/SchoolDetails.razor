@@ -2275,7 +2275,9 @@
 
         try
         {
-            var success = await ApiService.DeleteAsync($"additionalstudyprograms/{programId}");
+            Console.WriteLine($"Trying to delete program: {programId}");
+            var success = await ApiService.DeleteAsync($"schooladditionalstudyprograms/{programId}");
+            Console.WriteLine($"Tried to delete program: {programId}, Result: {(success ? "Success" : "Failed")}");
 
             if (success)
             {
