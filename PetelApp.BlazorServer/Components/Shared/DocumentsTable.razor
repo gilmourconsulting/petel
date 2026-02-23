@@ -245,10 +245,10 @@
                 return;
             }
 
-            var baseUrl = ApiSettings.Value.BaseUrl;
-            var downloadUrl = $"{baseUrl}/Documents/{documentId}/download";
+            // ✅ Use document proxy endpoint (server-side call to API)
+            var downloadUrl = $"/api/documents/{documentId}/proxy";
 
-            Console.WriteLine($"👁️ Opening document from: {downloadUrl}");
+            Console.WriteLine($"👁️ Opening document via proxy: {downloadUrl}");
 
             // Use CSP-compliant helper function
             await JSRuntime.InvokeVoidAsync("BlazorHelpers.viewFileWithAuth", downloadUrl, token);

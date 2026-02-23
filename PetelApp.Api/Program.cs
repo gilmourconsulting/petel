@@ -971,7 +971,8 @@ app.UseCors("AllowFrontend");
 // Security Headers (SOC 2 Compliance)
 app.Use(async (context, next) =>
 {
-    if (!app.Environment.IsDevelopment())
+    // ✅ Skip security headers for CORS preflight OPTIONS requests
+    if (!app.Environment.IsDevelopment() && context.Request.Method != "OPTIONS")
     {
         context.Response.Headers.Add("X-Frame-Options", "DENY");
         context.Response.Headers.Add("X-Content-Type-Options", "nosniff");

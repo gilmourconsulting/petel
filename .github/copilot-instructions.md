@@ -1428,6 +1428,163 @@ public class MyController : BaseController
 
 **IMPORTANT**: Controllers do NOT use `[Authorize]` attribute. Session validation is done manually via `GetCurrentSession()` in each endpoint.
 
+### Document Proxy Pattern (IP Restrictions)
+
+**Purpose**: When the API has IP restrictions that only allow server-to-server calls, browsers cannot directly access API endpoints. A proxy endpoint in the Blazor app forwards browser requests to the API.
+
+**Architecture**:
+```
+Browser (with user token) → Blazor Proxy (forwards token) → API (validates token) → Document
+                             ↑ Server IP is allowed           ↑ User auth verified
+```
+
+**Benefits**:
+- ✅ Maintains security - API still validates user's JWT token
+- ✅ Bypasses IP restrictions - Blazor server IP is in API allowlist
+- ✅ No code changes in API - uses existing authentication
+- ✅ Transparent to frontend - JavaScript still uses normal fetch with Authorization header
+
+**Implementation in Blazor Program.cs**:
+
+```csharp
+// Required using statements
+using Microsoft.Extensions.Options;
+using PetelApp.BlazorServer.Models;
+
+// In middleware pipeline (after UseAntiforgery())
+app.MapGet("/api/documents/{documentId}/proxy", async (
+    long documentId, 
+    HttpContext httpContext,
+    IHttpClientFactory httpClientFactory,
+    IOptions<ApiSettings> apiSettings,
+    ILogger<Program> logger) =>
+{
+    try
+    {
+        logger.LogInformation("📥 Document proxy request for ID: {DocumentId}", documentId);
+        
+        // ✅ Extract Authorization header from browser request
+        if (!httpContext.Request.Headers.TryGetValue("Authorization", out var authHeader) ||
+            string.IsNullOrEmpty(authHeader))
+        {
+            logger.LogWarning("⚠️ No authorization header in proxy request");
+            return Results.Unauthorized();
+        }
+
+        // ✅ Create HTTP client and forward browser's token to API
+        var client = httpClientFactory.CreateClient("PetelApi");
+        client.DefaultRequestHeaders.Add("Authorization", authHeader.ToString());
+        
+        var apiUrl = $"{apiSettings.Value.BaseUrl}/Documents/{documentId}/download";
+        logger.LogDebug("Proxying request to: {ApiUrl}", apiUrl);
+        
+        var apiResponse = await client.GetAsync(apiUrl);
+        
+        if (!apiResponse.IsSuccessStatusCode)
+        {
+            logger.LogWarning("⚠️ API returned {StatusCode} for document {DocumentId}", 
+                apiResponse.StatusCode, documentId);
+            
+            if (apiResponse.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                return Results.Unauthorized();
+            
+            if (apiResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
+                return Results.NotFound(new { error = "מסמך לא נמצא" });
+            
+            return Results.Problem($"שגיאה בטעינת המסמך: {apiResponse.StatusCode}");
+        }
+        
+        var content = await apiResponse.Content.ReadAsByteArrayAsync();
+        var contentType = apiResponse.Content.Headers.ContentType?.ToString() ?? "application/octet-stream";
+        
+        // ✅ Extract filename from Content-Disposition header
+        var fileName = $"document_{documentId}";
+        if (apiResponse.Content.Headers.ContentDisposition?.FileName != null)
+        {
+            fileName = apiResponse.Content.Headers.ContentDisposition.FileName.Trim('"');
+        }
+        
+        logger.LogInformation("✅ Returning document {DocumentId}, size: {Size} bytes", 
+            documentId, content.Length);
+        
+        return Results.File(content, contentType, fileName);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "❌ Error proxying document {DocumentId}", documentId);
+        return Results.Problem("שגיאה בטעינת המסמך");
+    }
+})
+.DisableAntiforgery(); // ✅ Required for GET requests from browser
+```
+
+**Frontend Integration** (no changes needed):
+
+```javascript
+// blazorHelpers.js - existing code works unchanged
+viewFileWithAuth: async function (url, token) {
+    const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${token}` // ✅ Forwarded by proxy
+        }
+    });
+    
+    const blob = await response.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    window.open(blobUrl, '_blank');
+}
+
+// Blazor component - use proxy URL
+var downloadUrl = $"/api/documents/{documentId}/proxy";
+await JSRuntime.InvokeVoidAsync("BlazorHelpers.viewFileWithAuth", downloadUrl, token);
+```
+
+**API Endpoint** (existing, no changes):
+
+```csharp
+// DocumentsController.cs - works as-is
+[HttpGet("{id}/download")]
+public async Task<IActionResult> DownloadDocument(long id)
+{
+    var session = GetCurrentSession();
+    if (session == null)
+        return Unauthorized(new { error = "נדרש אימות" });
+
+    var document = await _context.Documents.FindAsync(id);
+    
+    return File(document.FileBlob, contentType, fileName);
+}
+```
+
+**When to Use This Pattern**:
+- ✅ API has IP restrictions (Azure App Service firewall, Front Door, etc.)
+- ✅ Browser needs to download/view files from API
+- ✅ Need to maintain user authentication with JWT tokens
+- ✅ Server-to-server calls are allowed in security architecture
+
+**Anti-Patterns**:
+```csharp
+// ❌ WRONG - Using ApiService in Minimal API endpoint
+app.MapGet("/proxy", async (ApiService apiService) =>
+{
+    var file = await apiService.GetFileAsync(...); // NO! ApiService needs Blazor circuit
+});
+
+// ❌ WRONG - Not forwarding Authorization header
+var client = httpClientFactory.CreateClient("PetelApi");
+var response = await client.GetAsync(url); // NO! Missing user's token
+
+// ✅ CORRECT - Forward browser's Authorization header
+client.DefaultRequestHeaders.Add("Authorization", authHeader.ToString());
+```
+
+**Troubleshooting**:
+- **404 errors**: Verify `UseRouting()` is called before `MapGet()` in Program.cs
+- **401 errors**: Check Authorization header is being forwarded correctly
+- **403 errors**: Verify Blazor server IP is in API's IP allowlist
+- **CORS errors**: If using Front Door, ensure proper origin configuration
+
 ## Entity Framework Patterns
 
 ### Database Context Configuration

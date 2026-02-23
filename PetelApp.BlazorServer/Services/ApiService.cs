@@ -7,6 +7,16 @@ using PetelApp.BlazorServer.Models;
 namespace PetelApp.BlazorServer.Services
 {
     /// <summary>
+    /// Response model for file downloads
+    /// </summary>
+    public class FileDownloadResponse
+    {
+        public byte[] Content { get; set; } = Array.Empty<byte>();
+        public string ContentType { get; set; } = "application/octet-stream";
+        public Dictionary<string, string> Headers { get; set; } = new();
+    }
+
+    /// <summary>
     /// Exception thrown when HTTP request returns non-success status code
     /// </summary>
     public class HttpStatusException : Exception
@@ -170,6 +180,76 @@ namespace PetelApp.BlazorServer.Services
             {
                 _logger.LogError(ex, "GET request failed for {Endpoint}", endpoint);
                 throw;
+            }
+        }
+
+        /// <summary>
+        /// GET request for downloading files (returns raw byte array with headers)
+        /// </summary>
+        public async Task<FileDownloadResponse?> GetFileAsync(string endpoint)
+        {
+            try
+            {
+                var client = await GetAuthorizedClientAsync();
+                var url = $"{_baseUrl}/{endpoint}";
+                
+                _logger.LogDebug("GET file request to {Url}", url);
+                
+                var response = await client.GetAsync(url);
+                
+                _logger.LogInformation("GET file {Endpoint} returned status {StatusCode}", endpoint, response.StatusCode);
+                
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    _logger.LogWarning("Unauthorized file request to {Endpoint} - invalid or missing token", endpoint);
+                    return null;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("GET file {Endpoint} failed with {StatusCode}: {Error}", endpoint, response.StatusCode, errorContent);
+                    return null;
+                }
+
+                var content = await response.Content.ReadAsByteArrayAsync();
+                var contentType = response.Content.Headers.ContentType?.ToString() ?? "application/octet-stream";
+                
+                // Extract headers
+                var headers = new Dictionary<string, string>();
+                foreach (var header in response.Headers)
+                {
+                    headers[header.Key] = string.Join(", ", header.Value);
+                }
+                foreach (var header in response.Content.Headers)
+                {
+                    headers[header.Key] = string.Join(", ", header.Value);
+                }
+
+                _logger.LogDebug("Downloaded file from {Endpoint}: {Size} bytes, ContentType: {ContentType}", 
+                    endpoint, content.Length, contentType);
+
+                return new FileDownloadResponse
+                {
+                    Content = content,
+                    ContentType = contentType,
+                    Headers = headers
+                };
+            }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "HttpClient disposed during GET file request to {Endpoint}", endpoint);
+                return null;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "GET file request cancelled for {Endpoint}", endpoint);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "GET file request failed for {Endpoint}", endpoint);
+                return null;
             }
         }
 

@@ -308,7 +308,7 @@ if (-not $BlazorOnly) {
 }
 
 # Configure IP Restrictions
-if (-not $SkipIpRestrictions -and -not $c -and -not $ApiOnly) {
+if (-not $SkipIpRestrictions -and -not $BlazorOnly -and -not $ApiOnly) {
     Write-Step "Configuring IP Restrictions"
     
     Write-Host "Getting Blazor outbound IPs..." -ForegroundColor Gray
@@ -325,31 +325,69 @@ if (-not $SkipIpRestrictions -and -not $c -and -not $ApiOnly) {
         --name $ApiAppName `
         --query 'ipSecurityRestrictions[].name' -o tsv
     
+    # Get existing IPs to avoid duplicates
+    $existingIps = az webapp config access-restriction show `
+        --resource-group $ResourceGroup `
+        --name $ApiAppName `
+        --query 'ipSecurityRestrictions[].ipAddress' -o tsv
+    
     $ipArray = $blazorIps -split ','
     $priority = 300
     $addedCount = 0
+    $skippedCount = 0
+    $errorCount = 0
     
     foreach ($ip in $ipArray) {
         $ruleName = "Allow-Blazor-$priority"
+        $ipWithCidr = "$ip/32"
         
-        if ($currentRules -notcontains $ruleName) {
+        # Check if rule name exists OR if IP already exists
+        if ($currentRules -contains $ruleName) {
+            Write-Host "  Skipping $ip (rule already exists)" -ForegroundColor DarkGray
+            $skippedCount++
+        }
+        elseif ($existingIps -contains $ipWithCidr) {
+            Write-Host "  Skipping $ip (IP already allowed)" -ForegroundColor DarkGray
+            $skippedCount++
+        }
+        else {
             Write-Host "  Adding $ip..." -ForegroundColor Gray
-            az webapp config access-restriction add `
-                --resource-group $ResourceGroup `
-                --name $ApiAppName `
-                --rule-name $ruleName `
-                --action Allow `
-                --ip-address "$ip/32" `
-                --priority $priority 2>&1 | Out-Null
-            $addedCount++
+            try {
+                $result = az webapp config access-restriction add `
+                    --resource-group $ResourceGroup `
+                    --name $ApiAppName `
+                    --rule-name $ruleName `
+                    --action Allow `
+                    --ip-address $ipWithCidr `
+                    --priority $priority 2>&1
+                
+                if ($LASTEXITCODE -eq 0) {
+                    $addedCount++
+                }
+                else {
+                    Write-Host "    Warning: Failed to add $ip - $result" -ForegroundColor Yellow
+                    $errorCount++
+                }
+            }
+            catch {
+                Write-Host "    Warning: Exception adding $ip - $($_.Exception.Message)" -ForegroundColor Yellow
+                $errorCount++
+            }
         }
         $priority++
     }
     
+    Write-Host ""
     if ($addedCount -gt 0) {
-        Write-Success "Added $addedCount IP restriction rule(s)"
+        Write-Success "Added $addedCount new IP restriction rule(s)"
     }
-    else {
+    if ($skippedCount -gt 0) {
+        Write-Host "Skipped $skippedCount existing IP(s)" -ForegroundColor Gray
+    }
+    if ($errorCount -gt 0) {
+        Write-Host "Failed to add $errorCount IP(s) (may already exist or priority conflict)" -ForegroundColor Yellow
+    }
+    if ($addedCount -eq 0 -and $errorCount -eq 0) {
         Write-Host "All IP restrictions already configured" -ForegroundColor Gray
     }
 }
