@@ -42,6 +42,65 @@
                     </button>
                 </div>
                 <div class="content-card">
+                    <!-- Filter Section -->
+                    <div style="padding: 15px 20px; border-bottom: 1px solid #dee2e6;">
+                        <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+                            <div style="flex: 2; min-width: 180px;">
+                                <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">שם בית ספר</label>
+                                <input type="text" @bind="_filterName" @bind:event="oninput"
+                                    placeholder="סנן לפי שם..."
+                                    style="width: 100%; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 0.9em; box-sizing: border-box;" />
+                            </div>
+                            <div style="flex: 2; min-width: 180px;">
+                                <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">כתובת</label>
+                                <input type="text" @bind="_filterAddress" @bind:event="oninput"
+                                    placeholder="סנן לפי כתובת..."
+                                    style="width: 100%; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 0.9em; box-sizing: border-box;" />
+                            </div>
+                            <div style="flex: 2; min-width: 160px;">
+                                <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">מפקח</label>
+                                <input type="text" @bind="_filterInspector" @bind:event="oninput"
+                                    placeholder="סנן לפי מפקח..."
+                                    style="width: 100%; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 0.9em; box-sizing: border-box;" />
+                            </div>
+                            <div style="flex: 2; min-width: 160px;">
+                                <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">אפיון המוסד</label>
+                                <input type="text" @bind="_filterCharacterization" @bind:event="oninput"
+                                    placeholder="סנן לפי אפיון..."
+                                    style="width: 100%; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 0.9em; box-sizing: border-box;" />
+                            </div>
+                            <div style="flex: 1; min-width: 140px;">
+                                <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">שלב חינוך</label>
+                                <select @bind="_filterEducationStage"
+                                    style="width: 100%; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 0.9em; background: white; box-sizing: border-box;">
+                                    <option value="">הכל</option>
+                                    @foreach (var stage in _distinctEducationStages)
+                                    {
+                                        <option value="@stage">@stage</option>
+                                    }
+                                </select>
+                            </div>
+                            <div style="flex: 2; min-width: 160px;">
+                                <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">בעלים</label>
+                                <input type="text" @bind="_filterOwner" @bind:event="oninput"
+                                    placeholder="סנן לפי בעלים..."
+                                    style="width: 100%; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 0.9em; box-sizing: border-box;" />
+                            </div>
+                            <div style="padding-bottom: 1px;">
+                                <button @onclick="ClearFilters"
+                                    style="padding: 7px 16px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9em; white-space: nowrap;">
+                                    נקה סינון
+                                </button>
+                            </div>
+                        </div>
+                        @if (HasActiveFilters)
+                        {
+                            <div style="margin-top: 10px; font-size: 0.85em; color: #555;">
+                                מציג <strong>@FilteredSchools.Count()</strong> בתי ספר מתוך <strong>@_schools.Count</strong>
+                            </div>
+                        }
+                    </div>
+
                     <!-- Schools table -->
                     <div class="schools-table-section">
                         <div id="schoolsTableContainer">
@@ -88,28 +147,38 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @foreach (var school in _sortedSchools)
+                                            @{ var filtered = FilteredSchools.ToList(); }
+                                            @if (filtered.Count == 0)
                                             {
                                                 <tr>
-                                                    <td>
-                                                        <div class="actions-cell">
-                                                            <button class="btn btn-sm btn-icon" 
-                                                                    @onclick="() => ViewSchool(school.Id, school.Name)" 
-                                                                    title="צפייה">
-                                                                <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                    <td>@school.Name</td>
-                                                    <td>@school.Symbol</td>
-                                                    <td>@school.Address</td>
-                                                    <td>@school.PrincipalName</td>
-                                                    <td>@school.InspectorName</td>
-                                                    <td>@school.CharacterizationName</td>
-                                                    <td>@school.ContactPerson</td>
-                                                    <td>@school.EducationStage</td>
-                                                    <td>@school.OwnerName</td>
+                                                    <td colspan="10" style="text-align: center; padding: 20px; color: #666;">אין בתי ספר התואמים לסינון</td>
                                                 </tr>
+                                            }
+                                            else
+                                            {
+                                                @foreach (var school in filtered)
+                                                {
+                                                    <tr>
+                                                        <td>
+                                                            <div class="actions-cell">
+                                                                <button class="btn btn-sm btn-icon" 
+                                                                        @onclick="() => ViewSchool(school.Id, school.Name)" 
+                                                                        title="צפייה">
+                                                                    <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                        <td>@school.Name</td>
+                                                        <td>@school.Symbol</td>
+                                                        <td>@school.Address</td>
+                                                        <td>@school.PrincipalName</td>
+                                                        <td>@school.InspectorName</td>
+                                                        <td>@school.CharacterizationName</td>
+                                                        <td>@school.ContactPerson</td>
+                                                        <td>@school.EducationStage</td>
+                                                        <td>@school.OwnerName</td>
+                                                    </tr>
+                                                }
                                             }
                                         </tbody>
                                     </table>
@@ -133,6 +202,48 @@
     private string _yearDisplay = "";
     private string _sortColumn = nameof(SchoolDto.Name);
     private bool _sortAscending = true;
+
+    // Filter state
+    private string _filterName = string.Empty;
+    private string _filterAddress = string.Empty;
+    private string _filterInspector = string.Empty;
+    private string _filterCharacterization = string.Empty;
+    private string _filterEducationStage = string.Empty;
+    private string _filterOwner = string.Empty;
+
+    private List<string> _distinctEducationStages => _schools
+        .Where(s => !string.IsNullOrEmpty(s.EducationStage))
+        .Select(s => s.EducationStage!)
+        .Distinct()
+        .OrderBy(s => s)
+        .ToList();
+
+    private IEnumerable<SchoolDto> FilteredSchools => _sortedSchools.Where(s =>
+        (string.IsNullOrEmpty(_filterName) || (s.Name ?? "").Contains(_filterName, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(_filterAddress) || (s.Address ?? "").Contains(_filterAddress, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(_filterInspector) || (s.InspectorName ?? "").Contains(_filterInspector, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(_filterCharacterization) || (s.CharacterizationName ?? "").Contains(_filterCharacterization, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(_filterEducationStage) || s.EducationStage == _filterEducationStage) &&
+        (string.IsNullOrEmpty(_filterOwner) || (s.OwnerName ?? "").Contains(_filterOwner, StringComparison.OrdinalIgnoreCase))
+    );
+
+    private bool HasActiveFilters =>
+        !string.IsNullOrEmpty(_filterName) ||
+        !string.IsNullOrEmpty(_filterAddress) ||
+        !string.IsNullOrEmpty(_filterInspector) ||
+        !string.IsNullOrEmpty(_filterCharacterization) ||
+        !string.IsNullOrEmpty(_filterEducationStage) ||
+        !string.IsNullOrEmpty(_filterOwner);
+
+    private void ClearFilters()
+    {
+        _filterName = string.Empty;
+        _filterAddress = string.Empty;
+        _filterInspector = string.Empty;
+        _filterCharacterization = string.Empty;
+        _filterEducationStage = string.Empty;
+        _filterOwner = string.Empty;
+    }
 
     // Add school modal reference
     private AddSchoolModal? _addSchoolModal;
