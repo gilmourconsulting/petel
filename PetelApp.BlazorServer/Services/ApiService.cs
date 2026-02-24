@@ -154,9 +154,14 @@ namespace PetelApp.BlazorServer.Services
                     {
                         throw new HttpRequestException($"Rate limit exceeded. Please wait before retrying. Details: {errorContent}");
                     }
+                    
+                    // Throw HttpStatusException for all other non-success status codes
+                    throw new HttpStatusException(
+                        response.StatusCode,
+                        $"Request failed with status {response.StatusCode}",
+                        errorContent
+                    );
                 }
-
-                response.EnsureSuccessStatusCode();
                 
                 // Read raw content for logging
                 var content = await response.Content.ReadAsStringAsync();

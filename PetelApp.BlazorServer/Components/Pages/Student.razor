@@ -482,14 +482,23 @@
                 _yearId = int.Parse(yearIdStr);
             }
 
-            // Check navigation source to show appropriate back button
-            var navigationSourceResponse = await ApiService.GetAsync<Dictionary<string, string>>(
-            $"session/property/NavigationSource");
-
-            if (navigationSourceResponse != null && navigationSourceResponse.TryGetValue("value", out var navSource))
+            // Check navigation source to show appropriate back button (with fallback for missing property)
+            try
             {
-                _isFromTransactionDetails = navSource == "transactiondetails";
-                Console.WriteLine($"Navigation source: {navSource}, Show transaction button: {_isFromTransactionDetails}");
+                var navigationSourceResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                $"session/property/NavigationSource");
+
+                if (navigationSourceResponse != null && navigationSourceResponse.TryGetValue("value", out var navSource))
+                {
+                    _isFromTransactionDetails = navSource == "transactiondetails";
+                    Console.WriteLine($"Navigation source: {navSource}, Show transaction button: {_isFromTransactionDetails}");
+                }
+            }
+            catch (HttpStatusException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                // Property not set - use default behavior (not from transaction details)
+                _isFromTransactionDetails = false;
+                Console.WriteLine("NavigationSource property not found, using default: students");
             }
 
             // Get school and entity IDs from school_year
