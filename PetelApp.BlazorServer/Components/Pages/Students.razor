@@ -102,6 +102,61 @@
             </div>
         </div>
 
+        <!-- Filter Section -->
+        <div class="content-card" style="margin-bottom: 20px;">
+            <div style="padding: 15px 20px;">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end;">
+                    <div style="flex: 1; min-width: 130px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">ת.ז</label>
+                        <input type="text" @bind="_filterIdNumber" @bind:event="oninput"
+                            placeholder="סנן לפי ת.ז..."
+                            style="width: 100%; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 0.9em; box-sizing: border-box;" />
+                    </div>
+                    <div style="flex: 2; min-width: 180px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">שם</label>
+                        <input type="text" @bind="_filterName" @bind:event="oninput"
+                            placeholder="סנן לפי שם..."
+                            style="width: 100%; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 0.9em; box-sizing: border-box;" />
+                    </div>
+                    <div style="flex: 1; min-width: 130px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">כיתה</label>
+                        <input type="text" @bind="_filterClass" @bind:event="oninput"
+                            placeholder="סנן לפי כיתה..."
+                            style="width: 100%; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 0.9em; box-sizing: border-box;" />
+                    </div>
+                    <div style="flex: 2; min-width: 180px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">רשות שולחת</label>
+                        <input type="text" @bind="_filterCouncil" @bind:event="oninput"
+                            placeholder="סנן לפי רשות..."
+                            style="width: 100%; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 0.9em; box-sizing: border-box;" />
+                    </div>
+                    <div style="flex: 1; min-width: 140px;">
+                        <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">סטטוס</label>
+                        <select @bind="_filterStatus"
+                            style="width: 100%; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 0.9em; background: white; box-sizing: border-box;">
+                            <option value="">הכל</option>
+                            @foreach (var status in _distinctStatuses)
+                            {
+                                <option value="@status">@status</option>
+                            }
+                        </select>
+                    </div>
+                    <div style="padding-bottom: 1px;">
+                        <button @onclick="ClearFilters"
+                            style="padding: 7px 16px; background: #6c757d; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9em; white-space: nowrap;">
+                            נקה סינון
+                        </button>
+                    </div>
+                </div>
+                @if (HasActiveFilters)
+                {
+                    <div style="margin-top: 10px; font-size: 0.85em; color: #555;">
+                        מציג <strong>@FilteredStudents.Count()</strong> תלמידים מתוך <strong>@_students.Count</strong>
+                    </div>
+                }
+            </div>
+        </div>
+
         <!-- Students Table Section -->
         <div class="content-card">
             <div class="detail-card expanded">
@@ -162,30 +217,40 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach (var student in _students)
+                                    @{ var filtered = FilteredStudents.ToList(); }
+                                    @if (filtered.Count == 0)
                                     {
                                         <tr>
-                                            <td>
-                                                <SecureButton
-                                                    ActionName="students_viewStudent"
-                                                    ScreenName="@PageName"
-                                                    FunctionName="ViewStudent"
-                                                    ActionParams="@($"studentId={student.Id},name={student.FirstName} {student.LastName}")"
-                                                    OnClick="() => ViewStudent(student.Id)"
-                                                    CssClass="btn-icon"
-                                                    HideIfNoAccess="true">
-                                                    <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
-                                                </SecureButton>
-                                            </td>
-                                            <td>@student.IdNumber</td>
-                                            <td>@student.FirstName</td>
-                                            <td>@student.LastName</td>
-                                            <td>@GetGenderDisplay(student.Gender)</td>
-                                            <td>@student.ClassName</td>
-                                            <td>@student.Status</td>
-                                            <td>@student.City</td>
-                                            <td>@student.CouncilName</td>
+                                            <td colspan="9" style="text-align: center; padding: 20px; color: #666;">אין תלמידים התואמים לסינון</td>
                                         </tr>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var student in filtered)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <SecureButton
+                                                        ActionName="students_viewStudent"
+                                                        ScreenName="@PageName"
+                                                        FunctionName="ViewStudent"
+                                                        ActionParams="@($"studentId={student.Id},name={student.FirstName} {student.LastName}")"
+                                                        OnClick="() => ViewStudent(student.Id)"
+                                                        CssClass="btn-icon"
+                                                        HideIfNoAccess="true">
+                                                        <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                                    </SecureButton>
+                                                </td>
+                                                <td>@student.IdNumber</td>
+                                                <td>@student.FirstName</td>
+                                                <td>@student.LastName</td>
+                                                <td>@GetGenderDisplay(student.Gender)</td>
+                                                <td>@student.ClassName</td>
+                                                <td>@student.Status</td>
+                                                <td>@student.City</td>
+                                                <td>@student.CouncilName</td>
+                                            </tr>
+                                        }
                                     }
                                 </tbody>
                             </table>
@@ -334,6 +399,48 @@
 
     private string _sortColumn = nameof(StudentDto.LastName);
     private bool _sortAscending = true;
+
+    // Filter state
+    private string _filterIdNumber = string.Empty;
+    private string _filterName = string.Empty;
+    private string _filterClass = string.Empty;
+    private string _filterCouncil = string.Empty;
+    private string _filterStatus = string.Empty;
+
+    private List<string> _distinctStatuses => _students
+        .Where(s => !string.IsNullOrEmpty(s.Status))
+        .Select(s => s.Status!)
+        .Distinct()
+        .OrderBy(s => s)
+        .ToList();
+
+    // Normalizes Hebrew gershayim ״ (U+05F4) to regular " (U+0022) so both match
+    private static string NormalizeQuotes(string s) =>
+        s.Replace('\u05F4', '"').Replace('\u05F3', '\'');
+
+    private IEnumerable<StudentDto> FilteredStudents => _students.Where(s =>
+        (string.IsNullOrEmpty(_filterIdNumber) || (s.IdNumber ?? "").Contains(_filterIdNumber, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(_filterName) || $"{s.FirstName} {s.LastName}".Contains(_filterName, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(_filterClass) || NormalizeQuotes(s.ClassName ?? "").Contains(NormalizeQuotes(_filterClass), StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(_filterCouncil) || (s.CouncilName ?? "").Contains(_filterCouncil, StringComparison.OrdinalIgnoreCase)) &&
+        (string.IsNullOrEmpty(_filterStatus) || s.Status == _filterStatus)
+    );
+
+    private bool HasActiveFilters =>
+        !string.IsNullOrEmpty(_filterIdNumber) ||
+        !string.IsNullOrEmpty(_filterName) ||
+        !string.IsNullOrEmpty(_filterClass) ||
+        !string.IsNullOrEmpty(_filterCouncil) ||
+        !string.IsNullOrEmpty(_filterStatus);
+
+    private void ClearFilters()
+    {
+        _filterIdNumber = string.Empty;
+        _filterName = string.Empty;
+        _filterClass = string.Empty;
+        _filterCouncil = string.Empty;
+        _filterStatus = string.Empty;
+    }
 
     // Upload modal reference
     private StudentUploadModal? _uploadModal;
