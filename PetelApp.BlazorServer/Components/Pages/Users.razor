@@ -86,6 +86,9 @@
                                     <th @onclick="() => SortTable(nameof(UserDto.Username))" style="cursor: pointer;">
                                         שם משתמש @GetSortArrow(nameof(UserDto.Username))
                                     </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.EntityName))" style="cursor: pointer;">
+                                        ישות @GetSortArrow(nameof(UserDto.EntityName))
+                                    </th>
                                     <th @onclick="() => SortTable(nameof(UserDto.FullName))" style="cursor: pointer;">
                                         שם מלא @GetSortArrow(nameof(UserDto.FullName))
                                     </th>
@@ -100,6 +103,15 @@
                                     </th>
                                     <th @onclick="() => SortTable(nameof(UserDto.LastLogin))" style="cursor: pointer;">
                                         כניסה אחרונה @GetSortArrow(nameof(UserDto.LastLogin))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.FailedPasswordAttempts))" style="cursor: pointer;">
+                                        נסיונות סיסמה כושלים @GetSortArrow(nameof(UserDto.FailedPasswordAttempts))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.FailedOtpAttempts))" style="cursor: pointer;">
+                                        נסיונות OTP כושלים @GetSortArrow(nameof(UserDto.FailedOtpAttempts))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.OtpVerified))" style="cursor: pointer;">
+                                        OTP מאומת @GetSortArrow(nameof(UserDto.OtpVerified))
                                     </th>
                                 </tr>
                             </thead>
@@ -134,6 +146,7 @@
                                             </SecureButton>
                                         </td>
                                         <td>@user.Username</td>
+                                        <td>@user.EntityName</td>
                                         <td>@user.FullName</td>
                                         <td>@user.Email</td>
                                         <td>@(user.Phone ?? "")</td>
@@ -147,6 +160,13 @@
                                             }
                                         </td>
                                         <td>@(user.LastLogin?.ToString("dd/MM/yyyy HH:mm") ?? "אף פעם")</td>
+                                        <td style="text-align: center;">@(user.FailedPasswordAttempts > 0 ? user.FailedPasswordAttempts.ToString() : "-")</td>
+                                        <td style="text-align: center;">@(user.FailedOtpAttempts > 0 ? user.FailedOtpAttempts.ToString() : "-")</td>
+                                        <td style="text-align: center;">
+                                            <span class="status-badge @(user.OtpVerified ? "active" : "inactive")">
+                                                @(user.OtpVerified ? "כן" : "לא")
+                                            </span>
+                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -522,6 +542,18 @@
             nameof(UserDto.LastLogin) => _sortAscending
                 ? _users.OrderBy(u => u.LastLogin ?? DateTime.MinValue).ToList()
                 : _users.OrderByDescending(u => u.LastLogin ?? DateTime.MinValue).ToList(),
+            nameof(UserDto.EntityName) => _sortAscending
+                ? _users.OrderBy(u => u.EntityName).ToList()
+                : _users.OrderByDescending(u => u.EntityName).ToList(),
+            nameof(UserDto.FailedPasswordAttempts) => _sortAscending
+                ? _users.OrderBy(u => u.FailedPasswordAttempts).ToList()
+                : _users.OrderByDescending(u => u.FailedPasswordAttempts).ToList(),
+            nameof(UserDto.FailedOtpAttempts) => _sortAscending
+                ? _users.OrderBy(u => u.FailedOtpAttempts).ToList()
+                : _users.OrderByDescending(u => u.FailedOtpAttempts).ToList(),
+            nameof(UserDto.OtpVerified) => _sortAscending
+                ? _users.OrderBy(u => u.OtpVerified).ToList()
+                : _users.OrderByDescending(u => u.OtpVerified).ToList(),
             _ => _users
         };
     }

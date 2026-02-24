@@ -69,7 +69,10 @@ namespace PetelApp.Api.Controllers
                         u.PasswordChangedAt,
                         u.PasswordChangeRequired,
                         EntityId = u.EntityId,  // ✅ Show entity ID
-                        EntityName = u.Entity != null ? u.Entity.Name : "לא משויך"  // ✅ Show entity name
+                        EntityName = u.Entity != null ? u.Entity.Name : "לא משויך",  // ✅ Show entity name
+                        u.FailedPasswordAttempts,
+                        u.FailedOtpAttempts,
+                        u.OtpVerified
                     })
                     .OrderBy(u => u.LastName)
                     .ThenBy(u => u.FirstName)

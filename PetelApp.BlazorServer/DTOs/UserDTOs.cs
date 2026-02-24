@@ -23,6 +23,9 @@ namespace PetelApp.BlazorServer.DTOs
         public bool PasswordChangeRequired { get; set; }
         public int EntityId { get; set; }
         public string EntityName { get; set; } = string.Empty;
+        public int FailedPasswordAttempts { get; set; }
+        public int FailedOtpAttempts { get; set; }
+        public bool OtpVerified { get; set; }
     }
 
     /// <summary>
