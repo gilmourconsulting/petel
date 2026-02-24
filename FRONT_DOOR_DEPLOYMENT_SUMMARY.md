@@ -1,5 +1,5 @@
-# Israeli IP Ranges for Front Door WAF Configuration
-# Copy and paste these into Azure Portal custom rules
+# Israeli IP Ranges for Azure App Service IP Restrictions
+# DEPRECATED: Azure Front Door was removed - Using direct App Service IP restrictions
 
 ## For Azure Portal - Comma-separated format:
 79.176.0.0/13,80.178.0.0/15,80.246.0.0/15,80.250.0.0/15,82.80.128.0/17,82.166.0.0/15,85.64.0.0/13,86.57.0.0/17,86.109.0.0/16,87.68.0.0/14,87.236.0.0/14,88.198.0.0/15,89.138.0.0/15,90.128.0.0/11,91.90.88.0/21,91.199.9.0/24,92.126.0.0/16,94.188.0.0/14,94.230.0.0/16,109.186.0.0/15,109.228.0.0/15,132.64.0.0/12,141.226.0.0/16,146.185.128.0/17,147.161.128.0/17,149.3.0.0/17,151.233.0.0/16,176.12.0.0/15,176.63.0.0/16,178.137.0.0/16,178.173.128.0/17,185.2.12.0/22,185.4.16.0/22,188.64.0.0/13,188.120.128.0/17,212.116.128.0/17,213.57.0.0/17,212.179.0.0/16,82.166.0.0/16,77.125.0.0/16,31.154.0.0/16,31.168.0.0/16,80.178.0.0/16,87.70.0.0/16,94.188.0.0/16,95.86.0.0/16,103.209.0.0/16
@@ -53,65 +53,60 @@
 95.86.0.0/16     # Israeli provider
 103.209.0.0/16   # Israeli provider
 
-## Manual Configuration Steps:
+## Current Implementation: Azure App Service IP Restrictions
 
-### Step 1: Add Allow Rule for Israeli IPs
+**Architecture**: IP restrictions are configured directly on Azure App Service (both API and Blazor apps), not via Azure Front Door.
+
+### Configuration Steps:
+
+**Option 1: Using PowerShell Script**
+```powershell
+.\Add-IsraelIPRestrictions.ps1 -Environment production
+```
+
+**Option 2: Manual Azure Portal Configuration**
 1. Go to Azure Portal: https://portal.azure.com
-2. Navigate to: Front Door WAF Policies → petelWafTest
-3. Click: Settings → Custom rules
-4. Click: + Add custom rule
-5. Configure:
-   - Name: AllowIsraeliIPs
-   - Priority: 100
-   - Rule type: Match rule
-   - Condition type: IP address
-   - Operation: IP match
-   - IP addresses: [paste comma-separated list above]
-   - Action: Allow
-6. Click: Add
+2. Navigate to: App Services → [your-app-service]
+3. Click: Settings → Networking
+4. Click: Access Restrictions
+5. Add IP ranges from the list above
+6. Save changes
 
-### Step 2: Add Geo-Blocking Rule
-1. Click: + Add custom rule  
-2. Configure:
-   - Name: BlockNonIsraeliGeo
-   - Priority: 500
-   - Rule type: Match rule
-   - Condition type: Geo location
-   - Match: Negate condition = YES
-   - Countries: IL (Israel)
-   - Action: Block
-3. Click: Add
+## Direct App Service URLs
 
-### Step 3: Save Changes
-1. Click: Save at the top
-2. Wait for deployment (2-3 minutes)
+**Test Environment:**
+- Blazor App: https://petel-test-blazor.azurewebsites.net
+- API: https://petel-test-api.azurewebsites.net
 
-## Front Door Endpoint
-
-Your test environment Front Door URL:
-https://petel-test-egeqaadabmd3fagh.z01.azurefd.net
-
-- Blazor App: https://petel-test-egeqaadabmd3fagh.z01.azurefd.net/
-- API: https://petel-test-egeqaadabmd3fagh.z01.azurefd.net/api
+**Production Environment:**
+- Blazor App: https://petel-prod-blazor.azurewebsites.net
+- API: https://petel-prod-api.azurewebsites.net
 
 ## Security Features Active
 
-✅ DDoS Protection (automatic with Front Door)
-✅ OWASP Core Rule Set 1.0
-✅ Bot Protection
-✅ SSL/TLS encryption
-✅ Premium tier features
+✅ Azure App Service IP Restrictions (Israeli IPs only)
+✅ SSL/TLS encryption (automatic with azurewebsites.net)
+✅ Basic DDoS mitigation (Azure infrastructure)
+✅ Network isolation via IP filtering
 
 ## Next Steps
 
-1. Add Israeli IP restrictions manually (steps above)
-2. Test the endpoint from Israel
-3. Verify WAF is blocking non-Israeli IPs
-4. Update DNS to point to Front Door
-5. Configure custom domain (optional)
+1. Add Israeli IP restrictions via script or Azure Portal
+2. Test access from Israeli IPs
+3. Verify non-Israeli IPs are blocked (403 Forbidden)
+4. Monitor access logs for blocked requests
+5. Update IP ranges as needed (see ISRAELI_IP_RANGES_ANALYSIS.md)
 
 ## Monitoring
 
-- View WAF logs: Azure Portal → Front Door → Logs
-- Check blocked requests: Diagnostics → WAF logs
-- Monitor performance: Metrics → Front Door metrics
+- View access logs: Azure Portal → App Service → Logs
+- Check blocked requests: Diagnostics → Application Insights
+- Monitor performance: Metrics → App Service metrics
+
+## Why No Front Door?
+
+Azure Front Door was removed to reduce costs. Direct App Service IP restrictions provide sufficient security for this application:
+- ✅ Geographic restriction (Israeli IPs only)
+- ✅ Lower monthly costs (~$0 vs ~$35+ for Front Door)
+- ✅ Simpler architecture to maintain
+- ✅ Adequate protection for educational management system

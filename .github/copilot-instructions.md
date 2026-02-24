@@ -1432,6 +1432,8 @@ public class MyController : BaseController
 
 **Purpose**: When the API has IP restrictions that only allow server-to-server calls, browsers cannot directly access API endpoints. A proxy endpoint in the Blazor app forwards browser requests to the API.
 
+**Note**: The system uses Azure App Service IP restrictions (Israeli IPs only) for geographic filtering.
+
 **Architecture**:
 ```
 Browser (with user token) → Blazor Proxy (forwards token) → API (validates token) → Document
@@ -1558,7 +1560,7 @@ public async Task<IActionResult> DownloadDocument(long id)
 ```
 
 **When to Use This Pattern**:
-- ✅ API has IP restrictions (Azure App Service firewall, Front Door, etc.)
+- ✅ API has IP restrictions (Azure App Service IP filtering)
 - ✅ Browser needs to download/view files from API
 - ✅ Need to maintain user authentication with JWT tokens
 - ✅ Server-to-server calls are allowed in security architecture
@@ -1582,8 +1584,7 @@ client.DefaultRequestHeaders.Add("Authorization", authHeader.ToString());
 **Troubleshooting**:
 - **404 errors**: Verify `UseRouting()` is called before `MapGet()` in Program.cs
 - **401 errors**: Check Authorization header is being forwarded correctly
-- **403 errors**: Verify Blazor server IP is in API's IP allowlist
-- **CORS errors**: If using Front Door, ensure proper origin configuration
+- **403 errors**: Verify Blazor server IP is in API's IP allowlist (Azure App Service IP restrictions)
 
 ## Entity Framework Patterns
 

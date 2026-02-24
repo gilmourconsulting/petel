@@ -296,7 +296,7 @@ See [PRODUCTION_DEPLOYMENT_GUIDE.md](PRODUCTION_DEPLOYMENT_GUIDE.md) Phase 2:
 2. Add secrets to Key Vault
 3. Configure App Service Key Vault references
 4. Deploy application code
-5. Setup Front Door and WAF
+5. Configure Israeli IP restrictions
 6. Validate deployment
 
 ---

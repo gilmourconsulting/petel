@@ -82,8 +82,9 @@ Key Vault: _____________________________________________
 ```
 API:          https://_______________.azurewebsites.net
 Blazor:       https://_______________.azurewebsites.net
-Front Door:   https://_______________.z01.azurefd.net (will get in Phase 4)
 ```
+
+**Note**: No Front Door - using direct App Service URLs with IP restrictions.
 
 ### Step 1.4: Verify Resources
 ```powershell
@@ -303,80 +304,70 @@ az webapp log tail --name petel-prod-blazor --resource-group petel-prod-rg
 
 ---
 
-## Phase 4: Front Door and WAF (20-30 minutes)
+## Phase 4: IP Restrictions Configuration (10-15 minutes)
 
-### Step 4.1: Deploy Front Door
+**Note**: Azure Front Door was removed to reduce costs. Using direct App Service IP restrictions instead.
+
+### Step 4.1: Configure Israeli IP Restrictions
 
 ```powershell
 cd c:\dev\PetelFullApp
 
-# Create Front Door with WAF
-.\Setup-Production-FrontDoor.ps1
+# Apply Israeli IP restrictions to both App Services
+.\Add-IsraelIPRestrictions.ps1 -Environment production
 ```
 
-- [ ] Front Door profile created
-- [ ] WAF policy created with OWASP rules
-- [ ] Bot protection enabled
-- [ ] Israeli IP restrictions configured
-- [ ] Geo-blocking configured (block non-Israeli)
-- [ ] Endpoint created
-- [ ] Origin groups created (API + Blazor)
-- [ ] Routes configured
-- [ ] Caching rules configured
+- [ ] IP restrictions configured on Blazor App Service
+- [ ] IP restrictions configured on API App Service
+- [ ] 47 Israeli IP ranges added (Bezeq, HOT, Cellcom, Partner, etc.)
+- [ ] Blazor-to-API server communication whitelisted
+- [ ] Script completed without errors
 
-**Front Door Endpoint:**
-```
-Front Door URL: https://_____________________.z01.azurefd.net
-```
-
-### Step 4.2: Test Front Door
+### Step 4.2: Verify IP Restrictions
 
 ```powershell
-# Test from Israeli IP
-curl https://<FRONT_DOOR_URL>.z01.azurefd.net
+# Check Blazor IP restrictions
+az webapp config access-restriction show `
+    --name petel-prod-blazor `
+    --resource-group petel-prod-rg
 
-# Test API through Front Door
-curl https://<FRONT_DOOR_URL>.z01.azurefd.net/api/health
-
-# Test Blazor through Front Door
-curl https://<FRONT_DOOR_URL>.z01.azurefd.net/
+# Check API IP restrictions
+az webapp config access-restriction show `
+    --name petel-prod-api `
+    --resource-group petel-prod-rg
 ```
 
-- [ ] Front Door responds (200 OK)
-- [ ] API accessible through Front Door
-- [ ] Blazor accessible through Front Door
-- [ ] No certificate errors
+- [ ] Blazor has IP restrictions configured
+- [ ] API has IP restrictions configured
+- [ ] Israeli IP ranges listed in output
 
-### Step 4.3: Verify WAF Protection
+### Step 4.3: Test Access from Israeli IP
 
 ```powershell
-# Test SQL injection (should be blocked with 403)
-curl "https://<FRONT_DOOR_URL>.z01.azurefd.net/?test=1' OR '1'='1"
+# Test Blazor (should succeed from Israeli IP)
+curl https://petel-prod-blazor.azurewebsites.net
 
-# Test XSS (should be blocked)
-curl "https://<FRONT_DOOR_URL>.z01.azurefd.net/?test=<script>alert('xss')</script>"
+# Test API (should succeed from Israeli IP)
+curl https://petel-prod-api.azurewebsites.net/api/health
 ```
 
 **Expected Results:**
-- [ ] SQL injection blocked (403 Forbidden)
-- [ ] XSS attack blocked (403 Forbidden)
-- [ ] WAF logs show blocked requests
+- [ ] Blazor responds (200 OK)
+- [ ] API responds (200 OK)
+- [ ] No certificate errors
 
-### Step 4.4: Verify Israeli IP Restrictions
+### Step 4.4: Test Geographic Restriction (Optional)
 
-**Test from Israeli IP:**
-- [ ] Access allowed (200 OK)
+**Test from Non-Israeli IP** (use VPN, cloud server, or ask colleague abroad):
+```bash
+curl https://petel-prod-blazor.azurewebsites.net
+```
 
-**Test from Non-Israeli IP** (use VPN or ask colleague abroad):
-- [ ] Access blocked (403 Forbidden) due to geo-restriction
+**Expected Results:**
+- [ ] Access blocked (403 Forbidden)
+- [ ] Geographic restriction working correctly
 
-### Step 4.5: Configure App Services to Only Accept Front Door Traffic
-
-```powershell
-# Get Front Door Service Tag
-$rg = "petel-prod-rg"
-$api = "petel-prod-api"
-$blazor = "petel-prod-blazor"
+**Note**: See [ISRAELI_IP_RANGES_ANALYSIS.md](ISRAELI_IP_RANGES_ANALYSIS.md) for detailed IP range documentation.
 
 # Restrict API to Front Door only
 az webapp config access-restriction add --resource-group $rg --name $api --rule-name "AllowFrontDoor" --action Allow --service-tag AzureFrontDoor.Backend --priority 100

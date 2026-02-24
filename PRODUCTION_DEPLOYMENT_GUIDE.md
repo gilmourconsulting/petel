@@ -14,7 +14,7 @@
 3. [Phase 1: Infrastructure Setup](#phase-1-infrastructure-setup)
 4. [Phase 2: Security Configuration](#phase-2-security-configuration)
 5. [Phase 3: Application Deployment](#phase-3-application-deployment)
-6. [Phase 4: Front Door and WAF](#phase-4-front-door-and-waf)
+6. [Phase 4: IP Restrictions Configuration](#phase-4-ip-restrictions-configuration)
 7. [Phase 5: Production Validation](#phase-5-production-validation)
 8. [Rollback Procedures](#rollback-procedures)
 9. [Monitoring and Maintenance](#monitoring-and-maintenance)
@@ -31,8 +31,7 @@ This guide provides a complete step-by-step process for deploying the Petel Educ
 - **Frontend**: Blazor Server (.NET 8.0)
 - **Database**: Azure PostgreSQL Flexible Server
 - **Secrets Management**: Azure Key Vault
-- **CDN/WAF**: Azure Front Door Premium with WAF
-- **Security**: Israeli IP restrictions, rate limiting, JWT auth, 2FA/OTP
+- **Security**: Azure App Service IP restrictions (Israeli IPs only), JWT auth, 2FA/OTP
 - **Monitoring**: Application Insights (optional)
 
 ### Estimated Deployment Time
@@ -40,9 +39,9 @@ This guide provides a complete step-by-step process for deploying the Petel Educ
 - **Infrastructure Setup**: 30-45 minutes
 - **Security Configuration**: 30-45 minutes
 - **Application Deployment**: 15-20 minutes
-- **Front Door Setup**: 20-30 minutes
+- **IP Restrictions Setup**: 10-15 minutes
 - **Validation**: 15-20 minutes
-- **Total**: 2-3 hours
+- **Total**: 1.5-2.5 hours
 
 ---
 
@@ -70,9 +69,10 @@ This guide provides a complete step-by-step process for deploying the Petel Educ
 
 - **App Service Plan P1V3**: ~$150-200
 - **PostgreSQL 2 vCores**: ~$100-150
-- **Azure Front Door Premium**: ~$300-400
 - **Key Vault**: ~$5
-- **Total**: ~$555-755/month
+- **Total**: ~$255-355/month
+
+**Note**: Azure Front Door was removed to reduce costs. Direct App Service IP restrictions provide sufficient security.
 
 ---
 
@@ -301,68 +301,67 @@ Expected responses:
 
 ---
 
-## Phase 4: Front Door and WAF
+## Phase 4: IP Restrictions Configuration
 
-### Step 4.1: Create Front Door with WAF
+**Note**: Azure Front Door was removed to reduce costs. The system uses Azure App Service IP restrictions directly.
+
+### Step 4.1: Configure Israeli IP Restrictions on App Services
 
 ```powershell
 cd c:\dev\PetelFullApp
 
-# Creates Front Door Premium with WAF
-.\Deploy-FrontDoor.ps1 -Environment production
+# Apply Israeli IP restrictions to both API and Blazor App Services
+.\Add-IsraelIPRestrictions.ps1 -Environment production
 ```
 
-**What Gets Created:**
-- Azure Front Door Premium profile
-- WAF policy with Israeli IP restrictions
-- OWASP Core Rule Set 3.2
-- Bot protection
-- DDoS protection (automatic)
+**What Gets Configured:**
+- IP restrictions on Blazor App Service (petel-prod-blazor)
+- IP restrictions on API App Service (petel-prod-api)
+- 47 Israeli IP ranges from major ISPs (Bezeq, HOT, Cellcom, Partner, etc.)
+- Blazor-to-API communication allowed (server IP whitelisted)
 
-**Duration:** 20-30 minutes
+**Duration:** 5-10 minutes
 
-### Step 4.2: Get Front Door Endpoints
+### Step 4.2: Verify IP Restrictions are Active
 
 ```powershell
-$frontDoorName = "petel-prod-frontdoor"
-$resourceGroup = "petel-prod-rg"
+# Check Blazor IP restrictions
+az webapp config access-restriction show `
+    --name petel-prod-blazor `
+    --resource-group petel-prod-rg
 
-az afd endpoint list `
-    --profile-name $frontDoorName `
-    --resource-group $resourceGroup `
-    --query "[].{Name:name, Hostname:hostName}" -o table
+# Check API IP restrictions
+az webapp config access-restriction show `
+    --name petel-prod-api `
+    --resource-group petel-prod-rg
 ```
 
-Expected output:
-```
-Name              Hostname
-----------------  --------------------------------------------
-petel-prod        petel-prod-XXXXXXXXXXXX.z01.azurefd.net
-```
+Expected: List of Israeli IP ranges configured
 
-### Step 4.3: Configure Israeli IP Restrictions
-
-**Automatic (Recommended):**
+### Step 4.3: Test Access from Israeli IP
 
 ```powershell
-.\Add-IsraeliIPRestrictions-FrontDoor.ps1 -Environment production
+# Test Blazor (should succeed from Israeli IP)
+curl https://petel-prod-blazor.azurewebsites.net
+
+# Test API (should succeed from Israeli IP)
+curl https://petel-prod-api.azurewebsites.net/api/health
 ```
 
-**Manual (if needed):**
+Expected: 200 OK response
 
-See [FRONT_DOOR_DEPLOYMENT_SUMMARY.md](c:\dev\PetelFullApp\FRONT_DOOR_DEPLOYMENT_SUMMARY.md) for manual steps.
+### Step 4.4: Test Access Blocking (Optional)
 
-### Step 4.4: Test WAF Rules
+If you have access to a non-Israeli IP (VPN, cloud server), verify blocking works:
 
-```powershell
-# Test from Israeli IP (should succeed)
-curl https://petel-prod-XXXXXXXXXXXX.z01.azurefd.net
-
-# Test SQL injection (should be blocked)
-curl "https://petel-prod-XXXXXXXXXXXX.z01.azurefd.net?test=1' OR '1'='1"
+```bash
+# From non-Israeli IP (should be blocked)
+curl https://petel-prod-blazor.azurewebsites.net
 ```
 
-Expected: 403 Forbidden for malicious requests
+Expected: 403 Forbidden
+
+**Note**: See [ISRAELI_IP_RANGES_ANALYSIS.md](ISRAELI_IP_RANGES_ANALYSIS.md) for detailed IP range documentation.
 
 ---
 
@@ -464,12 +463,22 @@ az webapp deployment slot list --name petel-prod-api --resource-group petel-prod
 az webapp deployment slot swap --name petel-prod-api --resource-group petel-prod-rg --slot staging --target-slot production
 ```
 
-**2. Disable Front Door:**
+**2. Temporarily Disable Access:**
 
 ```powershell
-# Temporarily disable Front Door to stop traffic
-az afd endpoint update --profile-name petel-prod-frontdoor --endpoint-name petel-prod --resource-group petel-prod-rg --enabled-state Disabled
+# Remove IP restrictions temporarily (emergency only)
+az webapp config access-restriction remove `
+    --name petel-prod-blazor `
+    --resource-group petel-prod-rg `
+    --rule-name AllowIsraeliIPs
+
+az webapp config access-restriction remove `
+    --name petel-prod-api `
+    --resource-group petel-prod-rg `
+    --rule-name AllowIsraeliIPs
 ```
+
+**Note**: This removes geographic protection. Restore IP restrictions immediately after resolving the issue.
 
 **3. Restore Database Backup:**
 
@@ -532,7 +541,7 @@ az webapp config appsettings set `
 - Error rate > 5%
 - Database CPU > 80%
 - Failed login attempts > 50/hour
-- WAF blocks > 100/hour
+- Blocked IP access attempts > 100/hour
 
 **Configure in Azure Portal:**
 Monitoring → Alerts → Create alert rule
@@ -555,7 +564,7 @@ az postgres flexible-server backup create --resource-group petel-prod-rg --serve
 ### Step 6.4: Regular Maintenance
 
 **Weekly:**
-- Review WAF logs for attack patterns
+- Review access logs for blocked requests
 - Check error logs
 - Verify backup success
 
@@ -587,12 +596,12 @@ Common causes:
 - Database connection failed → Verify connection string and firewall rules
 - Missing configuration → Verify all appsettings are set
 
-**2. 403 Forbidden from WAF**
+**2. 403 Forbidden**
 
 Causes:
-- IP not in allowed list → Add your IP to WAF policy
-- Malicious request detected → Review WAF logs
-- Bot detection triggered → Add user-agent to allowed list
+- IP not in allowed list → Add your IP to App Service IP restrictions
+- Request from non-Israeli IP → Expected behavior (geographic restriction)
+- Blazor-to-API communication blocked → Verify Blazor outbound IP is whitelisted
 
 **3. 429 Too Many Requests**
 
@@ -615,8 +624,7 @@ az keyvault set-policy --name petel-kv-prod-XXXX --object-id $apiPrincipalId --s
 - [ ] Database initialized with schema and initial data
 - [ ] Key Vault secrets configured
 - [ ] Application deployed and running
-- [ ] Front Door and WAF configured
-- [ ] Israeli IP restrictions active
+- [ ] Israeli IP restrictions configured on both App Services
 - [ ] Rate limiting functional
 - [ ] Security headers present
 - [ ] SSL/TLS working
@@ -636,7 +644,7 @@ az keyvault set-policy --name petel-kv-prod-XXXX --object-id $apiPrincipalId --s
 - Development Team: [Contact Information]
 
 **Security Incidents:**
-- Immediate: Disable Front Door to stop traffic
+- Immediate: Remove IP restrictions to stop all external traffic (emergency only)
 - Contact: Security team lead
 - Document: All actions taken
 
@@ -648,9 +656,10 @@ az keyvault set-policy --name petel-kv-prod-XXXX --object-id $apiPrincipalId --s
 
 - **API**: https://petel-prod-api.azurewebsites.net
 - **Blazor**: https://petel-prod-blazor.azurewebsites.net
-- **Front Door**: https://petel-prod-XXXXXXXXXXXX.z01.azurefd.net
 - **Database**: petel-prod-db-XXXX.postgres.database.azure.com
 - **Key Vault**: https://petel-kv-prod-XXXX.vault.azure.net
+
+**Note**: Direct App Service URLs are used (no CDN/Front Door). Israeli IP restrictions configured directly on App Services.
 
 ### B. Rate Limiting Configuration
 
