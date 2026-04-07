@@ -10,6 +10,15 @@
 @inject ActionSecurityService SecurityService
 
 <div class="documents-table-wrapper">
+    @if (!_isLoading && AllowUpload)
+    {
+        <div style="text-align: left; margin-bottom: 10px;">
+            <button class="btn-secondary" @onclick="ShowAddDocumentTypeModal" title="הוסף סוג מסמך מרשימת הסוגים">
+                <img src="/images/Plus icon.png" alt="הוסף" class="action-icon-natural" style="vertical-align: middle; margin-left: 4px;">
+                הוסף סוג מסמך
+            </button>
+        </div>
+    }
     @if (_isLoading)
     {
         <div class="loading-spinner">טוען מסמכים...</div>
@@ -159,6 +168,66 @@
     </div>
 }
 
+<!-- Add Document Type Modal -->
+@if (_showAddDocumentTypeModal)
+{
+    <div class="modal-overlay" @onclick="CloseAddDocumentTypeModal">
+        <div class="modal-content" @onclick:stopPropagation="true" style="max-width: 500px; direction: rtl;">
+            <div class="modal-header">
+                <h3>הוסף סוג מסמך</h3>
+                <button class="modal-close" @onclick="CloseAddDocumentTypeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_isLoadingAvailableTypes)
+                {
+                    <div class="loading-spinner">טוען סוגי מסמכים...</div>
+                }
+                else if (_availableDocumentTypes.Count == 0)
+                {
+                    <div style="text-align: center; color: #666; padding: 20px;">
+                        כל סוגי המסמכים כבר קיימים ברשימה
+                    </div>
+                }
+                else
+                {
+                    <div class="form-group" style="margin-bottom: 15px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600;">
+                            בחר סוג מסמך <span style="color: red;">*</span>
+                        </label>
+                        <select @bind="_selectedDocumentTypeIdToAdd" style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+                            <option value="0">-- בחר סוג מסמך --</option>
+                            @foreach (var docType in _availableDocumentTypes)
+                            {
+                                <option value="@docType.Id">@docType.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                @if (_availableDocumentTypes.Count > 0)
+                {
+                    <button class="btn-primary" @onclick="SubmitAddDocumentType"
+                            disabled="@(_selectedDocumentTypeIdToAdd == 0 || _isAddingDocumentType)">
+                        @if (_isAddingDocumentType)
+                        {
+                            <span>מוסיף...</span>
+                        }
+                        else
+                        {
+                            <span>
+                                <img src="/images/Plus icon.png" alt="הוסף" class="action-icon-natural" style="vertical-align: middle; margin-left: 4px;">
+                                הוסף
+                            </span>
+                        }
+                    </button>
+                }
+                <button class="btn-secondary" @onclick="CloseAddDocumentTypeModal">ביטול</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public string EntityType { get; set; } = "student"; // 'student', 'school', 'entity', 'entity-hierarchy'
     [Parameter] public int? EntityId { get; set; }
@@ -181,6 +250,13 @@
     private string _selectedFileSize = string.Empty;
     private int _selectedStatusId = 0;
     private List<DocumentStatusTypeDto> _documentStatusTypes = new();
+
+    // Add document type modal state
+    private bool _showAddDocumentTypeModal = false;
+    private bool _isLoadingAvailableTypes = false;
+    private bool _isAddingDocumentType = false;
+    private List<DocumentTypeItemDto> _availableDocumentTypes = new();
+    private int _selectedDocumentTypeIdToAdd = 0;
 
     protected override async Task OnInitializedAsync()
     {
@@ -306,6 +382,96 @@
         _selectedFileName = string.Empty;
         _selectedFileSize = string.Empty;
         _selectedStatusId = 0;
+        StateHasChanged();
+    }
+
+    private async Task ShowAddDocumentTypeModal()
+    {
+        _showAddDocumentTypeModal = true;
+        _selectedDocumentTypeIdToAdd = 0;
+        _availableDocumentTypes = new();
+        _isLoadingAvailableTypes = true;
+        StateHasChanged();
+        await LoadAvailableDocumentTypes();
+    }
+
+    private async Task LoadAvailableDocumentTypes()
+    {
+        try
+        {
+            var endpoint = $"documents/available-document-types?entityType={EntityType}&entityId={EntityId}&yearId={YearId}";
+            _availableDocumentTypes = await ApiService.GetAsync<List<DocumentTypeItemDto>>(endpoint) ?? new();
+            Console.WriteLine($"✅ Loaded {_availableDocumentTypes.Count} available document types");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading available document types: {ex.Message}");
+            _availableDocumentTypes = new();
+        }
+        finally
+        {
+            _isLoadingAvailableTypes = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SubmitAddDocumentType()
+    {
+        if (_selectedDocumentTypeIdToAdd == 0) return;
+
+        try
+        {
+            _isAddingDocumentType = true;
+            StateHasChanged();
+
+            var response = await ApiService.PostAsync<object, Dictionary<string, object>>(
+                "documents/add-document-type",
+                new { entityType = EntityType, entityId = EntityId, documentTypeId = _selectedDocumentTypeIdToAdd }
+            );
+
+            if (response != null && response.ContainsKey("success"))
+            {
+                var successValue = response["success"];
+                bool isSuccess = successValue is System.Text.Json.JsonElement jsonElem
+                    ? jsonElem.GetBoolean()
+                    : Convert.ToBoolean(successValue);
+
+                if (isSuccess)
+                {
+                    var message = response.ContainsKey("message") ? response["message"]?.ToString() : "סוג המסמך נוסף בהצלחה";
+                    Console.WriteLine($"✅ {message}");
+                    CloseAddDocumentTypeModal();
+                    await LoadDocuments();
+                    await OnDocumentsChanged.InvokeAsync();
+                }
+                else
+                {
+                    var errorMsg = response.ContainsKey("message") ? response["message"]?.ToString() : "שגיאה בהוספת סוג מסמך";
+                    await JSRuntime.InvokeVoidAsync("alert", errorMsg);
+                }
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה בהוספת סוג מסמך");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error adding document type: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בהוספת סוג מסמך: {ex.Message}");
+        }
+        finally
+        {
+            _isAddingDocumentType = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CloseAddDocumentTypeModal()
+    {
+        _showAddDocumentTypeModal = false;
+        _selectedDocumentTypeIdToAdd = 0;
+        _availableDocumentTypes = new();
         StateHasChanged();
     }
 

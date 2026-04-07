@@ -1377,6 +1377,213 @@ namespace PetelApp.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Get document types available to add (not yet in the entity/student's document list for this year)
+        /// </summary>
+        [HttpGet("available-document-types")]
+        public async Task<IActionResult> GetAvailableDocumentTypes(
+            [FromQuery] string entityType,
+            [FromQuery] int entityId,
+            [FromQuery] int yearId)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                string level = entityType.ToLower() switch
+                {
+                    "student" => "תלמיד",
+                    "school" => "בית ספר",
+                    _ => "רשת"
+                };
+
+                var allTypes = await _context.DocumentTypes
+                    .AsNoTracking()
+                    .Where(dt => dt.YearId == yearId && dt.Level == level)
+                    .OrderBy(dt => dt.Name)
+                    .Select(dt => new { dt.Id, dt.Name, dt.Level })
+                    .ToListAsync();
+
+                List<int> existingTypeIds;
+                if (entityType.ToLower() == "student")
+                {
+                    var student = await _context.SchoolStudents
+                        .Where(s => s.Id == entityId)
+                        .Select(s => new { s.MasterStudentId })
+                        .FirstOrDefaultAsync();
+
+                    if (student == null)
+                        return NotFound(new { success = false, message = "תלמיד לא נמצא" });
+
+                    var allStudentVersionIds = await _context.SchoolStudents
+                        .Where(s => s.MasterStudentId == student.MasterStudentId)
+                        .Select(s => s.Id)
+                        .ToListAsync();
+
+                    existingTypeIds = await _context.Documents
+                        .Include(d => d.DocumentLinks)
+                        .Where(d => d.DocumentLinks.Any(dl =>
+                            dl.SchoolStudentId.HasValue &&
+                            allStudentVersionIds.Contains(dl.SchoolStudentId.Value)))
+                        .Where(d => d.IsLastVersion)
+                        .Select(d => d.DocumentTypeId)
+                        .Distinct()
+                        .ToListAsync();
+                }
+                else
+                {
+                    existingTypeIds = await _context.Documents
+                        .Include(d => d.DocumentLinks)
+                        .Where(d => d.DocumentLinks.Any(dl => dl.EntityId == entityId))
+                        .Where(d => d.IsLastVersion)
+                        .Select(d => d.DocumentTypeId)
+                        .Distinct()
+                        .ToListAsync();
+                }
+
+                var available = allTypes
+                    .Where(t => !existingTypeIds.Contains(t.Id))
+                    .ToList();
+
+                _logger.LogInformation("Found {Count} available document types for {EntityType} {EntityId} in year {YearId}",
+                    available.Count, entityType, entityId, yearId);
+                return Ok(available);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving available document types");
+                return StatusCode(500, new { error = "שגיאה בטעינת סוגי מסמכים זמינים" });
+            }
+        }
+
+        /// <summary>
+        /// Manually add a document type entry for an entity/student (status = "לא קיים")
+        /// </summary>
+        [HttpPost("add-document-type")]
+        public async Task<IActionResult> AddDocumentTypeToEntity([FromBody] AddDocumentTypeRequest request)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                var docType = await _context.DocumentTypes
+                    .Where(dt => dt.Id == request.DocumentTypeId)
+                    .FirstOrDefaultAsync();
+                if (docType == null)
+                    return NotFound(new { success = false, message = "סוג מסמך לא נמצא" });
+
+                // Verify the document type level matches the entity type
+                string expectedLevel = request.EntityType.ToLower() switch
+                {
+                    "student" => "תלמיד",
+                    "school" => "בית ספר",
+                    _ => "רשת"
+                };
+                if (!docType.Level.Equals(expectedLevel, StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { success = false, message = "סוג המסמך אינו מתאים לרמת הישות" });
+
+                // Verify it doesn't already exist for this entity/student
+                bool alreadyExists;
+                if (request.EntityType.ToLower() == "student")
+                {
+                    var student = await _context.SchoolStudents
+                        .Where(s => s.Id == request.EntityId)
+                        .Select(s => new { s.MasterStudentId })
+                        .FirstOrDefaultAsync();
+
+                    if (student == null)
+                        return NotFound(new { success = false, message = "תלמיד לא נמצא" });
+
+                    var allStudentVersionIds = await _context.SchoolStudents
+                        .Where(s => s.MasterStudentId == student.MasterStudentId)
+                        .Select(s => s.Id)
+                        .ToListAsync();
+
+                    alreadyExists = await _context.Documents
+                        .Include(d => d.DocumentLinks)
+                        .Where(d => d.DocumentLinks.Any(dl =>
+                            dl.SchoolStudentId.HasValue &&
+                            allStudentVersionIds.Contains(dl.SchoolStudentId.Value)))
+                        .Where(d => d.IsLastVersion && d.DocumentTypeId == request.DocumentTypeId)
+                        .AnyAsync();
+                }
+                else
+                {
+                    alreadyExists = await _context.Documents
+                        .Include(d => d.DocumentLinks)
+                        .Where(d => d.DocumentLinks.Any(dl => dl.EntityId == request.EntityId))
+                        .Where(d => d.IsLastVersion && d.DocumentTypeId == request.DocumentTypeId)
+                        .AnyAsync();
+                }
+
+                if (alreadyExists)
+                    return BadRequest(new { success = false, message = "סוג מסמך זה כבר קיים ברשימה" });
+
+                int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
+                var newDocument = new Document
+                {
+                    Description = null,
+                    DocumentTypeId = request.DocumentTypeId,
+                    StatusId = 1,
+                    Version = 0,
+                    IsLastVersion = true,
+                    CreatedAt = DateTime.UtcNow,
+                    MasterDocumentId = null,
+                    FileBlob = null,
+                    FileEncoding = string.Empty,
+                    UserId = userId
+                };
+
+                _context.Documents.Add(newDocument);
+                await _context.SaveChangesAsync();
+
+                await SetMasterDocumentId(newDocument.Id);
+
+                DocumentLink documentLink;
+                if (request.EntityType.ToLower() == "student")
+                {
+                    documentLink = new DocumentLink
+                    {
+                        DocumentId = newDocument.Id,
+                        SchoolStudentId = request.EntityId,
+                        EntityId = null
+                    };
+                }
+                else
+                {
+                    documentLink = new DocumentLink
+                    {
+                        DocumentId = newDocument.Id,
+                        SchoolStudentId = null,
+                        EntityId = request.EntityId
+                    };
+                }
+
+                _context.DocumentLinks.Add(documentLink);
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Added document type {TypeId} ({TypeName}) for {EntityType} {EntityId}",
+                    request.DocumentTypeId, docType.Name, request.EntityType, request.EntityId);
+
+                return Ok(new
+                {
+                    success = true,
+                    id = newDocument.Id,
+                    message = $"סוג המסמך '{docType.Name}' נוסף בהצלחה"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error adding document type to entity");
+                return StatusCode(500, new { success = false, error = "שגיאה בהוספת סוג מסמך" });
+            }
+        }
+
         private string GetContentType(string fileExtension)
         {
             return fileExtension.ToLower() switch
@@ -1436,4 +1643,14 @@ public class UploadDocumentRequest
     public int? YearId { get; set; }
     public long? ExistingDocumentId { get; set; }
     public bool ReplaceExisting { get; set; }
+}
+
+/// <summary>
+/// Request model for manually adding a document type entry for an entity or student
+/// </summary>
+public class AddDocumentTypeRequest
+{
+    public string EntityType { get; set; } = string.Empty;
+    public int EntityId { get; set; }
+    public int DocumentTypeId { get; set; }
 }
