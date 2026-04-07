@@ -2856,3 +2856,172 @@ public class UserSessionService
         return null;
     }
 }
+
+## Password Expiration & Change Flow
+
+### Overview
+
+When a user's password has expired (or an admin has forced a reset), the login API returns `RequiresPasswordChange: true` with a `TempToken`. The Blazor login page catches this and presents a change-password modal **before** completing login. No redirect or separate page is involved.
+
+### Login Response Fields
+
+```csharp
+// LoginResponseDto.cs
+public bool RequiresPasswordChange { get; set; }
+public string? PasswordExpirationMessage { get; set; }  // Hebrew reason shown in modal
+public string? TempToken { get; set; }                  // Short-lived JWT with userId claim
+```
+
+### HandleLogin Flow (Login.razor)
+
+```
+login response
+ ├─ RequiresPasswordChange → show change-password modal, store TempToken
+ ├─ RequiresOtpSetup       → show OTP setup modal
+ ├─ RequiresOtp            → show OTP verify modal
+ └─ Success                → navigate to /maindashboard
+```
+
+**CRITICAL**: `RequiresPasswordChange` is checked **before** OTP checks so an expired-password user is never accidentally sent to OTP flow.
+
+### Password Policy — Single Regex Attribute
+
+Policy is stored as a **single regex string** in `system_attributes`:
+
+| name | value_type | default value |
+|---|---|---|
+| `Security_PasswordPolicy` | `string` | `^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,20}$` |
+
+**Note**: The `value` column must be `varchar(200)` to hold the regex. The migration SQL widens it:
+```sql
+ALTER TABLE petel_schema.system_attributes
+    ALTER COLUMN value TYPE varchar(200);
+```
+
+To change policy without restarting the service:
+```sql
+UPDATE petel_schema.system_attributes
+SET value = '<new-regex>'
+WHERE name = 'Security_PasswordPolicy';
+```
+Then call `POST /api/systemattributes/reload`.
+
+### Password Policy Endpoint (Backend owns interpretation)
+
+```
+GET /api/auth/password-policy   (public, no auth required)
+```
+
+Returns the regex translated into Hebrew requirement strings:
+
+```json
+{
+  "requirements": [
+    "בין 6 ל-20 תווים",
+    "לפחות אות קטנה אחת (a-z)",
+    "לפחות אות גדולה אחת (A-Z)",
+    "לפחות ספרה אחת (0-9)",
+    "לפחות תו מיוחד אחד (@$!%*?&)"
+  ]
+}
+```
+
+**CRITICAL**: The regex is **never evaluated or interpreted on the frontend**. The Blazor login page calls this endpoint once on load and displays the returned strings as hints. All regex matching happens in `AuthController`.
+
+### AuthController Pattern
+
+```csharp
+// GET /api/auth/password-policy
+[HttpGet("password-policy")]
+public IActionResult GetPasswordPolicy()
+{
+    const string defaultPolicy = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,20}$";
+    var policyAttr = _attributeCache.GetAttributeByName("Security_PasswordPolicy");
+    var policyRegex = !string.IsNullOrWhiteSpace(policyAttr?.Value) ? policyAttr.Value : defaultPolicy;
+    return Ok(new { requirements = GetPasswordRequirements(policyRegex) });
+}
+
+// POST /api/auth/change-expired-password
+// Requires: { TempToken, OldPassword, NewPassword }
+// TempToken decoded to get userId claim (no active session needed)
+// Validates: not empty → regex match → new ≠ old → BCrypt update
+// Returns: { success: true/false, message }   (no token — user logs in again)
+```
+
+`GetPasswordRequirements(string pattern)` is a **private static** helper on `AuthController`. It parses common lookahead patterns from the regex and returns Hebrew strings. It is called in both endpoints above — nowhere else.
+
+### Login.razor Pattern
+
+```csharp
+// State
+private List<string> _passwordRequirements = new();   // loaded from API
+private bool _requiresPasswordChange = false;
+private string _passwordExpirationMessage = "";
+private string? _tempToken;
+private string _newPassword = "";
+private string _confirmNewPassword = "";
+private string _passwordChangeErrorMessage = "";
+
+// On page init (alongside entities, version, env indicator)
+await LoadPasswordPolicy();   // calls GET /api/auth/password-policy
+
+// HandleLogin
+if (response.RequiresPasswordChange)
+{
+    _requiresPasswordChange = true;
+    _tempToken = response.TempToken;
+    _passwordExpirationMessage = response.PasswordExpirationMessage ?? "נדרשת החלפת סיסמה";
+    return;
+}
+```
+
+### Change-Password Modal
+
+- Yellow warning banner showing `_passwordExpirationMessage` (the Hebrew reason from the backend)
+- Password requirements hint rendered from `_passwordRequirements` without any local interpretation
+- New password + confirm password fields with show/hide toggles
+- **Local validation only**: empty check and confirm-match check
+- **All regex validation is done by the API** — the error `message` from the `400 BadRequest` body is displayed directly in the modal (`white-space: pre-line` for multi-line display)
+- On success: modal closes, password field cleared, login form shows "הסיסמה שונתה בהצלחה. אנא התחבר עם הסיסמה החדשה" — user must log in again with the new password
+
+### ChangeExpiredPasswordDto (API)
+
+```csharp
+public class ChangeExpiredPasswordDto
+{
+    public string TempToken { get; set; }    // JWT signed by JwtTokenService, contains userId claim
+    public string OldPassword { get; set; }  // Verified via BCrypt before accepting new password
+    public string NewPassword { get; set; }  // Validated against Security_PasswordPolicy regex
+}
+```
+
+### Anti-Patterns to Avoid
+
+```csharp
+// ❌ WRONG - Evaluating regex on frontend
+if (!Regex.IsMatch(_newPassword, _passwordPolicyRegex)) { ... }  // NO! Backend only.
+
+// ❌ WRONG - Interpreting regex on frontend
+private static List<string> GetPasswordRequirements(string pattern) { ... }  // NO! Backend only.
+
+// ❌ WRONG - Hardcoded password minimum length
+if (request.NewPassword.Length < 6) { ... }  // NO! Read from Security_PasswordPolicy attribute.
+
+// ❌ WRONG - Multiple separate boolean attributes
+Security_PasswordMinLength    // NO! Use single regex attribute
+Security_PasswordRequireDigit // NO!
+Security_PasswordRequireUppercase // NO!
+
+// ✅ CORRECT - Single regex attribute, interpreted server-side
+var policyAttr = _attributeCache.GetAttributeByName("Security_PasswordPolicy");
+if (!Regex.IsMatch(request.NewPassword, policyRegex))
+{
+    var message = "הסיסמה אינה עומדת בדרישות המדיניות: " +
+                  string.Join(", ", GetPasswordRequirements(policyRegex));
+    return BadRequest(new { success = false, message });
+}
+```
+
+### SQL Migration
+
+See `SQL/add-password-policy-attributes.sql`. Run on all environments once. Uses `ON CONFLICT (name) DO NOTHING` so it is safe to re-run.
