@@ -12,15 +12,18 @@ namespace PetelApp.Api.Controllers
     {
         private readonly IAuthService _authService;
         private readonly UserSessionService _sessionService;
+        private readonly SystemAttributeCache _attributeCache;
         private readonly ILogger<AuthController> _logger;
 
         public AuthController(
             IAuthService authService,
             UserSessionService sessionService,
+            SystemAttributeCache attributeCache,
             ILogger<AuthController> logger)
         {
             _authService = authService;
             _sessionService = sessionService;
+            _attributeCache = attributeCache;
             _logger = logger;
         }
 
@@ -135,8 +138,19 @@ namespace PetelApp.Api.Controllers
         }
 
         /// <summary>
-        /// Change expired password - requires TempToken from login
+        /// Returns the password policy requirements as human-readable Hebrew strings.
+        /// Public endpoint — called by the login page before any authentication.
         /// </summary>
+        [HttpGet("password-policy")]
+        public IActionResult GetPasswordPolicy()
+        {
+            const string defaultPolicy = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,20}$";
+            var policyAttr = _attributeCache.GetAttributeByName("Security_PasswordPolicy");
+            var policyRegex = !string.IsNullOrWhiteSpace(policyAttr?.Value) ? policyAttr.Value : defaultPolicy;
+            return Ok(new { requirements = GetPasswordRequirements(policyRegex) });
+        }
+
+        /// <summary>
         [HttpPost("change-expired-password")]
         public async Task<IActionResult> ChangeExpiredPassword([FromBody] ChangeExpiredPasswordDto request)
         {
@@ -164,15 +178,27 @@ namespace PetelApp.Api.Controllers
                     return BadRequest(new { success = false, message = "סיסמה ישנה שגויה" });
                 }
 
-                // Validate new password
+                // Validate new password against policy regex from system attributes
                 if (string.IsNullOrWhiteSpace(request.NewPassword))
-                {
                     return BadRequest(new { success = false, message = "סיסמה חדשה נדרשת" });
-                }
 
-                if (request.NewPassword.Length < 6)
+                const string defaultPolicy = @"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,20}$";
+                var policyAttr = _attributeCache.GetAttributeByName("Security_PasswordPolicy");
+                var policyRegex = !string.IsNullOrWhiteSpace(policyAttr?.Value) ? policyAttr.Value : defaultPolicy;
+
+                try
                 {
-                    return BadRequest(new { success = false, message = "סיסמה חייבת להכיל לפחות 6 תווים" });
+                    if (!System.Text.RegularExpressions.Regex.IsMatch(request.NewPassword, policyRegex))
+                    {
+                        var requirements = GetPasswordRequirements(policyRegex);
+                        var message = "הסיסמה אינה עומדת בדרישות המדיניות: " + string.Join(", ", requirements);
+                        return BadRequest(new { success = false, message });
+                    }
+                }
+                catch (System.Text.RegularExpressions.RegexParseException ex)
+                {
+                    _logger.LogError(ex, "Invalid password policy regex: {Regex}", policyRegex);
+                    return StatusCode(500, new { success = false, message = "שגיאת מדיניות סיסמה" });
                 }
 
                 // Check if new password is same as old
@@ -202,6 +228,40 @@ namespace PetelApp.Api.Controllers
                     message = "שגיאה בשינוי הסיסמה"
                 });
             }
+        }
+
+        private static List<string> GetPasswordRequirements(string pattern)
+        {
+            var reqs = new List<string>();
+
+            var lenMatch = System.Text.RegularExpressions.Regex.Match(pattern, @"\{(\d+),(\d*)\}");
+            if (lenMatch.Success)
+            {
+                var min = lenMatch.Groups[1].Value;
+                var max = lenMatch.Groups[2].Value;
+                reqs.Add(string.IsNullOrEmpty(max) ? $"\u05dc\u05e4\u05d7\u05d5\u05ea {min} \u05ea\u05d5\u05d5\u05d9\u05dd" : $"\u05d1\u05d9\u05df {min} \u05dc-{max} \u05ea\u05d5\u05d5\u05d9\u05dd");
+            }
+
+            if (System.Text.RegularExpressions.Regex.IsMatch(pattern, @"\(\?=\.\*\[.*?a-z.*?\]\)"))
+                reqs.Add("\u05dc\u05e4\u05d7\u05d5\u05ea \u05d0\u05d5\u05ea \u05e7\u05d8\u05e0\u05d4 \u05d0\u05d7\u05ea (a-z)");
+
+            if (System.Text.RegularExpressions.Regex.IsMatch(pattern, @"\(\?=\.\*\[.*?A-Z.*?\]\)"))
+                reqs.Add("\u05dc\u05e4\u05d7\u05d5\u05ea \u05d0\u05d5\u05ea \u05d2\u05d3\u05d5\u05dc\u05d4 \u05d0\u05d7\u05ea (A-Z)");
+
+            if (System.Text.RegularExpressions.Regex.IsMatch(pattern, @"\(\?=\.\*\\d\)") ||
+                System.Text.RegularExpressions.Regex.IsMatch(pattern, @"\(\?=\.\*\[.*?0-9.*?\]\)"))
+                reqs.Add("\u05dc\u05e4\u05d7\u05d5\u05ea \u05e1\u05e4\u05e8\u05d4 \u05d0\u05d7\u05ea (0-9)");
+
+            foreach (System.Text.RegularExpressions.Match m in
+                System.Text.RegularExpressions.Regex.Matches(pattern, @"\(\?=\.\*\[([^\]]+)\]\)"))
+            {
+                var cls = m.Groups[1].Value;
+                if (!cls.Contains("a-z") && !cls.Contains("A-Z") &&
+                    !cls.Contains("0-9") && !cls.Contains(@"\d") && !cls.Contains(@"\w"))
+                    reqs.Add($"\u05dc\u05e4\u05d7\u05d5\u05ea \u05ea\u05d5 \u05de\u05d9\u05d5\u05d7\u05d3 \u05d0\u05d7\u05d3 ({cls})");
+            }
+
+            return reqs;
         }
     }
 }

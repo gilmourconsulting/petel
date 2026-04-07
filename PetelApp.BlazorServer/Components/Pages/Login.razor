@@ -189,6 +189,114 @@
         </div>
     </div>
 
+    <!-- Password Change Modal -->
+    <div class="modal-overlay" style="display: @(_requiresPasswordChange ? "flex" : "none");">
+        <div class="modal-content" style="max-width: 420px; width: 90%;">
+            <div class="modal-header">
+                <h2>שינוי סיסמה נדרש</h2>
+            </div>
+            <div class="modal-body">
+                @if (!string.IsNullOrEmpty(_passwordExpirationMessage))
+                {
+                    <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; color: #856404; font-size: 14px;">
+                        @_passwordExpirationMessage
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(_passwordChangeErrorMessage))
+                {
+                    <div class="error-message" style="display: block; margin-bottom: 15px; white-space: pre-line;">
+                        @_passwordChangeErrorMessage
+                    </div>
+                }
+                <div class="form-group">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">סיסמה חדשה: <span style="color: red;">*</span></label>
+                    <div style="position: relative;">
+                        <input type="@(_showNewPassword ? "text" : "password")"
+                               class="form-input"
+                               style="padding-left: 40px;"
+                               @bind="_newPassword"
+                               @bind:event="oninput"
+                               @onkeydown="HandleNewPasswordEnterKey"
+                               @onkeydown:stopPropagation="true"
+                               placeholder="מינימום 6 תווים"
+                               autocomplete="new-password" />
+                        <button type="button" @onclick="ToggleNewPasswordVisibility"
+                                title="@(_showNewPassword ? "הסתר סיסמה" : "הצג סיסמה")"
+                                style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; color: #666; display: flex; align-items: center;">
+                            @if (_showNewPassword)
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                                    <line x1="1" y1="1" x2="23" y2="23"/>
+                                </svg>
+                            }
+                            else
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            }
+                        </button>
+                    </div>
+                    <small style="color: #6c757d; display: block; margin-top: 4px;">
+                        @if (_passwordRequirements.Count > 0)
+                        {
+                            <span>דרישות: @string.Join(" | ", _passwordRequirements)</span>
+                        }
+                    </small>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">אישור סיסמה חדשה: <span style="color: red;">*</span></label>
+                    <div style="position: relative;">
+                        <input type="@(_showConfirmPassword ? "text" : "password")"
+                               class="form-input"
+                               style="padding-left: 40px;"
+                               @bind="_confirmNewPassword"
+                               @bind:event="oninput"
+                               @onkeydown="HandleNewPasswordEnterKey"
+                               @onkeydown:stopPropagation="true"
+                               placeholder="חזור על הסיסמה החדשה"
+                               autocomplete="new-password" />
+                        <button type="button" @onclick="ToggleConfirmPasswordVisibility"
+                                title="@(_showConfirmPassword ? "הסתר סיסמה" : "הצג סיסמה")"
+                                style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 0; color: #666; display: flex; align-items: center;">
+                            @if (_showConfirmPassword)
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                                    <line x1="1" y1="1" x2="23" y2="23"/>
+                                </svg>
+                            }
+                            else
+                            {
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                    <circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" @onclick="CancelPasswordChange">ביטול</button>
+                <button type="button" class="btn-primary" @onclick="HandlePasswordChange" disabled="@_isLoading">
+                    @if (_isLoading)
+                    {
+                        <span>שומר...</span>
+                    }
+                    else
+                    {
+                        <span>שמור סיסמה</span>
+                    }
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- OTP Setup Modal -->
     <div class="modal-overlay" style="display: @(_requiresOtpSetup ? "flex" : "none");">
         <div class="modal-content otp-setup-modal">
@@ -278,6 +386,10 @@
     private string _systemVersion = "טוען...";
     private string _environmentIndicator = "";
 
+    // System attributes (loaded once on page init)
+    private List<SystemAttributeResponse> _allAttributes = new();
+    private List<string> _passwordRequirements = new();
+
     private bool _showPassword = false;
     private bool _requiresOtp = false;
     private string _otpCode = "";
@@ -290,6 +402,14 @@
     private string _setupOtpCode = "";
     private string _otpSetupErrorMessage = "";
 
+    private bool _requiresPasswordChange = false;
+    private string _passwordExpirationMessage = "";
+    private string _newPassword = "";
+    private string _confirmNewPassword = "";
+    private bool _showNewPassword = false;
+    private bool _showConfirmPassword = false;
+    private string _passwordChangeErrorMessage = "";
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -300,18 +420,26 @@
                 await TokenService.ClearTokenAsync();
                 SessionState.ClearSession();
                 _logger.LogInformation("Cleared previous session on login page load");
+
+                // Load all system attributes once — shared by version, env indicator, password policy
+                await LoadAllAttributes();
+                _logger.LogInformation("Loaded {Count} system attributes", _allAttributes.Count);
                 
                 // Load entities for the dropdown
                 await LoadEntities();
                 _logger.LogInformation("Loaded {Count} entities", _entities.Count);
                 
                 // Load system version
-                await LoadSystemVersion();
+                LoadSystemVersion();
                 _logger.LogInformation("System version loaded: {Version}", _systemVersion);
                 
                 // Load environment indicator
-                await LoadEnvironmentIndicator();
+                LoadEnvironmentIndicator();
                 _logger.LogInformation("Environment indicator loaded: {Env}", _environmentIndicator);
+
+                // Load password policy from system attributes
+                await LoadPasswordPolicy();
+                _logger.LogInformation("Password policy loaded: {Count} requirements", _passwordRequirements.Count);
                 
                 StateHasChanged();
                 
@@ -355,6 +483,19 @@
         _showPassword = !_showPassword;
     }
 
+    private async Task LoadAllAttributes()
+    {
+        try
+        {
+            _allAttributes = await ApiService.GetPublicAsync<List<SystemAttributeResponse>>("systemattributes") ?? new();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load system attributes");
+            _allAttributes = new List<SystemAttributeResponse>();
+        }
+    }
+
     private async Task LoadEntities()
     {
         try
@@ -368,65 +509,46 @@
         }
     }
 
-    private async Task LoadSystemVersion()
+    private void LoadSystemVersion()
     {
-        try
-        {
-            // Query by ID since we know System Version is attribute ID 1
-            var allAttributes = await ApiService.GetPublicAsync<List<SystemAttributeResponse>>("systemattributes");
-            var systemVersionAttr = allAttributes?.FirstOrDefault(a => a.Id == 1 || a.Description == "System Version");
-            
-            if (systemVersionAttr != null && !string.IsNullOrEmpty(systemVersionAttr.Value))
-            {
-                _systemVersion = $"מערכת ניהול - גרסה {systemVersionAttr.Value}";
-            }
-            else
-            {
-                _systemVersion = "מערכת ניהול";
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to load system version");
-            _systemVersion = "מערכת ניהול";
-        }
+        var attr = _allAttributes.FirstOrDefault(a => a.Id == 1 || a.Description == "System Version");
+        _systemVersion = attr != null && !string.IsNullOrEmpty(attr.Value)
+            ? $"מערכת ניהול - גרסה {attr.Value}"
+            : "מערכת ניהול";
     }
 
-    private async Task LoadEnvironmentIndicator()
+    private void LoadEnvironmentIndicator()
+    {
+        var envAttr = _allAttributes.FirstOrDefault(a =>
+            string.Equals(a.Name, "System_Environment", StringComparison.OrdinalIgnoreCase));
+
+        if (envAttr == null || string.IsNullOrEmpty(envAttr.Value))
+        {
+            _logger.LogWarning("System_Environment attribute not found or empty");
+            return;
+        }
+
+        var envValue = envAttr.Value.Trim().ToLowerInvariant();
+        _logger.LogInformation("Environment attribute found: '{Value}' -> '{Lower}'", envAttr.Value, envValue);
+
+        if (envValue == "development")
+            _environmentIndicator = "DEV";
+        else if (envValue == "test")
+            _environmentIndicator = "סביבת בדיקות";
+        // Production or any other value: don't show anything
+    }
+
+    private async Task LoadPasswordPolicy()
     {
         try
         {
-            var allAttributes = await ApiService.GetPublicAsync<List<SystemAttributeResponse>>("systemattributes");
-            var envAttr = allAttributes?.FirstOrDefault(a => 
-                string.Equals(a.Name, "System_Environment", StringComparison.OrdinalIgnoreCase));
-            
-            if (envAttr != null && !string.IsNullOrEmpty(envAttr.Value))
-            {
-                var envValue = envAttr.Value.Trim().ToLowerInvariant();
-                
-                _logger.LogInformation($"Environment attribute found: '{envAttr.Value}' -> '{envValue}'");
-                
-                if (envValue == "development")
-                {
-                    _environmentIndicator = "DEV";
-                    _logger.LogInformation("Environment indicator set to: DEV");
-                }
-                else if (envValue == "test")
-                {
-                    _environmentIndicator = "סביבת בדיקות";
-                    _logger.LogInformation("Environment indicator set to: סביבת בדיקות");
-                }
-                // Production or any other value: don't show anything
-            }
-            else
-            {
-                _logger.LogWarning("System_Environment attribute not found or empty");
-            }
+            var result = await ApiService.GetPublicAsync<PasswordPolicyResponse>("auth/password-policy");
+            if (result?.Requirements != null)
+                _passwordRequirements = result.Requirements;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load environment indicator");
-            // Silently fail - environment indicator is optional
+            _logger.LogError(ex, "Failed to load password policy");
         }
     }
 
@@ -556,6 +678,15 @@
 
             if (response != null)
             {
+                // Check password change requirement
+                if (response.RequiresPasswordChange)
+                {
+                    _requiresPasswordChange = true;
+                    _tempToken = response.TempToken;
+                    _passwordExpirationMessage = response.PasswordExpirationMessage ?? "נדרשת החלפת סיסמה";
+                    return;
+                }
+
                 // Check OTP setup requirement FIRST
                 if (response.RequiresOtpSetup)
                 {
@@ -746,6 +877,90 @@
     {
         // This method is no longer needed as we handle it directly in HandleOtpSetupVerification
     }
+
+    private async Task HandlePasswordChange()
+    {
+        _passwordChangeErrorMessage = "";
+
+        if (string.IsNullOrWhiteSpace(_newPassword))
+        {
+            _passwordChangeErrorMessage = "נא להזין סיסמה חדשה";
+            return;
+        }
+
+        if (_newPassword != _confirmNewPassword)
+        {
+            _passwordChangeErrorMessage = "הסיסמאות אינן תואמות";
+            return;
+        }
+
+        _isLoading = true;
+
+        try
+        {
+            var changeRequest = new
+            {
+                TempToken = _tempToken,
+                OldPassword = _password,
+                NewPassword = _newPassword
+            };
+            var response = await ApiService.PostAsync<object, LoginResponse>("auth/change-expired-password", changeRequest);
+
+            if (response != null && response.Success)
+            {
+                // Password changed — user must log in again with new password
+                _requiresPasswordChange = false;
+                _newPassword = "";
+                _confirmNewPassword = "";
+                _passwordChangeErrorMessage = "";
+                _tempToken = null;
+                _password = "";
+                _currentStep = 2;
+                _errorMessage = "הסיסמה שונתה בהצלחה. אנא התחבר עם הסיסמה החדשה";
+            }
+            else
+            {
+                _passwordChangeErrorMessage = response?.Message ?? "שגיאה בשינוי הסיסמה";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error changing expired password");
+            _passwordChangeErrorMessage = ExtractErrorMessage(ex.Message);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void CancelPasswordChange()
+    {
+        _requiresPasswordChange = false;
+        _newPassword = "";
+        _confirmNewPassword = "";
+        _passwordChangeErrorMessage = "";
+        _tempToken = null;
+        _currentStep = 2;
+    }
+
+    private async Task HandleNewPasswordEnterKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await HandlePasswordChange();
+        }
+    }
+
+    private void ToggleNewPasswordVisibility()
+    {
+        _showNewPassword = !_showNewPassword;
+    }
+
+    private void ToggleConfirmPasswordVisibility()
+    {
+        _showConfirmPassword = !_showConfirmPassword;
+    }
     
     private void CancelOtpSetup()
     {
@@ -812,6 +1027,8 @@
         public bool RequiresOtp { get; set; }
         public bool RequiresOtpSetup { get; set; }
         public string? TempToken { get; set; }
+        public bool RequiresPasswordChange { get; set; }
+        public string? PasswordExpirationMessage { get; set; }
     }
 
     private class SystemAttributeResponse
@@ -833,5 +1050,10 @@
     {
         public bool Success { get; set; }
         public string Message { get; set; } = string.Empty;
+    }
+
+    private class PasswordPolicyResponse
+    {
+        public List<string> Requirements { get; set; } = new();
     }
 }
