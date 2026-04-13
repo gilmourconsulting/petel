@@ -756,6 +756,14 @@
                 await TokenService.SetTokenAsync(response.Token);
                 Navigation.NavigateTo("/maindashboard");
             }
+            else if (response?.RequiresPasswordChange == true)
+            {
+                _requiresOtp = false;
+                _otpCode = "";
+                _requiresPasswordChange = true;
+                _tempToken = response.TempToken ?? _tempToken;
+                _passwordExpirationMessage = response.PasswordExpirationMessage ?? "נדרשת החלפת סיסמה";
+            }
             else
             {
                 // Keep modal open and show error within modal
@@ -852,6 +860,14 @@
             {
                 await TokenService.SetTokenAsync(loginResponse.Token);
                 Navigation.NavigateTo("/maindashboard");
+            }
+            else if (loginResponse?.RequiresPasswordChange == true)
+            {
+                _requiresOtpSetup = false;
+                _setupOtpCode = "";
+                _requiresPasswordChange = true;
+                _tempToken = loginResponse.TempToken ?? _tempToken;
+                _passwordExpirationMessage = loginResponse.PasswordExpirationMessage ?? "נדרשת החלפת סיסמה";
             }
             else
             {
