@@ -1340,6 +1340,84 @@ namespace PetelApp.Api.Controllers
         }
 
         /// <summary>
+        /// Delete document file - creates a new version with no file and status 'לא קיים' (1)
+        /// </summary>
+        [HttpPost("{id}/delete-file")]
+        public async Task<IActionResult> DeleteDocumentFile(long id)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                var existingDoc = await _context.Documents
+                    .Include(d => d.DocumentLinks)
+                    .FirstOrDefaultAsync(d => d.Id == id && d.IsLastVersion);
+
+                if (existingDoc == null)
+                {
+                    return NotFound(new { success = false, error = "מסמך לא נמצא" });
+                }
+
+                if (existingDoc.FileBlob == null || existingDoc.FileBlob.Length == 0)
+                {
+                    return BadRequest(new { success = false, error = "אין קובץ מצורף למסמך" });
+                }
+
+                // Mark existing document as not last version
+                existingDoc.IsLastVersion = false;
+                _context.Documents.Update(existingDoc);
+
+                int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
+                // Create new version with no file and status 'לא קיים' (1)
+                var newDoc = new Document
+                {
+                    MasterDocumentId = existingDoc.MasterDocumentId ?? existingDoc.Id,
+                    Description = existingDoc.Description,
+                    DocumentTypeId = existingDoc.DocumentTypeId,
+                    StatusId = 1,
+                    FileBlob = null,
+                    FileEncoding = string.Empty,
+                    FileName = null,
+                    Version = existingDoc.Version + 1,
+                    IsLastVersion = true,
+                    CreatedAt = DateTime.UtcNow,
+                    UserId = userId
+                };
+
+                _context.Documents.Add(newDoc);
+                await _context.SaveChangesAsync();
+
+                foreach (var existingLink in existingDoc.DocumentLinks)
+                {
+                    _context.DocumentLinks.Add(new DocumentLink
+                    {
+                        DocumentId = newDoc.Id,
+                        EntityId = existingLink.EntityId,
+                        SchoolStudentId = existingLink.SchoolStudentId
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation(
+                    "Document file deleted. Old: {OldId} (v{OldVer}), New: {NewId} (v{NewVer}, status 1), Master: {MasterId}",
+                    id, existingDoc.Version, newDoc.Id, newDoc.Version, newDoc.MasterDocumentId);
+
+                return Ok(new { success = true, message = "הקובץ נמחק בהצלחה" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting file for document {DocumentId}", id);
+                return StatusCode(500, new { success = false, error = "שגיאה במחיקת הקובץ" });
+            }
+        }
+
+        /// <summary>
         /// Delete document
         /// </summary>
         [HttpDelete("{id}")]
