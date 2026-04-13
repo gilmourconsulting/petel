@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Petel.Core.Abstractions;
 using PetelATH.Api.Data;
 
 namespace PetelATH.Api.Services
@@ -7,7 +8,7 @@ namespace PetelATH.Api.Services
     /// In-memory cache for system attributes - global configuration accessible to all sessions
     /// Loaded at application startup by SystemAttributeLoaderHostedService
     /// </summary>
-    public class SystemAttributeCache
+    public class SystemAttributeCache : IAttributeCache
     {
         private readonly Dictionary<string, SystemAttribute> _attributesByName;
         private readonly Dictionary<int, List<SystemAttribute>> _attributesByForeignId;
@@ -42,6 +43,11 @@ namespace PetelATH.Api.Services
                 ? attribute 
                 : null;
         }
+
+        /// <summary>
+        /// IAttributeCache implementation — returns attribute value string or null
+        /// </summary>
+        public string? GetAttributeValue(string name) => GetAttributeByName(name)?.Value;
         
         /// <summary>
         /// Get all attributes with a specific foreign_id

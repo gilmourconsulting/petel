@@ -7,6 +7,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PetelATH.Api", "PetelATH\Pe
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PetelATH.BlazorServer", "PetelATH\PetelATH.BlazorServer\PetelATH.BlazorServer.csproj", "{30F9A962-3C35-4D15-BDA4-4FB000AAD0E7}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "shared", "shared", "{4F52FD11-658E-A102-6CD3-7D7C16FFA15B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Petel.Core", "shared\Petel.Core\Petel.Core.csproj", "{021B29CC-A171-4D15-AE83-8670B91B3F2A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -41,8 +45,23 @@ Global
 		{30F9A962-3C35-4D15-BDA4-4FB000AAD0E7}.Release|x64.Build.0 = Release|Any CPU
 		{30F9A962-3C35-4D15-BDA4-4FB000AAD0E7}.Release|x86.ActiveCfg = Release|Any CPU
 		{30F9A962-3C35-4D15-BDA4-4FB000AAD0E7}.Release|x86.Build.0 = Release|Any CPU
+		{021B29CC-A171-4D15-AE83-8670B91B3F2A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{021B29CC-A171-4D15-AE83-8670B91B3F2A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{021B29CC-A171-4D15-AE83-8670B91B3F2A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{021B29CC-A171-4D15-AE83-8670B91B3F2A}.Debug|x64.Build.0 = Debug|Any CPU
+		{021B29CC-A171-4D15-AE83-8670B91B3F2A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{021B29CC-A171-4D15-AE83-8670B91B3F2A}.Debug|x86.Build.0 = Debug|Any CPU
+		{021B29CC-A171-4D15-AE83-8670B91B3F2A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{021B29CC-A171-4D15-AE83-8670B91B3F2A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{021B29CC-A171-4D15-AE83-8670B91B3F2A}.Release|x64.ActiveCfg = Release|Any CPU
+		{021B29CC-A171-4D15-AE83-8670B91B3F2A}.Release|x64.Build.0 = Release|Any CPU
+		{021B29CC-A171-4D15-AE83-8670B91B3F2A}.Release|x86.ActiveCfg = Release|Any CPU
+		{021B29CC-A171-4D15-AE83-8670B91B3F2A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{021B29CC-A171-4D15-AE83-8670B91B3F2A} = {4F52FD11-658E-A102-6CD3-7D7C16FFA15B}
 	EndGlobalSection
 EndGlobal

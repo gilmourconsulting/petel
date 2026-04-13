@@ -35,4 +35,8 @@
 <PackageReference Include="Azure.Extensions.AspNetCore.Configuration.Secrets" Version="1.3.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\shared\Petel.Core\Petel.Core.csproj" />
+  </ItemGroup>
+
 </Project>
