@@ -1,0 +1,164 @@
+@using PetelATH.BlazorServer.DTOs
+@inject ApiService ApiService
+
+<div class="dashboard-card">
+    <div class="dashboard-card-header">
+        <div class="dashboard-card-icon">@Icon</div>
+        <div class="dashboard-card-title">@Title</div>
+        @if (AllowAdd)
+        {
+            <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
+                 @onclick="OnAddClick" title="@($"הוספת {AddItemText} {(IsEvent ? "חדש" : "חדשה")}")" style="cursor: pointer;" />
+        }
+    </div>
+    <div class="internal-cards-container">
+        @if (IsLoading)
+        {
+            <div class="loading-message">@($"טוען {Title.ToLower()}...")</div>
+        }
+        else if (Items.Count == 0)
+        {
+            <div class="no-data-message">@($"אין {Title.ToLower()} להצגה")</div>
+        }
+        else
+        {
+            @foreach (var item in Items)
+            {
+                <div class="internal-card @(item.Status == 1 ? "alert-new" : "")" @onclick="() => HandleItemClick(item)">
+                    <div class="internal-card-header">
+                        <span class="internal-card-date">@FormatDate(item)</span>
+                        @if (!string.IsNullOrEmpty(item.CreatedByEntityName))
+                        {
+                            <span class="internal-card-entity">@item.CreatedByEntityName</span>
+                        }
+                        else
+                        {
+                            <span class="internal-card-entity" style="color: red;">DEBUG: No Entity Name</span>
+                        }
+                    </div>
+                    <div class="internal-card-content">@item.Description</div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Icon { get; set; } = "";
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public bool IsEvent { get; set; } = false;
+    [Parameter] public bool AllowAdd { get; set; } = true;
+    [Parameter] public List<AlertEventItemDto> Items { get; set; } = new();
+    [Parameter] public bool IsLoading { get; set; } = false;
+    [Parameter] public EventCallback OnAdd { get; set; }
+    [Parameter] public EventCallback<AlertEventItemDto> OnItemClick { get; set; }
+
+    private string AddItemText => IsEvent ? "אירוע" : "התראה";
+
+    private async Task OnAddClick()
+    {
+        if (OnAdd.HasDelegate)
+        {
+            await OnAdd.InvokeAsync();
+        }
+    }
+
+    private async Task HandleItemClick(AlertEventItemDto item)
+    {
+        // If status is 'new', mark as read
+        if (item.Status == 1)
+        {
+            try
+            {
+                var requestBody = new
+                {
+                    alertId = item.Id,
+                    entityId = item.EntityId,
+                    status = 2
+                };
+
+                await ApiService.PutAsync<object, object>("alerts/status", requestBody);
+
+                // Update local status
+                item.Status = 2;
+
+                // Force re-render
+                StateHasChanged();
+
+                Console.WriteLine($"✅ Alert {item.Id} marked as read");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error marking alert as read: {ex.Message}");
+            }
+        }
+
+        if (OnItemClick.HasDelegate)
+        {
+            await OnItemClick.InvokeAsync(item);
+        }
+    }
+
+    private string FormatDate(AlertEventItemDto item)
+    {
+        if (IsEvent && item.EventDate.HasValue)
+        {
+            return FormatEventDate(item.EventDate.Value);
+        }
+
+        return FormatTimestamp(item.CreatedAt);
+    }
+
+    private string FormatEventDate(DateTime dateTime)
+    {
+        var now = DateTime.Now;
+        var tomorrow = now.AddDays(1);
+
+        var dateOnly = dateTime.Date;
+        var todayOnly = now.Date;
+        var tomorrowOnly = tomorrow.Date;
+
+        var isTimeZero = dateTime.Hour == 0 && dateTime.Minute == 0;
+
+        if (dateOnly == todayOnly)
+        {
+            return isTimeZero ? "היום" : $"היום {dateTime:HH:mm}";
+        }
+        else if (dateOnly == tomorrowOnly)
+        {
+            return isTimeZero ? "מחר" : $"מחר {dateTime:HH:mm}";
+        }
+        else
+        {
+            var dateStr = dateTime.ToString("dd/MM/yyyy");
+            return isTimeZero ? dateStr : $"{dateStr} {dateTime:HH:mm}";
+        }
+    }
+
+    private string FormatTimestamp(DateTime dateTime)
+    {
+        var now = DateTime.Now;
+        var diff = now - dateTime;
+
+        if (diff.TotalMinutes < 1)
+        {
+            return "עכשיו";
+        }
+        else if (diff.TotalMinutes < 60)
+        {
+            return $"לפני {(int)diff.TotalMinutes} דקות";
+        }
+        else if (diff.TotalHours < 24)
+        {
+            return $"לפני {(int)diff.TotalHours} שעות";
+        }
+        else if (diff.TotalDays < 7)
+        {
+            return $"לפני {(int)diff.TotalDays} ימים";
+        }
+        else
+        {
+            return dateTime.ToString("dd/MM/yyyy");
+        }
+    }
+}

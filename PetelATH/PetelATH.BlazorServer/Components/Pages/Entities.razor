@@ -1,0 +1,405 @@
+@page "/entities"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelATH.BlazorServer.DTOs
+@using PetelATH.BlazorServer.Components.Shared
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <SecureButton ActionName="entities_addEntity" ScreenName="@PageName" FunctionName="ShowAddEntityModal" 
+                      OnClick="ShowAddEntityModal" CssClass="context-btn" Title="הוספת ישות חדשה">
+            הוסף ישות
+        </SecureButton>
+        <div class="context-spacer"></div>
+        <SecureButton ActionName="entities_backToDashboard" ScreenName="@PageName" FunctionName="NavigateBackToDashboard" 
+                      OnClick="NavigateBackToDashboard" CssClass="context-navigation-btn" Title="חזרה למסך הראשי">
+            חזרה ללוח בקרה
+        </SecureButton>
+    </div>
+
+    <!-- Main content -->
+    <div class="students-content">
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">רשימת ישויות (לא מוסדות חינוך)</div>
+                <div class="left-spacer"></div>
+            </div>
+            <div class="content-card">
+                <div class="content-card">
+                    <!-- Entities table -->
+                    <div class="entities-table-section">
+                        <div id="entitiesTableContainer">
+                            @if (_isLoading)
+                            {
+                                <div class="loading-spinner">
+                                    <p>טוען רשימת ישויות...</p>
+                                </div>
+                            }
+                            else if (_entities.Count == 0)
+                            {
+                                <div class="alert alert-info">לא נמצאו ישויות</div>
+                            }
+                            else
+                            {
+                                <div class="table-container" style="overflow-x: auto; max-width: 100%;">
+                                    <table class="data-table" style="min-width: 900px;">
+                                        <thead>
+                                            <tr>
+                                                <th>פעולות</th>
+                                                <th @onclick="() => SortTable(nameof(EntityListDto.Name))">
+                                                    שם @GetSortIcon(nameof(EntityListDto.Name))
+                                                </th>
+                                                <th @onclick="() => SortTable(nameof(EntityListDto.EntityTypeDescription))">
+                                                    סוג ישות @GetSortIcon(nameof(EntityListDto.EntityTypeDescription))
+                                                </th>
+                                                <th @onclick="() => SortTable(nameof(EntityListDto.OwnerName))">
+                                                    בעלות @GetSortIcon(nameof(EntityListDto.OwnerName))
+                                                </th>
+                                                <th @onclick="() => SortTable(nameof(EntityListDto.IsActive))">
+                                                    פעיל @GetSortIcon(nameof(EntityListDto.IsActive))
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var entity in _sortedEntities)
+                                            {
+                                                <tr>
+                                                    <td>
+                                                        <div class="actions-cell">
+                                                            <button class="btn btn-sm btn-icon" 
+                                                                    @onclick="() => ViewEntity(entity.Id)" 
+                                                                    title="עריכה">
+                                                                <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                                            </button>
+                                                            <button class="btn btn-sm btn-icon" 
+                                                                    @onclick="() => DeleteEntity(entity.Id)" 
+                                                                    title="מחיקה">
+                                                                <img src="/images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                    <td>@entity.Name</td>
+                                                    <td>@entity.EntityTypeDescription</td>
+                                                    <td>@entity.OwnerName</td>
+                                                    <td>
+                                                        <span style="color: @(entity.IsActive ? "#28a745" : "#dc3545");">
+                                                            @(entity.IsActive ? "כן" : "לא")
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Entity Modal -->
+@if (_showAddModal)
+{
+    <div class="modal-overlay" @onclick="CloseAddModal">
+        <div class="modal-content modal-small" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>הוספת ישות חדשה</h3>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="entityName">שם ישות: <span style="color: red;">*</span></label>
+                    <input type="text" id="entityName" class="form-control" 
+                           placeholder="הזן שם ישות" @bind="_newEntityName">
+                </div>
+                
+                <div class="form-group">
+                    <label for="entityType">סוג ישות: <span style="color: red;">*</span></label>
+                    <select id="entityType" class="form-control" @bind="_newEntityTypeId">
+                        <option value="0">בחר סוג ישות...</option>
+                        @foreach (var type in _entityTypes.Where(t => new[] { 3, 5, 6 }.Contains(t.Id)))
+                        {
+                            <option value="@type.Id">@type.Name</option>
+                        }
+                    </select>
+                </div>
+                
+                <small class="text-muted" style="display: block; margin-top: 10px; direction: rtl;">
+                    לאחר יצירת הישות תוכל לערוך את כל הפרטים במסך העריכה
+                </small>
+            </div>
+            <div class="modal-footer">
+                <button class="dialog-btn save" @onclick="SaveNewEntity">אישור</button>
+                <button class="dialog-btn cancel" @onclick="CloseAddModal">ביטול</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<EntityListDto> _entities = new();
+    private List<EntityListDto> _sortedEntities = new();
+    private bool _isLoading = true;
+    private string _sortColumn = nameof(EntityListDto.Name);
+    private bool _sortAscending = true;
+    
+    // Add modal state
+    private bool _showAddModal = false;
+    private string _newEntityName = "";
+    private int _newEntityTypeId = 3; // Default to distributor
+    private List<EntityTypeDto> _entityTypes = new();
+
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "entities";
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        // Load entity types and data in parallel
+        await Task.WhenAll(LoadEntityTypes(), LoadData());
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        try
+        {
+            // Fetch entities from API (non-schools)
+            _entities = await ApiService.GetAsync<List<EntityListDto>>("entities/non-schools") ?? new();
+            
+            Console.WriteLine($"🏢 Loaded {_entities.Count} entities");
+            
+            // Apply initial sort
+            ApplySort();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading entities: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת רשימת ישויות");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadEntityTypes()
+    {
+        try
+        {
+            _entityTypes = await ApiService.GetAsync<List<EntityTypeDto>>("entities/entity-types") ?? new();
+            Console.WriteLine($"✅ Loaded {_entityTypes.Count} entity types");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading entity types: {ex.Message}");
+        }
+    }
+
+    private void SortTable(string column)
+    {
+        if (_sortColumn == column)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = true;
+        }
+
+        ApplySort();
+    }
+
+    private void ApplySort()
+    {
+        _sortedEntities = _sortColumn switch
+        {
+            nameof(EntityListDto.Name) => _sortAscending 
+                ? _entities.OrderBy(e => e.Name).ToList() 
+                : _entities.OrderByDescending(e => e.Name).ToList(),
+            nameof(EntityListDto.EntityTypeDescription) => _sortAscending 
+                ? _entities.OrderBy(e => e.EntityTypeDescription).ToList() 
+                : _entities.OrderByDescending(e => e.EntityTypeDescription).ToList(),
+            nameof(EntityListDto.OwnerName) => _sortAscending 
+                ? _entities.OrderBy(e => e.OwnerName).ToList() 
+                : _entities.OrderByDescending(e => e.OwnerName).ToList(),
+            nameof(EntityListDto.IsActive) => _sortAscending 
+                ? _entities.OrderBy(e => e.IsActive).ToList() 
+                : _entities.OrderByDescending(e => e.IsActive).ToList(),
+            _ => _entities.OrderBy(e => e.Name).ToList()
+        };
+    }
+
+    private string GetSortIcon(string column)
+    {
+        if (_sortColumn != column) return "";
+        return _sortAscending ? "▲" : "▼";
+    }
+
+    private async Task ViewEntity(int entityId)
+    {
+        Console.WriteLine($"🔍 Viewing entity: {entityId}");
+
+        try
+        {
+            // Store entity ID in session for EntityDetails page
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "ViewEntityId",
+                value = entityId.ToString()
+            });
+
+            Console.WriteLine("✅ Entity ID stored in session");
+            Navigation.NavigateTo("/entitydetails");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error viewing entity: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בבחירת הישות");
+        }
+    }
+
+    private async Task DeleteEntity(int entityId)
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            "האם למחוק ישות זו? הפעולה תהפוך את הישות ללא פעילה.");
+        
+        if (!confirmed) return;
+
+        try
+        {
+            var success = await ApiService.DeleteAsync($"entities/{entityId}");
+            
+            if (success)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "הישות הוסרה בהצלחה");
+                await LoadData(); // Reload the list
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה במחיקת הישות");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting entity: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה במחיקת הישות");
+        }
+    }
+
+    private void ShowAddEntityModal()
+    {
+        _newEntityName = "";
+        _newEntityTypeId = 3; // Default to distributor
+        _showAddModal = true;
+    }
+
+    private void CloseAddModal()
+    {
+        _showAddModal = false;
+        _newEntityName = "";
+        _newEntityTypeId = 3;
+    }
+
+    private async Task SaveNewEntity()
+    {
+        // Validate
+        if (string.IsNullOrWhiteSpace(_newEntityName))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "נא להזין שם ישות");
+            return;
+        }
+
+        if (_newEntityTypeId == 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "נא לבחור סוג ישות");
+            return;
+        }
+
+        try
+        {
+            // Get current session entity ID for owner
+            var session = await SessionState.GetSessionAsync();
+            int? ownerId = null;
+            if (session?.EntityId != null && int.TryParse(session.EntityId, out int entityIdInt))
+            {
+                ownerId = entityIdInt;
+            }
+
+            var createRequest = new
+            {
+                name = _newEntityName.Trim(),
+                entityTypeId = _newEntityTypeId,
+                ownerId = ownerId
+            };
+
+            var response = await ApiService.PostAsync<object, ApiResponse<CreateEntityResponseDto>>(
+                "entities",
+                createRequest
+            );
+
+            if (response?.Success == true && response.Data?.EntityId != null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "הישות נוצרה בהצלחה");
+                
+                // Navigate to entity details for full editing
+                await ApiService.PostAsync<object, object>("session/property", new
+                {
+                    key = "ViewEntityId",
+                    value = response.Data.EntityId.ToString()
+                });
+                
+                Navigation.NavigateTo("/entitydetails");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", 
+                    $"שגיאה ביצירת ישות: {response?.Message ?? "שגיאה לא ידועה"}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error creating entity: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה ביצירת ישות");
+        }
+    }
+
+    private async Task NavigateBackToDashboard()
+    {
+        try
+        {
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "NavigationSource",
+                value = "entities"
+            });
+            
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "ReturnToDashboard",
+                value = "true"
+            });
+            
+            Navigation.NavigateTo("/maindashboard");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error navigating to dashboard: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בחזרה ללוח הבקרה");
+        }
+    }
+}

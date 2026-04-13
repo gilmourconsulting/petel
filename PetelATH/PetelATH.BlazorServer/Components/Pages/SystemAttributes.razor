@@ -1,0 +1,514 @@
+@page "/systemattributes"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelATH.BlazorServer.Models
+@using PetelATH.BlazorServer.Components.Shared
+@using Microsoft.JSInterop
+@inject ApiService ApiService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject ILogger<SystemAttributes> Logger
+
+<!-- Page Title Section (OUTSIDE main-container) -->
+<div class="school-title-section">
+    <h1 class="page-title">מאפייני מערכת</h1>
+</div>
+
+<div class="main-container">
+    <!-- Context Buttons Section (RIGHT side) -->
+    <div class="context-buttons-section">
+        <SecureButton ActionName="systemattributes_add" ScreenName="@PageName" FunctionName="ShowAddAttributeModal"
+                      OnClick="ShowAddAttributeModal" CssClass="context-btn">
+            <img src="/images/Plus icon.png" alt="הוסף" class="action-icon-natural" style="width: 15px; height: 15px; margin-left: 5px;" />
+            הוסף מאפיין חדש
+        </SecureButton>
+        <SecureButton ActionName="systemattributes_refreshCache" ScreenName="@PageName" FunctionName="LoadFromCache"
+                      OnClick="LoadFromCache" CssClass="context-btn">
+            רענן מהמטמון
+        </SecureButton>
+        <SecureButton ActionName="systemattributes_reloadDB" ScreenName="@PageName" FunctionName="ReloadFromDatabase"
+                      OnClick="ReloadFromDatabase" CssClass="context-btn">
+            טען מחדש מהמסד נתונים
+        </SecureButton>
+        <div class="context-spacer"></div>
+        <SecureButton ActionName="systemattributes_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                      OnClick="NavigateBack" CssClass="context-navigation-btn">
+            חזרה לדף ראשי
+        </SecureButton>
+    </div>
+
+    <!-- Main Content Area (LEFT side) -->
+    <div class="students-content">
+        <div class="content-card">
+            @if (_isLoading)
+            {
+                <div class="loading-spinner">טוען נתונים...</div>
+            }
+            else if (_errorMessage != null)
+            {
+                <div class="error-message">
+                    <p>שגיאה בטעינת מאפייני המערכת</p>
+                    <p>@_errorMessage</p>
+                    <button class="btn-secondary" @onclick="LoadFromCache">נסה שוב</button>
+                </div>
+            }
+            else if (_attributes.Count == 0)
+            {
+                <div class="no-data-message">אין מאפייני מערכת זמינים במטמון</div>
+            }
+            else
+            {
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th @onclick="@(() => SortTable("Id"))" style="cursor: pointer;">
+                                    מזהה @GetSortArrow("Id")
+                                </th>
+                                <th @onclick="@(() => SortTable("Name"))" style="cursor: pointer;">
+                                    שם @GetSortArrow("Name")
+                                </th>
+                                <th>ערך</th>
+                                <th>תיאור</th>
+                                <th @onclick="@(() => SortTable("ValueType"))" style="cursor: pointer;">
+                                    סוג ערך @GetSortArrow("ValueType")
+                                </th>
+                                <th @onclick="@(() => SortTable("ForeignId"))" style="cursor: pointer;">
+                                    מזהה חיצוני @GetSortArrow("ForeignId")
+                                </th>
+                                <th @onclick="@(() => SortTable("UpdatedAt"))" style="cursor: pointer;">
+                                    עודכן לאחרונה @GetSortArrow("UpdatedAt")
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var attr in _attributes)
+                            {
+                                <tr>
+                                    <td>
+                                        <SecureButton ActionName="systemattributes_edit" ScreenName="@PageName" FunctionName="EditAttribute"
+                                                      OnClick="@(() => EditAttribute(attr))" CssClass="btn-icon" Title="ערוך">
+                                            <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural" />
+                                        </SecureButton>
+                                        <SecureButton ActionName="systemattributes_delete" ScreenName="@PageName" FunctionName="DeleteAttribute"
+                                                      OnClick="@(() => DeleteAttribute(attr.Id, attr.Name))" CssClass="btn-icon" Title="מחק">
+                                            <img src="/images/delete_icon.png" alt="מחק" class="action-icon-natural" />
+                                        </SecureButton>
+                                    </td>
+                                    <td>@attr.Id</td>
+                                    <td>@attr.Name</td>
+                                    <td>@GetDisplayValue(attr)</td>
+                                    <td>@(attr.Description ?? "-")</td>
+                                    <td>@attr.ValueType</td>
+                                    <td>@(attr.ForeignId?.ToString() ?? "-")</td>
+                                    <td>@GetFormattedDate(attr.UpdatedAt)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Modal -->
+@if (_showModal)
+{
+    <div class="modal" style="display: flex;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>@_modalTitle</h3>
+                <span class="modal-close" @onclick="CloseModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="attributeName">שם מאפיין: <span style="color: red;">*</span></label>
+                    <input type="text" id="attributeName" 
+                           class="form-control" 
+                           @bind="_editingAttribute.Name" 
+                           disabled="@_isEditMode"
+                           placeholder="לדוגמה: Security_SessionTimeout" />
+                </div>
+
+                <div class="form-group">
+                    <label for="attributeValue">ערך: <span style="color: red;">*</span></label>
+                    <input type="text" id="attributeValue" 
+                           class="form-control" 
+                           @bind="_editingAttribute.Value"
+                           placeholder="@(_isEditMode && _editingAttribute.ValueType == "sensitive" ? "השאר ריק אם אין צורך לשנות" : "ערך המאפיין")" />
+                </div>
+
+                <div class="form-group">
+                    <label for="attributeValueType">סוג ערך:</label>
+                    <select id="attributeValueType" class="form-control" @bind="_editingAttribute.ValueType" disabled="@_isEditMode">
+                        <option value="string">string</option>
+                        <option value="integer">integer</option>
+                        <option value="decimal">decimal</option>
+                        <option value="boolean">boolean</option>
+                        <option value="sensitive">sensitive (סודי)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="attributeDescription">תיאור:</label>
+                    <input type="text" id="attributeDescription" 
+                           class="form-control" 
+                           @bind="_editingAttribute.Description"
+                           disabled="@_isEditMode"
+                           placeholder="תיאור המאפיין (עד 50 תווים)" 
+                           maxlength="50" />
+                </div>
+
+                <div class="form-group">
+                    <label for="attributeForeignId">מזהה חיצוני:</label>
+                    <input type="number" id="attributeForeignId" 
+                           class="form-control" 
+                           @bind="_editingAttribute.ForeignId"
+                           disabled="@_isEditMode"
+                           placeholder="מזהה חיצוני (אופציונלי)" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(_modalError))
+                {
+                    <div class="error-message" style="margin-top: 10px;">
+                        @_modalError
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" @onclick="SaveAttribute" disabled="@_isSaving">
+                    @(_isSaving ? "שומר..." : "שמור")
+                </button>
+                <button class="btn-secondary" @onclick="CloseModal" disabled="@_isSaving">ביטול</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    protected override string PageName => "SystemAttributes";
+    
+    private List<SystemAttributeDto> _attributes = new();
+    private List<SystemAttributeDto> _allAttributes = new();
+    private bool _isLoading = true;
+    private string? _errorMessage;
+    private bool _showModal;
+    private string _modalTitle = "";
+    private bool _isEditMode;
+    private bool _isSaving;
+    private string? _modalError;
+    private SystemAttributeDto _editingAttribute = new();
+    
+    // Sorting
+    private string _sortColumn = "Id";
+    private bool _sortAscending = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+        
+        if (firstRender)
+        {
+            await LoadFromCache();
+        }
+    }
+
+    private async Task LoadFromCache()
+    {
+        _isLoading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            Logger.LogInformation("Loading system attributes from cache");
+            var response = await ApiService.GetAsync<List<SystemAttributeDto>>("systemattributes");
+            
+            if (response != null)
+            {
+                _allAttributes = response;
+                _attributes = new List<SystemAttributeDto>(_allAttributes);
+                ApplySorting();
+                Logger.LogInformation("Loaded {Count} system attributes", _attributes.Count);
+            }
+            else
+            {
+                _allAttributes = new();
+                _attributes = new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading system attributes");
+            _errorMessage = ex.Message;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ReloadFromDatabase()
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", 
+            "האם אתה בטוח שברצונך לטעון מחדש את מאפייני המערכת מהמסד נתונים?\n\nפעולה זו תעדכן את המטמון מהמסד נתונים."))
+        {
+            return;
+        }
+
+        _isLoading = true;
+        _errorMessage = null;
+        StateHasChanged();
+
+        try
+        {
+            Logger.LogInformation("Reloading system attributes from database");
+            var response = await ApiService.PostAsync<object, ApiResponse>(
+                "systemattributes/reload", 
+                new { });
+
+            if (response?.Success == true)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "מאפייני המערכת נטענו מחדש בהצלחה!");
+                await LoadFromCache();
+            }
+            else
+            {
+                _errorMessage = response?.Message ?? "שגיאה בטעינה מחדש";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error reloading system attributes from database");
+            _errorMessage = ex.Message;
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינה מחדש: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ShowAddAttributeModal()
+    {
+        _isEditMode = false;
+        _modalTitle = "הוסף מאפיין חדש";
+        _editingAttribute = new SystemAttributeDto { ValueType = "string" };
+        _modalError = null;
+        _showModal = true;
+    }
+
+    private void EditAttribute(SystemAttributeDto attribute)
+    {
+        _isEditMode = true;
+        _modalTitle = "ערוך מאפיין";
+        _editingAttribute = new SystemAttributeDto
+        {
+            Id = attribute.Id,
+            Name = attribute.Name,
+            Value = attribute.ValueType == "sensitive" ? "" : attribute.Value,
+            ValueType = attribute.ValueType,
+            Description = attribute.Description,
+            ForeignId = attribute.ForeignId
+        };
+        _modalError = null;
+        _showModal = true;
+    }
+
+    private async Task SaveAttribute()
+    {
+        _modalError = null;
+
+        // Validation
+        if (string.IsNullOrWhiteSpace(_editingAttribute.Name))
+        {
+            _modalError = "שם המאפיין הוא שדה חובה";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_editingAttribute.Value) && 
+            (!_isEditMode || _editingAttribute.ValueType != "sensitive"))
+        {
+            _modalError = "ערך המאפיין הוא שדה חובה";
+            return;
+        }
+
+        _isSaving = true;
+        StateHasChanged();
+
+        try
+        {
+            if (_isEditMode)
+            {
+                // Update existing attribute - only send value
+                if (string.IsNullOrWhiteSpace(_editingAttribute.Value))
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "לא בוצעו שינויים");
+                    CloseModal();
+                    return;
+                }
+
+                var updateRequest = new { value = _editingAttribute.Value };
+                var response = await ApiService.PutAsync<object, ApiResponse>(
+                    $"systemattributes/{_editingAttribute.Id}", 
+                    updateRequest);
+
+                if (response?.Success == true)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", response.Message ?? "המאפיין עודכן בהצלחה");
+                    CloseModal();
+                    await LoadFromCache();
+                }
+                else
+                {
+                    _modalError = response?.Message ?? "שגיאה בעדכון המאפיין";
+                }
+            }
+            else
+            {
+                // Create new attribute
+                var createRequest = new
+                {
+                    name = _editingAttribute.Name,
+                    value = _editingAttribute.Value,
+                    valueType = _editingAttribute.ValueType,
+                    description = string.IsNullOrWhiteSpace(_editingAttribute.Description) ? null : _editingAttribute.Description,
+                    foreignId = _editingAttribute.ForeignId
+                };
+
+                var response = await ApiService.PostAsync<object, ApiResponse>(
+                    "systemattributes", 
+                    createRequest);
+
+                if (response?.Success == true)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", response.Message ?? "המאפיין נוצר בהצלחה");
+                    CloseModal();
+                    await LoadFromCache();
+                }
+                else
+                {
+                    _modalError = response?.Message ?? "שגיאה ביצירת המאפיין";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving attribute");
+            _modalError = $"שגיאה בשמירת המאפיין: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task DeleteAttribute(int id, string name)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", 
+            $"האם אתה בטוח שברצונך למחוק את המאפיין \"{name}\"?\n\nפעולה זו אינה ניתנת לביטול."))
+        {
+            return;
+        }
+
+        try
+        {
+            var response = await ApiService.DeleteAsync<ApiResponse>($"systemattributes/{id}");
+
+            if (response?.Success == true)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response.Message ?? "המאפיין נמחק בהצלחה");
+                await LoadFromCache();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה במחיקת המאפיין");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting attribute {Id}", id);
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה במחיקת המאפיין: {ex.Message}");
+        }
+    }
+
+    private void CloseModal()
+    {
+        _showModal = false;
+        _editingAttribute = new();
+        _modalError = null;
+    }
+
+    private void SortTable(string column)
+    {
+        if (_sortColumn == column)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = true;
+        }
+
+        ApplySorting();
+    }
+
+    private void ApplySorting()
+    {
+        _attributes = _sortColumn switch
+        {
+            "Id" => _sortAscending 
+                ? _allAttributes.OrderBy(a => a.Id).ToList()
+                : _allAttributes.OrderByDescending(a => a.Id).ToList(),
+            "Name" => _sortAscending 
+                ? _allAttributes.OrderBy(a => a.Name).ToList()
+                : _allAttributes.OrderByDescending(a => a.Name).ToList(),
+            "ValueType" => _sortAscending 
+                ? _allAttributes.OrderBy(a => a.ValueType).ToList()
+                : _allAttributes.OrderByDescending(a => a.ValueType).ToList(),
+            "ForeignId" => _sortAscending 
+                ? _allAttributes.OrderBy(a => a.ForeignId ?? int.MaxValue).ToList()
+                : _allAttributes.OrderByDescending(a => a.ForeignId ?? int.MinValue).ToList(),
+            "UpdatedAt" => _sortAscending 
+                ? _allAttributes.OrderBy(a => a.UpdatedAt ?? DateTime.MinValue).ToList()
+                : _allAttributes.OrderByDescending(a => a.UpdatedAt ?? DateTime.MaxValue).ToList(),
+            _ => _allAttributes
+        };
+    }
+
+    private string GetSortArrow(string column)
+    {
+        if (_sortColumn != column) return "";
+        return _sortAscending ? "▲" : "▼";
+    }
+
+    private string GetDisplayValue(SystemAttributeDto attr)
+    {
+        return attr.ValueType == "sensitive" ? "********" : attr.Value;
+    }
+
+    private string GetFormattedDate(DateTime? date)
+    {
+        if (!date.HasValue) return "-";
+        
+        return date.Value.ToString("dd/MM/yyyy HH:mm");
+    }
+
+    private void NavigateBack()
+    {
+        Navigation.NavigateTo("/maindashboard");
+    }
+
+    // Simple ApiResponse class for this page
+    private class ApiResponse
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+    }
+}

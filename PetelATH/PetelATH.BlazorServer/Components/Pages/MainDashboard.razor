@@ -1,0 +1,451 @@
+@page "/maindashboard"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelATH.BlazorServer.Components.Shared
+@using PetelATH.BlazorServer.DTOs
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+
+<!-- Context Buttons Section (RIGHT side) -->
+<div class="context-buttons-section">
+    <SecureButton ActionName="maindashboard_previousYear" ScreenName="@PageName" FunctionName="PreviousYear" 
+                  OnClick="PreviousYear" CssClass="context-btn">@_previousYearName</SecureButton>
+    <SecureButton ActionName="maindashboard_currentYear" ScreenName="@PageName" FunctionName="CurrentYear" 
+                  OnClick="CurrentYear" CssClass="context-btn active">@_currentYearName</SecureButton>
+    @if (_nextYearId > 0)
+    {
+        <SecureButton ActionName="maindashboard_nextYear" ScreenName="@PageName" FunctionName="NextYear" 
+                      OnClick="NextYear" CssClass="context-btn">@_nextYearName</SecureButton>
+    }
+    <div class="context-spacer"></div>
+    @if (_showEntityDetailsButton)
+    {
+        <SecureButton ActionName="maindashboard_entityDetails" ScreenName="@PageName" FunctionName="NavigateToEntityDetails" 
+                      OnClick="NavigateToEntityDetails" CssClass="context-navigation-btn">פרטי ישות</SecureButton>
+    }
+</div>
+
+<!-- Dashboard Content (LEFT side, takes flex: 1) -->
+<div class="dashboard-flex-row">
+    <div class="dashboard-cards-wrapper">
+        <!-- Alerts Card -->
+        <AlertsEventsCard Icon="🔔"
+                          Title="התראות"
+                          IsEvent="false"
+                          AllowAdd="true"
+                          Items="@_alerts"
+                          IsLoading="@_alertsLoading"
+                          OnAdd="@(() => ShowAddModal(false))"
+                          OnItemClick="@HandleAlertClick" />
+
+        <!-- Events Card -->
+        <AlertsEventsCard Icon="🗓"
+                          Title="אירועים"
+                          IsEvent="true"
+                          AllowAdd="true"
+                          Items="@_events"
+                          IsLoading="@_eventsLoading"
+                          OnAdd="@(() => ShowAddModal(true))"
+                          OnItemClick="@HandleEventClick" />
+    </div>
+</div>
+
+<!-- Add Alert/Event Modal -->
+<AddAlertEventModal IsVisible="@_showAddModal"
+                    IsEvent="@_isEventModal"
+                    OnClose="@(() => _showAddModal = false)"
+                    OnSaved="@HandleModalSaved" />
+
+@code {
+    private List<AlertEventItemDto> _alerts = new();
+    private List<AlertEventItemDto> _events = new();
+    private bool _alertsLoading = true;
+    private bool _eventsLoading = true;
+    private bool _showEntityDetailsButton = false;
+    private bool _showAddModal = false;
+    private bool _isEventModal = false;
+
+    private int _previousYearId;
+    private int _currentYearId;
+    private int _nextYearId;
+    
+    private string _previousYearName = "שנה קודמת";
+    private string _currentYearName = "שנה נוכחית";
+    private string _nextYearName = "שנה הבאה";
+
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "maindashboard";
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        // Show entity details button for schools (entityTypeId !== 1 and !== 4)
+        _showEntityDetailsButton =  session.EntityTypeId != "1" && session.EntityTypeId != "4";
+
+        await LoadData();
+        
+        // Check school year availability for school entities (entityType 1 or 4)
+        await CheckSchoolYearAvailability(session);
+    }
+
+    private async Task LoadData()
+    {
+        await LoadSchoolYears();
+        await LoadAlerts();
+        await LoadEvents();
+    }
+
+    private async Task LoadSchoolYears()
+    {
+        try
+        {
+            var attributes = await ApiService.GetAsync<List<SystemAttributeDto>>("systemattributes");
+            if (attributes != null)
+            {
+                var prev = attributes.FirstOrDefault(a => a.Name == "Previous Year");
+                var curr = attributes.FirstOrDefault(a => a.Name == "Current Year");
+                var next = attributes.FirstOrDefault(a => a.Name == "Next Year");
+
+                if (prev != null)
+                {
+                    _previousYearId = prev.ForeignId ?? 0;
+                    _previousYearName = prev.Value;
+                }
+                
+                if (curr != null)
+                {
+                    _currentYearId = curr.ForeignId ?? 0;
+                    _currentYearName = curr.Value;
+                }
+                
+                if (next?.ForeignId != null)
+                {
+                    _nextYearId = next.ForeignId.Value;
+                    _nextYearName = next.Value;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+    }
+
+    private async Task LoadAlerts()
+    {
+        _alertsLoading = true;
+        try
+        {
+            var session = await SessionState.GetSessionAsync();
+            if (session != null)
+            {
+                _alerts = await ApiService.GetAsync<List<AlertEventItemDto>>($"alerts/entity/{session.EntityId}?isEvent=false") ?? new();
+                Console.WriteLine($"📊 Loaded {_alerts.Count} alerts");
+                if (_alerts.Count > 0)
+                {
+                    Console.WriteLine($"📋 First alert entity name: '{_alerts[0].CreatedByEntityName}'");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+        finally
+        {
+            _alertsLoading = false;
+        }
+    }
+
+    private async Task LoadEvents()
+    {
+        _eventsLoading = true;
+        try
+        {
+            var session = await SessionState.GetSessionAsync();
+            if (session != null)
+            {
+                _events = await ApiService.GetAsync<List<AlertEventItemDto>>($"alerts/entity/{session.EntityId}?isEvent=true") ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error: {ex.Message}");
+        }
+        finally
+        {
+            _eventsLoading = false;
+        }
+    }
+
+    private void ShowAddModal(bool isEvent)
+    {
+        _isEventModal = isEvent;
+        _showAddModal = true;
+    }
+
+    private async Task HandleModalSaved()
+    {
+        // Refresh the data after saving
+        await LoadAlerts();
+        await LoadEvents();
+    }
+
+    private void HandleAlertClick(AlertEventItemDto alert)
+    {
+        Console.WriteLine($"Alert clicked: {alert.Id}");
+    }
+
+    private void HandleEventClick(AlertEventItemDto evt)
+    {
+        Console.WriteLine($"Event clicked: {evt.Id}");
+    }
+    
+    private void NavigateToEntityDetails()
+    {
+        Navigation.NavigateTo("/entitydetails");
+    }
+
+    private async Task PreviousYear()
+    {
+        await ShowSchoolYear(_previousYearId, "previous", _previousYearName);
+    }
+
+    private async Task CurrentYear()
+    {
+        await ShowSchoolYear(_currentYearId, "current", _currentYearName);
+    }
+
+    private async Task NextYear()
+    {
+        await ShowSchoolYear(_nextYearId, "next", _nextYearName);
+    }
+
+    private async Task ShowSchoolYear(int yearId, string yearType, string yearValue)
+    {
+        Console.WriteLine($"🗓️ ShowSchoolYear: {yearId}, {yearType}, {yearValue}");
+
+        if (yearId == 0 || string.IsNullOrEmpty(yearType))
+        {
+            Console.WriteLine("❌ Invalid year parameters");
+            return;
+        }
+
+        try
+        {
+            // Store selected year in backend session
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedYearId",
+                value = yearId.ToString()
+            });
+
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedYearType",
+                value = yearType
+            });
+
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedYearValue",
+                value = yearValue
+            });
+
+            Console.WriteLine("✅ Selected year stored in session");
+
+            // Get current session to check entity type
+            var session = await SessionState.GetSessionAsync();
+            if (session == null)
+            {
+                Console.WriteLine("❌ No session found");
+                return;
+            }
+
+            var entityTypeId = int.Parse(session.EntityTypeId);
+            Console.WriteLine($"📋 Entity type: {entityTypeId}");
+
+            // Multi-school network (not school entity) -> go to school list
+            if (entityTypeId != 1 && entityTypeId != 4)
+            {
+                Console.WriteLine("🏫 Multi-school network - navigating to school list");
+                Navigation.NavigateTo("/schoollist");
+            }
+            else
+            {
+                // Single school entity -> go to school dashboard
+                Console.WriteLine("🏫 Single school - navigating to school dashboard");
+                await LoadSchoolDashboard(session);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 Error in ShowSchoolYear: {ex.Message}");
+        }
+    }
+
+    private async Task LoadSchoolDashboard(SessionData session)
+    {
+        try
+        {
+            // Set SelectedSchoolId to user's entityId (the school they belong to)
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedSchoolId",
+                value = session.EntityId
+            });
+
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedSchoolName",
+                value = session.EntityName
+            });
+
+            Console.WriteLine($"✅ SelectedSchoolId set to user entityId: {session.EntityId}");
+
+            // Get the selected year type from session
+            var yearTypeResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearType");
+            var selectedYearType = yearTypeResponse?["value"];
+
+            Console.WriteLine($"📅 Selected year type: {selectedYearType}");
+
+            // Get the corresponding school_year.id based on year type
+            string? schoolYearId = null;
+
+            if (selectedYearType == "previous")
+            {
+                var response = await ApiService.GetAsync<Dictionary<string, string>>("session/property/PreviousSchoolYearId");
+                schoolYearId = response?["value"];
+                Console.WriteLine($"📚 Using Previous School Year ID: {schoolYearId}");
+            }
+            else if (selectedYearType == "current")
+            {
+                var response = await ApiService.GetAsync<Dictionary<string, string>>("session/property/CurrentSchoolYearId");
+                schoolYearId = response?["value"];
+                Console.WriteLine($"📚 Using Current School Year ID: {schoolYearId}");
+            }
+            else if (selectedYearType == "next")
+            {
+                var response = await ApiService.GetAsync<Dictionary<string, string>>("session/property/NextSchoolYearId");
+                schoolYearId = response?["value"];
+                Console.WriteLine($"📚 Using Next School Year ID: {schoolYearId}");
+            }
+
+            // Validate school year ID exists
+            if (string.IsNullOrEmpty(schoolYearId))
+            {
+                Console.WriteLine($"❌ No school year ID found for selected year type: {selectedYearType}");
+                return;
+            }
+
+            // Store SelectedSchoolYearId in session
+            await ApiService.PostAsync<object, object>("session/property", new
+            {
+                key = "SelectedSchoolYearId",
+                value = schoolYearId
+            });
+
+            Console.WriteLine($"✅ SelectedSchoolYearId set to: {schoolYearId}");
+
+            // Navigate to school dashboard
+            Navigation.NavigateTo("/schooldashboard");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error in LoadSchoolDashboard: {ex.Message}");
+        }
+    }
+    
+    private async Task CheckSchoolYearAvailability(SessionData session)
+    {
+        Console.WriteLine("🔍 Checking school year availability...");
+        
+        try
+        {
+            var entityTypeId = int.Parse(session.EntityTypeId);
+            
+            // Only check for school entities (entityTypeId = 1 or 4)
+            if (entityTypeId != 1 && entityTypeId != 4)
+            {
+                Console.WriteLine("⏭️ Not a school entity, skipping year availability check");
+                return;
+            }
+            
+            var schoolId = int.Parse(session.EntityId);
+            Console.WriteLine($"🏫 School entity detected, checking years for schoolId: {schoolId}");
+            
+            // Check each year type
+            var yearChecks = new[]
+            {
+                new { YearId = _previousYearId, SessionKey = "PreviousSchoolYearId", YearType = "previous" },
+                new { YearId = _currentYearId, SessionKey = "CurrentSchoolYearId", YearType = "current" },
+                new { YearId = _nextYearId, SessionKey = "NextSchoolYearId", YearType = "next" }
+            };
+            
+            foreach (var check in yearChecks)
+            {
+                if (check.YearId == 0)
+                {
+                    Console.WriteLine($"⚠️ No {check.YearType} year ID found, skipping");
+                    continue;
+                }
+                
+                try
+                {
+                    Console.WriteLine($"🌐 Checking {check.YearType} year with yearId: {check.YearId}, schoolId: {schoolId}");
+                    
+                    var schoolYear = await ApiService.GetAsync<Dictionary<string, object>>(
+                        $"schoolYears/by-year-and-school?yearId={check.YearId}&schoolId={schoolId}");
+                    
+                    if (schoolYear != null && schoolYear.ContainsKey("id"))
+                    {
+                        var schoolYearId = schoolYear["id"].ToString();
+                        Console.WriteLine($"✅ {check.YearType} year exists, school_year.id: {schoolYearId}");
+                        
+                        // Store school_year.id in backend session
+                        await ApiService.PostAsync<object, object>("session/property", new
+                        {
+                            key = check.SessionKey,
+                            value = schoolYearId
+                        });
+                    }
+                    else
+                    {
+                        Console.WriteLine($"❌ {check.YearType} year does NOT exist in school_years table");
+                        
+                        // Clear session property
+                        await ApiService.PostAsync<object, object>("session/property", new
+                        {
+                            key = check.SessionKey,
+                            value = ""
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"❌ Error checking {check.YearType} year: {ex.Message}");
+                    
+                    // Clear session property on error
+                    await ApiService.PostAsync<object, object>("session/property", new
+                    {
+                        key = check.SessionKey,
+                        value = ""
+                    });
+                }
+            }
+            
+            Console.WriteLine("✅ School year availability check complete");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error in CheckSchoolYearAvailability: {ex.Message}");
+        }
+    }
+}

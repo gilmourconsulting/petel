@@ -1,0 +1,564 @@
+@page "/system-configuration"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelATH.BlazorServer.DTOs
+@using PetelATH.BlazorServer.Services
+@inject ApiService ApiService
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <SecureButton
+            ActionName="config_refresh"
+            ScreenName="@PageName"
+            FunctionName="LoadConfiguration"
+            OnClick="LoadConfiguration"
+            CssClass="context-btn">
+            רענן הגדרות
+        </SecureButton>
+        
+        <SecureButton
+            ActionName="config_clearCache"
+            ScreenName="@PageName"
+            FunctionName="ClearCache"
+            OnClick="ClearCache"
+            CssClass="context-btn">
+            נקה מטמון
+        </SecureButton>
+        
+        <div class="context-spacer"></div>
+    </div>
+
+    <!-- Configuration content -->
+    <div class="configuration-content">
+        <!-- Page Title -->
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">הגדרות מערכת</div>
+                <div class="text-branded" style="text-align: center;">ניהול הגדרות דינמיות</div>
+                <div class="left-spacer"></div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="alert alert-danger" role="alert">
+                @_errorMessage
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(_successMessage))
+        {
+            <div class="alert alert-success" role="alert">
+                @_successMessage
+            </div>
+        }
+
+        <!-- Rate Limiting Configuration Card -->
+        <div class="content-card">
+            <div class="detail-card @(_rateLimitExpanded ? "expanded" : "collapsed")">
+                <div class="detail-card-header" @onclick="ToggleRateLimitCard">
+                    <h2 class="detail-card-title">הגדרות Rate Limiting</h2>
+                    <div class="card-header-actions">
+                        <button class="collapse-toggle">@(_rateLimitExpanded ? "×" : "+")</button>
+                    </div>
+                </div>
+                <div class="detail-card-content">
+                    @if (_rateLimitConfig != null)
+                    {
+                        <div class="config-section">
+                            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                                <!-- Enable/Disable Toggle -->
+                                <div class="config-item" style="min-width: 200px;">
+                                    <label class="config-label">
+                                        <input type="checkbox" @bind="_rateLimitConfig.Enabled" />
+                                        הפעל Rate Limiting
+                                    </label>
+                                </div>
+                                
+                                <!-- Login Limits -->
+                                <div class="config-item">
+                                    <label class="config-label">ניסיונות התחברות (15 דקות)</label>
+                                    <input type="number" @bind="_rateLimitConfig.LoginLimit" min="1" max="100" class="config-input" />
+                                </div>
+                                
+                                <!-- OTP Limits -->
+                                <div class="config-item">
+                                    <label class="config-label">אימות OTP (15 דקות)</label>
+                                    <input type="number" @bind="_rateLimitConfig.OtpLimit" min="1" max="50" class="config-input" />
+                                </div>
+                                
+                                <!-- API Limits -->
+                                <div class="config-item">
+                                    <label class="config-label">בקשות API (דקה)</label>
+                                    <input type="number" @bind="_rateLimitConfig.ApiLimit" min="10" max="1000" class="config-input" />
+                                </div>
+                                
+                                <!-- Hourly Limit -->
+                                <div class="config-item">
+                                    <label class="config-label">בקשות API (שעה)</label>
+                                    <input type="number" @bind="_rateLimitConfig.HourlyLimit" min="100" max="10000" class="config-input" />
+                                </div>
+                            </div>
+                            
+                            <div class="config-actions" style="margin-top: 20px;">
+                                <button @onclick="SaveRateLimitConfig" class="btn btn-primary" disabled="@_isLoading">
+                                    @if (_isLoading)
+                                    {
+                                        <span>שומר...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>שמור הגדרות Rate Limiting</span>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    else if (_isLoading)
+                    {
+                        <div class="loading-spinner">טוען הגדרות...</div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Security Configuration Card -->
+        <div class="content-card">
+            <div class="detail-card @(_securityExpanded ? "expanded" : "collapsed")">
+                <div class="detail-card-header" @onclick="ToggleSecurityCard">
+                    <h2 class="detail-card-title">הגדרות אבטחה</h2>
+                    <div class="card-header-actions">
+                        <button class="collapse-toggle">@(_securityExpanded ? "×" : "+")</button>
+                    </div>
+                </div>
+                <div class="detail-card-content">
+                    @if (_securityConfig != null)
+                    {
+                        <div class="config-section">
+                            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                                <!-- OTP Toggle -->
+                                <div class="config-item" style="min-width: 200px;">
+                                    <label class="config-label">
+                                        <input type="checkbox" @bind="_securityConfig.OtpEnabled" />
+                                        הפעל אימות דו-שלבי (OTP)
+                                    </label>
+                                </div>
+                                
+                                <!-- Session Timeout -->
+                                <div class="config-item">
+                                    <label class="config-label">זמן פסק מושב (דקות)</label>
+                                    <input type="number" @bind="_securityConfig.SessionTimeoutMinutes" min="5" max="480" class="config-input" />
+                                </div>
+                                
+                                <!-- Password Attempts -->
+                                <div class="config-item">
+                                    <label class="config-label">ניסיונות סיסמה שגויה</label>
+                                    <input type="number" @bind="_securityConfig.MaxPasswordAttempts" min="3" max="10" class="config-input" />
+                                </div>
+                                
+                                <!-- OTP Attempts -->
+                                <div class="config-item">
+                                    <label class="config-label">ניסיונות OTP שגויים</label>
+                                    <input type="number" @bind="_securityConfig.MaxOtpAttempts" min="2" max="10" class="config-input" />
+                                </div>
+                                
+                                <!-- OTP Issuer -->
+                                <div class="config-item" style="min-width: 300px;">
+                                    <label class="config-label">שם מנפיק OTP</label>
+                                    <input type="text" @bind="_securityConfig.OtpIssuer" maxlength="100" class="config-input" />
+                                </div>
+                            </div>
+                            
+                            <div class="config-actions" style="margin-top: 20px;">
+                                <button @onclick="SaveSecurityConfig" class="btn btn-primary" disabled="@_isLoading">
+                                    @if (_isLoading)
+                                    {
+                                        <span>שומר...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>שמור הגדרות אבטחה</span>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- System Configuration Card -->
+        <div class="content-card">
+            <div class="detail-card @(_systemExpanded ? "expanded" : "collapsed")">
+                <div class="detail-card-header" @onclick="ToggleSystemCard">
+                    <h2 class="detail-card-title">הגדרות מערכת</h2>
+                    <div class="card-header-actions">
+                        <button class="collapse-toggle">@(_systemExpanded ? "×" : "+")</button>
+                    </div>
+                </div>
+                <div class="detail-card-content">
+                    <div class="config-section">
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                            <!-- Maintenance Mode -->
+                            <div class="config-item" style="min-width: 200px;">
+                                <label class="config-label">
+                                    <input type="checkbox" @bind="_maintenanceMode" />
+                                    מצב תחזוקה
+                                </label>
+                            </div>
+                            
+                            <!-- Maintenance Message -->
+                            <div class="config-item" style="min-width: 400px;">
+                                <label class="config-label">הודעת תחזוקה</label>
+                                <textarea @bind="_maintenanceMessage" rows="2" class="config-input" style="height: auto;"></textarea>
+                            </div>
+                        </div>
+                        
+                        <div class="config-actions" style="margin-top: 20px;">
+                            <button @onclick="SaveMaintenanceConfig" class="btn btn-warning" disabled="@_isLoading">
+                                @if (_isLoading)
+                                {
+                                    <span>שומר...</span>
+                                }
+                                else
+                                {
+                                    <span>עדכן מצב תחזוקה</span>
+                                }
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.configuration-content {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.config-section {
+    padding: 20px;
+}
+
+.config-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 150px;
+}
+
+.config-label {
+    font-weight: 600;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.config-input {
+    padding: 8px 12px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.config-input:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.config-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-start;
+    border-top: 1px solid #eee;
+    padding-top: 20px;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background-color: #0056b3;
+}
+
+.btn-warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.btn-warning:hover:not(:disabled) {
+    background-color: #e0a800;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.alert {
+    padding: 12px 16px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.alert-success {
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+    color: #155724;
+}
+
+.alert-danger {
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+    color: #721c24;
+}
+</style>
+
+@code {
+    protected override string PageName => "system-configuration";
+
+    private RateLimitConfigDto? _rateLimitConfig;
+    private SecurityConfigDto? _securityConfig;
+    private bool _maintenanceMode;
+    private string _maintenanceMessage = "";
+    
+    private bool _rateLimitExpanded = true;
+    private bool _securityExpanded = false;
+    private bool _systemExpanded = false;
+    
+    private bool _isLoading = false;
+    private string _errorMessage = "";
+    private string _successMessage = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadConfiguration();
+        }
+    }
+
+    private async Task LoadConfiguration()
+    {
+        _isLoading = true;
+        _errorMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            // Load rate limiting config
+            var rateLimitResponse = await ApiService.GetAsync<ApiResponse<RateLimitConfigDto>>("configuration/rate-limit");
+            if (rateLimitResponse != null && rateLimitResponse.Success)
+            {
+                _rateLimitConfig = rateLimitResponse.Data;
+            }
+
+            // Load all configuration
+            var allConfigResponse = await ApiService.GetAsync<AllConfigResponse>("configuration");
+            if (allConfigResponse != null && allConfigResponse.Success)
+            {
+                _securityConfig = allConfigResponse.Data?.Security;
+                
+                if (allConfigResponse.Data?.System != null)
+                {
+                    _maintenanceMode = Convert.ToBoolean(allConfigResponse.Data.System.GetValueOrDefault("System_MaintenanceMode", false));
+                    _maintenanceMessage = allConfigResponse.Data.System.GetValueOrDefault("System_MaintenanceMessage", "")?.ToString() ?? "";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"שגיאה בטעינת הגדרות: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveRateLimitConfig()
+    {
+        if (_rateLimitConfig == null) return;
+
+        _isLoading = true;
+        _errorMessage = "";
+        _successMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            var response = await ApiService.PutAsync<RateLimitUpdateRequestDto, ApiResponse>(
+                "configuration/rate-limit", 
+                new RateLimitUpdateRequestDto
+                {
+                    Enabled = _rateLimitConfig.Enabled,
+                    LoginLimit = _rateLimitConfig.LoginLimit,
+                    OtpLimit = _rateLimitConfig.OtpLimit,
+                    ApiLimit = _rateLimitConfig.ApiLimit,
+                    HourlyLimit = _rateLimitConfig.HourlyLimit
+                });
+
+            if (response != null && response.Success)
+            {
+                _successMessage = "הגדרות Rate Limiting נשמרו בהצלחה";
+            }
+            else
+            {
+                _errorMessage = response?.Message ?? "שגיאה בשמירת הגדרות Rate Limiting";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"שגיאה בשמירת הגדרות: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SaveSecurityConfig()
+    {
+        // TODO: Implement security config save endpoint
+        _successMessage = "הגדרות אבטחה יישמרו בועדכונים הבאים";
+        StateHasChanged();
+    }
+
+    private async Task SaveMaintenanceConfig()
+    {
+        _isLoading = true;
+        _errorMessage = "";
+        _successMessage = "";
+        StateHasChanged();
+
+        try
+        {
+            var response = await ApiService.PostAsync<MaintenanceRequestDto, ApiResponse>(
+                "configuration/maintenance",
+                new MaintenanceRequestDto
+                {
+                    Enabled = _maintenanceMode,
+                    Message = _maintenanceMessage
+                });
+
+            if (response != null && response.Success)
+            {
+                _successMessage = _maintenanceMode ? "מצב תחזוקה הופעל" : "מצב תחזוקה הופסק";
+            }
+            else
+            {
+                _errorMessage = response?.Message ?? "שגיאה בעדכון מצב תחזוקה";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"שגיאה בעדכון מצב תחזוקה: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ClearCache()
+    {
+        try
+        {
+            var response = await ApiService.PostAsync<object, ApiResponse>("configuration/clear-cache", new object());
+            if (response != null && response.Success)
+            {
+                _successMessage = "מטמון הגדרות נוקה בהצלחה";
+            }
+            else
+            {
+                _errorMessage = response?.Message ?? "שגיאה בניקוי מטמון";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"שגיאה בניקוי מטמון: {ex.Message}";
+        }
+        StateHasChanged();
+    }
+
+    private void ToggleRateLimitCard() => _rateLimitExpanded = !_rateLimitExpanded;
+    private void ToggleSecurityCard() => _securityExpanded = !_securityExpanded;
+    private void ToggleSystemCard() => _systemExpanded = !_systemExpanded;
+
+    // DTOs
+    public class RateLimitConfigDto
+    {
+        public bool Enabled { get; set; }
+        public int LoginLimit { get; set; }
+        public int OtpLimit { get; set; }
+        public int ApiLimit { get; set; }
+        public int HourlyLimit { get; set; }
+    }
+
+    public class SecurityConfigDto
+    {
+        public bool OtpEnabled { get; set; }
+        public int SessionTimeoutMinutes { get; set; }
+        public int MaxPasswordAttempts { get; set; }
+        public int MaxOtpAttempts { get; set; }
+        public string OtpIssuer { get; set; } = "";
+    }
+
+    public class ApiResponse
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = "";
+    }
+
+    public class ApiResponse<T> : ApiResponse
+    {
+        public T? Data { get; set; }
+    }
+
+    public class AllConfigResponse : ApiResponse
+    {
+        public AllConfigData? Data { get; set; }
+    }
+
+    public class AllConfigData
+    {
+        public SecurityConfigDto? Security { get; set; }
+        public Dictionary<string, object?>? System { get; set; }
+    }
+
+    public class RateLimitUpdateRequestDto
+    {
+        public bool Enabled { get; set; }
+        public int LoginLimit { get; set; }
+        public int OtpLimit { get; set; }
+        public int ApiLimit { get; set; }
+        public int HourlyLimit { get; set; }
+    }
+
+    public class MaintenanceRequestDto
+    {
+        public bool Enabled { get; set; }
+        public string? Message { get; set; }
+    }
+}
