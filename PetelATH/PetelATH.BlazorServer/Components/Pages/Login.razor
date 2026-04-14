@@ -709,7 +709,7 @@
                 if (response.Success)
                 {
                     await TokenService.SetTokenAsync(response.Token);
-                    Navigation.NavigateTo("/maindashboard");
+                    Navigation.NavigateTo("/maindashboard?fromLogin=true");
                 }
                 else
                 {
@@ -754,7 +754,7 @@
             if (response != null && response.Success)
             {
                 await TokenService.SetTokenAsync(response.Token);
-                Navigation.NavigateTo("/maindashboard");
+                Navigation.NavigateTo("/maindashboard?fromLogin=true");
             }
             else if (response?.RequiresPasswordChange == true)
             {
@@ -859,7 +859,7 @@
             if (loginResponse != null && loginResponse.Success)
             {
                 await TokenService.SetTokenAsync(loginResponse.Token);
-                Navigation.NavigateTo("/maindashboard");
+                Navigation.NavigateTo("/maindashboard?fromLogin=true");
             }
             else if (loginResponse?.RequiresPasswordChange == true)
             {

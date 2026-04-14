@@ -77,6 +77,9 @@
     // REQUIRED by SecurePageBase
     protected override string PageName => "maindashboard";
 
+    [SupplyParameterFromQuery(Name = "fromLogin")]
+    public bool FromLogin { get; set; }
+
     protected override async Task OnPageInitializedAsync()
     {
         var session = await SessionState.GetSessionAsync();
@@ -93,6 +96,12 @@
         
         // Check school year availability for school entities (entityType 1 or 4)
         await CheckSchoolYearAvailability(session);
+
+        // Auto-navigate: skip main dashboard and go directly to the current year's page
+        if (FromLogin && _currentYearId > 0)
+        {
+            await ShowSchoolYear(_currentYearId, "current", _currentYearName);
+        }
     }
 
     private async Task LoadData()
