@@ -1,0 +1,317 @@
+@page "/schooldashboard"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelATH.BlazorServer.DTOs
+@using PetelATH.BlazorServer.Components.Shared
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <SecureButton ActionName="schooldashboard_students" ScreenName="@PageName" FunctionName="NavigateToStudents" 
+                      OnClick="NavigateToStudents" CssClass="context-btn">תלמידים</SecureButton>
+        <SecureButton ActionName="schooldashboard_schoolDetails" ScreenName="@PageName" FunctionName="NavigateToSchoolDetails" 
+                      OnClick="NavigateToSchoolDetails" CssClass="context-btn">פרטי בית ספר</SecureButton>
+        <SecureButton ActionName="schooldashboard_schoolDocuments" ScreenName="@PageName" FunctionName="NavigateToSchoolDocuments" 
+                      OnClick="NavigateToSchoolDocuments" CssClass="context-btn">מסמכים בית ספריים</SecureButton>
+        <div class="context-spacer"></div>
+        @if (_showBackToSchoolList)
+        {
+            <SecureButton ActionName="schooldashboard_backToSchoolList" ScreenName="@PageName" FunctionName="NavigateBackToSchoolList" 
+                          OnClick="NavigateBackToSchoolList" CssClass="context-navigation-btn" Title="לרשימת בתי הספר">
+                לרשימת בתי הספר
+            </SecureButton>
+        }
+        <button class="context-navigation-btn" @onclick="NavigateToMainDashboard" title="חזרה למסך הראשי">
+            חזרה למסך הראשי
+        </button>
+    </div>
+
+    <!-- Dashboard Content -->
+    <div class="dashboard-flex-row">
+        <!-- School Title Section -->
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">@_schoolTitle</div>
+                <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
+                <div class="left-spacer"></div>
+            </div>
+            <div class="dashboard-cards-wrapper">
+                <!-- Alerts Card -->
+                <AlertsEventsCard Icon="🔔"
+                                  Title="התראות"
+                                  IsEvent="false"
+                                  AllowAdd="true"
+                                  Items="@_alerts"
+                                  IsLoading="@_alertsLoading"
+                                  OnAdd="@(() => ShowAddModal(false))"
+                                  OnItemClick="@HandleAlertClick" />
+
+                <!-- Events Card -->
+                <AlertsEventsCard Icon="🗓"
+                                  Title="אירועים"
+                                  IsEvent="true"
+                                  AllowAdd="true"
+                                  Items="@_events"
+                                  IsLoading="@_eventsLoading"
+                                  OnAdd="@(() => ShowAddModal(true))"
+                                  OnItemClick="@HandleEventClick" />
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Alert/Event Modal -->
+<AddAlertEventModal IsVisible="@_showAddModal"
+                    IsEvent="@_isEventModal"
+                    OnClose="@(() => _showAddModal = false)"
+                    OnSaved="@HandleModalSaved" />
+
+@code {
+    private List<AlertEventItemDto> _alerts = new();
+    private List<AlertEventItemDto> _events = new();
+    private bool _alertsLoading = true;
+    private bool _eventsLoading = true;
+    private bool _showBackToSchoolList = false;
+    private bool _showAddModal = false;
+    private bool _isEventModal = false;
+
+    private string _schoolTitle = "לוח בקרה של בית ספר";
+    private string _yearDisplay = "";
+    private string _schoolId = "";
+
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "schooldashboard";
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await ConfigureContextButtons(session);
+        await LoadSchoolTitle();
+        await ResolveSelectedSchoolYearId();
+        await LoadData();
+    }
+
+    private async Task ConfigureContextButtons(SessionData session)
+    {
+        var entityTypeId = int.Parse(session.EntityTypeId);
+
+        // Show "Back to School List" button for multi-school entities only
+        _showBackToSchoolList = entityTypeId != 1 && entityTypeId != 4;
+
+        Console.WriteLine($"📋 Entity type: {entityTypeId}, Show back button: {_showBackToSchoolList}");
+    }
+
+    private async Task LoadSchoolTitle()
+    {
+        try
+        {
+            var session = await SessionState.GetSessionAsync();
+
+            // Get year value for display
+            var yearValueResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearValue");
+            _yearDisplay = yearValueResponse?["value"] ?? "";
+
+            // Get school name from session
+            var schoolNameResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolName");
+            var schoolName = schoolNameResponse?["value"] ?? session?.EntityName ?? "";
+
+            _schoolTitle = $"{schoolName}";
+
+            Console.WriteLine($"🏫 School title: {_schoolTitle}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading school title: {ex.Message}");
+            _schoolTitle = "לוח בקרה של בית ספר";
+        }
+    }
+
+    private async Task ResolveSelectedSchoolYearId()
+    {
+        try
+        {
+            var selectedYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearId");
+            var selectedYearId = selectedYearIdResponse?["value"];
+
+            var selectedSchoolIdResponse = await ApiService.GetAsync<Dictionary<string,
+            string>>("session/property/SelectedSchoolId");
+            var selectedSchoolId = selectedSchoolIdResponse?["value"];
+
+            Console.WriteLine($"🔎 Resolving SelectedSchoolYearId: yearId={selectedYearId}, schoolId={selectedSchoolId}");
+
+            if (string.IsNullOrEmpty(selectedYearId) || string.IsNullOrEmpty(selectedSchoolId))
+            {
+                Console.WriteLine("⚠ Missing SelectedYearId or SelectedSchoolId; skipping school_year lookup");
+                return;
+            }
+
+            var schoolYear = await ApiService.GetAsync<SchoolYearLookupDto>(
+            $"schoolYears/by-year-and-school?yearId={selectedYearId}&schoolId={selectedSchoolId}");
+
+            if (schoolYear?.Id > 0)
+            {
+                await ApiService.PostAsync<object, object>("session/property", new
+                {
+                    key = "SelectedSchoolYearId",
+                    value = schoolYear.Id.ToString()
+                });
+
+                Console.WriteLine($"✅ Stored SelectedSchoolYearId in session: {schoolYear.Id}");
+            }
+            else
+            {
+                Console.WriteLine("⚠ school_year not found for given yearId/schoolId");
+
+                await ApiService.PostAsync<object, object>("session/property", new
+                {
+                    key = "SelectedSchoolYearId",
+                    value = ""
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error resolving SelectedSchoolYearId: {ex.Message}");
+        }
+    }
+
+    private async Task LoadData()
+    {
+        try
+        {
+            var session = await SessionState.GetSessionAsync();
+            var entityTypeId = int.Parse(session.EntityTypeId);
+
+            // Determine which school ID to use
+            if (entityTypeId == 5)
+            {
+                // Multi-school network - use SelectedSchoolId
+                var selectedSchoolIdResponse = await ApiService.GetAsync<Dictionary<string,
+                string>>("session/property/SelectedSchoolId");
+                _schoolId = selectedSchoolIdResponse?["value"] ?? "";
+
+                if (string.IsNullOrEmpty(_schoolId))
+                {
+                    Console.WriteLine("⚠️ No SelectedSchoolId in session");
+                    return;
+                }
+            }
+            else
+            {
+                // Single school - use entity ID
+                _schoolId = session.EntityId;
+            }
+
+            Console.WriteLine($"🏫 Loading alerts for school: {_schoolId}");
+
+            await Task.WhenAll(LoadAlerts(), LoadEvents());
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading dashboard data: {ex.Message}");
+        }
+    }
+
+    private async Task LoadAlerts()
+    {
+        _alertsLoading = true;
+        try
+        {
+            if (!string.IsNullOrEmpty(_schoolId))
+            {
+                _alerts = await ApiService.GetAsync<List<AlertEventItemDto>>($"alerts/entity/{_schoolId}?isEvent=false") ?? new();
+                Console.WriteLine($"📊 Loaded {_alerts.Count} alerts");
+                if (_alerts.Count > 0)
+                {
+                    Console.WriteLine($"📋 First alert entity name: '{_alerts[0].CreatedByEntityName}'");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading alerts: {ex.Message}");
+        }
+        finally
+        {
+            _alertsLoading = false;
+        }
+    }
+
+    private async Task LoadEvents()
+    {
+        _eventsLoading = true;
+        try
+        {
+            if (!string.IsNullOrEmpty(_schoolId))
+            {
+                _events = await ApiService.GetAsync<List<AlertEventItemDto>>($"alerts/entity/{_schoolId}?isEvent=true") ?? new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading events: {ex.Message}");
+        }
+        finally
+        {
+            _eventsLoading = false;
+        }
+    }
+
+    private void ShowAddModal(bool isEvent)
+    {
+        _isEventModal = isEvent;
+        _showAddModal = true;
+    }
+
+    private async Task HandleModalSaved()
+    {
+        // Refresh the data after saving
+        await LoadAlerts();
+        await LoadEvents();
+    }
+
+    private void HandleAlertClick(AlertEventItemDto alert)
+    {
+        Console.WriteLine($"Alert clicked: {alert.Id}");
+    }
+
+    private void HandleEventClick(AlertEventItemDto evt)
+    {
+        Console.WriteLine($"Event clicked: {evt.Id}");
+    }
+
+    private void NavigateToStudents()
+    {
+        Navigation.NavigateTo("/students");
+    }
+
+    private void NavigateToSchoolDetails()
+    {
+        Navigation.NavigateTo("/schooldetails");
+    }
+
+    private void NavigateToSchoolDocuments()
+    {
+        Navigation.NavigateTo("/schooldocuments");
+    }
+
+    private void NavigateBackToSchoolList()
+    {
+        Navigation.NavigateTo("/schoollist");
+    }
+
+    private void NavigateToMainDashboard()
+    {
+        Navigation.NavigateTo("/maindashboard");
+    }
+}

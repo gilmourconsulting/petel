@@ -1,30 +1,67 @@
-# Petel Educational Management System - AI Coding Guide
+# Petel Monorepo - AI Coding Guide
 
 ## Architecture Overview
 
-**Educational Management System**: .NET 9 Web API backend + Blazor Server frontend for Hebrew schools/educational institutions.
+**Petel** is an educational management platform built as a **.NET 9 monorepo** with two applications sharing two class libraries.
 
-- **Backend**: ASP.NET Core Web API (`PetelApp.Api/`) with PostgreSQL + Entity Framework Core
-- **Frontend**: Blazor Server (`PetelApp.BlazorServer/`) with Hebrew RTL support and interactive UI
-- **Database**: PostgreSQL with `petel_schema` namespace
-- **Background Jobs**: Hangfire for system attribute loading and scheduled tasks
+### Solution Structure (`Petel.sln`)
 
-**Note**: The old vanilla JS frontend (`petelapp-frontend/`) has been archived and replaced with Blazor Server.
+```
+PetelATH/
+  PetelATH.Api/            ← Production ATH backend (Web API, net9.0)
+  PetelATH.BlazorServer/   ← Production ATH frontend (Blazor Server, net9.0)
+PetelAssistants/
+  PetelAssistants.Api/     ← Assistants backend (Web API, net9.0)
+  PetelAssistants.BlazorServer/ ← Assistants frontend (Blazor Server, net9.0)
+shared/
+  Petel.Core/              ← Shared backend library (auth, session, JWT, encryption)
+  Petel.BlazorCore/        ← Shared Blazor library (services, models, proxy extension)
+```
+
+**App-specific instructions:**
+- See `.github/instructions/petelath.instructions.md` for PetelATH details
+- See `.github/instructions/petelassistants.instructions.md` for PetelAssistants details
+
+### Shared Libraries
+
+#### `Petel.Core` (namespace: `Petel.Core.*`)
+All API projects reference this. Contains:
+- `Abstractions/IAttributeCache.cs` — `string? GetAttributeValue(string name)` interface
+- `Security/SecuritySettings.cs` — JWT + OTP configuration POCO
+- `Security/DataEncryptionService.cs` — AES encryption service
+- `Session/UserSession.cs` — in-memory session model
+- `Session/UserSessionService.cs` — session store; constructor takes `IAttributeCache? attributeCache = null`
+- `Session/JwtTokenService.cs` — JWT generation/validation; constructor takes `IAttributeCache attributeCache`
+- `Controllers/BaseController.cs` — base class with `GetCurrentSession()`, `GetSessionProperty()`
+
+Each API project must provide its own `SystemAttributeCache : IAttributeCache` implementation and register it in DI.
+
+#### `Petel.BlazorCore` (namespace: `Petel.BlazorCore.*`)
+All Blazor projects reference this. Contains:
+- `Services/` — `TokenService`, `AuthenticationService`, `ApiService`, `SessionStateService`, `SessionTimeoutService`
+- `Models/ApiSettings.cs`, `Models/SessionData.cs`
+- `Extensions/DocumentProxyExtensions.cs` — `app.MapDocumentProxy()` minimal API endpoint
 
 ## Critical Development Workflows
 
 ### Local Development Setup
 ```bash
-# Start backend API (from root)
-cd PetelApp.Api && dotnet run
+# PetelATH API (port 5082)
+cd PetelATH/PetelATH.Api && dotnet run
 # OR: double-click "Start Local Api.cmd"
 
-# Start Blazor frontend (from root) 
-cd PetelApp.BlazorServer && dotnet run
+# PetelATH Blazor frontend
+cd PetelATH/PetelATH.BlazorServer && dotnet run
 # OR: double-click "Start Blazor Server.cmd"
+
+# PetelAssistants API
+cd PetelAssistants/PetelAssistants.Api && dotnet run
+
+# PetelAssistants Blazor frontend
+cd PetelAssistants/PetelAssistants.BlazorServer && dotnet run
 ```
 
-Backend API runs on `http://localhost:5082`, Blazor frontend runs on `https://localhost:5001` or `http://localhost:5000`
+ATH API runs on `http://localhost:5082`, ATH Blazor on `https://localhost:5001` / `http://localhost:5000`
 
 ## Configuration Management
 
@@ -57,7 +94,7 @@ All database settings must be in `appsettings.json` and `appsettings.Development
 // ✅ CORRECT - AppDbContext.cs
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using PetelApp.Api.Configuration;
+using YourApp.Api.Configuration;  // e.g. PetelATH.Api.Configuration
 
 public class AppDbContext : DbContext
 {
@@ -113,11 +150,11 @@ public class School
 
 ```csharp
 // Configuration/DatabaseSettings.cs
-namespace PetelApp.Api.Configuration
+namespace YourApp.Api.Configuration  // e.g. PetelATH.Api.Configuration
 {
     public class DatabaseSettings
     {
-        public string SchemaName { get; set; } = "petel_schema";
+        public string SchemaName { get; set; } = "your_schema";  // e.g. petel_schema or assistants_schema
     }
 }
 ```
@@ -127,7 +164,7 @@ namespace PetelApp.Api.Configuration
 ```csharp
 // Required using statements
 using Microsoft.Extensions.Options;
-using PetelApp.Api.Configuration;
+using YourApp.Api.Configuration;  // e.g. PetelATH.Api.Configuration
 
 // Register configuration
 builder.Services.Configure<DatabaseSettings>(
@@ -151,8 +188,8 @@ builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
 
 ```csharp
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;  // ✅ Required for IOptions<T>
-using PetelApp.Api.Configuration;    // ✅ Required for DatabaseSettings
+using Microsoft.Extensions.Options;      // ✅ Required for IOptions<T>
+using YourApp.Api.Configuration;         // ✅ Required for DatabaseSettings
 ```
 
 #### Blazor Frontend Configuration Requirements
@@ -252,56 +289,39 @@ When adding new features, verify:
 
 ### Deployment Configuration
 
-**Unified Deployment Script**: `Deploy-ToAzure.ps1`
-
-The application uses a single, flexible PowerShell deployment script for all environments:
+**Per-Application Deployment Scripts**:
 
 ```powershell
-# Deploy both API and Blazor to production
-.\Deploy-ToAzure.ps1 -Environment production
+# Deploy PetelATH
+.\Deploy-ATH.ps1 -Environment production
+.\Deploy-ATH.ps1 -Environment test
+.\Deploy-ATH.ps1 -Environment production -ApiOnly
+.\Deploy-ATH.ps1 -Environment production -BlazorOnly
+.\Deploy-ATH.ps1 -Environment production -SkipBuild
 
-# Deploy to test environment
-.\Deploy-ToAzure.ps1 -Environment test
-
-# Deploy to staging
-.\Deploy-ToAzure.ps1 -Environment staging
-
-# Deploy only API
-.\Deploy-ToAzure.ps1 -Environment production -ApiOnly
-
-# Deploy only Blazor
-.\Deploy-ToAzure.ps1 -Environment production -BlazorOnly
-
-# Skip build (use existing publish folders)
-.\Deploy-ToAzure.ps1 -Environment production -SkipBuild
-
-# Skip IP restrictions configuration
-.\Deploy-ToAzure.ps1 -Environment production -SkipIpRestrictions
+# Deploy PetelAssistants
+.\Deploy-Assistants.ps1 -Environment production
+.\Deploy-Assistants.ps1 -Environment test -ApiOnly
 ```
 
-**Environment-Specific Configuration**:
-
-**API** (`PetelApp.Api/`):
+**Environment-Specific Configuration** (per project):
 - `appsettings.Development.json` - Local development
-- `appsettings.Staging.json` - Test and Staging environments
+- `appsettings.test.json` - Test environment
 - `appsettings.Production.json` - Production environment
-
-**Blazor** (`PetelApp.BlazorServer/`):
-- `appsettings.Development.json` - Local development
-- `appsettings.Staging.json` - Test and Staging environments
-- `appsettings.Production.json` - Production environment (includes API URL and CSP allowlist)
 
 **Deployment Process**:
 1. Builds project in Release configuration
 2. Creates deployment package (zip)
 3. Deploys to Azure App Service
-4. Configures environment variables (`ASPNETCORE_ENVIRONMENT`)
-5. Optionally configures IP restrictions for API access
+4. Configures `ASPNETCORE_ENVIRONMENT`
+5. Optionally configures IP restrictions
 
-**Azure Resources by Environment**:
+**Azure Resources** (shared App Service Plan, `israelcentral`):
 - **Test**: `petel-test-rg`, `petel-test-api`, `petel-test-blazor`
 - **Staging**: `petel-staging-rg`, `petel-staging-api`, `petel-staging-blazor`
 - **Production**: `petel-prod-rg`, `petel-prod-api`, `petel-prod-blazor`
+
+> Note: PetelAssistants currently shares the same Azure App Service infrastructure as PetelATH. Dedicated resources may be provisioned later — update `Deploy-Assistants.ps1` `$envConfig` when that happens.
 
 ### Common Configuration Errors and Fixes
 
@@ -333,10 +353,10 @@ The application uses a single, flexible PowerShell deployment script for all env
 ✅ **Flexibility**: Override via environment variables or build scripts
 ✅ **Testability**: Easy to switch between test/production databases
 
-## Project-Specific Patterns
+## Common Patterns (All Applications)
 
 ### Entity-Based Request Flow
-1. **UserSessionService** maintains full session state on the server
+1. **UserSessionService** (from `Petel.Core`) maintains full session state on the server
 2. All controllers inherit from `BaseController` which provides session access methods
 3. Database queries are scoped by user's EntityId
 4. Session data is stored in memory with the UserSessionService
@@ -1451,7 +1471,7 @@ Browser (with user token) → Blazor Proxy (forwards token) → API (validates t
 ```csharp
 // Required using statements
 using Microsoft.Extensions.Options;
-using PetelApp.BlazorServer.Models;
+using Petel.BlazorCore.Models;  // ApiSettings lives in Petel.BlazorCore
 
 // In middleware pipeline (after UseAntiforgery())
 app.MapGet("/api/documents/{documentId}/proxy", async (
@@ -2877,12 +2897,11 @@ public string? TempToken { get; set; }                  // Short-lived JWT with 
 ```
 login response
  ├─ RequiresPasswordChange → show change-password modal, store TempToken
- ├─ RequiresOtpSetup       → show OTP setup modal
- ├─ RequiresOtp            → show OTP verify modal
+ ├─ RequiresOtp            → show email OTP modal (masked email shown, resend button)
  └─ Success                → navigate to /maindashboard
 ```
 
-**CRITICAL**: `RequiresPasswordChange` is checked **before** OTP checks so an expired-password user is never accidentally sent to OTP flow.
+**CRITICAL**: `RequiresPasswordChange` is checked **before** OTP so an expired-password user is never accidentally sent to the OTP flow.
 
 ### Password Policy — Single Regex Attribute
 
@@ -3025,3 +3044,162 @@ if (!Regex.IsMatch(request.NewPassword, policyRegex))
 ### SQL Migration
 
 See `SQL/add-password-policy-attributes.sql`. Run on all environments once. Uses `ON CONFLICT (name) DO NOTHING` so it is safe to re-run.
+
+## Email OTP (Two-Factor Authentication)
+
+### Overview
+
+Two-factor authentication uses a **server-sent 6-digit code delivered via Gmail SMTP**. There is no authenticator app, no QR code, and no per-user secret. The code is generated server-side, BCrypt-hashed, stored temporarily on the user record, and discarded after use or expiry.
+
+### Architecture
+
+```
+Login (username + password) ─► AuthService.LoginAsync()
+                                  └─ GetOtpEnabled() == true?
+                                       ├─ NO  → return { Success=true, Token }  (OTP skipped)
+                                       └─ YES → generate code → BCrypt hash → store on user
+                                                 → SendOtpAsync() via Gmail SMTP
+                                                 → return { RequiresOtp=true, TempToken, MaskedEmail }
+
+Browser shows OTP modal → user enters 6 digits → POST /api/otp/validate
+  └─ BCrypt.Verify(code, user.EmailOtpCode) && not expired && attempts < max
+       ├─ FAIL → increment EmailOtpAttempts, lock if threshold reached
+       └─ PASS → clear OTP fields → CompleteLoginAsync() → return { Success=true, Token }
+```
+
+### Feature Flag — `Security.OtpEnabled`
+
+OTP is **enabled per environment** via `appsettings.json`:
+
+| Environment | `Security.OtpEnabled` |
+|---|---|
+| `appsettings.Development.json` | `false` — OTP skipped in local dev |
+| `appsettings.test.json` | `true` |
+| `appsettings.Production.json` | `true` |
+
+The flag can also be overridden at runtime via the `Security_OtpEnabled` system attribute in the database (checked first by `AuthService.GetOtpEnabled()`). The `appsettings` value is the fallback.
+
+```sql
+-- Disable OTP at runtime without restarting (only if Security_OtpEnabled attribute exists)
+UPDATE petel_schema.system_attributes SET value = 'false' WHERE name = 'Security_OtpEnabled';
+POST /api/systemattributes/reload
+```
+
+### Email Configuration
+
+```json
+// appsettings.json (base — placeholder values)
+{
+  "Email": {
+    "SmtpHost": "smtp.gmail.com",
+    "SmtpPort": 587,
+    "FromAddress": "your@gmail.com",
+    "Username": "your@gmail.com",
+    "Password": "YOUR_GMAIL_APP_PASSWORD"
+  }
+}
+
+// appsettings.test.json / appsettings.Production.json
+{
+  "Email": {
+    "SmtpHost": "smtp.gmail.com",
+    "SmtpPort": 587,
+    "FromAddress": "LOADED_FROM_KEY_VAULT",
+    "Username": "LOADED_FROM_KEY_VAULT",
+    "Password": "LOADED_FROM_KEY_VAULT"
+  }
+}
+```
+
+`Password` must be a **Gmail App Password** (16 chars), not the Google account password. Generate at: Google Account → Security → 2-Step Verification → App passwords.
+
+### Database Columns (users table)
+
+Three columns were added to `petel_schema.users`:
+
+| Column | Type | Purpose |
+|---|---|---|
+| `email_otp_code` | `VARCHAR(100) NULL` | BCrypt hash of the pending code |
+| `email_otp_expiry` | `TIMESTAMPTZ NULL` | Expiry time (10 min after issue) |
+| `email_otp_attempts` | `INTEGER NOT NULL DEFAULT 0` | Failed-attempt counter |
+
+**SQL migration**: `SQL/add-email-otp-columns.sql` — idempotent, safe to re-run.
+
+Old TOTP columns (`otp_secret`, `otp_enabled`, `otp_verified`) remain in the table for rollback safety but are no longer used by the application.
+
+### API Endpoints
+
+```
+POST /api/otp/send       { TempToken }                    → { Success, MaskedEmail }
+POST /api/otp/validate   { TempToken, Code }              → LoginResponse (same as /auth/login success)
+POST /api/otp/disable    { TempToken, Password }          → { Success }
+GET  /api/otp/status     Authorization: Bearer <token>    → { OtpEnabled }
+```
+
+`/otp/send` can be called again to resend a new code (the old hash is overwritten). The Login.razor "שלח שוב" button calls this endpoint.
+
+### DI Registration (Program.cs)
+
+```csharp
+// Configuration
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
+
+// Email service (singleton — stateless SMTP client)
+builder.Services.AddSingleton<IEmailService, SmtpEmailService>();
+```
+
+### Login.razor State
+
+```csharp
+private bool   _requiresOtp   = false;
+private string _maskedEmail   = "";      // shown in OTP modal heading
+private string? _tempToken    = null;
+private string _otpCode       = "";
+private string _otpErrorMessage = "";
+
+// HandleLogin — after successful password check:
+if (response.RequiresOtp)
+{
+    _requiresOtp  = true;
+    _tempToken    = response.TempToken;
+    _maskedEmail  = response.MaskedEmail ?? "";
+    return;
+}
+
+// ResendOtp — "שלח שוב" button:
+var r = await ApiService.PostAsync<object, SendOtpResponse>("otp/send", new { TempToken = _tempToken });
+if (r?.Success == true) _maskedEmail = r.MaskedEmail;
+```
+
+### Anti-Patterns to Avoid
+
+```csharp
+// ❌ WRONG - OTP in local dev environment
+"Security": { "OtpEnabled": true }  // in appsettings.Development.json — slows down dev
+
+// ❌ WRONG - Storing plaintext OTP code
+user.EmailOtpCode = code;  // NO! Always BCrypt.HashPassword(code, 11)
+
+// ❌ WRONG - Accepting expired codes
+// Always check: user.EmailOtpExpiry > DateTime.UtcNow
+
+// ❌ WRONG - Not clearing OTP fields after successful validation
+// Always: user.EmailOtpCode = null; user.EmailOtpExpiry = null; user.EmailOtpAttempts = 0;
+
+// ✅ CORRECT - Full OTP validation pattern
+if (user.EmailOtpCode == null || user.EmailOtpExpiry == null)
+    return fail("קוד לא נמצא");
+if (DateTime.UtcNow > user.EmailOtpExpiry)
+    return fail("הקוד פג תוקף");
+if (!BCrypt.Net.BCrypt.Verify(request.Code, user.EmailOtpCode))
+{
+    user.EmailOtpAttempts++;
+    if (user.EmailOtpAttempts >= maxAttempts) LockUser(user);
+    return fail("קוד שגוי");
+}
+user.EmailOtpCode = null;
+user.EmailOtpExpiry = null;
+user.EmailOtpAttempts = 0;
+```
+
+## Password Expiration & Change Flow

@@ -1,0 +1,53 @@
+// PetelATH.Api/Data/Person.cs
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace PetelATH.Api.Data
+{
+    /// <summary>
+    /// Person entity representing individuals (principals, inspectors, contact persons)
+    /// Maps to petel_schema.persons table
+    /// </summary>
+    [Table("persons")]
+    public class Person
+    {
+        [Key]
+        [Column("id")]
+        public int Id { get; set; }
+
+        [Column("first_name")]
+        [MaxLength(100)]
+        public string? FirstName { get; set; }
+
+        [Column("last_name")]
+        [MaxLength(100)]
+        public string? LastName { get; set; }
+
+        [Column("email")]
+        [MaxLength(255)]
+        public string? Email { get; set; }
+
+
+        [Column("phone_number_prefix")]
+        public string? PhoneNumberPrefix { get; set; }
+
+        [Column("phone_number")]
+        public string? PhoneNumber { get; set; }
+
+        [Column("position")]
+        public string? Position { get; set; }
+
+        [Column("id_number")]
+        [MaxLength(50)]
+        public string IdNumber { get; set; } ="0";
+
+        [Column("id_type")]
+        public int? IdType { get; set; } = 0;
+
+        /// <summary>
+        /// Helper property to get full name
+        /// </summary>
+        [NotMapped]
+        public string FullName => $"{FirstName} {LastName}".Trim();
+    }
+}

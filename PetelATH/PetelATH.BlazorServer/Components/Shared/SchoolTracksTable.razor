@@ -1,0 +1,87 @@
+@using PetelATH.BlazorServer.DTOs
+@inherits SortableTableBase<SchoolTrackDto>
+
+@if (Items != null && Items.Any())
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    @if (IsEditMode)
+                    {
+                        <th class="actions-column">פעולות</th>
+                    }
+                    @RenderHeaders()
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var track in _sortedItems)
+                {
+                    <tr>
+                        @if (IsEditMode)
+                        {
+                            <td>
+                                <div class="action-buttons">
+                                    <button class="btn-icon" @onclick="() => OnEdit.InvokeAsync(track)" title="עריכה">
+                                        <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                    </button>
+                                    <button class="btn-icon" @onclick="() => OnDelete.InvokeAsync(track.Id)" title="מחיקה">
+                                        <img src="/images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                                    </button>
+                                </div>
+                            </td>
+                        }
+                        <td>@track.ClassName</td>
+                        <td>@track.Track</td>
+                        <td>@track.TrackLevel</td>
+                        <td>@track.WeeklyHours.ToString("N1")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+else
+{
+    <div class="empty-state">
+        <p>לא נמצאו מגמות</p>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback<SchoolTrackDto> OnEdit { get; set; }
+    [Parameter] public EventCallback<int> OnDelete { get; set; }
+
+    protected override string GetDefaultSortColumn() => nameof(SchoolTrackDto.ClassName);
+
+    protected override List<ColumnDefinition> DefineColumns()
+    {
+        return new List<ColumnDefinition>
+        {
+            new() { Label = "כיתה", PropertyName = nameof(SchoolTrackDto.ClassName), IsSortable = true },
+            new() { Label = "מגמה", PropertyName = nameof(SchoolTrackDto.Track), IsSortable = true },
+            new() { Label = "רמה", PropertyName = nameof(SchoolTrackDto.TrackLevel), IsSortable = true },
+            new() { Label = "שעות שבועיות", PropertyName = nameof(SchoolTrackDto.WeeklyHours), IsSortable = true }
+        };
+    }
+
+    protected override IEnumerable<SchoolTrackDto> ApplySortLogic(List<SchoolTrackDto> items, string columnName, bool ascending)
+    {
+        return columnName switch
+        {
+            nameof(SchoolTrackDto.ClassName) => ascending
+                ? items.OrderBy(t => t.ClassName)
+                : items.OrderByDescending(t => t.ClassName),
+            nameof(SchoolTrackDto.Track) => ascending
+                ? items.OrderBy(t => t.Track)
+                : items.OrderByDescending(t => t.Track),
+            nameof(SchoolTrackDto.TrackLevel) => ascending
+                ? items.OrderBy(t => t.TrackLevel)
+                : items.OrderByDescending(t => t.TrackLevel),
+            nameof(SchoolTrackDto.WeeklyHours) => ascending
+                ? items.OrderBy(t => t.WeeklyHours)
+                : items.OrderByDescending(t => t.WeeklyHours),
+            _ => items
+        };
+    }
+}

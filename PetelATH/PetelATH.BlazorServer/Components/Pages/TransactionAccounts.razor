@@ -1,0 +1,389 @@
+@page "/transactionaccounts"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelATH.BlazorServer.DTOs
+@using PetelATH.BlazorServer.Services
+@using PetelATH.BlazorServer.Components.Shared
+@inject ApiService ApiService
+@inject SessionStateService SessionStateService
+@inject NavigationManager NavigationManager
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <SecureButton
+            ActionName="accounts_addAccount"
+            ScreenName="@PageName"
+            FunctionName="ShowAddAccountDialog"
+            OnClick="ShowAddAccountDialog"
+            CssClass="context-btn">
+            הוסף חשבון
+        </SecureButton>
+        
+        <div class="context-spacer"></div>
+        
+        <SecureButton
+            ActionName="accounts_refreshData"
+            ScreenName="@PageName"
+            FunctionName="RefreshData"
+            OnClick="RefreshData"
+            CssClass="context-navigation-btn">
+            רענן נתונים
+        </SecureButton>
+    </div>
+
+    <!-- Accounts content -->
+    <div class="students-content">
+        <!-- Page Title Section -->
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">חשבונות</div>
+                <div class="text-branded" style="text-align: center;">@_entityDisplay</div>
+                <div class="left-spacer"></div>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="dashboard-cards-wrapper" style="margin-bottom: 20px;">
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+
+
+
+                <!-- Total Balance Card -->
+                <div class="summary-card" style="min-width: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+
+                    <div style="flex: 1; text-align: left;">
+                                 @if (_totalBalance >= 0)
+                                                {
+                                                    <span style="font-size: 2em; color: #28a745; font-weight: 700; line-height: 1">@_totalBalance.ToString("N2") ₪</span>
+                                                }
+                                                else
+                                                {
+                                                    <span style="font-size: 2em; color: #dc3545; font-weight: 700; line-height: 1">@_totalBalance.ToString("N2") ₪</span>
+                                                }
+                        <div style="font-size: 0.9em; color: #666; font-weight: 500;">יתרה כוללת (₪)</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Accounts Table Section -->
+        <div class="content-card">
+            <div class="detail-card expanded">
+                <div class="detail-card-header">
+                    <h2 class="detail-card-title">רשימת חשבונות</h2>
+                    <div class="card-header-actions">
+                        <SecureButton
+                            ActionName="accounts_refreshData"
+                            ScreenName="@PageName"
+                            FunctionName="RefreshData"
+                            OnClick="RefreshData"
+                            CssClass="btn-icon"
+                            title="רענן נתונים">
+                            <span style="font-size: 2em;">🔄</span>
+                        </SecureButton>
+                    </div>
+                </div>
+                <div class="detail-card-content" style="min-height: 400px; max-height: none;">
+                    @if (_isLoading)
+                    {
+                        <div class="loading-spinner">טוען נתונים...</div>
+                    }
+                    else if (_accounts == null || _accounts.Count == 0)
+                    {
+                        <div class="no-data-message">אין חשבונות להצגה</div>
+                    }
+                    else
+                    {
+                        <div class="table-container" style="overflow-x: auto;">
+                            <table class="data-table" style="min-width: 1200px;">
+                                <thead>
+                                    <tr>
+                                        <th style="text-align: center;">פעולות</th>
+                                        <th></th>
+                                        <th @onclick="() => SortTable(nameof(TransactionAccountDto.AccountName))" style="cursor: pointer;">
+                                            שם חשבון @GetSortArrow(nameof(TransactionAccountDto.AccountName))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(TransactionAccountDto.RelatedEntityName))" style="cursor: pointer;">
+                                            ישות קשורה @GetSortArrow(nameof(TransactionAccountDto.RelatedEntityName))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(TransactionAccountDto.AccountTypeName))" style="cursor: pointer;">
+                                            סוג חשבון @GetSortArrow(nameof(TransactionAccountDto.AccountTypeName))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(TransactionAccountDto.Balance))" style="cursor: pointer; text-align: left;">
+                                            יתרה @GetSortArrow(nameof(TransactionAccountDto.Balance))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(TransactionAccountDto.IsActive))" style="cursor: pointer;">
+                                            סטטוס @GetSortArrow(nameof(TransactionAccountDto.IsActive))
+                                        </th>
+                                        <th>תיאור</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var account in _filteredAccounts)
+                                    {
+                                        <tr style="@(account.IsActive ? "" : "background-color: #f8f9fa; opacity: 0.7;")">
+                                            <td style="text-align: center;">
+                                                <div style="display: flex; gap: 5px; justify-content: center;">
+                                                    <SecureButton
+                                                        ActionName="accounts_viewTransactions"
+                                                        ScreenName="@PageName"
+                                                        FunctionName="ViewTransactions"
+                                                        OnClick="() => ViewTransactions(account.Id)"
+                                                        CssClass="btn-icon"
+                                                        title="צפייה בתנועות">
+                                                        <img src="/images/view_icon.png" alt="תנועות" class="action-icon-natural">
+                                                    </SecureButton>
+                                                    
+                                                    <SecureButton
+                                                        ActionName="accounts_editAccount"
+                                                        ScreenName="@PageName"
+                                                        FunctionName="EditAccount"
+                                                        OnClick="() => EditAccount(account.Id)"
+                                                        CssClass="btn-icon"
+                                                        title="עריכת חשבון">
+                                                        <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural">
+                                                    </SecureButton>
+                                                    
+                                                    @if (account.IsActive)
+                                                    {
+                                                        <SecureButton
+                                                            ActionName="accounts_deactivateAccount"
+                                                            ScreenName="@PageName"
+                                                            FunctionName="DeactivateAccount"
+                                                            OnClick="() => DeactivateAccount(account.Id)"
+                                                            CssClass="btn-icon"
+                                                            title="השבת חשבון">
+                                                            <img src="/images/delete_icon.png" alt="השבת" class="action-icon-natural">
+                                                        </SecureButton>
+                                                    }
+                                                    else
+                                                    {
+                                                        <SecureButton
+                                                            ActionName="accounts_activateAccount"
+                                                            ScreenName="@PageName"
+                                                            FunctionName="ActivateAccount"
+                                                            OnClick="() => ActivateAccount(account.Id)"
+                                                            CssClass="btn-icon"
+                                                            title="הפעל חשבון">
+                                                            <img src="/images/Plus icon.png" alt="הפעל" class="action-icon-natural">
+                                                        </SecureButton>
+                                                    }
+                                                </div>
+                                            </td>
+                                            <td style="width: 50px;">
+                                                @if (account.IsActive)
+                                                {
+                                                    <span style="font-size: 1.5em;" title="פעיל">✅</span>
+                                                }
+                                                else
+                                                {
+                                                    <span style="font-size: 1.5em;" title="לא פעיל">⚠️</span>
+                                                }
+                                            </td>
+                                            <td style="font-weight: 600;">@account.AccountName</td>
+                                            <td>@account.RelatedEntityName</td>
+                                            <td>@account.AccountTypeName</td>
+                                            <td style="text-align: right; direction: ltr; font-family: monospace;">
+                                                @if (account.Balance >= 0)
+                                                {
+                                                    <span style="color: #28a745; font-weight: 600;">@account.Balance.ToString("N2") ₪</span>
+                                                }
+                                                else
+                                                {
+                                                    <span style="color: #dc3545; font-weight: 600;">@account.Balance.ToString("N2") ₪</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (account.IsActive)
+                                                {
+                                                    <span class="badge badge-success">פעיל</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge badge-warning">לא פעיל</span>
+                                                }
+                                            </td>
+                                            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="@account.Description">
+                                                @account.Description
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Account Modal -->
+@if (_showAddDialog)
+{
+    <div class="modal-overlay" @onclick="CloseAddDialog">
+        <div class="modal-content modal-medium" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3 class="modal-title">הוסף חשבון חדש</h3>
+                <button type="button" class="modal-close" @onclick="CloseAddDialog">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="accountType">סוג חשבון: <span style="color: red;">*</span></label>
+                    <select id="accountType" @bind="_newAccount.AccountTypeId" @bind:after="OnAccountTypeChanged" class="form-control" required>
+                        <option value="0">-- בחר סוג חשבון --</option>
+                        @foreach (var type in _accountTypes)
+                        {
+                            <option value="@type.Id">@type.Description</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="relatedEntity">ישות קשורה: <span style="color: red;">*</span></label>
+                    <div style="display: flex; gap: 8px; align-items: flex-start;">
+                        <select id="relatedEntity" @bind="_newAccount.RelatedEntityId" @bind:after="OnEntityChanged" class="form-control" required style="flex: 1;">
+                            <option value="0">-- בחר ישות --</option>
+                            @foreach (var entity in _availableEntities)
+                            {
+                                <option value="@entity.Id">@entity.EntityName</option>
+                            }
+                        </select>
+                        @if (_selectedAccountTypeName == "external_students_fees")
+                        {
+                            <button type="button" class="btn btn-secondary" @onclick="ShowCreateCouncilEntityDialog" style="white-space: nowrap;">
+                                צור ישות מועצה
+                            </button>
+                        }
+                    </div>
+                    <small class="form-text text-muted">הישות עבורה מתנהל החשבון</small>
+                </div>
+
+                <div class="form-group">
+                    <label for="accountName">שם החשבון: <span style="color: red;">*</span></label>
+                    <input type="text" id="accountName" @bind="_newAccount.AccountName" class="form-control" placeholder="לדוגמה: עמותת רשת בית יעקב" required />
+                </div>
+
+                <div class="form-group">
+                    <label for="accountDescription">תיאור:</label>
+                    <textarea id="accountDescription" @bind="_newAccount.Description" class="form-control" rows="3" placeholder="תיאור אופציונלי לחשבון"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label for="initialBalance">יתרה התחלתית:</label>
+                    <input type="number" id="initialBalance" @bind="_newAccount.Balance" class="form-control" step="0.01" placeholder="0.00" style="direction: ltr; text-align: left;" />
+                    <small class="form-text text-muted">ברירת מחדל: 0.00</small>
+                </div>
+
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" @bind="_newAccount.IsActive" />
+                        <span>פעיל</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseAddDialog">ביטול</button>
+                <button type="button" class="btn btn-primary" @onclick="SaveNewAccount">שמור</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // All code-behind logic is in TransactionAccounts.razor.cs
+}
+
+<!-- Create Council Entity Modal -->
+@if (_showCreateCouncilDialog)
+{
+    <div class="modal-overlay" @onclick="CloseCreateCouncilDialog">
+        <div class="modal-content" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3>צור ישות מועצה</h3>
+                <button type="button" class="modal-close" @onclick="CloseCreateCouncilDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="councilSearch">חפש מועצה:</label>
+                    <div style="position: relative;">
+                        <input type="text" 
+                               id="councilSearch" 
+                               value="@_councilSearchText" 
+                               @oninput="OnCouncilSearchInput"
+                               @onfocus="OnCouncilFocus"
+                               class="form-control" 
+                               placeholder="הקלד לחיפוש מועצה..."
+                               autocomplete="off" />
+                        
+                        @if (_showCouncilDropdown && _filteredCouncils.Any())
+                        {
+                            <div @onmousedown:preventDefault="true"
+                                 style="position: absolute; 
+                                        top: 100%; 
+                                        left: 0; 
+                                        right: 0;
+                                        max-height: 250px; 
+                                        overflow-y: auto; 
+                                        background: white; 
+                                        border: 1px solid #dee2e6; 
+                                        border-radius: 4px; 
+                                        z-index: 1000; 
+                                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                                        margin-top: 4px;">
+                                @foreach (var council in _filteredCouncils.Take(20))
+                                {
+                                    <div @onclick="() => SelectCouncil(council)"
+                                         @onmouseover="@(() => _hoveredCouncilId = council.Id)"
+                                         @onmouseout="@(() => _hoveredCouncilId = null)"
+                                         style="padding: 10px 12px; 
+                                                cursor: pointer; 
+                                                border-bottom: 1px solid #f0f0f0;
+                                                text-align: right;
+                                                background-color: @((_hoveredCouncilId == council.Id) ? "#f0f0f0" : "white");">
+                                        @council.CouncilName
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else if (_showCouncilDropdown && !_filteredCouncils.Any() && !string.IsNullOrWhiteSpace(_councilSearchText))
+                        {
+                            <div style="position: absolute; 
+                                        top: 100%; 
+                                        left: 0; 
+                                        right: 0;
+                                        background: white; 
+                                        border: 1px solid #dee2e6; 
+                                        border-radius: 4px; 
+                                        z-index: 1000; 
+                                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                                        padding: 12px; 
+                                        color: #999;
+                                        text-align: right;
+                                        margin-top: 4px;">
+                                לא נמצאו תוצאות
+                            </div>
+                        }
+                        
+                        @if (_selectedCouncil != null)
+                        {
+                            <div class="selected-council" style="margin-top: 8px; padding: 8px; background: #e7f3ff; border-radius: 4px;">
+                                <strong>מועצה נבחרה:</strong> @_selectedCouncil.CouncilName
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" @onclick="CloseCreateCouncilDialog">ביטול</button>
+                <button type="button" class="btn btn-primary" @onclick="CreateCouncilEntity" disabled="@(_selectedCouncil == null)">
+                    צור ישות
+                </button>
+            </div>
+        </div>
+    </div>
+}
+

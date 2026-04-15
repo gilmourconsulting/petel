@@ -1,0 +1,246 @@
+@page "/schooldocuments"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelATH.BlazorServer.DTOs
+@using PetelATH.BlazorServer.Components.Shared
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <SecureButton ActionName="schooldocuments_generateDocuments" ScreenName="@PageName" FunctionName="GenerateDocumentsForSchool" 
+                      OnClick="GenerateDocumentsForSchool" CssClass="context-btn" Title="עדכן רשימת מסמכים לבית הספר">
+            עדכן רשימת מסמכים לבית הספר
+        </SecureButton>
+        <div class="context-spacer"></div>
+        <SecureButton ActionName="schooldocuments_backToSchoolDashboard" ScreenName="@PageName" FunctionName="NavigateToSchoolDashboard" 
+                      OnClick="NavigateToSchoolDashboard" CssClass="context-navigation-btn" Title="לדף בית הספר">
+            לדף בית הספר
+        </SecureButton>
+        <SecureButton ActionName="schooldocuments_backToSchoolList" ScreenName="@PageName" FunctionName="NavigateBackToSchoolList" 
+                      OnClick="NavigateBackToSchoolList" CssClass="context-navigation-btn" Title="חזרה לרשימת בתי הספר">
+            חזרה לרשימת בתי הספר
+        </SecureButton>
+    </div>
+
+    <!-- Main content -->
+    <div class="students-content">
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">@_pageTitle</div>
+                <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
+                <div class="left-spacer"></div>
+            </div>
+            <div class="content-card">
+                <!-- Documents table component -->
+                <div id="schoolDocumentsContainer">
+                    @if (_schoolId.HasValue && _yearId.HasValue)
+                    {
+                        <DocumentsTable @ref="_documentsTable"
+                                        EntityType="school"
+                                        EntityId="_schoolId"
+                                        YearId="_yearId"
+                                        AllowDownload="true"
+                                        AllowUpload="true"
+                                        AllowDelete="false"
+                                        ShowEntityName="false"
+                                        OnDocumentsChanged="OnDocumentsChanged" />
+                    }
+                    else
+                    {
+                        <div class="loading-spinner">טוען...</div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private DocumentsTable? _documentsTable;
+    private int? _schoolId;
+    private int? _schoolYearId;
+    private int? _yearId;
+    private string _pageTitle = "מסמכים בית ספריים";
+    private string _yearDisplay = "";
+
+    // REQUIRED by SecurePageBase
+    protected override string PageName => "schooldocuments";
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        await LoadPageData();
+    }
+
+    private async Task LoadPageData()
+    {
+        try
+        {
+            // Get school ID from session
+            var schoolIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolId");
+            var schoolIdStr = schoolIdResponse?["value"];
+            _schoolId = int.TryParse(schoolIdStr, out var sid) ? sid : null;
+
+            if (!_schoolId.HasValue)
+            {
+                Console.WriteLine("❌ No school selected, redirecting to school list");
+                await JSRuntime.InvokeVoidAsync("alert", "לא נבחר בית ספר. חוזר לרשימת בתי הספר...");
+                Navigation.NavigateTo("/schoollist");
+                return;
+            }
+
+            // Get school year ID from session
+            var schoolYearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolYearId");
+            var schoolYearIdStr = schoolYearIdResponse?["value"];
+            _schoolYearId = int.TryParse(schoolYearIdStr, out var syid) ? syid : null;
+
+            // Get year ID for documents
+            var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearId");
+            var yearIdStr = yearIdResponse?["value"];
+            _yearId = int.TryParse(yearIdStr, out var yid) ? yid : null;
+
+            // Get year value for display
+            var yearValueResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearValue");
+            _yearDisplay = yearValueResponse?["value"] ?? "";
+
+            // Get school name for page title
+            var schoolNameResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedSchoolName");
+            var schoolName = schoolNameResponse?["value"] ?? "לא ידוע";
+
+            // Build page title with school name
+            _pageTitle = $"מסמכים בית ספריים - {schoolName}";
+
+            Console.WriteLine($"🏫 School documents context: SchoolId={_schoolId}, SchoolYearId={_schoolYearId}, YearId={_yearId}, SchoolName={schoolName}");
+
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading page data: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת נתוני העמוד");
+        }
+    }
+
+    private async Task GenerateDocumentsForSchool()
+    {
+        if (!_schoolId.HasValue || !_yearId.HasValue)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "לא נמצא בית ספר או שנת לימודים");
+            return;
+        }
+
+        try
+        {
+            Console.WriteLine($"📄 Generating documents for school {_schoolId} in year {_yearId}");
+
+            // Show loading message
+            await JSRuntime.InvokeVoidAsync("BlazorHelpers.showLoadingOverlay", 
+                "schoolDocumentGenerationLoading", 
+                "מייצר מסמכים חסרים לבית הספר...", 
+                "אנא המתן");
+
+            // Build API URL with both schoolYearId and yearId
+            var apiUrl = $"documents/generate-school-documents?schoolId={_schoolId}&yearId={_yearId}";
+            if (_schoolYearId.HasValue)
+            {
+                apiUrl += $"&schoolYearId={_schoolYearId}";
+            }
+
+            // Call the generate documents API endpoint
+            var result = await ApiService.PostAsync<object, Dictionary<string, object>>(
+                apiUrl,
+                new { }
+            );
+
+            // Remove loading message
+            await JSRuntime.InvokeVoidAsync("BlazorHelpers.removeElement", "schoolDocumentGenerationLoading");
+
+            if (result != null)
+            {
+                var message = result.GetValueOrDefault("message", "מסמכים נוצרו בהצלחה").ToString();
+                var addedCount = result.GetValueOrDefault("addedCount", 0);
+                var skippedCount = result.GetValueOrDefault("skippedCount", 0);
+                var notRequiredCount = result.GetValueOrDefault("notRequiredCount", 0);
+                var totalTypes = result.GetValueOrDefault("totalTypes", 0);
+
+                await JSRuntime.InvokeVoidAsync("alert", 
+                    $"{message}\n\n" +
+                    $"נוספו: {addedCount} מסמכים\n" +
+                    $"קיימים (דולגו): {skippedCount} מסמכים\n" +
+                    $"לא רלוונטיים: {notRequiredCount} מסמכים\n" +
+                    $"סה\"כ סוגי מסמכים: {totalTypes}");
+
+                Console.WriteLine("✅ School document generation complete");
+
+                // Refresh documents table
+                if (_documentsTable != null)
+                {
+                    await _documentsTable.Reload();
+                    Console.WriteLine("✅ Documents list refreshed");
+                }
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה ביצירת מסמכים לבית הספר");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Remove loading message on error
+            await JSRuntime.InvokeVoidAsync("BlazorHelpers.removeElement", "schoolDocumentGenerationLoading");
+
+            Console.WriteLine($"❌ Error generating school documents: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה ביצירת מסמכים לבית הספר: {ex.Message}");
+        }
+    }
+
+    private void NavigateToSchoolDashboard()
+    {
+        Console.WriteLine("📊 Navigating to school dashboard...");
+        Navigation.NavigateTo("/schooldashboard");
+    }
+
+    private async Task NavigateBackToSchoolList()
+    {
+        Console.WriteLine("⬅️ Navigating back to school list...");
+        
+        try
+        {
+            // Clear school-specific session properties
+            await ApiService.PostAsync<object, object>(
+                "session/property/SelectedSchoolId",
+                new { value = "" }
+            );
+            await ApiService.PostAsync<object, object>(
+                "session/property/SelectedSchoolName",
+                new { value = "" }
+            );
+            
+            Console.WriteLine("🧹 Cleared school-specific session properties");
+            
+            Navigation.NavigateTo("/schoollist");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error clearing session properties: {ex.Message}");
+            // Navigate anyway
+            Navigation.NavigateTo("/schoollist");
+        }
+    }
+
+    private async Task OnDocumentsChanged()
+    {
+        Console.WriteLine("🔄 Documents changed event received");
+        StateHasChanged();
+    }
+}

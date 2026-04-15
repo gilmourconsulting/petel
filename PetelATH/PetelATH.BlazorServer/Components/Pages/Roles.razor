@@ -1,0 +1,450 @@
+@page "/roles"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelATH.BlazorServer.DTOs
+@using PetelATH.BlazorServer.Services
+@inject ApiService ApiService
+@inject SessionStateService SessionStateService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject ILogger<Roles> Logger
+
+<div class="school-title-section">
+    <h1 class="page-title">ניהול תפקידים</h1>
+</div>
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <SecureButton ActionName="roles_refresh" ScreenName="@PageName" FunctionName="RefreshData" OnClick="RefreshData" CssClass="context-btn">
+            רענן נתונים
+        </SecureButton>
+        <SecureButton ActionName="roles_create" ScreenName="@PageName" FunctionName="ShowCreateRoleDialog" OnClick="ShowCreateRoleDialog" CssClass="context-btn">
+            הוסף תפקיד חדש
+        </SecureButton>
+        <SecureButton ActionName="roles_exportactions" ScreenName="@PageName" FunctionName="ExportActions" OnClick="ExportActions" CssClass="context-btn">
+            ייצוא פעולות
+        </SecureButton>
+        <SecureButton ActionName="roles_importactions" ScreenName="@PageName" FunctionName="ImportActions" OnClick="ImportActions" CssClass="context-btn">
+            ייבוא פעולות
+        </SecureButton>
+        <SecureButton ActionName="roles_exportroleactions" ScreenName="@PageName" FunctionName="ExportRoleActions" OnClick="ExportRoleActions" CssClass="context-btn">
+            ייצוא תפקידים-פעולות
+        </SecureButton>
+        <SecureButton ActionName="roles_importroleactions" ScreenName="@PageName" FunctionName="ImportRoleActions" OnClick="ImportRoleActions" CssClass="context-btn">
+            ייבוא תפקידים-פעולות
+        </SecureButton>
+        <SecureButton ActionName="roles_exportcomplete" ScreenName="@PageName" FunctionName="ExportComplete" OnClick="ExportComplete" CssClass="context-btn">
+            ייצוא מלא
+        </SecureButton>
+        <SecureButton ActionName="roles_importcomplete" ScreenName="@PageName" FunctionName="ImportComplete" OnClick="ImportComplete" CssClass="context-btn">
+            ייבוא מלא
+        </SecureButton>
+        <SecureButton ActionName="roles_refreshcache" ScreenName="@PageName" FunctionName="RefreshSecurityCache" OnClick="RefreshSecurityCache" CssClass="context-btn">
+            רענן מטמון אבטחה
+        </SecureButton>
+        <SecureButton ActionName="roles_users" ScreenName="@PageName" FunctionName="NavigateToUsers" OnClick="NavigateToUsers" CssClass="context-btn">
+            חזרה לניהול משתמשים
+        </SecureButton>
+    </div>
+
+    <!-- Main content area -->
+    <div class="students-content">
+        <div class="content-card">
+            <h2 class="page-title">רשימת תפקידים</h2>
+            
+            <!-- Roles table -->
+            <div class="users-table-section">
+                @if (_isLoading)
+                {
+                    <div class="loading-spinner">טוען נתוני תפקידים...</div>
+                }
+                else if (_roles.Count == 0)
+                {
+                    <div class="no-data-message">לא נמצאו תפקידים</div>
+                }
+                else
+                {
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>פעולות</th>
+                                    <th @onclick="() => SortTable(nameof(RoleDto.Name))" style="cursor: pointer;">
+                                        שם התפקיד @GetSortArrow(nameof(RoleDto.Name))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(RoleDto.Description))" style="cursor: pointer;">
+                                        תיאור @GetSortArrow(nameof(RoleDto.Description))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(RoleDto.UserCount))" style="cursor: pointer;">
+                                        משתמשים @GetSortArrow(nameof(RoleDto.UserCount))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(RoleDto.ActionCount))" style="cursor: pointer;">
+                                        פעולות @GetSortArrow(nameof(RoleDto.ActionCount))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(RoleDto.CreatedAt))" style="cursor: pointer;">
+                                        נוצר @GetSortArrow(nameof(RoleDto.CreatedAt))
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var role in _roles)
+                                {
+                                    <tr>
+                                        <td>
+                                            <SecureButton ActionName="roles_view" ScreenName="@PageName" FunctionName="ViewRoleDetails" OnClick="() => ViewRoleDetails(role)" CssClass="btn-icon" Title="צפה בפרטי תפקיד">
+                                                <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                            </SecureButton>
+                                            <SecureButton ActionName="roles_edit" ScreenName="@PageName" FunctionName="EditRole" OnClick="() => EditRole(role)" CssClass="btn-icon" Title="ערוך תפקיד">
+                                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                                            </SecureButton>
+                                            <SecureButton ActionName="roles_manageusers" ScreenName="@PageName" FunctionName="ManageRoleUsers" OnClick="() => ManageRoleUsers(role)" CssClass="btn-icon" Title="נהל משתמשים">
+                                                <img src="/images/stats_icon.png" alt="משתמשים" class="action-icon-natural">
+                                            </SecureButton>
+                                            <SecureButton ActionName="roles_delete" ScreenName="@PageName" FunctionName="DeleteRole" OnClick="() => DeleteRole(role)" CssClass="btn-icon" Title="מחק תפקיד">
+                                                <img src="/images/delete_icon.png" alt="מחק" class="action-icon-natural">
+                                            </SecureButton>
+                                        </td>
+                                        <td>@role.Name</td>
+                                        <td>@(role.Description ?? "")</td>
+                                        <td>@role.UserCount</td>
+                                        <td>@role.ActionCount</td>
+                                        <td>@role.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Create/Edit Role Dialog -->
+@if (_showRoleDialog)
+{
+    <div class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>@(_isEditMode ? "ערוך תפקיד" : "תפקיד חדש")</h3>
+                <button class="modal-close" @onclick="CloseRoleDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="_roleForm" OnValidSubmit="HandleRoleSubmit">
+                    <DataAnnotationsValidator />
+                    
+                    <div class="form-group">
+                        <label for="roleName">שם התפקיד *</label>
+                        <InputText id="roleName" @bind-Value="_roleForm.Name" class="form-control" />
+                        <ValidationMessage For="() => _roleForm.Name" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="roleDescription">תיאור</label>
+                        <InputTextArea id="roleDescription" @bind-Value="_roleForm.Description" class="form-control" rows="3" />
+                        <ValidationMessage For="() => _roleForm.Description" />
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" @onclick="CloseRoleDialog">ביטול</button>
+                        <button type="submit" class="btn-primary">@(_isEditMode ? "שמור" : "צור תפקיד")</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    protected override string PageName => "roles";
+
+    private List<RoleDto> _roles = new();
+    private bool _isLoading = true;
+
+    private string _sortColumn = nameof(RoleDto.Name);
+    private bool _sortAscending = true;
+
+    // Dialog states
+    private bool _showRoleDialog = false;
+    private bool _isEditMode = false;
+    private RoleFormModel _roleForm = new();
+    private int _editingRoleId = 0;
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        await LoadRolesData();
+    }
+
+    private async Task LoadRolesData()
+    {
+        try
+        {
+            _isLoading = true;
+
+            var response = await ApiService.GetAsync<RolesResponse>("roles");
+
+            if (response?.Success == true && response.Data != null)
+            {
+                _roles = response.Data;
+                ApplySort();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת נתוני התפקידים");
+                _roles = new List<RoleDto>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading roles: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינת נתוני התפקידים: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void SortTable(string columnName)
+    {
+        if (_sortColumn == columnName)
+        {
+            _sortAscending = !_sortAscending;
+        }
+        else
+        {
+            _sortColumn = columnName;
+            _sortAscending = true;
+        }
+
+        ApplySort();
+    }
+
+    private void ApplySort()
+    {
+        _roles = _sortColumn switch
+        {
+            nameof(RoleDto.Name) => _sortAscending
+                ? _roles.OrderBy(r => r.Name).ToList()
+                : _roles.OrderByDescending(r => r.Name).ToList(),
+            nameof(RoleDto.Description) => _sortAscending
+                ? _roles.OrderBy(r => r.Description ?? "").ToList()
+                : _roles.OrderByDescending(r => r.Description ?? "").ToList(),
+            nameof(RoleDto.UserCount) => _sortAscending
+                ? _roles.OrderBy(r => r.UserCount).ToList()
+                : _roles.OrderByDescending(r => r.UserCount).ToList(),
+            nameof(RoleDto.ActionCount) => _sortAscending
+                ? _roles.OrderBy(r => r.ActionCount).ToList()
+                : _roles.OrderByDescending(r => r.ActionCount).ToList(),
+            nameof(RoleDto.CreatedAt) => _sortAscending
+                ? _roles.OrderBy(r => r.CreatedAt).ToList()
+                : _roles.OrderByDescending(r => r.CreatedAt).ToList(),
+            _ => _roles
+        };
+    }
+
+    private string GetSortArrow(string columnName)
+    {
+        if (_sortColumn != columnName) return string.Empty;
+        return _sortAscending ? "▲" : "▼";
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadRolesData();
+    }
+
+    private void ShowCreateRoleDialog()
+    {
+        _isEditMode = false;
+        _editingRoleId = 0;
+        _roleForm = new RoleFormModel();
+        _showRoleDialog = true;
+    }
+
+    private void EditRole(RoleDto role)
+    {
+        _isEditMode = true;
+        _editingRoleId = role.Id;
+        _roleForm = new RoleFormModel
+        {
+            Name = role.Name,
+            Description = role.Description
+        };
+        _showRoleDialog = true;
+    }
+
+    private void CloseRoleDialog()
+    {
+        _showRoleDialog = false;
+        _roleForm = new RoleFormModel();
+        _editingRoleId = 0;
+        _isEditMode = false;
+    }
+
+    private async Task HandleRoleSubmit()
+    {
+        try
+        {
+            if (_isEditMode)
+            {
+                var updateRequest = new UpdateRoleRequest
+                {
+                    Name = _roleForm.Name,
+                    Description = _roleForm.Description
+                };
+
+                var response = await ApiService.PutAsync<UpdateRoleRequest, object>($"roles/{_editingRoleId}", updateRequest);
+                
+                if (response != null)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "התפקיד עודכן בהצלחה");
+                    CloseRoleDialog();
+                    await LoadRolesData();
+                }
+            }
+            else
+            {
+                var createRequest = new CreateRoleRequest
+                {
+                    Name = _roleForm.Name,
+                    Description = _roleForm.Description
+                };
+
+                var response = await ApiService.PostAsync<CreateRoleRequest, object>("roles", createRequest);
+                
+                if (response != null)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "התפקיד נוצר בהצלחה");
+                    CloseRoleDialog();
+                    await LoadRolesData();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירת התפקיד: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteRole(RoleDto role)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"האם אתה בטוח שברצונך למחוק את התפקיד '{role.Name}'?\nפעולה זו אינה הפיכה."))
+        {
+            try
+            {
+                var response = await ApiService.DeleteAsync($"roles/{role.Id}");
+                
+                if (response != null)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "התפקיד נמחק בהצלחה");
+                    await LoadRolesData();
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"שגיאה במחיקת התפקיד: {ex.Message}");
+            }
+        }
+    }
+
+    private void ViewRoleDetails(RoleDto role)
+    {
+        Navigation.NavigateTo($"/roledetails/{role.Id}");
+    }
+
+    private async Task ManageRoleUsers(RoleDto role)
+    {
+        // TODO: Implement user management for role
+        await JSRuntime.InvokeVoidAsync("alert", $"ניהול משתמשים לתפקיד '{role.Name}' יתווסף בהמשך");
+    }
+
+    // Import/Export functions - placeholder implementations
+    private async Task ExportActions()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "ייצוא פעולות יתווסף בהמשך");
+    }
+
+    private async Task ImportActions()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "ייבוא פעולות יתווסף בהמשך");
+    }
+
+    private async Task ExportRoleActions()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "ייצוא תפקידים-פעולות יתווסף בהמשך");
+    }
+
+    private async Task ImportRoleActions()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "ייבוא תפקידים-פעולות יתווסף בהמשך");
+    }
+
+    private async Task ExportComplete()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "ייצוא מלא יתווסף בהמשך");
+    }
+
+    private async Task ImportComplete()
+    {
+        await JSRuntime.InvokeVoidAsync("alert", "ייבוא מלא יתווסף בהמשך");
+    }
+
+    private async Task RefreshSecurityCache()
+    {
+        try
+        {
+            Logger.LogInformation("🔄 Refreshing security cache...");
+
+            var response = await ApiService.PostAsync<object, object>("roles/refresh-cache", new { });
+
+            if (response != null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "מטמון האבטחה רוענן בהצלחה! הפעולות החדשות זמינות כעת.");
+                Logger.LogInformation("✅ Security cache refreshed successfully");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה ברענון מטמון האבטחה");
+                Logger.LogError("❌ Failed to refresh security cache - null response");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "❌ Error refreshing security cache");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה ברענון מטמון האבטחה: {ex.Message}");
+        }
+    }
+
+    private void NavigateToUsers()
+    {
+        Navigation.NavigateTo("/users");
+    }
+
+    // Form model for role dialog
+    public class RoleFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+    }
+}
+
+<style>
+    .form-group {
+        margin-bottom: 15px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 600;
+    }
+
+    .no-data-message {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+        font-size: 1.1em;
+    }
+</style>
