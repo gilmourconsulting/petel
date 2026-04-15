@@ -100,7 +100,7 @@
             <div style="position: relative;">
                 <input type="@(_showPassword ? "text" : "password")" 
                        class="form-input" 
-                       style="padding-left: 40px;"
+                       style="padding-left: 40px; direction: ltr; text-align: left;"
                        @bind="_password"
                        @onkeydown="HandleEnterKey"
                        autocomplete="current-password" />
@@ -218,7 +218,7 @@
                     <div style="position: relative;">
                         <input type="@(_showNewPassword ? "text" : "password")"
                                class="form-input"
-                               style="padding-left: 40px;"
+                               style="padding-left: 40px; direction: ltr; text-align: left;"
                                @bind="_newPassword"
                                @bind:event="oninput"
                                @onkeydown="HandleNewPasswordEnterKey"
@@ -257,7 +257,7 @@
                     <div style="position: relative;">
                         <input type="@(_showConfirmPassword ? "text" : "password")"
                                class="form-input"
-                               style="padding-left: 40px;"
+                               style="padding-left: 40px; direction: ltr; text-align: left;"
                                @bind="_confirmNewPassword"
                                @bind:event="oninput"
                                @onkeydown="HandleNewPasswordEnterKey"
