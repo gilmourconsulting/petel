@@ -14,6 +14,8 @@ namespace PetelATH.BlazorServer.DTOs
         public DateOnly? StartDate { get; set; }
         public DateOnly? EndDate { get; set; }
         public string? Status { get; set; }
+        public int? StatusId { get; set; }
+        public string? PreviousVersionStatusName { get; set; }
         public string? Street { get; set; }
         public string? HouseNumber { get; set; }
         public string? City { get; set; }

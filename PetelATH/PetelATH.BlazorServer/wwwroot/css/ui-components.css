@@ -185,6 +185,24 @@
     transform: translateY(0);
 }
 
+/* Warning variant: sets a blocking/restricted status */
+.context-btn-warning {
+    background: linear-gradient(135deg, #ffc966 0%, #e07b00 100%);
+    color: #4a2800;
+    border-color: rgba(160, 80, 0, 0.4);
+}
+
+.context-btn-warning:hover {
+    background: linear-gradient(135deg, #ffb733 0%, #cc6e00 100%);
+}
+
+/* Restore variant: removes a blocking status */
+.context-btn-restore {
+    background: linear-gradient(135deg, #5dd47a 0%, #1a7a38 100%);
+    color: #fff;
+    border-color: rgba(0, 80, 20, 0.3);
+}
+
 /* Upload/file buttons */
 .btn-upload {
     background: var(--color-secondary);

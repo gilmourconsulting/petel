@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelATH.Api.Data;
+using PetelATH.Api.Services;
 using PetelATH.Api.Session;
 
 namespace PetelATH.Api.Controllers
@@ -10,14 +11,17 @@ namespace PetelATH.Api.Controllers
     public class StudentsController : BaseController
     {
         private readonly AppDbContext _context;
+        private readonly StudentService _studentService;
 
         public StudentsController(
             AppDbContext context,
+            StudentService studentService,
             UserSessionService userSessionService,
             ILogger<BaseController> logger)
             : base(userSessionService, logger)
         {
             _context = context;
+            _studentService = studentService;
         }
 
         [HttpGet]
@@ -75,7 +79,16 @@ namespace PetelATH.Api.Controllers
                         SendingCouncil = s.SendingCouncil,
                         DisabilityCategory = s.DisabilityCategory,
                         Cost = s.Cost,
+                        StatusId = s.StatusId,
                         Status = s.Status != null ? s.Status.Name : null,
+                        PreviousVersionStatusName = _context.SchoolStudents
+                            .Where(prev => prev.MasterStudentId == s.MasterStudentId && !prev.IsLastVersion)
+                            .OrderByDescending(prev => prev.Version)
+                            .Select(prev => _context.Statuses
+                                .Where(st => st.Id == prev.StatusId)
+                                .Select(st => st.Name)
+                                .FirstOrDefault())
+                            .FirstOrDefault(),
 
                         // LEFT JOIN with Councils - uses council_short_name, falls back to council_long_name
                         CouncilName = _context.Councils
@@ -380,6 +393,88 @@ namespace PetelATH.Api.Controllers
             {
                 _logger.LogError(ex, "Error counting students for class {ClassId}", classId);
                 return StatusCode(500, new { success = false, message = "Error counting students" });
+            }
+        }
+
+        /// <summary>
+        /// Toggle "no external permit" status (StatusId = 7) for a student.
+        /// Setting: creates a new student version with StatusId = 7.
+        /// Reverting: restores StatusId from the previous student version.
+        /// </summary>
+        [HttpPost("{id}/toggle-no-permit-status")]
+        public async Task<IActionResult> ToggleNoPermitStatus(int id)
+        {
+            const int NoPermitStatusId = 7;
+
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                var student = await _context.SchoolStudents
+                    .FirstOrDefaultAsync(s => s.Id == id && s.IsLastVersion);
+
+                if (student == null)
+                    return NotFound(new { success = false, message = "תלמיד לא נמצא" });
+
+                int? newStatusId;
+                string? previousVersionStatusName = null;
+
+                if (student.StatusId != NoPermitStatusId)
+                {
+                    // Setting status to "no external permit"
+                    newStatusId = NoPermitStatusId;
+                    _logger.LogInformation("🚫 Setting no-permit status for student {StudentId}", id);
+                }
+                else
+                {
+                    // Reverting — restore StatusId from the previous version
+                    var previousVersion = await _context.SchoolStudents
+                        .Where(prev => prev.MasterStudentId == student.MasterStudentId && !prev.IsLastVersion)
+                        .OrderByDescending(prev => prev.Version)
+                        .FirstOrDefaultAsync();
+
+                    newStatusId = previousVersion?.StatusId;
+
+                    if (previousVersion?.StatusId != null)
+                    {
+                        previousVersionStatusName = await _context.Statuses
+                            .Where(st => st.Id == previousVersion.StatusId)
+                            .Select(st => st.Name)
+                            .FirstOrDefaultAsync();
+                    }
+
+                    _logger.LogInformation("✅ Reverting no-permit status for student {StudentId}, restoring StatusId={StatusId}", id, newStatusId);
+                }
+
+                var newStudentId = await _studentService.CreateNewStudentVersionAsync(
+                    id,
+                    s => s.StatusId = newStatusId);
+
+                if (!newStudentId.HasValue)
+                    return StatusCode(500, new { success = false, message = "שגיאה בעדכון סטטוס התלמיד" });
+
+                string? newStatusName = newStatusId.HasValue
+                    ? await _context.Statuses
+                        .Where(st => st.Id == newStatusId.Value)
+                        .Select(st => st.Name)
+                        .FirstOrDefaultAsync()
+                    : null;
+
+                return Ok(new
+                {
+                    success = true,
+                    newStudentId = newStudentId.Value,
+                    newStatusId,
+                    newStatusName,
+                    previousVersionStatusName
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error toggling no-permit status for student {StudentId}", id);
+                return StatusCode(500, new { success = false, message = "שגיאה בעדכון סטטוס התלמיד", error = ex.Message });
             }
         }
     }

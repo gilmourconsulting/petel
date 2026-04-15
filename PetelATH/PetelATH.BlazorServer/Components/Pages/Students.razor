@@ -277,6 +277,10 @@
                     <div>עובד: @_bulkPricingProcessed / @_bulkPricingTotal</div>
                     <div style="color: #28a745;">✅ הצליחו: @_bulkPricingSuccess</div>
                     <div style="color: #dc3545;">❌ נכשלו: @_bulkPricingFailed</div>
+                    @if (_bulkPricingSkipped > 0)
+                    {
+                        <div style="color: #856404;">⏭️ דולגו (אין אישור): @_bulkPricingSkipped</div>
+                    }
                 </div>
             </div>
             
@@ -312,6 +316,13 @@
                     <div style="font-size: 14px; color: #666;">נכשלו</div>
                 </div>
             </div>
+            @if (_bulkPricingSkipped > 0)
+            {
+                <div style="padding: 12px 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; margin-bottom: 15px; text-align: center; color: #856404;">
+                    <span style="font-size: 20px; font-weight: bold;">@_bulkPricingSkipped</span>
+                    <span style="font-size: 14px; margin-right: 6px;">דולגו — תלמידים ללא אישור לימודי חוץ</span>
+                </div>
+            }
 
             @if (_bulkPricingErrors.Count > 0)
             {
@@ -452,6 +463,7 @@
     private int _bulkPricingProcessed = 0;
     private int _bulkPricingSuccess = 0;
     private int _bulkPricingFailed = 0;
+    private int _bulkPricingSkipped = 0;
     private List<string> _bulkPricingErrors = new();
 
     // Document generation progress
@@ -636,26 +648,32 @@
             return;
         }
 
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
-            $"⚠️ אזהרה: חישוב תמחור לכל התלמידים\n\n" +
-            $"פעולה זו תחשב רכיבי תמחור עבור {_students.Count} תלמידים.\n" +
-            $"רכיבי התמחור הקיימים יוחלפו.\n\n" +
-            $"הפעולה עשויה לקחת מספר דקות.\n\n" +
-            $"האם להמשיך?");
+        var studentsToProcess = _students.Where(s => s.StatusId != 7).ToList();
+        var skippedStudents = _students.Where(s => s.StatusId == 7).ToList();
+
+        var confirmMessage = $"⚠️ אזהרה: חישוב תמחור לכל התלמידים\n\n" +
+            $"יחושבו: {studentsToProcess.Count} תלמידים.\n";
+        if (skippedStudents.Count > 0)
+            confirmMessage += $"ידולגו (אין אישור לימודי חוץ): {skippedStudents.Count} תלמידים.\n";
+        confirmMessage += $"רכיבי התמחור הקיימים יוחלפו.\n\n" +
+            $"הפעולה עשויה לקחת מספר דקות.\n\nהאם להמשיך?";
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", confirmMessage);
 
         if (!confirmed) return;
 
         _showBulkPricingProgress = true;
-        _bulkPricingTotal = _students.Count;
+        _bulkPricingTotal = studentsToProcess.Count;
         _bulkPricingProcessed = 0;
         _bulkPricingSuccess = 0;
         _bulkPricingFailed = 0;
+        _bulkPricingSkipped = skippedStudents.Count;
         _bulkPricingErrors.Clear();
         StateHasChanged();
 
         try
         {
-            foreach (var student in _students)
+            foreach (var student in studentsToProcess)
             {
                 try
                 {

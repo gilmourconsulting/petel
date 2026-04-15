@@ -18,6 +18,13 @@
             OnClick="GenerateDocuments" CssClass="context-btn">
             עדכן רשימת מסמכים לתלמיד
         </SecureButton>
+        @if (_student != null)
+        {
+            <button class="context-btn @(_student.StatusId == 7 ? "context-btn-restore" : "context-btn-warning")"
+                @onclick="ShowNoPermitModal">
+                @(_student.StatusId == 7 ? "יש אישור לימודי חוץ" : "אין אישור לימודי חוץ")
+            </button>
+        }
         <div class="context-spacer"></div>
         @if (_isFromTransactionDetails)
         {
@@ -65,6 +72,13 @@
                             <div class="detail-card-title">פרטי תלמיד</div>
                         </div>
                         <div class="detail-card-content">
+                            @if (_student.StatusId == 7)
+                            {
+                                <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 8px 14px; margin-bottom: 14px; color: #856404; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                                    <span>⚠️</span>
+                                    <span>תלמיד ללא אישור לימודי חוץ</span>
+                                </div>
+                            }
                             <div class="detail-fields-grid">
                                 <!-- Personal Information Section -->
                                 <div class="detail-section">
@@ -318,6 +332,35 @@
     </div>
 </div>
 
+<!-- No External Permit Status Modal -->
+@if (_showNoPermitModal && _student != null)
+{
+    <div class="modal-overlay" @onclick="() => _showNoPermitModal = false">
+        <div class="modal-content modal-small" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <div>@(_student.StatusId == 7 ? "ביטול סטטוס אין אישור לימודי חוץ" : "הגדרת סטטוס אין אישור לימודי חוץ")</div>
+            </div>
+            <div class="modal-body">
+                @if (_student.StatusId == 7)
+                {
+                    <p>האם לבטל את סטטוס "אין אישור לימודי חוץ" עבור <strong>@_student.FirstName @_student.LastName</strong>?</p>
+                    <p>הסטטוס יחזור ל: <strong>@(_student.PreviousVersionStatusName ?? "ללא סטטוס")</strong></p>
+                }
+                else
+                {
+                    <p>האם לקבוע סטטוס "אין אישור לימודי חוץ" עבור <strong>@_student.FirstName @_student.LastName</strong>?</p>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="dialog-btn save" @onclick="ConfirmToggleNoPermitStatus" disabled="@_togglingStatus">
+                    @(_togglingStatus ? "מעדכן..." : "אישור")
+                </button>
+                <button class="dialog-btn cancel" @onclick="() => _showNoPermitModal = false">ביטול</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private StudentDto? _student;
     private List<PricingElementDto> _pricingElements = new();
@@ -344,6 +387,10 @@
     private bool _schoolDocsExpanded = false;
     private bool _entityDocsExpanded = false;
     private bool _pricingExpanded = true;
+
+    // No-permit status modal
+    private bool _showNoPermitModal = false;
+    private bool _togglingStatus = false;
 
     // REQUIRED by SecurePageBase
     protected override string PageName => "student";
@@ -586,6 +633,13 @@
     private async Task CalculateStudentPricing()
     {
         if (_student == null) return;
+
+        // Block pricing for students with no external permit
+        if (_student.StatusId == 7)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "לא ניתן לחשב תמחור לתלמיד ללא אישור לימודי חוץ");
+            return;
+        }
 
         try
         {
@@ -841,5 +895,59 @@
         public int SkippedCount { get; set; }
         public int NotRequiredCount { get; set; }
         public int TotalTypes { get; set; }
+    }
+
+    private class ToggleNoPermitStatusResponse
+    {
+        public bool Success { get; set; }
+        public int NewStudentId { get; set; }
+        public int? NewStatusId { get; set; }
+        public string? NewStatusName { get; set; }
+        public string? PreviousVersionStatusName { get; set; }
+    }
+
+    private void ShowNoPermitModal()
+    {
+        _showNoPermitModal = true;
+    }
+
+    private async Task ConfirmToggleNoPermitStatus()
+    {
+        if (_student == null) return;
+
+        try
+        {
+            _togglingStatus = true;
+            StateHasChanged();
+
+            var response = await ApiService.PostAsync<object, ToggleNoPermitStatusResponse>(
+                $"students/{_student.Id}/toggle-no-permit-status",
+                new { });
+
+            if (response?.Success == true)
+            {
+                _showNoPermitModal = false;
+
+                // Update session to track the new student version
+                await ApiService.PostAsync("session/property",
+                    new { key = "SelectedStudentId", value = response.NewStudentId.ToString() });
+
+                // Reload to reflect the new version
+                await LoadStudentData();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שגיאה בעדכון סטאטוס התלמיד");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error toggling no-permit status: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בעדכון סטאטוס: {ex.Message}");
+        }
+        finally
+        {
+            _togglingStatus = false;
+        }
     }
 }

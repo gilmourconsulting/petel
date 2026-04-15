@@ -41,6 +41,21 @@ namespace PetelATH.Api.Controllers
                 _logger.LogInformation("🔢 Starting pricing calculation for student: {StudentId} (Save: {Save})", 
                     schoolStudentId, save);
 
+                // Block pricing for students with "no external permit" status
+                var studentStatusId = await _context.SchoolStudents
+                    .Where(s => s.Id == schoolStudentId)
+                    .Select(s => s.StatusId)
+                    .FirstOrDefaultAsync();
+
+                if (studentStatusId == 7)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "לא ניתן לחשב תמחור - תלמיד ללא אישור לימודי חוץ"
+                    });
+                }
+
                 // Calculate pricing
                 var result = await _pricingService.CalculateStudentPricing(schoolStudentId);
 
@@ -281,11 +296,14 @@ namespace PetelATH.Api.Controllers
                 _logger.LogInformation("🏫 Starting bulk pricing calculation for school year: {SchoolYearId}", 
                     schoolYearId);
 
-                // Get all students for this school year
+                // Get all students for this school year, excluding those with "no external permit" status
                 var students = await _context.SchoolStudents
-                    .Where(s => s.SchoolYearId == schoolYearId && s.IsLastVersion)
+                    .Where(s => s.SchoolYearId == schoolYearId && s.IsLastVersion && s.StatusId != 7)
                     .Select(s => s.Id)
                     .ToListAsync();
+
+                var skippedCount = await _context.SchoolStudents
+                    .CountAsync(s => s.SchoolYearId == schoolYearId && s.IsLastVersion && s.StatusId == 7);
 
                 var results = new List<object>();
                 var successCount = 0;
@@ -327,6 +345,7 @@ namespace PetelATH.Api.Controllers
                         totalStudents = students.Count,
                         successCount,
                         failCount,
+                        skippedCount,
                         saved = save,
                         results
                     }
