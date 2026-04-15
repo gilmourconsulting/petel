@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using OtpNet;
 using PetelATH.Api.Configuration;
 using PetelATH.Api.Data;
 using PetelATH.Api.DTOs;
@@ -18,9 +17,8 @@ namespace PetelATH.Api.Controllers
     {
         private readonly AppDbContext _context;
         private readonly SecuritySettings _securitySettings;
-        //private readonly UserSessionService _sessionService;
         private readonly IAuthService _authService;
-
+        private readonly IEmailService _emailService;
         private readonly SystemAttributeCache _systemAttributeCache;
 
         public OtpController(
@@ -29,15 +27,16 @@ namespace PetelATH.Api.Controllers
             AppDbContext context,
             IOptions<SecuritySettings> securitySettings,
             IAuthService authService,
+            IEmailService emailService,
             SystemAttributeCache systemAttributeCache)
             : base(userSessionService, logger)
         {
             _context = context;
             _securitySettings = securitySettings.Value;
             _authService = authService;
+            _emailService = emailService;
             _systemAttributeCache = systemAttributeCache;
         }
-
 
         private int GetMaxOtpAttempts()
         {
@@ -55,240 +54,145 @@ namespace PetelATH.Api.Controllers
             return _securitySettings.PasswordExpirationMonths;
         }
 
-        private string GetOtpIssuer()
-        {
-            var attribute = _systemAttributeCache.GetAttributeByName("Security_OtpIssuer");
-            if (attribute != null && !string.IsNullOrWhiteSpace(attribute.Value))
-                return attribute.Value;
-            return _securitySettings.OtpIssuer;
-        }
-
         /// <summary>
-        /// GET /api/otp/setup - Generate QR code for user to scan
-        /// Requires TempToken from initial login
+        /// POST /api/otp/send - Generate and email a 6-digit OTP to the user.
+        /// Accepts TempToken (from login response) in the request body.
+        /// Also used for "resend" from the OTP verification modal.
         /// </summary>
-        [HttpGet("setup")]
-        public async Task<IActionResult> SetupOtp()
+        [HttpPost("send")]
+        public async Task<IActionResult> SendOtp([FromBody] SendOtpDto dto)
         {
-            // Get user from temp token
-            var user = await GetUserFromTempToken();
-            if (user == null)
-            {
-                return Unauthorized(new { success = false, message = "נדרש אימות" });
-            }
-
             try
             {
-                // Generate new TOTP secret (Base32 encoded, 20 bytes = 160 bits)
-                var secretBytes = new byte[20];
-                using (var rng = RandomNumberGenerator.Create())
-                {
-                    rng.GetBytes(secretBytes);
-                }
-                var secret = Base32Encoding.ToString(secretBytes);
+                var user = await GetUserFromTempToken(dto.TempToken);
+                if (user == null)
+                    return Unauthorized(new { success = false, message = "טוקן לא תקין" });
 
-                // Save to database
-                user.OtpSecret = secret;
-                user.OtpEnabled = true;
-                user.OtpVerified = false;
+                if (string.IsNullOrWhiteSpace(user.Email))
+                    return BadRequest(new { success = false, message = "כתובת דוא\"ל לא מוגדרת לחשבון זה" });
+
+                if (user.IsLocked)
+                    return Unauthorized(new { success = false, message = "חשבון המשתמש נעול. אנא פנה למנהל המערכת" });
+
+                // Generate 6-digit code
+                var code = GenerateSixDigitCode();
+
+                // BCrypt-hash before storing (same security level as passwords)
+                user.EmailOtpCode = BCrypt.Net.BCrypt.HashPassword(code, 11);
+                user.EmailOtpExpiry = DateTime.UtcNow.AddMinutes(10);
+                user.EmailOtpAttempts = 0;
                 await _context.SaveChangesAsync();
 
-                // Generate QR code URL - get issuer from database with config fallback
-                var issuer = GetOtpIssuer();
-                var username = user.Username;
-                var qrCodeUrl = $"otpauth://totp/{Uri.EscapeDataString(issuer)}:{Uri.EscapeDataString(username)}?secret={secret}&issuer={Uri.EscapeDataString(issuer)}";
+                // Send email — fires-and-forgets exception handling in SmtpEmailService
+                await _emailService.SendOtpAsync(user.Email, code, user.Username);
 
-                _logger.LogInformation("OTP setup initiated for user {UserId} with issuer '{Issuer}'", user.Id, issuer);
+                _logger.LogInformation("Email OTP sent for user {UserId}", user.Id);
 
-                return Ok(new OtpSetupResponseDto
+                return Ok(new SendOtpResponseDto
                 {
-                    QrCodeUrl = qrCodeUrl,
-                    Secret = secret,
-                    Issuer = issuer,
-                    Username = username
+                    Success = true,
+                    MaskedEmail = SmtpEmailService.MaskEmail(user.Email),
+                    Message = "קוד אימות נשלח לדוא\"ל שלך"
                 });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error setting up OTP for user {UserId}", user.Id);
-                return StatusCode(500, new { success = false, message = "שגיאה בהגדרת אימות דו-שלבי" });
+                _logger.LogError(ex, "Error sending OTP email");
+                return StatusCode(500, new { success = false, message = "שגיאה בשליחת קוד האימות" });
             }
         }
 
         /// <summary>
-        /// POST /api/otp/verify-setup - Confirm user scanned QR correctly
-        /// </summary>
-        [HttpPost("verify-setup")]
-        public async Task<IActionResult> VerifySetup([FromBody] VerifyOtpSetupDto dto)
-        {
-            var user = await GetUserFromTempToken();
-            if (user == null)
-            {
-                return Unauthorized(new { success = false, message = "נדרש אימות" });
-            }
-
-            if (string.IsNullOrEmpty(user.OtpSecret))
-            {
-                return BadRequest(new { success = false, message = "OTP לא הוגדר" });
-            }
-
-            try
-            {
-                // Validate the code
-                var secretBytes = Base32Encoding.ToBytes(user.OtpSecret);
-                var totp = new Totp(secretBytes);
-                var isValid = totp.VerifyTotp(dto.Code, out _, new VerificationWindow(2, 2));
-
-                if (isValid)
-                {
-                    user.OtpVerified = true;
-                    await _context.SaveChangesAsync();
-
-                    _logger.LogInformation("OTP setup verified for user {UserId}", user.Id);
-
-                    return Ok(new { success = true, message = "אימות דו-שלבי הופעל בהצלחה" });
-                }
-                else
-                {
-                    _logger.LogWarning("Invalid OTP code during setup for user {UserId}", user.Id);
-                    return BadRequest(new { success = false, message = "קוד שגוי" });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error verifying OTP setup for user {UserId}", user.Id);
-                return StatusCode(500, new { success = false, message = "שגיאה באימות הקוד" });
-            }
-        }
-
-
-        /// <summary>
-        /// Handle failed OTP attempt and lock user if threshold exceeded
-        /// </summary>
-        private async Task HandleFailedOtpAttemptAsync(User user)
-        {
-            user.FailedOtpAttempts++;
-            user.LastFailedAttempt = DateTime.UtcNow;
-
-            int maxAttempts = GetMaxOtpAttempts();  // ✅ Dynamic from cache
-
-            if (user.FailedOtpAttempts >= maxAttempts)
-            {
-                user.IsLocked = true;
-                user.LockedAt = DateTime.UtcNow;
-                _logger.LogWarning("User {UserId} locked after {Attempts} failed OTP attempts (max: {MaxAttempts})",
-                    user.Id, user.FailedOtpAttempts, maxAttempts);
-            }
-
-            await _context.SaveChangesAsync();
-        }
-
-
-        /// <summary>
-        /// POST /api/otp/validate - Validate OTP code at login (uses TempToken)
-        /// Returns full session token on success OR password change requirement
+        /// POST /api/otp/validate - Verify the email OTP code and complete login.
+        /// Returns full session token on success, or password-change requirement.
         /// </summary>
         [HttpPost("validate")]
         public async Task<IActionResult> ValidateOtp([FromBody] ValidateOtpDto dto)
         {
             try
             {
-                // Decode temp token to get user ID
                 var handler = new JwtSecurityTokenHandler();
                 var jsonToken = handler.ReadToken(dto.TempToken) as JwtSecurityToken;
                 var userIdClaim = jsonToken?.Claims.FirstOrDefault(c => c.Type == "userId")?.Value;
 
                 if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
-                {
                     return Unauthorized(new { success = false, message = "טוקן לא תקין" });
-                }
 
                 var user = await _context.Users
                     .Include(u => u.Entity)
                     .ThenInclude(e => e.EntityType)
                     .FirstOrDefaultAsync(u => u.Id == userId);
 
-                if (user == null || string.IsNullOrEmpty(user.OtpSecret))
-                {
+                if (user == null)
                     return Unauthorized(new { success = false, message = "משתמש לא נמצא" });
-                }
 
-                // ✅ Check if user is locked
                 if (user.IsLocked)
                 {
                     _logger.LogWarning("OTP validation attempt for locked user {UserId}", user.Id);
                     return Unauthorized(new { success = false, message = "חשבון המשתמש נעול. אנא פנה למנהל המערכת" });
                 }
 
-                // Validate the OTP code
-                var secretBytes = Base32Encoding.ToBytes(user.OtpSecret);
-                var totp = new Totp(secretBytes);
+                // Check that a code was sent and has not expired
+                if (string.IsNullOrEmpty(user.EmailOtpCode) || user.EmailOtpExpiry == null)
+                    return BadRequest(new { success = false, message = "יש לשלוח קוד אימות תחילה" });
 
-                var currentUtcTime = DateTime.UtcNow;
-                _logger.LogInformation("Validating OTP for user {UserId}. Code: {Code}, UTC Time: {Time}",
-                    user.Id, dto.Code, currentUtcTime);
+                if (DateTime.UtcNow > user.EmailOtpExpiry)
+                {
+                    user.EmailOtpCode = null;
+                    user.EmailOtpExpiry = null;
+                    await _context.SaveChangesAsync();
+                    return BadRequest(new { success = false, message = "קוד האימות פג תוקף. אנא בקש קוד חדש" });
+                }
 
-                var isValid = totp.VerifyTotp(dto.Code, out long timeStepMatched, new VerificationWindow(2, 2));
+                // Verify code via BCrypt
+                var isValid = BCrypt.Net.BCrypt.Verify(dto.Code, user.EmailOtpCode);
 
                 if (!isValid)
                 {
-                    _logger.LogWarning("Invalid OTP code for user {UserId}. Code: {Code}, Expected at time: {Time}",
-                        user.Id, dto.Code, currentUtcTime);
+                    user.EmailOtpAttempts++;
+                    user.LastFailedAttempt = DateTime.UtcNow;
 
-                    // ✅ Track failed OTP attempt
-                    await HandleFailedOtpAttemptAsync(user);
+                    int maxAttempts = GetMaxOtpAttempts();
+                    if (user.EmailOtpAttempts >= maxAttempts)
+                    {
+                        user.IsLocked = true;
+                        user.LockedAt = DateTime.UtcNow;
+                        await _context.SaveChangesAsync();
+                        _logger.LogWarning("User {UserId} locked after {Attempts} failed email OTP attempts", user.Id, user.EmailOtpAttempts);
+                        return Unauthorized(new { success = false, message = "חשבון המשתמש נעול. אנא פנה למנהל המערכת" });
+                    }
 
-                    int remainingAttempts = _securitySettings.MaxOtpAttempts - user.FailedOtpAttempts;
-                    string message = user.IsLocked
-                        ? "חשבון המשתמש נעול. אנא פנה למנהל המערכת"
-                        : $"קוד אימות שגוי. נותרו {remainingAttempts} ניסיונות";
+                    await _context.SaveChangesAsync();
 
-                    return BadRequest(new { success = false, message });
+                    int remaining = maxAttempts - user.EmailOtpAttempts;
+                    return BadRequest(new { success = false, message = $"קוד אימות שגוי. נותרו {remaining} ניסיונות" });
                 }
 
-                // ✅ OTP validated successfully
-                _logger.LogInformation("OTP validated successfully for user {UserId}. TimeStep: {TimeStep}",
-                    user.Id, timeStepMatched);
-
-                // ✅ Reset failed OTP attempts on success
-                if (user.FailedOtpAttempts > 0)
-                {
-                    user.FailedOtpAttempts = 0;
-                    user.LastFailedAttempt = null;
-                }
-
-                // ✅ NEW: Mark OTP as verified if this is first-time setup validation
-                if (!user.OtpVerified)
-                {
-                    user.OtpVerified = true;
-                    _logger.LogInformation("OTP setup completed for user {UserId} - marked as verified", user.Id);
-                }
-
+                // Success — clear OTP fields
+                user.EmailOtpCode = null;
+                user.EmailOtpExpiry = null;
+                user.EmailOtpAttempts = 0;
+                user.LastFailedAttempt = null;
                 await _context.SaveChangesAsync();
 
-                // ✅ NEW: Check password expiration AFTER successful OTP (more secure)
+                _logger.LogInformation("Email OTP validated successfully for user {UserId}", user.Id);
+
+                // Check password expiration after successful OTP
                 var (isExpired, expirationMessage) = CheckPasswordExpiration(user);
                 if (isExpired)
                 {
-                    _logger.LogInformation("User {UserId} requires password change after OTP: {Reason}",
-                        user.Id, expirationMessage);
-
                     return Ok(new OtpValidationResponseDto
                     {
                         Success = false,
                         RequiresPasswordChange = true,
-                        TempToken = dto.TempToken, // Reuse the same temp token
+                        TempToken = dto.TempToken,
                         PasswordExpirationMessage = expirationMessage,
                         Message = "נדרש שינוי סיסמה"
                     });
                 }
 
-                // ✅ Complete login using AuthService helper
                 var sessionId = await _authService.CompleteLoginAsync(user, user.Entity);
 
-                _logger.LogInformation("Login completed for user {UserId}, SessionId: {SessionId}", user.Id, sessionId);
-
-                // ✅ Return success
                 return Ok(new OtpValidationResponseDto
                 {
                     Success = true,
@@ -304,67 +208,30 @@ namespace PetelATH.Api.Controllers
         }
 
         /// <summary>
-        /// Check if password has expired (helper method)
-        /// </summary>
-        private (bool IsExpired, string? Message) CheckPasswordExpiration(User user)
-        {
-            int expirationMonths = GetPasswordExpirationMonths();  // ✅ Dynamic from cache
-
-            if (expirationMonths <= 0)
-            {
-                return (false, null);
-            }
-
-            if (user.PasswordChangeRequired)
-            {
-                return (true, "מנהל המערכת דורש החלפת סיסמה");
-            }
-
-            if (user.IsPasswordExpired(expirationMonths))  // ✅ Use dynamic value
-            {
-                var daysSinceChange = (DateTime.UtcNow - user.PasswordChangedAt).Days;
-                return (true, $"הסיסמה פגה תוקף ({daysSinceChange} ימים מאז שינוי אחרון)");
-            }
-
-            return (false, null);
-        }
-
-
-        /// <summary>
-        /// POST /api/otp/disable - Turn off OTP for current user
+        /// POST /api/otp/disable - Turn off OTP for current user (requires password)
         /// </summary>
         [HttpPost("disable")]
         public async Task<IActionResult> DisableOtp([FromBody] DisableOtpDto dto)
         {
             var session = GetCurrentSession();
             if (session == null)
-            {
                 return Unauthorized(new { success = false, message = "נדרש אימות" });
-            }
 
             try
             {
                 var user = await _context.Users.FindAsync(int.Parse(session.UserId));
                 if (user == null)
-                {
                     return NotFound(new { success = false, message = "משתמש לא נמצא" });
-                }
 
-                // Verify password
                 if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
-                {
                     return BadRequest(new { success = false, message = "סיסמה שגויה" });
-                }
 
-                // Disable OTP
                 user.OtpEnabled = false;
-                user.OtpVerified = false;
-                user.OtpSecret = null;
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("OTP disabled for user {UserId}", user.Id);
+                _logger.LogInformation("Email OTP disabled for user {UserId}", user.Id);
 
-                return Ok(new { success = true, message = "אימות דו-שלבי בוטל" });
+                return Ok(new { success = true, message = "אימות דוא\"ל בוטל" });
             }
             catch (Exception ex)
             {
@@ -374,29 +241,24 @@ namespace PetelATH.Api.Controllers
         }
 
         /// <summary>
-        /// GET /api/otp/status - Check if user has OTP enabled
+        /// GET /api/otp/status - Check if OTP is enabled for current user
         /// </summary>
         [HttpGet("status")]
         public async Task<IActionResult> GetOtpStatus()
         {
             var session = GetCurrentSession();
             if (session == null)
-            {
                 return Unauthorized(new { success = false, message = "נדרש אימות" });
-            }
 
             try
             {
                 var user = await _context.Users.FindAsync(int.Parse(session.UserId));
                 if (user == null)
-                {
                     return NotFound(new { success = false, message = "משתמש לא נמצא" });
-                }
 
                 return Ok(new OtpStatusDto
                 {
                     OtpEnabled = user.OtpEnabled,
-                    OtpVerified = user.OtpVerified,
                     SystemOtpEnabled = _securitySettings.OtpEnabled
                 });
             }
@@ -407,18 +269,38 @@ namespace PetelATH.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// Helper method to get user from temp token in Authorization header
-        /// </summary>
-        private async Task<User?> GetUserFromTempToken()
-        {
-            var authHeader = Request.Headers["Authorization"].ToString();
-            var token = authHeader?.Replace("Bearer ", "").Trim();
+        // ─── Private helpers ────────────────────────────────────────────────────
 
-            if (string.IsNullOrEmpty(token))
+        private static string GenerateSixDigitCode()
+        {
+            // Cryptographically random 6-digit code (000000–999999)
+            using var rng = RandomNumberGenerator.Create();
+            var bytes = new byte[4];
+            rng.GetBytes(bytes);
+            uint value = BitConverter.ToUInt32(bytes, 0) % 1_000_000;
+            return value.ToString("D6");
+        }
+
+        private (bool IsExpired, string? Message) CheckPasswordExpiration(User user)
+        {
+            int expirationMonths = GetPasswordExpirationMonths();
+            if (expirationMonths <= 0) return (false, null);
+
+            if (user.PasswordChangeRequired)
+                return (true, "מנהל המערכת דורש החלפת סיסמה");
+
+            if (user.IsPasswordExpired(expirationMonths))
             {
-                return null;
+                var days = (DateTime.UtcNow - user.PasswordChangedAt).Days;
+                return (true, $"הסיסמה פגה תוקף ({days} ימים מאז שינוי אחרון)");
             }
+
+            return (false, null);
+        }
+
+        private async Task<User?> GetUserFromTempToken(string token)
+        {
+            if (string.IsNullOrEmpty(token)) return null;
 
             try
             {
@@ -427,9 +309,7 @@ namespace PetelATH.Api.Controllers
                 var userIdClaim = jsonToken?.Claims.FirstOrDefault(c => c.Type == "userId")?.Value;
 
                 if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
-                {
                     return null;
-                }
 
                 return await _context.Users
                     .Include(u => u.Entity)

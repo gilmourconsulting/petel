@@ -24,8 +24,8 @@ namespace PetelATH.Api.DTOs
         public UserDto? User { get; set; }
         public EntityDto? Entity { get; set; }
         public bool RequiresOtp { get; set; }
-        public bool RequiresOtpSetup { get; set; } 
         public string? TempToken { get; set; }
+        public string? MaskedEmail { get; set; }
         public bool RequiresPasswordChange { get; set; }
         public string? PasswordExpirationMessage { get; set; }
     }

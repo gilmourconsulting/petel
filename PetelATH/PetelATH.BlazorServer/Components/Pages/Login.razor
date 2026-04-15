@@ -150,9 +150,13 @@
     <div class="modal-overlay" style="display: @(_requiresOtp ? "flex" : "none");">
         <div class="modal-content otp-modal">
             <div class="modal-header">
-                <h2>אימות דו-שלבי</h2>
+                <h2>אימות באמצעות דוא"ל</h2>
             </div>
             <div class="modal-body">
+                @if (!string.IsNullOrEmpty(_maskedEmail))
+                {
+                    <p style="margin-bottom: 16px; color: #555;">קוד אימות נשלח אל <strong>@_maskedEmail</strong></p>
+                }
                 @if (!string.IsNullOrEmpty(_otpErrorMessage))
                 {
                     <div class="error-message" style="display: block; margin-bottom: 15px;">
@@ -170,11 +174,12 @@
                            placeholder="הזן 6 ספרות" 
                            autocomplete="off" 
                            inputmode="numeric" />
-                    <small>הזן את קוד האימות בן 6 הספרות מאפליקציית האימות</small>
+                    <small>הזן את קוד האימות בן 6 הספרות שנשלח לדוא"ל שלך</small>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn-secondary" @onclick="CancelOtp">ביטול</button>
+                <button type="button" class="btn-link" @onclick="ResendOtp" disabled="@_isLoading" style="margin-left: auto; margin-right: 8px;">שלח שוב</button>
                 <button type="button" class="btn-primary" @onclick="HandleOtpVerification" disabled="@_isLoading">
                     @if (_isLoading)
                     {
@@ -297,71 +302,6 @@
         </div>
     </div>
 
-    <!-- OTP Setup Modal -->
-    <div class="modal-overlay" style="display: @(_requiresOtpSetup ? "flex" : "none");">
-        <div class="modal-content otp-setup-modal">
-            <div class="modal-header">
-                <h2>הגדרת אימות דו-שלבי</h2>
-            </div>
-            <div class="modal-body">
-                @if (!string.IsNullOrEmpty(_otpSetupErrorMessage))
-                {
-                    <div class="error-message" style="display: block; margin-bottom: 15px;">
-                        @_otpSetupErrorMessage
-                    </div>
-                }
-                <p style="margin-bottom: 20px;">אנא סרוק את קוד ה-QR באמצעות אפליקציית אימות:</p>
-                
-                <div style="text-align: center; margin: 20px 0;">
-                    @if (!string.IsNullOrEmpty(_qrCodeUrl))
-                    {
-                        <img src="@_qrCodeUrl" 
-                             alt="QR Code" 
-                             style="border: 2px solid #ccc; padding: 10px; max-width: 250px;" />
-                    }
-                    else
-                    {
-                        <div class="loading-spinner">טוען QR...</div>
-                    }
-                </div>
-                
-                <div class="form-group" style="margin-bottom: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">או הזן את הקוד הבא באופן ידני:</label>
-                    <div style="background: #f5f5f5; padding: 12px; border-radius: 4px; text-align: center; font-family: monospace; font-size: 16px; word-break: break-all;">
-                        @_manualSecret
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label for="setupOtpCode" style="display: block; margin-bottom: 8px; font-weight: 600;">הזן קוד אימות מהאפליקציה לאימות ההגדרה:</label>
-                    <input type="text" 
-                           class="form-input" 
-                           maxlength="6" 
-                           @bind="_setupOtpCode"
-                           @bind:event="oninput"
-                           @onkeydown="HandleSetupOtpEnterKey"
-                           @onkeydown:stopPropagation="true"
-                           placeholder="הזן 6 ספרות" 
-                           autocomplete="off" 
-                           inputmode="numeric" />
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn-secondary" @onclick="CancelOtpSetup">ביטול</button>
-                <button type="button" class="btn-primary" @onclick="HandleOtpSetupVerification" disabled="@_isLoading">
-                    @if (_isLoading)
-                    {
-                        <span>מאמת...</span>
-                    }
-                    else
-                    {
-                        <span>אמת והמשך</span>
-                    }
-                </button>
-            </div>
-        </div>
-    </div>
-
     <div class="form-footer">
         @_systemVersion
     </div>
@@ -395,12 +335,7 @@
     private string _otpCode = "";
     private string? _tempToken;
     private string _otpErrorMessage = "";
-    
-    private bool _requiresOtpSetup = false;
-    private string? _qrCodeUrl;
-    private string? _manualSecret;
-    private string _setupOtpCode = "";
-    private string _otpSetupErrorMessage = "";
+    private string _maskedEmail = "";
 
     private bool _requiresPasswordChange = false;
     private string _passwordExpirationMessage = "";
@@ -687,21 +622,12 @@
                     return;
                 }
 
-                // Check OTP setup requirement FIRST
-                if (response.RequiresOtpSetup)
-                {
-                    _logger.LogInformation("OTP setup required for user");
-                    _requiresOtpSetup = true;
-                    _tempToken = response.TempToken;
-                    await LoadOtpSetupQr();
-                    return;
-                }
-                
-                // Check OTP requirements (already set up)
+                // Check OTP requirements — send email OTP and show masked email
                 if (response.RequiresOtp)
                 {
                     _requiresOtp = true;
                     _tempToken = response.TempToken;
+                    _maskedEmail = response.MaskedEmail ?? "";
                     return;
                 }
 
@@ -788,110 +714,43 @@
         _requiresOtp = false;
         _otpCode = "";
         _otpErrorMessage = "";
+        _maskedEmail = "";
         _tempToken = null;
         _currentStep = 2;
     }
-    
-    private async Task LoadOtpSetupQr()
-    {
-        try
-        {
-            var response = await ApiService.GetAsync<OtpSetupResponse>($"otp/setup", _tempToken);
-            
-            if (response != null)
-            {
-                _qrCodeUrl = $"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={Uri.EscapeDataString(response.QrCodeUrl)}";
-                _manualSecret = response.Secret;
-                _logger.LogInformation("OTP setup QR loaded successfully");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to load OTP setup QR");
-            _errorMessage = "שגיאה בטעינת QR להגדרת אימות";
-        }
-    }
-    
-    private async Task HandleSetupOtpEnterKey(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter")
-        {
-            await HandleOtpSetupVerification();
-        }
-    }
-    
-    private async Task HandleOtpSetupVerification()
-    {
-        _otpSetupErrorMessage = "";
 
-        if (string.IsNullOrWhiteSpace(_setupOtpCode) || _setupOtpCode.Length != 6)
-        {
-            _otpSetupErrorMessage = "נא להזין קוד בן 6 ספרות";
-            return;
-        }
+    private async Task ResendOtp()
+    {
+        if (string.IsNullOrEmpty(_tempToken)) return;
 
+        _otpErrorMessage = "";
         _isLoading = true;
 
         try
         {
-            // Step 1: Verify setup with dedicated endpoint
-            var setupRequest = new { Code = _setupOtpCode };
-            var verifyResponse = await ApiService.PostAsync<object, OtpSetupVerifyResponse>(
-                "otp/verify-setup", 
-                setupRequest, 
-                _tempToken);
-            
-            if (verifyResponse == null || !verifyResponse.Success)
-            {
-                // Keep modal open and show error within modal
-                _setupOtpCode = "";
-                _otpSetupErrorMessage = verifyResponse?.Message ?? "קוד אימות שגוי, נסה שוב";
-                return;
-            }
+            var sendRequest = new { TempToken = _tempToken };
+            var response = await ApiService.PostAsync<object, SendOtpResponse>("otp/send", sendRequest);
 
-            _logger.LogInformation("OTP setup verified successfully, completing login");
-            
-            // Step 2: Complete login with validate endpoint
-            var loginResponse = await ApiService.PostAsync<object, LoginResponse>(
-                "otp/validate", 
-                new { TempToken = _tempToken, Code = _setupOtpCode });
-            
-            if (loginResponse != null && loginResponse.Success)
+            if (response != null && response.Success)
             {
-                await TokenService.SetTokenAsync(loginResponse.Token);
-                Navigation.NavigateTo("/maindashboard?fromLogin=true");
-            }
-            else if (loginResponse?.RequiresPasswordChange == true)
-            {
-                _requiresOtpSetup = false;
-                _setupOtpCode = "";
-                _requiresPasswordChange = true;
-                _tempToken = loginResponse.TempToken ?? _tempToken;
-                _passwordExpirationMessage = loginResponse.PasswordExpirationMessage ?? "נדרשת החלפת סיסמה";
+                _maskedEmail = response.MaskedEmail ?? _maskedEmail;
+                _otpCode = "";
+                _otpErrorMessage = "";
+                _logger.LogInformation("OTP resent successfully");
             }
             else
             {
-                // Keep modal open and show error within modal
-                _setupOtpCode = "";
-                _otpSetupErrorMessage = loginResponse?.Message ?? "שגיאה בהשלמת ההתחברות";
+                _otpErrorMessage = response?.Message ?? "שגיאה בשליחת קוד חדש";
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error verifying OTP setup");
-            // Keep modal open and show error within modal
-            _setupOtpCode = "";
-            _otpSetupErrorMessage = ExtractErrorMessage(ex.Message);
+            _otpErrorMessage = ExtractErrorMessage(ex.Message);
         }
         finally
         {
             _isLoading = false;
         }
-    }
-    
-    private async Task CompleteOtpLogin(string code)
-    {
-        // This method is no longer needed as we handle it directly in HandleOtpSetupVerification
     }
 
     private async Task HandlePasswordChange()
@@ -980,11 +839,10 @@
     
     private void CancelOtpSetup()
     {
-        _requiresOtpSetup = false;
-        _setupOtpCode = "";
-        _otpSetupErrorMessage = "";
-        _qrCodeUrl = null;
-        _manualSecret = null;
+        _requiresOtp = false;
+        _otpCode = "";
+        _otpErrorMessage = "";
+        _maskedEmail = "";
         _tempToken = null;
         _currentStep = 2;
     }
@@ -1041,10 +899,17 @@
         public string Message { get; set; } = string.Empty;
         public string Token { get; set; } = string.Empty;
         public bool RequiresOtp { get; set; }
-        public bool RequiresOtpSetup { get; set; }
         public string? TempToken { get; set; }
+        public string? MaskedEmail { get; set; }
         public bool RequiresPasswordChange { get; set; }
         public string? PasswordExpirationMessage { get; set; }
+    }
+
+    private class SendOtpResponse
+    {
+        public bool Success { get; set; }
+        public string MaskedEmail { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
     }
 
     private class SystemAttributeResponse
@@ -1056,18 +921,6 @@
         public string? Description { get; set; }
     }
     
-    private class OtpSetupResponse
-    {
-        public string QrCodeUrl { get; set; } = string.Empty;
-        public string Secret { get; set; } = string.Empty;
-    }
-    
-    private class OtpSetupVerifyResponse
-    {
-        public bool Success { get; set; }
-        public string Message { get; set; } = string.Empty;
-    }
-
     private class PasswordPolicyResponse
     {
         public List<string> Requirements { get; set; } = new();

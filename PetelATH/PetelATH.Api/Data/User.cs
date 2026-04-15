@@ -84,6 +84,17 @@ namespace PetelATH.Api.Data
         [Column("password_change_required")]
         public bool PasswordChangeRequired { get; set; } = false;
 
+        // Email OTP fields (replaces TOTP authenticator-app flow)
+        [Column("email_otp_code")]
+        [MaxLength(100)]
+        public string? EmailOtpCode { get; set; }
+
+        [Column("email_otp_expiry")]
+        public DateTime? EmailOtpExpiry { get; set; }
+
+        [Column("email_otp_attempts")]
+        public int EmailOtpAttempts { get; set; } = 0;
+
         // Navigation properties following Entity-Based Request Flow
         public virtual Entity Entity { get; set; } = null!;
         public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();

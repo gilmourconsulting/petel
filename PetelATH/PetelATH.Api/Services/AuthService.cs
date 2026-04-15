@@ -1,10 +1,8 @@
 using Microsoft.EntityFrameworkCore;
-
+using System.Security.Cryptography;
 using PetelATH.Api.Data;
 using PetelATH.Api.DTOs;
-
 using PetelATH.Api.Session;
-
 using Microsoft.Extensions.Options;
 using PetelATH.Api.Configuration;
 
@@ -21,10 +19,9 @@ namespace PetelATH.Api.Services
         private readonly ActionAuthorizationService _actionAuthService;
         private readonly ILogger<AuthService> _logger;
         private readonly SecuritySettings _securitySettings;
-
         private readonly JwtTokenService _jwtTokenService;
-
         private readonly SystemAttributeCache _systemAttributeCache;
+        private readonly IEmailService _emailService;
 
         public AuthService(
             AppDbContext context,
@@ -33,7 +30,8 @@ namespace PetelATH.Api.Services
             ILogger<AuthService> logger,
             IOptions<SecuritySettings> securitySettings,
             JwtTokenService jwtTokenService,
-    SystemAttributeCache systemAttributeCache)
+            SystemAttributeCache systemAttributeCache,
+            IEmailService emailService)
         {
             _context = context;
             _sessionService = sessionService;
@@ -42,6 +40,7 @@ namespace PetelATH.Api.Services
             _securitySettings = securitySettings.Value;
             _jwtTokenService = jwtTokenService;
             _systemAttributeCache = systemAttributeCache;
+            _emailService = emailService;
         }
 
         private int GetMaxPasswordAttempts()
@@ -276,33 +275,49 @@ namespace PetelATH.Api.Services
                 // System OTP disabled = Only users with otp_enabled flag use OTP
                 if (GetOtpEnabled() || user.OtpEnabled)
                 {
-                    if (!user.OtpVerified)
+                    if (string.IsNullOrWhiteSpace(user.Email))
                     {
-                        // Case B: OTP enabled but not set up yet - prompt setup
-                        _logger.LogInformation("User {Username} needs to complete OTP setup", loginRequest.Username);
-
+                        _logger.LogWarning("OTP required for user {Username} but no email address configured", loginRequest.Username);
                         return new LoginResponseDto
                         {
                             Success = false,
-                            RequiresOtpSetup = true,
-                            TempToken = GenerateTempToken(user.Id),
-                            Message = "יש להגדיר אימות דו-שלבי"
+                            Message = "לא ניתן לשלוח קוד אימות — כתובת דוא\"ל לא מוגדרת לחשבון זה. אנא פנה למנהל המערכת"
                         };
                     }
-                    else
-                    {
-                        // Case C: OTP enabled and verified - prompt code
-                        // ✅ Store user ID in temp token for later password expiration check
-                        _logger.LogInformation("User {Username} requires OTP code verification", loginRequest.Username);
 
+                    // Generate and send email OTP
+                    var tempToken = GenerateTempToken(user.Id);
+                    var code = GenerateSixDigitCode();
+
+                    user.EmailOtpCode = BCrypt.Net.BCrypt.HashPassword(code, 11);
+                    user.EmailOtpExpiry = DateTime.UtcNow.AddMinutes(10);
+                    user.EmailOtpAttempts = 0;
+                    await _context.SaveChangesAsync();
+
+                    try
+                    {
+                        await _emailService.SendOtpAsync(user.Email, code, user.Username);
+                    }
+                    catch (Exception emailEx)
+                    {
+                        _logger.LogError(emailEx, "Failed to send OTP email for user {Username}", loginRequest.Username);
                         return new LoginResponseDto
                         {
                             Success = false,
-                            RequiresOtp = true,
-                            TempToken = GenerateTempToken(user.Id),
-                            Message = "נדרש קוד אימות דו-שלבי"
+                            Message = "שגיאה בשליחת קוד האימות. אנא נסה שוב"
                         };
                     }
+
+                    _logger.LogInformation("Email OTP sent for user {Username}", loginRequest.Username);
+
+                    return new LoginResponseDto
+                    {
+                        Success = false,
+                        RequiresOtp = true,
+                        TempToken = tempToken,
+                        MaskedEmail = SmtpEmailService.MaskEmail(user.Email),
+                        Message = "נדרש קוד אימות שנשלח לדוא\"ל שלך"
+                    };
                 }
 
                 // ✅ NO OTP - Check password expiration now and complete login
@@ -442,11 +457,22 @@ namespace PetelATH.Api.Services
 
         /// <summary>
         /// Generate temporary JWT token for OTP verification (valid for 10 minutes)
-        /// ✅ NOW USING CENTRALIZED JWT TOKEN SERVICE
         /// </summary>
         private string GenerateTempToken(int userId)
         {
             return _jwtTokenService.GenerateTempOtpToken(userId);
+        }
+
+        /// <summary>
+        /// Generate cryptographically random 6-digit OTP code
+        /// </summary>
+        private static string GenerateSixDigitCode()
+        {
+            using var rng = RandomNumberGenerator.Create();
+            var bytes = new byte[4];
+            rng.GetBytes(bytes);
+            uint value = BitConverter.ToUInt32(bytes, 0) % 1_000_000;
+            return value.ToString("D6");
         }
 
         /// <summary>

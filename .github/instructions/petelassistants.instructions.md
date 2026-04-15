@@ -298,9 +298,18 @@ END $$;
 
 ## Authentication Setup
 
-PetelAssistants uses the same JWT-based auth as PetelATH via `Petel.Core`. The `AuthController` pattern and login flow are identical. Copy `PetelATH.Api/Controllers/AuthController.cs` as a starting point and adapt for the assistants user table.
+PetelAssistants uses the same auth stack as PetelATH. Copy these files from `PetelATH.Api` and adapt for `assistants_schema`:
 
-Required `appsettings.json` security section:
+| File | Notes |
+|---|---|
+| `Controllers/AuthController.cs` | Login, password change, password policy |
+| `Controllers/OtpController.cs` | Email OTP send/validate/disable/status |
+| `Services/AuthService.cs` | Core login logic, OTP flag check |
+| `Services/IEmailService.cs` + `SmtpEmailService.cs` | Gmail SMTP via MailKit |
+| `Configuration/EmailSettings.cs` | Bound to `"Email"` config section |
+
+### Required appsettings sections
+
 ```json
 {
   "Security": {
@@ -309,10 +318,46 @@ Required `appsettings.json` security section:
       "Issuer": "PetelAssistants",
       "Audience": "PetelAssistantsUsers",
       "ExpirationHours": 8
-    }
+    },
+    "OtpEnabled": false
+  },
+  "Email": {
+    "SmtpHost": "smtp.gmail.com",
+    "SmtpPort": 587,
+    "FromAddress": "LOADED_FROM_KEY_VAULT",
+    "Username": "LOADED_FROM_KEY_VAULT",
+    "Password": "LOADED_FROM_KEY_VAULT"
   }
 }
 ```
+
+Set `OtpEnabled: false` in `appsettings.Development.json`, `true` in test/Production.
+
+### Required DI registrations
+
+```csharp
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
+builder.Services.AddSingleton<IEmailService, SmtpEmailService>();
+```
+
+### Required DB columns on `assistants_schema.users`
+
+```sql
+ALTER TABLE assistants_schema.users ADD COLUMN IF NOT EXISTS email_otp_code VARCHAR(100) NULL;
+ALTER TABLE assistants_schema.users ADD COLUMN IF NOT EXISTS email_otp_expiry TIMESTAMPTZ NULL;
+ALTER TABLE assistants_schema.users ADD COLUMN IF NOT EXISTS email_otp_attempts INTEGER NOT NULL DEFAULT 0;
+```
+
+### Login flow
+
+```
+POST /api/auth/login
+  → RequiresPasswordChange → change-password modal (checked first)
+  → RequiresOtp            → email OTP modal (TempToken + MaskedEmail)
+  → Success                → navigate to app
+```
+
+See `petelath.instructions.md` → **Authentication & Email OTP** and `copilot-instructions.md` → **Email OTP** for full implementation details. The pattern is identical — only the schema name and JWT issuer/audience differ.
 
 ## Deployment
 

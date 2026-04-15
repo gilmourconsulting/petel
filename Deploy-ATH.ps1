@@ -28,7 +28,7 @@ $envConfig = @{
         ApiAppName     = 'petel-test-api'
         ApiUrl         = 'https://petel-test-api.azurewebsites.net'
         Location       = 'israelcentral'
-        BlazorRuntime  = 'DOTNETCORE:8.0'
+        BlazorRuntime  = 'DOTNETCORE:9.0'
         ApiRuntime     = 'DOTNETCORE:9.0'
     }
     'staging'    = @{
@@ -38,7 +38,7 @@ $envConfig = @{
         ApiAppName     = 'petel-staging-api'
         ApiUrl         = 'https://petel-staging-api.azurewebsites.net'
         Location       = 'israelcentral'
-        BlazorRuntime  = 'DOTNETCORE:8.0'
+        BlazorRuntime  = 'DOTNETCORE:9.0'
         ApiRuntime     = 'DOTNETCORE:9.0'
     }
     'production' = @{
@@ -48,7 +48,7 @@ $envConfig = @{
         ApiAppName     = 'petel-prod-api'
         ApiUrl         = 'https://petel-prod-api.azurewebsites.net'
         Location       = 'israelcentral'
-        BlazorRuntime  = 'DOTNETCORE:8.0'
+        BlazorRuntime  = 'DOTNETCORE:9.0'
         ApiRuntime     = 'DOTNETCORE:9.0'
     }
 }
@@ -194,6 +194,10 @@ if (-not $ApiOnly) {
         --resource-group $ResourceGroup `
         --name $BlazorAppName `
         --settings ASPNETCORE_ENVIRONMENT="$aspnetEnv" | Out-Null
+    az webapp config set `
+        --resource-group $ResourceGroup `
+        --name $BlazorAppName `
+        --startup-file "dotnet PetelATH.BlazorServer.dll" | Out-Null
     
     Write-Host "Deploying Blazor application..." -ForegroundColor Gray
     $deployResult = az webapp deploy `

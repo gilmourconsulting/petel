@@ -398,6 +398,70 @@ Load contextual hints from backend attributes — never hardcode a default numbe
 2. ✅ `ASPNETCORE_ENVIRONMENT=Production` set in Azure App Service
 3. ✅ CSP `connect-src` includes API origin (auto-derived from `ApiSettings.BaseUrl`)
 4. ✅ JWT secret key loaded from Azure Key Vault / App Service config
+5. ✅ Email credentials (Gmail App Password) loaded from Azure Key Vault
+6. ✅ `Security.OtpEnabled = true` in `appsettings.test.json` and `appsettings.Production.json`
+
+## Authentication & Email OTP
+
+### Feature Flag
+
+`Security.OtpEnabled` in each API `appsettings*.json` controls whether the email OTP step is required after login:
+
+| File | `OtpEnabled` | Reason |
+|---|---|---|
+| `appsettings.Development.json` | `false` | Skip OTP locally — faster dev cycle |
+| `appsettings.test.json` | `true` | Test full 2FA flow |
+| `appsettings.Production.json` | `true` | Always required in production |
+
+Can also be toggled at runtime via the `Security_OtpEnabled` system attribute (DB wins over config):
+```sql
+UPDATE petel_schema.system_attributes SET value = 'false' WHERE name = 'Security_OtpEnabled';
+-- Then call: POST /api/systemattributes/reload
+```
+
+### Email Service — DI Registration (Program.cs)
+
+```csharp
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
+builder.Services.AddSingleton<IEmailService, SmtpEmailService>();
+```
+
+Key files:
+- `Configuration/EmailSettings.cs` — POCO bound to `"Email"` config section
+- `Services/IEmailService.cs` — single method `Task SendOtpAsync(string toEmail, string code, string userName)`
+- `Services/SmtpEmailService.cs` — Gmail SMTP via MailKit; also contains `public static string MaskEmail(string email)`
+
+### OTP API Endpoints
+
+```
+POST /api/otp/send       { TempToken }              → { Success, MaskedEmail }
+POST /api/otp/validate   { TempToken, Code }        → LoginResponse
+POST /api/otp/disable    { TempToken, Password }    → { Success }
+GET  /api/otp/status     Bearer <token>             → { OtpEnabled }
+```
+
+### Database Columns
+
+Three columns on `petel_schema.users` (added by `SQL/add-email-otp-columns.sql`):
+
+| Column | Type | Notes |
+|---|---|---|
+| `email_otp_code` | `VARCHAR(100) NULL` | BCrypt hash — never plaintext |
+| `email_otp_expiry` | `TIMESTAMPTZ NULL` | 10 min after code issued |
+| `email_otp_attempts` | `INTEGER NOT NULL DEFAULT 0` | Cleared on success / new code |
+
+Old TOTP columns (`otp_secret`, `otp_enabled`, `otp_verified`) are retained for rollback but are unused.
+
+### Login Flow Summary
+
+```
+POST /api/auth/login
+  → RequiresPasswordChange → change-password modal (checked first)
+  → RequiresOtp            → email OTP modal (TempToken + MaskedEmail returned)
+  → Success                → navigate to /maindashboard
+```
+
+`Login.razor` state: `_requiresOtp`, `_maskedEmail`, `_tempToken`, `_otpCode`. "שלח שוב" button calls `POST /api/otp/send` to resend.
 
 ## Common ATH Issues
 

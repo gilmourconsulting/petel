@@ -72,6 +72,8 @@ builder.Services.Configure<DatabaseSettings>(
     builder.Configuration.GetSection("Database"));
 builder.Services.Configure<SecuritySettings>(
     builder.Configuration.GetSection("Security"));
+builder.Services.Configure<EmailSettings>(
+    builder.Configuration.GetSection("Email"));
 
 builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
 {
@@ -166,6 +168,7 @@ builder.Services.AddSingleton<JwtTokenService>();
 
 // Business Services
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddSingleton<IEmailService, SmtpEmailService>();
 builder.Services.AddScoped<UserRoleService>();
 builder.Services.AddScoped<AlertService>();
 

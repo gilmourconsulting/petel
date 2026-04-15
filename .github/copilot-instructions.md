@@ -2897,12 +2897,11 @@ public string? TempToken { get; set; }                  // Short-lived JWT with 
 ```
 login response
  ├─ RequiresPasswordChange → show change-password modal, store TempToken
- ├─ RequiresOtpSetup       → show OTP setup modal
- ├─ RequiresOtp            → show OTP verify modal
+ ├─ RequiresOtp            → show email OTP modal (masked email shown, resend button)
  └─ Success                → navigate to /maindashboard
 ```
 
-**CRITICAL**: `RequiresPasswordChange` is checked **before** OTP checks so an expired-password user is never accidentally sent to OTP flow.
+**CRITICAL**: `RequiresPasswordChange` is checked **before** OTP so an expired-password user is never accidentally sent to the OTP flow.
 
 ### Password Policy — Single Regex Attribute
 
@@ -3045,3 +3044,162 @@ if (!Regex.IsMatch(request.NewPassword, policyRegex))
 ### SQL Migration
 
 See `SQL/add-password-policy-attributes.sql`. Run on all environments once. Uses `ON CONFLICT (name) DO NOTHING` so it is safe to re-run.
+
+## Email OTP (Two-Factor Authentication)
+
+### Overview
+
+Two-factor authentication uses a **server-sent 6-digit code delivered via Gmail SMTP**. There is no authenticator app, no QR code, and no per-user secret. The code is generated server-side, BCrypt-hashed, stored temporarily on the user record, and discarded after use or expiry.
+
+### Architecture
+
+```
+Login (username + password) ─► AuthService.LoginAsync()
+                                  └─ GetOtpEnabled() == true?
+                                       ├─ NO  → return { Success=true, Token }  (OTP skipped)
+                                       └─ YES → generate code → BCrypt hash → store on user
+                                                 → SendOtpAsync() via Gmail SMTP
+                                                 → return { RequiresOtp=true, TempToken, MaskedEmail }
+
+Browser shows OTP modal → user enters 6 digits → POST /api/otp/validate
+  └─ BCrypt.Verify(code, user.EmailOtpCode) && not expired && attempts < max
+       ├─ FAIL → increment EmailOtpAttempts, lock if threshold reached
+       └─ PASS → clear OTP fields → CompleteLoginAsync() → return { Success=true, Token }
+```
+
+### Feature Flag — `Security.OtpEnabled`
+
+OTP is **enabled per environment** via `appsettings.json`:
+
+| Environment | `Security.OtpEnabled` |
+|---|---|
+| `appsettings.Development.json` | `false` — OTP skipped in local dev |
+| `appsettings.test.json` | `true` |
+| `appsettings.Production.json` | `true` |
+
+The flag can also be overridden at runtime via the `Security_OtpEnabled` system attribute in the database (checked first by `AuthService.GetOtpEnabled()`). The `appsettings` value is the fallback.
+
+```sql
+-- Disable OTP at runtime without restarting (only if Security_OtpEnabled attribute exists)
+UPDATE petel_schema.system_attributes SET value = 'false' WHERE name = 'Security_OtpEnabled';
+POST /api/systemattributes/reload
+```
+
+### Email Configuration
+
+```json
+// appsettings.json (base — placeholder values)
+{
+  "Email": {
+    "SmtpHost": "smtp.gmail.com",
+    "SmtpPort": 587,
+    "FromAddress": "your@gmail.com",
+    "Username": "your@gmail.com",
+    "Password": "YOUR_GMAIL_APP_PASSWORD"
+  }
+}
+
+// appsettings.test.json / appsettings.Production.json
+{
+  "Email": {
+    "SmtpHost": "smtp.gmail.com",
+    "SmtpPort": 587,
+    "FromAddress": "LOADED_FROM_KEY_VAULT",
+    "Username": "LOADED_FROM_KEY_VAULT",
+    "Password": "LOADED_FROM_KEY_VAULT"
+  }
+}
+```
+
+`Password` must be a **Gmail App Password** (16 chars), not the Google account password. Generate at: Google Account → Security → 2-Step Verification → App passwords.
+
+### Database Columns (users table)
+
+Three columns were added to `petel_schema.users`:
+
+| Column | Type | Purpose |
+|---|---|---|
+| `email_otp_code` | `VARCHAR(100) NULL` | BCrypt hash of the pending code |
+| `email_otp_expiry` | `TIMESTAMPTZ NULL` | Expiry time (10 min after issue) |
+| `email_otp_attempts` | `INTEGER NOT NULL DEFAULT 0` | Failed-attempt counter |
+
+**SQL migration**: `SQL/add-email-otp-columns.sql` — idempotent, safe to re-run.
+
+Old TOTP columns (`otp_secret`, `otp_enabled`, `otp_verified`) remain in the table for rollback safety but are no longer used by the application.
+
+### API Endpoints
+
+```
+POST /api/otp/send       { TempToken }                    → { Success, MaskedEmail }
+POST /api/otp/validate   { TempToken, Code }              → LoginResponse (same as /auth/login success)
+POST /api/otp/disable    { TempToken, Password }          → { Success }
+GET  /api/otp/status     Authorization: Bearer <token>    → { OtpEnabled }
+```
+
+`/otp/send` can be called again to resend a new code (the old hash is overwritten). The Login.razor "שלח שוב" button calls this endpoint.
+
+### DI Registration (Program.cs)
+
+```csharp
+// Configuration
+builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Email"));
+
+// Email service (singleton — stateless SMTP client)
+builder.Services.AddSingleton<IEmailService, SmtpEmailService>();
+```
+
+### Login.razor State
+
+```csharp
+private bool   _requiresOtp   = false;
+private string _maskedEmail   = "";      // shown in OTP modal heading
+private string? _tempToken    = null;
+private string _otpCode       = "";
+private string _otpErrorMessage = "";
+
+// HandleLogin — after successful password check:
+if (response.RequiresOtp)
+{
+    _requiresOtp  = true;
+    _tempToken    = response.TempToken;
+    _maskedEmail  = response.MaskedEmail ?? "";
+    return;
+}
+
+// ResendOtp — "שלח שוב" button:
+var r = await ApiService.PostAsync<object, SendOtpResponse>("otp/send", new { TempToken = _tempToken });
+if (r?.Success == true) _maskedEmail = r.MaskedEmail;
+```
+
+### Anti-Patterns to Avoid
+
+```csharp
+// ❌ WRONG - OTP in local dev environment
+"Security": { "OtpEnabled": true }  // in appsettings.Development.json — slows down dev
+
+// ❌ WRONG - Storing plaintext OTP code
+user.EmailOtpCode = code;  // NO! Always BCrypt.HashPassword(code, 11)
+
+// ❌ WRONG - Accepting expired codes
+// Always check: user.EmailOtpExpiry > DateTime.UtcNow
+
+// ❌ WRONG - Not clearing OTP fields after successful validation
+// Always: user.EmailOtpCode = null; user.EmailOtpExpiry = null; user.EmailOtpAttempts = 0;
+
+// ✅ CORRECT - Full OTP validation pattern
+if (user.EmailOtpCode == null || user.EmailOtpExpiry == null)
+    return fail("קוד לא נמצא");
+if (DateTime.UtcNow > user.EmailOtpExpiry)
+    return fail("הקוד פג תוקף");
+if (!BCrypt.Net.BCrypt.Verify(request.Code, user.EmailOtpCode))
+{
+    user.EmailOtpAttempts++;
+    if (user.EmailOtpAttempts >= maxAttempts) LockUser(user);
+    return fail("קוד שגוי");
+}
+user.EmailOtpCode = null;
+user.EmailOtpExpiry = null;
+user.EmailOtpAttempts = 0;
+```
+
+## Password Expiration & Change Flow
