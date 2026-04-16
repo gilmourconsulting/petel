@@ -13,17 +13,20 @@ namespace PetelATH.Api.Controllers
         private readonly IAuthService _authService;
         private readonly UserSessionService _sessionService;
         private readonly SystemAttributeCache _attributeCache;
+        private readonly IEmailService _emailService;
         private readonly ILogger<AuthController> _logger;
 
         public AuthController(
             IAuthService authService,
             UserSessionService sessionService,
             SystemAttributeCache attributeCache,
+            IEmailService emailService,
             ILogger<AuthController> logger)
         {
             _authService = authService;
             _sessionService = sessionService;
             _attributeCache = attributeCache;
+            _emailService = emailService;
             _logger = logger;
         }
 
@@ -212,6 +215,24 @@ namespace PetelATH.Api.Controllers
                 await _authService.UpdateUserPasswordAsync(user, newPasswordHash);
 
                 _logger.LogInformation("User {UserId} changed expired password", userId);
+
+                // Send password-change notification email (fire-and-forget; failure must not affect the response)
+                if (!string.IsNullOrWhiteSpace(user.Email))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var displayName = $"{user.FirstName} {user.LastName}".Trim();
+                            if (string.IsNullOrWhiteSpace(displayName)) displayName = user.Username;
+                            await _emailService.SendPasswordChangedAsync(user.Email, displayName);
+                        }
+                        catch (Exception emailEx)
+                        {
+                            _logger.LogWarning(emailEx, "Failed to send password-change notification to user {UserId}", userId);
+                        }
+                    });
+                }
 
                 return Ok(new
                 {

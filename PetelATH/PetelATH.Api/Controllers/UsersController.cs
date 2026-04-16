@@ -12,16 +12,19 @@ namespace PetelATH.Api.Controllers
     {
         private readonly AppDbContext _context;
         private readonly SystemAttributeService _systemAttributeService;
+        private readonly IEmailService _emailService;
 
         public UsersController(
             AppDbContext context,
             UserSessionService userSessionService,
             ILogger<UsersController> logger,
-            SystemAttributeService systemAttributeService)
+            SystemAttributeService systemAttributeService,
+            IEmailService emailService)
             : base(userSessionService, logger)
         {
             _context = context;
             _systemAttributeService = systemAttributeService;
+            _emailService = emailService;
         }
 
         /// <summary>
@@ -648,6 +651,24 @@ namespace PetelATH.Api.Controllers
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Password changed for user {UserId} by admin {AdminId}", id, session.UserId);
+
+                // Send password-change notification email (fire-and-forget; failure must not affect the response)
+                if (!string.IsNullOrWhiteSpace(user.Email))
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            var displayName = $"{user.FirstName} {user.LastName}".Trim();
+                            if (string.IsNullOrWhiteSpace(displayName)) displayName = user.Username;
+                            await _emailService.SendPasswordChangedAsync(user.Email, displayName);
+                        }
+                        catch (Exception emailEx)
+                        {
+                            _logger.LogWarning(emailEx, "Failed to send password-change notification to user {UserId}", id);
+                        }
+                    });
+                }
 
                 return Ok(new
                 {

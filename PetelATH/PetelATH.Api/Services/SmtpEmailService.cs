@@ -58,6 +58,61 @@ namespace PetelATH.Api.Services
             }
         }
 
+        public async Task SendPasswordChangedAsync(string toEmail, string userName)
+        {
+            if (!IsConfigured)
+            {
+                _logger.LogDebug("Email not configured – skipping password-change notification");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(toEmail))
+                return;
+
+            var displayName = string.IsNullOrWhiteSpace(userName) ? "" : $" {userName}";
+            var changedAt = DateTime.Now.ToString("dd/MM/yyyy HH:mm");
+
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress("מערכת פטל", _settings.FromAddress));
+            message.To.Add(MailboxAddress.Parse(toEmail));
+            message.Subject = "הסיסמה שונתה - מערכת ניהול אגרות";
+
+            message.Body = new TextPart("html")
+            {
+                Text = $"""
+                    <div dir="rtl" style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; border: 1px solid #dee2e6; border-radius: 8px;">
+                        <h2 style="color: #333; margin-bottom: 8px;">הסיסמה שלך שונתה</h2>
+                        <p style="color: #555;">שלום{displayName},</p>
+                        <p style="color: #555;">סיסמת הכניסה שלך למערכת ניהול אגרות שונתה בהצלחה בתאריך <strong>{changedAt}</strong>.</p>
+                        <p style="color: #d9534f;">אם לא ביצעת שינוי זה, פנה מיד למנהל המערכת.</p>
+                        <p style="color: #aaa; font-size: 12px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 12px;">
+                            הודעה זו נשלחה אוטומטית – אין להשיב אליה.
+                        </p>
+                    </div>
+                    """
+            };
+
+            using var client = new SmtpClient();
+            try
+            {
+                await client.ConnectAsync(_settings.SmtpHost, _settings.SmtpPort, SecureSocketOptions.StartTls);
+                await client.AuthenticateAsync(_settings.Username, _settings.Password);
+                await client.SendAsync(message);
+                _logger.LogInformation("Password-change notification sent to {Email}", MaskEmail(toEmail));
+            }
+            finally
+            {
+                await client.DisconnectAsync(true);
+            }
+        }
+
+        private bool IsConfigured =>
+            !string.IsNullOrWhiteSpace(_settings.SmtpHost) &&
+            !string.IsNullOrWhiteSpace(_settings.Password) &&
+            _settings.Password != "YOUR_GMAIL_APP_PASSWORD" &&
+            !string.IsNullOrWhiteSpace(_settings.FromAddress) &&
+            _settings.FromAddress != "your@gmail.com";
+
         public static string MaskEmail(string email)
         {
             if (string.IsNullOrEmpty(email)) return "";
