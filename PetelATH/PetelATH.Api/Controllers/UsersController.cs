@@ -257,6 +257,54 @@ namespace PetelATH.Api.Controllers
 
 
         /// <summary>
+        /// Reset failed login and OTP attempt counters for a user
+        /// </summary>
+        [HttpPost("{id}/reset-failed-attempts")]
+        public async Task<IActionResult> ResetFailedAttempts(int id)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                var user = await _context.Users.FindAsync(id);
+                if (user == null)
+                {
+                    return NotFound(new { success = false, message = "משתמש לא נמצא" });
+                }
+
+                user.FailedPasswordAttempts = 0;
+                user.FailedOtpAttempts = 0;
+                user.LastFailedAttempt = null;
+                user.UpdatedAt = DateTime.UtcNow;
+                user.UpdateUser = int.TryParse(session.UserId, out int adminId) ? adminId : null;
+
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Failed attempts reset for user {UserId} by admin {AdminId}", id, session.UserId);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = "נסיונות כושלים אופסו בהצלחה"
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error resetting failed attempts for user {UserId}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה באיפוס נסיונות כושלים",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
         /// Force user to change password on next login
         /// </summary>
         [HttpPost("{id}/force-password-change")]

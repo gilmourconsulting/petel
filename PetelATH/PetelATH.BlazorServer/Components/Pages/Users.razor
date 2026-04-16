@@ -144,6 +144,9 @@
                                             <SecureButton ActionName="users_resetotp" ScreenName="@PageName" FunctionName="ResetOtpVerification" OnClick="() => ResetOtpVerification(user)" CssClass="btn-icon" Title="אפס אימות דו-שלבי">
                                                 <img src="/images/reset_icon.png" alt="אפס OTP" class="action-icon-natural">
                                             </SecureButton>
+                                            <SecureButton ActionName="users_resetfailedattempts" ScreenName="@PageName" FunctionName="ResetFailedAttempts" OnClick="() => ResetFailedAttempts(user)" CssClass="btn-icon" Title="אפס נסיונות כושלים">
+                                                <img src="/images/unlock_icon.png" alt="אפס נסיונות" class="action-icon-natural">
+                                            </SecureButton>
                                         </td>
                                         <td>@user.Username</td>
                                         <td>@user.EntityName</td>
@@ -720,6 +723,27 @@
             catch (Exception ex)
             {
                 await JSRuntime.InvokeVoidAsync("alert", $"שגיאה באיפוס אימות דו-שלבי: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task ResetFailedAttempts(UserDto user)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"האם אתה בטוח שברצונך לאפס את נסיונות הכניסה הכושלים של המשתמש '{user.FullName}'?"))
+        {
+            try
+            {
+                var response = await ApiService.PostAsync<object, object>($"users/{user.Id}/reset-failed-attempts", new { });
+
+                if (response != null)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "נסיונות כושלים אופסו בהצלחה");
+                    await LoadUsersData();
+                }
+            }
+            catch (Exception ex)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", $"שגיאה באיפוס נסיונות כושלים: {ex.Message}");
             }
         }
     }

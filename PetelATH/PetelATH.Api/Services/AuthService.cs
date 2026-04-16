@@ -413,7 +413,7 @@ namespace PetelATH.Api.Services
             if (user.IsPasswordExpired(expirationMonths))
             {
                 var daysSinceChange = (DateTime.UtcNow - user.PasswordChangedAt).Days;
-                return (true, $"הסיסמה פגה תוקף ({daysSinceChange} ימים מאז שינוי אחרון)");
+                return (true, $"הסיסמה פגה תוקף");
             }
 
             return (false, null);
