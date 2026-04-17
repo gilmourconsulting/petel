@@ -20,6 +20,7 @@ namespace PetelATH.Api.Controllers
         private readonly IAuthService _authService;
         private readonly IEmailService _emailService;
         private readonly SystemAttributeCache _systemAttributeCache;
+        private readonly JwtTokenService _jwtTokenService;
 
         public OtpController(
             UserSessionService userSessionService,
@@ -28,7 +29,8 @@ namespace PetelATH.Api.Controllers
             IOptions<SecuritySettings> securitySettings,
             IAuthService authService,
             IEmailService emailService,
-            SystemAttributeCache systemAttributeCache)
+            SystemAttributeCache systemAttributeCache,
+            JwtTokenService jwtTokenService)
             : base(userSessionService, logger)
         {
             _context = context;
@@ -36,6 +38,7 @@ namespace PetelATH.Api.Controllers
             _authService = authService;
             _emailService = emailService;
             _systemAttributeCache = systemAttributeCache;
+            _jwtTokenService = jwtTokenService;
         }
 
         private int GetMaxOtpAttempts()
@@ -114,6 +117,8 @@ namespace PetelATH.Api.Controllers
                 var handler = new JwtSecurityTokenHandler();
                 var jsonToken = handler.ReadToken(dto.TempToken) as JwtSecurityToken;
                 var userIdClaim = jsonToken?.Claims.FirstOrDefault(c => c.Type == "userId")?.Value;
+                var purposeClaim = jsonToken?.Claims.FirstOrDefault(c => c.Type == "purpose")?.Value;
+                bool isForgotPasswordFlow = purposeClaim == "password_reset";
 
                 if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
                     return Unauthorized(new { success = false, message = "טוקן לא תקין" });
@@ -176,6 +181,21 @@ namespace PetelATH.Api.Controllers
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("Email OTP validated successfully for user {UserId}", user.Id);
+
+                // Forgot-password flow: OTP verified — issue a short-lived reset-verified token
+                // so the reset-password endpoint can accept the request without a new OTP round.
+                if (isForgotPasswordFlow)
+                {
+                    var resetToken = _jwtTokenService.GeneratePasswordResetVerifiedToken(user.Id);
+                    return Ok(new OtpValidationResponseDto
+                    {
+                        Success = false,
+                        RequiresPasswordChange = true,
+                        TempToken = resetToken,
+                        PasswordExpirationMessage = "אמת את זהותך, כעת הזן סיסמה חדשה",
+                        Message = "נדרש שינוי סיסמה"
+                    });
+                }
 
                 // Check password expiration after successful OTP
                 var (isExpired, expirationMessage) = CheckPasswordExpiration(user);

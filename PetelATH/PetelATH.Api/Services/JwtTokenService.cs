@@ -209,6 +209,74 @@ namespace PetelATH.Api.Services
         }
 
         /// <summary>
+        /// Generate temporary JWT token for the forgot-password flow (purpose=password_reset).
+        /// Valid for 10 minutes — user must complete OTP verification within this window.
+        /// </summary>
+        public string GenerateForgotPasswordToken(int userId)
+        {
+            var claims = new List<Claim>
+            {
+                new Claim("userId", userId.ToString()),
+                new Claim("temp", "true"),
+                new Claim("purpose", "password_reset"),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.UtcNow.AddMinutes(10),
+                Issuer = _issuer,
+                Audience = _audience,
+                SigningCredentials = credentials
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+
+            _logger.LogInformation("Generated forgot-password token for user {UserId}", userId);
+
+            return tokenHandler.WriteToken(token);
+        }
+
+        /// <summary>
+        /// Generate a short-lived JWT issued after OTP is verified in the forgot-password flow.
+        /// purpose=password_reset_verified — used exclusively by the reset-password endpoint.
+        /// Valid for 5 minutes.
+        /// </summary>
+        public string GeneratePasswordResetVerifiedToken(int userId)
+        {
+            var claims = new List<Claim>
+            {
+                new Claim("userId", userId.ToString()),
+                new Claim("purpose", "password_reset_verified"),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey));
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.UtcNow.AddMinutes(5),
+                Issuer = _issuer,
+                Audience = _audience,
+                SigningCredentials = credentials
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var token = tokenHandler.CreateToken(tokenDescriptor);
+
+            _logger.LogInformation("Generated password-reset-verified token for user {UserId}", userId);
+
+            return tokenHandler.WriteToken(token);
+        }
+
+        /// <summary>
         /// Validate JWT token and extract session ID
         /// Returns session ID (jti claim) if valid, null otherwise
         /// </summary>

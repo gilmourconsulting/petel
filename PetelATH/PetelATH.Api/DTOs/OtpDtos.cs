@@ -67,4 +67,29 @@ namespace PetelATH.Api.DTOs
         public string MaskedEmail { get; set; } = string.Empty;
         public string Message { get; set; } = string.Empty;
     }
+
+    /// <summary>
+    /// Request to initiate the forgot-password flow (no authentication required).
+    /// </summary>
+    public class ForgotPasswordDto
+    {
+        [Required]
+        public string Username { get; set; } = string.Empty;
+
+        [Required]
+        public int EntityId { get; set; }
+    }
+
+    /// <summary>
+    /// Request to set a new password after OTP was verified in the forgot-password flow.
+    /// TempToken must carry purpose=password_reset_verified (issued by otp/validate).
+    /// </summary>
+    public class ResetPasswordDto
+    {
+        [Required]
+        public string TempToken { get; set; } = string.Empty;
+
+        [Required]
+        public string NewPassword { get; set; } = string.Empty;
+    }
 }

@@ -146,6 +146,16 @@
         }
     </button>
 
+    @if (!string.IsNullOrEmpty(_errorMessage) && _selectedEntityId != 0 && !string.IsNullOrWhiteSpace(_username))
+    {
+        <div style="text-align: center; margin-top: 10px;">
+            <button type="button" class="btn-link" @onclick="InitiateForgotPassword" disabled="@_isLoading"
+                    style="font-size: 13px; color: #0066cc; background: none; border: none; cursor: pointer; text-decoration: underline;">
+                שכחתי סיסמה
+            </button>
+        </div>
+    }
+
     <!-- OTP Modal Overlay -->
     <div class="modal-overlay" style="display: @(_requiresOtp ? "flex" : "none");">
         <div class="modal-content otp-modal">
@@ -198,7 +208,7 @@
     <div class="modal-overlay" style="display: @(_requiresPasswordChange ? "flex" : "none");">
         <div class="modal-content" style="max-width: 420px; width: 90%;">
             <div class="modal-header">
-                <h2>שינוי סיסמה נדרש</h2>
+                <h2>@(_isForgotPasswordFlow ? "איפוס סיסמה" : "שינוי סיסמה נדרש")</h2>
             </div>
             <div class="modal-body">
                 @if (!string.IsNullOrEmpty(_passwordExpirationMessage))
@@ -338,6 +348,7 @@
     private string _maskedEmail = "";
 
     private bool _requiresPasswordChange = false;
+    private bool _isForgotPasswordFlow = false;
     private string _passwordExpirationMessage = "";
     private string _newPassword = "";
     private string _confirmNewPassword = "";
@@ -716,6 +727,7 @@
         _otpErrorMessage = "";
         _maskedEmail = "";
         _tempToken = null;
+        _isForgotPasswordFlow = false;
         _currentStep = 2;
     }
 
@@ -773,18 +785,27 @@
 
         try
         {
-            var changeRequest = new
+            object changeRequest;
+            string endpoint;
+
+            if (_isForgotPasswordFlow)
             {
-                TempToken = _tempToken,
-                OldPassword = _password,
-                NewPassword = _newPassword
-            };
-            var response = await ApiService.PostAsync<object, LoginResponse>("auth/change-expired-password", changeRequest);
+                // Forgot-password flow — no old password, different endpoint
+                changeRequest = new { TempToken = _tempToken, NewPassword = _newPassword };
+                endpoint = "auth/reset-password";
+            }
+            else
+            {
+                changeRequest = new { TempToken = _tempToken, OldPassword = _password, NewPassword = _newPassword };
+                endpoint = "auth/change-expired-password";
+            }
+
+            var response = await ApiService.PostAsync<object, LoginResponse>(endpoint, changeRequest);
 
             if (response != null && response.Success)
             {
-                // Password changed — user must log in again with new password
                 _requiresPasswordChange = false;
+                _isForgotPasswordFlow = false;
                 _newPassword = "";
                 _confirmNewPassword = "";
                 _passwordChangeErrorMessage = "";
@@ -800,8 +821,49 @@
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error changing expired password");
+            _logger.LogError(ex, "Error changing password");
             _passwordChangeErrorMessage = ExtractErrorMessage(ex.Message);
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task InitiateForgotPassword()
+    {
+        if (_selectedEntityId == 0 || string.IsNullOrWhiteSpace(_username))
+        {
+            _errorMessage = "נא להזין שם משתמש ולבחור ארגון תחילה";
+            return;
+        }
+
+        _isLoading = true;
+        _errorMessage = "";
+
+        try
+        {
+            var request = new { Username = _username, EntityId = _selectedEntityId };
+            var response = await ApiService.PostAsync<object, ForgotPasswordResponse>("auth/forgot-password", request);
+
+            if (response != null && response.Success)
+            {
+                _isForgotPasswordFlow = true;
+                _requiresOtp = true;
+                _tempToken = response.TempToken;
+                _maskedEmail = response.MaskedEmail ?? "";
+                _otpErrorMessage = "";
+                _otpCode = "";
+            }
+            else
+            {
+                _errorMessage = response?.Message ?? "שגיאה בשליחת קוד האימות";
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error initiating forgot-password");
+            _errorMessage = ExtractErrorMessage(ex.Message);
         }
         finally
         {
@@ -812,6 +874,7 @@
     private void CancelPasswordChange()
     {
         _requiresPasswordChange = false;
+        _isForgotPasswordFlow = false;
         _newPassword = "";
         _confirmNewPassword = "";
         _passwordChangeErrorMessage = "";
@@ -924,5 +987,13 @@
     private class PasswordPolicyResponse
     {
         public List<string> Requirements { get; set; } = new();
+    }
+
+    private class ForgotPasswordResponse
+    {
+        public bool Success { get; set; }
+        public string? TempToken { get; set; }
+        public string? MaskedEmail { get; set; }
+        public string? Message { get; set; }
     }
 }
