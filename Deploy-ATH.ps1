@@ -198,6 +198,10 @@ if (-not $ApiOnly) {
         --resource-group $ResourceGroup `
         --name $BlazorAppName `
         --startup-file "dotnet PetelATH.BlazorServer.dll" | Out-Null
+    # Always update runtime version (handles upgrades on existing app services)
+    $blazorLinuxFxVersion = $BlazorRuntime.Replace(':', '|')
+    cmd /c "az webapp config set --resource-group $ResourceGroup --name $BlazorAppName --linux-fx-version ""$blazorLinuxFxVersion"" --output none" | Out-Null
+    Write-Host "Runtime set to: $blazorLinuxFxVersion" -ForegroundColor Gray
     
     Write-Host "Deploying Blazor application..." -ForegroundColor Gray
     $deployResult = az webapp deploy `
@@ -286,6 +290,10 @@ if (-not $BlazorOnly) {
         --resource-group $ResourceGroup `
         --name $ApiAppName `
         --settings ASPNETCORE_ENVIRONMENT="$aspnetEnv" | Out-Null
+    # Always update runtime version (handles upgrades on existing app services)
+    $apiLinuxFxVersion = $ApiRuntime.Replace(':', '|')
+    cmd /c "az webapp config set --resource-group $ResourceGroup --name $ApiAppName --linux-fx-version ""$apiLinuxFxVersion"" --output none" | Out-Null
+    Write-Host "Runtime set to: $apiLinuxFxVersion" -ForegroundColor Gray
     
     Write-Host "Deploying API application..." -ForegroundColor Gray
     $deployResult = az webapp deploy `

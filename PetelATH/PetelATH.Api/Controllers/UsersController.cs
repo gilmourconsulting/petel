@@ -548,7 +548,7 @@ namespace PetelATH.Api.Controllers
                 }
 
                 var user = await _context.Users
-                    .Where(u => u.Id == id && u.EntityId == sessionEntityId)
+                    .Where(u => u.Id == id)
                     .FirstOrDefaultAsync();
 
                 if (user == null)
