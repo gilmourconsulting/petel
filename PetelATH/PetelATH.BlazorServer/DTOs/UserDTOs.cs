@@ -26,6 +26,31 @@ namespace PetelATH.BlazorServer.DTOs
         public int FailedPasswordAttempts { get; set; }
         public int FailedOtpAttempts { get; set; }
         public bool OtpVerified { get; set; }
+        public int? LockReasonId { get; set; }
+        public string? LockReasonCode { get; set; }
+        public string? LockReasonName { get; set; }
+        public bool? LockReasonAllowForgotPassword { get; set; }
+    }
+
+    /// <summary>
+    /// Lock reason lookup item
+    /// </summary>
+    public class LockReasonDto
+    {
+        public int Id { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public bool AllowForgotPassword { get; set; }
+    }
+
+    /// <summary>
+    /// Response wrapper for lock reasons
+    /// </summary>
+    public class LockReasonsResponse
+    {
+        public bool Success { get; set; }
+        public List<LockReasonDto> Data { get; set; } = new();
     }
 
     /// <summary>

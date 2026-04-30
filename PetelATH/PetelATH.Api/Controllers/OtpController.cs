@@ -162,9 +162,17 @@ namespace PetelATH.Api.Controllers
                     {
                         user.IsLocked = true;
                         user.LockedAt = DateTime.UtcNow;
+
+                        // Set lock reason to LOGIN_ATTEMPTS_EXCEEDED
+                        var lockReason = await _context.UserLockReasons
+                            .Where(r => r.Code == UserLockReason.LoginAttemptsExceeded && r.IsActive)
+                            .Select(r => (int?)r.Id)
+                            .FirstOrDefaultAsync();
+                        user.LockReasonId = lockReason;
+
                         await _context.SaveChangesAsync();
                         _logger.LogWarning("User {UserId} locked after {Attempts} failed email OTP attempts", user.Id, user.EmailOtpAttempts);
-                        return Unauthorized(new { success = false, message = "חשבון המשתמש נעול. אנא פנה למנהל המערכת" });
+                        return Unauthorized(new { success = false, message = "\u05d7\u05e9\u05d1\u05d5\u05df \u05d4\u05de\u05e9\u05ea\u05de\u05e9 \u05e0\u05e2\u05d5\u05dc. \u05d0\u05e0\u05d0 \u05e4\u05e0\u05d4 \u05dc\u05de\u05e0\u05d4\u05dc \u05d4\u05de\u05e2\u05e8\u05db\u05ea" });
                     }
 
                     await _context.SaveChangesAsync();

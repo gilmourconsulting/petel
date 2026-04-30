@@ -68,6 +68,9 @@ namespace PetelATH.Api.Data
         [Column("locked_by")]
         public int? LockedBy { get; set; }
 
+        [Column("lock_reason_id")]
+        public int? LockReasonId { get; set; }
+
         [Column("failed_password_attempts")]
         public int FailedPasswordAttempts { get; set; } = 0;
 
@@ -98,6 +101,7 @@ namespace PetelATH.Api.Data
         // Navigation properties following Entity-Based Request Flow
         public virtual Entity Entity { get; set; } = null!;
         public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
+        public virtual UserLockReason? LockReason { get; set; }
 
         // Computed property for full name
         [NotMapped]

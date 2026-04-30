@@ -285,6 +285,23 @@ namespace PetelATH.Api.Controllers
 
                 if (user.IsLocked)
                 {
+                    // Check if the lock reason allows forgot password
+                    bool allowForgotPassword = true;
+                    if (user.LockReasonId.HasValue)
+                    {
+                        var lockReason = await _context.UserLockReasons
+                            .AsNoTracking()
+                            .Where(r => r.Id == user.LockReasonId.Value)
+                            .Select(r => new { r.AllowForgotPassword })
+                            .FirstOrDefaultAsync();
+                        allowForgotPassword = lockReason?.AllowForgotPassword ?? true;
+                    }
+
+                    if (!allowForgotPassword)
+                    {
+                        return Ok(new { success = false, message = "חשבון המשתמש ננעל על ידי מנהל המערכת. אנא פנה למנהל לשחרור החשבון" });
+                    }
+
                     return Ok(new { success = false, message = "חשבון המשתמש נעול. אנא פנה למנהל המערכת" });
                 }
 

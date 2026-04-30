@@ -135,6 +135,14 @@ namespace PetelATH.Api.Services
             {
                 user.IsLocked = true;
                 user.LockedAt = DateTime.UtcNow;
+
+                // Set lock reason to LOGIN_ATTEMPTS_EXCEEDED
+                var lockReason = await _context.UserLockReasons
+                    .Where(r => r.Code == Data.UserLockReason.LoginAttemptsExceeded && r.IsActive)
+                    .Select(r => (int?)r.Id)
+                    .FirstOrDefaultAsync();
+                user.LockReasonId = lockReason;
+
                 wasLocked = true;
                 _logger.LogWarning("User {UserId} locked after {Attempts} failed password attempts (max: {MaxAttempts})",
                     user.Id, user.FailedPasswordAttempts, maxAttempts);

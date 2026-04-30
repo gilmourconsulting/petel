@@ -54,6 +54,7 @@ namespace PetelATH.Api.Controllers
                 var users = await _context.Users
                     .AsNoTracking()
                     .Include(u => u.Entity)
+                    .Include(u => u.LockReason)
                     .Select(u => new
                     {
                         u.Id,
@@ -64,18 +65,22 @@ namespace PetelATH.Api.Controllers
                         u.LastName,
                         FullName = u.FirstName + " " + u.LastName,
                         u.IsActive,
-                        u.IsLocked,  
-                        u.LockedAt, 
+                        u.IsLocked,
+                        u.LockedAt,
                         u.LastLogin,
                         u.CreatedAt,
                         u.UpdatedAt,
                         u.PasswordChangedAt,
                         u.PasswordChangeRequired,
-                        EntityId = u.EntityId,  // ✅ Show entity ID
-                        EntityName = u.Entity != null ? u.Entity.Name : "לא משויך",  // ✅ Show entity name
+                        EntityId = u.EntityId,
+                        EntityName = u.Entity != null ? u.Entity.Name : "לא משויך",
                         u.FailedPasswordAttempts,
                         u.FailedOtpAttempts,
-                        u.OtpVerified
+                        u.OtpVerified,
+                        LockReasonId = u.LockReasonId,
+                        LockReasonCode = u.LockReason != null ? u.LockReason.Code : null,
+                        LockReasonName = u.LockReason != null ? u.LockReason.Name : null,
+                        LockReasonAllowForgotPassword = u.LockReason != null ? u.LockReason.AllowForgotPassword : (bool?)null
                     })
                     .OrderBy(u => u.LastName)
                     .ThenBy(u => u.FirstName)
@@ -98,10 +103,38 @@ namespace PetelATH.Api.Controllers
         }
 
                 /// <summary>
+        /// Get all active lock reasons
+        /// </summary>
+        [HttpGet("lock-reasons")]
+        public async Task<IActionResult> GetLockReasons()
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                var reasons = await _context.UserLockReasons
+                    .AsNoTracking()
+                    .Where(r => r.IsActive)
+                    .OrderBy(r => r.SortOrder)
+                    .Select(r => new { r.Id, r.Code, r.Name, r.Description, r.AllowForgotPassword })
+                    .ToListAsync();
+
+                return Ok(new { success = true, data = reasons });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading lock reasons");
+                return StatusCode(500, new { success = false, message = "שגיאה בטעינת סיבות הנעילה" });
+            }
+        }
+
+        /// <summary>
         /// Lock a user account
         /// </summary>
         [HttpPost("{id}/lock")]
-        public async Task<IActionResult> LockUser(int id)
+        public async Task<IActionResult> LockUser(int id, [FromBody] LockUserRequest? request = null)
         {
             try
             {
@@ -121,17 +154,38 @@ namespace PetelATH.Api.Controllers
                 {
                     return BadRequest(new { success = false, message = "המשתמש כבר נעול" });
                 }
+
+                // Resolve lock reason — default to ADMIN_LOCKED
+                int? lockReasonId = null;
+                if (request?.LockReasonId.HasValue == true)
+                {
+                    var reasonExists = await _context.UserLockReasons
+                        .AnyAsync(r => r.Id == request.LockReasonId.Value && r.IsActive);
+                    if (!reasonExists)
+                        return BadRequest(new { success = false, message = "סיבת נעילה לא תקינה" });
+                    lockReasonId = request.LockReasonId.Value;
+                }
+                else
+                {
+                    // Default to ADMIN_LOCKED
+                    var adminLockedReason = await _context.UserLockReasons
+                        .Where(r => r.Code == UserLockReason.AdminLocked && r.IsActive)
+                        .Select(r => r.Id)
+                        .FirstOrDefaultAsync();
+                    lockReasonId = adminLockedReason == 0 ? null : adminLockedReason;
+                }
         
                 // Lock the user
                 user.IsLocked = true;
                 user.LockedAt = DateTime.UtcNow;
                 user.LockedBy = int.TryParse(session.UserId, out int adminId) ? adminId : null;
+                user.LockReasonId = lockReasonId;
                 user.UpdatedAt = DateTime.UtcNow;
                 user.UpdateUser = user.LockedBy;
         
                 await _context.SaveChangesAsync();
         
-                _logger.LogInformation("User {UserId} locked by admin {AdminId}", id, session.UserId);
+                _logger.LogInformation("User {UserId} locked by admin {AdminId} with reason {ReasonId}", id, session.UserId, lockReasonId);
         
                 return Ok(new
                 {
@@ -180,6 +234,7 @@ namespace PetelATH.Api.Controllers
                 user.IsLocked = false;
                 user.LockedAt = null;
                 user.LockedBy = null;
+                user.LockReasonId = null;
                 user.FailedPasswordAttempts = 0;
                 user.FailedOtpAttempts = 0;
                 user.LastFailedAttempt = null;
@@ -1025,11 +1080,19 @@ namespace PetelATH.Api.Controllers
         public int RoleId { get; set; }
     }
 
-        /// <summary>
+    /// <summary>
     /// Request model for changing user password
     /// </summary>
     public class ChangePasswordRequest
     {
         public string NewPassword { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Request model for locking a user — reason defaults to ADMIN_LOCKED when omitted
+    /// </summary>
+    public class LockUserRequest
+    {
+        public int? LockReasonId { get; set; }
     }
 }

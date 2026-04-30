@@ -104,6 +104,7 @@ public DbSet<Status> Statuses { get; set; }
 
 
         public DbSet<ActionAuditLog> ActionAuditLogs { get; set; }
+        public DbSet<UserLockReason> UserLockReasons { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -192,6 +193,11 @@ public DbSet<Status> Statuses { get; set; }
             .WithMany()
             .HasForeignKey(d => d.EntityId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        entity.HasOne(d => d.LockReason)
+            .WithMany(r => r.Users)
+            .HasForeignKey(d => d.LockReasonId)
+            .OnDelete(DeleteBehavior.SetNull);
     });
     
     // ===== ENTITY TABLE - NO ENCRYPTION (Leave as is) =====

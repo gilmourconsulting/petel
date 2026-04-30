@@ -159,7 +159,9 @@
                                             </span>
                                             @if (user.IsLocked)
                                             {
-                                                <span class="status-badge locked">נעול</span>
+                                                <span class="status-badge locked" title="@(user.LockReasonName ?? "נעול")">
+                                                    נעול — @(user.LockReasonName ?? "סיבה לא ידועה")
+                                                </span>
                                             }
                                         </td>
                                         <td>@(user.LastLogin?.ToString("dd/MM/yyyy HH:mm") ?? "אף פעם")</td>
@@ -308,6 +310,61 @@
     </div>
 }
 
+<!-- Lock Reason Dialog -->
+@if (_showLockReasonDialog && _lockTargetUser != null)
+{
+    <div class="modal-overlay" @onclick="CloseLockReasonDialog">
+        <div class="modal-content" style="max-width: 450px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>נעילת משתמש: @_lockTargetUser.FullName</h3>
+                <button class="modal-close" @onclick="CloseLockReasonDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">סיבת הנעילה:</label>
+                    @if (_lockReasons.Count == 0)
+                    {
+                        <p style="color: #6c757d;">טוען סיבות נעילה...</p>
+                    }
+                    else
+                    {
+                        @foreach (var reason in _lockReasons)
+                        {
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer;">
+                                    <input type="radio"
+                                           name="lockReason"
+                                           value="@reason.Id"
+                                           checked="@(_selectedLockReasonId == reason.Id)"
+                                           @onchange="() => _selectedLockReasonId = reason.Id"
+                                           style="margin-top: 3px;" />
+                                    <span>
+                                        <strong>@reason.Name</strong>
+                                        @if (!string.IsNullOrEmpty(reason.Description))
+                                        {
+                                            <br /><small style="color: #6c757d;">@reason.Description</small>
+                                        }
+                                        @if (!reason.AllowForgotPassword)
+                                        {
+                                            <br /><small style="color: #dc3545;">⚠ שחזור סיסמה לא יהיה זמין למשתמש זה</small>
+                                        }
+                                    </span>
+                                </label>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" @onclick="CloseLockReasonDialog">ביטול</button>
+                <button type="button" class="btn-danger" @onclick="ConfirmLockUser" disabled="@(_selectedLockReasonId == null)">
+                    נעל משתמש
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- Manage Roles Dialog -->
 @if (_showManageRolesDialog)
 {
@@ -436,9 +493,16 @@
     private List<RoleDto> _selectedRolesToAdd = new();
     private string _availableRolesSearchTerm = string.Empty;
 
+    // Lock reason dialog states
+    private bool _showLockReasonDialog = false;
+    private UserDto? _lockTargetUser = null;
+    private int? _selectedLockReasonId = null;
+    private List<LockReasonDto> _lockReasons = new();
+
     protected override async Task OnPageInitializedAsync()
     {
         await LoadEntities();
+        await LoadLockReasons();
         await LoadUsersData();
     }
 
@@ -464,6 +528,22 @@
         {
             Console.WriteLine($"❌ Error loading entities: {ex.Message}");
             _entities = new List<EntityDto>();
+        }
+    }
+
+    private async Task LoadLockReasons()
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<LockReasonsResponse>("users/lock-reasons");
+            if (response?.Success == true && response.Data != null)
+            {
+                _lockReasons = response.Data;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error loading lock reasons: {ex.Message}");
         }
     }
 
@@ -666,22 +746,39 @@
 
     private async Task LockUser(UserDto user)
     {
-        if (await JSRuntime.InvokeAsync<bool>("confirm", $"האם אתה בטוח שברצונך לנעול את המשתמש '{user.FullName}'?"))
+        // Show lock reason selection dialog instead of generic confirm
+        _lockTargetUser = user;
+        _selectedLockReasonId = _lockReasons.FirstOrDefault(r => r.Code == "ADMIN_LOCKED")?.Id;
+        _showLockReasonDialog = true;
+    }
+
+    private void CloseLockReasonDialog()
+    {
+        _showLockReasonDialog = false;
+        _lockTargetUser = null;
+        _selectedLockReasonId = null;
+    }
+
+    private async Task ConfirmLockUser()
+    {
+        if (_lockTargetUser == null) return;
+
+        try
         {
-            try
+            var response = await ApiService.PostAsync<object, object>(
+                $"users/{_lockTargetUser.Id}/lock",
+                new { LockReasonId = _selectedLockReasonId });
+
+            if (response != null)
             {
-                var response = await ApiService.PostAsync<object, object>($"users/{user.Id}/lock", new { });
-                
-                if (response != null)
-                {
-                    await JSRuntime.InvokeVoidAsync("alert", "המשתמש ננעל בהצלחה");
-                    await LoadUsersData();
-                }
+                CloseLockReasonDialog();
+                await JSRuntime.InvokeVoidAsync("alert", "המשתמש ננעל בהצלחה");
+                await LoadUsersData();
             }
-            catch (Exception ex)
-            {
-                await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בנעילת המשתמש: {ex.Message}");
-            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בנעילת המשתמש: {ex.Message}");
         }
     }
 
