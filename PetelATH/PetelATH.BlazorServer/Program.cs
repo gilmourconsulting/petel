@@ -22,6 +22,10 @@ builder.Services.AddRazorComponents()
 builder.Services.Configure<ApiSettings>(
     builder.Configuration.GetSection("ApiSettings"));
 
+// Also configure the shared Petel.BlazorCore.Models.ApiSettings so DocumentProxyExtensions resolves the correct BaseUrl
+builder.Services.Configure<Petel.BlazorCore.Models.ApiSettings>(
+    builder.Configuration.GetSection("ApiSettings"));
+
 // ✅ FIX: Configure HttpClient as named client with proper lifetime
 var apiSettings = builder.Configuration.GetSection("ApiSettings").Get<ApiSettings>();
 builder.Services.AddHttpClient("PetelApi", client =>
