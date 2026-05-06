@@ -634,6 +634,15 @@ body {
     transform: scale(1.1);
 }
 
+/* Asterisk indicator for new/unread items in alerts/events cards */
+.alert-asterisk {
+    color: var(--danger-color, #dc3545);
+    font-weight: 900;
+    margin-right: 4px;
+    font-size: 14pt;
+    line-height: 1;
+}
+
 .dashboard-flex-row {
     display: flex;
     align-items: flex-start;

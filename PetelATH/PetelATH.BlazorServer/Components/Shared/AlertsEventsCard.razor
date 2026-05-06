@@ -1,45 +1,58 @@
 @using PetelATH.BlazorServer.DTOs
 @inject ApiService ApiService
 
-<div class="dashboard-card">
-    <div class="dashboard-card-header">
-        <div class="dashboard-card-icon">@Icon</div>
-        <div class="dashboard-card-title">@Title</div>
-        @if (AllowAdd)
-        {
-            <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
-                 @onclick="OnAddClick" title="@($"הוספת {AddItemText} {(IsEvent ? "חדש" : "חדשה")}")" style="cursor: pointer;" />
-        }
-    </div>
-    <div class="internal-cards-container">
-        @if (IsLoading)
-        {
-            <div class="loading-message">@($"טוען {Title.ToLower()}...")</div>
-        }
-        else if (Items.Count == 0)
-        {
-            <div class="no-data-message">@($"אין {Title.ToLower()} להצגה")</div>
-        }
-        else
-        {
-            @foreach (var item in Items)
+<div class="detail-card @(_isExpanded ? "expanded" : "collapsed")" style="flex: 1; min-width: 280px;">
+    <div class="detail-card-header" @onclick="ToggleExpanded">
+        <div class="detail-card-title">
+            <span class="dashboard-card-icon">@Icon</span>
+            @Title
+            @if (HasNewItems)
             {
-                <div class="internal-card @(item.Status == 1 ? "alert-new" : "")" @onclick="() => HandleItemClick(item)">
-                    <div class="internal-card-header">
-                        <span class="internal-card-date">@FormatDate(item)</span>
-                        @if (!string.IsNullOrEmpty(item.CreatedByEntityName))
-                        {
-                            <span class="internal-card-entity">@item.CreatedByEntityName</span>
-                        }
-                        else
-                        {
-                            <span class="internal-card-entity" style="color: red;">DEBUG: No Entity Name</span>
-                        }
-                    </div>
-                    <div class="internal-card-content">@item.Description</div>
-                </div>
+                <span class="alert-asterisk">*</span>
             }
-        }
+        </div>
+        <div class="card-header-actions">
+            @if (AllowAdd && _isExpanded)
+            {
+                <img src="/images/Plus icon.png" alt="הוספה" class="dashboard-card-plus"
+                     @onclick:stopPropagation="true"
+                     @onclick="OnAddClick" title="@($"הוספת {AddItemText} {(IsEvent ? "חדש" : "חדשה")}")" style="cursor: pointer;" />
+            }
+            <button class="collapse-toggle" @onclick:stopPropagation="true" @onclick="ToggleExpanded"
+                    aria-label="הרחב/כווץ">@(_isExpanded ? "×" : "+")</button>
+        </div>
+    </div>
+    <div class="detail-card-content" style="display: @(_isExpanded ? "block" : "none");">
+        <div class="internal-cards-container">
+            @if (IsLoading)
+            {
+                <div class="loading-message">@($"טוען {Title.ToLower()}...")</div>
+            }
+            else if (Items.Count == 0)
+            {
+                <div class="no-data-message">@($"אין {Title.ToLower()} להצגה")</div>
+            }
+            else
+            {
+                @foreach (var item in Items)
+                {
+                    <div class="internal-card @(item.Status == 1 ? "alert-new" : "")" @onclick="() => HandleItemClick(item)">
+                        <div class="internal-card-header">
+                            <span class="internal-card-date">@FormatDate(item)</span>
+                            @if (!string.IsNullOrEmpty(item.CreatedByEntityName))
+                            {
+                                <span class="internal-card-entity">@item.CreatedByEntityName</span>
+                            }
+                            else
+                            {
+                                <span class="internal-card-entity" style="color: red;">DEBUG: No Entity Name</span>
+                            }
+                        </div>
+                        <div class="internal-card-content">@item.Description</div>
+                    </div>
+                }
+            }
+        </div>
     </div>
 </div>
 
@@ -53,7 +66,14 @@
     [Parameter] public EventCallback OnAdd { get; set; }
     [Parameter] public EventCallback<AlertEventItemDto> OnItemClick { get; set; }
 
+    private bool _isExpanded = false;
+    private bool HasNewItems => Items.Any(i => i.Status == 1);
     private string AddItemText => IsEvent ? "אירוע" : "התראה";
+
+    private void ToggleExpanded()
+    {
+        _isExpanded = !_isExpanded;
+    }
 
     private async Task OnAddClick()
     {
