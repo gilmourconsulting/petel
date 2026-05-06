@@ -195,7 +195,7 @@
                                                 </span>
                                             </td>
                                             <td style="text-align: left; direction: ltr; font-weight: 600; color: @(transaction.IsCredit ? "#38a169" : "#e53e3e");">
-                                                @(transaction.IsCredit ? "+" : "-")@transaction.Amount.ToString("N2")
+                                                @(transaction.IsCredit ? "" : "-")@transaction.Amount.ToString("N2")
                                             </td>
                                             <td>@transaction.Description</td>
                                             <td>@(transaction.RelatedStudentName ?? "-")</td>
