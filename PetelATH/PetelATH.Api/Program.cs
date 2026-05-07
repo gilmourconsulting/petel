@@ -155,6 +155,11 @@ builder.Services.AddScoped<StudentPricingService>();
 builder.Services.AddScoped<StudentService>();
 builder.Services.AddScoped<DataMigrationService>();
 
+// Excel Report Generation
+builder.Services.AddScoped<Petel.Core.Excel.IExcelEntityRegistry, AthExcelEntityRegistry>();
+builder.Services.AddScoped<Petel.Core.Excel.ExcelGenerationService>();
+builder.Services.AddScoped<Petel.Core.Excel.ExcelTemplateService>();
+
 
 // Register school attribute services
 builder.Services.AddSingleton<SchoolAttributeCache>();

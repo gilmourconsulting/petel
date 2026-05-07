@@ -1,0 +1,532 @@
+@page "/excelreports/{ReportId:int}/builder"
+@layout MainLayout
+@inherits SecurePageBase
+@using System.Text.Json
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="main-container">
+    <div class="context-buttons-section">
+        <SecureButton ActionName="excelreports_save_query" ScreenName="@PageName" FunctionName="SaveQuery"
+                      OnClick="SaveQuery" CssClass="context-btn" Title="שמור שאילתה">
+            שמור שאילתה
+        </SecureButton>
+        <SecureButton ActionName="excelreports_preview" ScreenName="@PageName" FunctionName="RunPreview"
+                      OnClick="RunPreview" CssClass="context-btn" Title="תצוגה מקדימה">
+            תצוגה מקדימה (10 שורות)
+        </SecureButton>
+        <div class="context-spacer"></div>
+        <SecureButton ActionName="excelreports_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                      OnClick="NavigateBack" CssClass="context-navigation-btn" Title="חזרה לרשימה">
+            חזרה לרשימה
+        </SecureButton>
+    </div>
+
+    <div class="students-content">
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">בונה שאילתות: @_reportName</div>
+                <div class="left-spacer"></div>
+            </div>
+        </div>
+
+        @if (_isLoading)
+        {
+            <div class="loading-spinner"><p>טוען...</p></div>
+        }
+        else
+        {
+            <!-- Step 1: Entity Selection -->
+            <div class="content-card" style="margin-bottom:16px;">
+                <div class="detail-card-header" style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #dee2e6;display:flex;align-items:center;gap:12px;">
+                    <strong style="font-size:1em;">שלב 1 — בחירת ישות</strong>
+                </div>
+                <div style="padding:16px;">
+                    <div style="display:flex;flex-wrap:wrap;gap:12px;">
+                        @foreach (var entity in _availableEntities)
+                        {
+                            <div @onclick="() => SelectEntity(entity.Name)"
+                                 style="padding:10px 18px;border:2px solid @(_selectedEntityName == entity.Name ? "#0d6efd" : "#dee2e6");
+                                        border-radius:8px;cursor:pointer;background:@(_selectedEntityName == entity.Name ? "#e7f0ff" : "white");
+                                        min-width:150px;text-align:center;">
+                                <div style="font-weight:600;">@entity.LabelHe</div>
+                                <div style="font-size:0.8em;color:#6c757d;">@entity.Name</div>
+                                @if (entity.IsAccountEntity)
+                                {
+                                    <div style="font-size:0.75em;color:#0d9488;margin-top:2px;">חשבונאי (חוצה שנים)</div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @if (_selectedEntityDescriptor != null)
+            {
+                <!-- Step 2: Field Selection -->
+                <div class="content-card" style="margin-bottom:16px;">
+                    <div class="detail-card-header" style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #dee2e6;display:flex;align-items:center;justify-content:space-between;">
+                        <strong>שלב 2 — בחירת שדות</strong>
+                        <div>
+                            <button @onclick="SelectAllFields" style="padding:4px 10px;border:1px solid #dee2e6;border-radius:4px;background:white;cursor:pointer;font-size:0.85em;margin-left:6px;">בחר הכל</button>
+                            <button @onclick="ClearFieldSelection" style="padding:4px 10px;border:1px solid #dee2e6;border-radius:4px;background:white;cursor:pointer;font-size:0.85em;">נקה</button>
+                        </div>
+                    </div>
+                    <div style="padding:16px;display:flex;flex-wrap:wrap;gap:8px;">
+                        @foreach (var field in _selectedEntityDescriptor.Fields)
+                        {
+                            var isSelected = _selectedFields.Contains(field.Name);
+                            <label style="display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid @(isSelected ? "#0d6efd" : "#dee2e6");
+                                          border-radius:6px;cursor:pointer;background:@(isSelected ? "#e7f0ff" : "white");user-select:none;">
+                                <input type="checkbox" checked="@isSelected" @onchange="e => ToggleField(field.Name, (bool)e.Value!)" style="cursor:pointer;" />
+                                <span>@field.LabelHe</span>
+                                <small style="color:#6c757d;">(@field.Type)</small>
+                            </label>
+                        }
+                    </div>
+                </div>
+
+                <!-- Step 3: Filters -->
+                <div class="content-card" style="margin-bottom:16px;">
+                    <div class="detail-card-header" style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #dee2e6;display:flex;align-items:center;justify-content:space-between;">
+                        <strong>שלב 3 — סינון (אופציונלי)</strong>
+                        <button @onclick="AddFilter" style="padding:4px 12px;border:1px solid #0d6efd;border-radius:4px;background:#e7f0ff;color:#0d6efd;cursor:pointer;font-size:0.85em;">+ הוסף סינון</button>
+                    </div>
+                    <div style="padding:16px;">
+                        @foreach (var (f, idx) in _filters.Select((f, i) => (f, i)))
+                        {
+                            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+                                <select @bind="f.Field" style="flex:2;min-width:140px;padding:6px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                                    <option value="">-- שדה --</option>
+                                    @foreach (var field in _selectedEntityDescriptor.Fields.Where(fl => fl.IsFilterable || _selectedFields.Contains(fl.Name)))
+                                    {
+                                        <option value="@field.Name">@field.LabelHe</option>
+                                    }
+                                </select>
+                                <select @bind="f.Operator" style="flex:1;min-width:110px;padding:6px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                                    <option value="eq">שווה</option>
+                                    <option value="neq">שונה</option>
+                                    <option value="contains">מכיל</option>
+                                    <option value="startswith">מתחיל ב</option>
+                                    <option value="gt">גדול מ</option>
+                                    <option value="gte">גדול שווה</option>
+                                    <option value="lt">קטן מ</option>
+                                    <option value="lte">קטן שווה</option>
+                                    <option value="isnull">ריק</option>
+                                    <option value="isnotnull">לא ריק</option>
+                                </select>
+                                @if (f.Operator != "isnull" && f.Operator != "isnotnull")
+                                {
+                                    <input type="text" @bind="f.Value" placeholder="ערך"
+                                           style="flex:2;min-width:120px;padding:6px;border:1px solid #dee2e6;border-radius:4px;" />
+                                }
+                                <button @onclick="() => RemoveFilter(idx)" style="padding:6px 10px;border:1px solid #dc3545;border-radius:4px;background:#fff5f5;color:#dc3545;cursor:pointer;">✕</button>
+                            </div>
+                        }
+                        @if (!_filters.Any())
+                        {
+                            <div style="color:#6c757d;font-size:0.9em;">אין סינונים. לחץ "+ הוסף סינון" כדי להוסיף.</div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Step 4: Sort -->
+                <div class="content-card" style="margin-bottom:16px;">
+                    <div class="detail-card-header" style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #dee2e6;display:flex;align-items:center;justify-content:space-between;">
+                        <strong>שלב 4 — מיון (אופציונלי)</strong>
+                        <button @onclick="AddSort" style="padding:4px 12px;border:1px solid #0d6efd;border-radius:4px;background:#e7f0ff;color:#0d6efd;cursor:pointer;font-size:0.85em;">+ הוסף מיון</button>
+                    </div>
+                    <div style="padding:16px;">
+                        @foreach (var (s, idx) in _sorts.Select((s, i) => (s, i)))
+                        {
+                            <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+                                <select @bind="s.Field" style="flex:2;min-width:140px;padding:6px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                                    <option value="">-- שדה --</option>
+                                    @foreach (var field in _selectedEntityDescriptor.Fields)
+                                    {
+                                        <option value="@field.Name">@field.LabelHe</option>
+                                    }
+                                </select>
+                                <select @bind="s.Direction" style="flex:1;min-width:100px;padding:6px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                                    <option value="asc">עולה ↑</option>
+                                    <option value="desc">יורד ↓</option>
+                                </select>
+                                <button @onclick="() => RemoveSort(idx)" style="padding:6px 10px;border:1px solid #dc3545;border-radius:4px;background:#fff5f5;color:#dc3545;cursor:pointer;">✕</button>
+                            </div>
+                        }
+                        @if (!_sorts.Any())
+                        {
+                            <div style="color:#6c757d;font-size:0.9em;">אין מיון. לחץ "+ הוסף מיון" כדי להוסיף.</div>
+                        }
+                    </div>
+                </div>
+
+                <!-- Sheet Name -->
+                <div class="content-card" style="margin-bottom:16px;">
+                    <div class="detail-card-header" style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #dee2e6;">
+                        <strong>שם גיליון ב-Excel</strong>
+                    </div>
+                    <div style="padding:16px;">
+                        <input type="text" @bind="_sheetName" placeholder="נתונים"
+                               style="width:300px;padding:8px;border:1px solid #dee2e6;border-radius:4px;" />
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(_statusMessage))
+            {
+                <div class="@(_isError ? "alert alert-danger" : "alert alert-success")" style="padding:10px;margin-bottom:12px;">
+                    @_statusMessage
+                </div>
+            }
+
+            <!-- Preview Table -->
+            @if (_previewRows.Any())
+            {
+                <div class="content-card" style="margin-bottom:16px;">
+                    <div class="detail-card-header" style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #dee2e6;">
+                        <strong>תצוגה מקדימה (@_previewRows.Count שורות מתוך @_totalPreviewRows)</strong>
+                    </div>
+                    <div style="overflow-x:auto;padding:8px;">
+                        <table class="data-table" style="min-width:600px;font-size:0.88em;">
+                            <thead>
+                                <tr>
+                                    @foreach (var col in _previewColumns)
+                                    {
+                                        <th>@col</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in _previewRows)
+                                {
+                                    <tr>
+                                        @foreach (var col in _previewColumns)
+                                        {
+                                            <td>@(row.TryGetValue(col, out var v) ? v?.ToString() ?? "" : "")</td>
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int ReportId { get; set; }
+
+    protected override string PageName => "excelreports";
+
+    private bool _isLoading = true;
+    private string _reportName = string.Empty;
+    private string _statusMessage = string.Empty;
+    private bool _isError = false;
+
+    private List<EntitySummaryDto> _availableEntities = new();
+    private string _selectedEntityName = string.Empty;
+    private ExcelEntityDescriptorDto? _selectedEntityDescriptor;
+
+    private HashSet<string> _selectedFields = new();
+    private List<FilterRow> _filters = new();
+    private List<SortRow> _sorts = new();
+    private string _sheetName = "נתונים";
+
+    private List<Dictionary<string, object?>> _previewRows = new();
+    private List<string> _previewColumns = new();
+    private int _totalPreviewRows = 0;
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null) return;
+
+        await Task.WhenAll(LoadReport(), LoadEntities());
+        _isLoading = false;
+    }
+
+    private async Task LoadReport()
+    {
+        try
+        {
+            var result = await ApiService.GetAsync<ApiResult<ExcelReportDetailDto>>($"excelreports/{ReportId}");
+            if (result?.Success == true && result.Data != null)
+            {
+                _reportName = result.Data.Name;
+                _sheetName = result.Data.Query?.SheetName ?? "נתונים";
+
+                if (result.Data.Query != null)
+                {
+                    _selectedEntityName = result.Data.Query.EntityName ?? string.Empty;
+                    var fieldsJson = result.Data.Query.FieldsJson;
+                    var filtersJson = result.Data.Query.FiltersJson;
+                    var sortJson = result.Data.Query.SortJson;
+
+                    if (!string.IsNullOrEmpty(fieldsJson))
+                    {
+                        var fields = JsonSerializer.Deserialize<List<SelectedFieldDto>>(fieldsJson,
+                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        _selectedFields = fields?.Select(f => f.Field).ToHashSet() ?? new();
+                    }
+
+                    if (!string.IsNullOrEmpty(filtersJson))
+                    {
+                        var filters = JsonSerializer.Deserialize<List<FilterRow>>(filtersJson,
+                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        _filters = filters ?? new();
+                    }
+
+                    if (!string.IsNullOrEmpty(sortJson))
+                    {
+                        var sorts = JsonSerializer.Deserialize<List<SortRow>>(sortJson,
+                            new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        _sorts = sorts ?? new();
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"שגיאה בטעינת הדוח: {ex.Message}");
+        }
+    }
+
+    private async Task LoadEntities()
+    {
+        try
+        {
+            var result = await ApiService.GetAsync<ApiResult<List<EntitySummaryDto>>>("excelreports/entities");
+            if (result?.Success == true)
+            {
+                _availableEntities = result.Data ?? new();
+                if (!string.IsNullOrEmpty(_selectedEntityName))
+                    await LoadEntityFields(_selectedEntityName);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"שגיאה בטעינת ישויות: {ex.Message}");
+        }
+    }
+
+    private async Task SelectEntity(string entityName)
+    {
+        _selectedEntityName = entityName;
+        _selectedFields.Clear();
+        _previewRows.Clear();
+        await LoadEntityFields(entityName);
+    }
+
+    private async Task LoadEntityFields(string entityName)
+    {
+        try
+        {
+            var result = await ApiService.GetAsync<ApiResult<ExcelEntityDescriptorDto>>($"excelreports/entities/{entityName}/fields");
+            if (result?.Success == true)
+                _selectedEntityDescriptor = result.Data;
+        }
+        catch (Exception ex)
+        {
+            ShowError($"שגיאה בטעינת שדות: {ex.Message}");
+        }
+    }
+
+    private void ToggleField(string fieldName, bool selected)
+    {
+        if (selected) _selectedFields.Add(fieldName);
+        else _selectedFields.Remove(fieldName);
+    }
+
+    private void SelectAllFields()
+    {
+        if (_selectedEntityDescriptor == null) return;
+        _selectedFields = _selectedEntityDescriptor.Fields.Select(f => f.Name).ToHashSet();
+    }
+
+    private void ClearFieldSelection() => _selectedFields.Clear();
+
+    private void AddFilter() => _filters.Add(new FilterRow());
+    private void RemoveFilter(int idx) => _filters.RemoveAt(idx);
+    private void AddSort() => _sorts.Add(new SortRow());
+    private void RemoveSort(int idx) => _sorts.RemoveAt(idx);
+
+    private async Task SaveQuery()
+    {
+        _statusMessage = string.Empty;
+        if (string.IsNullOrEmpty(_selectedEntityName))
+        {
+            ShowError("יש לבחור ישות");
+            return;
+        }
+
+        var fieldsJson = SerializeFields();
+        var filtersJson = SerializeFilters();
+        var sortJson = SerializeSorts();
+
+        try
+        {
+            var body = new
+            {
+                entityName = _selectedEntityName,
+                fieldsJson,
+                filtersJson,
+                sortJson,
+                sheetName = string.IsNullOrWhiteSpace(_sheetName) ? "נתונים" : _sheetName
+            };
+
+            var result = await ApiService.PutAsync<object, ApiResult<object>>($"excelreports/{ReportId}/query", body);
+            if (result?.Success == true)
+                ShowSuccess("השאילתה נשמרה בהצלחה");
+            else
+                ShowError("שגיאה בשמירת השאילתה");
+        }
+        catch (Exception ex)
+        {
+            ShowError($"שגיאה: {ex.Message}");
+        }
+    }
+
+    private async Task RunPreview()
+    {
+        _statusMessage = string.Empty;
+        _previewRows.Clear();
+        _previewColumns.Clear();
+
+        if (string.IsNullOrEmpty(_selectedEntityName))
+        {
+            ShowError("יש לבחור ישות");
+            return;
+        }
+
+        try
+        {
+            var body = new
+            {
+                entityName = _selectedEntityName,
+                fieldsJson = SerializeFields(),
+                filtersJson = SerializeFilters(),
+                sortJson = SerializeSorts()
+            };
+
+            var result = await ApiService.PostAsync<object, PreviewResultDto>("excelreports/preview", body);
+            if (result?.Success == true)
+            {
+                _previewRows = result.Data ?? new();
+                _totalPreviewRows = result.TotalRows;
+                _previewColumns = _previewRows.FirstOrDefault()?.Keys.ToList() ?? new();
+                ShowSuccess($"מציג {_previewRows.Count} שורות מתוך {_totalPreviewRows}");
+            }
+            else
+            {
+                ShowError("שגיאה בתצוגה מקדימה");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"שגיאה: {ex.Message}");
+        }
+    }
+
+    private void NavigateBack() => Navigation.NavigateTo("/excelreports");
+
+    private string SerializeFields()
+    {
+        var fields = _selectedFields.Select(f => new { field = f }).ToList();
+        return fields.Any() ? JsonSerializer.Serialize(fields) : "[]";
+    }
+
+    private string SerializeFilters()
+    {
+        var nonEmpty = _filters.Where(f => !string.IsNullOrEmpty(f.Field)).ToList();
+        return nonEmpty.Any() ? JsonSerializer.Serialize(nonEmpty, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }) : "[]";
+    }
+
+    private string SerializeSorts()
+    {
+        var nonEmpty = _sorts.Where(s => !string.IsNullOrEmpty(s.Field)).ToList();
+        return nonEmpty.Any() ? JsonSerializer.Serialize(nonEmpty, new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase }) : "[]";
+    }
+
+    private void ShowError(string msg) { _statusMessage = msg; _isError = true; }
+    private void ShowSuccess(string msg) { _statusMessage = msg; _isError = false; }
+
+    // ─── Local DTOs ────────────────────────────────────────────────────
+
+    private class FilterRow
+    {
+        public string Field { get; set; } = string.Empty;
+        public string Operator { get; set; } = "eq";
+        public string? Value { get; set; }
+    }
+
+    private class SortRow
+    {
+        public string Field { get; set; } = string.Empty;
+        public string Direction { get; set; } = "asc";
+    }
+
+    private class SelectedFieldDto
+    {
+        public string Field { get; set; } = string.Empty;
+    }
+
+    private class ApiResult<T>
+    {
+        public bool Success { get; set; }
+        public T? Data { get; set; }
+    }
+
+    private class EntitySummaryDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string LabelHe { get; set; } = string.Empty;
+        public bool IsAccountEntity { get; set; }
+        public int FieldCount { get; set; }
+    }
+
+    private class ExcelEntityDescriptorDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string LabelHe { get; set; } = string.Empty;
+        public bool IsAccountEntity { get; set; }
+        public List<ExcelFieldDto> Fields { get; set; } = new();
+    }
+
+    private class ExcelFieldDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string LabelHe { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+        public bool IsFilterable { get; set; }
+        public bool IsSortable { get; set; }
+    }
+
+    private class ExcelReportDetailDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public QueryDto? Query { get; set; }
+    }
+
+    private class QueryDto
+    {
+        public string? EntityName { get; set; }
+        public string? FieldsJson { get; set; }
+        public string? FiltersJson { get; set; }
+        public string? SortJson { get; set; }
+        public string? SheetName { get; set; }
+    }
+
+    private class PreviewResultDto
+    {
+        public bool Success { get; set; }
+        public List<Dictionary<string, object?>> Data { get; set; } = new();
+        public int TotalRows { get; set; }
+        public int PreviewRows { get; set; }
+    }
+}

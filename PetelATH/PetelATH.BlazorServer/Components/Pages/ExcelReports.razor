@@ -1,0 +1,445 @@
+@page "/excelreports"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelATH.BlazorServer.DTOs
+@using System.Text.Json
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="main-container">
+    <div class="context-buttons-section">
+        <SecureButton ActionName="excelreports_create" ScreenName="@PageName" FunctionName="ShowCreateModal"
+                      OnClick="ShowCreateModal" CssClass="context-btn" Title="יצירת דוח חדש">
+            + דוח חדש
+        </SecureButton>
+        <div class="context-spacer"></div>
+        <SecureButton ActionName="excelreports_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                      OnClick="NavigateBack" CssClass="context-navigation-btn" Title="חזרה">
+            חזרה
+        </SecureButton>
+    </div>
+
+    <div class="students-content">
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">דוחות Excel</div>
+                <div class="left-spacer"></div>
+            </div>
+        </div>
+
+        <div class="content-card">
+            @if (_isLoading)
+            {
+                <div class="loading-spinner"><p>טוען דוחות...</p></div>
+            }
+            else if (!_reports.Any())
+            {
+                <div style="padding:24px; text-align:center; color:#6c757d;">
+                    לא קיימים דוחות. לחץ על "+ דוח חדש" כדי ליצור.
+                </div>
+            }
+            else
+            {
+                <div class="table-container" style="overflow-x:auto;">
+                    <table class="data-table" style="min-width:900px;">
+                        <thead>
+                            <tr>
+                                <th>פעולות</th>
+                                <th>שם הדוח</th>
+                                <th>סוג</th>
+                                <th>תיאור</th>
+                                <th>חוצה שנים</th>
+                                <th>הקשר ישות</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in _reports)
+                            {
+                                <tr>
+                                    <td>
+                                        <button class="btn-icon" title="הפעל דוח" @onclick="() => ShowRunModal(r)">
+                                            <img src="/images/stats_icon.png" alt="הפעל" class="action-icon-natural" />
+                                        </button>
+                                        <button class="btn-icon" title="ערוך הגדרות" @onclick="() => NavigateToBuilder(r)">
+                                            <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural" />
+                                        </button>
+                                        <button class="btn-icon" title="מחק דוח" @onclick="() => ConfirmDelete(r)">
+                                            <img src="/images/delete_icon.png" alt="מחק" class="action-icon-natural" />
+                                        </button>
+                                    </td>
+                                    <td>@r.Name</td>
+                                    <td>@ReportTypeLabel(r.ReportType)</td>
+                                    <td>@r.Description</td>
+                                    <td>@(r.AllowCrossYear ? "כן" : "לא")</td>
+                                    <td>@(r.RequiresEntityContext ? "כן" : "לא")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="alert alert-danger" style="position:fixed;bottom:20px;left:20px;right:20px;z-index:9999;max-width:600px;margin:0 auto;">
+        @_errorMessage
+        <button @onclick="() => _errorMessage = string.Empty" style="float:left;background:none;border:none;cursor:pointer;">✕</button>
+    </div>
+}
+
+<!-- ─── Create/Edit Report Modal ─────────────────────────────────── -->
+@if (_showCreateModal)
+{
+    <div class="modal-overlay" @onclick="CloseCreateModal">
+        <div class="modal-content" @onclick:stopPropagation="true" style="max-width:480px;">
+            <div class="modal-header">
+                <h3>@(_editingReport == null ? "דוח חדש" : "עריכת דוח")</h3>
+                <button @onclick="CloseCreateModal" style="background:none;border:none;font-size:1.4em;cursor:pointer;">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-weight:600;margin-bottom:4px;">שם הדוח <span style="color:red;">*</span></label>
+                    <input type="text" @bind="_formName" style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;" />
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-weight:600;margin-bottom:4px;">תיאור</label>
+                    <textarea @bind="_formDescription" rows="2" style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;"></textarea>
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-weight:600;margin-bottom:4px;">סוג דוח <span style="color:red;">*</span></label>
+                    <select @bind="_formReportType" style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                        <option value="query_builder">בונה שאילתות (Query Builder)</option>
+                        <option value="template">תבנית Excel</option>
+                    </select>
+                </div>
+                <div style="display:flex;gap:15px;margin-bottom:14px;">
+                    <div style="flex:1;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" @bind="_formAllowCrossYear" />
+                            <span>אפשר דוח חוצה שנים</span>
+                        </label>
+                    </div>
+                    <div style="flex:1;">
+                        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                            <input type="checkbox" @bind="_formRequiresEntityContext" />
+                            <span>דורש בחירת ישות</span>
+                        </label>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(_modalError))
+                {
+                    <div class="alert alert-danger" style="padding:8px;font-size:0.9em;">@_modalError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button @onclick="SaveReport" class="btn btn-primary" disabled="@_isSaving">
+                    @(_isSaving ? "שומר..." : "שמור")
+                </button>
+                <button @onclick="CloseCreateModal" class="btn btn-secondary">ביטול</button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- ─── Run Report Modal ──────────────────────────────────────────── -->
+@if (_showRunModal && _runningReport != null)
+{
+    <div class="modal-overlay" @onclick="CloseRunModal">
+        <div class="modal-content" @onclick:stopPropagation="true" style="max-width:420px;">
+            <div class="modal-header">
+                <h3>הפעלת דוח: @_runningReport.Name</h3>
+                <button @onclick="CloseRunModal" style="background:none;border:none;font-size:1.4em;cursor:pointer;">✕</button>
+            </div>
+            <div class="modal-body">
+                <!-- Year selector (always shown unless allow_cross_year and user leaves blank) -->
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-weight:600;margin-bottom:4px;">
+                        שנת לימודים
+                        @if (!_runningReport.AllowCrossYear) { <span style="color:red;">*</span> }
+                        @if (_runningReport.AllowCrossYear) { <small style="color:#6c757d;"> (אופציונלי — ריק = כל השנים)</small> }
+                    </label>
+                    <select @bind="_runYearId" style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                        <option value="">-- בחר שנה --</option>
+                        @foreach (var y in _schoolYears)
+                        {
+                            <option value="@y.Id">@y.HebrewYear</option>
+                        }
+                    </select>
+                </div>
+
+                @if (_runningReport.RequiresEntityContext && _isAdmin)
+                {
+                    <div style="margin-bottom:14px;">
+                        <label style="display:block;font-weight:600;margin-bottom:4px;">ישות (מנהל מערכת) <span style="color:red;">*</span></label>
+                        <input type="number" @bind="_runEntityId" placeholder="מזהה ישות"
+                               style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;" />
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_runError))
+                {
+                    <div class="alert alert-danger" style="padding:8px;font-size:0.9em;">@_runError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button @onclick="RunReport" class="btn btn-primary" disabled="@_isRunning">
+                    @(_isRunning ? "מייצר דוח..." : "הורד Excel")
+                </button>
+                <button @onclick="CloseRunModal" class="btn btn-secondary">ביטול</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    protected override string PageName => "excelreports";
+
+    private bool _isLoading = true;
+    private string _errorMessage = string.Empty;
+    private List<ExcelReportDto> _reports = new();
+    private List<HebrewYearDto> _schoolYears = new();
+    private bool _isAdmin = false;
+
+    // Create/Edit modal
+    private bool _showCreateModal = false;
+    private ExcelReportDto? _editingReport;
+    private string _formName = string.Empty;
+    private string _formDescription = string.Empty;
+    private string _formReportType = "query_builder";
+    private bool _formAllowCrossYear = false;
+    private bool _formRequiresEntityContext = false;
+    private bool _isSaving = false;
+    private string _modalError = string.Empty;
+
+    // Run modal
+    private bool _showRunModal = false;
+    private ExcelReportDto? _runningReport;
+    private string _runYearId = string.Empty;
+    private int? _runEntityId = null;
+    private bool _isRunning = false;
+    private string _runError = string.Empty;
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null) return;
+
+        _isAdmin = session.EntityTypeId == "1";
+
+        await Task.WhenAll(LoadReports(), LoadSchoolYears());
+        _isLoading = false;
+    }
+
+    private async Task LoadReports()
+    {
+        try
+        {
+            var result = await ApiService.GetAsync<ApiResult<List<ExcelReportDto>>>("excelreports");
+            if (result?.Success == true)
+                _reports = result.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"שגיאה בטעינת דוחות: {ex.Message}";
+        }
+    }
+
+    private async Task LoadSchoolYears()
+    {
+        try
+        {
+            var years = await ApiService.GetAsync<List<HebrewYearDto>>("schoolyearconfig/hebrew-years");
+            _schoolYears = years ?? new();
+        }
+        catch { /* non-critical */ }
+    }
+
+    private void ShowCreateModal()
+    {
+        _editingReport = null;
+        _formName = string.Empty;
+        _formDescription = string.Empty;
+        _formReportType = "query_builder";
+        _formAllowCrossYear = false;
+        _formRequiresEntityContext = false;
+        _modalError = string.Empty;
+        _showCreateModal = true;
+    }
+
+    private void CloseCreateModal() => _showCreateModal = false;
+
+    private async Task SaveReport()
+    {
+        _modalError = string.Empty;
+        if (string.IsNullOrWhiteSpace(_formName))
+        {
+            _modalError = "שם הדוח נדרש";
+            return;
+        }
+
+        _isSaving = true;
+        try
+        {
+            var body = new SaveReportBody
+            {
+                Name = _formName,
+                Description = _formDescription,
+                ReportType = _formReportType,
+                AllowCrossYear = _formAllowCrossYear,
+                RequiresEntityContext = _formRequiresEntityContext
+            };
+
+            if (_editingReport == null)
+            {
+                var result = await ApiService.PostAsync<SaveReportBody, ApiResult<object>>("excelreports", body);
+                if (result?.Success != true)
+                {
+                    _modalError = "שגיאה ביצירת הדוח";
+                    return;
+                }
+            }
+            else
+            {
+                var result = await ApiService.PutAsync<SaveReportBody, ApiResult<object>>(
+                    $"excelreports/{_editingReport.Id}", body);
+                if (result?.Success != true)
+                {
+                    _modalError = "שגיאה בשמירת הדוח";
+                    return;
+                }
+            }
+
+            CloseCreateModal();
+            await LoadReports();
+        }
+        catch (Exception ex)
+        {
+            _modalError = $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task ConfirmDelete(ExcelReportDto r)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"למחוק את הדוח '{r.Name}'?"))
+            return;
+
+        try
+        {
+            await ApiService.DeleteAsync($"excelreports/{r.Id}");
+            await LoadReports();
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"שגיאה במחיקה: {ex.Message}";
+        }
+    }
+
+    private void NavigateToBuilder(ExcelReportDto r)
+    {
+        Navigation.NavigateTo($"/excelreports/{r.Id}/builder");
+    }
+
+    private void ShowRunModal(ExcelReportDto r)
+    {
+        _runningReport = r;
+        _runYearId = string.Empty;
+        _runEntityId = null;
+        _runError = string.Empty;
+        _showRunModal = true;
+    }
+
+    private void CloseRunModal() => _showRunModal = false;
+
+    private async Task RunReport()
+    {
+        if (_runningReport == null) return;
+        _runError = string.Empty;
+
+        if (!_runningReport.AllowCrossYear && string.IsNullOrEmpty(_runYearId))
+        {
+            _runError = "יש לבחור שנת לימודים";
+            return;
+        }
+
+        _isRunning = true;
+        try
+        {
+            var runtimeParams = new Dictionary<string, string>();
+            if (!string.IsNullOrEmpty(_runYearId))
+                runtimeParams["school_year_id"] = _runYearId;
+            if (_runEntityId.HasValue)
+                runtimeParams["entity_context_selector"] = _runEntityId.Value.ToString();
+
+            // POST to generate endpoint — returns file stream
+            var fileBytes = await ApiService.PostForFileAsync(
+                $"excelreports/{_runningReport.Id}/generate",
+                runtimeParams);
+
+            if (fileBytes != null && fileBytes.Length > 0)
+            {
+                var base64 = Convert.ToBase64String(fileBytes);
+                var fileName = $"{_runningReport.Name}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+                await JSRuntime.InvokeVoidAsync("downloadFileFromBase64", base64, fileName,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                CloseRunModal();
+            }
+            else
+            {
+                _runError = "שגיאה בהורדת הדוח";
+            }
+        }
+        catch (Exception ex)
+        {
+            _runError = $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isRunning = false;
+        }
+    }
+
+    private async Task NavigateBack()
+    {
+        Navigation.NavigateTo("/maindashboard");
+    }
+
+    private static string ReportTypeLabel(string type) => type switch
+    {
+        "query_builder" => "בונה שאילתות",
+        "advanced_sql" => "SQL מתקדם",
+        "template" => "תבנית",
+        _ => type
+    };
+
+    // ─── Local helper DTOs ─────────────────────────────────────────────────
+
+    private class ApiResult<T>
+    {
+        public bool Success { get; set; }
+        public T? Data { get; set; }
+    }
+
+    private class HebrewYearDto
+    {
+        public int Id { get; set; }
+        public string HebrewYear { get; set; } = string.Empty;
+    }
+
+    private class SaveReportBody
+    {
+        public string? Name { get; set; }
+        public string? Description { get; set; }
+        public string? ReportType { get; set; }
+        public bool AllowCrossYear { get; set; }
+        public bool RequiresEntityContext { get; set; }
+    }
+}

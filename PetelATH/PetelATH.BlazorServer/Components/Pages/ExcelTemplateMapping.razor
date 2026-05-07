@@ -1,0 +1,398 @@
+@page "/excelreports/{ReportId:int}/template"
+@layout MainLayout
+@inherits SecurePageBase
+@using System.Text.Json
+@inject ApiService ApiService
+@inject SessionStateService SessionState
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="main-container">
+    <div class="context-buttons-section">
+        <SecureButton ActionName="excelreports_save_mappings" ScreenName="@PageName" FunctionName="SaveMappings"
+                      OnClick="SaveMappings" CssClass="context-btn" Title="שמור מיפויים">
+            שמור מיפויים
+        </SecureButton>
+        <div class="context-spacer"></div>
+        <SecureButton ActionName="excelreports_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                      OnClick="NavigateBack" CssClass="context-navigation-btn" Title="חזרה לרשימה">
+            חזרה לרשימה
+        </SecureButton>
+    </div>
+
+    <div class="students-content">
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">תבנית Excel: @_reportName</div>
+                <div class="left-spacer"></div>
+            </div>
+        </div>
+
+        @if (_isLoading)
+        {
+            <div class="loading-spinner"><p>טוען...</p></div>
+        }
+        else
+        {
+            <!-- Upload Section -->
+            <div class="content-card" style="margin-bottom:16px;">
+                <div class="detail-card-header" style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #dee2e6;">
+                    <strong>העלאת תבנית Excel</strong>
+                </div>
+                <div style="padding:16px;">
+                    <p style="color:#6c757d;font-size:0.9em;margin-bottom:12px;">
+                        צור קובץ Excel (.xlsx) עם placeholder-ים בפורמט <code>{{FieldName}}</code>.
+                        לדוגמה: תא עם הערך <code>{{FirstName}}</code> יוחלף בשם הפרטי של כל רשומה.
+                    </p>
+                    @if (_hasTemplate)
+                    {
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;padding:10px;background:#e8f5e9;border-radius:6px;border:1px solid #c8e6c9;">
+                            <span style="color:#2e7d32;">✓ תבנית קיימת: <strong>@_templateFilename</strong></span>
+                            <button @onclick="DownloadTemplate" style="padding:4px 10px;border:1px solid #2e7d32;border-radius:4px;background:white;color:#2e7d32;cursor:pointer;font-size:0.85em;">
+                                <img src="/images/download_icon.png" alt="הורד" class="action-icon-natural" style="vertical-align:middle;margin-left:4px;" />
+                                הורד תבנית
+                            </button>
+                        </div>
+                    }
+                    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+                        <InputFile OnChange="HandleFileSelected" accept=".xlsx"
+                                   style="border:1px solid #dee2e6;border-radius:4px;padding:6px;max-width:400px;" />
+                        <button @onclick="UploadTemplate" disabled="@(_selectedFile == null || _isUploading)"
+                                style="padding:8px 16px;border:1px solid #0d6efd;border-radius:4px;background:#e7f0ff;color:#0d6efd;cursor:pointer;">
+                            @(_isUploading ? "מעלה..." : "העלה תבנית")
+                        </button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_uploadStatus))
+                    {
+                        <div class="@(_uploadError ? "alert alert-danger" : "alert alert-success")" style="margin-top:10px;padding:8px;font-size:0.9em;">
+                            @_uploadStatus
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Placeholder Mappings Section -->
+            @if (_placeholders.Any())
+            {
+                <div class="content-card" style="margin-bottom:16px;">
+                    <div class="detail-card-header" style="padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #dee2e6;">
+                        <strong>מיפוי Placeholders</strong>
+                        <small style="color:#6c757d;margin-right:8px;">קשר כל placeholder לשדה ישות</small>
+                    </div>
+                    <div style="padding:16px;overflow-x:auto;">
+                        <table class="data-table" style="min-width:700px;">
+                            <thead>
+                                <tr>
+                                    <th>Placeholder</th>
+                                    <th>ישות</th>
+                                    <th>שדה</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var ph in _placeholders)
+                                {
+                                    var mapping = GetOrCreateMapping(ph);
+                                    <tr>
+                                        <td><code>@("{{" + ph + "}}")</code></td>
+                                        <td>
+                                            <select value="@mapping.EntityName"
+                                                    @onchange="async e => await OnEntityChangeForMapping(ph, e.Value?.ToString())"
+                                                    style="width:100%;padding:6px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                                                <option value="">-- בחר ישות --</option>
+                                                @foreach (var entity in _availableEntities)
+                                                {
+                                                    <option value="@entity.Name">@entity.LabelHe</option>
+                                                }
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <select @bind="mapping.FieldName"
+                                                    style="width:100%;padding:6px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                                                <option value="">-- בחר שדה --</option>
+                                                @if (_entityFields.TryGetValue(mapping.EntityName, out var fields))
+                                                {
+                                                    @foreach (var field in fields)
+                                                    {
+                                                        <option value="@field.Name">@field.LabelHe</option>
+                                                    }
+                                                }
+                                            </select>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(_statusMessage))
+            {
+                <div class="@(_isError ? "alert alert-danger" : "alert alert-success")" style="padding:10px;margin-bottom:12px;">
+                    @_statusMessage
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int ReportId { get; set; }
+
+    protected override string PageName => "excelreports";
+
+    private bool _isLoading = true;
+    private string _reportName = string.Empty;
+    private bool _hasTemplate = false;
+    private string _templateFilename = string.Empty;
+
+    private IBrowserFile? _selectedFile;
+    private bool _isUploading = false;
+    private string _uploadStatus = string.Empty;
+    private bool _uploadError = false;
+
+    private List<string> _placeholders = new();
+    private List<PlaceholderMapping> _mappings = new();
+
+    private List<EntitySummaryDto> _availableEntities = new();
+    private Dictionary<string, List<FieldDto>> _entityFields = new();
+
+    private string _statusMessage = string.Empty;
+    private bool _isError = false;
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        var session = await SessionState.GetSessionAsync();
+        if (session == null) return;
+
+        await Task.WhenAll(LoadReport(), LoadEntities());
+        _isLoading = false;
+    }
+
+    private async Task LoadReport()
+    {
+        try
+        {
+            var result = await ApiService.GetAsync<ApiResult<ReportDetailDto>>($"excelreports/{ReportId}");
+            if (result?.Success == true && result.Data != null)
+            {
+                _reportName = result.Data.Name;
+            }
+
+            // Try to load template info
+            var scanResult = await ApiService.GetAsync<ApiResult<List<string>>>($"excelreporttemplates/{ReportId}/scan");
+            if (scanResult?.Success == true && scanResult.Data != null)
+            {
+                _hasTemplate = true;
+                _placeholders = scanResult.Data;
+
+                // Load existing mappings from scan response
+                var mappingsResult = await ApiService.GetAsync<ApiResult<TemplateMappingsDto>>($"excelreporttemplates/{ReportId}/scan");
+                if (mappingsResult?.Success == true && mappingsResult.Data != null)
+                {
+                    // Populate mapping objects if we have entity+field JSON
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowError($"שגיאה בטעינה: {ex.Message}");
+        }
+    }
+
+    private async Task LoadEntities()
+    {
+        try
+        {
+            var result = await ApiService.GetAsync<ApiResult<List<EntitySummaryDto>>>("excelreports/entities");
+            if (result?.Success == true)
+                _availableEntities = result.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            ShowError($"שגיאה בטעינת ישויות: {ex.Message}");
+        }
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+        _uploadStatus = string.Empty;
+    }
+
+    private async Task UploadTemplate()
+    {
+        if (_selectedFile == null) return;
+        _isUploading = true;
+        _uploadStatus = string.Empty;
+
+        try
+        {
+            var maxSize = 10 * 1024 * 1024; // 10 MB
+            using var stream = _selectedFile.OpenReadStream(maxSize);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            var bytes = ms.ToArray();
+
+            var content = new MultipartFormDataContent();
+            content.Add(new ByteArrayContent(bytes), "file", _selectedFile.Name);
+
+            var result = await ApiService.PostMultipartAsync<UploadResponse>(
+                $"excelreporttemplates/{ReportId}/upload", content);
+
+            if (result?.Success == true)
+            {
+                _hasTemplate = true;
+                _templateFilename = _selectedFile.Name;
+                _placeholders = result.Placeholders ?? new();
+                _mappings.Clear(); // Reset mappings on new template upload
+                _uploadStatus = $"הועלה בהצלחה. נמצאו {_placeholders.Count} placeholder-ים.";
+                _uploadError = false;
+
+                // Prefetch fields for any entity already referenced
+            }
+            else
+            {
+                _uploadStatus = result?.Message ?? "שגיאה בהעלאה";
+                _uploadError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            _uploadStatus = $"שגיאה: {ex.Message}";
+            _uploadError = true;
+        }
+        finally
+        {
+            _isUploading = false;
+        }
+    }
+
+    private async Task DownloadTemplate()
+    {
+        var file = await ApiService.GetFileAsync($"excelreporttemplates/{ReportId}/download");
+        if (file?.Content != null)
+        {
+            var base64 = Convert.ToBase64String(file.Content);
+            await JSRuntime.InvokeVoidAsync("downloadFileFromBase64", base64,
+                _templateFilename.Length > 0 ? _templateFilename : "template.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+    }
+
+    private PlaceholderMapping GetOrCreateMapping(string placeholder)
+    {
+        var existing = _mappings.FirstOrDefault(m => m.Placeholder == placeholder);
+        if (existing != null) return existing;
+        var newMapping = new PlaceholderMapping { Placeholder = placeholder };
+        _mappings.Add(newMapping);
+        return newMapping;
+    }
+
+    private async Task OnEntityChangeForMapping(string placeholder, string? entityName)
+    {
+        var mapping = GetOrCreateMapping(placeholder);
+        mapping.EntityName = entityName ?? string.Empty;
+        mapping.FieldName = string.Empty;
+
+        if (!string.IsNullOrEmpty(entityName) && !_entityFields.ContainsKey(entityName))
+            await LoadEntityFields(entityName);
+    }
+
+    private async Task LoadEntityFields(string entityName)
+    {
+        try
+        {
+            var result = await ApiService.GetAsync<ApiResult<EntityDescriptorDto>>($"excelreports/entities/{entityName}/fields");
+            if (result?.Success == true && result.Data?.Fields != null)
+                _entityFields[entityName] = result.Data.Fields;
+        }
+        catch { /* ignore */ }
+    }
+
+    private async Task SaveMappings()
+    {
+        _statusMessage = string.Empty;
+        try
+        {
+            var cellMappings = _mappings
+                .Where(m => !string.IsNullOrEmpty(m.EntityName) && !string.IsNullOrEmpty(m.FieldName))
+                .ToDictionary(m => m.Placeholder, m => new { entityName = m.EntityName, fieldName = m.FieldName });
+
+            var json = JsonSerializer.Serialize(cellMappings);
+            var body = new { cellMappingsJson = json };
+
+            var result = await ApiService.PutAsync<object, ApiResult<object>>(
+                $"excelreporttemplates/{ReportId}/mappings", body);
+
+            if (result?.Success == true)
+                ShowSuccess("המיפויים נשמרו בהצלחה");
+            else
+                ShowError("שגיאה בשמירת המיפויים");
+        }
+        catch (Exception ex)
+        {
+            ShowError($"שגיאה: {ex.Message}");
+        }
+    }
+
+    private void NavigateBack() => Navigation.NavigateTo("/excelreports");
+
+    private void ShowError(string msg) { _statusMessage = msg; _isError = true; }
+    private void ShowSuccess(string msg) { _statusMessage = msg; _isError = false; }
+
+    // ─── Local types ────────────────────────────────────────────────────
+
+    private class PlaceholderMapping
+    {
+        public string Placeholder { get; set; } = string.Empty;
+        public string EntityName { get; set; } = string.Empty;
+        public string FieldName { get; set; } = string.Empty;
+    }
+
+    private class ApiResult<T>
+    {
+        public bool Success { get; set; }
+        public T? Data { get; set; }
+        public string? Message { get; set; }
+    }
+
+    private class EntitySummaryDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string LabelHe { get; set; } = string.Empty;
+        public bool IsAccountEntity { get; set; }
+    }
+
+    private class EntityDescriptorDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public List<FieldDto> Fields { get; set; } = new();
+    }
+
+    private class FieldDto
+    {
+        public string Name { get; set; } = string.Empty;
+        public string LabelHe { get; set; } = string.Empty;
+        public string Type { get; set; } = string.Empty;
+    }
+
+    private class ReportDetailDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private class TemplateMappingsDto
+    {
+        public List<string>? Placeholders { get; set; }
+        public string? CellMappingsJson { get; set; }
+    }
+
+    private class UploadResponse
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public List<string>? Placeholders { get; set; }
+    }
+}

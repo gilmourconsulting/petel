@@ -707,5 +707,55 @@ namespace PetelATH.BlazorServer.Services
                 throw;
             }
         }
+
+        /// <summary>
+        /// POST request that returns raw bytes (for file downloads like Excel generation)
+        /// </summary>
+        public async Task<byte[]?> PostForFileAsync<TRequest>(string endpoint, TRequest data)
+        {
+            try
+            {
+                var client = await GetAuthorizedClientAsync();
+                var url = $"{_baseUrl}/{endpoint}";
+
+                _logger.LogDebug("POST (file) request to {Url}", url);
+
+                var response = await client.PostAsJsonAsync(url, data);
+
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    _logger.LogWarning("Unauthorized file request to {Endpoint}", endpoint);
+                    return null;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("POST file {Endpoint} failed with {StatusCode}: {Error}",
+                        endpoint, response.StatusCode, errorContent);
+                    throw new HttpRequestException(
+                        $"Request failed with status {response.StatusCode}: {errorContent}");
+                }
+
+                var bytes = await response.Content.ReadAsByteArrayAsync();
+                _logger.LogInformation("POST file {Endpoint} returned {Size} bytes", endpoint, bytes.Length);
+                return bytes;
+            }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "HttpClient disposed during POST file request to {Endpoint}", endpoint);
+                return null;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "POST file request cancelled for {Endpoint}", endpoint);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "POST file request failed for {Endpoint}", endpoint);
+                throw;
+            }
+        }
     }
 }

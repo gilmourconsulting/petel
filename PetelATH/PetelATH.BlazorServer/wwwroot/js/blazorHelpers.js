@@ -160,6 +160,31 @@ window.BlazorHelpers = {
     }
 };
 
+/**
+ * Download a file from a base64 string.
+ * Called from Blazor Excel report generation.
+ */
+window.downloadFileFromBase64 = function (base64, fileName, mimeType) {
+    try {
+        const byteChars = atob(base64);
+        const byteNums = new Uint8Array(byteChars.length);
+        for (let i = 0; i < byteChars.length; i++) {
+            byteNums[i] = byteChars.charCodeAt(i);
+        }
+        const blob = new Blob([byteNums], { type: mimeType || 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName || 'download';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error('Error downloading file:', error);
+    }
+};
+
 // Legacy aliases for backward compatibility
 window.FileUploadHelper = {
     triggerFileInput: function(elementId) {

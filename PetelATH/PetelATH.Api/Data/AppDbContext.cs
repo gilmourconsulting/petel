@@ -106,6 +106,12 @@ public DbSet<Status> Statuses { get; set; }
         public DbSet<ActionAuditLog> ActionAuditLogs { get; set; }
         public DbSet<UserLockReason> UserLockReasons { get; set; }
 
+        // Excel Report Generation
+        public DbSet<ExcelReportDefinition> ExcelReportDefinitions { get; set; } = null!;
+        public DbSet<ExcelReportQuery> ExcelReportQueries { get; set; } = null!;
+        public DbSet<ExcelReportTemplate> ExcelReportTemplates { get; set; } = null!;
+        public DbSet<ExcelReportParameter> ExcelReportParameters { get; set; } = null!;
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -1020,6 +1026,39 @@ modelBuilder.Entity<SystemAction>(entity =>
                     .WithMany()
                     .HasForeignKey(td => td.RelatedStudentId)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Excel Report Generation
+            modelBuilder.Entity<ExcelReportDefinition>(entity =>
+            {
+                entity.ToTable("excel_report_definitions");
+                entity.HasMany(e => e.Parameters)
+                    .WithOne(p => p.Definition)
+                    .HasForeignKey(p => p.ReportId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(e => e.Query)
+                    .WithOne(q => q.Definition)
+                    .HasForeignKey<ExcelReportQuery>(q => q.ReportId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                entity.HasOne(e => e.Template)
+                    .WithOne(t => t.Definition)
+                    .HasForeignKey<ExcelReportTemplate>(t => t.ReportId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ExcelReportQuery>(entity =>
+            {
+                entity.ToTable("excel_report_queries");
+            });
+
+            modelBuilder.Entity<ExcelReportTemplate>(entity =>
+            {
+                entity.ToTable("excel_report_templates");
+            });
+
+            modelBuilder.Entity<ExcelReportParameter>(entity =>
+            {
+                entity.ToTable("excel_report_parameters");
             });
 
         }
