@@ -57,10 +57,10 @@
                 <div style="display: flex; gap: 20px; flex-wrap: wrap;">
                     <!-- Account Balance Card -->
                     <div class="summary-card" style="min-width: 250px; background: linear-gradient(135deg, @(_calculatedBalance >= 0 ? "#d4edda" : "#f8d7da") 0%, @(_calculatedBalance >= 0 ? "#c3e6cb" : "#f5c6cb") 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
-                        <div style="font-size: 40px; opacity: 0.8;">💰</div>
+                        <!-- <div style="font-size: 40px; opacity: 0.8;">💰</div> -->
                         <div style="flex: 1; text-align: right;">
-                            <div style="font-size: 1.5em; font-weight: 700; color: @(_calculatedBalance >= 0 ? "#38a169" : "#e53e3e"); line-height: 1.2; margin-bottom: 5px;">₪@_calculatedBalance.ToString("N2")</div>
-                            <div style="font-size: 0.9em; color: #666; font-weight: 500;">יתרה נוכחית</div>
+                            <div style="font-size: 1.5em; font-weight: 700; text-align: center; direction: ltr; color: @(_calculatedBalance >= 0 ? "#38a169" : "#e53e3e"); line-height: 1.2; margin-bottom: 5px;">@_calculatedBalance.ToString("N2") ₪</div>
+                            <div style="font-size: 0.9em; color: #666; text-align: center; font-weight: 500;">יתרה נוכחית</div>
                         </div>
                     </div>
 
@@ -164,12 +164,12 @@
                                         <th style="width: 100px;">פעולות</th>
                                         <th style="width: 120px;">תאריך</th>
                                         <th style="width: 200px;">סוג תנועה</th>
-                                        <th style="width: 120px; text-align: left;">סכום (₪)</th>
+                                        <th style="width: 120px; ">סכום (₪)</th>
                                         <th>תיאור</th>
                                         <th style="width: 150px;">תלמיד</th>
                                         <th style="width: 120px;">שנת לימוד</th>
                                         <th style="width: 120px;">משתמש</th>
-                                        <th style="width: 150px;">תאריך יצירה</th>
+                                        <!--<th style="width: 150px;">תאריך יצירה</th>-->
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -194,14 +194,14 @@
                                                     @transaction.TransactionTypeDescription
                                                 </span>
                                             </td>
-                                            <td style="text-align: left; direction: ltr; font-weight: 600; color: @(transaction.IsCredit ? "#38a169" : "#e53e3e");">
+                                            <td style="text-align: right; direction: ltr; font-weight: 600; color: @(transaction.IsCredit ? "#38a169" : "#e53e3e");">
                                                 @(transaction.IsCredit ? "" : "-")@transaction.Amount.ToString("N2")
                                             </td>
                                             <td>@transaction.Description</td>
                                             <td>@(transaction.RelatedStudentName ?? "-")</td>
                                             <td>@(transaction.SchoolYearName ?? "-")</td>
                                             <td>@transaction.Username</td>
-                                            <td>@transaction.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>
+                                            <!--<td>@transaction.CreatedAt.ToString("dd/MM/yyyy HH:mm")</td>-->
                                         </tr>
                                         @if (_expandedTransactionId == transaction.Id)
                                         {
@@ -221,7 +221,7 @@
                                                                         <th>סוג פירוט</th>
                                                                         <th>תיאור</th>
                                                                         <th style="width: 200px;">תלמיד</th>
-                                                                        <th style="width: 150px; text-align: left;">סכום (₪)</th>
+                                                                        <th style="width: 150px; ">סכום (₪)</th>
                                                                     </tr>
                                                                 </thead>
                                                                 <tbody>
@@ -242,12 +242,12 @@
                                                                                     <span>-</span>
                                                                                 }
                                                                             </td>
-                                                                            <td style="text-align: left; direction: ltr; font-weight: 600;">@detail.Amount.ToString("N2")</td>
+                                                                            <td style="text-align: right; direction: ltr; font-weight: 600;">@detail.Amount.ToString("N2")</td>
                                                                         </tr>
                                                                     }
                                                                     <tr style="background-color: #f8f9fa; font-weight: 700;">
                                                                         <td colspan="3" style="text-align: right;">סה"כ:</td>
-                                                                        <td style="text-align: left; direction: ltr; color: @(transaction.IsCredit ? "#38a169" : "#e53e3e");">@_transactionDetails.Sum(d => d.Amount).ToString("N2")</td>
+                                                                        <td style="text-align: right; direction: ltr; color: @(transaction.IsCredit ? "#38a169" : "#e53e3e");">@_transactionDetails.Sum(d => d.Amount).ToString("N2")</td>
                                                                     </tr>
                                                                 </tbody>
                                                             </table>
