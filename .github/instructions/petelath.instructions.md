@@ -463,6 +463,246 @@ POST /api/auth/login
 
 `Login.razor` state: `_requiresOtp`, `_maskedEmail`, `_tempToken`, `_otpCode`. "שלח שוב" button calls `POST /api/otp/send` to resend.
 
+## Excel Report Generation System
+
+A definition-driven engine for generating Excel files from live database data. Supports three report types; the **template** type is the most powerful and covers complex formatted reports like council-student lists.
+
+### Architecture Overview
+
+```
+Blazor UI (ExcelReports.razor)
+  └─ POST /api/excelreports/{id}/generate  { RuntimeParams }
+       └─ ExcelReportsController
+            ├─ query_builder / advanced_sql → ExcelGenerationService (simple tabular export)
+            └─ template → ReportTemplateEngine
+                 ├─ Reads definition_json → ReportDefinition (parameters + dataSources)
+                 ├─ For each dataSource → AthExcelEntityRegistry.QueryEntityAsync()
+                 └─ Fills template.xlsx blob → returns filled .xlsx bytes
+```
+
+### Database Tables
+
+Created by `SQL/add-excel-reports.sql` (idempotent). Run on every environment before using reports.
+
+| Table | Purpose |
+|---|---|
+| `petel_schema.excel_report_definitions` | Report metadata, `report_type`, `definition_json` |
+| `petel_schema.excel_report_queries` | Query config for `query_builder` / `advanced_sql` type |
+| `petel_schema.excel_report_templates` | Template .xlsx blob + `cell_mappings_json` (NOT NULL, default `'[]'`) |
+| `petel_schema.excel_report_parameters` | DB-stored parameter schema (used when no `definition_json`) |
+
+**CRITICAL**: `excel_report_templates.cell_mappings_json` is `TEXT NOT NULL DEFAULT '[]'`. Always set `CellMappingsJson = "[]"` — never `null` — in C# code.
+
+Also run `SQL/add-definition-json-column.sql` to add the `definition_json TEXT NULL` column to `excel_report_definitions` (if not already present).
+
+### Report Types
+
+| Type | Description |
+|---|---|
+| `query_builder` | Entity + field/filter/sort config; generates a simple auto-formatted table |
+| `advanced_sql` | Raw SQL query; generates a simple table |
+| `template` | Designer uploads an .xlsx template; engine fills tokens and expands collection rows |
+
+### Template Syntax (for `template` type)
+
+The `ReportTemplateEngine` (in `shared/Petel.Core/Excel/ReportTemplateEngine.cs`) processes an .xlsx file:
+
+**Scalar placeholders** — replaced with a single value from a data source:
+```
+{{dsName.FieldName}}
+```
+
+**Collection block** — expands one row per record. Three consecutive rows:
+```
+Row N:   {{#dsName}}           ← start marker row (deleted after expansion)
+Row N+1: {{dsName.Field}} ...  ← template data row (styles copied per record)
+Row N+2: {{/dsName}}           ← end marker row (deleted after expansion)
+```
+
+After expansion, any SUM formulas below the block auto-adjust because EPPlus `InsertRow` shifts them.
+
+**Value formatting rules:**
+- `null` → empty string
+- `DateOnly` / `DateTime` → `dd/MM/yyyy`
+- `decimal` → `N2` (two decimal places)
+- `bool` → `כן` / `לא`
+- Single-token cells: raw typed value is preserved so Excel treats numbers/dates correctly in formulas
+
+### Definition JSON (`definition_json` column)
+
+Stored as JSON in `excel_report_definitions.definition_json`. Parsed at generation time by `ReportTemplateEngine`.
+
+```json
+{
+  "parameters": [
+    {
+      "name": "hebrew_year_id",
+      "type": "year_selector",
+      "label": "שנת לימודים",
+      "required": true
+    },
+    {
+      "name": "sending_council_id",
+      "type": "council_selector",
+      "label": "רשות שולחת",
+      "required": true
+    }
+  ],
+  "dataSources": [
+    {
+      "name": "header",
+      "entity": "OwnerEntity",
+      "type": "scalar",
+      "filters": [],
+      "sort": []
+    },
+    {
+      "name": "students",
+      "entity": "StudentsWithSchool",
+      "type": "collection",
+      "filters": [
+        { "field": "SendingCouncil", "operator": "eq", "paramName": "sending_council_id" }
+      ],
+      "sort": [
+        { "field": "SchoolName", "direction": "asc" },
+        { "field": "LastName",   "direction": "asc" }
+      ]
+    }
+  ]
+}
+```
+
+**Parameter types:** `session_entity`, `session_year`, `year_selector`, `council_selector`, `entity_selector`, `school_selector`, `text`, `enum`, `number`
+
+- `session_entity` and `session_year` are resolved automatically from the logged-in session — they are never shown to the user in the run modal.
+- All other types render a UI input in the "Run Report" modal.
+
+**DataSource types:** `scalar` (first row only, for header/context data), `collection` (all rows, expanded in template).
+
+**Filter operators** applied in-memory: `eq`, `neq`, `contains`, `gt`, `lt`, `gte`, `lte`
+
+### Entity Registry (`AthExcelEntityRegistry`)
+
+`PetelATH.Api/Services/AthExcelEntityRegistry.cs` implements `IExcelEntityRegistry` from `Petel.Core`. It defines all exportable entities and handles data retrieval scoped to the current entity/year.
+
+**Available entities:**
+
+| Entity Name | Description | Scope |
+|---|---|---|
+| `Students` | Students for current entity + year | School / Council |
+| `Schools` | Schools linked to current entity | Council / Admin |
+| `SchoolClasses` | Classes for current entity + year | School |
+| `AdditionalStudyPrograms` | Additional study programs | School |
+| `Transactions` | Financial transactions (cross-year ok) | School |
+| `TransactionAccounts` | Transaction accounts (cross-year ok) | School |
+| `OwnerEntity` | The logged-in user's organisation (scalar) | Any |
+| `Council` | All councils (for council selector filters) | Any |
+| `StudentsWithSchool` | Students joined with school name + council | Council / Admin |
+
+#### Adding a New Entity to the Registry
+
+1. Add a `Query*Async` private method to `AthExcelEntityRegistry` returning `List<Dictionary<string, object?>>` where keys are PascalCase field names.
+2. Add a case to the `switch` in `QueryEntityAsync`.
+3. Add an `ExcelEntityDescriptor` entry in `BuildDescriptors()` listing all fields with Hebrew labels.
+4. For `definition_json` reports, use the entity name in `dataSources[].entity`.
+
+```csharp
+// Step 1 — query method
+private async Task<List<Dictionary<string, object?>>> QueryMyEntityAsync(
+    ExcelEntityContext context, CancellationToken ct)
+{
+    var rows = await _context.MyEntities
+        .AsNoTracking()
+        .Where(e => e.EntityId == context.EntityId)
+        .Select(e => new Dictionary<string, object?> {
+            ["Id"]   = (object?)e.Id,
+            ["Name"] = e.Name
+        })
+        .ToListAsync(ct);
+    return rows;
+}
+
+// Step 2 — switch case
+"MyEntity" => await QueryMyEntityAsync(context, cancellationToken),
+
+// Step 3 — descriptor
+new ExcelEntityDescriptor
+{
+    Name           = "MyEntity",
+    LabelHe        = "ישות שלי",
+    IsAccountEntity = false,
+    Fields         = new List<ExcelEntityFieldDescriptor>
+    {
+        new() { Name = "Id",   LabelHe = "מזהה",  FieldType = "number" },
+        new() { Name = "Name", LabelHe = "שם",    FieldType = "text"   }
+    }
+}
+```
+
+### Adding a New Template Report — Checklist
+
+1. ✅ Design the .xlsx template with token cells and `{{#ds}}` / `{{/ds}}` rows
+2. ✅ Write the `definition_json` (parameters + dataSources)
+3. ✅ Insert the report record into the DB (see `SQL/insert-council-students-report.sql` as example):
+   ```sql
+   INSERT INTO petel_schema.excel_report_definitions
+       (name, description, report_type, allow_cross_year, requires_entity_context,
+        is_active, sort_order, definition_json)
+   VALUES ('שם הדוח', 'תיאור', 'template', false, true, true, 10, '<definition_json>');
+   ```
+4. ✅ In the Blazor UI → Excel Reports page → Edit → upload the .xlsx template file
+5. ✅ Run the report via the "Run" button — the engine fills and downloads the file
+
+### DI Registration (Program.cs)
+
+```csharp
+// Scoped — one per request
+builder.Services.AddScoped<ExcelTemplateService>();
+builder.Services.AddScoped<IExcelEntityRegistry, AthExcelEntityRegistry>();
+builder.Services.AddScoped<ExcelGenerationService>();
+builder.Services.AddScoped<ReportTemplateEngine>();
+```
+
+### API Endpoints
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` | `/api/excelreports` | List all active reports |
+| `POST` | `/api/excelreports` | Create report definition |
+| `PUT` | `/api/excelreports/{id}` | Update report definition |
+| `DELETE` | `/api/excelreports/{id}` | Soft delete |
+| `GET` | `/api/excelreports/{id}/params` | Get parameter schema for run modal |
+| `POST` | `/api/excelreports/{id}/generate` | Generate and download .xlsx |
+| `POST` | `/api/excelreports/preview` | Preview first 10 rows as JSON |
+| `GET` | `/api/excelreports/entities` | List all registry entities |
+| `GET` | `/api/excelreports/entities/{name}/fields` | Get field descriptors |
+| `POST` | `/api/excelreporttemplates/{id}/upload` | Upload .xlsx template |
+| `GET` | `/api/excelreporttemplates/{id}/download` | Download template file |
+| `GET` | `/api/excelreporttemplates/{id}/scan` | Scan template placeholders |
+| `PUT` | `/api/excelreporttemplates/{id}/mappings` | Save cell mapping JSON |
+
+### Sample Report: Council Students
+
+`SQL/insert-council-students-report.sql` + `SQL/Templates/council-students-report-definition.json` + `SQL/Templates/council-students-template.xlsx`
+
+Parameters: `hebrew_year_id` (year_selector), `sending_council_id` (council_selector)
+
+Data sources: `header` (OwnerEntity scalar), `council` (Council scalar filtered by council_id), `students` (StudentsWithSchool collection filtered + sorted)
+
+### Common Issues
+
+**500 on template upload**: Usually means `excel_report_templates` table does not exist. Run `SQL/add-excel-reports.sql`.
+
+**`CellMappingsJson null constraint violation`**: The column is `NOT NULL`. Always use `CellMappingsJson = "[]"` in both INSERT and UPDATE branches of `UploadTemplate`.
+
+**`definition_json column does not exist`**: Run `SQL/add-definition-json-column.sql`.
+
+**Template tokens not replaced**: Verify `dsName` in the token (`{{dsName.FieldName}}`) exactly matches the `name` property in the matching `dataSources[]` entry of `definition_json` (case-insensitive at runtime).
+
+**Collection block not expanded**: The `{{#dsName}}` and `{{/dsName}}` marker rows must each exist as cells. The template data row must be immediately below the start marker.
+
+---
+
 ## Common ATH Issues
 
 **`relation "table_name" does not exist`**: Verify `HasDefaultSchema("petel_schema")` is in `OnModelCreating` and no entity has a hardcoded `Schema = "petel_schema"` attribute.
