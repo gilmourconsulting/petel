@@ -10,5 +10,7 @@ namespace PetelATH.BlazorServer.DTOs
         public bool RequiresEntityContext { get; set; }
         public int SortOrder { get; set; }
         public bool IsActive { get; set; }
+        /// <summary>Filename of the uploaded xlsx template, or null if no template has been uploaded yet.</summary>
+        public string? TemplateFilename { get; set; }
     }
 }

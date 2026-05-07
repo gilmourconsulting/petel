@@ -159,6 +159,7 @@ builder.Services.AddScoped<DataMigrationService>();
 builder.Services.AddScoped<Petel.Core.Excel.IExcelEntityRegistry, AthExcelEntityRegistry>();
 builder.Services.AddScoped<Petel.Core.Excel.ExcelGenerationService>();
 builder.Services.AddScoped<Petel.Core.Excel.ExcelTemplateService>();
+builder.Services.AddScoped<Petel.Core.Excel.ReportTemplateEngine>();
 
 
 // Register school attribute services

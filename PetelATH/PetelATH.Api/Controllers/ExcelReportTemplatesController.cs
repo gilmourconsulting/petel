@@ -83,7 +83,7 @@ namespace PetelATH.Api.Controllers
                     ReportId = reportId,
                     TemplateFilename = file.FileName,
                     TemplateBlob = templateBytes,
-                    CellMappingsJson = null,
+                    CellMappingsJson = "[]",
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
@@ -94,8 +94,7 @@ namespace PetelATH.Api.Controllers
                 report.Template.TemplateFilename = file.FileName;
                 report.Template.TemplateBlob = templateBytes;
                 report.Template.UpdatedAt = DateTime.UtcNow;
-                // Reset mappings when template is replaced
-                report.Template.CellMappingsJson = null;
+                report.Template.CellMappingsJson = "[]";
             }
 
             await _context.SaveChangesAsync();

@@ -62,7 +62,7 @@
                                         <button class="btn-icon" title="הפעל דוח" @onclick="() => ShowRunModal(r)">
                                             <img src="/images/stats_icon.png" alt="הפעל" class="action-icon-natural" />
                                         </button>
-                                        <button class="btn-icon" title="ערוך הגדרות" @onclick="() => NavigateToBuilder(r)">
+                                        <button class="btn-icon" title="ערוך הגדרות" @onclick="() => EditReport(r)">
                                             <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural" />
                                         </button>
                                         <button class="btn-icon" title="מחק דוח" @onclick="() => ConfirmDelete(r)">
@@ -135,6 +135,35 @@
                 {
                     <div class="alert alert-danger" style="padding:8px;font-size:0.9em;">@_modalError</div>
                 }
+
+                @if (_formReportType == "template" && _editingReport != null)
+                {
+                    <hr style="margin:16px 0 12px;" />
+                    <div style="margin-bottom:6px;">
+                        <strong style="font-size:0.95em;">תבנית Excel</strong>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_editingReport.TemplateFilename))
+                    {
+                        <div style="font-size:0.88em;color:#198754;margin-bottom:8px;">✅ תבנית נוכחית: @_editingReport.TemplateFilename</div>
+                    }
+                    else
+                    {
+                        <div style="font-size:0.88em;color:#6c757d;margin-bottom:8px;">עדיין לא הועלתה תבנית.</div>
+                    }
+                    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                        <InputFile OnChange="HandleTemplateFileSelected" accept=".xlsx"
+                                   style="flex:1;min-width:0;font-size:0.88em;" />
+                        <button type="button" @onclick="UploadTemplate"
+                                disabled="@(_isUploadingTemplate || _selectedTemplateFile == null)"
+                                style="padding:6px 14px;border:1px solid #0d6efd;border-radius:4px;background:#e7f0ff;color:#0d6efd;cursor:pointer;white-space:nowrap;font-size:0.88em;">
+                            @(_isUploadingTemplate ? "מעלה..." : "העלה תבנית")
+                        </button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_templateUploadMessage))
+                    {
+                        <div style="margin-top:6px;font-size:0.85em;">@_templateUploadMessage</div>
+                    }
+                }
             </div>
             <div class="modal-footer">
                 <button @onclick="SaveReport" class="btn btn-primary" disabled="@_isSaving">
@@ -150,35 +179,94 @@
 @if (_showRunModal && _runningReport != null)
 {
     <div class="modal-overlay" @onclick="CloseRunModal">
-        <div class="modal-content" @onclick:stopPropagation="true" style="max-width:420px;">
+        <div class="modal-content" @onclick:stopPropagation="true" style="max-width:460px;">
             <div class="modal-header">
                 <h3>הפעלת דוח: @_runningReport.Name</h3>
                 <button @onclick="CloseRunModal" style="background:none;border:none;font-size:1.4em;cursor:pointer;">✕</button>
             </div>
             <div class="modal-body">
-                <!-- Year selector (always shown unless allow_cross_year and user leaves blank) -->
-                <div style="margin-bottom:14px;">
-                    <label style="display:block;font-weight:600;margin-bottom:4px;">
-                        שנת לימודים
-                        @if (!_runningReport.AllowCrossYear) { <span style="color:red;">*</span> }
-                        @if (_runningReport.AllowCrossYear) { <small style="color:#6c757d;"> (אופציונלי — ריק = כל השנים)</small> }
-                    </label>
-                    <select @bind="_runYearId" style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;background:white;">
-                        <option value="">-- בחר שנה --</option>
-                        @foreach (var y in _schoolYears)
-                        {
-                            <option value="@y.Id">@y.HebrewYear</option>
-                        }
-                    </select>
-                </div>
-
-                @if (_runningReport.RequiresEntityContext && _isAdmin)
+                @if (_paramsLoading)
                 {
-                    <div style="margin-bottom:14px;">
-                        <label style="display:block;font-weight:600;margin-bottom:4px;">ישות (מנהל מערכת) <span style="color:red;">*</span></label>
-                        <input type="number" @bind="_runEntityId" placeholder="מזהה ישות"
-                               style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;" />
-                    </div>
+                    <div style="text-align:center;padding:20px;color:#6c757d;">טוען פרמטרים...</div>
+                }
+                else if (!_visibleParams.Any())
+                {
+                    <div style="color:#6c757d;padding:8px 0;">דוח זה אינו דורש פרמטרים.</div>
+                }
+                else
+                {
+                    @foreach (var p in _visibleParams)
+                    {
+                        <div style="margin-bottom:14px;">
+                            <label style="display:block;font-weight:600;margin-bottom:4px;">
+                                @p.ParamLabelHe
+                                @if (p.IsRequired) { <span style="color:red;"> *</span> }
+                            </label>
+
+                            @if (p.ParamType == "year_selector")
+                            {
+                                <select value="@_paramValues.GetValueOrDefault(p.ParamName)"
+                                        @onchange="e => _paramValues[p.ParamName] = e.Value?.ToString() ?? string.Empty"
+                                        style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                                    <option value="">-- בחר שנה --</option>
+                                    @foreach (var y in _schoolYears)
+                                    {
+                                        <option value="@y.Id">@y.HebrewYear</option>
+                                    }
+                                </select>
+                            }
+                            else if (p.ParamType == "council_selector")
+                            {
+                                <select value="@_paramValues.GetValueOrDefault(p.ParamName)"
+                                        @onchange="e => _paramValues[p.ParamName] = e.Value?.ToString() ?? string.Empty"
+                                        style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                                    <option value="">-- בחר רשות --</option>
+                                    @foreach (var c in _councils)
+                                    {
+                                        <option value="@c.Id">@c.CouncilName</option>
+                                    }
+                                </select>
+                            }
+                            else if (p.ParamType == "entity_selector")
+                            {
+                                <select value="@_paramValues.GetValueOrDefault(p.ParamName)"
+                                        @onchange="e => _paramValues[p.ParamName] = e.Value?.ToString() ?? string.Empty"
+                                        style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                                    <option value="">-- בחר ישות --</option>
+                                    @foreach (var en in _entities)
+                                    {
+                                        <option value="@en.Id">@en.EntityName</option>
+                                    }
+                                </select>
+                            }
+                            else if (p.ParamType == "enum")
+                            {
+                                <select value="@_paramValues.GetValueOrDefault(p.ParamName)"
+                                        @onchange="e => _paramValues[p.ParamName] = e.Value?.ToString() ?? string.Empty"
+                                        style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                                    <option value="">-- בחר --</option>
+                                    @foreach (var opt in ParseEnumOptions(p.OptionsJson))
+                                    {
+                                        <option value="@opt.Value">@opt.Label</option>
+                                    }
+                                </select>
+                            }
+                            else if (p.ParamType == "number")
+                            {
+                                <input type="number"
+                                       value="@_paramValues.GetValueOrDefault(p.ParamName)"
+                                       @onchange="e => _paramValues[p.ParamName] = e.Value?.ToString() ?? string.Empty"
+                                       style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;" />
+                            }
+                            else
+                            {
+                                <input type="text"
+                                       value="@_paramValues.GetValueOrDefault(p.ParamName)"
+                                       @onchange="e => _paramValues[p.ParamName] = e.Value?.ToString() ?? string.Empty"
+                                       style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;" />
+                            }
+                        </div>
+                    }
                 }
 
                 @if (!string.IsNullOrEmpty(_runError))
@@ -187,7 +275,7 @@
                 }
             </div>
             <div class="modal-footer">
-                <button @onclick="RunReport" class="btn btn-primary" disabled="@_isRunning">
+                <button @onclick="RunReport" class="btn btn-primary" disabled="@(_isRunning || _paramsLoading)">
                     @(_isRunning ? "מייצר דוח..." : "הורד Excel")
                 </button>
                 <button @onclick="CloseRunModal" class="btn btn-secondary">ביטול</button>
@@ -216,13 +304,24 @@
     private bool _isSaving = false;
     private string _modalError = string.Empty;
 
+    // Template upload (used in edit modal)
+    private IBrowserFile? _selectedTemplateFile;
+    private bool _isUploadingTemplate = false;
+    private string _templateUploadMessage = string.Empty;
+
     // Run modal
-    private bool _showRunModal = false;
+    private bool _showRunModal   = false;
+    private bool _paramsLoading  = false;
+    private bool _isRunning      = false;
+    private string _runError     = string.Empty;
     private ExcelReportDto? _runningReport;
-    private string _runYearId = string.Empty;
-    private int? _runEntityId = null;
-    private bool _isRunning = false;
-    private string _runError = string.Empty;
+    private List<ReportParamDef> _paramDefs  = new();
+    private Dictionary<string, string> _paramValues = new();
+    private List<CouncilDto> _councils = new();
+    private List<EntityDto>  _entities = new();
+
+    private IEnumerable<ReportParamDef> _visibleParams =>
+        _paramDefs.Where(p => p.ParamType != "session_entity" && p.ParamType != "session_year");
 
     protected override async Task OnPageInitializedAsync()
     {
@@ -348,13 +447,129 @@
         Navigation.NavigateTo($"/excelreports/{r.Id}/builder");
     }
 
-    private void ShowRunModal(ExcelReportDto r)
+    /// <summary>Routes to builder for query_builder reports, or opens the edit modal for template reports.</summary>
+    private void EditReport(ExcelReportDto r)
+    {
+        if (r.ReportType == "template")
+            ShowEditModal(r);
+        else
+            NavigateToBuilder(r);
+    }
+
+    private void ShowEditModal(ExcelReportDto r)
+    {
+        _editingReport = r;
+        _formName = r.Name;
+        _formDescription = r.Description ?? string.Empty;
+        _formReportType = r.ReportType;
+        _formAllowCrossYear = r.AllowCrossYear;
+        _formRequiresEntityContext = r.RequiresEntityContext;
+        _modalError = string.Empty;
+        _selectedTemplateFile = null;
+        _templateUploadMessage = string.Empty;
+        _showCreateModal = true;
+    }
+
+    private void HandleTemplateFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedTemplateFile = e.File;
+        _templateUploadMessage = string.Empty;
+    }
+
+    private async Task UploadTemplate()
+    {
+        if (_editingReport == null || _selectedTemplateFile == null) return;
+
+        _isUploadingTemplate = true;
+        _templateUploadMessage = string.Empty;
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            await using var stream = _selectedTemplateFile.OpenReadStream(10L * 1024 * 1024);
+            var fileContent = new StreamContent(stream);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            content.Add(fileContent, "file", _selectedTemplateFile.Name);
+
+            var result = await ApiService.PostMultipartAsync<UploadTemplateResult>(
+                $"excelreporttemplates/{_editingReport.Id}/upload", content);
+
+            if (result?.Success == true)
+            {
+                var count = result.Data?.Placeholders?.Count ?? 0;
+                _templateUploadMessage = $"✅ הועלה בהצלחה — {count} מציינים נמצאו";
+                // Update the display name without a full reload
+                var idx = _reports.FindIndex(rep => rep.Id == _editingReport.Id);
+                if (idx >= 0) _reports[idx].TemplateFilename = _selectedTemplateFile.Name;
+                _editingReport = new ExcelReportDto
+                {
+                    Id = _editingReport.Id, Name = _editingReport.Name,
+                    Description = _editingReport.Description, ReportType = _editingReport.ReportType,
+                    AllowCrossYear = _editingReport.AllowCrossYear,
+                    RequiresEntityContext = _editingReport.RequiresEntityContext,
+                    SortOrder = _editingReport.SortOrder, IsActive = _editingReport.IsActive,
+                    TemplateFilename = _selectedTemplateFile.Name
+                };
+                _selectedTemplateFile = null;
+            }
+            else
+            {
+                _templateUploadMessage = "❌ שגיאה בהעלאת הקובץ";
+            }
+        }
+        catch (Exception ex)
+        {
+            _templateUploadMessage = $"❌ {ex.Message}";
+        }
+        finally
+        {
+            _isUploadingTemplate = false;
+        }
+    }
+
+    private async Task ShowRunModal(ExcelReportDto r)
     {
         _runningReport = r;
-        _runYearId = string.Empty;
-        _runEntityId = null;
-        _runError = string.Empty;
-        _showRunModal = true;
+        _paramDefs     = new();
+        _paramValues   = new();
+        _runError      = string.Empty;
+        _paramsLoading = true;
+        _showRunModal  = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await ApiService.GetAsync<ParamsApiResult>($"excelreports/{r.Id}/params");
+            if (result?.Success == true && result.Data != null)
+            {
+                _paramDefs = result.Data;
+                // Seed values with defaults
+                foreach (var p in _paramDefs)
+                    _paramValues[p.ParamName] = p.DefaultValue ?? string.Empty;
+
+                // Lazy-load council list if needed
+                if (_paramDefs.Any(p => p.ParamType == "council_selector") && !_councils.Any())
+                {
+                    var councils = await ApiService.GetAsync<List<CouncilDto>>("councils");
+                    _councils = councils ?? new();
+                }
+
+                // Lazy-load entity list if needed
+                if (_paramDefs.Any(p => p.ParamType == "entity_selector") && !_entities.Any())
+                {
+                    var entities = await ApiService.GetAsync<List<EntityDto>>("entities");
+                    _entities = entities ?? new();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _runError = $"שגיאה בטעינת פרמטרים: {ex.Message}";
+        }
+        finally
+        {
+            _paramsLoading = false;
+        }
     }
 
     private void CloseRunModal() => _showRunModal = false;
@@ -364,29 +579,31 @@
         if (_runningReport == null) return;
         _runError = string.Empty;
 
-        if (!_runningReport.AllowCrossYear && string.IsNullOrEmpty(_runYearId))
+        // Client-side required-field validation
+        foreach (var p in _visibleParams.Where(p => p.IsRequired))
         {
-            _runError = "יש לבחור שנת לימודים";
-            return;
+            if (!_paramValues.TryGetValue(p.ParamName, out var v) || string.IsNullOrWhiteSpace(v))
+            {
+                _runError = $"שדה חובה: {p.ParamLabelHe}";
+                return;
+            }
         }
 
         _isRunning = true;
         try
         {
-            var runtimeParams = new Dictionary<string, string>();
-            if (!string.IsNullOrEmpty(_runYearId))
-                runtimeParams["school_year_id"] = _runYearId;
-            if (_runEntityId.HasValue)
-                runtimeParams["entity_context_selector"] = _runEntityId.Value.ToString();
+            // Collect non-empty values only
+            var runtimeParams = _paramValues
+                .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+                .ToDictionary(kv => kv.Key, kv => kv.Value);
 
-            // POST to generate endpoint — returns file stream
             var fileBytes = await ApiService.PostForFileAsync(
                 $"excelreports/{_runningReport.Id}/generate",
-                runtimeParams);
+                new GenerateReportBody { RuntimeParams = runtimeParams });
 
             if (fileBytes != null && fileBytes.Length > 0)
             {
-                var base64 = Convert.ToBase64String(fileBytes);
+                var base64  = Convert.ToBase64String(fileBytes);
                 var fileName = $"{_runningReport.Name}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
                 await JSRuntime.InvokeVoidAsync("downloadFileFromBase64", base64, fileName,
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
@@ -441,5 +658,60 @@
         public string? ReportType { get; set; }
         public bool AllowCrossYear { get; set; }
         public bool RequiresEntityContext { get; set; }
+    }
+
+    // ─── Run-modal helpers ──────────────────────────────────────────────────
+
+    /// <summary>Matches the shape returned by GET /api/excelreports/{id}/params</summary>
+    private class ReportParamDef
+    {
+        public string ParamName    { get; set; } = string.Empty;
+        public string ParamLabelHe { get; set; } = string.Empty;
+        public string ParamType    { get; set; } = "text";
+        public bool   IsRequired   { get; set; } = true;
+        public string? DefaultValue { get; set; }
+        public string? OptionsJson  { get; set; }
+    }
+
+    private class ParamsApiResult
+    {
+        public bool Success { get; set; }
+        public List<ReportParamDef>? Data { get; set; }
+    }
+
+    /// <summary>Body sent to POST /api/excelreports/{id}/generate</summary>
+    private class GenerateReportBody
+    {
+        public Dictionary<string, string> RuntimeParams { get; set; } = new();
+    }
+
+    private class UploadTemplateResult
+    {
+        public bool Success { get; set; }
+        public UploadTemplateData? Data { get; set; }
+    }
+
+    private class UploadTemplateData
+    {
+        public string? Filename { get; set; }
+        public int SizeBytes { get; set; }
+        public List<string>? Placeholders { get; set; }
+    }
+
+    private sealed record EnumOption(string Value, string Label);
+
+    private static IEnumerable<EnumOption> ParseEnumOptions(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) yield break;
+        List<JsonElement>? elems;
+        try { elems = JsonSerializer.Deserialize<List<JsonElement>>(json); }
+        catch { yield break; }
+        if (elems == null) yield break;
+        foreach (var e in elems)
+        {
+            var v = e.TryGetProperty("value", out var vp) ? vp.GetString() ?? string.Empty : string.Empty;
+            var l = e.TryGetProperty("label", out var lp) ? lp.GetString() ?? string.Empty : v;
+            yield return new EnumOption(v, l);
+        }
     }
 }

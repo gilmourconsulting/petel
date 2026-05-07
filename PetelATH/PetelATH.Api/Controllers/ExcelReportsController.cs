@@ -23,12 +23,14 @@ namespace PetelATH.Api.Controllers
         private readonly IExcelEntityRegistry _registry;
         private readonly ExcelGenerationService _generationService;
         private readonly ExcelTemplateService _templateService;
+        private readonly ReportTemplateEngine _templateEngine;
 
         public ExcelReportsController(
             AppDbContext context,
             IExcelEntityRegistry registry,
             ExcelGenerationService generationService,
             ExcelTemplateService templateService,
+            ReportTemplateEngine templateEngine,
             UserSessionService userSessionService,
             ILogger<ExcelReportsController> logger)
             : base(userSessionService, logger)
@@ -37,6 +39,7 @@ namespace PetelATH.Api.Controllers
             _registry = registry;
             _generationService = generationService;
             _templateService = templateService;
+            _templateEngine = templateEngine;
         }
 
         // ─── Metadata Endpoints ────────────────────────────────────────────
@@ -93,7 +96,8 @@ namespace PetelATH.Api.Controllers
                 {
                     r.Id, r.Name, r.Description, r.ReportType,
                     r.AllowCrossYear, r.RequiresEntityContext,
-                    r.SortOrder, r.IsActive
+                    r.SortOrder, r.IsActive,
+                    templateFilename = r.Template != null ? r.Template.TemplateFilename : null
                 })
                 .ToListAsync();
 
@@ -146,6 +150,7 @@ namespace PetelATH.Api.Controllers
                 SortOrder = request.SortOrder,
                 IsActive = true,
                 RequiredActionId = request.RequiredActionId,
+                DefinitionJson = request.DefinitionJson,
                 CreatedAt = DateTime.UtcNow,
                 CreatedUser = userId,
                 UpdatedAt = DateTime.UtcNow,
@@ -181,6 +186,7 @@ namespace PetelATH.Api.Controllers
             if (request.RequiresEntityContext.HasValue) report.RequiresEntityContext = request.RequiresEntityContext.Value;
             if (request.SortOrder.HasValue) report.SortOrder = request.SortOrder.Value;
             if (request.RequiredActionId.HasValue) report.RequiredActionId = request.RequiredActionId;
+            if (request.DefinitionJson != null) report.DefinitionJson = request.DefinitionJson;
             report.UpdatedAt = DateTime.UtcNow;
             report.UpdateUser = userId;
 
@@ -299,20 +305,88 @@ namespace PetelATH.Api.Controllers
             return Ok(new { success = true });
         }
 
-        // ─── Generation Endpoints ──────────────────────────────────────────
+        // ─── Parameter Schema Endpoint ───────────────────────────────────────
+
+        /// <summary>
+        /// GET /api/excelreports/{id}/params
+        /// Returns the parameter schema so the UI can build the generation modal.
+        /// Combines DB-stored excel_report_parameters with any parameters declared
+        /// in definition_json (definition takes precedence for template reports).
+        /// </summary>
+        [HttpGet("{id:int}/params")]
+        public async Task<IActionResult> GetReportParams(int id)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            var report = await _context.ExcelReportDefinitions
+                .AsNoTracking()
+                .Include(r => r.Parameters)
+                .FirstOrDefaultAsync(r => r.Id == id && r.IsActive);
+
+            if (report == null)
+                return NotFound(new { success = false, message = "דוח לא נמצא" });
+
+            // If the report has a definition_json, its Parameters[] wins
+            if (!string.IsNullOrWhiteSpace(report.DefinitionJson))
+            {
+                try
+                {
+                    var def = JsonSerializer.Deserialize<Petel.Core.Excel.ReportDefinition>(
+                        report.DefinitionJson,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+
+                    var defParams = def?.Parameters.Select(p => new
+                    {
+                        paramName     = p.Name,
+                        paramLabelHe  = p.Label,
+                        paramType     = p.Type,
+                        isRequired    = p.Required,
+                        defaultValue  = p.DefaultValue,
+                        optionsJson   = p.OptionsJson,
+                        sortOrder     = 0
+                    }) ?? Enumerable.Empty<object>();
+
+                    return Ok(new { success = true, data = defParams });
+                }
+                catch (JsonException)
+                {
+                    // Fall through to DB parameters if JSON is malformed
+                }
+            }
+
+            // Fall back to DB-stored parameters
+            var dbParams = report.Parameters
+                .OrderBy(p => p.SortOrder)
+                .Select(p => new
+                {
+                    paramName    = p.ParamName,
+                    paramLabelHe = p.ParamLabelHe,
+                    paramType    = p.ParamType,
+                    isRequired   = p.IsRequired,
+                    defaultValue = p.DefaultValue,
+                    optionsJson  = p.OptionsJson,
+                    sortOrder    = p.SortOrder
+                });
+
+            return Ok(new { success = true, data = dbParams });
+        }
+
+        // ─── Generation Endpoints ────────────────────────────────────────────
 
         /// <summary>POST /api/excelreports/{id}/generate — generate and download Excel file</summary>
         [HttpPost("{id:int}/generate")]
         public async Task<IActionResult> GenerateReport(
             int id,
-            [FromBody] Dictionary<string, string> runtimeParams,
+            [FromBody] GenerateReportRequest request,
             CancellationToken ct)
         {
             var session = GetCurrentSession();
             if (session == null)
                 return Unauthorized(new { success = false, message = "נדרש אימות" });
 
-            runtimeParams ??= new Dictionary<string, string>();
+            var runtimeParams = request?.RuntimeParams ?? new Dictionary<string, string>();
 
             var report = await _context.ExcelReportDefinitions
                 .AsNoTracking()
@@ -491,31 +565,38 @@ namespace PetelATH.Api.Controllers
         {
             var template = report.Template!;
 
-            // Gather a single-row data dictionary (merge all entity fields)
+            // ── Engine path: definition_json + template blob ──────────────────
+            if (!string.IsNullOrWhiteSpace(report.DefinitionJson))
+            {
+                return await _templateEngine.GenerateAsync(
+                    template.TemplateBlob,
+                    report.DefinitionJson,
+                    entityContext,
+                    runtimeParams,
+                    ct);
+            }
+
+            // ── Legacy path: scalar cell_mappings_json fill only ─────────────
             var merged = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
 
-            // Add runtime params as template data
             foreach (var kv in runtimeParams)
                 merged[kv.Key] = kv.Value;
 
-            // If query is also defined, pull first-row data for single-record templates
             if (report.Query != null)
             {
                 var queryConfig = new ExcelQueryConfig
                 {
                     EntityName = report.Query.EntityName ?? string.Empty,
-                    SheetName = report.Query.SheetName ?? report.Name,
-                    Fields = DeserializeJson<List<ExcelQueryConfig.SelectedField>>(report.Query.FieldsJson) ?? new(),
+                    SheetName  = report.Query.SheetName ?? report.Name,
+                    Fields  = DeserializeJson<List<ExcelQueryConfig.SelectedField>>(report.Query.FieldsJson)  ?? new(),
                     Filters = DeserializeJson<List<ExcelQueryConfig.FilterCondition>>(report.Query.FiltersJson) ?? new(),
-                    Sort = DeserializeJson<List<ExcelQueryConfig.SortSpec>>(report.Query.SortJson) ?? new()
+                    Sort    = DeserializeJson<List<ExcelQueryConfig.SortSpec>>(report.Query.SortJson)           ?? new()
                 };
 
                 var rows = await _registry.QueryEntityAsync(queryConfig, entityContext, runtimeParams, ct);
                 if (rows.Count > 0)
-                {
                     foreach (var kv in rows[0])
                         merged[kv.Key] = kv.Value;
-                }
             }
 
             return _templateService.FillTemplate(template.TemplateBlob, merged);
@@ -574,7 +655,8 @@ namespace PetelATH.Api.Controllers
         bool AllowCrossYear = false,
         bool RequiresEntityContext = false,
         int SortOrder = 0,
-        int? RequiredActionId = null);
+        int? RequiredActionId = null,
+        string? DefinitionJson = null);
 
     public record UpdateReportRequest(
         string? Name = null,
@@ -582,7 +664,8 @@ namespace PetelATH.Api.Controllers
         bool? AllowCrossYear = null,
         bool? RequiresEntityContext = null,
         int? SortOrder = null,
-        int? RequiredActionId = null);
+        int? RequiredActionId = null,
+        string? DefinitionJson = null);
 
     public record SaveQueryRequest(
         string EntityName,
@@ -608,4 +691,14 @@ namespace PetelATH.Api.Controllers
         string? SortJson = null,
         string? SheetName = null,
         Dictionary<string, string>? RuntimeParams = null);
+
+    public class GenerateReportRequest
+    {
+        /// <summary>
+        /// Values supplied by the caller.
+        /// Keys must match ParameterDefinition.Name / FilterCondition.ParamName.
+        /// Session-auto params (session_entity, session_year) do not need to be here.
+        /// </summary>
+        public Dictionary<string, string> RuntimeParams { get; set; } = new();
+    }
 }

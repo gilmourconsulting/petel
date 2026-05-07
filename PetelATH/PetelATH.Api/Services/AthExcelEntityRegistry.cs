@@ -58,12 +58,16 @@ namespace PetelATH.Api.Services
 
             var allRows = entityName switch
             {
-                "Students"              => await QueryStudentsAsync(context, cancellationToken),
-                "Schools"               => await QuerySchoolsAsync(context, cancellationToken),
-                "SchoolClasses"         => await QuerySchoolClassesAsync(context, cancellationToken),
+                "Students"               => await QueryStudentsAsync(context, cancellationToken),
+                "Schools"                => await QuerySchoolsAsync(context, cancellationToken),
+                "SchoolClasses"          => await QuerySchoolClassesAsync(context, cancellationToken),
                 "AdditionalStudyPrograms" => await QueryAdditionalStudyProgramsAsync(context, cancellationToken),
-                "Transactions"          => await QueryTransactionsAsync(context, cancellationToken),
-                "TransactionAccounts"   => await QueryTransactionAccountsAsync(context, cancellationToken),
+                "Transactions"           => await QueryTransactionsAsync(context, cancellationToken),
+                "TransactionAccounts"    => await QueryTransactionAccountsAsync(context, cancellationToken),
+                // ── Definition-engine entities ────────────────────────────────
+                "OwnerEntity"            => await QueryOwnerEntityAsync(context, cancellationToken),
+                "Council"                => await QueryCouncilsAsync(cancellationToken),
+                "StudentsWithSchool"     => await QueryStudentsWithSchoolAsync(context, cancellationToken),
                 _ => throw new NotSupportedException(
                     $"Entity '{entityName}' is not supported by AthExcelEntityRegistry.")
             };
@@ -237,6 +241,148 @@ namespace PetelATH.Api.Services
                 ["ApprovedAmount"]       = p.ApprovedAmount,
                 ["HourlyCost"]           = p.HourlyCost,
                 ["Version"]              = p.Version
+            }).ToList();
+        }
+
+        // ─── Definition-Engine Entities ────────────────────────────────────
+
+        /// <summary>
+        /// Returns a single-row dictionary for the logged-in entity (council/network/school).
+        /// Used as the "header" data source in template reports.
+        /// </summary>
+        private async Task<List<Dictionary<string, object?>>> QueryOwnerEntityAsync(
+            ExcelEntityContext context,
+            CancellationToken ct)
+        {
+            var entity = await _context.Entities
+                .Include(e => e.ContactPerson)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Id == context.EntityId, ct);
+
+            if (entity == null) return new List<Dictionary<string, object?>>();
+
+            var contactName  = entity.ContactPerson != null
+                ? $"{entity.ContactPerson.FirstName} {entity.ContactPerson.LastName}".Trim()
+                : string.Empty;
+            var contactEmail = entity.ContactPerson?.Email ?? string.Empty;
+            var contactPhone = entity.ContactPerson?.PhoneNumber
+                ?? entity.ContactPerson?.PhoneNumberPrefix
+                ?? string.Empty;
+
+            return new List<Dictionary<string, object?>>
+            {
+                new()
+                {
+                    ["Id"]                  = entity.Id,
+                    ["Name"]               = entity.Name,
+                    ["Symbol"]             = entity.Symbol,
+                    ["Address"]            = entity.Address,
+                    ["Street"]             = entity.Street,
+                    ["City"]               = entity.City,
+                    ["PostCode"]           = entity.PostCode,
+                    ["Phone"]              = entity.Phone,
+                    ["Email"]              = entity.Email,
+                    ["TaxNumber"]          = entity.TaxNumber,
+                    ["ContactPersonName"]  = contactName,
+                    ["ContactPersonEmail"] = contactEmail,
+                    ["ContactPersonPhone"] = contactPhone,
+                }
+            };
+        }
+
+        /// <summary>
+        /// Returns all councils (filtering is done in-memory by ApplyFilters).
+        /// Use filter field="Id" operator="eq" paramName="sending_council_id" to narrow to one.
+        /// </summary>
+        private async Task<List<Dictionary<string, object?>>> QueryCouncilsAsync(CancellationToken ct)
+        {
+            var councils = await _context.Councils
+                .AsNoTracking()
+                .OrderBy(c => c.Name)
+                .Select(c => new { c.Id, c.Name, c.CouncilCode })
+                .ToListAsync(ct);
+
+            return councils.Select(c => new Dictionary<string, object?>
+            {
+                ["Id"]          = c.Id,
+                ["Name"]        = c.Name,
+                ["CouncilCode"] = c.CouncilCode,
+            }).ToList();
+        }
+
+        /// <summary>
+        /// Students with joined school name and symbol.  Intended for template reports
+        /// that need to print school information alongside student data.
+        /// Filter by SendingCouncil (int) to scope to a specific council.
+        /// </summary>
+        private async Task<List<Dictionary<string, object?>>> QueryStudentsWithSchoolAsync(
+            ExcelEntityContext context,
+            CancellationToken ct)
+        {
+            var yearIds = await GetSchoolYearIdsAsync(context, ct);
+
+            // Build school entity id → (name, symbol) lookup
+            var schoolYears = await _context.SchoolYears
+                .AsNoTracking()
+                .Where(sy => yearIds.Contains(sy.Id))
+                .Select(sy => new { sy.Id, sy.SchoolId })
+                .ToListAsync(ct);
+
+            var schoolEntityIds = schoolYears.Select(sy => sy.SchoolId).Distinct().ToList();
+            var schoolInfoMap = await _context.Entities
+                .AsNoTracking()
+                .Where(e => schoolEntityIds.Contains(e.Id))
+                .Select(e => new { e.Id, e.Name, e.Symbol })
+                .ToListAsync(ct);
+
+            var schoolInfo = schoolInfoMap.ToDictionary(e => e.Id);
+            var yearToSchool = schoolYears.ToDictionary(
+                sy => sy.Id,
+                sy => schoolInfo.TryGetValue(sy.SchoolId, out var s) ? s : null);
+
+            // Pre-load class names
+            var students = await _context.SchoolStudents
+                .AsNoTracking()
+                .Where(s => yearIds.Contains(s.SchoolYearId) && s.IsLastVersion)
+                .ToListAsync(ct);
+
+            var classIds = students
+                .Where(s => s.ClassId.HasValue)
+                .Select(s => s.ClassId!.Value)
+                .Distinct()
+                .ToList();
+
+            var classNames = classIds.Count > 0
+                ? await _context.SchoolClasses.AsNoTracking()
+                    .Where(c => classIds.Contains(c.Id))
+                    .Select(c => new { c.Id, c.Name })
+                    .ToDictionaryAsync(c => c.Id, c => c.Name, ct)
+                : new Dictionary<int, string>();
+
+            return students.Select(s =>
+            {
+                var school = yearToSchool.TryGetValue(s.SchoolYearId, out var si) ? si : null;
+                return new Dictionary<string, object?>
+                {
+                    ["Id"]                  = s.Id,
+                    ["MasterStudentId"]     = s.MasterStudentId,
+                    ["FirstName"]           = s.FirstName,
+                    ["LastName"]            = s.LastName,
+                    ["FullName"]            = $"{s.FirstName} {s.LastName}".Trim(),
+                    ["IdNumber"]            = s.IdNumber,
+                    ["Gender"]              = s.Gender == 1 ? "זכר" : s.Gender == 2 ? "נקבה" : null,
+                    ["DisabilityCategory"]  = s.DisabilityCategory,
+                    ["City"]                = s.City,
+                    ["StartDate"]           = s.StartDate,
+                    ["EndDate"]             = s.EndDate,
+                    ["Cost"]                = s.Cost,
+                    ["SendingCouncil"]      = s.SendingCouncil,
+                    ["SchoolYearId"]        = s.SchoolYearId,
+                    ["ClassId"]             = s.ClassId,
+                    ["ClassName"]           = s.ClassId.HasValue && classNames.TryGetValue(s.ClassId.Value, out var cn) ? cn : string.Empty,
+                    ["SchoolName"]          = school?.Name ?? string.Empty,
+                    ["SchoolSymbol"]        = school?.Symbol ?? string.Empty,
+                };
             }).ToList();
         }
 
@@ -548,6 +694,68 @@ namespace PetelATH.Api.Services
                         new() { Name = "RelatedEntityId",LabelHe = "מזהה גוף קשור", Type = "number", IsFilterable = true },
                         new() { Name = "AccountTypeId",  LabelHe = "סוג חשבון",      Type = "number", IsFilterable = true },
                         new() { Name = "IsActive",       LabelHe = "פעיל",           Type = "boolean", IsFilterable = true }
+                    }
+                },
+                // ── Definition-engine entities ──────────────────────────────
+                new()
+                {
+                    Name = "OwnerEntity",
+                    LabelHe = "גוף מנהל (כותרת)",
+                    IsAccountEntity = false,
+                    Fields = new List<ExcelFieldDescriptor>
+                    {
+                        new() { Name = "Id",                  LabelHe = "מזהה",             Type = "number" },
+                        new() { Name = "Name",                LabelHe = "שם הגוף",          Type = "text" },
+                        new() { Name = "Symbol",              LabelHe = "סמל",              Type = "text" },
+                        new() { Name = "Address",             LabelHe = "כתובת",            Type = "text" },
+                        new() { Name = "Street",              LabelHe = "רחוב",             Type = "text" },
+                        new() { Name = "City",                LabelHe = "עיר",              Type = "text" },
+                        new() { Name = "PostCode",            LabelHe = "מיקוד",            Type = "text" },
+                        new() { Name = "Phone",               LabelHe = "טלפון",            Type = "text" },
+                        new() { Name = "Email",               LabelHe = "דוא\"ל",           Type = "text" },
+                        new() { Name = "TaxNumber",           LabelHe = "ח.פ.",             Type = "text" },
+                        new() { Name = "ContactPersonName",   LabelHe = "שם איש קשר",      Type = "text" },
+                        new() { Name = "ContactPersonEmail",  LabelHe = "דוא\"ל איש קשר",  Type = "text" },
+                        new() { Name = "ContactPersonPhone",  LabelHe = "טלפון איש קשר",   Type = "text" }
+                    }
+                },
+                new()
+                {
+                    Name = "Council",
+                    LabelHe = "רשות",
+                    IsAccountEntity = false,
+                    Fields = new List<ExcelFieldDescriptor>
+                    {
+                        new() { Name = "Id",          LabelHe = "מזהה",      Type = "number", IsFilterable = true },
+                        new() { Name = "Name",        LabelHe = "שם רשות",  Type = "text" },
+                        new() { Name = "CouncilCode", LabelHe = "קוד רשות", Type = "number" }
+                    }
+                },
+                new()
+                {
+                    Name = "StudentsWithSchool",
+                    LabelHe = "תלמידים (עם נתוני בית ספר)",
+                    IsAccountEntity = false,
+                    Fields = new List<ExcelFieldDescriptor>
+                    {
+                        new() { Name = "Id",                 LabelHe = "מזהה",            Type = "number" },
+                        new() { Name = "MasterStudentId",    LabelHe = "מספר תלמיד",     Type = "number" },
+                        new() { Name = "FirstName",          LabelHe = "שם פרטי",        Type = "text" },
+                        new() { Name = "LastName",           LabelHe = "שם משפחה",       Type = "text" },
+                        new() { Name = "FullName",           LabelHe = "שם מלא",         Type = "text" },
+                        new() { Name = "IdNumber",           LabelHe = "ת.ז.",           Type = "text" },
+                        new() { Name = "Gender",             LabelHe = "מין",            Type = "text", IsFilterable = true },
+                        new() { Name = "DisabilityCategory", LabelHe = "קטגוריית נכות", Type = "number" },
+                        new() { Name = "City",               LabelHe = "עיר",            Type = "text" },
+                        new() { Name = "StartDate",          LabelHe = "תאריך קליטה",   Type = "date" },
+                        new() { Name = "EndDate",            LabelHe = "תאריך סיום",    Type = "date" },
+                        new() { Name = "Cost",               LabelHe = "עלות",           Type = "number" },
+                        new() { Name = "SendingCouncil",     LabelHe = "רשות שולחת",    Type = "number", IsFilterable = true },
+                        new() { Name = "SchoolYearId",       LabelHe = "מזהה שנה",       Type = "number", IsFilterable = true },
+                        new() { Name = "ClassId",            LabelHe = "מזהה כיתה",     Type = "number", IsFilterable = true },
+                        new() { Name = "ClassName",          LabelHe = "שם כיתה",       Type = "text" },
+                        new() { Name = "SchoolName",         LabelHe = "שם בית ספר",    Type = "text" },
+                        new() { Name = "SchoolSymbol",       LabelHe = "סמל בית ספר",   Type = "text" }
                     }
                 }
             };

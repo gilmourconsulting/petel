@@ -61,6 +61,14 @@ namespace PetelATH.Api.Models
         [Column("update_user")]
         public int? UpdateUser { get; set; }
 
+        /// <summary>
+        /// JSON string conforming to Petel.Core.Excel.ReportDefinition.
+        /// When non-null and ReportType == "template", the ReportTemplateEngine
+        /// is used instead of the legacy scalar-only FillTemplate path.
+        /// </summary>
+        [Column("definition_json")]
+        public string? DefinitionJson { get; set; }
+
         // Navigation properties
         public virtual ExcelReportQuery? Query { get; set; }
         public virtual ExcelReportTemplate? Template { get; set; }
