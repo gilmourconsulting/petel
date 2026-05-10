@@ -477,62 +477,9 @@ public class MenuController : BaseController
 }
 ```
 
-#### Frontend Menu Integration
+#### Blazor Frontend Integration
 
-```javascript
-// menu.html - Load menu items from backend
-async function loadMenuItems() {
-    console.log('📋 Loading menu items from backend...');
-    
-    try {
-        const authToken = sessionStorage.getItem('authToken');
-        if (!authToken) {
-            console.error('❌ No auth token found');
-            return;
-        }
-
-        const response = await fetch(AppConfig.getApiUrl('menu'), {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${authToken}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to load menu items: ${response.status}`);
-        }
-
-        const menuItems = await response.json();
-        console.log(`✅ Loaded ${menuItems.length} menu items`);
-
-        renderMenuItems(menuItems);
-
-    } catch (error) {
-        console.error('❌ Error loading menu items:', error);
-        showMenuError();
-    }
-}
-
-function renderMenuItems(menuItems) {
-    const container = document.getElementById('menuItemsContainer');
-    if (!container || menuItems.length === 0) return;
-
-    let menuHtml = '';
-    menuItems.forEach((item, index) => {
-        const isActive = index === 0 ? 'active' : '';
-        menuHtml += `
-            <a href="${item.reference}" 
-               class="menu-item ${isActive}" 
-               onclick="navigateTo('${item.name}'); return false;">
-                <span class="menu-item-text">${item.text}</span>
-            </a>
-        `;
-    });
-
-    container.innerHTML = menuHtml;
-}
-```
+`NavMenu.razor` in PetelATH.BlazorServer automatically loads menu items from `GET /api/menu` on init via `ApiService.GetAsync<List<MenuItemDto>>("menu")`. No JavaScript menu loading code exists or is needed.
 
 #### Menu Management Workflow
 
@@ -541,22 +488,12 @@ function renderMenuItems(menuItems) {
 1. Insert into database:
 ```sql
 INSERT INTO petel_schema.menu_items (name, reference, text, action_id, sort_order, is_active)
-VALUES ('newpage', '#newpage', 'עמוד חדש', NULL, 100, true);
+VALUES ('newpage', '/newpage', 'עמוד חדש', NULL, 100, true);
 ```
 
-2. Create corresponding page: `newpage.html`
+2. Create `Components/Pages/NewPage.razor` with `@page "/newpage"` and `@inherits SecurePageBase`
 
-3. Register in `page-lifecycle-config.js`:
-```javascript
-'newpage': {
-    file: 'newpage.html',
-    title: 'עמוד חדש',
-    cleanup: 'cleanupNewPage',
-    init: null,
-    selfInitializing: true
-}
-```
-4. Menu item automatically appears for all users (if `action_id` is NULL)
+3. Menu item automatically appears for all users (if `action_id` is NULL)
 
 **Permission-Based Menu Items** (Future Implementation):
 
@@ -574,500 +511,74 @@ var menuItems = await _context.MenuItems
 
 #### Menu Best Practices
 
-✅ **All menu items in database** - No hardcoded menu arrays in frontend
+✅ **All menu items in database** - No hardcoded menu arrays
 ✅ **Permission ready** - `action_id` field prepared for future security
 ✅ **Ordered by sort_order** - Easy to reorder via database updates
 ✅ **Active flag** - Disable items without deletion
 ✅ **Session validation** - Menu endpoint requires authentication
-✅ **Error handling** - Graceful fallback if menu loading fails
 ✅ **Hebrew text** - All display text in Hebrew following RTL patterns
 
 #### Anti-Patterns to Avoid
 
-```javascript
-// ❌ WRONG - Hardcoded menu items in frontend
-const menuItems = [
-    { name: 'dashboard', text: 'עמוד ראשי' },
-    { name: 'users', text: 'משתמשים' }
-];
+```razor
+@* ❌ WRONG - Hardcoded menu arrays *@
+@code {
+    private List<string> _menus = new() { "עמוד ראשי", "משתמשים" };
+}
 
-// ❌ WRONG - Manual menu HTML construction without backend
-document.getElementById('menu').innerHTML = `
-    <a href="#dashboard">עמוד ראשי</a>
-    <a href="#users">משתמשים</a>
-`;
-
-// ✅ CORRECT - Load from backend
-await loadMenuItems();
+@* ✅ CORRECT - DB-driven via NavMenu.razor (automatic) *@
 ```
 
-### Frontend Architecture Patterns
+### Blazor Frontend Architecture
 
-**Single-Page Application with Module Loading**:
-- `index.html` is the shell, loads sections dynamically via `fetch('section.html')`
-- `menu.html` loaded into `#sideMenuContainer` on page load
-- Menu items loaded from backend database via `MenuController`
-- Navigation via `navigateTo(section)` function with browser history support
-- School year context retrieved from backend session data
+Both PetelATH and PetelAssistants use **pure Blazor Server** frontends. There are no HTML files, no JavaScript SPA, and no `page-lifecycle-config.js`. All UI is in `.razor` components with `@rendermode InteractiveServer`.
 
-### Page Lifecycle Management
-
-**Centralized Navigation System**: All page loading, cleanup, and navigation is managed through the `PageLifecycleManager` with configuration-driven rules.
-
-**Architecture Components**:
-1. **`page-lifecycle-config.js`** - Configuration file defining all pages and navigation rules
-2. **`page-lifecycle-manager.js`** - Core navigation engine handling page lifecycle
-3. **`index.html`** - Application shell providing infrastructure utilities only
-4. Individual page files - Contain page-specific logic and cleanup functions
-
-#### Page Configuration Pattern
-
-**All pages must be registered** in `page-lifecycle-config.js`:
-
-```javascript
-window.PageLifecycleConfig = {
-    pages: {
-        'pagename': {
-            file: 'page.html',              // HTML file to load
-            title: 'עמוד לדוגמה',            // Page title (Hebrew)
-            cleanup: 'cleanupPageName',     // Cleanup function name (or null)
-            init: 'initializePageName',     // Init function name (or null)
-            selfInitializing: false         // true = uses DOMContentLoaded, false = needs explicit init
-        }
-    },
-    
-    navigationRules: [
-        {
-            from: 'sourcepage',             // Page navigating from
-            to: 'targetpage',               // Page navigating to
-            clearSession: [                 // Session keys to clear
-                'SelectedStudentId',
-                'SelectedStudentData'
-            ]
-        },
-        {
-            from: '*',                      // Wildcard - matches any source page
-            to: 'maindashboard',
-            clearSession: [
-                'SelectedStudentId',
-                'SelectedStudentData',
-                'SelectedSchoolId',
-                'SelectedSchoolName'
-            ]
-        }
-    ]
-};
-```
-
-#### Page Types
-
-**Self-Initializing Pages** (`selfInitializing: true`):
-- Initialize via their own `DOMContentLoaded` event handlers
-- `PageLifecycleManager` only loads HTML and executes scripts
-- No explicit init function call needed
-- Examples: `maindashboard`, `schooldashboard`, `schooldetails`, `systemattributes`
-
-```javascript
-// Page configuration
-'maindashboard': {
-    file: 'maindashboard.html',
-    cleanup: null,
-    init: null,
-    selfInitializing: true  // ✅ Handles own initialization
-}
-
-// In maindashboard.html
-document.addEventListener('DOMContentLoaded', function() {
-    // Page initialization logic here
-    loadDashboardCardData('alertsCard');
-    updateContextButtonLabels();
-});
-```
-
-**Explicitly-Initialized Pages** (`selfInitializing: false`):
-- Require explicit function call after loading
-- `PageLifecycleManager` calls the init function after a delay
-- Examples: `students`, `student`, `schoollist`
-
-```javascript
-// Page configuration
-'students': {
-    file: 'students.html',
-    cleanup: 'cleanupStudentsPage',
-    init: 'loadStudentsData',        // ✅ Will be called by lifecycle manager
-    selfInitializing: false
-}
-
-// In students.html
-async function loadStudentsData() {
-    // Fetch and display students
-}
-
-window.loadStudentsData = loadStudentsData;  // Must export to window
-```
-
-#### Page Cleanup Pattern
-
-**Every page with reusable components MUST have a cleanup function**:
-
-```javascript
-// In page.html
-function cleanupPageName() {
-    console.log('🧹 Cleaning up page...');
-    
-    try {
-        // 1. Cleanup component instances
-        if (window.myComponent) {
-            if (typeof window.myComponent.cleanup === 'function') {
-                window.myComponent.cleanup();
-            }
-            window.myComponent = null;
-        }
-        
-        // 2. Remove global references
-        if (window['documentsTableInstance_containerId']) {
-            delete window['documentsTableInstance_containerId'];
-        }
-        
-        // 3. Clear container HTML
-        const container = document.getElementById('myTableContainer');
-        if (container) {
-            container.innerHTML = '<div class="loading-spinner">טוען...</div>';
-        }
-        
-        // 4. Clear page-specific data
-        if (window.currentPageData) {
-            window.currentPageData = null;
-        }
-        
-        console.log('✅ Page cleanup complete');
-    } catch (error) {
-        console.error('❌ Error during cleanup:', error);
-    }
-}
-
-// ✅ MUST export to window for PageLifecycleManager
-window.cleanupPageName = cleanupPageName;
-```
-
-#### Component Variable Scope
-
-**CRITICAL**: Use `window` scope for all component variables to prevent redeclaration errors on page re-entry:
-
-```javascript
-// ❌ WRONG - Will cause "already declared" error on return
-let documentsComponent = null;
-let studentsTable = null;
-
-// ✅ CORRECT - Can be safely reassigned
-window.documentsComponent = window.documentsComponent || null;
-window.studentsTable = window.studentsTable || null;
-
-// OR use conditional declaration
-if (typeof documentsComponent === 'undefined') {
-    var documentsComponent = null;
-}
-```
-
-**Why**: When `PageLifecycleManager` reloads a page, the script is re-executed. Using `let`/`const` in script scope causes redeclaration errors because the variable still exists in memory from the previous visit.
-
-#### Navigation Pattern
-
-**All navigation MUST use `window.navigateTo()`**:
-
-```javascript
-// ✅ CORRECT - Single navigation call
-async function navigateToStudents() {
-    console.log('🔄 Navigating to students...');
-    
-    // Optional: Clear session data (if not in navigationRules)
-    await window.SessionState.setProperty('SelectedStudentId', '');
-    
-    // Navigate - PageLifecycleManager handles everything else
-    if (typeof window.navigateTo === 'function') {
-        await window.navigateTo('students');
-    } else {
-        console.error('❌ window.navigateTo not available');
-    }
-}
-
-// ❌ WRONG - Manual HTML loading
-async function navigateToStudents() {
-    const response = await fetch('students.html');
-    const html = await response.text();
-    document.getElementById('dynamicContent').innerHTML = html;
-    executeScriptsInContainer(...);
-    history.pushState(...);
-    // Missing: cleanup, session rules, state tracking
-}
-```
-
-#### What PageLifecycleManager Handles
-
-When you call `window.navigateTo('targetpage')`, the lifecycle manager automatically:
-
-1. ✅ **Cleanup** - Calls `cleanupCurrentPage()` for the page you're leaving
-2. ✅ **Session Rules** - Clears session data per `navigationRules` configuration
-3. ✅ **Table Cleanup** - Removes all `ReusableTable` and component instances from memory
-4. ✅ **HTML Loading** - Fetches target page HTML with error handling
-5. ✅ **Script Execution** - Re-executes scripts in loaded content
-6. ✅ **Browser History** - Updates URL and history state
-7. ✅ **Initialization** - Calls init function (for non-self-initializing pages)
-8. ✅ **State Tracking** - Updates `currentPage` and `previousPage`
-
-#### Session Data Clearing Rules
-
-**Use navigationRules instead of manual clearing**:
-
-```javascript
-// ❌ WRONG - Manual clearing in every navigation function
-async function navigateToStudents() {
-    await window.SessionState.setProperty('SelectedStudentId', '');
-    await window.SessionState.setProperty('SelectedStudentData', '');
-    await window.navigateTo('students');
-}
-
-async function navigateToSchoolDashboard() {
-    await window.SessionState.setProperty('SelectedStudentId', '');
-    await window.SessionState.setProperty('SelectedStudentData', '');
-    await window.navigateTo('schooldashboard');
-}
-
-// ✅ CORRECT - Define once in page-lifecycle-config.js
-navigationRules: [
-    {
-        from: 'student',
-        to: '*',  // Any destination from student page
-        clearSession: ['SelectedStudentId', 'SelectedStudentData']
-    }
-]
-
-// Then navigation is simple:
-async function navigateToStudents() {
-    await window.navigateTo('students');  // Session clearing happens automatically
-}
-
-async function navigateToSchoolDashboard() {
-    await window.navigateTo('schooldashboard');  // Session clearing happens automatically
-}
-```
-
-#### index.html Responsibilities
-
-**index.html is infrastructure ONLY** - no page-specific logic:
-
-```javascript
-// ✅ KEEP in index.html - Infrastructure functions
-window.SessionState = { /* ... */ };
-window.navigateTo = async function(section, fromPopstate) { 
-    await window.PageLifecycleManager.navigateTo(section, fromPopstate); 
-};
-window.checkAuthentication = function() { /* ... */ };
-window.executeScriptsInContainer = function(container) { /* ... */ };
-window.loadUserInfo = async function() { /* ... */ };
-window.logout = function() { /* ... */ };
-
-// ❌ REMOVE from index.html - Page loaders (use PageLifecycleManager)
-window.loadMainDashboard = async function() { /* ... */ };        // NO!
-window.loadSchoolListPage = async function() { /* ... */ };       // NO!
-window.loadStudentsPage = async function() { /* ... */ };         // NO!
-```
-
-#### Anti-Patterns to Avoid
-
-```javascript
-// ❌ Manual cleanup calls in navigation functions
-async function navigateToStudents() {
-    cleanupStudentDocuments();  // NO! - PageLifecycleManager does this
-    await window.navigateTo('students');
-}
-
-// ❌ Duplicate HTML loading logic in multiple files
-async function loadPage() {
-    const response = await fetch('page.html');  // NO! - Use navigateTo()
-    // ... 50 lines of manual loading
-}
-
-// ❌ Page-level variables without window scope
-let myComponent = null;  // NO! - Use window.myComponent
-
-// ❌ Missing cleanup function export
-function cleanupMyPage() { /* ... */ }
-// Missing: window.cleanupMyPage = cleanupMyPage;  // REQUIRED!
-
-// ❌ Using event.stopPropagation() in onclick attributes (SECURITY VIOLATION)
-<button onclick="event.stopPropagation(); myFunction();">  // NO! - Breaks action-security.js
-
-// ✅ CORRECT - No event manipulation in onclick
-<button onclick="myFunction();">  // Header click handler already checks for .btn-icon
-```
-
-#### Adding a New Page - Checklist
-
-1. ✅ Create `newpage.html` with page content and script
-2. ✅ Add page configuration to `page-lifecycle-config.js`:
-   ```javascript
-   'newpage': {
-       file: 'newpage.html',
-       title: 'כותרת בעברית',
-       cleanup: 'cleanupNewPage',
-       init: 'initNewPage',  // or null if self-initializing
-       selfInitializing: false
-   }
-   ```
-3. ✅ Add to database menu_items table:
-   ```sql
-   INSERT INTO petel_schema.menu_items (name, reference, text, sort_order)
-   VALUES ('newpage', '#newpage', 'עמוד חדש', 100);
-   ```
-4. ✅ Add navigation rules if page clears session data:
-   ```javascript
-   { from: 'newpage', to: '*', clearSession: ['Key1', 'Key2'] }
-   ```
-5. ✅ Implement cleanup function in page:
-   ```javascript
-   function cleanupNewPage() { /* ... */ }
-   window.cleanupNewPage = cleanupNewPage;
-   ```
-6. ✅ Use `window` scope for all component variables:
-   ```javascript
-   window.myComponent = window.myComponent || null;
-   ```
-7. ✅ Export init function to window (if needed):
-   ```javascript
-   window.initNewPage = initNewPage;
-   ```
-8. ✅ Navigate using `window.navigateTo('newpage')`
-
-**That's it!** No changes to `index.html` or `PageLifecycleManager` needed.
-
-#### Benefits of This Architecture
-
-- **90% less code** - No duplicate HTML loading logic in each page
-- **Single source of truth** - All lifecycle rules in one configuration file
-- **Automatic cleanup** - No manual cleanup calls needed
-- **Memory safety** - Components properly cleaned up on navigation
-- **No redeclaration errors** - Proper variable scoping prevents issues
-- **Configuration-driven** - Add pages without code changes
-- **Session management** - Automatic session data clearing per rules
-- **Browser history** - Full back/forward button support
-- **Maintainable** - Changes in one place affect all pages consistently
-- **Database-driven menu** - Menu items managed via database
+**See [blazor-patterns.instructions.md](.github/instructions/blazor-patterns.instructions.md)** for the canonical patterns:
+- Blazor page template (`SecurePageBase`, `OnPageInitializedAsync`)
+- `ApiService` call patterns
+- `SessionStateService` usage
+- `NavigationManager` navigation
+- `SecureButton` component
+- Modal pattern (`@ref`, `Show()` / `CloseModal()`)
+- Table and filter patterns
+- DTOs structure
+- Anti-patterns to avoid
 
 ### Standard Components
 
-**Standard Table Component**:
-- **ALL tables must use ReusableTable component** from `table-component.js`
-- **Action buttons column MUST be the first column in all tables** for consistency and accessibility
-- Constructor: `new ReusableTable(containerId, options)`
-- Options: `{ tableName, isReadOnly, allowAdd, allowEdit, allowDelete }`
-- Columns format: `{ key, label, sortable, readOnly, render }`
-- Example implementation:
-```javascript
-const table = new ReusableTable('tableContainer', {
-    tableName: 'students',
-    isReadOnly: false,
-    allowAdd: true,
-    allowEdit: true,
-    allowDelete: false
-});
+**Standard Icon Set** (PNG files, no emoji):
+- `/images/view_icon.png` — view/preview
+- `/images/edit_icon.png` — edit
+- `/images/delete_icon.png` — delete
+- `/images/download_icon.png` — download
+- `/images/upload_icon.png` — upload
+- `/images/stats_icon.png` — statistics
+- `/images/Plus icon.png` — add new
 
-const columns = [
-    {
-        key: 'actions',
-        label: 'פעולות',
-        sortable: false,
-        readOnly: true,
-        render: (data) => `
-            <button onclick="viewItem('${data.id}')">
-                <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
-            </button>
-        `
-    },
-    { key: 'id', label: 'מספר', sortable: true, readOnly: true },
-    { key: 'name', label: 'שם', sortable: true, readOnly: false }
-];
-
-table.init(data, columns);
-```
-
-**Standard Icon Set**:
-- **ALL icons must use provided PNG icon set** - NO emoji or Unicode symbols
-- Icon class: `.action-icon-natural` for 15px natural color icons
-- Standard icons:
-  - `view_icon.png` - View/preview actions (👁️ replacement)
-  - `edit_icon.png` - Edit/modify actions (✏️ replacement)  
-  - `delete_icon.png` - Delete/remove actions (🗑️ replacement)
-  - `download_icon.png` - Download actions (📥 replacement)
-  - `upload_icon.png` - Upload/copy actions (📤 replacement)
-  - `stats_icon.png` - Statistics/reports actions (📊 replacement)
-  - `Plus icon.png` - Add new item actions (➕ replacement)
-- Button styling:
 ```css
-.btn-icon {
-    padding: 4px 6px;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    background-color: transparent;
-    cursor: pointer;
-}
-
-.action-icon-natural {
-    width: 15px;
-    height: 15px;
-    object-fit: contain;
-}
+.btn-icon { padding: 4px 6px; border: 1px solid #dee2e6; border-radius: 4px; background: transparent; cursor: pointer; }
+.action-icon-natural { width: 15px; height: 15px; object-fit: contain; }
 ```
 
 **Context Buttons Layout**:
-- **Context buttons must be positioned between the side menu and main content section**
-- Use fixed positioning relative to the side menu width
-- Standard layout structure:
-```html
+Context buttons are positioned between the side menu and main content:
+
+```razor
 <div class="page-container">
-    <div class="side-menu">
-        <!-- Menu content (~260px width) -->
-    </div>
     <div class="context-buttons-section">
-        <button class="context-btn" onclick="navigationAction()">
-            Button Text
-        </button>
+        <SecureButton ...>Button Text</SecureButton>
     </div>
     <div class="main-content">
-        <!-- Main section content -->
+        <!-- Page content -->
     </div>
 </div>
 ```
 
-**Security Constraint - onclick Handlers**:
-- **CRITICAL**: Do NOT use `event.stopPropagation()` or any event manipulation in onclick attributes
-- **Reason**: The action-security.js system evaluates onclick handlers, and `event` is undefined in that context
-- **Solution**: Collapsible card headers already check for `.btn-icon` clicks, so buttons are automatically excluded from collapse triggers
-
-```html
-<!-- ❌ WRONG - Security violation -->
-<button onclick="event.stopPropagation(); showModal();">Open</button>
-
-<!-- ✅ CORRECT - No event manipulation needed -->
-<button onclick="showModal();">Open</button>
-
-<!-- The header click handler already has: -->
-<script>
-header.addEventListener('click', function (e) {
-    if (e.target.closest('.btn-icon')) {
-        return;  // ✅ Buttons don't trigger collapse
-    }
-    toggleCardExpansion(card, toggle, addButton);
-});
-</script>
-```
-
 **Table Horizontal Scrolling**:
-- **All table containers must support horizontal scrolling for wide content**
-- Apply `overflow-x: auto` to table containers
-- Set minimum table width to trigger scrolling when needed
-- Standard table scroll implementation:
 ```css
+.table-container { overflow-x: auto; overflow-y: visible; max-width: 100%; }
+.data-table { min-width: 1200px; white-space: nowrap; }
+```
 .table-container {
     overflow-x: auto;
     overflow-y: visible;
@@ -1279,76 +790,26 @@ public async Task<IActionResult> ExportToExcel()
 }
 ```
 
-#### Frontend Integration
+#### Blazor Frontend Integration
 
-```javascript
-// Upload Excel file
-async function uploadExcel() {
-    const fileInput = document.getElementById('excelFileInput');
-    const file = fileInput.files[0];
-    
-    if (!file) {
-        alert('אנא בחר קובץ');
-        return;
-    }
+Use `ApiService` from `Petel.BlazorCore` for all Excel operations:
 
-    const formData = new FormData();
-    formData.append('file', file);
-
-    try {
-        const response = await fetch(AppConfig.getApiUrl('myentities/import'), {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-            },
-            body: formData
-        });
-
-        const result = await response.json();
-        
-        if (response.ok) {
-            let message = `יובאו ${result.importedCount} רשומות בהצלחה`;
-            if (result.errorCount > 0) {
-                message += `\n${result.errorCount} שגיאות התרחשו`;
-                console.error('Import errors:', result.errors);
-            }
-            alert(message);
-            await loadData();  // Refresh page data
-        } else {
-            alert(`שגיאה: ${result}`);
-        }
-    } catch (error) {
-        console.error('Error uploading file:', error);
-        alert('שגיאה בהעלאת הקובץ');
-    }
+```csharp
+// Upload (in a modal component)
+async Task UploadExcelAsync(IBrowserFile file)
+{
+    using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+    using var content = new MultipartFormDataContent();
+    content.Add(new StreamContent(stream), "file", file.Name);
+    var result = await ApiService.PostMultipartAsync<ImportResult>("myentities/import", content);
+    // result.ImportedCount, result.Errors, etc.
 }
 
-// Download Excel file
-async function downloadExcel() {
-    try {
-        const response = await fetch(AppConfig.getApiUrl('myentities/export'), {
-            headers: {
-                'Authorization': `Bearer ${sessionStorage.getItem('authToken')}`
-            }
-        });
-
-        if (response.ok) {
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `export_${new Date().toISOString().slice(0,10)}.xlsx`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        } else {
-            alert('שגיאה בהורדת הקובץ');
-        }
-    } catch (error) {
-        console.error('Error downloading file:', error);
-        alert('שגיאה בהורדת הקובץ');
-    }
+// Download
+async Task DownloadExcelAsync()
+{
+    var response = await ApiService.GetFileAsync("myentities/export");
+    // Use JSRuntime to trigger browser download from blob
 }
 ```
 
@@ -1393,28 +854,28 @@ var classId = _context.SchoolClasses
 ### Authentication Flow
 1. User logs in via `/api/auth/login` with username/password
 2. Backend validates credentials, creates JWT token
-3. Frontend stores token in `sessionStorage`
-4. All subsequent API calls include `Authorization: Bearer {token}` header
+3. Blazor frontend stores token via `TokenService` (from `Petel.BlazorCore`)
+4. All subsequent API calls include `Authorization: Bearer {token}` header (added automatically by `ApiService`)
 5. Backend validates token and retrieves user session from `UserSessionService`
 
-### Session Properties Pattern
+### Session State in Blazor
 **Backend**: Properties stored in `UserSession` object via `UserSessionService`
-**Frontend**: Use `SessionState` object for temporary client-side state
+**Frontend**: Inject `SessionStateService` from `Petel.BlazorCore.Services`
 
-```javascript
-// Set session property
-await window.SessionState.setProperty('SelectedStudentId', studentId);
+```csharp
+@inject SessionStateService SessionStateService
 
-// Get session property
-const studentId = await window.SessionState.getProperty('SelectedStudentId');
+// Get full session data (cached 1 min)
+var session = await SessionStateService.GetSessionAsync();
 
-// Clear specific property
-await window.SessionState.setProperty('SelectedStudentId', '');
+// Quick typed accessors
+var entityId = SessionStateService.GetEntityId();
+var userId   = SessionStateService.GetUserId();
+var username = SessionStateService.GetUsername();
+var name     = SessionStateService.GetEntityName();
 
-// Clear multiple properties (via navigationRules)
-navigationRules: [
-    { from: 'student', to: '*', clearSession: ['SelectedStudentId', 'SelectedStudentData'] }
-]
+// Force refresh after data change
+var session = await SessionStateService.GetSessionAsync(forceRefresh: true);
 ```
 
 ### BaseController Pattern
@@ -2230,30 +1691,16 @@ public async Task<IActionResult> CreateOrUpdateAttribute([FromBody] SchoolYearAt
 }
 ```
 
-### Frontend Integration
+### Blazor Frontend Integration
 
-```javascript
-// Load year-specific attribute for UI guidance
-async function loadYearAttributes() {
-    try {
-        const yearId = await window.SessionState.getProperty('SelectedSchoolYearId');
-        const response = await fetch(
-            AppConfig.getApiUrl(`schoolyearattributes/year/${yearId}/attribute/additional_study_sessions_required`),
-            {
-                headers: { 'Authorization': `Bearer ${sessionStorage.getItem('authToken')}` }
-            }
-        );
+Fetch year-specific attributes from Blazor using `ApiService`:
 
-        if (response.ok) {
-            const result = await response.json();
-            const requiredSessions = result.data.value;
-            document.getElementById('sessionsRemark').textContent = 
-                `מספר מפגשים נדרש: ${requiredSessions}`;
-        }
-    } catch (error) {
-        console.error('Error loading year attributes:', error);
-    }
-}
+```csharp
+// In a Razor page @code block
+var attr = await ApiService.GetAsync<SchoolYearAttributeDto>(
+    $"schoolyearattributes/year/{yearId}/attribute/additional_study_sessions_required");
+if (attr != null)
+    _sessionsRemark = $"מספר מפגשים נדרש: {attr.Value}";
 ```
 
 ### Standard Attributes
@@ -2408,37 +1855,33 @@ var classId = classes
     ?.Id;
 ```
 
-### Component Redeclaration Error
+### Component Redeclaration in Blazor
 
-**Problem**: `Identifier 'myComponent' has already been declared` when returning to page
+In Blazor, component state lives in C# fields — there are no `let`/`const` redeclaration issues. If a Blazor page is navigated away from and back to, `OnInitializedAsync` / `OnPageInitializedAsync` runs again and re-initializes all fields.
 
-**Solution**: Use `window` scope for all component variables
-
-```javascript
-// ❌ WRONG - Page scope
-let myComponent = null;
-
-// ✅ CORRECT - Window scope
-window.myComponent = window.myComponent || null;
+```csharp
+// ✅ CORRECT - C# field in @code block
+private MyComponent? _component;
+private List<MyDto>? _items;  // Re-initialized on each page visit
 ```
 
 ### Session Property Returns Null
 
-**Problem**: `session.GetProperty("Key")` returns null unexpectedly
+**Problem**: `SessionStateService` returns null after navigation
 
-**Solution**: Verify property was set and check navigation rules
+**Solution**: Always call `GetSessionAsync()` in `OnPageInitializedAsync()` before reading accessors
 
-```javascript
-// Frontend: Set property with exact key
-await window.SessionState.setProperty('MyKey', value);
+```csharp
+protected override async Task OnPageInitializedAsync()
+{
+    // Always load session first
+    var session = await SessionStateService.GetSessionAsync();
+    if (session == null) return;  // Auth will redirect to login
 
-// Backend: Get with exact key (case-sensitive)
-var value = session.GetProperty("MyKey");
-
-// Check page-lifecycle-config.js - property might be cleared on navigation
-navigationRules: [
-    { from: 'page1', to: 'page2', clearSession: ['MyKey'] }
-]
+    // Now accessors are populated
+    var entityId = SessionStateService.GetEntityId();
+    await LoadData();
+}
 ```
 
 ### Schema Not Applied to Queries
@@ -2449,45 +1892,45 @@ navigationRules: [
 
 ### Modal Form Layout Pattern
 
-**Purpose**: Create consistent, user-friendly modal forms with optimal field grouping and inline actions.
+**Purpose**: Create consistent modal forms in Blazor using `@if (_isVisible)` with a `.modal-overlay` div.
 
-#### Side-by-Side Field Layout
+Group related fields side-by-side using flexbox in Razor markup. Load contextual hints from backend on modal open via `ApiService.GetAsync<T>()`. See `blazor-patterns.instructions.md` for the full modal component template.
 
-**Use flexbox for related fields that benefit from horizontal grouping**:
+<!-- Legacy HTML/JS placeholder removed — use Blazor modal pattern -->
 
-```html
+**Example Razor field layout**:
+
+```razor
 <!-- ✅ Weekly Hours and Sessions side by side -->
 <div style="display: flex; gap: 15px; margin-bottom: 15px;">
     <div style="flex: 1;">
-        <label for="programHours" style="display: block; margin-bottom: 5px; font-weight: 600;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 600;">
             שעות שבועיות: <span style="color: red;">*</span>
         </label>
-        <input type="number" id="programHours" required
-            style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
+        <input type="number" @bind="_programHours"
+            style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" />
     </div>
     <div style="flex: 1;">
-        <label for="programSessions" style="display: block; margin-bottom: 5px; font-weight: 600;">
+        <label style="display: block; margin-bottom: 5px; font-weight: 600;">
             מספר מפגשים: <span style="color: red;">*</span>
         </label>
-        <input type="number" id="programSessions" required
-            style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;">
-        <small id="sessionsRemark" style="color: #6c757d; display: block; margin-top: 4px;">
-            מספר מפגשים נדרש: 32
-        </small>
+        <input type="number" @bind="_programSessions"
+            style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px;" />
+        <small style="color: #6c757d; display: block; margin-top: 4px;">@_sessionsRemark</small>
     </div>
 </div>
 
 <!-- ✅ Cost and Hourly Cost side by side -->
 <div style="display: flex; gap: 15px; margin-bottom: 15px;">
     <div style="flex: 1;">
-        <label for="programCost">עלות:</label>
-        <input type="number" id="programCost" step="0.01"
-            style="width: 100%; direction: ltr; text-align: left;">
+        <label>עלות:</label>
+        <input type="number" @bind="_programCost" step="0.01"
+            style="width: 100%; direction: ltr; text-align: left;" />
     </div>
     <div style="flex: 1;">
-        <label for="programHourlyCost">עלות שעתית:</label>
-        <input type="number" id="programHourlyCost" step="0.01"
-            style="width: 100%; direction: ltr; text-align: left;">
+        <label>עלות שעתית:</label>
+        <input type="number" @bind="_programHourlyCost" step="0.01"
+            style="width: 100%; direction: ltr; text-align: left;" />
     </div>
 </div>
 ```
@@ -2496,42 +1939,33 @@ navigationRules: [
 
 **Add action buttons next to fields for related operations**:
 
-```html
+```razor
 <div style="margin-bottom: 15px;">
-    <label for="programStudents">מספר תלמידים: <span style="color: red;">*</span></label>
+    <label>מספר תלמידים: <span style="color: red;">*</span></label>
     <div style="display: flex; gap: 8px; align-items: flex-start;">
-        <input type="number" id="programStudents" required
-            style="flex: 1; padding: 8px;">
-        <button type="button" id="updateStudentCountBtn" 
-            onclick="updateStudentCountFromClass()" 
+        <input type="number" @bind="_programStudents" style="flex: 1; padding: 8px;" />
+        <button type="button" @onclick="UpdateStudentCountFromClass"
             title="עדכן לפי מספר תלמידים בכיתה"
             style="padding: 8px 12px; white-space: nowrap;">
-            <img src="view_icon.png" alt="עדכן" class="action-icon-natural">
+            <img src="/images/view_icon.png" alt="עדכן" class="action-icon-natural" />
             <span>עדכן מכיתה</span>
         </button>
     </div>
 </div>
 ```
 
-```javascript
-// Function to update field value from external data
-async function updateStudentCountFromClass() {
-    const classSelect = document.getElementById('programClass');
-    const studentsInput = document.getElementById('programStudents');
-    
-    if (!classSelect.value) {
-        alert('אנא בחר כיתה תחילה');
+```csharp
+// In @code block — load student count from class via ApiService
+private async Task UpdateStudentCountFromClass()
+{
+    if (_selectedClassId == null)
+    {
+        // Show validation message
         return;
     }
-    
-    const response = await fetch(AppConfig.getApiUrl(`students?classId=${classSelect.value}`));
-    if (response.ok) {
-        const data = await response.json();
-        studentsInput.value = data.count;
-        
-        // Trigger change event for dependent calculations
-        studentsInput.dispatchEvent(new Event('change'));
-    }
+    var result = await ApiService.GetAsync<StudentCountDto>($"students/count?classId={_selectedClassId}");
+    if (result != null)
+        _programStudents = result.Count;
 }
 ```
 
@@ -2539,25 +1973,18 @@ async function updateStudentCountFromClass() {
 
 **Load contextual hints from database attributes**:
 
-```javascript
-// Load year-specific guidance text
-async function loadYearAttributes() {
-    const yearId = await window.SessionState.getProperty('SelectedSchoolYearId');
-    
-    const response = await fetch(
-        AppConfig.getApiUrl(`schoolyearattributes/year/${yearId}/attribute/additional_study_sessions_required`)
-    );
-    
-    if (response.ok) {
-        const result = await response.json();
-        document.getElementById('sessionsRemark').textContent = 
-            `מספר מפגשים נדרש: ${result.data.attributeValue}`;
-    }
+```csharp
+// In @code block — load on modal open
+private async Task LoadSessionsRemark()
+{
+    var attr = await ApiService.GetAsync<SchoolYearAttributeDto>(
+        $"schoolyearattributes/year/{_selectedYearId}/attribute/additional_study_sessions_required");
+    if (attr != null)
+        _sessionsRemark = $"מספר מפגשים נדרש: {attr.Value}";
 }
-
-// Call when modal opens
-await loadYearAttributes();
 ```
+
+Load hints from backend on modal open — never hardcode values.
 
 #### Best Practices
 
@@ -2571,131 +1998,67 @@ await loadYearAttributes();
 - ✅ Place action buttons adjacent to the field they affect
 - ✅ Use `white-space: nowrap` to prevent text wrapping
 - ✅ Use descriptive tooltips with `title` attribute
-- ✅ Trigger dependent calculations via `dispatchEvent(new Event('change'))`
+- ✅ Use `@onclick` handlers in Blazor — no `dispatchEvent` needed
 
 **Dynamic Content**:
 - ✅ Load contextual hints from backend attributes (avoid hardcoding)
-- ✅ Update hint text asynchronously after modal renders
-- ✅ Use semantic IDs for hint elements (e.g., `sessionsRemark`)
+- ✅ Update hint fields via C# properties bound with `@bind`
+- ✅ Use C# fields for all state (e.g., `_sessionsRemark`)
 
 **Anti-Patterns**:
-```html
-<!-- ❌ WRONG - Fields in separate rows when they're related -->
-<div><label>שעות שבועיות:</label><input></div>
-<div><label>מספר מפגשים:</label><input></div>
+```razor
+@* ❌ WRONG - Fields in separate rows when they're related *@
+<div><label>שעות שבועיות:</label><input @bind="_hours" /></div>
+<div><label>מספר מפגשים:</label><input @bind="_sessions" /></div>
 
-<!-- ✅ CORRECT - Group related fields -->
+@* ✅ CORRECT - Group related fields *@
 <div style="display: flex; gap: 15px;">
-    <div style="flex: 1;"><label>שעות שבועיות:</label><input></div>
-    <div style="flex: 1;"><label>מספר מפגשים:</label><input></div>
+    <div style="flex: 1;"><label>שעות שבועיות:</label><input @bind="_hours" /></div>
+    <div style="flex: 1;"><label>מספר מפגשים:</label><input @bind="_sessions" /></div>
 </div>
 
-<!-- ❌ WRONG - Hardcoded hint text -->
+@* ❌ WRONG - Hardcoded hint text *@
 <small>ברירת מחדל: 30 מפגשים</small>
 
-<!-- ✅ CORRECT - Dynamic hint from backend -->
-<small id="sessionsRemark">טוען...</small>
+@* ✅ CORRECT - Dynamic hint from backend *@
+<small>@_sessionsRemark</small>
 ```
 
 ### Collapsible Card Pattern
 
-**Standard Implementation**: All detail cards use consistent collapsible pattern with CSS-based animations.
+In Blazor, collapsible detail cards use C# state (`_isExpanded`) toggled by `@onclick`. No JavaScript initialization required.
 
-#### HTML Structure
-
-```html
-<div class="content-card">
-    <!-- Collapsible Card -->
-    <div class="detail-card collapsed">
-        <div class="detail-card-header">
-            <h2 class="detail-card-title">כותרת הכרטיס</h2>
-            <div class="card-header-actions">
-                <!-- Optional: Edit button -->
-                <button id="editBtn" class="btn-icon" onclick="event.stopPropagation();">
-                    <img src="edit_icon.png" alt="עריכה" class="action-icon-natural">
+```razor
+<div class="detail-card @(_isExpanded ? "expanded" : "collapsed")">
+    <div class="detail-card-header" @onclick="ToggleCard">
+        <h2 class="detail-card-title">כותרת הכרטיס</h2>
+        <div class="card-header-actions">
+            @if (_isExpanded)
+            {
+                <button class="btn-icon" @onclick:stopPropagation="true" @onclick="ShowAddModal"
+                    title="הוסף פריט">
+                    <img src="/images/Plus icon.png" alt="הוסף" class="action-icon-natural" />
                 </button>
-                <!-- Optional: Add button (hidden when collapsed) -->
-                <button id="addBtn" class="btn-icon" onclick="event.stopPropagation(); showAddModal();" title="הוסף פריט" style="display: none;">
-                    <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
-                </button>
-                <!-- Required: Collapse toggle -->
-                <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
-            </div>
+            }
+            <button class="collapse-toggle" @onclick:stopPropagation="true" @onclick="ToggleCard"
+                aria-label="הרחב/כווץ">
+                @(_isExpanded ? "×" : "+")
+            </button>
         </div>
+    </div>
+    @if (_isExpanded)
+    {
         <div class="detail-card-content">
             <!-- Card content here -->
         </div>
-    </div>
+    }
 </div>
 
-#### JavaScript Structure
-
-// Initialize collapsible cards (call once per page)
-function initializeCollapsibleCards() {
-    console.log('🎴 Initializing collapsible cards...');
-
-    document.querySelectorAll('.detail-card').forEach(card => {
-        const header = card.querySelector('.detail-card-header');
-        const toggle = card.querySelector('.collapse-toggle');
-
-        if (!header || !toggle) return;
-
-        // Prevent duplicate initialization
-        if (header.dataset.initialized === 'true') {
-            return;
-        }
-        header.dataset.initialized = 'true';
-
-        // Get action buttons
-        const addButton = card.querySelector('.btn-icon[id^="add"]');
-
-        // Hide add buttons initially (cards start collapsed)
-        if (addButton) addButton.style.display = 'none';
-
-        // Toggle button click handler
-        toggle.addEventListener('click', function (e) {
-            e.stopPropagation();
-            toggleCardExpansion(card, toggle, addButton);
-        });
-
-        // Header click handler (excluding buttons)
-        header.addEventListener('click', function (e) {
-            if (e.target.closest('.btn-icon')) {
-                return;
-            }
-            toggleCardExpansion(card, toggle, addButton);
-        });
-    });
-
-    console.log('✅ Collapsible cards initialized');
+@code {
+    private bool _isExpanded = false;
+    private void ToggleCard() => _isExpanded = !_isExpanded;
 }
-
-// Toggle card expansion
-function toggleCardExpansion(card, toggle, addButton) {
-    const isCollapsed = card.classList.contains('collapsed');
-
-    if (isCollapsed) {
-        // Expand
-        card.classList.remove('collapsed');
-        card.classList.add('expanded');
-        toggle.textContent = '×';
-
-        // Show add button when expanded
-        if (addButton) {
-            addButton.style.display = 'inline-flex';
-        }
-    } else {
-        // Collapse
-        card.classList.remove('expanded');
-        card.classList.add('collapsed');
-        toggle.textContent = '+';
-
-        // Hide add button when collapsed
-        if (addButton) {
-            addButton.style.display = 'none';
-        }
-    }
-}
+```
 
 ## Security Implementation
 

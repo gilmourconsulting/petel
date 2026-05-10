@@ -54,6 +54,12 @@ The `AppDbContext` reads schema from `DatabaseSettings` via `IOptions<DatabaseSe
 
 ## Shared Libraries
 
+### Blazor Frontend
+
+PetelAssistants.BlazorServer uses **pure Blazor Server** with `@rendermode InteractiveServer`. There are no HTML files, no JavaScript SPA, and no `page-lifecycle-config.js`. All UI is in `.razor` components.
+
+**See [blazor-patterns.instructions.md](blazor-patterns.instructions.md)** for the canonical Blazor page template, SecurePageBase usage, ApiService call patterns, modal pattern, table pattern, icon usage, and anti-patterns. Those patterns apply to both PetelATH and PetelAssistants.
+
 Both projects reference the shared libraries:
 
 - `PetelAssistants.Api` → `shared/Petel.Core`
@@ -387,6 +393,6 @@ PetelAssistants is a greenfield application. Build features in this order:
 2. **Core Entities** — Define domain models and EF migrations
 3. **SystemAttributes** — Wire up `SystemAttributeCache` with a DB-backed attributes table
 4. **API Endpoints** — Controllers for each domain area (inherit `BaseController`)
-5. **Blazor UI** — Pages using `Petel.BlazorCore` services (`ApiService`, `SessionStateService`)
+5. **Blazor UI** — Pages using `Petel.BlazorCore` services (`ApiService`, `SessionStateService`); follow patterns in `blazor-patterns.instructions.md`
 
-All patterns (DB config, EF schema, audit fields, session management, JWT) are identical to PetelATH — see the main `copilot-instructions.md` and `petelath.instructions.md` for the canonical examples to follow.
+All patterns (DB config, EF schema, audit fields, session management, JWT, Blazor components) are identical to PetelATH — see `copilot-instructions.md`, `petelath.instructions.md`, and `blazor-patterns.instructions.md` for canonical examples.

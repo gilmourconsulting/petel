@@ -26,9 +26,15 @@ PetelATH/
     appsettings.Development.json
     appsettings.test.json
     appsettings.Production.json
-    wwwroot/                    ← Static frontend assets (JS SPA)
   PetelATH.BlazorServer/        ← Frontend (Blazor Server, net9.0)
-    Components/Pages/           ← Blazor pages (Login.razor, etc.)
+    Components/
+      Pages/                    ← Blazor pages (Login.razor, Students.razor, SchoolDetails.razor, etc.)
+      Layout/                   ← MainLayout.razor, NavMenu.razor (DB-driven), EmptyLayout.razor
+      Shared/                   ← Reusable components (SecureButton.razor, SchoolTracksTable.razor, etc.)
+      Modals/                   ← Modal components (StudentUploadModal.razor, etc.)
+      Security/                 ← AuthenticationGuard.razor
+    DTOs/                       ← Blazor-side data transfer objects (~33 DTOs)
+    Services/                   ← ApiService, TokenService, ActionSecurityService
     Program.cs                  ← DI, CSP, proxy registration
     appsettings.Development.json
     appsettings.test.json
@@ -95,71 +101,49 @@ using (var scope = app.Services.CreateScope())
 
 ## Frontend Architecture
 
-PetelATH uses a **Blazor Server** shell (`Login.razor`, `MainDashboard.razor`) that renders a **static JS/HTML SPA** loaded from the API's `wwwroot`. The SPA is the main UI; Blazor handles authentication and session lifecycle.
+PetelATH uses a **pure Blazor Server** frontend. There are no HTML files, no JavaScript SPA, and no `page-lifecycle-config.js`. Everything is `.razor` components rendered on the server with `@rendermode InteractiveServer`.
 
-### Static Frontend (wwwroot in PetelATH.Api)
+### Component Hierarchy
 
-The SPA assets live in `PetelATH/PetelATH.Api/wwwroot/` (served by the API) and use a **page lifecycle** architecture:
-
-- `index.html` — Application shell; infrastructure only
-- `menu.html` — Side menu loaded dynamically from DB
-- `page-lifecycle-config.js` — All pages registered here
-- `page-lifecycle-manager.js` — Navigation engine (handles cleanup, session rules, history)
-- `table-component.js` — `ReusableTable` component used by all data tables
-
-### Page Lifecycle Management
-
-**All pages must be registered** in `page-lifecycle-config.js`:
-
-```javascript
-window.PageLifecycleConfig = {
-    pages: {
-        'pagename': {
-            file: 'page.html',
-            title: 'כותרת',
-            cleanup: 'cleanupPageName',    // or null
-            init: 'initPageName',          // or null
-            selfInitializing: false        // true = uses DOMContentLoaded
-        }
-    },
-    navigationRules: [
-        {
-            from: 'student',
-            to: '*',
-            clearSession: ['SelectedStudentId', 'SelectedStudentData']
-        }
-    ]
-};
 ```
-
-**All navigation must use `window.navigateTo('pagename')`** — never manual HTML loading.
-
-**Cleanup functions must be exported to `window`**:
-```javascript
-function cleanupMyPage() { /* ... */ }
-window.cleanupMyPage = cleanupMyPage;
-```
-
-**Component variables must use `window` scope** to survive re-entry:
-```javascript
-window.myTable = window.myTable || null;  // ✅ NOT: let myTable = null;
+App.razor                     ← Root HTML shell + Blazor script injection
+  Routes.razor                ← Router; binds MainLayout as default
+    Layout/
+      MainLayout.razor        ← Top bar, side menu, AuthenticationGuard wrapper
+        NavMenu.razor         ← DB-driven side navigation (loads from MenuController)
+        AuthenticationGuard.razor  ← Redirects to /login if not authenticated
+      EmptyLayout.razor       ← Used by Login.razor (no nav)
+    Pages/                    ← One .razor file per page route
+      Login.razor             (@page "/login")
+      MainDashboard.razor     (@page "/maindashboard")
+      Students.razor          (@page "/students")
+      SchoolDetails.razor     (@page "/schooldetails")
+      ...                     (32+ pages total)
+    Shared/                   ← Reusable components
+      SecureButton.razor      ← Permission-gated button
+      SchoolTracksTable.razor ← Sortable table component
+      SortableTableBase.cs    ← Base class for table components
+      ...
+    Modals/                   ← Modal dialog components
+      StudentUploadModal.razor
+      AddSchoolModal.razor
+      ...
+    Security/
+      AuthenticationGuard.razor
 ```
 
 ### Database-Driven Menu System
 
-Menu items live in `petel_schema.menu_items`. Adding a new page:
+Menu items live in `petel_schema.menu_items`. `NavMenu.razor` loads them via `ApiService.GetAsync<List<MenuItemDto>>("menu")` on init, then navigates using `NavigationManager.NavigateTo()`.
 
-1. Insert into DB:
+Adding a new menu item:
+
 ```sql
 INSERT INTO petel_schema.menu_items (name, reference, text, sort_order, is_active)
-VALUES ('newpage', '#newpage', 'כותרת', 100, true);
+VALUES ('newpage', '/newpage', 'כותרת עברית', 100, true);
 ```
 
-2. Create `newpage.html` in `wwwroot`
-
-3. Register in `page-lifecycle-config.js`
-
-4. `MenuController` loads items automatically on every login.
+Note: `reference` must be a Blazor route path (e.g. `/newpage`), not a hash fragment.
 
 **Menu table schema:**
 ```sql
@@ -174,100 +158,29 @@ CREATE TABLE petel_schema.menu_items (
 );
 ```
 
-### Standard Components
+### Standard Icon Set
 
-**All data tables** must use `ReusableTable` from `table-component.js`:
+All icons are PNG files in `/images/`. Use `<img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">` in Razor markup. Do **not** use emoji.
 
-```javascript
-const table = new ReusableTable('containerId', {
-    tableName: 'entities',
-    isReadOnly: false,
-    allowAdd: true,
-    allowEdit: true,
-    allowDelete: false
-});
+- `/images/view_icon.png` — view/preview
+- `/images/edit_icon.png` — edit
+- `/images/delete_icon.png` — delete
+- `/images/download_icon.png` — download
+- `/images/upload_icon.png` — upload
+- `/images/stats_icon.png` — statistics
+- `/images/Plus icon.png` — add new
 
-// Action buttons column MUST be first
-const columns = [
-    {
-        key: 'actions',
-        label: 'פעולות',
-        sortable: false,
-        readOnly: true,
-        render: (data) => `
-            <button onclick="viewItem('${data.id}')">
-                <img src="view_icon.png" alt="צפייה" class="action-icon-natural">
-            </button>
-        `
-    },
-    { key: 'id', label: 'מספר', sortable: true, readOnly: true },
-    { key: 'name', label: 'שם', sortable: true, readOnly: false }
-];
-
-table.init(data, columns);
-```
-
-**Standard icon set** (PNG, use `.action-icon-natural` class, 15px):
-- `view_icon.png` — view/preview
-- `edit_icon.png` — edit
-- `delete_icon.png` — delete
-- `download_icon.png` — download
-- `upload_icon.png` — upload
-- `stats_icon.png` — statistics
-- `Plus icon.png` — add new
-
-**Table containers must support horizontal scrolling**:
 ```css
-.table-container { overflow-x: auto; }
+.btn-icon { padding: 4px 6px; border: 1px solid #dee2e6; border-radius: 4px; background: transparent; cursor: pointer; }
+.action-icon-natural { width: 15px; height: 15px; object-fit: contain; }
+```
+
+### Table Horizontal Scrolling
+
+All table containers must support horizontal scrolling:
+```css
+.table-container { overflow-x: auto; overflow-y: visible; }
 .data-table { min-width: 1200px; white-space: nowrap; }
-```
-
-**Security constraint — onclick handlers**: Do NOT use `event.stopPropagation()` in onclick attributes. It breaks `action-security.js`. The collapsible card header already excludes `.btn-icon` clicks:
-```html
-<!-- ❌ WRONG -->
-<button onclick="event.stopPropagation(); showModal();">
-
-<!-- ✅ CORRECT -->
-<button onclick="showModal();">
-```
-
-### Collapsible Card Pattern
-
-```html
-<div class="detail-card collapsed">
-    <div class="detail-card-header">
-        <h2 class="detail-card-title">כותרת</h2>
-        <div class="card-header-actions">
-            <button id="addBtn" class="btn-icon" onclick="showAddModal();" style="display: none;">
-                <img src="Plus icon.png" alt="הוסף" class="action-icon-natural">
-            </button>
-            <button class="collapse-toggle" aria-label="הרחב/כווץ">+</button>
-        </div>
-    </div>
-    <div class="detail-card-content"><!-- content --></div>
-</div>
-```
-
-JavaScript pattern:
-```javascript
-function initializeCollapsibleCards() {
-    document.querySelectorAll('.detail-card').forEach(card => {
-        const header = card.querySelector('.detail-card-header');
-        const toggle = card.querySelector('.collapse-toggle');
-        if (!header || !toggle || header.dataset.initialized === 'true') return;
-        header.dataset.initialized = 'true';
-
-        const addButton = card.querySelector('.btn-icon[id^="add"]');
-        if (addButton) addButton.style.display = 'none';
-
-        toggle.addEventListener('click', e => { e.stopPropagation(); toggleCardExpansion(card, toggle, addButton); });
-        header.addEventListener('click', e => {
-            if (e.target.closest('.btn-icon')) return;
-            toggleCardExpansion(card, toggle, addButton);
-        });
-    });
-}
-```
 
 ## Key Domain Features
 
@@ -293,16 +206,13 @@ CREATE TABLE petel_schema.school_year_attributes (
 Standard attribute names:
 - `additional_study_sessions_required` — required sessions for תל"ן programs
 
-Fetch from frontend:
-```javascript
-const response = await fetch(
-    AppConfig.getApiUrl(`schoolyearattributes/year/${yearId}/attribute/additional_study_sessions_required`),
-    { headers: { 'Authorization': `Bearer ${token}` } }
-);
-if (response.ok) {
-    const { data } = await response.json();
-    document.getElementById('sessionsRemark').textContent = `מספר מפגשים נדרש: ${data.value}`;
-}
+Fetch from Blazor frontend:
+```csharp
+// In a Razor page @code block
+var attr = await ApiService.GetAsync<SchoolYearAttributeDto>(
+    $"schoolyearattributes/year/{yearId}/attribute/additional_study_sessions_required");
+if (attr != null)
+    _sessionsRemark = $"מספר מפגשים נדרש: {attr.Value}";
 ```
 
 ### GlobalFunctions Service
@@ -341,37 +251,46 @@ The Blazor server proxies document downloads through to the API to bypass Azure 
 app.MapDocumentProxy();  // From Petel.BlazorCore.Extensions
 ```
 
-Frontend uses `/api/documents/{id}/proxy` — no changes needed in JavaScript.
+Blazor components download documents via `@inject IJSRuntime JSRuntime` calling `BlazorHelpers.viewFileWithAuth` with the proxy URL `/api/documents/{id}/proxy`. The user's JWT token is forwarded server-side.
 
 ### Modal Form Layout
 
-Group related fields side-by-side using flexbox:
+Group related fields side-by-side using flexbox in Razor markup:
 
-```html
+```razor
 <div style="display: flex; gap: 15px; margin-bottom: 15px;">
     <div style="flex: 1;">
         <label>שעות שבועיות: <span style="color: red;">*</span></label>
-        <input type="number" id="programHours" required style="width: 100%;">
+        <input type="number" @bind="_programHours" style="width: 100%;" />
     </div>
     <div style="flex: 1;">
         <label>מספר מפגשים: <span style="color: red;">*</span></label>
-        <input type="number" id="programSessions" required style="width: 100%;">
-        <small id="sessionsRemark" style="color: #6c757d;">טוען...</small>
+        <input type="number" @bind="_programSessions" style="width: 100%;" />
+        <small style="color: #6c757d;">@_sessionsRemark</small>
     </div>
 </div>
 ```
 
-Load contextual hints from backend attributes — never hardcode a default number in the UI.
+Load contextual hints from backend attributes on modal open — never hardcode a default number.
 
-## Adding a New Page — Checklist
+## Adding a New Blazor Page — Checklist
 
-1. ✅ Create `wwwroot/newpage.html`
-2. ✅ Add to `page-lifecycle-config.js` (file, title, cleanup, init, selfInitializing)
-3. ✅ Add to `petel_schema.menu_items` (SQL)
-4. ✅ Add navigation rules if page uses session keys
-5. ✅ Implement `cleanupNewPage()` and export: `window.cleanupNewPage = cleanupNewPage`
-6. ✅ Use `window` scope for all component variables
-7. ✅ Navigate via `window.navigateTo('newpage')`
+1. ✅ Create `Components/Pages/NewPage.razor` with `@page "/newpage"` and `@layout MainLayout`
+2. ✅ Inherit `SecurePageBase`: `@inherits SecurePageBase`
+3. ✅ Implement `protected override string PageName => "newpage";`
+4. ✅ Override `OnPageInitializedAsync()` for data loading (not `OnInitializedAsync`)
+5. ✅ Create DTOs in `DTOs/NewPageDtos.cs` matching the API response shape
+6. ✅ Add API controller endpoint inheriting `BaseController`
+7. ✅ Insert DB menu item:
+   ```sql
+   INSERT INTO petel_schema.menu_items (name, reference, text, sort_order, is_active)
+   VALUES ('newpage', '/newpage', 'כותרת בעברית', 100, true);
+   ```
+8. ✅ Wrap action buttons in `<SecureButton>` with `ActionName`, `ScreenName`, `OnClick`
+9. ✅ Use `ApiService.GetAsync<T>` / `PostAsync<Req,Resp>` for all API calls
+10. ✅ Use `@inject NavigationManager Navigation` + `Navigation.NavigateTo("/otherpage")` for navigation
+
+**That's it!** No changes to `NavMenu.razor` needed — the menu item is DB-driven.
 
 ## Deployment
 
