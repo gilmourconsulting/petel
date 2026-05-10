@@ -20,12 +20,44 @@
                       OnClick="NavigateToCouncilsList" CssClass="context-btn" Title="צפייה ברשימת הרשויות המשלחות">
             סיכום רשויות משלחות
         </SecureButton>
+        <SecureButton ActionName="schoollist_generateCouncilExcels" ScreenName="@PageName" FunctionName="GenerateCouncilExcels"
+                      OnClick="GenerateCouncilExcels" CssClass="context-btn" Title="ייצוא Excel לכל הרשויות המשלחות">
+            ייצוא Excel רשויות
+        </SecureButton>
+        @if (_isGenerating)
+        {
+            <span style="font-size: 0.85em; color: #0d6efd; margin-right: 8px;">מייצא Excel... אנא המתן</span>
+        }
         <div class="context-spacer"></div>
         <SecureButton ActionName="schoollist_backToDashboard" ScreenName="@PageName" FunctionName="NavigateBackToDashboard" 
                       OnClick="NavigateBackToDashboard" CssClass="context-navigation-btn" Title="חזרה למסך הראשי">
             חזרה למסך הראשי
         </SecureButton>
     </div>
+
+    <!-- Council Excel generation log panel -->
+    @if (_generateSummary != null || _generateLog.Count > 0)
+    {
+        <div style="margin: 8px 16px; padding: 10px 14px; border-radius: 6px; font-size: 0.85em; direction: rtl;
+                    background: @(_generateSuccess ? "#d1e7dd" : "#f8d7da");
+                    border: 1px solid @(_generateSuccess ? "#badbcc" : "#f5c2c7");
+                    color: @(_generateSuccess ? "#0a3622" : "#842029");">
+            @if (_generateSummary != null)
+            {
+                <div style="font-weight: 600; margin-bottom: @(_generateLog.Count > 0 ? "8px" : "0");">@_generateSummary</div>
+            }
+            @if (_generateLog.Count > 0)
+            {
+                <div style="max-height: 220px; overflow-y: auto; font-family: monospace; white-space: pre-wrap;
+                            background: rgba(0,0,0,0.05); border-radius: 4px; padding: 6px 8px;">
+                    @foreach (var line in _generateLog)
+                    {
+                        <div>@line</div>
+                    }
+                </div>
+            }
+        </div>
+    }
 
     <!-- Main content -->
     <div class="students-content">
@@ -248,6 +280,12 @@
     // Add school modal reference
     private AddSchoolModal? _addSchoolModal;
 
+    // Council Excel export state
+    private bool _isGenerating = false;
+    private string? _generateSummary;
+    private bool _generateSuccess;
+    private List<string> _generateLog = new();
+
     // REQUIRED by SecurePageBase
     protected override string PageName => "schoollist";
 
@@ -406,6 +444,54 @@
     {
         Navigation.NavigateTo("/councilsummary");
     }
+
+    private async Task GenerateCouncilExcels()
+    {
+        _isGenerating = true;
+        _generateSummary = null;
+        _generateLog = new();
+        StateHasChanged();
+
+        try
+        {
+            var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearId");
+            var yearId = yearIdResponse?["value"];
+
+            if (string.IsNullOrEmpty(yearId))
+            {
+                _generateSuccess = false;
+                _generateSummary = "לא נבחרה שנת לימודים";
+                return;
+            }
+
+            var result = await ApiService.PostAsync<object, GenerateCouncilResult>(
+                $"documents/generate-council-excels?yearId={yearId}", new object());
+
+            _generateSuccess = result?.Success ?? false;
+            _generateSummary = result?.Message ?? "הפעולה הסתיימה.";
+            _generateLog     = result?.Log ?? new List<string>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating council Excels: {ex.Message}");
+            _generateSuccess = false;
+            _generateSummary = $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isGenerating = false;
+            StateHasChanged();
+        }
+    }
+
+    private record GenerateCouncilResult(
+        bool Success,
+        string Message,
+        int Created,
+        int Updated,
+        int Failed,
+        List<string> Log
+    );
 
     private async Task NavigateBackToDashboard()
     {

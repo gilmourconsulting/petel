@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Hangfire;
 using PetelATH.Api.Data;
 using PetelATH.Api.Session;
 using PetelATH.Api.Controllers;
@@ -364,7 +365,10 @@ namespace PetelATH.Api.Controllers
 
                 if (effectiveYearId.HasValue)
                 {
-                    query = query.Where(d => d.DocumentType.YearId == effectiveYearId.Value);
+                    // Include documents whose type has no specific year (YearId == null),
+                    // such as the council Excel export type, so they always appear.
+                    query = query.Where(d => d.DocumentType.YearId == effectiveYearId.Value ||
+                                            d.DocumentType.YearId == null);
                 }
 
                 // ✅ First get the documents with their linked entity IDs
@@ -1683,6 +1687,81 @@ namespace PetelATH.Api.Controllers
         /// The document's own ID becomes its master ID for version tracking.
         /// </summary>
         /// <param name="documentId">The ID of the newly created document</param>
+        /// <summary>
+        /// Queues (or synchronously runs) a job that generates one Excel file per sending council
+        /// for the given year, storing each file as a document linked to the caller's entity.
+        /// Returns 202 Accepted when Hangfire is available, 200 OK for the synchronous fallback.
+        /// </summary>
+        [HttpPost("generate-council-excels")]
+        public async Task<IActionResult> GenerateCouncilExcels([FromQuery] int? yearId = null)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                if (!int.TryParse(session.EntityId, out int entityId))
+                    return BadRequest(new { success = false, message = "מזהה ישות לא תקין" });
+
+                if (!yearId.HasValue)
+                {
+                    var yearIdStr = session.GetProperty("SelectedYearId");
+                    if (int.TryParse(yearIdStr, out int sessionYear))
+                        yearId = sessionYear;
+                }
+
+                if (!yearId.HasValue)
+                    return BadRequest(new { success = false, message = "נדרש מזהה שנה" });
+
+                int? userId = int.TryParse(session.UserId, out int uid) ? uid : (int?)null;
+
+                // Try Hangfire first (registered only when HangfireConnection is configured)
+                var jobClient = HttpContext.RequestServices
+                    .GetService<Hangfire.IBackgroundJobClient>();
+
+                if (jobClient != null)
+                {
+                    jobClient.Enqueue<Services.CouncilExcelGenerationService>(
+                        s => s.GenerateForAllCouncils(entityId, yearId.Value, userId));
+
+                    _logger.LogInformation(
+                        "Queued council Excel generation job — entityId={EntityId}, yearId={YearId}",
+                        entityId, yearId.Value);
+
+                    return Accepted(new
+                    {
+                        success = true,
+                        message = "הפעולה הועברת לביצוע ברקע. הקבצים יופיעו במסמכי ישות בסיום."
+                    });
+                }
+
+                // Synchronous fallback (local dev without Hangfire)
+                var service = HttpContext.RequestServices
+                    .GetRequiredService<Services.CouncilExcelGenerationService>();
+
+                var result = await service.GenerateForAllCouncilsWithResult(entityId, yearId.Value, userId);
+
+                var summaryMsg = $"ייצוא הסתיים: נוצרו {result.Created}, עודכנו {result.Updated}" +
+                                 (result.Failed > 0 ? $", נכשלו {result.Failed}" : "");
+
+                return Ok(new
+                {
+                    success = result.Success,
+                    message = summaryMsg,
+                    created = result.Created,
+                    updated = result.Updated,
+                    failed  = result.Failed,
+                    log     = result.Log,
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error queuing/running council Excel generation");
+                return StatusCode(500, new { success = false, message = "שגיאה בהתחלת ייצוא Excel", error = ex.Message });
+            }
+        }
+
         private async Task SetMasterDocumentId(long documentId)
         {
             var document = await _context.Documents.FindAsync(documentId);
