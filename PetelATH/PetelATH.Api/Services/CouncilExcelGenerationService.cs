@@ -23,8 +23,8 @@ namespace PetelATH.Api.Services
     /// </summary>
     public class CouncilExcelGenerationService
     {
-        private const string ReportDefinitionName = "דוח תלמידים לפי רשות שולחת";
-        private const string DocumentTypeName     = "Excel תלמידי רשויות";
+        private const string ReportDefinitionName = "נספח 10 - תשפו";
+        private const string DocumentTypeName     = "נספח 10";
 
         private static readonly IReadOnlyList<(string Key, string Label)> FallbackColumns =
         [
@@ -84,7 +84,7 @@ namespace PetelATH.Api.Services
             // ── 1. Resolve document type ──────────────────────────────────
             var docType = await context.Set<DocumentType>()
                 .AsNoTracking()
-                .FirstOrDefaultAsync(dt => dt.Name == DocumentTypeName);
+                .FirstOrDefaultAsync(dt => dt.Name.StartsWith(DocumentTypeName) && dt.YearId == yearId);
 
             if (docType == null)
             {
