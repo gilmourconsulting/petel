@@ -483,11 +483,13 @@ namespace PetelATH.Api.Services
             if (context.EntityTypeId == "4")
                 return new List<int> { context.EntityId };
 
-            // Council/Network — all schools they own
-            // EntityTypeId 4 = School in entity_types
+            // Council/Network — all owned entities.
+            // We intentionally avoid hard-coding entity type here because production
+            // data may contain owned schools with different entity type IDs; the
+            // downstream SchoolYears join keeps only valid school entities.
             return await _context.Entities
                 .AsNoTracking()
-                .Where(e => e.EntityTypeId == 4 && e.OwnerId == context.EntityId)
+                .Where(e => e.OwnerId == context.EntityId)
                 .Select(e => e.Id)
                 .ToListAsync(ct);
         }

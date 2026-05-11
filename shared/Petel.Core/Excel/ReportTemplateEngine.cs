@@ -104,6 +104,9 @@ namespace Petel.Core.Excel
                 foreach (var (dsName, rows) in collections)
                     ExpandCollection(ws, dsName, rows);
 
+                // Fill aggregate tokens like {{sum:students.Cost}}.
+                FillAggregates(ws, collections);
+
                 // Fill remaining scalar {{ds.Field}} tokens
                 FillScalars(ws, scalars);
 
@@ -177,14 +180,16 @@ namespace Petel.Core.Excel
                         if (!string.Equals(tDs, dsName, StringComparison.OrdinalIgnoreCase))
                             return m.Value; // Different data source — leave for FillScalars
 
-                        return rows[i].TryGetValue(tField, out var v)
-                            ? FormatValue(v) : string.Empty;
+                        if (TryResolveCollectionTokenValue(rows[i], tField, i, out var tokenValue))
+                            return FormatValue(tokenValue);
+
+                        return string.Empty;
                     });
 
                     // For single-token cells, preserve the typed value (number/date)
                     // so Excel treats it correctly in formulas.
                     ws.Cells[targetRow, c].Value =
-                        ResolveTypedValue(pattern, resolvedText, dsName, rows[i]);
+                        ResolveTypedValue(pattern, resolvedText, dsName, rows[i], i);
                 }
             }
 
@@ -251,6 +256,49 @@ namespace Petel.Core.Excel
             }
         }
 
+        private static void FillAggregates(
+            ExcelWorksheet ws,
+            Dictionary<string, List<Dictionary<string, object?>>> collections)
+        {
+            if (ws.Dimension == null || collections.Count == 0) return;
+
+            for (int row = ws.Dimension.Start.Row; row <= ws.Dimension.End.Row; row++)
+            {
+                for (int col = ws.Dimension.Start.Column; col <= ws.Dimension.End.Column; col++)
+                {
+                    var cell = ws.Cells[row, col];
+                    var text = cell.Text;
+                    if (string.IsNullOrEmpty(text) || !text.Contains("{{")) continue;
+
+                    var newText = TokenRegex.Replace(text, m =>
+                    {
+                        var token = m.Groups[1].Value.Trim();
+                        if (!TryEvaluateAggregateToken(token, collections, out var aggValue))
+                            return m.Value;
+
+                        return FormatValue(aggValue);
+                    });
+
+                    if (newText != text)
+                    {
+                        // Preserve typed numeric values when cell is exactly one token.
+                        var m = TokenRegex.Match(text);
+                        if (m.Success && m.Value == text)
+                        {
+                            var token = m.Groups[1].Value.Trim();
+                            if (TryEvaluateAggregateToken(token, collections, out var aggValue))
+                            {
+                                cell.Value = aggValue;
+                                continue;
+                            }
+                        }
+
+                        cell.Value = newText;
+                    }
+                }
+            }
+        }
+
         // ─── Helpers ──────────────────────────────────────────────────────
 
         /// <summary>Find the first row whose any cell contains the exact marker token.</summary>
@@ -284,7 +332,8 @@ namespace Petel.Core.Excel
             string pattern,
             string resolvedText,
             string dsName,
-            Dictionary<string, object?> row)
+            Dictionary<string, object?> row,
+            int rowIndex)
         {
             var m = TokenRegex.Match(pattern);
             // Is the entire cell a single placeholder?
@@ -295,7 +344,100 @@ namespace Petel.Core.Excel
             if (dot < 0) return resolvedText;
 
             var field = token[(dot + 1)..];
-            return row.TryGetValue(field, out var v) ? v : resolvedText;
+            return TryResolveCollectionTokenValue(row, field, rowIndex, out var v) ? v : resolvedText;
+        }
+
+        private static bool TryResolveCollectionTokenValue(
+            Dictionary<string, object?> row,
+            string field,
+            int rowIndex,
+            out object? value)
+        {
+            if (row.TryGetValue(field, out value))
+                return true;
+
+            // Built-in sequential counters for collection rows (1-based).
+            if (field.Equals("RowNumber", StringComparison.OrdinalIgnoreCase) ||
+                field.Equals("RecordNumber", StringComparison.OrdinalIgnoreCase) ||
+                field.Equals("Index", StringComparison.OrdinalIgnoreCase))
+            {
+                value = rowIndex + 1;
+                return true;
+            }
+
+            value = null;
+            return false;
+        }
+
+        private static bool TryEvaluateAggregateToken(
+            string token,
+            Dictionary<string, List<Dictionary<string, object?>>> collections,
+            out object? value)
+        {
+            // Supported syntax:
+            // {{sum:students.Cost}}, {{avg:students.Cost}}, {{min:students.Cost}},
+            // {{max:students.Cost}}, {{count:students}}
+            value = null;
+
+            var colon = token.IndexOf(':');
+            if (colon <= 0) return false;
+
+            var op = token[..colon].Trim().ToLowerInvariant();
+            var expr = token[(colon + 1)..].Trim();
+
+            if (op == "count")
+            {
+                if (!collections.TryGetValue(expr, out var rows)) return false;
+                value = rows.Count;
+                return true;
+            }
+
+            var dot = expr.IndexOf('.');
+            if (dot <= 0 || dot >= expr.Length - 1) return false;
+
+            var dsName = expr[..dot].Trim();
+            var field = expr[(dot + 1)..].Trim();
+
+            if (!collections.TryGetValue(dsName, out var dataRows)) return false;
+
+            var nums = dataRows
+                .Select(r => r.TryGetValue(field, out var raw) ? TryConvertToDecimal(raw) : null)
+                .Where(v => v.HasValue)
+                .Select(v => v!.Value)
+                .ToList();
+
+            if (nums.Count == 0)
+            {
+                value = op == "sum" ? 0m : null;
+                return true;
+            }
+
+            value = op switch
+            {
+                "sum" => nums.Sum(),
+                "avg" => nums.Average(),
+                "min" => nums.Min(),
+                "max" => nums.Max(),
+                _ => null
+            };
+
+            return value != null;
+        }
+
+        private static decimal? TryConvertToDecimal(object? raw)
+        {
+            if (raw == null) return null;
+
+            return raw switch
+            {
+                decimal d => d,
+                int i => i,
+                long l => l,
+                float f => (decimal)f,
+                double d => (decimal)d,
+                _ when decimal.TryParse(raw.ToString(), out var parsed) => parsed,
+                _ => null
+            };
         }
     }
 }
