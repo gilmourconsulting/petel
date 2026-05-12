@@ -17,28 +17,14 @@ namespace PetelATH.Api.Services
 
     /// <summary>
     /// Generates per-council student Excel files and stores them as entity documents.
-    /// Prefers the "דוח תלמידים לפי רשות שולחת" report template when its blob has been
-    /// uploaded — falls back to ExcelGenerationService.GenerateFromRows otherwise.
+    /// Uses the Excel template (xlsx + json definition) to structure and populate the data.
+    /// Template must be uploaded before running this service.
     /// Re-running replaces the existing document for the same council.
     /// </summary>
     public class CouncilExcelGenerationService
     {
         private const string ReportDefinitionName = "נספח 10 - תשפו";
         private const string DocumentTypeName     = "נספח 10";
-
-        private static readonly IReadOnlyList<(string Key, string Label)> FallbackColumns =
-        [
-            ("IdNumber",   "מספר זהות"),
-            ("FirstName",  "שם פרטי"),
-            ("LastName",   "שם משפחה"),
-            ("Gender",     "מין"),
-            ("City",       "עיר"),
-            ("SchoolName", "שם בית ספר"),
-            ("ClassName",  "כיתה"),
-            ("StartDate",  "תאריך התחלה"),
-            ("EndDate",    "תאריך סיום"),
-            ("Cost",       "עלות"),
-        ];
 
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<CouncilExcelGenerationService> _logger;
@@ -79,7 +65,6 @@ namespace PetelATH.Api.Services
             using var scope = _scopeFactory.CreateScope();
             var context        = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var templateEngine = scope.ServiceProvider.GetRequiredService<ReportTemplateEngine>();
-            var excelService   = scope.ServiceProvider.GetRequiredService<ExcelGenerationService>();
 
             // ── 1. Resolve document type ──────────────────────────────────
             var docType = await context.Set<DocumentType>()
@@ -92,22 +77,21 @@ namespace PetelATH.Api.Services
                 return result;
             }
 
-            // ── 2. Try to load the report template (optional) ─────────────
+            // ── 2. Load the report template (REQUIRED) ───────────────────
             var reportDef = await context.ExcelReportDefinitions
                 .Include(r => r.Template)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Name == ReportDefinitionName);
 
-            bool useTemplate = reportDef?.Template?.TemplateBlob != null
-                               && !string.IsNullOrWhiteSpace(reportDef.DefinitionJson);
+            if (reportDef?.Template?.TemplateBlob == null || string.IsNullOrWhiteSpace(reportDef.DefinitionJson))
+            {
+                LogError($"תבנית Excel '{ReportDefinitionName}' לא נמצאה או חסר הגדרה JSON. יש להעלות את התבנית בדף דוחות Excel.");
+                return result;
+            }
 
-            byte[]? templateBlob  = useTemplate ? reportDef!.Template!.TemplateBlob : null;
-            string? definitionJson = useTemplate ? reportDef!.DefinitionJson : null;
-
-            if (useTemplate)
-                Log($"נטענה תבנית Excel ({templateBlob!.Length:N0} bytes) — מצב תבנית מלאה");
-            else
-                Log("תבנית Excel לא נמצאה — נוצרת טבלה בסיסית (יש להעלות תבנית בדף דוחות Excel)");
+            byte[] templateBlob = reportDef.Template.TemplateBlob;
+            string definitionJson = reportDef.DefinitionJson;
+            Log($"נטענה תבנית Excel ({templateBlob.Length:N0} bytes) עם הגדרה JSON");
 
             // ── 3. Resolve school-year IDs for the Hebrew year ────────────
             var schoolYearIds = await context.SchoolYears
@@ -148,37 +132,7 @@ namespace PetelATH.Api.Services
 
             Log($"נמצאו {councils.Count} רשויות לעיבוד");
 
-            // ── 6. Pre-load fallback data lookups (used when no template) ─
-            Dictionary<int, string> classNames = new();
-            Dictionary<int, string> schoolYearToName = new();
-
-            if (!useTemplate)
-            {
-                var allClassIds = await context.SchoolStudents
-                    .AsNoTracking()
-                    .Where(s => schoolYearIds.Contains(s.SchoolYearId) && s.IsLastVersion && s.ClassId.HasValue)
-                    .Select(s => s.ClassId!.Value).Distinct().ToListAsync();
-
-                if (allClassIds.Count > 0)
-                    classNames = await context.SchoolClasses.AsNoTracking()
-                        .Where(c => allClassIds.Contains(c.Id))
-                        .ToDictionaryAsync(c => c.Id, c => c.Name);
-
-                var syEntities = await context.SchoolYears.AsNoTracking()
-                    .Where(sy => schoolYearIds.Contains(sy.Id))
-                    .Select(sy => new { sy.Id, sy.SchoolId }).ToListAsync();
-
-                var schoolEntityIds = syEntities.Select(s => s.SchoolId).Distinct().ToList();
-                var schoolNameMap = await context.Entities.AsNoTracking()
-                    .Where(e => schoolEntityIds.Contains(e.Id))
-                    .ToDictionaryAsync(e => e.Id, e => e.Name ?? string.Empty);
-
-                schoolYearToName = syEntities.ToDictionary(
-                    sy => sy.Id,
-                    sy => schoolNameMap.TryGetValue(sy.SchoolId, out var n) ? n : string.Empty);
-            }
-
-            // ── 7. Pre-load existing docs (tracked) for upsert ───────────
+            // ── 6. Pre-load existing docs (tracked) for upsert ───────────
             var existingDocs = await context.Documents
                 .Include(d => d.DocumentLinks)
                 .Where(d => d.DocumentTypeId == docType.Id &&
@@ -189,6 +143,14 @@ namespace PetelATH.Api.Services
             var existingByName = existingDocs
                 .Where(d => d.Description != null)
                 .ToDictionary(d => d.Description!, StringComparer.OrdinalIgnoreCase);
+
+            // ── 7. Fetch owner entity name ───────────────────────────────
+            var ownerEntity = await context.Entities
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Id == entityId);
+            
+            string ownerName = ownerEntity?.Name ?? "לא ידוע";
+            Log($"שם גורם בעלות: {ownerName}");
 
             // ── 8. Engine context for template path ───────────────────────
             var engineContext = new ExcelEntityContext
@@ -208,46 +170,15 @@ namespace PetelATH.Api.Services
                 byte[] excelBytes;
                 try
                 {
-                    if (useTemplate)
+                    var runtimeParams = new Dictionary<string, string>
                     {
-                        var runtimeParams = new Dictionary<string, string>
-                        {
-                            ["hebrew_year_id"]     = yearId.ToString(),
-                            ["sending_council_id"] = council.CouncilId.ToString(),
-                        };
-                        excelBytes = await templateEngine.GenerateAsync(
-                            templateBlob!, definitionJson!, engineContext, runtimeParams);
-                    }
-                    else
-                    {
-                        // Fallback: build rows manually and use plain table generator
-                        var students = await context.SchoolStudents
-                            .AsNoTracking()
-                            .Where(s => s.SendingCouncil == council.CouncilId &&
-                                        schoolYearIds.Contains(s.SchoolYearId) &&
-                                        s.IsLastVersion)
-                            .ToListAsync();
-
-                        var rows = students.Select(s => new Dictionary<string, object?>
-                        {
-                            ["IdNumber"]   = s.IdNumber,
-                            ["FirstName"]  = s.FirstName,
-                            ["LastName"]   = s.LastName,
-                            ["Gender"]     = s.Gender == 1 ? "זכר" : s.Gender == 2 ? "נקבה" : null,
-                            ["City"]       = s.City,
-                            ["SchoolName"] = schoolYearToName.TryGetValue(s.SchoolYearId, out var sn) ? sn : string.Empty,
-                            ["ClassName"]  = s.ClassId.HasValue && classNames.TryGetValue(s.ClassId.Value, out var cn) ? cn : string.Empty,
-                            ["StartDate"]  = s.StartDate.HasValue ? (object)s.StartDate.Value.ToDateTime(TimeOnly.MinValue) : null,
-                            ["EndDate"]    = s.EndDate.HasValue ? (object)s.EndDate.Value.ToDateTime(TimeOnly.MinValue) : null,
-                            ["Cost"]       = s.Cost,
-                        }).ToList();
-
-                        excelBytes = excelService.GenerateFromRows(rows, FallbackColumns, council.CouncilName);
-                        Log($"[{i + 1}/{total}] {students.Count} תלמידים — נוצרה טבלה בסיסית ({excelBytes.Length:N0} bytes)");
-                    }
-
-                    if (useTemplate)
-                        Log($"[{i + 1}/{total}] נוצר Excel מתבנית ({excelBytes.Length:N0} bytes) עבור {council.CouncilName}");
+                        ["hebrew_year_id"]     = yearId.ToString(),
+                        ["sending_council_id"] = council.CouncilId.ToString(),
+                    };
+                    excelBytes = await templateEngine.GenerateAsync(
+                        templateBlob, definitionJson, engineContext, runtimeParams);
+                    
+                    Log($"[{i + 1}/{total}] ✅ נוצר Excel מתבנית ({excelBytes.Length:N0} bytes) עבור {council.CouncilName}");
                 }
                 catch (Exception ex)
                 {
@@ -258,7 +189,9 @@ namespace PetelATH.Api.Services
 
                 try
                 {
-                    if (existingByName.TryGetValue(council.CouncilName, out var existingDoc))
+                    string docDescription = $"{ownerName}-{council.CouncilName}";
+
+                    if (existingByName.TryGetValue(docDescription, out var existingDoc))
                     {
                         existingDoc.FileBlob = excelBytes;
                         await context.SaveChangesAsync();
@@ -269,7 +202,7 @@ namespace PetelATH.Api.Services
                     {
                         var document = new Document
                         {
-                            Description      = council.CouncilName,
+                            Description      = docDescription,
                             DocumentTypeId   = docType.Id,
                             StatusId         = 2,
                             FileBlob         = excelBytes,
@@ -297,7 +230,7 @@ namespace PetelATH.Api.Services
 
                         await context.SaveChangesAsync();
 
-                        existingByName[council.CouncilName] = document;
+                        existingByName[docDescription] = document;
                         result.Created++;
                         Log($"[{i + 1}/{total}] ✅ נוצר מסמך חדש עבור {council.CouncilName} (docId={document.Id})");
                     }

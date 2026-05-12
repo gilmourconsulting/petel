@@ -321,7 +321,9 @@ namespace PetelATH.Api.Services
         {
             var yearIds = await GetSchoolYearIdsAsync(context, ct);
 
-            // Build school entity id → (name, symbol) lookup
+            // Build school-year id -> (name, symbol) lookup.
+            // Prefer versioned data from schools table (actual per-year school data),
+            // and fallback to entities table only when schools row/symbol is missing.
             var schoolYears = await _context.SchoolYears
                 .AsNoTracking()
                 .Where(sy => yearIds.Contains(sy.Id))
@@ -329,16 +331,34 @@ namespace PetelATH.Api.Services
                 .ToListAsync(ct);
 
             var schoolEntityIds = schoolYears.Select(sy => sy.SchoolId).Distinct().ToList();
-            var schoolInfoMap = await _context.Entities
+
+            var schoolVersionRows = await _context.Schools
                 .AsNoTracking()
-                .Where(e => schoolEntityIds.Contains(e.Id))
-                .Select(e => new { e.Id, e.Name, e.Symbol })
+                .Where(s => schoolEntityIds.Contains(s.EntityId)
+                            && yearIds.Contains(s.SchoolYearId))
+                .Select(s => new { s.Id, s.EntityId, s.SchoolYearId, s.Version, s.Name, s.Symbol })
                 .ToListAsync(ct);
 
-            var schoolInfo = schoolInfoMap.ToDictionary(e => e.Id);
+            var schoolVersionLookup = schoolVersionRows
+                .GroupBy(s => new { s.EntityId, s.SchoolYearId })
+                .ToDictionary(
+                    g => (g.Key.EntityId, g.Key.SchoolYearId),
+                    g => g.OrderByDescending(x => x.Version).ThenByDescending(x => x.Id).First());
+
             var yearToSchool = schoolYears.ToDictionary(
                 sy => sy.Id,
-                sy => schoolInfo.TryGetValue(sy.SchoolId, out var s) ? s : null);
+                sy =>
+                {
+                    if (schoolVersionLookup.TryGetValue((sy.SchoolId, sy.Id), out var sv))
+                    {
+                        return (
+                            Name: sv.Name?.Trim() ?? string.Empty,
+                            Symbol: sv.Symbol?.Trim() ?? string.Empty
+                        );
+                    }
+
+                    return (Name: string.Empty, Symbol: string.Empty);
+                });
 
             // Pre-load class names
             var students = await _context.SchoolStudents
@@ -361,7 +381,9 @@ namespace PetelATH.Api.Services
 
             return students.Select(s =>
             {
-                var school = yearToSchool.TryGetValue(s.SchoolYearId, out var si) ? si : null;
+                var school = yearToSchool.TryGetValue(s.SchoolYearId, out var si)
+                    ? si
+                    : (Name: string.Empty, Symbol: string.Empty);
                 return new Dictionary<string, object?>
                 {
                     ["Id"]                  = s.Id,
@@ -380,8 +402,9 @@ namespace PetelATH.Api.Services
                     ["SchoolYearId"]        = s.SchoolYearId,
                     ["ClassId"]             = s.ClassId,
                     ["ClassName"]           = s.ClassId.HasValue && classNames.TryGetValue(s.ClassId.Value, out var cn) ? cn : string.Empty,
-                    ["SchoolName"]          = school?.Name ?? string.Empty,
-                    ["SchoolSymbol"]        = school?.Symbol ?? string.Empty,
+                    ["SchoolName"]          = school.Name,
+                    ["Symbol"]              = school.Symbol,
+                    ["SchoolSymbol"]        = school.Symbol,
                 };
             }).ToList();
         }
