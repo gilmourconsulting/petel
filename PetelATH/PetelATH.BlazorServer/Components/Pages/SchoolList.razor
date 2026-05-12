@@ -26,7 +26,7 @@
         </SecureButton>
         @if (_isGenerating)
         {
-            <span style="font-size: 0.85em; color: #0d6efd; margin-right: 8px;">מייצא Excel... אנא המתן</span>
+            <span style="font-size: 0.85em; color: #0d6efd; margin-right: 8px;">יוצר דוח 10... אנא המתן</span>
         }
         <div class="context-spacer"></div>
         <SecureButton ActionName="schoollist_backToDashboard" ScreenName="@PageName" FunctionName="NavigateBackToDashboard" 
@@ -447,6 +447,17 @@
 
     private async Task GenerateCouncilExcels()
     {
+        var warningMessage = "התהליך ייצור/יעדכן קבצי דוח 10 לכל הרשויות המשלחות עבור שנת הלימודים שנבחרה. האם להמשיך?";
+        var shouldContinue = await JSRuntime.InvokeAsync<bool>("confirm", warningMessage);
+        if (!shouldContinue)
+        {
+            _generateSuccess = false;
+            _generateSummary = "הפעולה בוטלה על ידי המשתמש";
+            _generateLog = new();
+            StateHasChanged();
+            return;
+        }
+
         _isGenerating = true;
         _generateSummary = null;
         _generateLog = new();
