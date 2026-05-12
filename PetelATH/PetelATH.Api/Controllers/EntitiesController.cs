@@ -983,6 +983,104 @@ public async Task<IActionResult> GetOwnerOptions()
             }
         }
 
+        /// <summary>
+        /// Batch create entities for councils that appear in school_students but don't have an entity yet
+        /// Only creates entities for councils without existing entities
+        /// </summary>
+        [HttpPost("batch-create-councils")]
+        public async Task<IActionResult> BatchCreateCouncilEntities()
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                _logger.LogInformation("🔄 Starting batch creation of council entities");
+
+                // Step 1: Get all councils that appear in school_students
+                var councilsInStudents = await _context.SchoolStudents
+                    .AsNoTracking()
+                    .Where(ss => ss.SendingCouncil.HasValue && ss.IsLastVersion)
+                    .Select(ss => ss.SendingCouncil.Value)
+                    .Distinct()
+                    .ToListAsync();
+
+                _logger.LogInformation("Found {Count} councils in school_students", councilsInStudents.Count);
+
+                // Step 2: Get councils that don't have entities yet
+                var existingCouncilEntityIds = await _context.Entities
+                    .AsNoTracking()
+                    .Where(e => e.EntityTypeId == 2 && e.IsActive)  // Entity type 2 is council
+                    .Select(e => e.CouncilId.HasValue ? e.CouncilId.Value : -1)
+                    .ToListAsync();
+
+                var councilsNeedingEntities = councilsInStudents
+                    .Where(c => !existingCouncilEntityIds.Contains(c))
+                    .ToList();
+
+                _logger.LogInformation("Found {Count} councils needing entities", councilsNeedingEntities.Count);
+
+                if (!councilsNeedingEntities.Any())
+                {
+                    return Ok(new
+                    {
+                        success = true,
+                        message = "כל הרשויות כבר קיימות",
+                        createdCount = 0,
+                        skippedCount = councilsInStudents.Count
+                    });
+                }
+
+                // Step 3: Get council details
+                var councilDetails = await _context.Councils
+                    .AsNoTracking()
+                    .Where(c => councilsNeedingEntities.Contains(c.Id))
+                    .ToListAsync();
+
+                _logger.LogInformation("Retrieved details for {Count} councils", councilDetails.Count);
+
+                // Step 4: Create entities for each council
+                int createdCount = 0;
+                foreach (var council in councilDetails)
+                {
+                    var newEntity = new Entity
+                    {
+                        Name = council.Name,
+                        EntityTypeId = 2,  // Council type
+                        CouncilId = council.Id,
+                        IsActive = true,
+                        OwnerId = null  // No owner for system-created council entities
+                    };
+
+                    _context.Entities.Add(newEntity);
+                    _logger.LogInformation("Creating entity for council: {CouncilName} (ID: {CouncilId})", 
+                        council.Name, council.Id);
+                    createdCount++;
+                }
+
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("✅ Successfully created {Count} council entities", createdCount);
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"נוצרו {createdCount} ישויות עבור רשויות",
+                    createdCount = createdCount,
+                    skippedCount = councilsInStudents.Count - createdCount
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error in batch creation of council entities");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה ביצירת ישויות רשויות",
+                    error = ex.Message
+                });
+            }
+        }
 
     }
 

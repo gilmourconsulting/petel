@@ -84,4 +84,19 @@ namespace PetelATH.BlazorServer.Models
     {
         public int EntityId { get; set; }
     }
+
+    public class BatchCouncilCreationResponse
+    {
+        [JsonPropertyName("success")]
+        public bool Success { get; set; }
+        
+        [JsonPropertyName("message")]
+        public string? Message { get; set; }
+        
+        [JsonPropertyName("createdCount")]
+        public int? CreatedCount { get; set; }
+        
+        [JsonPropertyName("skippedCount")]
+        public int? SkippedCount { get; set; }
+    }
 }

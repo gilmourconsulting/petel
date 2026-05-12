@@ -2,6 +2,7 @@
 @layout MainLayout
 @inherits SecurePageBase
 @using PetelATH.BlazorServer.DTOs
+@using PetelATH.BlazorServer.Models
 @using PetelATH.BlazorServer.Components.Shared
 @inject ApiService ApiService
 @inject SessionStateService SessionState
@@ -14,6 +15,10 @@
         <SecureButton ActionName="entities_addEntity" ScreenName="@PageName" FunctionName="ShowAddEntityModal" 
                       OnClick="ShowAddEntityModal" CssClass="context-btn" Title="הוספת ישות חדשה">
             הוסף ישות
+        </SecureButton>
+        <SecureButton ActionName="entities_batchCreateCouncils" ScreenName="@PageName" FunctionName="BatchCreateCouncilEntities" 
+                      OnClick="BatchCreateCouncilEntities" CssClass="context-btn" Title="יצירת ישויות עבור רשויות חדשות">
+            יצור רשויות
         </SecureButton>
         <div class="context-spacer"></div>
         <SecureButton ActionName="entities_backToDashboard" ScreenName="@PageName" FunctionName="NavigateBackToDashboard" 
@@ -31,6 +36,31 @@
             </div>
             <div class="content-card">
                 <div class="content-card">
+                    <!-- Filter bar -->
+                    <div class="filter-bar" style="display: flex; gap: 15px; margin-bottom: 15px; direction: rtl;">
+                        <input type="text" 
+                               @bind="_filterName" 
+                               @bind:event="oninput"
+                               placeholder="סנן לפי שם..." 
+                               style="padding: 8px 10px; border: 1px solid #dee2e6; border-radius: 4px; flex: 1;" />
+                        
+                        <select @bind="_filterEntityType" 
+                                @bind:event="onchange"
+                                style="padding: 8px 10px; border: 1px solid #dee2e6; border-radius: 4px; flex: 1;">
+                            <option value="">הכל - סוג ישות</option>
+                            @foreach (var type in _entityTypes.Where(t => new[] { 3, 5, 6 }.Contains(t.Id)))
+                            {
+                                <option value="@type.Id">@type.Name</option>
+                            }
+                        </select>
+                        
+                        <input type="text" 
+                               @bind="_filterOwnerName" 
+                               @bind:event="oninput"
+                               placeholder="סנן לפי בעלות..." 
+                               style="padding: 8px 10px; border: 1px solid #dee2e6; border-radius: 4px; flex: 1;" />
+                    </div>
+                    
                     <!-- Entities table -->
                     <div class="entities-table-section">
                         <div id="entitiesTableContainer">
@@ -150,6 +180,11 @@
     private string _sortColumn = nameof(EntityListDto.Name);
     private bool _sortAscending = true;
     
+    // Filter state
+    private string _filterName = "";
+    private string _filterEntityType = "";
+    private string _filterOwnerName = "";
+    
     // Add modal state
     private bool _showAddModal = false;
     private string _newEntityName = "";
@@ -226,21 +261,29 @@
 
     private void ApplySort()
     {
+        // First apply filtering
+        var filtered = _entities.Where(e => 
+            (string.IsNullOrWhiteSpace(_filterName) || e.Name.Contains(_filterName, StringComparison.OrdinalIgnoreCase)) &&
+            (string.IsNullOrWhiteSpace(_filterEntityType) || e.EntityTypeId.ToString() == _filterEntityType) &&
+            (string.IsNullOrWhiteSpace(_filterOwnerName) || (e.OwnerName != null && e.OwnerName.Contains(_filterOwnerName, StringComparison.OrdinalIgnoreCase)))
+        );
+
+        // Then apply sorting
         _sortedEntities = _sortColumn switch
         {
             nameof(EntityListDto.Name) => _sortAscending 
-                ? _entities.OrderBy(e => e.Name).ToList() 
-                : _entities.OrderByDescending(e => e.Name).ToList(),
+                ? filtered.OrderBy(e => e.Name).ToList() 
+                : filtered.OrderByDescending(e => e.Name).ToList(),
             nameof(EntityListDto.EntityTypeDescription) => _sortAscending 
-                ? _entities.OrderBy(e => e.EntityTypeDescription).ToList() 
-                : _entities.OrderByDescending(e => e.EntityTypeDescription).ToList(),
+                ? filtered.OrderBy(e => e.EntityTypeDescription).ToList() 
+                : filtered.OrderByDescending(e => e.EntityTypeDescription).ToList(),
             nameof(EntityListDto.OwnerName) => _sortAscending 
-                ? _entities.OrderBy(e => e.OwnerName).ToList() 
-                : _entities.OrderByDescending(e => e.OwnerName).ToList(),
+                ? filtered.OrderBy(e => e.OwnerName).ToList() 
+                : filtered.OrderByDescending(e => e.OwnerName).ToList(),
             nameof(EntityListDto.IsActive) => _sortAscending 
-                ? _entities.OrderBy(e => e.IsActive).ToList() 
-                : _entities.OrderByDescending(e => e.IsActive).ToList(),
-            _ => _entities.OrderBy(e => e.Name).ToList()
+                ? filtered.OrderBy(e => e.IsActive).ToList() 
+                : filtered.OrderByDescending(e => e.IsActive).ToList(),
+            _ => filtered.OrderBy(e => e.Name).ToList()
         };
     }
 
@@ -375,6 +418,50 @@
         {
             Console.WriteLine($"Error creating entity: {ex.Message}");
             await JSRuntime.InvokeVoidAsync("alert", "שגיאה ביצירת ישות");
+        }
+    }
+
+    private async Task BatchCreateCouncilEntities()
+    {
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", 
+            "יצור ישויות עבור כל הרשויות שמופיעות בתלמידים ועדיין אין להן ישות? הפעולה לא תוכל לחזור עליה.");
+        
+        if (!confirmed) return;
+
+        try
+        {
+            Console.WriteLine("🔄 Starting batch creation of council entities...");
+            _isLoading = true;
+            
+            var response = await ApiService.PostAsync<object, BatchCouncilCreationResponse>(
+                "entities/batch-create-councils",
+                new { }
+            );
+
+            if (response?.Success == true)
+            {
+                var created = response.CreatedCount ?? 0;
+                var skipped = response.SkippedCount ?? 0;
+                await JSRuntime.InvokeVoidAsync("alert", 
+                    $"✅ יצור ישויות הושלם!\n\nנוצרו: {created}\nדלקו בשימוש: {skipped}");
+                
+                // Reload the list
+                await LoadData();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", 
+                    $"שגיאה ביצירת ישויות: {response?.Message ?? "שגיאה לא ידועה"}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in batch creation: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה ביצירת ישויות רשויות");
+        }
+        finally
+        {
+            _isLoading = false;
         }
     }
 
