@@ -55,7 +55,7 @@ VALUES (
     },
     {
       "name": "students",
-      "entity": "StudentsWithSchool",
+      "entity": "StudentsWithPricingElements",
       "type": "collection",
       "filters": [
         { "field": "SendingCouncil", "operator": "eq", "paramName": "sending_council_id" }

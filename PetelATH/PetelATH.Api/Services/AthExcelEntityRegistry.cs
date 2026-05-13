@@ -67,7 +67,8 @@ namespace PetelATH.Api.Services
                 // ── Definition-engine entities ────────────────────────────────
                 "OwnerEntity"            => await QueryOwnerEntityAsync(context, cancellationToken),
                 "Council"                => await QueryCouncilsAsync(cancellationToken),
-                "StudentsWithSchool"     => await QueryStudentsWithSchoolAsync(context, cancellationToken),
+                "StudentsWithSchool"          => await QueryStudentsWithSchoolAsync(context, cancellationToken),
+                "StudentsWithPricingElements" => await QueryStudentsWithPricingElementsAsync(context, cancellationToken),
                 _ => throw new NotSupportedException(
                     $"Entity '{entityName}' is not supported by AthExcelEntityRegistry.")
             };
@@ -415,6 +416,195 @@ namespace PetelATH.Api.Services
                     ["SchoolSymbol"]        = school.Symbol,
                 };
             }).ToList();
+        }
+
+        /// <summary>
+        /// Students with joined school data AND per-element pricing columns.
+        /// Each pricing element defined for the school year produces three dynamic fields
+        /// on every student row, keyed by the element's Name (the 'name' DB column, max 50 chars):
+        ///   [Name]           — Price (decimal, or null if no assignment)
+        ///   [Name + "_שעות"] — Hours (decimal?, or null)
+        ///   [Name + "_גורם"] — DeterminingFactor (string?, or null)
+        ///
+        /// Template usage: {{students.בסיסית}}, {{students.בסיסית_שעות}}, {{students.בסיסית_גורם}}
+        ///
+        /// When context.SchoolYearId is null, falls back to base student+school fields only (no pricing keys).
+        /// </summary>
+        private async Task<List<Dictionary<string, object?>>> QueryStudentsWithPricingElementsAsync(
+            ExcelEntityContext context,
+            CancellationToken ct)
+        {
+            var yearIds = await GetSchoolYearIdsAsync(context, ct);
+
+            // ── School lookup ──────────────────────────────────────────────
+            var schoolYears = await _context.SchoolYears
+                .AsNoTracking()
+                .Where(sy => yearIds.Contains(sy.Id))
+                .Select(sy => new { sy.Id, sy.SchoolId })
+                .ToListAsync(ct);
+
+            var schoolEntityIds = schoolYears.Select(sy => sy.SchoolId).Distinct().ToList();
+
+            var schoolVersionRows = await _context.Schools
+                .AsNoTracking()
+                .Where(s => schoolEntityIds.Contains(s.EntityId) && yearIds.Contains(s.SchoolYearId))
+                .Select(s => new { s.Id, s.EntityId, s.SchoolYearId, s.Version, s.Name, s.Symbol })
+                .ToListAsync(ct);
+
+            var schoolVersionLookup = schoolVersionRows
+                .GroupBy(s => new { s.EntityId, s.SchoolYearId })
+                .ToDictionary(
+                    g => (g.Key.EntityId, g.Key.SchoolYearId),
+                    g => g.OrderByDescending(x => x.Version).ThenByDescending(x => x.Id).First());
+
+            var yearToSchool = schoolYears.ToDictionary(
+                sy => sy.Id,
+                sy =>
+                {
+                    if (schoolVersionLookup.TryGetValue((sy.SchoolId, sy.Id), out var sv))
+                        return (Name: sv.Name?.Trim() ?? string.Empty, Symbol: sv.Symbol?.Trim() ?? string.Empty);
+                    return (Name: string.Empty, Symbol: string.Empty);
+                });
+
+            // ── Students + class info ──────────────────────────────────────
+            var students = await _context.SchoolStudents
+                .AsNoTracking()
+                .Where(s => yearIds.Contains(s.SchoolYearId) && s.IsLastVersion)
+                .ToListAsync(ct);
+
+            var classIds = students
+                .Where(s => s.ClassId.HasValue)
+                .Select(s => s.ClassId!.Value)
+                .Distinct()
+                .ToList();
+
+            var classInfos = classIds.Count > 0
+                ? await _context.SchoolClasses.AsNoTracking()
+                    .Where(c => classIds.Contains(c.Id))
+                    .Select(c => new
+                    {
+                        c.Id,
+                        c.Name,
+                        CharacterizationName = c.Characterization != null
+                            ? $"{c.Characterization.Name} [{c.CharacterizationId}]"
+                            : (string?)null
+                    })
+                    .ToDictionaryAsync(c => c.Id, ct)
+                : null;
+
+            // ── Pricing element definitions for the year ──────────────────
+            var pricingElements = new List<SpecialNeedsPricingElement>();
+            if (context.SchoolYearId.HasValue)
+            {
+                pricingElements = await _context.SpecialNeedsPricingElements
+                    .AsNoTracking()
+                    .Where(pe => pe.YearId == context.SchoolYearId.Value)
+                    .OrderBy(pe => pe.SortOrder)
+                    .ToListAsync(ct);
+
+                var duplicateNames = pricingElements
+                    .GroupBy(pe => pe.ElementName, StringComparer.OrdinalIgnoreCase)
+                    .Where(g => g.Count() > 1)
+                    .Select(g => g.Key)
+                    .ToList();
+
+                if (duplicateNames.Count > 0)
+                    _logger.LogWarning(
+                        "StudentsWithPricingElements: duplicate element Names for year {YearId}: {Names}. Last definition wins.",
+                        context.SchoolYearId.Value, string.Join(", ", duplicateNames));
+            }
+
+            // ── Student pricing assignments (bulk load) ───────────────────
+            // studentId → (pricingElementId → assignment values)
+            var assignmentsByStudent =
+                new Dictionary<int, Dictionary<int, (decimal Price, decimal? Hours, string? Factor)>>();
+
+            if (pricingElements.Count > 0 && students.Count > 0)
+            {
+                var studentIds = students.Select(s => s.Id).ToList();
+                var assignments = await _context.SchoolStudentPricingElements
+                    .AsNoTracking()
+                    .Where(spe => studentIds.Contains(spe.StudentId))
+                    .ToListAsync(ct);
+
+                foreach (var a in assignments)
+                {
+                    if (!assignmentsByStudent.TryGetValue(a.StudentId, out var elemDict))
+                    {
+                        elemDict = new Dictionary<int, (decimal, decimal?, string?)>();
+                        assignmentsByStudent[a.StudentId] = elemDict;
+                    }
+                    elemDict[a.PricingElementId] = (a.Price, a.Hours, a.DeterminingFactor);
+                }
+            }
+
+            // ── Build rows ────────────────────────────────────────────────
+            var rows = new List<Dictionary<string, object?>>(students.Count);
+            foreach (var s in students)
+            {
+                var school = yearToSchool.TryGetValue(s.SchoolYearId, out var si)
+                    ? si
+                    : (Name: string.Empty, Symbol: string.Empty);
+
+                string className = string.Empty;
+                string? characterizationName = null;
+                if (s.ClassId.HasValue && classInfos != null &&
+                    classInfos.TryGetValue(s.ClassId.Value, out var ci))
+                {
+                    className = ci.Name;
+                    characterizationName = ci.CharacterizationName;
+                }
+
+                var row = new Dictionary<string, object?>
+                {
+                    ["Id"]                        = s.Id,
+                    ["MasterStudentId"]           = s.MasterStudentId,
+                    ["FirstName"]                 = s.FirstName,
+                    ["LastName"]                  = s.LastName,
+                    ["FullName"]                  = $"{s.FirstName} {s.LastName}".Trim(),
+                    ["IdNumber"]                  = s.IdNumber,
+                    ["Gender"]                    = s.Gender == 1 ? "זכר" : s.Gender == 2 ? "נקבה" : null,
+                    ["DisabilityCategory"]        = s.DisabilityCategory,
+                    ["City"]                      = s.City,
+                    ["StartDate"]                 = s.StartDate,
+                    ["EndDate"]                   = s.EndDate,
+                    ["Cost"]                      = s.Cost,
+                    ["SendingCouncil"]            = s.SendingCouncil,
+                    ["SchoolYearId"]              = s.SchoolYearId,
+                    ["ClassId"]                   = s.ClassId,
+                    ["ClassName"]                 = className,
+                    ["ClassCharacterizationName"] = characterizationName,
+                    ["SchoolName"]                = school.Name,
+                    ["Symbol"]                    = school.Symbol,
+                    ["SchoolSymbol"]              = school.Symbol,
+                };
+
+                // Append per-element pricing keys (keyed by element.ElementName, i.e. the 'name' column)
+                if (pricingElements.Count > 0)
+                {
+                    assignmentsByStudent.TryGetValue(s.Id, out var elemDict);
+                    foreach (var element in pricingElements)
+                    {
+                        var key = element.ElementName;
+                        if (elemDict != null && elemDict.TryGetValue(element.Id, out var assignment))
+                        {
+                            row[key]              = assignment.Price;
+                            row[key + "_שעות"]   = assignment.Hours;
+                            row[key + "_גורם"]   = assignment.Factor;
+                        }
+                        else
+                        {
+                            row[key]              = null;
+                            row[key + "_שעות"]   = null;
+                            row[key + "_גורם"]   = null;
+                        }
+                    }
+                }
+
+                rows.Add(row);
+            }
+
+            return rows;
         }
 
         private async Task<List<Dictionary<string, object?>>> QueryTransactionsAsync(
@@ -789,6 +979,35 @@ namespace PetelATH.Api.Services
                         new() { Name = "ClassName",          LabelHe = "שם כיתה",       Type = "text" },
                         new() { Name = "SchoolName",         LabelHe = "שם בית ספר",    Type = "text" },
                         new() { Name = "SchoolSymbol",       LabelHe = "סמל בית ספר",   Type = "text" }
+                    }
+                },
+                new()
+                {
+                    Name = "StudentsWithPricingElements",
+                    LabelHe = "תלמידים + מרכיבי תמחור",
+                    IsAccountEntity = false,
+                    Fields = new List<ExcelFieldDescriptor>
+                    {
+                        new() { Name = "Id",                 LabelHe = "מזהה",            Type = "number" },
+                        new() { Name = "MasterStudentId",    LabelHe = "מספר תלמיד",     Type = "number" },
+                        new() { Name = "FirstName",          LabelHe = "שם פרטי",        Type = "text" },
+                        new() { Name = "LastName",           LabelHe = "שם משפחה",       Type = "text" },
+                        new() { Name = "FullName",           LabelHe = "שם מלא",         Type = "text" },
+                        new() { Name = "IdNumber",           LabelHe = "ת.ז.",           Type = "text" },
+                        new() { Name = "Gender",             LabelHe = "מין",            Type = "text", IsFilterable = true },
+                        new() { Name = "DisabilityCategory", LabelHe = "קטגוריית נכות", Type = "number" },
+                        new() { Name = "City",               LabelHe = "עיר",            Type = "text" },
+                        new() { Name = "StartDate",          LabelHe = "תאריך קליטה",   Type = "date" },
+                        new() { Name = "EndDate",            LabelHe = "תאריך סיום",    Type = "date" },
+                        new() { Name = "Cost",               LabelHe = "עלות (סה\"כ)",  Type = "number" },
+                        new() { Name = "SendingCouncil",     LabelHe = "רשות שולחת",    Type = "number", IsFilterable = true },
+                        new() { Name = "SchoolYearId",       LabelHe = "מזהה שנה",      Type = "number", IsFilterable = true },
+                        new() { Name = "ClassId",            LabelHe = "מזהה כיתה",     Type = "number", IsFilterable = true },
+                        new() { Name = "ClassName",          LabelHe = "שם כיתה",       Type = "text" },
+                        new() { Name = "SchoolName",         LabelHe = "שם בית ספר",    Type = "text" },
+                        new() { Name = "SchoolSymbol",       LabelHe = "סמל בית ספר",   Type = "text" }
+                        // Pricing element fields are dynamic (keyed by element Name — the 'name' DB column).
+                        // Template tokens: {{students.בסיסית}}, {{students.בסיסית_שעות}}, {{students.בסיסית_גורם}}
                     }
                 }
             };

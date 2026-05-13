@@ -59,9 +59,24 @@ namespace Petel.BlazorCore.Extensions
                     var contentType = apiResponse.Content.Headers.ContentType?.ToString() ?? "application/octet-stream";
 
                     var fileName = $"document_{documentId}";
-                    if (apiResponse.Content.Headers.ContentDisposition?.FileName != null)
+                    var cd = apiResponse.Content.Headers.ContentDisposition;
+                    if (cd != null)
                     {
-                        fileName = apiResponse.Content.Headers.ContentDisposition.FileName.Trim('"');
+                        // Prefer RFC 5987 filename* (supports Hebrew/Unicode) over ASCII fallback
+                        if (cd.FileNameStar != null)
+                        {
+                            // FileNameStar may include the charset prefix: "UTF-8''encoded-value"
+                            var raw = cd.FileNameStar;
+                            var match = System.Text.RegularExpressions.Regex.Match(
+                                raw, @"^[Uu][Tt][Ff]-8''(.+)$");
+                            fileName = match.Success
+                                ? Uri.UnescapeDataString(match.Groups[1].Value)
+                                : Uri.UnescapeDataString(raw);
+                        }
+                        else if (cd.FileName != null)
+                        {
+                            fileName = cd.FileName.Trim('"');
+                        }
                     }
 
                     logger.LogInformation("✅ Returning document {DocumentId}, size: {Size} bytes, type: {ContentType}",
