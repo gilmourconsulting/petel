@@ -92,8 +92,9 @@ window.BlazorHelpers = {
      * Download a file from URL with authentication token
      * @param {string} url - The download URL
      * @param {string} token - The authentication token
+     * @param {string} fallbackFileName - Optional fallback filename when header is unavailable
      */
-    downloadFileWithAuth: async function (url, token) {
+    downloadFileWithAuth: async function (url, token, fallbackFileName) {
         try {
             const response = await fetch(url, {
                 method: 'GET',
@@ -106,21 +107,54 @@ window.BlazorHelpers = {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
+            const contentType = response.headers.get('Content-Type');
+            const disposition = response.headers.get('Content-Disposition');
+
             const blob = await response.blob();
             const blobUrl = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = blobUrl;
-            
-            // Extract filename from Content-Disposition header or URL
-            const disposition = response.headers.get('Content-Disposition');
-            let filename = 'document.pdf';
-            if (disposition && disposition.includes('filename=')) {
-                filename = disposition
-                    .split('filename=')[1]
-                    .split(';')[0]
-                    .replace(/['"]/g, '');
+
+            let filename = fallbackFileName || 'document';
+            const contentTypeLower = (contentType || '').toLowerCase();
+
+            // Try to extract filename from Content-Disposition header first
+            if (disposition) {
+                try {
+                    // RFC 5987 format: filename*=UTF-8''...
+                    const utfMatch = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+                    if (utfMatch && utfMatch[1]) {
+                        filename = decodeURIComponent(utfMatch[1]);
+                    } else {
+                        // Basic format: filename="value"
+                        const asciiMatch = disposition.match(/filename="?([^";,]+)"?/i);
+                        if (asciiMatch && asciiMatch[1]) {
+                            filename = asciiMatch[1];
+                        }
+                    }
+                } catch (e) {
+                    console.warn('Failed to parse Content-Disposition:', e);
+                }
+            } else {
+                // No Content-Disposition header, use fallback + content-type hint
+                if (contentTypeLower.includes('zip')) {
+                    const base = (fallbackFileName || 'documents').replace(/\.zip$/i, '');
+                    filename = base + '.zip';
+                } else if (contentTypeLower.includes('pdf')) {
+                    const base = (fallbackFileName || 'document').replace(/\.pdf$/i, '');
+                    filename = base + '.pdf';
+                }
             }
-            
+
+            // Ensure proper extension for ZIP files
+            if (!filename.includes('.')) {
+                if (contentTypeLower.includes('zip')) {
+                    filename += '.zip';
+                }
+            } else if (contentTypeLower.includes('zip') && !filename.toLowerCase().endsWith('.zip')) {
+                filename = filename.substring(0, filename.lastIndexOf('.')) + '.zip';
+            }
+
             a.download = filename;
             document.body.appendChild(a);
             a.click();

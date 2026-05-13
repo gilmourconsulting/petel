@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Hangfire;
+using System.IO.Compression;
 using PetelATH.Api.Data;
 using PetelATH.Api.Session;
 using PetelATH.Api.Controllers;
@@ -258,12 +259,14 @@ namespace PetelATH.Api.Controllers
                     _ => "application/octet-stream"
                 };
 
-                // ✅ Use saved filename with null safety
-                var fileName = !string.IsNullOrEmpty(document.FileName)
-                    ? document.FileName
-                    : !string.IsNullOrEmpty(document.Description)
-                        ? $"{document.Description}.{fileExtension}"
-                        : $"document_{document.Id}.{fileExtension}";
+                var baseFileName = BuildDocumentBaseName(
+                    document.DocumentType?.Name,
+                    document.Description,
+                    $"document_{document.Id}");
+
+                var fileName = string.IsNullOrWhiteSpace(fileExtension)
+                    ? baseFileName
+                    : $"{baseFileName}.{fileExtension}";
 
                 // Sanitize filename to prevent header injection
                 fileName = fileName.Replace("\"", "").Replace("\r", "").Replace("\n", "");
@@ -308,6 +311,99 @@ namespace PetelATH.Api.Controllers
                 _logger.LogError(ex, "Error accessing document {DocumentId}. Exception type: {ExceptionType}, Message: {Message}",
                     id, ex.GetType().Name, ex.Message);
                 return StatusCode(500, new { error = "שגיאה בגישה למסמך", details = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Download selected documents as a ZIP file.
+        /// </summary>
+        [HttpGet("bulk-export/selected")]
+        public async Task<IActionResult> BulkExportSelected([FromQuery] string ids)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { error = "נדרש אימות" });
+                }
+
+                if (string.IsNullOrWhiteSpace(ids))
+                {
+                    return BadRequest(new { error = "לא נבחרו מסמכים להורדה" });
+                }
+
+                var selectedIds = ids
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(idText => long.TryParse(idText, out var parsedId) ? parsedId : (long?)null)
+                    .Where(parsedId => parsedId.HasValue)
+                    .Select(parsedId => parsedId!.Value)
+                    .Distinct()
+                    .ToList();
+
+                if (selectedIds.Count == 0)
+                {
+                    return BadRequest(new { error = "לא נבחרו מסמכים תקינים להורדה" });
+                }
+
+                var rawDocuments = await _context.Documents
+                    .AsNoTracking()
+                    .Include(d => d.DocumentType)
+                    .Where(d => selectedIds.Contains(d.Id) && d.IsLastVersion)
+                    .Where(d => d.FileBlob != null)
+                    .OrderByDescending(d => d.CreatedAt)
+                    .ToListAsync();
+
+                var documents = rawDocuments
+                    .Where(d => d.FileBlob is { Length: > 0 })
+                    .ToList();
+
+                if (documents.Count == 0)
+                {
+                    return NotFound(new { error = "לא נמצאו מסמכים עם קבצים להורדה" });
+                }
+
+                using var zipStream = new MemoryStream();
+                using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
+                {
+                    var usedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var document in documents)
+                    {
+                        if (document.FileBlob == null)
+                        {
+                            continue;
+                        }
+
+                        var baseFileName = BuildDocumentBaseName(
+                            document.DocumentType?.Name,
+                            document.Description,
+                            $"document_{document.Id}");
+
+                        var extension = string.IsNullOrWhiteSpace(document.FileEncoding)
+                            ? "bin"
+                            : document.FileEncoding.Trim().TrimStart('.').ToLowerInvariant();
+
+                        var candidateFileName = string.IsNullOrWhiteSpace(extension)
+                            ? baseFileName
+                            : $"{baseFileName}.{extension}";
+
+                        var uniqueFileName = EnsureUniqueFileName(candidateFileName, usedFileNames);
+
+                        var entry = archive.CreateEntry(uniqueFileName, CompressionLevel.Fastest);
+                        using var entryStream = entry.Open();
+                        await entryStream.WriteAsync(document.FileBlob, 0, document.FileBlob.Length);
+                    }
+                }
+
+                zipStream.Position = 0;
+                var zipFileName = $"documents_{DateTime.UtcNow:yyyyMMdd_HHmmss}.zip";
+
+                return File(zipStream.ToArray(), "application/zip", zipFileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in bulk selected documents export");
+                return StatusCode(500, new { error = "שגיאה בהורדת המסמכים" });
             }
         }
 
@@ -1680,6 +1776,45 @@ namespace PetelATH.Api.Controllers
                 "txt" => "text/plain",
                 _ => "application/octet-stream"
             };
+        }
+
+        private static string BuildDocumentBaseName(string? documentTypeName, string? description, string fallback)
+        {
+            var safeType = string.IsNullOrWhiteSpace(documentTypeName) ? string.Empty : documentTypeName.Trim();
+            var safeDescription = string.IsNullOrWhiteSpace(description) ? string.Empty : description.Trim();
+
+            var baseName = !string.IsNullOrWhiteSpace(safeType) && !string.IsNullOrWhiteSpace(safeDescription)
+                ? $"{safeType} - {safeDescription}"
+                : !string.IsNullOrWhiteSpace(safeType)
+                    ? safeType
+                    : !string.IsNullOrWhiteSpace(safeDescription)
+                        ? safeDescription
+                        : fallback;
+
+            return SanitizeFileName(baseName);
+        }
+
+        private static string SanitizeFileName(string fileName)
+        {
+            var invalidChars = Path.GetInvalidFileNameChars();
+            var sanitized = new string(fileName.Select(ch => invalidChars.Contains(ch) ? '_' : ch).ToArray()).Trim();
+            return string.IsNullOrWhiteSpace(sanitized) ? "document" : sanitized;
+        }
+
+        private static string EnsureUniqueFileName(string fileName, HashSet<string> usedFileNames)
+        {
+            var extension = Path.GetExtension(fileName);
+            var fileNameWithoutExtension = Path.GetFileNameWithoutExtension(fileName);
+
+            var candidate = fileName;
+            var counter = 2;
+            while (!usedFileNames.Add(candidate))
+            {
+                candidate = $"{fileNameWithoutExtension} ({counter}){extension}";
+                counter++;
+            }
+
+            return candidate;
         }
 
         /// <summary>
