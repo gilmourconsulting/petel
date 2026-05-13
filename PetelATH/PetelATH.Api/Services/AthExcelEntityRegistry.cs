@@ -367,7 +367,7 @@ namespace PetelATH.Api.Services
             // Pre-load class names
             var students = await _context.SchoolStudents
                 .AsNoTracking()
-                .Where(s => yearIds.Contains(s.SchoolYearId) && s.IsLastVersion)
+                .Where(s => yearIds.Contains(s.SchoolYearId) && s.IsLastVersion && s.StatusId == 2)
                 .ToListAsync(ct);
 
             var classIds = students
@@ -423,13 +423,14 @@ namespace PetelATH.Api.Services
 
         /// <summary>
         /// Students with joined school data AND per-element pricing columns.
-        /// Each pricing element defined for the school year produces three dynamic fields
+        /// Each pricing element defined for the school year produces four dynamic fields
         /// on every student row, keyed by the element's Name (the 'name' DB column, max 50 chars):
-        ///   [Name]           — Price (decimal, or null if no assignment)
+        ///   [Name]           — Calculated (prorated) price (decimal, or null if no assignment)
+        ///   [Name + "_מלא"]  — Full annual (pre-proration) price (decimal?, or null)
         ///   [Name + "_שעות"] — Hours (decimal?, or null)
         ///   [Name + "_גורם"] — DeterminingFactor (string?, or null)
         ///
-        /// Template usage: {{students.בסיסית}}, {{students.בסיסית_שעות}}, {{students.בסיסית_גורם}}
+        /// Template usage: {{students.בסיסית}}, {{students.בסיסית_מלא}}, {{students.בסיסית_שעות}}, {{students.בסיסית_גורם}}
         ///
         /// When context.SchoolYearId is null, falls back to base student+school fields only (no pricing keys).
         /// </summary>
@@ -472,7 +473,7 @@ namespace PetelATH.Api.Services
             // ── Students + class info ──────────────────────────────────────
             var students = await _context.SchoolStudents
                 .AsNoTracking()
-                .Where(s => yearIds.Contains(s.SchoolYearId) && s.IsLastVersion)
+                .Where(s => yearIds.Contains(s.SchoolYearId) && s.IsLastVersion && s.StatusId == 2)
                 .ToListAsync(ct);
 
             var classIds = students
@@ -592,16 +593,16 @@ namespace PetelATH.Api.Services
                         var key = element.ElementName;
                         if (elemDict != null && elemDict.TryGetValue(element.Id, out var assignment))
                         {
-                            // Primary key = annual (full) price — preserves pre-proration template behaviour
-                            row[key]                   = assignment.FullPrice;
-                            row[key + "_חלקי"]         = assignment.Price;   // prorated by enrollment months
+                            // Primary key = calculated (prorated) price; full annual price in "_מלא"
+                            row[key]                   = assignment.Price;       // prorated by enrollment months
+                            row[key + "_מלא"]          = assignment.FullPrice;   // annual (pre-proration) price
                             row[key + "_שעות"]         = assignment.Hours;
                             row[key + "_גורם"]         = assignment.Factor;
                         }
                         else
                         {
                             row[key]                   = null;
-                            row[key + "_חלקי"]         = null;
+                            row[key + "_מלא"]          = null;
                             row[key + "_שעות"]         = null;
                             row[key + "_גורם"]         = null;
                         }
