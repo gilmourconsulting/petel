@@ -152,6 +152,16 @@ namespace PetelATH.Api.Services
             string ownerName = ownerEntity?.Name ?? "לא ידוע";
             Log($"שם גורם בעלות: {ownerName}");
 
+            // ── 7b. Build CouncilId → EntityId map for document linking ──
+            var councilIds = councils.Select(c => c.CouncilId).Distinct().ToList();
+            var councilEntityMap = (await context.Entities
+                .AsNoTracking()
+                .Where(e => e.CouncilId.HasValue && councilIds.Contains(e.CouncilId.Value))
+                .Select(e => new { e.CouncilId, e.Id })
+                .ToListAsync())
+                .GroupBy(e => e.CouncilId!.Value)
+                .ToDictionary(g => g.Key, g => g.First().Id);
+
             // ── 8. Engine context for template path ───────────────────────
             var engineContext = new ExcelEntityContext
             {
@@ -195,6 +205,24 @@ namespace PetelATH.Api.Services
                     {
                         existingDoc.FileBlob = excelBytes;
                         await context.SaveChangesAsync();
+                        
+                        // Ensure council entity link exists
+                        if (councilEntityMap.TryGetValue(council.CouncilId, out var councilEntityId))
+                        {
+                            var councilLink = context.Set<DocumentLink>()
+                                .FirstOrDefault(dl => dl.DocumentId == existingDoc.Id && dl.EntityId == councilEntityId);
+                            if (councilLink == null)
+                            {
+                                context.Set<DocumentLink>().Add(new DocumentLink
+                                {
+                                    DocumentId      = existingDoc.Id,
+                                    EntityId        = councilEntityId,
+                                    SchoolStudentId = null,
+                                });
+                                await context.SaveChangesAsync();
+                            }
+                        }
+                        
                         result.Updated++;
                         Log($"[{i + 1}/{total}] ✅ עודכן מסמך קיים עבור {council.CouncilName} (docId={existingDoc.Id})");
                     }
@@ -221,12 +249,28 @@ namespace PetelATH.Api.Services
                         document.MasterDocumentId = document.Id;
                         context.Documents.Update(document);
 
+                        // Link to owner entity
                         context.Set<DocumentLink>().Add(new DocumentLink
                         {
                             DocumentId      = document.Id,
                             EntityId        = entityId,
                             SchoolStudentId = null,
                         });
+
+                        // Link to council entity (if found in entities table)
+                        if (councilEntityMap.TryGetValue(council.CouncilId, out var councilEntityId))
+                        {
+                            context.Set<DocumentLink>().Add(new DocumentLink
+                            {
+                                DocumentId      = document.Id,
+                                EntityId        = councilEntityId,
+                                SchoolStudentId = null,
+                            });
+                        }
+                        else
+                        {
+                            Log($"[{i + 1}/{total}] ⚠️ לא נמצאה ישות עבור רשות {council.CouncilName} (councilId={council.CouncilId}) — קישור לרשות לא נוצר");
+                        }
 
                         await context.SaveChangesAsync();
 
