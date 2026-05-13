@@ -88,6 +88,7 @@ Field names are case-insensitive. Common fields for `StudentsWithSchool`:
 | `{{students.EndDate}}` | תאריך סיום |
 | `{{students.Cost}}` | עלות |
 | `{{students.DisabilityCategory}}` | קטגוריית מוגבלות |
+| `{{students.ClassCharacterizationName}}` | אפיון כיתה |
 
 For `OwnerEntity` (header data):
 

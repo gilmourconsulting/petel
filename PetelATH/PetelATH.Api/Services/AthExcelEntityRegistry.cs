@@ -372,12 +372,19 @@ namespace PetelATH.Api.Services
                 .Distinct()
                 .ToList();
 
-            var classNames = classIds.Count > 0
+            var classInfos = classIds.Count > 0
                 ? await _context.SchoolClasses.AsNoTracking()
                     .Where(c => classIds.Contains(c.Id))
-                    .Select(c => new { c.Id, c.Name })
-                    .ToDictionaryAsync(c => c.Id, c => c.Name, ct)
-                : new Dictionary<int, string>();
+                .Select(c => new {
+                    c.Id,
+                    c.Name,
+                    CharacterizationId = c.CharacterizationId,
+                    CharacterizationName = c.Characterization != null
+                        ? $"{c.Characterization.Name} [{c.CharacterizationId}]"
+                        : (string?)null
+                })
+                    .ToDictionaryAsync(c => c.Id, ct)
+                : null;
 
             return students.Select(s =>
             {
@@ -401,7 +408,8 @@ namespace PetelATH.Api.Services
                     ["SendingCouncil"]      = s.SendingCouncil,
                     ["SchoolYearId"]        = s.SchoolYearId,
                     ["ClassId"]             = s.ClassId,
-                    ["ClassName"]           = s.ClassId.HasValue && classNames.TryGetValue(s.ClassId.Value, out var cn) ? cn : string.Empty,
+                    ["ClassName"]           = s.ClassId.HasValue && classInfos != null && classInfos.TryGetValue(s.ClassId.Value, out var ci) ? ci.Name : string.Empty,
+                    ["ClassCharacterizationName"] = s.ClassId.HasValue && classInfos != null && classInfos.TryGetValue(s.ClassId.Value, out var ci2) ? ci2.CharacterizationName : null,
                     ["SchoolName"]          = school.Name,
                     ["Symbol"]              = school.Symbol,
                     ["SchoolSymbol"]        = school.Symbol,
