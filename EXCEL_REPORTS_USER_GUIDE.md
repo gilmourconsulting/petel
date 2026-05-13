@@ -72,6 +72,7 @@ Data sources are defined in the report's `definition_json`. Consult the system a
 | `council` | פרטי רשות | scalar |
 | `students` | תלמידים | collection |
 | `studentsWithSchool` | תלמידים + בית ספר | collection |
+| `StudentsWithPricingElements` | תלמידים + מרכיבי תמחור | collection |
 
 ### Field Names
 
@@ -89,6 +90,22 @@ Field names are case-insensitive. Common fields for `StudentsWithSchool`:
 | `{{students.Cost}}` | עלות |
 | `{{students.DisabilityCategory}}` | קטגוריית מוגבלות |
 | `{{students.ClassCharacterizationName}}` | אפיון כיתה |
+
+### Dynamic Pricing Element Fields (`StudentsWithPricingElements`)
+
+When using the `StudentsWithPricingElements` entity, every pricing element defined for the selected school year is automatically added as a set of three fields on each student row. The field names are taken from the element's **name** column (Hebrew, e.g. `בסיסית`).
+
+| Token pattern | Description |
+|---|---|
+| `{{students.בסיסית}}` | מחיר עבור מרכיב "בסיסית" |
+| `{{students.בסיסית_שעות}}` | שעות עבור מרכיב "בסיסית" |
+| `{{students.בסיסית_גורם}}` | גורם קובע עבור מרכיב "בסיסית" |
+
+Replace `בסיסית` with the exact value from the `name` column of the relevant pricing element. If a student has no assignment for that element, the cell is left empty.
+
+All other fields from `StudentsWithSchool` (LastName, FirstName, SchoolName, etc.) are also available on this entity.
+
+---
 
 For `OwnerEntity` (header data):
 
