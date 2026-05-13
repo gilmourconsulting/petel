@@ -4,8 +4,6 @@
 @using PetelATH.BlazorServer.Components.Shared
 @inject ApiService ApiService
 @inject SessionStateService SessionState
-@inject NavigationManager Navigation
-@inject IJSRuntime JSRuntime
 
 
 
@@ -173,7 +171,9 @@
                                 <div>
                                     <p class="detail-field">
                                         <span class="detail-field-label">איש קשר:</span>
-                                        <span class="detail-field-value">@(_entityDetails.ContactPersonName ?? "לא זמין")</span>
+                                        <span class="detail-field-value">@(_isEditMode
+                                            ? (string.IsNullOrWhiteSpace(_editContactPersonName) ? "לא זמין" : _editContactPersonName)
+                                            : (_entityDetails.ContactPersonName ?? "לא זמין"))</span>
                                         @if (_isEditMode)
                                         {
                                             <button class="btn-icon" @onclick="ShowContactPersonModal" title="עריכת איש קשר"
@@ -192,9 +192,12 @@
     </div>
 </div>
 
+<PersonSelectorModal @ref="_personSelector" />
+
 @code {
     private EntityDetailsDto? _entityDetails;
     private EntityUpdateDto _editModel = new();
+    private PersonSelectorModal? _personSelector;
     private List<EntityTypeDto> _entityTypes = new();
     private List<OwnerOptionDto> _potentialOwners = new();
     private bool _isOwnerDropdownLocked = false;
@@ -202,6 +205,7 @@
     private bool _isLoading = true;
     private bool _hasUnsavedChanges = false;
     private string _pageTitle = "פרטי ישות";
+    private string _editContactPersonName = string.Empty;
     private int _currentUserEntityTypeId;
 
     // REQUIRED by SecurePageBase
@@ -347,6 +351,8 @@
             City = _entityDetails.City ?? string.Empty,
             PostCode = _entityDetails.PostCode ?? string.Empty
         };
+
+        _editContactPersonName = _entityDetails.ContactPersonName ?? string.Empty;
     }
 
     private async Task ToggleEditMode()
@@ -452,6 +458,30 @@
 
     private async Task ShowContactPersonModal()
     {
-        await JSRuntime.InvokeVoidAsync("alert", "עריכת איש קשר - בפיתוח");
+        if (_personSelector == null)
+        {
+            return;
+        }
+
+        var currentPerson = _editModel.ContactPersonId != null
+            ? new PersonSelectorModal.PersonInfo
+            {
+                Id = _editModel.ContactPersonId,
+                FirstName = _editContactPersonName.Split(' ').FirstOrDefault() ?? string.Empty,
+                LastName = _editContactPersonName.Split(' ').Skip(1).FirstOrDefault() ?? string.Empty,
+                Position = "איש קשר"
+            }
+            : null;
+
+        var result = await _personSelector.ShowAsync("בחירת איש קשר", currentPerson);
+        if (result == null)
+        {
+            return;
+        }
+
+        _editModel.ContactPersonId = result.Id;
+        _editContactPersonName = $"{result.FirstName} {result.LastName}".Trim();
+        MarkAsChanged();
+        StateHasChanged();
     }
 }
