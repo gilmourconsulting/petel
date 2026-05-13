@@ -651,6 +651,12 @@ namespace PetelATH.Api.Controllers
 
         private static bool IsValidReportType(string type) =>
             type is "query_builder" or "advanced_sql" or "template";
+
+        private static string MakeSafeFileName(string name)
+        {
+            var invalid = Path.GetInvalidFileNameChars();
+            return string.Concat(name.Select(c => invalid.Contains(c) ? '_' : c));
+        }
     }
 
     // ─── Request DTOs ──────────────────────────────────────────────────────

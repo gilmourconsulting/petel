@@ -1851,6 +1851,71 @@ namespace PetelATH.Api.Controllers
 
                 int? userId = int.TryParse(session.UserId, out int uid) ? uid : (int?)null;
 
+                // ── Ownership-network (type 6) ────────────────────────────────
+                // Run the core process for every owned sub-network as if that
+                // sub-network is the calling entity. Documents are stored in each
+                // sub-network's own document list, not the type-6 entity's list.
+                if (session.EntityTypeId == "6")
+                {
+                    var subNetworks = await _context.Entities
+                        .AsNoTracking()
+                        .Where(e => e.OwnerId == entityId && e.IsActive)
+                        .OrderBy(e => e.Name)
+                        .Select(e => new { e.Id, e.Name })
+                        .ToListAsync();
+
+                    if (subNetworks.Count == 0)
+                        return BadRequest(new { success = false, message = "לא נמצאו רשתות בנות לישות זו" });
+
+                    var jobClient6 = HttpContext.RequestServices
+                        .GetService<Hangfire.IBackgroundJobClient>();
+
+                    if (jobClient6 != null)
+                    {
+                        foreach (var sub in subNetworks)
+                            jobClient6.Enqueue<Services.CouncilExcelGenerationService>(
+                                s => s.GenerateForAllCouncils(sub.Id, yearId.Value, userId));
+
+                        _logger.LogInformation(
+                            "Queued council Excel generation for {Count} sub-networks of entityId={EntityId}, yearId={YearId}",
+                            subNetworks.Count, entityId, yearId.Value);
+
+                        return Accepted(new
+                        {
+                            success = true,
+                            message = $"הפעולה הועברת לביצוע ברקע עבור {subNetworks.Count} רשתות. הקבצים יופיעו במסמכי כל רשת בסיום."
+                        });
+                    }
+
+                    // Synchronous fallback
+                    var svc6 = HttpContext.RequestServices
+                        .GetRequiredService<Services.CouncilExcelGenerationService>();
+
+                    var total6 = new Services.CouncilExcelResult();
+                    foreach (var sub in subNetworks)
+                    {
+                        var r = await svc6.GenerateForAllCouncilsWithResult(sub.Id, yearId.Value, userId);
+                        total6.Created += r.Created;
+                        total6.Updated += r.Updated;
+                        total6.Failed  += r.Failed;
+                        total6.Log.AddRange(r.Log);
+                    }
+
+                    var summary6 = $"ייצוא הסתיים עבור {subNetworks.Count} רשתות: נוצרו {total6.Created}, עודכנו {total6.Updated}" +
+                                   (total6.Failed > 0 ? $", נכשלו {total6.Failed}" : "");
+
+                    return Ok(new
+                    {
+                        success = total6.Success,
+                        message = summary6,
+                        created = total6.Created,
+                        updated = total6.Updated,
+                        failed  = total6.Failed,
+                        log     = total6.Log,
+                    });
+                }
+
+                // ── Standard entity (type 2 – municipality, type 5 – network) ─
                 // Try Hangfire first (registered only when HangfireConnection is configured)
                 var jobClient = HttpContext.RequestServices
                     .GetService<Hangfire.IBackgroundJobClient>();

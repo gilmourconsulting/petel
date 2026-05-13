@@ -10,9 +10,12 @@ namespace PetelATH.Api.Services
     /// Defines which entities can be exported and handles entity-scoped data retrieval.
     ///
     /// Entity Type IDs (string values from UserSession.EntityTypeId):
-    ///   "4" = School
-    ///   "3" = Council / Network
-    ///   "1" = System Administrator
+    ///   "1" = School (special education type)
+    ///   "2" = Council (רשות)
+    ///   "3" = Special education network (רשת חינוך מיוחד)
+    ///   "4" = School (regular)
+    ///   "5" = Network (other)
+    ///   "6" = Ownership network (רשת בעלויות) — owns sub-networks which own schools
     ///
     /// Cross-year allowed entity names (account/financial entities):
     ///   Transactions, TransactionAccounts
@@ -708,7 +711,7 @@ namespace PetelATH.Api.Services
             if (context.EntityTypeId == "4")
                 return new List<int> { context.EntityId };
 
-            // Council/Network — all owned entities.
+            // Council/Network — all directly owned entities.
             // We intentionally avoid hard-coding entity type here because production
             // data may contain owned schools with different entity type IDs; the
             // downstream SchoolYears join keeps only valid school entities.
