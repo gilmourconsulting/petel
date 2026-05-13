@@ -47,7 +47,11 @@ namespace PetelATH.Api.Controllers
                         Name = c.Name,
                         Level = c.Level,
                         ClassNumber = c.ClassNumber,
-                        EndHour = c.EndHour
+                        EndHour = c.EndHour,
+                        CharacterizationId = c.CharacterizationId,
+                        CharacterizationName = c.Characterization != null
+                            ? $"{c.Characterization.Name} [{c.CharacterizationId}]"
+                            : null
                     })
                     .ToListAsync();
 
@@ -145,7 +149,8 @@ namespace PetelATH.Api.Controllers
                     Name = $"{levelTrimmed} {numberTrimmed}",
                     Level = levelTrimmed,
                     ClassNumber = numberTrimmed,
-                    EndHour = request.EndHour
+                    EndHour = request.EndHour,
+                    CharacterizationId = request.CharacterizationId
                 };
 
                 _context.SchoolClasses.Add(newClass);
@@ -160,7 +165,8 @@ namespace PetelATH.Api.Controllers
                     SchoolYearId = newClass.SchoolYearId,
                     Name = newClass.Name,
                     Level = newClass.Level,
-                    ClassNumber = newClass.ClassNumber
+                    ClassNumber = newClass.ClassNumber,
+                    CharacterizationId = newClass.CharacterizationId
                 };
 
                 return Ok(new { success = true, data = result });
@@ -272,7 +278,8 @@ namespace PetelATH.Api.Controllers
 
                             bool hasChanges = existingClass.Level != levelTrimmed ||
                                             existingClass.ClassNumber != numberTrimmed ||
-                                            existingClass.EndHour != classUpdate.EndHour;
+                                            existingClass.EndHour != classUpdate.EndHour ||
+                                            existingClass.CharacterizationId != classUpdate.CharacterizationId;
 
                             if (hasChanges)
                             {
@@ -283,6 +290,7 @@ namespace PetelATH.Api.Controllers
                                 existingClass.ClassNumber = numberTrimmed;
                                 existingClass.Name = $"{levelTrimmed} {numberTrimmed}";
                                 existingClass.EndHour = classUpdate.EndHour;
+                                existingClass.CharacterizationId = classUpdate.CharacterizationId;
 
                                 updateCount++;
                             }
@@ -356,6 +364,7 @@ namespace PetelATH.Api.Controllers
             classToUpdate.ClassNumber = numberTrimmed;
             classToUpdate.Name = $"{levelTrimmed} {numberTrimmed}";
             classToUpdate.EndHour = request.EndHour; // Can be null
+            classToUpdate.CharacterizationId = request.CharacterizationId;
     
             await _context.SaveChangesAsync();
     
@@ -369,7 +378,8 @@ namespace PetelATH.Api.Controllers
                 Name = classToUpdate.Name,
                 Level = classToUpdate.Level,
                 ClassNumber = classToUpdate.ClassNumber,
-                EndHour = classToUpdate.EndHour
+                EndHour = classToUpdate.EndHour,
+                CharacterizationId = classToUpdate.CharacterizationId
             };
     
             return Ok(new { success = true, data = result });

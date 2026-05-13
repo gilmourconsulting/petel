@@ -36,6 +36,12 @@ namespace PetelATH.Api.Data
         [Column("end_hour")]
         public TimeOnly? EndHour { get; set; }
 
+        [Column("characterization_id")]
+        public int? CharacterizationId { get; set; }
+
+        [ForeignKey("CharacterizationId")]
+        public virtual SpecialNeedsCharacterization? Characterization { get; set; }
+
         [Column("created_at")]
         public DateTime? CreatedAt { get; set; }
 

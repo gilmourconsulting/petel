@@ -112,7 +112,9 @@ namespace PetelATH.Api.Controllers
                     ContactPersonName = GlobalFunctions.FormatPersonName(school.ContactPersonPerson),
 
                     CharacterizationId = school.CharacterizationId,
-                    CharacterizationName = school.Characterization?.Name,
+                    CharacterizationName = school.Characterization != null
+                        ? $"{school.Characterization.Name} [{school.CharacterizationId}]"
+                        : null,
                     EducationStage = school.EducationStage,
                     Symbol = school.Symbol,
                     IsActive = school.IsActive,

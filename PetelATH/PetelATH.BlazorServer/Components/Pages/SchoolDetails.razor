@@ -189,6 +189,18 @@
                 </div>
 
                 <div class="form-group">
+                    <label for="classCharacterization">אפיון:</label>
+                    <select id="classCharacterization" class="form-control" @bind="_classModalData.CharacterizationId"
+                            style="width: 100%; padding: 8px; font-size: 14px; height: auto;">
+                        <option value="">ללא אפיון</option>
+                        @foreach (var ch in _characterizations)
+                        {
+                            <option value="@ch.Id">@($"{ch.Name} [{ch.Id}]")</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="form-group">
                     <label>
                         שעת סיום:
                         <span class="text-muted" style="font-size: 0.85em;">(אופציונלי)</span>
@@ -1061,7 +1073,10 @@
 
     private async Task ShowAddClassModal()
     {
-        _classModalData = new SchoolClassDto();
+        _classModalData = new SchoolClassDto
+        {
+            CharacterizationId = _schoolDetails?.CharacterizationId
+        };
         _isEditingClass = false;
         _showClassModal = true;
 
@@ -1079,7 +1094,8 @@
             Level = classDto.Level,
             ClassNumber = classDto.ClassNumber,
             ClassName = classDto.ClassName,
-            EndHour = classDto.EndHour
+            EndHour = classDto.EndHour,
+            CharacterizationId = classDto.CharacterizationId
         };
         _isEditingClass = true;
 
@@ -1204,7 +1220,8 @@
                     {
                         level = _classModalData.Level,
                         classNumber = _classModalData.ClassNumber,
-                        endHour = endHourStr
+                        endHour = endHourStr,
+                        characterizationId = _classModalData.CharacterizationId
                     };
 
                     var response = await ApiService.PutAsync<object, ApiResponse<object>>(
@@ -1231,7 +1248,8 @@
                         schoolYearId = schoolYearId,
                         level = _classModalData.Level,
                         classNumber = _classModalData.ClassNumber,
-                        endHour = endHourStr
+                        endHour = endHourStr,
+                        characterizationId = _classModalData.CharacterizationId
                     };
 
                     var response = await ApiService.PostAsync<object, ApiResponse<object>>(

@@ -33,6 +33,7 @@
                         <td>@cls.Level</td>
                         <td>@cls.ClassNumber</td>
                         <td>@(cls.EndHour?.ToString("HH:mm") ?? "-")</td>
+                        <td>@(cls.CharacterizationName ?? "-")</td>
                         <!--          <td>@cls.StudentCount</td>-->
 
                     </tr>
@@ -58,7 +59,8 @@ else
         {
             new() { Label = "שכבה", PropertyName = nameof(SchoolClassDto.Level), IsSortable = true },
             new() { Label = "מספר כיתה", PropertyName = nameof(SchoolClassDto.ClassNumber), IsSortable = true },
-            new() { Label = "שעת סיום", PropertyName = nameof(SchoolClassDto.EndHour), IsSortable = true }
+            new() { Label = "שעת סיום", PropertyName = nameof(SchoolClassDto.EndHour), IsSortable = true },
+            new() { Label = "אפיון", PropertyName = nameof(SchoolClassDto.CharacterizationName), IsSortable = true }
         };
     }
 
@@ -76,6 +78,9 @@ else
             nameof(SchoolClassDto.EndHour) => ascending
                 ? items.OrderBy(c => c.EndHour).ThenBy(c => c.Level).ThenBy(c => c.ClassNumber)
                 : items.OrderByDescending(c => c.EndHour).ThenByDescending(c => c.Level).ThenByDescending(c => c.ClassNumber),
+            nameof(SchoolClassDto.CharacterizationName) => ascending
+                ? items.OrderBy(c => c.CharacterizationName).ThenBy(c => c.Level).ThenBy(c => c.ClassNumber)
+                : items.OrderByDescending(c => c.CharacterizationName).ThenByDescending(c => c.Level).ThenByDescending(c => c.ClassNumber),
             _ => items.OrderBy(c => c.Level).ThenBy(c => c.ClassNumber)
         };
     }

@@ -202,7 +202,9 @@ public async Task<IActionResult> GetSchools([FromQuery] int? yearId = null)
                 InspectorLastName = s.InspectorPerson != null ? s.InspectorPerson.LastName : null,
                 ContactFirstName = s.ContactPersonPerson != null ? s.ContactPersonPerson.FirstName : null,
                 ContactLastName = s.ContactPersonPerson != null ? s.ContactPersonPerson.LastName : null,
-                CharacterizationName = s.Characterization != null ? s.Characterization.Name : null,
+                CharacterizationName = s.Characterization != null
+                    ? $"{s.Characterization.Name} [{s.CharacterizationId}]"
+                    : null,
                 s.EducationStage,
                 s.IsActive,
                 s.SchoolYearId

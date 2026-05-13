@@ -8,7 +8,8 @@ namespace PetelATH.Api.DTOs
         public string? Level { get; set; }
         public string? ClassNumber { get; set; }
         public TimeOnly? EndHour { get; set; }
-
+        public int? CharacterizationId { get; set; }
+        public string? CharacterizationName { get; set; }
     }
 
     public class SchoolClassUpdateDto
@@ -16,9 +17,8 @@ namespace PetelATH.Api.DTOs
         public int? Id { get; set; }
         public string? Level { get; set; }
         public string? ClassNumber { get; set; }
-                public TimeOnly? EndHour { get; set; }
-
-
+        public TimeOnly? EndHour { get; set; }
+        public int? CharacterizationId { get; set; }
     }
 
     public class SchoolClassBulkUpdateDto
@@ -27,11 +27,12 @@ namespace PetelATH.Api.DTOs
         public List<SchoolClassUpdateDto> Classes { get; set; } = new();
     }
 
-        public class SchoolClassCreateDto
+    public class SchoolClassCreateDto
     {
         public int SchoolYearId { get; set; }
         public string Level { get; set; } = string.Empty;
         public string ClassNumber { get; set; } = string.Empty;
         public TimeOnly? EndHour { get; set; }
+        public int? CharacterizationId { get; set; }
     }
 }

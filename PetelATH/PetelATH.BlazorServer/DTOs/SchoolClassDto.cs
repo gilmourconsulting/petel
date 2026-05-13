@@ -9,6 +9,8 @@ namespace PetelATH.BlazorServer.DTOs
         public string ClassName { get; set; } = string.Empty;
         public TimeOnly? EndHour { get; set; }
         public int StudentCount { get; set; }
+        public int? CharacterizationId { get; set; }
+        public string? CharacterizationName { get; set; }
     }
 
     public class SchoolClassesResponse
@@ -24,6 +26,7 @@ namespace PetelATH.BlazorServer.DTOs
         public string Level { get; set; } = string.Empty;
         public string ClassNumber { get; set; } = string.Empty;
         public string? EndHour { get; set; }
+        public int? CharacterizationId { get; set; }
     }
 
     public class UpdateSchoolClassRequest
@@ -31,5 +34,6 @@ namespace PetelATH.BlazorServer.DTOs
         public string Level { get; set; } = string.Empty;
         public string ClassNumber { get; set; } = string.Empty;
         public string? EndHour { get; set; }
+        public int? CharacterizationId { get; set; }
     }
 }

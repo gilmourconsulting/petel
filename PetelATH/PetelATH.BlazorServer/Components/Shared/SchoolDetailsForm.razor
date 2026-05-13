@@ -32,7 +32,7 @@
                             <option value="">בחר אפיון...</option>
                             @foreach (var characterization in Characterizations)
                             {
-                                <option value="@characterization.Id">@characterization.Name</option>
+                                <option value="@characterization.Id">@($"{characterization.Name} [{characterization.Id}]")</option>
                             }
                         </select>
                     }

@@ -416,6 +416,11 @@ modelBuilder.Entity<SpecialNeedsPricingCategory>(entity =>
                 entity.Property(e => e.ClassNumber).IsRequired().HasMaxLength(3);
                 //  entity.Property(e => e.CreatedAt).HasDefaultValueSql("now()");
                 //  entity.Property(e => e.UpdatedAt).HasDefaultValueSql("now()");
+
+                entity.HasOne(e => e.Characterization)
+                    .WithMany()
+                    .HasForeignKey(e => e.CharacterizationId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
 
