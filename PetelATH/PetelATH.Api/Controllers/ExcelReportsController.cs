@@ -522,6 +522,13 @@ namespace PetelATH.Api.Controllers
             {
                 schoolYearId = yearId;
             }
+            else if (runtimeParams.TryGetValue("hebrew_year_id", out var hebrewYearStr)
+                && int.TryParse(hebrewYearStr, out var hebrewYearId))
+            {
+                // hebrew_year_id is the FK to hebrew_years.id — same value used by
+                // GetSchoolYearIdsAsync and SpecialNeedsPricingElements.YearId
+                schoolYearId = hebrewYearId;
+            }
 
             return new ExcelEntityContext
             {

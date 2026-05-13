@@ -517,7 +517,7 @@ namespace PetelATH.Api.Services
             // ── Student pricing assignments (bulk load) ───────────────────
             // studentId → (pricingElementId → assignment values)
             var assignmentsByStudent =
-                new Dictionary<int, Dictionary<int, (decimal Price, decimal? Hours, string? Factor)>>();
+                new Dictionary<int, Dictionary<int, (decimal Price, decimal FullPrice, decimal? Hours, string? Factor)>>();
 
             if (pricingElements.Count > 0 && students.Count > 0)
             {
@@ -531,10 +531,11 @@ namespace PetelATH.Api.Services
                 {
                     if (!assignmentsByStudent.TryGetValue(a.StudentId, out var elemDict))
                     {
-                        elemDict = new Dictionary<int, (decimal, decimal?, string?)>();
+                        elemDict = new Dictionary<int, (decimal, decimal, decimal?, string?)>();
                         assignmentsByStudent[a.StudentId] = elemDict;
                     }
-                    elemDict[a.PricingElementId] = (a.Price, a.Hours, a.DeterminingFactor);
+                    // FullPrice = annual (pre-proration) price; Price = prorated by enrollment months
+                    elemDict[a.PricingElementId] = (a.Price, a.FullPrice, a.Hours, a.DeterminingFactor);
                 }
             }
 
@@ -588,15 +589,18 @@ namespace PetelATH.Api.Services
                         var key = element.ElementName;
                         if (elemDict != null && elemDict.TryGetValue(element.Id, out var assignment))
                         {
-                            row[key]              = assignment.Price;
-                            row[key + "_שעות"]   = assignment.Hours;
-                            row[key + "_גורם"]   = assignment.Factor;
+                            // Primary key = annual (full) price — preserves pre-proration template behaviour
+                            row[key]                   = assignment.FullPrice;
+                            row[key + "_חלקי"]         = assignment.Price;   // prorated by enrollment months
+                            row[key + "_שעות"]         = assignment.Hours;
+                            row[key + "_גורם"]         = assignment.Factor;
                         }
                         else
                         {
-                            row[key]              = null;
-                            row[key + "_שעות"]   = null;
-                            row[key + "_גורם"]   = null;
+                            row[key]                   = null;
+                            row[key + "_חלקי"]         = null;
+                            row[key + "_שעות"]         = null;
+                            row[key + "_גורם"]         = null;
                         }
                     }
                 }
