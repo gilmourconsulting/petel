@@ -38,6 +38,7 @@ namespace PetelATH.Api.Services
                         {
                             PricingElementId = pe.PricingElementId,
                             PricingElementName = spe.ElementName,
+                            FullPrice = pe.FullPrice,
                             Price = pe.Price,
                             DisabilityCategory = 0, // Not needed for comparison
                             DeterminingFactor = pe.DeterminingFactor,
@@ -91,16 +92,16 @@ namespace PetelATH.Api.Services
                 var calc = sortedCalculated[i];
 
                 if (curr.PricingElementId != calc.PricingElementId ||
-                    curr.Price != calc.Price ||
+                    curr.FullPrice != calc.FullPrice ||
                     curr.DeterminingFactor != calc.DeterminingFactor ||
                     curr.Hours != calc.Hours)
                 {
                     _logger.LogDebug("Element difference detected at index {Index}: " +
-                        "Current=[Id:{CurrId}, Price:{CurrPrice:C}, Factor:{CurrFactor}, Hours:{CurrHours}], " +
-                        "Calculated=[Id:{CalcId}, Price:{CalcPrice:C}, Factor:{CalcFactor}, Hours:{CalcHours}]",
+                        "Current=[Id:{CurrId}, FullPrice:{CurrFullPrice:C}, Factor:{CurrFactor}, Hours:{CurrHours}], " +
+                        "Calculated=[Id:{CalcId}, FullPrice:{CalcFullPrice:C}, Factor:{CalcFactor}, Hours:{CalcHours}]",
                         i,
-                        curr.PricingElementId, curr.Price, curr.DeterminingFactor, curr.Hours,
-                        calc.PricingElementId, calc.Price, calc.DeterminingFactor, calc.Hours);
+                        curr.PricingElementId, curr.FullPrice, curr.DeterminingFactor, curr.Hours,
+                        calc.PricingElementId, calc.FullPrice, calc.DeterminingFactor, calc.Hours);
                     return false;
                 }
             }
@@ -125,7 +126,6 @@ namespace PetelATH.Api.Services
                 // Step 1: Retrieve current pricing elements (before calculation)
                 _logger.LogInformation("📊 Starting pricing calculation for student ID: {StudentId}", schoolStudentId);
                 var currentPricingElements = await GetCurrentPricingElements(schoolStudentId);
-                decimal currentTotalCost = currentPricingElements.Sum(e => e.Price);
 
                 // Step 2: Get student record
                 var student = await _context.SchoolStudents
@@ -307,27 +307,40 @@ namespace PetelATH.Api.Services
 
                 result.Success = result.CalculatedElements.Count > 0;
 
-                // Step 7: Compare with current pricing elements before saving
+                // Step 7: Apply enrollment-month proration per element, then compare
                 if (result.Success)
                 {
-                    var totalCost = result.CalculatedElements.Sum(e => e.Price);
-                    var proratedCost = CalculateProratedCost(totalCost, student);
-                    var currentProratedCost = CalculateProratedCost(currentTotalCost, student);
+                    // Determine effective enrollment months for this student
+                    int enrollmentMonths = CalculateEffectiveEnrollmentMonths(student);
+                    result.EnrollmentMonths = enrollmentMonths;
 
-                    _logger.LogInformation("💰 Total cost before proration: {TotalCost:C}, After proration: {ProratedCost:C}",
-                        totalCost, proratedCost);
+                    // Set FullPrice = base annual price, then prorate Price by enrollment months
+                    foreach (var element in result.CalculatedElements)
+                    {
+                        element.FullPrice = element.Price;
+                        if (enrollmentMonths < 12)
+                        {
+                            element.Price = element.FullPrice * enrollmentMonths / 12m;
+                        }
+                    }
 
-                    // Compare calculated elements with current elements
+                    var proratedCost = result.CalculatedElements.Sum(e => e.Price);
+                    var fullCost = result.CalculatedElements.Sum(e => e.FullPrice);
+
+                    _logger.LogInformation("💰 Full annual cost: {FullCost:C}, Enrollment months: {Months}/12, Prorated cost: {ProratedCost:C}",
+                        fullCost, enrollmentMonths, proratedCost);
+
+                    // Compare calculated elements (by full price) with current stored elements
                     bool elementsEqual = ArePricingElementsEqual(currentPricingElements, result.CalculatedElements);
-                    bool costEqual = proratedCost == currentProratedCost;
+                    bool costEqual = proratedCost == (student.Cost ?? 0m);
 
                     if (elementsEqual && costEqual)
                     {
                         // No changes detected - skip saving
                         result.NoChangeDetected = true;
                         _logger.LogInformation("✅ No pricing changes detected for student {StudentId}. " +
-                            "Current cost: {CurrentCost:C}, Calculated cost: {CalculatedCost:C}. Skipping save.",
-                            schoolStudentId, currentProratedCost, proratedCost);
+                            "Stored cost: {CurrentCost:C}, Calculated cost: {CalculatedCost:C}. Skipping save.",
+                            schoolStudentId, student.Cost ?? 0m, proratedCost);
                     }
                     else
                     {
@@ -343,14 +356,15 @@ namespace PetelATH.Api.Services
                             newVersion =>
                             {
                                 newVersion.Cost = proratedCost;
+                                newVersion.EnrollmentMonths = enrollmentMonths;
                                 newVersion.StatusId = status;
                             });
 
                         if (newStudentId.HasValue)
                         {
                             result.NewStudentId = newStudentId.Value;
-                            _logger.LogInformation("✅ Created new student version {NewId} with cost {Cost:C}",
-                                newStudentId.Value, proratedCost);
+                            _logger.LogInformation("✅ Created new student version {NewId} with cost {Cost:C} ({Months} months)",
+                                newStudentId.Value, proratedCost, enrollmentMonths);
                         }
                         else
                         {
@@ -373,6 +387,26 @@ namespace PetelATH.Api.Services
 
 
                /// <summary>
+        /// Returns the effective number of enrollment months for proration (1-12).
+        /// Returns 12 for full-year enrolment (Sep 1 → Aug 31) or when dates are missing.
+        /// </summary>
+        private int CalculateEffectiveEnrollmentMonths(SchoolStudent student)
+        {
+            if (!student.StartDate.HasValue || !student.EndDate.HasValue)
+                return 12;
+
+            var startDate = student.StartDate.Value;
+            var endDate   = student.EndDate.Value;
+
+            if (startDate.Month == 9 && startDate.Day == 1 &&
+                endDate.Month   == 8 && endDate.Day   == 31)
+                return 12;
+
+            int months = CalculateEnrollmentMonths(startDate, endDate);
+            return (months <= 0 || months >= 12) ? 12 : months;
+        }
+
+        /// <summary>
         /// Calculate prorated cost based on student's enrollment period
         /// Full year: September 1st to August 31st
         /// Partial year: Calculate months and prorate
@@ -1090,11 +1124,11 @@ private async Task<CalculatedPricingElement?> CalculatePriceForElement(
                     {
                         StudentId = newStudentId,
                         PricingElementId = element.PricingElementId,
+                        FullPrice = element.FullPrice,
                         Price = element.Price,
-                        DeterminingFactor = element.DeterminingFactor, // ✅ NEW
-                        Hours = element.Hours // ✅ NEW
+                        DeterminingFactor = element.DeterminingFactor,
+                        Hours = element.Hours
                     };
-
                     _context.SchoolStudentPricingElements.Add(pricingElement);
                 }
 
@@ -1119,6 +1153,7 @@ private async Task<CalculatedPricingElement?> CalculatePriceForElement(
         public int? NewStudentId { get; set; }
         public bool Success { get; set; }
         public bool NoChangeDetected { get; set; }
+        public int EnrollmentMonths { get; set; } = 12;
         public List<CalculatedPricingElement> CalculatedElements { get; set; } = new();
         public List<string> Errors { get; set; } = new();
     }
@@ -1127,9 +1162,12 @@ private async Task<CalculatedPricingElement?> CalculatePriceForElement(
     {
         public int PricingElementId { get; set; }
         public string PricingElementName { get; set; } = string.Empty;
+        /// <summary>Full annual price before any proration</summary>
+        public decimal FullPrice { get; set; }
+        /// <summary>Calculated price after applying enrollment-month proration</summary>
         public decimal Price { get; set; }
         public int DisabilityCategory { get; set; }
         public string? DeterminingFactor { get; set; }
-        public decimal? Hours { get; set; } // ✅ NEW
+        public decimal? Hours { get; set; }
     }
 }

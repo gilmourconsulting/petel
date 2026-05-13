@@ -19,6 +19,9 @@ namespace PetelATH.Api.Data
         [Column("price")]
         public decimal Price { get; set; }
 
+        [Column("full_price")]
+        public decimal FullPrice { get; set; }
+
         [Column("determining_factor")]
         [MaxLength(100)]
         public string? DeterminingFactor { get; set; }

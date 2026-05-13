@@ -65,7 +65,10 @@ namespace PetelATH.Api.Data
 
         [Column("cost")]
         public decimal? Cost { get; set; }
-            
+
+        [Column("enrollment_months")]
+        public int? EnrollmentMonths { get; set; }
+
         [ForeignKey("Status")]
         [Column("status")]
         public int? StatusId { get; set; }

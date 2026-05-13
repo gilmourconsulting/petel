@@ -127,7 +127,9 @@ namespace PetelATH.Api.Controllers
                         schoolStudentId = result.SchoolStudentId,
                         newStudentId = result.NewStudentId,
                         noChangeDetected = result.NoChangeDetected,
+                        enrollmentMonths = result.EnrollmentMonths,
                         elementsCount = result.CalculatedElements.Count,
+                        totalFullPrice = result.CalculatedElements.Sum(e => e.FullPrice),
                         totalPrice = result.CalculatedElements.Sum(e => e.Price),
                         elements = result.CalculatedElements,
                         warnings = result.Errors
@@ -185,6 +187,7 @@ namespace PetelATH.Api.Controllers
                             spe.StudentId,
                             spe.PricingElementId,
                             PricingElementName = snpe.ElementName,
+                            spe.FullPrice,
                             spe.Price,
                             spe.DeterminingFactor,       
                             spe.Hours,     
@@ -197,15 +200,15 @@ namespace PetelATH.Api.Controllers
                 _logger.LogInformation("✅ Found {Count} pricing elements for student {StudentId}", 
                     pricingElements.Count, schoolStudentId);
 
-                // ✅ Calculate enrollment months
-                int? enrollmentMonths = null;
-                if (student.StartDate.HasValue && student.EndDate.HasValue)
-                {
-                    enrollmentMonths = CalculateEnrollmentMonthsForDisplay(student.StartDate.Value, student.EndDate.Value);
-                }
+                // ✅ Calculate enrollment months (prefer stored value, fallback to calculate)
+                int? enrollmentMonths = student.EnrollmentMonths
+                    ?? (student.StartDate.HasValue && student.EndDate.HasValue
+                        ? CalculateEnrollmentMonthsForDisplay(student.StartDate.Value, student.EndDate.Value)
+                        : (int?)null);
 
                 // ✅ Calculate sum of pricing elements
                 var elementsTotal = pricingElements.Sum(pe => pe.Price);
+                var elementsTotalFull = pricingElements.Sum(pe => pe.FullPrice);
 
                 return Ok(new
                 {
@@ -213,9 +216,10 @@ namespace PetelATH.Api.Controllers
                     data = pricingElements,
                     summary = new
                     {
-                        elementsTotal = elementsTotal,           // ✅ Sum of pricing elements
-                        studentCost = student.Cost ?? 0,         // ✅ Final cost from student record
-                        enrollmentMonths = enrollmentMonths,     // ✅ Number of months enrolled
+                        elementsTotalFull = elementsTotalFull,       // ✅ Sum of full annual prices
+                        elementsTotal = elementsTotal,               // ✅ Sum of prorated prices
+                        studentCost = student.Cost ?? 0,             // ✅ Final cost from student record
+                        enrollmentMonths = enrollmentMonths,         // ✅ Months enrolled
                         startDate = student.StartDate,
                         endDate = student.EndDate
                     }

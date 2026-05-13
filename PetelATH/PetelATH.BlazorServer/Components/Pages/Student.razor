@@ -300,7 +300,8 @@
                                                 <thead>
                                                     <tr>
                                                         <th>שם רכיב</th>
-                                                        <th>מחיר</th>
+                                                        <th>מחיר מלא</th>
+                                                        <th>מחיר מחושב</th>
                                                         <th>גורם משפיע</th>
                                                         <th>שעות</th>
 
@@ -312,6 +313,7 @@
                                                         <tr>
 
                                                             <td>@element.PricingElementName</td>
+                                                            <td>@element.FullPrice.ToString("N2") ₪</td>
                                                             <td>@element.Price.ToString("N2") ₪</td>
                                                             <td>@element.DeterminingFactor</td>
                                                             <td>@element.Hours?.ToString("N2")</td>
@@ -850,6 +852,7 @@
         public int StudentId { get; set; }
         public int PricingElementId { get; set; }
         public string PricingElementName { get; set; } = string.Empty;
+        public decimal FullPrice { get; set; }
         public decimal Price { get; set; }
         public string? DeterminingFactor { get; set; }
         public decimal? Hours { get; set; }
