@@ -938,7 +938,48 @@ public async Task<IActionResult> GetOwnerOptions()
                     .ToListAsync();
                     
                 _logger.LogInformation("Found {Count} entities owned by current user for council filtering", ownedEntityIds.Count);
-        
+
+                // Get school year IDs for this Hebrew year (needed for basic pricing lookup)
+                var schoolYearIds = await _context.SchoolYears
+                    .AsNoTracking()
+                    .Where(sy => sy.YearId == yearId.Value)
+                    .Select(sy => sy.Id)
+                    .ToListAsync();
+
+                // Get "בסיסית" pricing element IDs for this year
+                var basicElementIds = await _context.SpecialNeedsPricingElements
+                    .AsNoTracking()
+                    .Where(e => e.YearId == yearId.Value &&
+                                (e.ElementName == "בסיסית" || e.Title == "בסיסית"))
+                    .Select(e => e.Id)
+                    .ToListAsync();
+
+                // Build per-council basic pricing totals
+                Dictionary<int, (decimal total, decimal billed)> basicByCouncil = new();
+                if (basicElementIds.Any() && schoolYearIds.Any())
+                {
+                    var basicRaw = await (
+                        from s in _context.SchoolStudents.AsNoTracking()
+                        join pe in _context.SchoolStudentPricingElements.AsNoTracking()
+                            on s.Id equals pe.StudentId
+                        where schoolYearIds.Contains(s.SchoolYearId) &&
+                              s.IsLastVersion &&
+                              s.SendingCouncil.HasValue &&
+                              basicElementIds.Contains(pe.PricingElementId)
+                        select new { CouncilId = s.SendingCouncil!.Value, pe.Price, s.StatusId }
+                    ).ToListAsync();
+
+                    basicByCouncil = basicRaw
+                        .GroupBy(x => x.CouncilId)
+                        .ToDictionary(
+                            g => g.Key,
+                            g => (
+                                total: g.Sum(x => x.Price),
+                                billed: g.Where(x => x.StatusId == 2).Sum(x => x.Price)
+                            )
+                        );
+                }
+
                 // Apply ownership filtering and aggregate results
                 // The view may have multiple rows per council (one per owner), so we need to group
                 var councilData = await _context.CouncilSummaryVw
@@ -958,7 +999,9 @@ public async Task<IActionResult> GetOwnerOptions()
                         councilName = g.Key.CouncilName ?? "לא ידוע",
                         numberOfStudents = g.Sum(x => x.NumberOfStudents),
                         totalRequested = g.Sum(x => x.TotalRequestedAmount),
-                        totalRequestedFormatted = g.Sum(x => x.TotalRequestedAmount).ToString("N2") + " ₪"
+                        totalRequestedFormatted = g.Sum(x => x.TotalRequestedAmount).ToString("N2") + " ₪",
+                        totalBasicAmount = basicByCouncil.TryGetValue(g.Key.CouncilId, out var basicEntry) ? basicEntry.total : 0m,
+                        billedBasicAmount = basicByCouncil.TryGetValue(g.Key.CouncilId, out var billedEntry) ? billedEntry.billed : 0m
                     })
                     .OrderBy(cs => cs.councilName)
                     .ToList();

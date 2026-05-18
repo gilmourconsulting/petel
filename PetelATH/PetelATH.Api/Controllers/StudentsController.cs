@@ -285,6 +285,7 @@ namespace PetelATH.Api.Controllers
                         cost = s.Cost,
                         sendingCouncil = s.SendingCouncil,
                         Status = s.Status != null ? s.Status.Name : null,
+                        statusId = s.StatusId,
                         CouncilName = _context.Councils
                             .Where(c => c.Id == s.SendingCouncil)
                             .Select(c => c.Name)
@@ -299,7 +300,57 @@ namespace PetelATH.Api.Controllers
                             .FirstOrDefault()
                     })
                     .ToListAsync();
-        
+
+                // Get "בסיסית" pricing element IDs for this year
+                var basicElementIds = await _context.SpecialNeedsPricingElements
+                    .AsNoTracking()
+                    .Where(e => e.YearId == yearId.Value &&
+                                (e.ElementName == "בסיסית" || e.Title == "בסיסית"))
+                    .Select(e => e.Id)
+                    .ToListAsync();
+
+                // Get basic pricing amounts per student
+                Dictionary<int, decimal> basicAmounts = new();
+                if (basicElementIds.Any() && students.Any())
+                {
+                    var studentIds = students.Select(s => s.id).ToList();
+                    basicAmounts = (await _context.SchoolStudentPricingElements
+                        .AsNoTracking()
+                        .Where(pe => studentIds.Contains(pe.StudentId) &&
+                                     basicElementIds.Contains(pe.PricingElementId))
+                        .GroupBy(pe => pe.StudentId)
+                        .Select(g => new { g.Key, Total = g.Sum(x => x.Price) })
+                        .ToListAsync())
+                        .ToDictionary(x => x.Key, x => x.Total);
+                }
+
+                // Enrich students with basic amount
+                var enrichedStudents = students.Select(s => new
+                {
+                    s.id,
+                    s.idNumber,
+                    s.firstName,
+                    s.lastName,
+                    s.gender,
+                    s.street,
+                    s.houseNumber,
+                    s.city,
+                    s.postCode,
+                    s.classId,
+                    s.className,
+                    s.startDate,
+                    s.endDate,
+                    s.disabilityCategory,
+                    s.cost,
+                    s.sendingCouncil,
+                    s.Status,
+                    s.statusId,
+                    s.CouncilName,
+                    s.schoolYearId,
+                    s.schoolName,
+                    basicAmount = basicAmounts.TryGetValue(s.id, out var ba) ? (decimal?)ba : null
+                }).ToList();
+
                 _logger.LogInformation("Found {Count} students for council {CouncilId}", students.Count, councilId);
         
                 return Ok(new
@@ -307,7 +358,7 @@ namespace PetelATH.Api.Controllers
                     success = true,
                     councilId = councilId,
                     yearId = yearId.Value,
-                    data = students
+                    data = enrichedStudents
                 });
             }
             catch (Exception ex)

@@ -7,6 +7,8 @@ namespace PetelATH.BlazorServer.DTOs
         public int NumberOfStudents { get; set; }
         public decimal TotalRequested { get; set; }
         public string TotalRequestedFormatted { get; set; } = string.Empty;
+        public decimal TotalBasicAmount { get; set; }
+        public decimal BilledBasicAmount { get; set; }
     }
 
     public class CouncilSummaryResponse

@@ -19,6 +19,8 @@ namespace PetelATH.BlazorServer.DTOs
         public decimal? Cost { get; set; }
         public int? SendingCouncil { get; set; }
         public string? Status { get; set; }
+        public int? StatusId { get; set; }
+        public decimal? BasicAmount { get; set; }
         public string? CouncilName { get; set; }
         public int SchoolYearId { get; set; }
         public string? SchoolName { get; set; }

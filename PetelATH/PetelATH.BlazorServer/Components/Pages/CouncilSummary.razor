@@ -61,6 +61,12 @@
                                 <th @onclick="() => SortTable(nameof(CouncilSummaryDto.TotalRequested))" style="cursor: pointer;">
                                     סה"כ נדרש @GetSortArrow(nameof(CouncilSummaryDto.TotalRequested))
                                 </th>
+                                <th @onclick="() => SortTable(nameof(CouncilSummaryDto.TotalBasicAmount))" style="cursor: pointer;">
+                                    סה"כ בסיסית @GetSortArrow(nameof(CouncilSummaryDto.TotalBasicAmount))
+                                </th>
+                                <th @onclick="() => SortTable(nameof(CouncilSummaryDto.BilledBasicAmount))" style="cursor: pointer;">
+                                    חיוב בסיסית @GetSortArrow(nameof(CouncilSummaryDto.BilledBasicAmount))
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -76,6 +82,8 @@
                                     <td>@council.CouncilName</td>
                                     <td>@council.NumberOfStudents.ToString("N0")</td>
                                     <td>@council.TotalRequested.ToString("N2") ₪</td>
+                                    <td>@council.TotalBasicAmount.ToString("N2") ₪</td>
+                                    <td>@council.BilledBasicAmount.ToString("N2") ₪</td>
                                 </tr>
                             }
                         </tbody>
@@ -184,6 +192,12 @@
             nameof(CouncilSummaryDto.TotalRequested) => _sortAscending
                 ? _councils.OrderBy(c => c.TotalRequested).ToList()
                 : _councils.OrderByDescending(c => c.TotalRequested).ToList(),
+            nameof(CouncilSummaryDto.TotalBasicAmount) => _sortAscending
+                ? _councils.OrderBy(c => c.TotalBasicAmount).ToList()
+                : _councils.OrderByDescending(c => c.TotalBasicAmount).ToList(),
+            nameof(CouncilSummaryDto.BilledBasicAmount) => _sortAscending
+                ? _councils.OrderBy(c => c.BilledBasicAmount).ToList()
+                : _councils.OrderByDescending(c => c.BilledBasicAmount).ToList(),
             _ => _councils
         };
     }

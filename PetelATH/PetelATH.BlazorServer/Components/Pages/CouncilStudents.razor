@@ -76,6 +76,24 @@
                         <div style="font-size: 0.9em; color: #666; font-weight: 500;">ממוצע לתלמיד</div>
                     </div>
                 </div>
+
+                <!-- Total Basic Amount Card -->
+                <div class="summary-card" style="min-width: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                    <div style="font-size: 40px; opacity: 0.8;">🏷️</div>
+                    <div style="flex: 1; text-align: right;">
+                        <div style="font-size: 1.2em; font-weight: 700; color: #2c3e50; line-height: 1; margin-bottom: 5px;">@_totalBasicAmount.ToString("N2") ₪</div>
+                        <div style="font-size: 0.9em; color: #666; font-weight: 500;">סה"כ בסיסי</div>
+                    </div>
+                </div>
+
+                <!-- Billed Basic Amount Card -->
+                <div class="summary-card" style="min-width: 200px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);">
+                    <div style="font-size: 40px; opacity: 0.8;">🧾</div>
+                    <div style="flex: 1; text-align: right;">
+                        <div style="font-size: 1.2em; font-weight: 700; color: #2c3e50; line-height: 1; margin-bottom: 5px;">@_billedBasicAmount.ToString("N2") ₪</div>
+                        <div style="font-size: 0.9em; color: #666; font-weight: 500;">חיוב בסיסיתת</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -125,6 +143,9 @@
                                         <th @onclick="() => SortTable(nameof(CouncilStudentDto.Cost))" style="cursor: pointer;">
                                             סכום @GetSortArrow(nameof(CouncilStudentDto.Cost))
                                         </th>
+                                        <th @onclick="() => SortTable(nameof(CouncilStudentDto.BasicAmount))" style="cursor: pointer;">
+                                            בסיסי @GetSortArrow(nameof(CouncilStudentDto.BasicAmount))
+                                        </th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -149,6 +170,7 @@
                                             <td>@student.ClassName</td>
                                             <td>@student.Status</td>
                                             <td>@(student.Cost?.ToString("N2") ?? "0.00") ₪</td>
+                                            <td>@(student.BasicAmount?.ToString("N2") ?? "-") ₪</td>
                                         </tr>
                                     }
                                 </tbody>
@@ -172,6 +194,8 @@
     private int _totalSchools = 0;
     private decimal _totalAmount = 0;
     private decimal _avgAmount = 0;
+    private decimal _totalBasicAmount = 0;
+    private decimal _billedBasicAmount = 0;
 
     private string _sortColumn = nameof(CouncilStudentDto.LastName);
     private bool _sortAscending = true;
@@ -264,6 +288,8 @@
         _totalSchools = _students.Select(s => s.SchoolName).Where(s => !string.IsNullOrEmpty(s)).Distinct().Count();
         _totalAmount = _students.Sum(s => s.Cost ?? 0);
         _avgAmount = _totalStudents > 0 ? _totalAmount / _totalStudents : 0;
+        _totalBasicAmount = _students.Sum(s => s.BasicAmount ?? 0);
+        _billedBasicAmount = _students.Where(s => s.StatusId == 2).Sum(s => s.BasicAmount ?? 0);
     }
 
     private void SortTable(string columnName)
@@ -311,6 +337,9 @@
             nameof(CouncilStudentDto.Cost) => _sortAscending
                 ? _students.OrderBy(s => s.Cost ?? 0).ToList()
                 : _students.OrderByDescending(s => s.Cost ?? 0).ToList(),
+            nameof(CouncilStudentDto.BasicAmount) => _sortAscending
+                ? _students.OrderBy(s => s.BasicAmount ?? 0).ToList()
+                : _students.OrderByDescending(s => s.BasicAmount ?? 0).ToList(),
             _ => _students
         };
     }
