@@ -66,6 +66,7 @@ DTOs/
  ConfigurationDtos.cs
  CouncilStudentDto.cs
  CouncilSummaryDto.cs
+ DashboardDtos.cs
  DocumentDto.cs
  ExcelReportDto.cs
  SchoolAttributeDto.cs
@@ -489,14 +490,17 @@ Components/
   AdditionalStudyProgramsTable.razor
   AddressEditorModal.razor
   AlertsEventsCard.razor
+  DashboardSummaryWidget.razor
   DocumentsTable.razor
   PersonSelectorModal.razor
   SchoolAttributesForm.razor
   SchoolClassesTable.razor
   SchoolDetailsForm.razor
+  SchoolsSummaryBar.razor
   SchoolTracksTable.razor
   SecureButton.razor
   SessionTimeoutWarning.razor
+  StatCard.razor
  _Imports.razor
 
 [dynamicFiles]
@@ -549,12 +553,15 @@ Components/
   AdditionalStudyProgramsTable.razor
   AddressEditorModal.razor
   AlertsEventsCard.razor
+  DashboardSummaryWidget.razor
   DocumentsTable.razor
   PersonSelectorModal.razor
   SchoolAttributesForm.razor
   SchoolClassesTable.razor
   SchoolDetailsForm.razor
+  SchoolsSummaryBar.razor
   SchoolTracksTable.razor
   SecureButton.razor
   SessionTimeoutWarning.razor
+  StatCard.razor
  _Imports.razor

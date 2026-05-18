@@ -1,0 +1,49 @@
+@using PetelATH.BlazorServer.DTOs
+
+@* Schools summary bar — derives all stats from the passed list, no API calls needed *@
+<div class="summary-bar">
+    <StatCard Label='סה"כ בתי ספר'
+              Value="@_totalSchools.ToString()"
+              AccentColor="#667eea" />
+
+    @foreach (var stage in _stageGroups)
+    {
+        <StatCard Label="@stage.Key"
+                  Value="@stage.Count.ToString()"
+                  AccentColor="#28a745" />
+    }
+
+    @if (_ownerCount > 1)
+    {
+        <StatCard Label="בעלים שונים"
+                  Value="@_ownerCount.ToString()"
+                  AccentColor="#fd7e14" />
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public IEnumerable<SchoolDto> Schools { get; set; } = Array.Empty<SchoolDto>();
+
+    private int _totalSchools;
+    private List<(string Key, int Count)> _stageGroups = new();
+    private int _ownerCount;
+
+    protected override void OnParametersSet()
+    {
+        var list = Schools.ToList();
+        _totalSchools = list.Count;
+
+        _stageGroups = list
+            .Where(s => !string.IsNullOrWhiteSpace(s.EducationStage))
+            .GroupBy(s => s.EducationStage!)
+            .Select(g => (g.Key, g.Count()))
+            .OrderByDescending(g => g.Item2)
+            .ToList();
+
+        _ownerCount = list
+            .Where(s => !string.IsNullOrWhiteSpace(s.OwnerName))
+            .Select(s => s.OwnerName)
+            .Distinct()
+            .Count();
+    }
+}

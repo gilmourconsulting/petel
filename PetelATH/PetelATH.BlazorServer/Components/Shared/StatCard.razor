@@ -1,0 +1,20 @@
+<div class="stat-card" style="border-top: 3px solid @AccentColor;">
+    @if (!string.IsNullOrEmpty(IconPath))
+    {
+        <img src="@IconPath" alt="" class="stat-card-icon" />
+    }
+    <div class="stat-card-value" style="color: @AccentColor;">@Value</div>
+    <div class="stat-card-label">@Label</div>
+    @if (!string.IsNullOrEmpty(SubLabel))
+    {
+        <div class="stat-card-sub">@SubLabel</div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Value { get; set; } = "0";
+    [Parameter] public string? SubLabel { get; set; }
+    [Parameter] public string AccentColor { get; set; } = "#667eea";
+    [Parameter] public string? IconPath { get; set; }
+}

@@ -29,6 +29,9 @@
 <!-- Dashboard Content (LEFT side, takes flex: 1) -->
 <div class="dashboard-flex-row">
     <div class="dashboard-cards-wrapper">
+        <!-- KPI summary bar (loads from /api/dashboard/summary) -->
+        <DashboardSummaryWidget />
+
         <!-- Alerts Card -->
         <AlertsEventsCard Icon="🔔"
                           Title="התראות"

@@ -1,0 +1,45 @@
+@using PetelATH.BlazorServer.DTOs
+@inject ApiService ApiService
+
+@* Dashboard KPI summary bar — fetches from GET /api/dashboard/summary *@
+@if (_isLoading)
+{
+    <div class="summary-bar">
+        <span style="color: var(--text-muted); font-size: 0.85em; padding: 8px 16px;">טוען נתונים...</span>
+    </div>
+}
+else if (_stats.Count > 0)
+{
+    <div class="summary-bar">
+        @foreach (var stat in _stats)
+        {
+            <StatCard Label="@stat.Label"
+                      Value="@stat.Value"
+                      SubLabel="@stat.SubLabel"
+                      AccentColor="@stat.AccentColor" />
+        }
+    </div>
+}
+
+@code {
+    private List<StatItemDto> _stats = new();
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await ApiService.GetAsync<DashboardSummaryDto>("dashboard/summary");
+            if (result?.Stats != null)
+                _stats = result.Stats;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"DashboardSummaryWidget error: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

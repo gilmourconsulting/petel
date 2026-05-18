@@ -115,6 +115,10 @@
                         <img src="/images/Plus icon.png" alt="הוספת בית ספר חדש" class="action-icon-natural">
                     </button>
                 </div>
+                @if (!_isLoading && _schools.Count > 0)
+                {
+                    <SchoolsSummaryBar Schools="@_schools" />
+                }
                 <div class="content-card">
                     <!-- Filter Section -->
                     <div style="padding: 15px 20px; border-bottom: 1px solid #dee2e6;">

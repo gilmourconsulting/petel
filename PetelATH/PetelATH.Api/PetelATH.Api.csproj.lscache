@@ -68,6 +68,7 @@ Controllers/
  BaseController.cs
  ConfigController.cs
  ConfigurationController.cs
+ DashboardController.cs
  DocumentsController.cs
  EntitiesController.cs
  EntityDetailsController.cs
@@ -171,6 +172,7 @@ Migrations/
 Models/
  AdditionalStudyProgram.cs
  DTOs/
+  DashboardSummaryDto.cs
   LoginRequestDto.cs
   StudentRegistrationSummaryDto.cs
   StudentsFileUploadDto.cs

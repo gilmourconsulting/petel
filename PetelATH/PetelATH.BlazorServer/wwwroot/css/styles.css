@@ -450,6 +450,54 @@ body {
     overflow: visible;
 }
 
+/* ── Stat Cards (dashboard widgets) ─────────────────────────── */
+.summary-bar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 12px 16px 4px;
+    direction: rtl;
+}
+
+.stat-card {
+    background: var(--card-background);
+    border-radius: var(--border-radius);
+    padding: 12px 20px;
+    box-shadow: var(--box-shadow-light);
+    min-width: 110px;
+    text-align: center;
+    direction: rtl;
+    flex-shrink: 0;
+}
+
+.stat-card-icon {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    margin-bottom: 4px;
+    opacity: 0.8;
+}
+
+.stat-card-value {
+    font-size: 1.9rem;
+    font-weight: 700;
+    line-height: 1.1;
+}
+
+.stat-card-label {
+    font-size: 0.78em;
+    color: var(--text-secondary);
+    margin-top: 4px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.stat-card-sub {
+    font-size: 0.72em;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
 /* Dashboard */
 .dashboard-grid {
     display: flex;
