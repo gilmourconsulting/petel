@@ -516,6 +516,16 @@ namespace PetelATH.Api.Controllers
                 entityTypeId = "4";
             }
 
+            // רשת בעלויות (type 6) users may select a sub-network to scope the report
+            if (runtimeParams.TryGetValue("network_entity_id", out var networkEntityStr)
+                && int.TryParse(networkEntityStr, out var networkEntityId)
+                && networkEntityId > 0)
+            {
+                entityId = networkEntityId;
+                // Use a non-school type so GetScopedSchoolEntityIdsAsync fetches the network's children
+                entityTypeId = "2";
+            }
+
             int? schoolYearId = null;
             if (runtimeParams.TryGetValue("school_year_id", out var yearStr)
                 && int.TryParse(yearStr, out var yearId))

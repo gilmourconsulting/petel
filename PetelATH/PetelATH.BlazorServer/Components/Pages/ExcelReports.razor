@@ -239,6 +239,18 @@
                                     }
                                 </select>
                             }
+                            else if (p.ParamType == "network_selector")
+                            {
+                                <select value="@_paramValues.GetValueOrDefault(p.ParamName)"
+                                        @onchange="e => _paramValues[p.ParamName] = e.Value?.ToString() ?? string.Empty"
+                                        style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                                    <option value="">כל הרשתות</option>
+                                    @foreach (var net in _networks)
+                                    {
+                                        <option value="@net.Id">@net.Name</option>
+                                    }
+                                </select>
+                            }
                             else if (p.ParamType == "enum")
                             {
                                 <select value="@_paramValues.GetValueOrDefault(p.ParamName)"
@@ -319,9 +331,14 @@
     private Dictionary<string, string> _paramValues = new();
     private List<CouncilDto> _councils = new();
     private List<EntityDto>  _entities = new();
+    private List<NetworkDto> _networks = new();
+    private bool _isType6 = false;
 
     private IEnumerable<ReportParamDef> _visibleParams =>
-        _paramDefs.Where(p => p.ParamType != "session_entity" && p.ParamType != "session_year");
+        _paramDefs.Where(p =>
+            p.ParamType != "session_entity" &&
+            p.ParamType != "session_year" &&
+            !(p.ParamType == "network_selector" && !_isType6));
 
     protected override async Task OnPageInitializedAsync()
     {
@@ -329,6 +346,7 @@
         if (session == null) return;
 
         _isAdmin = session.EntityTypeId == "1";
+        _isType6 = session.EntityTypeId == "6";
 
         await Task.WhenAll(LoadReports(), LoadSchoolYears());
         _isLoading = false;
@@ -560,6 +578,13 @@
                     var entities = await ApiService.GetAsync<List<EntityDto>>("entities");
                     _entities = entities ?? new();
                 }
+
+                // Lazy-load sub-network list for type-6 entity users
+                if (_paramDefs.Any(p => p.ParamType == "network_selector") && !_networks.Any())
+                {
+                    var ownerResult = await ApiService.GetAsync<OwnerOptionsResult>("entities/owner-options");
+                    _networks = ownerResult?.OwnerOptions?.Select(o => new NetworkDto { Id = o.Id, Name = o.Name }).ToList() ?? new();
+                }
             }
         }
         catch (Exception ex)
@@ -699,6 +724,26 @@
     }
 
     private sealed record EnumOption(string Value, string Label);
+
+    private class NetworkDto
+    {
+        public int    Id   { get; set; }
+        public string Name { get; set; } = string.Empty;
+    }
+
+    private class OwnerOptionsResult
+    {
+        public bool Success { get; set; }
+        public List<OwnerOptionItem> OwnerOptions { get; set; } = new();
+        public bool IsLocked { get; set; }
+    }
+
+    private class OwnerOptionItem
+    {
+        public int    Id             { get; set; }
+        public string Name           { get; set; } = string.Empty;
+        public int    EntityTypeId   { get; set; }
+    }
 
     private static IEnumerable<EnumOption> ParseEnumOptions(string? json)
     {

@@ -367,7 +367,7 @@ namespace PetelATH.Api.Services
             // Pre-load class names
             var students = await _context.SchoolStudents
                 .AsNoTracking()
-                .Where(s => yearIds.Contains(s.SchoolYearId) && s.IsLastVersion && s.StatusId == 2)
+                .Where(s => yearIds.Contains(s.SchoolYearId) && s.IsLastVersion)
                 .ToListAsync(ct);
 
             var classIds = students
@@ -390,11 +390,25 @@ namespace PetelATH.Api.Services
                     .ToDictionaryAsync(c => c.Id, ct)
                 : null;
 
+            // Status lookup
+            var statusLookup = await _context.Statuses
+                .AsNoTracking()
+                .Select(st => new { st.Id, st.Name })
+                .ToDictionaryAsync(st => st.Id, st => st.Name, ct);
+
+            // Council lookup
+            var councilLookup = await _context.Councils
+                .AsNoTracking()
+                .Select(c => new { c.Id, c.Name })
+                .ToDictionaryAsync(c => c.Id, c => c.Name, ct);
+
             return students.Select(s =>
             {
                 var school = yearToSchool.TryGetValue(s.SchoolYearId, out var si)
                     ? si
                     : (Name: string.Empty, Symbol: string.Empty);
+                var statusName = s.StatusId.HasValue && statusLookup.TryGetValue(s.StatusId.Value, out var sn) ? sn : null;
+                var councilName = s.SendingCouncil.HasValue && councilLookup.TryGetValue(s.SendingCouncil.Value, out var cn) ? cn : null;
                 return new Dictionary<string, object?>
                 {
                     ["Id"]                  = s.Id,
@@ -409,7 +423,10 @@ namespace PetelATH.Api.Services
                     ["StartDate"]           = s.StartDate,
                     ["EndDate"]             = s.EndDate,
                     ["Cost"]                = s.Cost,
+                    ["CalculatedMonths"]    = s.EnrollmentMonths,
+                    ["Status"]              = statusName,
                     ["SendingCouncil"]      = s.SendingCouncil,
+                    ["CouncilName"]         = councilName,
                     ["SchoolYearId"]        = s.SchoolYearId,
                     ["ClassId"]             = s.ClassId,
                     ["ClassName"]           = s.ClassId.HasValue && classInfos != null && classInfos.TryGetValue(s.ClassId.Value, out var ci) ? ci.Name : string.Empty,
@@ -473,7 +490,7 @@ namespace PetelATH.Api.Services
             // ── Students + class info ──────────────────────────────────────
             var students = await _context.SchoolStudents
                 .AsNoTracking()
-                .Where(s => yearIds.Contains(s.SchoolYearId) && s.IsLastVersion && s.StatusId == 2)
+                .Where(s => yearIds.Contains(s.SchoolYearId) && s.IsLastVersion)
                 .ToListAsync(ct);
 
             var classIds = students
@@ -543,6 +560,17 @@ namespace PetelATH.Api.Services
                 }
             }
 
+            // ── Status + council lookups ──────────────────────────────────
+            var statusLookupPe = await _context.Statuses
+                .AsNoTracking()
+                .Select(st => new { st.Id, st.Name })
+                .ToDictionaryAsync(st => st.Id, st => st.Name, ct);
+
+            var councilLookupPe = await _context.Councils
+                .AsNoTracking()
+                .Select(c => new { c.Id, c.Name })
+                .ToDictionaryAsync(c => c.Id, c => c.Name, ct);
+
             // ── Build rows ────────────────────────────────────────────────
             var rows = new List<Dictionary<string, object?>>(students.Count);
             foreach (var s in students)
@@ -560,6 +588,9 @@ namespace PetelATH.Api.Services
                     characterizationName = ci.CharacterizationName;
                 }
 
+                var statusName = s.StatusId.HasValue && statusLookupPe.TryGetValue(s.StatusId.Value, out var snpe) ? snpe : null;
+                var councilName = s.SendingCouncil.HasValue && councilLookupPe.TryGetValue(s.SendingCouncil.Value, out var cnpe) ? cnpe : null;
+
                 var row = new Dictionary<string, object?>
                 {
                     ["Id"]                        = s.Id,
@@ -574,7 +605,10 @@ namespace PetelATH.Api.Services
                     ["StartDate"]                 = s.StartDate,
                     ["EndDate"]                   = s.EndDate,
                     ["Cost"]                      = s.Cost,
+                    ["CalculatedMonths"]          = s.EnrollmentMonths,
+                    ["Status"]                    = statusName,
                     ["SendingCouncil"]            = s.SendingCouncil,
+                    ["CouncilName"]               = councilName,
                     ["SchoolYearId"]              = s.SchoolYearId,
                     ["ClassId"]                   = s.ClassId,
                     ["ClassName"]                 = className,
@@ -980,13 +1014,16 @@ namespace PetelATH.Api.Services
                         new() { Name = "City",               LabelHe = "עיר",            Type = "text" },
                         new() { Name = "StartDate",          LabelHe = "תאריך קליטה",   Type = "date" },
                         new() { Name = "EndDate",            LabelHe = "תאריך סיום",    Type = "date" },
-                        new() { Name = "Cost",               LabelHe = "עלות",           Type = "number" },
-                        new() { Name = "SendingCouncil",     LabelHe = "רשות שולחת",    Type = "number", IsFilterable = true },
-                        new() { Name = "SchoolYearId",       LabelHe = "מזהה שנה",       Type = "number", IsFilterable = true },
-                        new() { Name = "ClassId",            LabelHe = "מזהה כיתה",     Type = "number", IsFilterable = true },
-                        new() { Name = "ClassName",          LabelHe = "שם כיתה",       Type = "text" },
-                        new() { Name = "SchoolName",         LabelHe = "שם בית ספר",    Type = "text" },
-                        new() { Name = "SchoolSymbol",       LabelHe = "סמל בית ספר",   Type = "text" }
+                        new() { Name = "Cost",               LabelHe = "עלות",                 Type = "number" },
+                        new() { Name = "CalculatedMonths",   LabelHe = "חודשים מחושבים",     Type = "number" },
+                        new() { Name = "Status",             LabelHe = "סטטוס",               Type = "text" },
+                        new() { Name = "SendingCouncil",     LabelHe = "רשות שולחת",          Type = "number", IsFilterable = true },
+                        new() { Name = "CouncilName",        LabelHe = "שם רשות שולחת",       Type = "text" },
+                        new() { Name = "SchoolYearId",       LabelHe = "מזהה שנה",            Type = "number", IsFilterable = true },
+                        new() { Name = "ClassId",            LabelHe = "מזהה כיתה",           Type = "number", IsFilterable = true },
+                        new() { Name = "ClassName",          LabelHe = "שם כיתה",             Type = "text" },
+                        new() { Name = "SchoolName",         LabelHe = "שם בית ספר",          Type = "text" },
+                        new() { Name = "SchoolSymbol",       LabelHe = "סמל בית ספר",         Type = "text" }
                     }
                 },
                 new()
@@ -1007,13 +1044,16 @@ namespace PetelATH.Api.Services
                         new() { Name = "City",               LabelHe = "עיר",            Type = "text" },
                         new() { Name = "StartDate",          LabelHe = "תאריך קליטה",   Type = "date" },
                         new() { Name = "EndDate",            LabelHe = "תאריך סיום",    Type = "date" },
-                        new() { Name = "Cost",               LabelHe = "עלות (סה\"כ)",  Type = "number" },
-                        new() { Name = "SendingCouncil",     LabelHe = "רשות שולחת",    Type = "number", IsFilterable = true },
-                        new() { Name = "SchoolYearId",       LabelHe = "מזהה שנה",      Type = "number", IsFilterable = true },
-                        new() { Name = "ClassId",            LabelHe = "מזהה כיתה",     Type = "number", IsFilterable = true },
-                        new() { Name = "ClassName",          LabelHe = "שם כיתה",       Type = "text" },
-                        new() { Name = "SchoolName",         LabelHe = "שם בית ספר",    Type = "text" },
-                        new() { Name = "SchoolSymbol",       LabelHe = "סמל בית ספר",   Type = "text" }
+                        new() { Name = "Cost",               LabelHe = "עלות (סה\"כ)",        Type = "number" },
+                        new() { Name = "CalculatedMonths",   LabelHe = "חודשים מחושבים",     Type = "number" },
+                        new() { Name = "Status",             LabelHe = "סטטוס",               Type = "text" },
+                        new() { Name = "SendingCouncil",     LabelHe = "רשות שולחת",          Type = "number", IsFilterable = true },
+                        new() { Name = "CouncilName",        LabelHe = "שם רשות שולחת",       Type = "text" },
+                        new() { Name = "SchoolYearId",       LabelHe = "מזהה שנה",            Type = "number", IsFilterable = true },
+                        new() { Name = "ClassId",            LabelHe = "מזהה כיתה",           Type = "number", IsFilterable = true },
+                        new() { Name = "ClassName",          LabelHe = "שם כיתה",             Type = "text" },
+                        new() { Name = "SchoolName",         LabelHe = "שם בית ספר",          Type = "text" },
+                        new() { Name = "SchoolSymbol",       LabelHe = "סמל בית ספר",         Type = "text" }
                         // Pricing element fields are dynamic (keyed by element Name — the 'name' DB column).
                         // Template tokens: {{students.בסיסית}}, {{students.בסיסית_שעות}}, {{students.בסיסית_גורם}}
                     }
