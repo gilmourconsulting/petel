@@ -365,5 +365,98 @@ namespace PetelATH.Api.Controllers
                 });
             }
         }
+
+        /// <summary>
+        /// Calculate pricing for all students across multiple schools (by schoolYearId list)
+        /// </summary>
+        [HttpPost("calculate-multiple-schools")]
+        public async Task<IActionResult> CalculateMultipleSchoolsPricing(
+            [FromBody] MultipleSchoolsPricingRequest request)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                if (request.SchoolYearIds == null || request.SchoolYearIds.Count == 0)
+                    return BadRequest(new { success = false, message = "לא נבחרו בתי ספר" });
+
+                _logger.LogInformation("🏫 Starting bulk pricing for {Count} schools (save={Save})",
+                    request.SchoolYearIds.Count, request.Save);
+
+                var schoolSummaries = new List<object>();
+                int totalSuccess = 0, totalFail = 0, totalSkipped = 0;
+
+                foreach (var schoolYearId in request.SchoolYearIds)
+                {
+                    var students = await _context.SchoolStudents
+                        .Where(s => s.SchoolYearId == schoolYearId && s.IsLastVersion && s.StatusId != 7)
+                        .Select(s => s.Id)
+                        .ToListAsync();
+
+                    var skipped = await _context.SchoolStudents
+                        .CountAsync(s => s.SchoolYearId == schoolYearId && s.IsLastVersion && s.StatusId == 7);
+
+                    int successCount = 0, failCount = 0;
+
+                    foreach (var studentId in students)
+                    {
+                        var result = await _pricingService.CalculateStudentPricing(studentId);
+
+                        if (result.Success && request.Save && result.NewStudentId.HasValue)
+                        {
+                            await _pricingService.SavePricingElements(
+                                result.NewStudentId.Value,
+                                result.CalculatedElements);
+                        }
+
+                        if (result.Success) successCount++; else failCount++;
+                    }
+
+                    totalSuccess += successCount;
+                    totalFail += failCount;
+                    totalSkipped += skipped;
+
+                    schoolSummaries.Add(new
+                    {
+                        schoolYearId,
+                        totalStudents = students.Count,
+                        successCount,
+                        failCount,
+                        skippedCount = skipped
+                    });
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"חישוב תמחור הושלם: {totalSuccess} הצליחו, {totalFail} נכשלו, {totalSkipped} דולגו",
+                    data = new
+                    {
+                        totalSuccess,
+                        totalFail,
+                        totalSkipped,
+                        saved = request.Save,
+                        schools = schoolSummaries
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error calculating pricing for multiple schools");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בחישוב תמחור לבתי הספר"
+                });
+            }
+        }
+    }
+
+    public class MultipleSchoolsPricingRequest
+    {
+        public List<int> SchoolYearIds { get; set; } = new();
+        public bool Save { get; set; } = true;
     }
 }

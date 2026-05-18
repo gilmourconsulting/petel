@@ -12,5 +12,6 @@ namespace PetelATH.BlazorServer.DTOs
         public string? ContactPerson { get; set; }
         public string? EducationStage { get; set; }
         public string? OwnerName { get; set; }
+        public int? SchoolYearId { get; set; }
     }
 }

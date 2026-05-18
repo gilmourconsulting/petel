@@ -28,12 +28,54 @@
         {
             <span style="font-size: 0.85em; color: #0d6efd; margin-right: 8px;">יוצר דוח 10... אנא המתן</span>
         }
+        <SecureButton ActionName="schoollist_togglePricingSelection" ScreenName="@PageName" FunctionName="ToggleSelectionMode"
+                      OnClick="ToggleSelectionMode" CssClass="@PricingToggleCssClass"
+                      Title="בחר מספר בתי ספר להפעלת תמחור מרובה">
+            @PricingToggleLabel
+        </SecureButton>
+        @if (_selectionMode && _selectedSchoolYearIds.Count > 0)
+        {
+            <SecureButton ActionName="schoollist_runPricingMultiple" ScreenName="@PageName" FunctionName="RunPricingForSelected"
+                          OnClick="RunPricingForSelected" CssClass="context-btn"
+                          Title="חשב ושמור תמחור לבתי הספר הנבחרים"
+                          Disabled="@_isRunningPricing">
+                הפעל תמחור לנבחרים (@_selectedSchoolYearIds.Count)
+            </SecureButton>
+        }
+        @if (_isRunningPricing)
+        {
+            <span style="font-size: 0.85em; color: #0d6efd; margin-right: 8px;">מחשב תמחור... אנא המתן</span>
+        }
         <div class="context-spacer"></div>
         <SecureButton ActionName="schoollist_backToDashboard" ScreenName="@PageName" FunctionName="NavigateBackToDashboard" 
                       OnClick="NavigateBackToDashboard" CssClass="context-navigation-btn" Title="חזרה למסך הראשי">
             חזרה למסך הראשי
         </SecureButton>
     </div>
+
+    <!-- Pricing result panel -->
+    @if (_pricingSummary != null || _pricingLog.Count > 0)
+    {
+        <div style="margin: 8px 16px; padding: 10px 14px; border-radius: 6px; font-size: 0.85em; direction: rtl;
+                    background: @(_pricingSuccess ? "#d1e7dd" : "#f8d7da");
+                    border: 1px solid @(_pricingSuccess ? "#badbcc" : "#f5c2c7");
+                    color: @(_pricingSuccess ? "#0a3622" : "#842029");">
+            @if (_pricingSummary != null)
+            {
+                <div style="font-weight: 600; margin-bottom: @(_pricingLog.Count > 0 ? "8px" : "0");">@_pricingSummary</div>
+            }
+            @if (_pricingLog.Count > 0)
+            {
+                <div style="max-height: 220px; overflow-y: auto; font-family: monospace; white-space: pre-wrap;
+                            background: rgba(0,0,0,0.05); border-radius: 4px; padding: 6px 8px;">
+                    @foreach (var line in _pricingLog)
+                    {
+                        <div>@line</div>
+                    }
+                </div>
+            }
+        </div>
+    }
 
     <!-- Council Excel generation log panel -->
     @if (_generateSummary != null || _generateLog.Count > 0)
@@ -152,6 +194,15 @@
                                     <table class="data-table" style="min-width: 1200px;">
                                         <thead>
                                             <tr>
+                                                @if (_selectionMode)
+                                                {
+                                                    <th style="width: 36px; text-align: center;">
+                                                        <input type="checkbox"
+                                                               checked="@AreAllFilteredSelected"
+                                                               @onchange="ToggleSelectAll"
+                                                               title="בחר/בטל הכל" />
+                                                    </th>
+                                                }
                                                 <th>פעולות</th>
                                                 <th @onclick="() => SortTable(nameof(SchoolDto.Name))">
                                                     שם בית ספר @GetSortIcon(nameof(SchoolDto.Name))
@@ -183,7 +234,7 @@
                                             @if (filtered.Count == 0)
                                             {
                                                 <tr>
-                                                    <td colspan="10" style="text-align: center; padding: 20px; color: #666;">אין בתי ספר התואמים לסינון</td>
+                                                    <td colspan="@(_selectionMode ? 11 : 10)" style="text-align: center; padding: 20px; color: #666;">אין בתי ספר התואמים לסינון</td>
                                                 </tr>
                                             }
                                             else
@@ -191,6 +242,17 @@
                                                 @foreach (var school in filtered)
                                                 {
                                                     <tr>
+                                                        @if (_selectionMode)
+                                                        {
+                                                            <td style="text-align: center;">
+                                                                @if (school.SchoolYearId.HasValue)
+                                                                {
+                                                                    <input type="checkbox"
+                                                                           checked="@_selectedSchoolYearIds.Contains(school.SchoolYearId.Value)"
+                                                                           @onchange="() => ToggleSchoolSelection(school.SchoolYearId.Value)" />
+                                                                }
+                                                            </td>
+                                                        }
                                                         <td>
                                                             <div class="actions-cell">
                                                                 <button class="btn btn-sm btn-icon" 
@@ -277,6 +339,155 @@
         _filterOwner = string.Empty;
     }
 
+    // Selection state
+    private bool _selectionMode = false;
+    private HashSet<int> _selectedSchoolYearIds = new();
+    private Dictionary<int, string> _schoolYearIdToName = new();
+
+    private string PricingToggleCssClass => _selectionMode ? "context-btn context-btn-active" : "context-btn";
+    private string PricingToggleLabel    => _selectionMode ? "ביטול בחירה" : "תמחור מרובה";
+
+    private void ToggleSelectionMode()
+    {
+        _selectionMode = !_selectionMode;
+        if (!_selectionMode)
+        {
+            _selectedSchoolYearIds.Clear();
+        }
+    }
+
+    private bool AreAllFilteredSelected
+    {
+        get
+        {
+            var validIds = FilteredSchools
+                .Where(s => s.SchoolYearId.HasValue)
+                .Select(s => s.SchoolYearId!.Value)
+                .ToList();
+            return validIds.Count > 0 && validIds.All(id => _selectedSchoolYearIds.Contains(id));
+        }
+    }
+
+    private void ToggleSchoolSelection(int schoolYearId)
+    {
+        if (!_selectedSchoolYearIds.Remove(schoolYearId))
+            _selectedSchoolYearIds.Add(schoolYearId);
+    }
+
+    private void ToggleSelectAll(ChangeEventArgs e)
+    {
+        var validIds = FilteredSchools
+            .Where(s => s.SchoolYearId.HasValue)
+            .Select(s => s.SchoolYearId!.Value)
+            .ToList();
+
+        if (AreAllFilteredSelected)
+            foreach (var id in validIds) _selectedSchoolYearIds.Remove(id);
+        else
+            foreach (var id in validIds) _selectedSchoolYearIds.Add(id);
+    }
+
+    // Bulk pricing state
+    private bool _isRunningPricing = false;
+    private string? _pricingSummary;
+    private bool _pricingSuccess;
+    private List<string> _pricingLog = new();
+
+    private async Task RunPricingForSelected()
+    {
+        if (_selectedSchoolYearIds.Count == 0) return;
+
+        var confirm = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"לחשב ולשמור תמחור עבור {_selectedSchoolYearIds.Count} בתי ספר נבחרים? הפעולה תיצור גרסאות תלמיד חדשות.");
+        if (!confirm) return;
+
+        _isRunningPricing = true;
+        _pricingSummary = null;
+        _pricingLog = new();
+        _pricingSuccess = true;
+        StateHasChanged();
+
+        var schoolIds = _selectedSchoolYearIds.ToList();
+        int totalSuccess = 0, totalFail = 0, totalSkipped = 0;
+
+        try
+        {
+            for (int i = 0; i < schoolIds.Count; i++)
+            {
+                var schoolYearId = schoolIds[i];
+                var schoolName = _schoolYearIdToName.TryGetValue(schoolYearId, out var n) ? n : $"בית ספר {schoolYearId}";
+                _pricingLog.Add($"[{i + 1}/{schoolIds.Count}] {schoolName} – מחשב...");
+                StateHasChanged();
+
+                try
+                {
+                    var result = await ApiService.PostAsync<object, SchoolPricingResult>(
+                        $"studentpricing/calculate-school/{schoolYearId}?save=true", new object());
+
+                    if (result?.Success == true && result.Data != null)
+                    {
+                        var d = result.Data;
+                        totalSuccess += d.SuccessCount;
+                        totalFail    += d.FailCount;
+                        totalSkipped += d.SkippedCount;
+                        _pricingLog[_pricingLog.Count - 1] =
+                            $"[{i + 1}/{schoolIds.Count}] ✅ {schoolName} – " +
+                            $"{d.TotalStudents} תלמידים, {d.SuccessCount} הצליחו" +
+                            (d.FailCount    > 0 ? $", {d.FailCount} נכשלו"  : "") +
+                            (d.SkippedCount > 0 ? $", {d.SkippedCount} דולגו" : "");
+                    }
+                    else
+                    {
+                        _pricingSuccess = false;
+                        _pricingLog[_pricingLog.Count - 1] =
+                            $"[{i + 1}/{schoolIds.Count}] ❌ {schoolName} – {result?.Message ?? "שגיאה לא ידועה"}";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _pricingSuccess = false;
+                    _pricingLog[_pricingLog.Count - 1] =
+                        $"[{i + 1}/{schoolIds.Count}] ❌ {schoolName} – שגיאה: {ex.Message}";
+                }
+
+                StateHasChanged();
+            }
+
+            _pricingSummary = _pricingSuccess
+                ? $"חישוב תמחור הושלם: {totalSuccess} הצליחו, {totalFail} נכשלו, {totalSkipped} דולגו"
+                : $"חישוב תמחור הסתיים עם שגיאות: {totalSuccess} הצליחו, {totalFail} נכשלו";
+
+            _selectionMode = false;
+            _selectedSchoolYearIds.Clear();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error running bulk pricing: {ex.Message}");
+            _pricingSuccess = false;
+            _pricingSummary = $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isRunningPricing = false;
+            StateHasChanged();
+        }
+    }
+
+    private class SchoolPricingResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; } = string.Empty;
+        public SchoolPricingData? Data { get; set; }
+    }
+
+    private class SchoolPricingData
+    {
+        public int TotalStudents { get; set; }
+        public int SuccessCount  { get; set; }
+        public int FailCount     { get; set; }
+        public int SkippedCount  { get; set; }
+    }
+
     // Add school modal reference
     private AddSchoolModal? _addSchoolModal;
 
@@ -322,7 +533,12 @@
 
             // Fetch schools from API
             _schools = await ApiService.GetAsync<List<SchoolDto>>($"entities/schools?yearId={yearId}") ?? new();
-            
+
+            // Build lookup for pricing progress log
+            _schoolYearIdToName = _schools
+                .Where(s => s.SchoolYearId.HasValue)
+                .ToDictionary(s => s.SchoolYearId!.Value, s => s.Name);
+
             Console.WriteLine($"🏫 Loaded {_schools.Count} schools");
             
             // Apply initial sort
