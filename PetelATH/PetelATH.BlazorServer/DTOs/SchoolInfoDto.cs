@@ -6,5 +6,6 @@ namespace PetelATH.BlazorServer.DTOs
         public int EntityId { get; set; }
         public int OwnerId { get; set; }
         public string SchoolName { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
     }
 }

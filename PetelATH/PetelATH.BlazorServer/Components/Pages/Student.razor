@@ -378,6 +378,7 @@
     private int? _schoolId;
     private int? _entityId;
     private int? _yearId;
+    private string _schoolName = string.Empty;
 
     // Document table references
     private DocumentsTable? _studentDocsTable;
@@ -510,7 +511,7 @@
                 return;
             }
 
-            // Update page title
+            // Update page title (school name appended after LoadSchoolAndEntityIds)
             _pageTitle = $"פרטי התלמיד - {_student.FirstName} {_student.LastName}";
 
             // Get year display
@@ -553,6 +554,10 @@
             // Get school and entity IDs from school_year
             await LoadSchoolAndEntityIds(schoolYearId);
 
+            // Append school name to page title now that LoadSchoolAndEntityIds has run
+            if (!string.IsNullOrEmpty(_schoolName))
+                _pageTitle = $"{_pageTitle} - {_schoolName}";
+
             // Load pricing elements if available
             await LoadPricingElements();
         }
@@ -580,6 +585,7 @@
                 _schoolId = response.Data.EntityId;
                 // Entity documents use the owner's EntityId (parent entity)
                 _entityId = response.Data.OwnerId;
+                _schoolName = response.Data.Name;
                 Console.WriteLine($"✅ School Entity ID: {_schoolId}, Owner Entity ID: {_entityId}");
             }
         }
