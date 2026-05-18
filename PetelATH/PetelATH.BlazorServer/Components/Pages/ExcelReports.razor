@@ -62,12 +62,24 @@
                                         <button class="btn-icon" title="הפעל דוח" @onclick="() => ShowRunModal(r)">
                                             <img src="/images/stats_icon.png" alt="הפעל" class="action-icon-natural" />
                                         </button>
-                                        <button class="btn-icon" title="ערוך הגדרות" @onclick="() => EditReport(r)">
+                                        <SecureButton ActionName="can_edit_excel_report"
+                                                      ScreenName="@PageName"
+                                                      FunctionName="EditReport"
+                                                      OnClick="() => EditReport(r)"
+                                                      CssClass="btn-icon"
+                                                      Title="ערוך הגדרות"
+                                                      HideIfNoAccess="true">
                                             <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural" />
-                                        </button>
-                                        <button class="btn-icon" title="מחק דוח" @onclick="() => ConfirmDelete(r)">
+                                        </SecureButton>
+                                        <SecureButton ActionName="can_delete_excel_report"
+                                                      ScreenName="@PageName"
+                                                      FunctionName="ConfirmDelete"
+                                                      OnClick="() => ConfirmDelete(r)"
+                                                      CssClass="btn-icon"
+                                                      Title="מחק דוח"
+                                                      HideIfNoAccess="true">
                                             <img src="/images/delete_icon.png" alt="מחק" class="action-icon-natural" />
-                                        </button>
+                                        </SecureButton>
                                     </td>
                                     <td>@r.Name</td>
                                     <td>@ReportTypeLabel(r.ReportType)</td>
