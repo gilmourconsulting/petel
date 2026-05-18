@@ -51,6 +51,7 @@
                     <table class="data-table">
                         <thead>
                             <tr>
+                                <th>פעולות</th>
                                 <th @onclick="() => SortTable(nameof(CouncilSummaryDto.CouncilName))" style="cursor: pointer;">
                                     רשות שולחת @GetSortArrow(nameof(CouncilSummaryDto.CouncilName))
                                 </th>
@@ -60,22 +61,21 @@
                                 <th @onclick="() => SortTable(nameof(CouncilSummaryDto.TotalRequested))" style="cursor: pointer;">
                                     סה"כ נדרש @GetSortArrow(nameof(CouncilSummaryDto.TotalRequested))
                                 </th>
-                                <th>פעולות</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var council in _councils)
                             {
                                 <tr>
-                                    <td>@council.CouncilName</td>
-                                    <td>@council.NumberOfStudents.ToString("N0")</td>
-                                    <td>@council.TotalRequested.ToString("N2") ₪</td>
                                     <td>
                                         <SecureButton ActionName="councilsummary_viewcouncil" ScreenName="@PageName" FunctionName="ViewCouncil" 
                                                       OnClick="() => ViewCouncil(council.Id)" CssClass="btn-icon" Title="צפייה ברשות">
                                             <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
                                         </SecureButton>
                                     </td>
+                                    <td>@council.CouncilName</td>
+                                    <td>@council.NumberOfStudents.ToString("N0")</td>
+                                    <td>@council.TotalRequested.ToString("N2") ₪</td>
                                 </tr>
                             }
                         </tbody>
