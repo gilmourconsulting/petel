@@ -39,7 +39,7 @@
       ],
       "sort": [
         { "field": "SchoolName",  "direction": "asc" },
-		{ "field": "Symbol",  "direction": "asc" },
+		{ "field": "SchoolSymbol",  "direction": "asc" },
         { "field": "LastName",    "direction": "asc" },
         { "field": "FirstName",   "direction": "asc" }
       ]

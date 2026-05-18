@@ -1851,6 +1851,29 @@ namespace PetelATH.Api.Controllers
 
                 int? userId = int.TryParse(session.UserId, out int uid) ? uid : (int?)null;
 
+                // ── Pre-validate: template must exist before queuing ──────────
+                const string reportName = Services.CouncilExcelGenerationService.ReportDefinitionName;
+                var templateCheck = await _context.ExcelReportDefinitions
+                    .Include(r => r.Template)
+                    .AsNoTracking()
+                    .Where(r => r.Name == reportName)
+                    .Select(r => new { HasDefinition = true, HasTemplate = r.Template != null && r.Template.TemplateBlob != null })
+                    .FirstOrDefaultAsync();
+
+                if (templateCheck == null)
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"הגדרת הדוח '{reportName}' לא נמצאה. יש להגדיר את הדוח בדף דוחות Excel."
+                    });
+
+                if (!templateCheck.HasTemplate)
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"תבנית ה-Excel לדוח '{reportName}' לא הועלתה. יש להעלות את קובץ התבנית בדף דוחות Excel לפני הפעלת הייצוא."
+                    });
+
                 // ── Ownership-network (type 6) ────────────────────────────────
                 // Run the core process for every owned sub-network as if that
                 // sub-network is the calling entity. Documents are stored in each

@@ -64,6 +64,13 @@
                 <strong>⚠️ הבהרה:</strong>  חילול מסמכים מהמערכת יתאפשר לאחר פרסום הפורמטים המעודכנים לשנת הלימודים על ידי משרד החינוך
             </div>
         }
+        <div class="filter-bar" style="margin-bottom: 12px;">
+            <input type="text"
+                   @bind="_filterText"
+                   @bind:event="oninput"
+                   placeholder="חיפוש לפי סוג מסמך, תיאור או סטטוס..."
+                   style="padding: 6px 10px; border: 1px solid #dee2e6; border-radius: 4px; width: 300px;" />
+        </div>
         <div class="table-container">
             <table class="data-table">
                 <thead>
@@ -73,19 +80,19 @@
                             <th>בחירה</th>
                         }
                         <th></th>
-                        <th>סוג מסמך</th>
+                        <th @onclick='() => SortTable("DocumentType")' style="cursor:pointer">סוג מסמך @GetSortArrow("DocumentType")</th>
                         <th>תיאור</th>
-                        <th>סטטוס</th>
+                        <th @onclick='() => SortTable("StatusName")' style="cursor:pointer">סטטוס @GetSortArrow("StatusName")</th>
                         @if (ShowEntityName)
                         {
-                            <th>שם ישות</th>
+                            <th @onclick='() => SortTable("EntityName")' style="cursor:pointer">שם ישות @GetSortArrow("EntityName")</th>
                         }
-                        <th>משתמש</th>
-                        <th>עדכון אחרון</th>
+                        <th @onclick='() => SortTable("Username")' style="cursor:pointer">משתמש @GetSortArrow("Username")</th>
+                        <th @onclick='() => SortTable("CreatedAt")' style="cursor:pointer">עדכון אחרון @GetSortArrow("CreatedAt")</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var doc in _documents)
+                    @foreach (var doc in FilteredAndSortedDocuments)
                     {
                         <tr>
                             @if (_isMultiSelectMode)
@@ -302,6 +309,57 @@
     private int _selectedDocumentTypeIdToAdd = 0;
 
     private bool HasDownloadableDocuments => _documents.Any(d => d.FileSize > 0);
+
+    private string _filterText = "";
+    private string _sortColumn = "";
+    private bool _sortAscending = true;
+
+    private IEnumerable<DocumentDto> FilteredAndSortedDocuments
+    {
+        get
+        {
+            var items = (_documents ?? new()).AsEnumerable();
+
+            if (!string.IsNullOrWhiteSpace(_filterText))
+            {
+                var f = _filterText;
+                items = items.Where(d =>
+                    (d.DocumentType?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (d.Description?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (d.StatusName?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false) ||
+                    (d.Username?.Contains(f, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+
+            items = _sortColumn switch
+            {
+                "DocumentType" => _sortAscending ? items.OrderBy(d => d.DocumentType)  : items.OrderByDescending(d => d.DocumentType),
+                "StatusName"   => _sortAscending ? items.OrderBy(d => d.StatusName)    : items.OrderByDescending(d => d.StatusName),
+                "EntityName"   => _sortAscending ? items.OrderBy(d => d.EntityName)    : items.OrderByDescending(d => d.EntityName),
+                "Username"     => _sortAscending ? items.OrderBy(d => d.Username)      : items.OrderByDescending(d => d.Username),
+                "CreatedAt"    => _sortAscending ? items.OrderBy(d => d.CreatedAt)     : items.OrderByDescending(d => d.CreatedAt),
+                _              => items
+            };
+
+            return items;
+        }
+    }
+
+    private void SortTable(string column)
+    {
+        if (_sortColumn == column)
+            _sortAscending = !_sortAscending;
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = true;
+        }
+    }
+
+    private string GetSortArrow(string column)
+    {
+        if (_sortColumn != column) return "";
+        return _sortAscending ? " ▲" : " ▼";
+    }
 
     protected override async Task OnInitializedAsync()
     {

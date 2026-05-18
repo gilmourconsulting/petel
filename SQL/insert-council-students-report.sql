@@ -13,7 +13,7 @@ INSERT INTO petel_schema.excel_report_definitions
     (name, description, report_type, allow_cross_year, requires_entity_context,
      is_active, sort_order, definition_json)
 VALUES (
-    'דוח תלמידים לפי רשות שולחת',
+    'נספח 10 - תשפו',
     'רשימת תלמידים עם פרטי בית ספר, מסוננת לפי שנת לימודים ורשות שולחת',
     'template',
     false,   -- cross-year not allowed; hebrew_year_id is required
@@ -21,6 +21,7 @@ VALUES (
     true,
     10,
     $definition$
+
 {
   "parameters": [
     {

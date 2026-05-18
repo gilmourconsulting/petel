@@ -23,7 +23,7 @@ namespace PetelATH.Api.Services
     /// </summary>
     public class CouncilExcelGenerationService
     {
-        private const string ReportDefinitionName = "נספח 10 - תשפו";
+        public  const string ReportDefinitionName = "נספח 10 - תשפו";
         private const string DocumentTypeName     = "נספח 10";
 
         private readonly IServiceScopeFactory _scopeFactory;
