@@ -1,9 +1,12 @@
 ---
-mode: ask
+agent: agent, ask, edit, plan
 description: Reference the correct instruction files before making any code change or addition in the Petel monorepo.
 ---
 
 Before making any code change, verify the relevant instruction files below are loaded for the files being modified.
+Before writing any code, read the relevant instruction files below and ensure your change adheres to the guidelines specified. If you are unsure which instructions apply, review the "Applies To" column for each file. Always follow the key rules outlined in the instruction files to maintain consistency and quality across the codebase.
+
+Before starting any changes read the pre-prompts in `.github/prompts/Pre%20processing%20prompts.md` to ensure you are following the best practices for coding and problem-solving.
 
 ## Instruction File Reference
 
