@@ -203,28 +203,63 @@ namespace PetelATH.Api.Services
 
                     if (existingByName.TryGetValue(docDescription, out var existingDoc))
                     {
-                        existingDoc.FileBlob = excelBytes;
+                        // Mark old version as no longer the latest
+                        existingDoc.IsLastVersion = false;
                         await context.SaveChangesAsync();
-                        
-                        // Ensure council entity link exists
+
+                        // Create a new version document
+                        long masterId = existingDoc.MasterDocumentId ?? existingDoc.Id;
+                        var newVersion = new Document
+                        {
+                            Description      = docDescription,
+                            DocumentTypeId   = docType.Id,
+                            StatusId         = existingDoc.StatusId,
+                            FileBlob         = excelBytes,
+                            FileEncoding     = "xlsx",
+                            FileName         = existingDoc.FileName,
+                            Version          = existingDoc.Version + 1,
+                            IsLastVersion    = true,
+                            MasterDocumentId = masterId,
+                            CreatedAt        = DateTime.UtcNow,
+                            UserId           = userId,
+                        };
+
+                        context.Documents.Add(newVersion);
+                        await context.SaveChangesAsync();
+
+                        // Copy existing document links to the new version
+                        foreach (var link in existingDoc.DocumentLinks)
+                        {
+                            context.Set<DocumentLink>().Add(new DocumentLink
+                            {
+                                DocumentId      = newVersion.Id,
+                                EntityId        = link.EntityId,
+                                SchoolStudentId = link.SchoolStudentId,
+                            });
+                        }
+
+                        // Ensure council entity link exists on the new version
                         if (councilEntityMap.TryGetValue(council.CouncilId, out var councilEntityId))
                         {
-                            var councilLink = context.Set<DocumentLink>()
-                                .FirstOrDefault(dl => dl.DocumentId == existingDoc.Id && dl.EntityId == councilEntityId);
-                            if (councilLink == null)
+                            bool alreadyLinked = existingDoc.DocumentLinks.Any(dl => dl.EntityId == councilEntityId);
+                            if (!alreadyLinked)
                             {
                                 context.Set<DocumentLink>().Add(new DocumentLink
                                 {
-                                    DocumentId      = existingDoc.Id,
+                                    DocumentId      = newVersion.Id,
                                     EntityId        = councilEntityId,
                                     SchoolStudentId = null,
                                 });
-                                await context.SaveChangesAsync();
                             }
                         }
-                        
+
+                        await context.SaveChangesAsync();
+
+                        // Update local lookup so subsequent iterations see the new version
+                        existingByName[docDescription] = newVersion;
+
                         result.Updated++;
-                        Log($"[{i + 1}/{total}] ✅ עודכן מסמך קיים עבור {council.CouncilName} (docId={existingDoc.Id})");
+                        Log($"[{i + 1}/{total}] ✅ נוצרה גרסה חדשה ({newVersion.Version}) עבור {council.CouncilName} (docId={newVersion.Id})");
                     }
                     else
                     {

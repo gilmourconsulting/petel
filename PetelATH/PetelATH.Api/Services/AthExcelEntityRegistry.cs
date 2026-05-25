@@ -340,7 +340,7 @@ namespace PetelATH.Api.Services
                 .AsNoTracking()
                 .Where(s => schoolEntityIds.Contains(s.EntityId)
                             && yearIds.Contains(s.SchoolYearId))
-                .Select(s => new { s.Id, s.EntityId, s.SchoolYearId, s.Version, s.Name, s.Symbol })
+                .Select(s => new { s.Id, s.EntityId, s.SchoolYearId, s.Version, s.Name, s.Symbol, s.EducationStage })
                 .ToListAsync(ct);
 
             var schoolVersionLookup = schoolVersionRows
@@ -357,11 +357,12 @@ namespace PetelATH.Api.Services
                     {
                         return (
                             Name: sv.Name?.Trim() ?? string.Empty,
-                            Symbol: sv.Symbol?.Trim() ?? string.Empty
+                            Symbol: sv.Symbol?.Trim() ?? string.Empty,
+                            EducationStage: sv.EducationStage
                         );
                     }
 
-                    return (Name: string.Empty, Symbol: string.Empty);
+                    return (Name: string.Empty, Symbol: string.Empty, EducationStage: (string?)null);
                 });
 
             // Pre-load class names
@@ -434,6 +435,7 @@ namespace PetelATH.Api.Services
                     ["SchoolName"]          = school.Name,
                     ["Symbol"]              = school.Symbol,
                     ["SchoolSymbol"]        = school.Symbol,
+                    ["EducationStage"]      = school.EducationStage,
                 };
             }).ToList();
         }
@@ -1023,7 +1025,8 @@ namespace PetelATH.Api.Services
                         new() { Name = "ClassId",            LabelHe = "מזהה כיתה",           Type = "number", IsFilterable = true },
                         new() { Name = "ClassName",          LabelHe = "שם כיתה",             Type = "text" },
                         new() { Name = "SchoolName",         LabelHe = "שם בית ספר",          Type = "text" },
-                        new() { Name = "SchoolSymbol",       LabelHe = "סמל בית ספר",         Type = "text" }
+                        new() { Name = "SchoolSymbol",       LabelHe = "סמל בית ספר",         Type = "text" },
+                        new() { Name = "EducationStage",     LabelHe = "שלב חינוך",           Type = "text" }
                     }
                 },
                 new()
