@@ -153,14 +153,16 @@ namespace PetelATH.Api.Services
             Log($"שם גורם בעלות: {ownerName}");
 
             // ── 7b. Build CouncilId → EntityId map for document linking ──
+            // Only council entities (EntityTypeId = 2) carry the council FK
             var councilIds = councils.Select(c => c.CouncilId).Distinct().ToList();
             var councilEntityMap = (await context.Entities
                 .AsNoTracking()
-                .Where(e => e.CouncilId.HasValue && councilIds.Contains(e.CouncilId.Value))
+                .Where(e => e.EntityTypeId == 2 && e.CouncilId.HasValue && councilIds.Contains(e.CouncilId.Value))
                 .Select(e => new { e.CouncilId, e.Id })
                 .ToListAsync())
                 .GroupBy(e => e.CouncilId!.Value)
                 .ToDictionary(g => g.Key, g => g.First().Id);
+            Log($"נמצאו {councilEntityMap.Count} ישויות רשות (מתוך {councilIds.Count} רשויות)");
 
             // ── 8. Engine context for template path ───────────────────────
             var engineContext = new ExcelEntityContext

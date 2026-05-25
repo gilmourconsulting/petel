@@ -407,7 +407,7 @@ namespace PetelATH.Api.Services
             {
                 var school = yearToSchool.TryGetValue(s.SchoolYearId, out var si)
                     ? si
-                    : (Name: string.Empty, Symbol: string.Empty);
+                    : (Name: string.Empty, Symbol: string.Empty, EducationStage: (string?)null);
                 var statusName = s.StatusId.HasValue && statusLookup.TryGetValue(s.StatusId.Value, out var sn) ? sn : null;
                 var councilName = s.SendingCouncil.HasValue && councilLookup.TryGetValue(s.SendingCouncil.Value, out var cn) ? cn : null;
                 return new Dictionary<string, object?>
