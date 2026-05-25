@@ -2005,6 +2005,200 @@ namespace PetelATH.Api.Controllers
                     documentId, documentId);
             }
         }
+
+        /// <summary>
+        /// For a single student: adds a DocumentLink for each of their documents pointing to
+        /// the entity of their sending_council (if not already linked).
+        /// </summary>
+        [HttpPost("link-council-documents")]
+        public async Task<IActionResult> LinkCouncilDocuments([FromQuery] int studentId)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                // Get student's SendingCouncil
+                var student = await _context.SchoolStudents
+                    .Where(s => s.Id == studentId)
+                    .Select(s => new { s.Id, s.SendingCouncil })
+                    .FirstOrDefaultAsync();
+
+                if (student == null)
+                    return NotFound(new { success = false, message = "תלמיד לא נמצא" });
+
+                if (student.SendingCouncil == null)
+                    return Ok(new { success = true, linkedCount = 0, skippedCount = 0, message = "תלמיד ללא רשות שולחת" });
+
+                // Find the entity whose council FK matches the student's sending_council
+                var councilEntityId = await _context.Entities
+                    .Where(e => e.CouncilId == student.SendingCouncil)
+                    .Select(e => (long?)e.Id)
+                    .FirstOrDefaultAsync();
+
+                if (!councilEntityId.HasValue)
+                    return Ok(new { success = true, linkedCount = 0, skippedCount = 0, message = "לא נמצאה ישות עבור הרשות השולחת" });
+
+                // Get all document IDs currently linked to this student
+                var documentIds = await _context.DocumentLinks
+                    .Where(dl => dl.SchoolStudentId == studentId)
+                    .Select(dl => dl.DocumentId)
+                    .Distinct()
+                    .ToListAsync();
+
+                if (documentIds.Count == 0)
+                    return Ok(new { success = true, linkedCount = 0, skippedCount = 0, message = "אין מסמכים לתלמיד" });
+
+                // Find which document IDs are already linked to the council entity
+                var alreadyLinked = await _context.DocumentLinks
+                    .Where(dl => documentIds.Contains(dl.DocumentId) && dl.EntityId == councilEntityId.Value)
+                    .Select(dl => dl.DocumentId)
+                    .ToListAsync();
+                var alreadyLinkedSet = new HashSet<long>(alreadyLinked);
+
+                int linkedCount = 0, skippedCount = 0;
+                foreach (var docId in documentIds)
+                {
+                    if (alreadyLinkedSet.Contains(docId))
+                    {
+                        skippedCount++;
+                        continue;
+                    }
+
+                    _context.DocumentLinks.Add(new DocumentLink
+                    {
+                        DocumentId = docId,
+                        SchoolStudentId = null,
+                        EntityId = councilEntityId.Value
+                    });
+                    linkedCount++;
+                }
+
+                if (linkedCount > 0)
+                    await _context.SaveChangesAsync();
+
+                return Ok(new { success = true, linkedCount, skippedCount });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error linking council documents for student {StudentId}", studentId);
+                return StatusCode(500, new { success = false, message = "שגיאה בקישור מסמכי הרשות", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// For all students in a school year: adds DocumentLinks pointing to the council entity
+        /// of each student's sending_council (if not already linked).
+        /// </summary>
+        [HttpPost("link-council-documents-for-school")]
+        public async Task<IActionResult> LinkCouncilDocumentsForSchool([FromQuery] int schoolYearId)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                // Get all last-version students in this school year
+                var students = await _context.SchoolStudents
+                    .Where(s => s.SchoolYearId == schoolYearId && s.IsLastVersion)
+                    .Select(s => new { s.Id, s.SendingCouncil })
+                    .ToListAsync();
+
+                // Cache: councilId → entityId (long?) to avoid repeated DB lookups
+                var councilEntityCache = new Dictionary<int, long?>();
+
+                int studentsProcessed = 0, totalLinked = 0, totalSkipped = 0, errorCount = 0;
+
+                foreach (var student in students)
+                {
+                    try
+                    {
+                        if (student.SendingCouncil == null)
+                        {
+                            studentsProcessed++;
+                            continue;
+                        }
+
+                        // Resolve council entity ID (cached)
+                        if (!councilEntityCache.TryGetValue(student.SendingCouncil.Value, out var councilEntityId))
+                        {
+                            councilEntityId = await _context.Entities
+                                .Where(e => e.CouncilId == student.SendingCouncil.Value)
+                                .Select(e => (long?)e.Id)
+                                .FirstOrDefaultAsync();
+                            councilEntityCache[student.SendingCouncil.Value] = councilEntityId;
+                        }
+
+                        if (!councilEntityId.HasValue)
+                        {
+                            studentsProcessed++;
+                            continue;
+                        }
+
+                        // Get all document IDs linked to this student
+                        var documentIds = await _context.DocumentLinks
+                            .Where(dl => dl.SchoolStudentId == student.Id)
+                            .Select(dl => dl.DocumentId)
+                            .Distinct()
+                            .ToListAsync();
+
+                        if (documentIds.Count == 0)
+                        {
+                            studentsProcessed++;
+                            continue;
+                        }
+
+                        // Which docs are already linked to council entity?
+                        var alreadyLinked = await _context.DocumentLinks
+                            .Where(dl => documentIds.Contains(dl.DocumentId) && dl.EntityId == councilEntityId.Value)
+                            .Select(dl => dl.DocumentId)
+                            .ToListAsync();
+                        var alreadyLinkedSet = new HashSet<long>(alreadyLinked);
+
+                        foreach (var docId in documentIds)
+                        {
+                            if (alreadyLinkedSet.Contains(docId))
+                            {
+                                totalSkipped++;
+                                continue;
+                            }
+
+                            _context.DocumentLinks.Add(new DocumentLink
+                            {
+                                DocumentId = docId,
+                                SchoolStudentId = null,
+                                EntityId = councilEntityId.Value
+                            });
+                            totalLinked++;
+                        }
+
+                        await _context.SaveChangesAsync();
+                        studentsProcessed++;
+                    }
+                    catch (Exception ex)
+                    {
+                        errorCount++;
+                        _logger.LogError(ex, "Error processing student {StudentId} in LinkCouncilDocumentsForSchool", student.Id);
+                    }
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    studentsProcessed,
+                    totalLinked,
+                    totalSkipped,
+                    errorCount
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error linking council documents for schoolYearId {SchoolYearId}", schoolYearId);
+                return StatusCode(500, new { success = false, message = "שגיאה בקישור מסמכי הרשות", error = ex.Message });
+            }
+        }
     }
 }
 

@@ -37,6 +37,16 @@
             CssClass="context-btn">
             עדכן מסמכים לכל התלמידים
         </SecureButton>
+
+        <SecureButton
+            ActionName="students_linkCouncilDocuments"
+            ScreenName="@PageName"
+            FunctionName="LinkCouncilDocumentsForAll"
+            OnClick="LinkCouncilDocumentsForAll"
+            CssClass="context-btn"
+            Title="קשר מסמכי תלמידים לישות הרשות השולחת שלהם">
+            קשר מסמכים לרשויות
+        </SecureButton>
         
         <div class="context-spacer"></div>
         
@@ -401,6 +411,54 @@
     </div>
 }
 
+<!-- Council Link Progress Modal -->
+@if (_showCouncilLinkProgress)
+{
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000; direction: rtl;">
+        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 400px; max-width: 90%;">
+            <h3 style="margin: 0 0 20px 0; text-align: center; color: #333;">מקשר מסמכים לרשויות</h3>
+            <div style="margin-bottom: 20px; font-size: 14px; color: #666; direction: rtl; text-align: center;">
+                <div>עובד: @_councilLinkProcessed / @_councilLinkTotal</div>
+                <div style="color: #28a745;">✅ קישורים חדשים: @_councilLinkAdded</div>
+                <div style="color: #6c757d;">⏭️ קיימים (דולגו): @_councilLinkSkipped</div>
+                @if (_councilLinkErrors > 0)
+                {
+                    <div style="color: #dc3545;">❌ שגיאות: @_councilLinkErrors</div>
+                }
+                <div style="margin-top: 8px; font-style: italic;">@_councilLinkCurrentStudent</div>
+            </div>
+            <div style="width: 100%; height: 30px; background: #e9ecef; border-radius: 15px; overflow: hidden; margin-bottom: 10px;">
+                <div style="width: @(GetPercentage(_councilLinkProcessed, _councilLinkTotal))%; height: 100%; background: linear-gradient(90deg, #17a2b8, #20c997); transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
+                    <span>@(GetPercentage(_councilLinkProcessed, _councilLinkTotal))%</span>
+                </div>
+            </div>
+            <div style="text-align: center; color: #666; font-size: 12px;">אנא המתן...</div>
+        </div>
+    </div>
+}
+
+<!-- Council Link Summary Modal -->
+@if (_showCouncilLinkSummary)
+{
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000; direction: rtl;">
+        <div style="background: white; padding: 30px; border-radius: 8px; min-width: 450px;">
+            <h3 style="margin: 0 0 20px 0; text-align: center;">סיכום קישור מסמכים לרשויות</h3>
+            <div style="font-size: 16px; line-height: 2;">
+                <div><strong>סה"כ תלמידים:</strong> @_councilLinkTotal</div>
+                <div style="color: #28a745;"><strong>קישורים חדשים:</strong> @_councilLinkAdded</div>
+                <div style="color: #6c757d;"><strong>קיימים (דולגו):</strong> @_councilLinkSkipped</div>
+                @if (_councilLinkErrors > 0)
+                {
+                    <div style="color: #f44336;"><strong>שגיאות:</strong> @_councilLinkErrors</div>
+                }
+            </div>
+            <div style="text-align: center; margin-top: 25px;">
+                <button @onclick="() => _showCouncilLinkSummary = false" style="padding: 10px 30px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">סגור</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<StudentDto> _students = new();
     private StudentSummaryDto _summary = new();
@@ -476,6 +534,16 @@
     private int _documentProgressTotalErrors = 0;
     private string _documentProgressCurrentStudent = "";
     private List<string> _documentProgressErrors = new();
+
+    // Council link progress
+    private bool _showCouncilLinkProgress = false;
+    private bool _showCouncilLinkSummary = false;
+    private int _councilLinkTotal = 0;
+    private int _councilLinkProcessed = 0;
+    private int _councilLinkAdded = 0;
+    private int _councilLinkSkipped = 0;
+    private int _councilLinkErrors = 0;
+    private string _councilLinkCurrentStudent = "";
 
     // REQUIRED by SecurePageBase
     protected override string PageName => "students";
@@ -807,6 +875,73 @@
         Navigation.NavigateTo("/schooldashboard");
     }
 
+    private async Task LinkCouncilDocumentsForAll()
+    {
+        if (_students == null || _students.Count == 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "אין תלמידים");
+            return;
+        }
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"האם ברצונך לקשר מסמכי תלמידים לישות הרשות השולחת שלהם?\n" +
+            $"יעובדו {_students.Count} תלמידים.\n\n" +
+            "פעולה זו לא תשכפל קישורים קיימים.");
+
+        if (!confirmed) return;
+
+        _showCouncilLinkProgress = true;
+        _councilLinkTotal = _students.Count;
+        _councilLinkProcessed = 0;
+        _councilLinkAdded = 0;
+        _councilLinkSkipped = 0;
+        _councilLinkErrors = 0;
+        _councilLinkCurrentStudent = "";
+        StateHasChanged();
+
+        try
+        {
+            foreach (var student in _students)
+            {
+                _councilLinkCurrentStudent = $"{student.FirstName} {student.LastName}";
+                StateHasChanged();
+
+                try
+                {
+                    var response = await ApiService.PostAsync<object, CouncilLinkResponse>(
+                        $"documents/link-council-documents?studentId={student.Id}",
+                        new { });
+
+                    if (response != null)
+                    {
+                        _councilLinkAdded += response.LinkedCount;
+                        _councilLinkSkipped += response.SkippedCount;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _councilLinkErrors++;
+                    Console.WriteLine($"Error linking council docs for student {student.Id}: {ex.Message}");
+                }
+
+                _councilLinkProcessed++;
+                StateHasChanged();
+
+                await Task.Delay(50);
+            }
+
+            _showCouncilLinkProgress = false;
+            _showCouncilLinkSummary = true;
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            _showCouncilLinkProgress = false;
+            StateHasChanged();
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בקישור מסמכים לרשויות:\n{ex.Message}");
+        }
+    }
+
     private string GetGenderDisplay(int? gender)
     {
         return gender switch
@@ -829,5 +964,13 @@
         public int AddedCount { get; set; }
         public int SkippedCount { get; set; }
         public int NotRequiredCount { get; set; }
+    }
+
+    // DTO for council link response
+    private class CouncilLinkResponse
+    {
+        public bool Success { get; set; }
+        public int LinkedCount { get; set; }
+        public int SkippedCount { get; set; }
     }
 }

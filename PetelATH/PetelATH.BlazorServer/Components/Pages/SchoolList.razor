@@ -28,6 +28,16 @@
         {
             <span style="font-size: 0.85em; color: #0d6efd; margin-right: 8px;">יוצר דוח 10... אנא המתן</span>
         }
+        <SecureButton ActionName="schoollist_linkCouncilDocuments" ScreenName="@PageName" FunctionName="LinkCouncilDocumentsForAllSchools"
+                      OnClick="LinkCouncilDocumentsForAllSchools" CssClass="context-btn"
+                      Title="קשר מסמכי תלמידים לישות הרשות השולחת שלהם לכל בתי הספר"
+                      Disabled="@_isLinkingCouncilDocs">
+            קשר מסמכים לרשויות
+        </SecureButton>
+        @if (_isLinkingCouncilDocs)
+        {
+            <span style="font-size: 0.85em; color: #0d6efd; margin-right: 8px;">מקשר מסמכים... אנא המתן</span>
+        }
         <SecureButton ActionName="schoollist_togglePricingSelection" ScreenName="@PageName" FunctionName="ToggleSelectionMode"
                       OnClick="ToggleSelectionMode" CssClass="@PricingToggleCssClass"
                       Title="בחר מספר בתי ספר להפעלת תמחור מרובה">
@@ -93,6 +103,30 @@
                 <div style="max-height: 220px; overflow-y: auto; font-family: monospace; white-space: pre-wrap;
                             background: rgba(0,0,0,0.05); border-radius: 4px; padding: 6px 8px;">
                     @foreach (var line in _generateLog)
+                    {
+                        <div>@line</div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Council link log panel -->
+    @if (_councilLinkSummary != null || _councilLinkLog.Count > 0)
+    {
+        <div style="margin: 8px 16px; padding: 10px 14px; border-radius: 6px; font-size: 0.85em; direction: rtl;
+                    background: @(_councilLinkSuccess ? "#d1e7dd" : "#f8d7da");
+                    border: 1px solid @(_councilLinkSuccess ? "#badbcc" : "#f5c2c7");
+                    color: @(_councilLinkSuccess ? "#0a3622" : "#842029");">
+            @if (_councilLinkSummary != null)
+            {
+                <div style="font-weight: 600; margin-bottom: @(_councilLinkLog.Count > 0 ? "8px" : "0");">@_councilLinkSummary</div>
+            }
+            @if (_councilLinkLog.Count > 0)
+            {
+                <div style="max-height: 220px; overflow-y: auto; font-family: monospace; white-space: pre-wrap;
+                            background: rgba(0,0,0,0.05); border-radius: 4px; padding: 6px 8px;">
+                    @foreach (var line in _councilLinkLog)
                     {
                         <div>@line</div>
                     }
@@ -501,6 +535,12 @@
     private bool _generateSuccess;
     private List<string> _generateLog = new();
 
+    // Council document link state
+    private bool _isLinkingCouncilDocs = false;
+    private string? _councilLinkSummary;
+    private bool _councilLinkSuccess;
+    private List<string> _councilLinkLog = new();
+
     // REQUIRED by SecurePageBase
     protected override string PageName => "schoollist";
 
@@ -723,6 +763,96 @@
         int Failed,
         List<string> Log
     );
+
+    private async Task LinkCouncilDocumentsForAllSchools()
+    {
+        if (_schools == null || _schools.Count == 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "אין בתי ספר ברשימה");
+            return;
+        }
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"האם ברצונך לקשר מסמכי תלמידים לישות הרשות השולחת שלהם?\n" +
+            $"יעובדו {_schools.Count} בתי ספר.\n\n" +
+            "פעולה זו לא תשכפל קישורים קיימים.");
+
+        if (!confirmed) return;
+
+        _isLinkingCouncilDocs = true;
+        _councilLinkSummary = null;
+        _councilLinkLog = new();
+        _councilLinkSuccess = false;
+        StateHasChanged();
+
+        int totalLinked = 0;
+        int totalSkipped = 0;
+        int totalErrors = 0;
+        int totalStudents = 0;
+        int schoolsProcessed = 0;
+
+        try
+        {
+            foreach (var school in _schools)
+            {
+                if (!school.SchoolYearId.HasValue) continue;
+
+                try
+                {
+                    var result = await ApiService.PostAsync<object, SchoolCouncilLinkResult>(
+                        $"documents/link-council-documents-for-school?schoolYearId={school.SchoolYearId.Value}",
+                        new object());
+
+                    if (result != null)
+                    {
+                        totalStudents += result.StudentsProcessed;
+                        totalLinked   += result.TotalLinked;
+                        totalSkipped  += result.TotalSkipped;
+                        totalErrors   += result.ErrorCount;
+
+                        var status = result.Success ? "✓" : "✗";
+                        _councilLinkLog.Add(
+                            $"{status} {school.Name} — תלמידים: {result.StudentsProcessed}, " +
+                            $"קושרו: {result.TotalLinked}, קיימים: {result.TotalSkipped}" +
+                            (result.ErrorCount > 0 ? $", שגיאות: {result.ErrorCount}" : ""));
+                    }
+                }
+                catch (Exception ex)
+                {
+                    totalErrors++;
+                    _councilLinkLog.Add($"✗ {school.Name} — שגיאה: {ex.Message}");
+                }
+
+                schoolsProcessed++;
+                StateHasChanged();
+            }
+
+            _councilLinkSuccess = totalErrors == 0;
+            _councilLinkSummary =
+                $"הסתיים — {schoolsProcessed} בתי ספר, {totalStudents} תלמידים, " +
+                $"{totalLinked} קישורים נוספו, {totalSkipped} קיימים" +
+                (totalErrors > 0 ? $", {totalErrors} שגיאות" : "");
+        }
+        catch (Exception ex)
+        {
+            _councilLinkSuccess = false;
+            _councilLinkSummary = $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isLinkingCouncilDocs = false;
+            StateHasChanged();
+        }
+    }
+
+    private class SchoolCouncilLinkResult
+    {
+        public bool Success { get; set; }
+        public int StudentsProcessed { get; set; }
+        public int TotalLinked { get; set; }
+        public int TotalSkipped { get; set; }
+        public int ErrorCount { get; set; }
+    }
 
     private async Task NavigateBackToDashboard()
     {

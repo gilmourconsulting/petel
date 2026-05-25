@@ -215,6 +215,84 @@ if (attr != null)
     _sessionsRemark = $"מספר מפגשים נדרש: {attr.Value}";
 ```
 
+### Entity Type System
+
+The `petel_schema.entities` table stores all entities (schools, councils/local authorities, networks, etc.). The `entity_type_id` column identifies the kind of entity:
+
+| `entity_type_id` | Type | Description |
+|---|---|---|
+| 1 | School | An individual school (בית ספר) |
+| 2 | Council | A local authority / municipality (רשות מקומית) |
+| 3 | Network | An educational network / owner org (רשת / בעלות) |
+
+**Critical**: The `entities.council` column (mapped as `CouncilId` in `Entity.cs`) is a FK to `councils.id`. This column is set on **multiple entity types** — for example, school entities also have `CouncilId` set to indicate which council they belong to. Therefore:
+
+> **Always filter by `EntityTypeId == 2` when looking up the entity that *represents* a council.**
+
+```csharp
+// ✅ CORRECT — only council-type entities
+var councilEntityMap = (await context.Entities
+    .AsNoTracking()
+    .Where(e => e.EntityTypeId == 2 && e.CouncilId.HasValue && councilIds.Contains(e.CouncilId.Value))
+    .Select(e => new { e.CouncilId, e.Id })
+    .ToListAsync())
+    .GroupBy(e => e.CouncilId!.Value)
+    .ToDictionary(g => g.Key, g => g.First().Id);
+
+// ❌ WRONG — returns school entities too (both have CouncilId set)
+var councilEntityMap = (await context.Entities
+    .AsNoTracking()
+    .Where(e => e.CouncilId.HasValue && councilIds.Contains(e.CouncilId.Value))  // Missing EntityTypeId == 2!
+    ...
+```
+
+Council entities are created in `TransactionAccountsController.CreateCouncilEntity` with `EntityTypeId = 2, CouncilId = request.CouncilId`.
+
+### Document Links — Council Entity Pattern
+
+When generating a per-council document (e.g. `CouncilExcelGenerationService`), the document must be linked to both:
+1. The **owner entity** (the network/authority that ran the generation, `entityId` parameter)
+2. The **council entity** — the type-2 entity whose `CouncilId` matches the council being processed
+
+Build the council→entity map once before the processing loop, then use it per iteration:
+
+```csharp
+// Step 1: Build map ONCE before loop (filter EntityTypeId == 2 is mandatory)
+var councilIds = councils.Select(c => c.CouncilId).Distinct().ToList();
+var councilEntityMap = (await context.Entities
+    .AsNoTracking()
+    .Where(e => e.EntityTypeId == 2 && e.CouncilId.HasValue && councilIds.Contains(e.CouncilId.Value))
+    .Select(e => new { e.CouncilId, e.Id })
+    .ToListAsync())
+    .GroupBy(e => e.CouncilId!.Value)
+    .ToDictionary(g => g.Key, g => g.First().Id);
+
+// Step 2: Per document, add both links
+context.Set<DocumentLink>().Add(new DocumentLink { DocumentId = document.Id, EntityId = entityId });     // owner
+if (councilEntityMap.TryGetValue(council.CouncilId, out var councilEntityId))
+{
+    context.Set<DocumentLink>().Add(new DocumentLink { DocumentId = document.Id, EntityId = councilEntityId });  // council
+}
+else
+{
+    _logger.LogWarning("No type-2 entity found for councilId={CouncilId}", council.CouncilId);
+}
+```
+
+On **update** (new version of existing document), copy all links from the old version, then also ensure the council entity link exists (it may be missing if the old version predates this pattern):
+
+```csharp
+foreach (var link in existingDoc.DocumentLinks)
+    context.Set<DocumentLink>().Add(new DocumentLink { DocumentId = newVersion.Id, EntityId = link.EntityId, ... });
+
+if (councilEntityMap.TryGetValue(council.CouncilId, out var councilEntityId))
+{
+    bool alreadyLinked = existingDoc.DocumentLinks.Any(dl => dl.EntityId == councilEntityId);
+    if (!alreadyLinked)
+        context.Set<DocumentLink>().Add(new DocumentLink { DocumentId = newVersion.Id, EntityId = councilEntityId });
+}
+```
+
 ### GlobalFunctions Service
 
 Provides Hebrew-normalized entity lookups for all controllers and Excel import:
