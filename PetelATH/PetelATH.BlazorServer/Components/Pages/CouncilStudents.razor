@@ -18,6 +18,14 @@
                       CssClass="context-btn">
             רענן נתונים
         </SecureButton>
+        <SecureButton ActionName="councilstudents_documents"
+                      ScreenName="@PageName"
+                      FunctionName="NavigateToCouncilDocuments"
+                      OnClick="NavigateToCouncilDocuments"
+                      CssClass="context-btn">
+            
+            מסמכי רשות
+        </SecureButton>
         <div class="context-spacer"></div>
         <SecureButton ActionName="councilstudents_councilsummary"
                       ScreenName="@PageName"
@@ -419,6 +427,11 @@
     private void NavigateBackToCouncilSummary()
     {
         Navigation.NavigateTo("/councilsummary");
+    }
+
+    private void NavigateToCouncilDocuments()
+    {
+        Navigation.NavigateTo("/councildocuments");
     }
 
     private string GetGenderDisplay(int? gender)

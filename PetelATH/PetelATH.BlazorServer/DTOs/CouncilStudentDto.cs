@@ -33,4 +33,10 @@ namespace PetelATH.BlazorServer.DTOs
         public int YearId { get; set; }
         public List<CouncilStudentDto>? Data { get; set; }
     }
+
+    public class CouncilEntityIdResponse
+    {
+        public bool Success { get; set; }
+        public int EntityId { get; set; }
+    }
 }

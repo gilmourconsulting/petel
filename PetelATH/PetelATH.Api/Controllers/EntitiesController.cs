@@ -1029,6 +1029,37 @@ public async Task<IActionResult> GetOwnerOptions()
         }
 
         /// <summary>
+        /// Returns the entity ID of the type-2 (council) entity for a given council ID.
+        /// Used by the frontend to resolve council → entity before loading documents.
+        /// </summary>
+        [HttpGet("council-entity-id")]
+        public async Task<IActionResult> GetCouncilEntityId([FromQuery] int councilId)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                var entityId = await _context.Entities
+                    .AsNoTracking()
+                    .Where(e => e.EntityTypeId == 2 && e.CouncilId.HasValue && e.CouncilId == councilId)
+                    .Select(e => (int?)e.Id)
+                    .FirstOrDefaultAsync();
+
+                if (entityId == null)
+                    return NotFound(new { success = false, message = $"לא נמצאה ישות לרשות {councilId}" });
+
+                return Ok(new { success = true, entityId = entityId.Value });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting council entity ID for councilId={CouncilId}", councilId);
+                return StatusCode(500, new { success = false, message = "שגיאה בטעינת ישות הרשות", error = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// Batch create entities for councils that appear in school_students but don't have an entity yet
         /// Only creates entities for councils without existing entities
         /// </summary>

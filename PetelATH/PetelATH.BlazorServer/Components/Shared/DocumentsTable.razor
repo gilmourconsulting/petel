@@ -287,6 +287,8 @@
     [Parameter] public bool AllowDelete { get; set; } = true;
     [Parameter] public bool ShowEntityName { get; set; } = false;
     [Parameter] public EventCallback OnDocumentsChanged { get; set; }
+    /// <summary>Extra query-string parameters appended to the fetch endpoint (e.g. "ownerEntityId=42").</summary>
+    [Parameter] public string? AdditionalQueryParams { get; set; }
 
     private List<DocumentDto> _documents = new();
     private bool _isLoading = true;
@@ -389,8 +391,8 @@
             string endpoint = EntityType switch
             {
                 "student" => $"documents/by-student-id?studentId={EntityId}&yearId={YearId}",
-                "school" => $"documents/by-entity?entityId={EntityId}&yearId={YearId}",
-                "entity" => $"documents/by-entity?entityId={EntityId}&yearId={YearId}",
+                "school" => $"documents/by-entity?entityId={EntityId}&yearId={YearId}{(string.IsNullOrEmpty(AdditionalQueryParams) ? "" : "&" + AdditionalQueryParams)}",
+                "entity" => $"documents/by-entity?entityId={EntityId}&yearId={YearId}{(string.IsNullOrEmpty(AdditionalQueryParams) ? "" : "&" + AdditionalQueryParams)}",
                 "entity-hierarchy" => $"documents/by-entity-hierarchy?entityId={EntityId}&yearId={YearId}",
                 _ => throw new ArgumentException($"Invalid EntityType: {EntityType}")
             };

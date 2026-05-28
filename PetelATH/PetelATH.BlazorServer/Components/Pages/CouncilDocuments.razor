@@ -1,0 +1,137 @@
+@page "/councildocuments"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelATH.BlazorServer.DTOs
+@using PetelATH.BlazorServer.Components.Shared
+@inject ApiService ApiService
+@inject SessionStateService SessionStateService
+@inject NavigationManager Navigation
+
+<div class="main-container">
+    <!-- Context buttons -->
+    <div class="context-buttons-section">
+        <div class="context-spacer"></div>
+        <SecureButton ActionName="councildocuments_backToCouncilStudents"
+                      ScreenName="@PageName"
+                      FunctionName="NavigateBackToCouncilStudents"
+                      OnClick="NavigateBackToCouncilStudents"
+                      CssClass="context-navigation-btn">
+            חזרה לתלמידי רשות
+        </SecureButton>
+    </div>
+
+    <!-- Main content -->
+    <div class="students-content">
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">מסמכי רשות - @_councilName</div>
+                <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
+                <div class="left-spacer"></div>
+            </div>
+        </div>
+
+        <div class="content-card">
+            @if (_isLoading)
+            {
+                <div class="loading-spinner">טוען...</div>
+            }
+            else if (_councilEntityId == null)
+            {
+                <div class="no-data-message" style="padding: 20px; color: #856404; background-color: #fff3cd; border-radius: 8px; direction: rtl;">
+                    לא נמצאה ישות מקושרת לרשות זו. יש ליצור ישות לרשות לפני צפייה במסמכים.
+                </div>
+            }
+            else
+            {
+                <DocumentsTable @ref="_documentsTable"
+                                EntityType="entity"
+                                EntityId="_councilEntityId"
+                                YearId="_yearId"
+                                ScreenName="@PageName"
+                                AllowDownload="true"
+                                AllowUpload="true"
+                                AllowApprove="false"
+                                AllowDelete="false"
+                                ShowEntityName="false"
+                                AdditionalQueryParams="@_ownerQueryParam" />
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override string PageName => "councildocuments";
+
+    private DocumentsTable? _documentsTable;
+    private int? _councilEntityId;
+    private int? _yearId;
+    private string _councilName = string.Empty;
+    private string _yearDisplay = string.Empty;
+    private bool _isLoading = true;
+    private string _ownerQueryParam = string.Empty;
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        await LoadPageData();
+    }
+
+    private async Task LoadPageData()
+    {
+        _isLoading = true;
+        try
+        {
+            // Council name
+            var councilNameResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                "session/property/SelectedCouncilName");
+            if (councilNameResponse != null && councilNameResponse.TryGetValue("value", out var name))
+                _councilName = name;
+
+            // Year display
+            var yearValueResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                "session/property/SelectedYearValue");
+            if (yearValueResponse != null && yearValueResponse.TryGetValue("value", out var yearVal))
+                _yearDisplay = $"שנת לימודים: {yearVal}";
+
+            // Year ID
+            var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                "session/property/SelectedYearId");
+            if (yearIdResponse != null && yearIdResponse.TryGetValue("value", out var yearIdStr)
+                && int.TryParse(yearIdStr, out var yid))
+                _yearId = yid;
+
+            // Council ID
+            var councilIdResponse = await ApiService.GetAsync<Dictionary<string, string>>(
+                "session/property/SelectedCouncilId");
+            if (councilIdResponse == null || !councilIdResponse.TryGetValue("value", out var councilIdStr)
+                || !int.TryParse(councilIdStr, out var councilId))
+            {
+                Navigation.NavigateTo("/councilstudents");
+                return;
+            }
+
+            // Resolve council → entity ID
+            var entityResponse = await ApiService.GetAsync<CouncilEntityIdResponse>(
+                $"entities/council-entity-id?councilId={councilId}");
+            if (entityResponse?.Success == true)
+                _councilEntityId = entityResponse.EntityId;
+
+            // Build the ownership filter from the logged-in user's entity
+            var session = await SessionStateService.GetSessionAsync();
+            if (session != null && int.TryParse(session.EntityId, out var sessionEntityId))
+                _ownerQueryParam = $"ownerEntityId={sessionEntityId}";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading council documents page: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void NavigateBackToCouncilStudents()
+    {
+        Navigation.NavigateTo("/councilstudents");
+    }
+}
