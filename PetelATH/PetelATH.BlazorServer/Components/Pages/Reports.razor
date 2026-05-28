@@ -1,4 +1,4 @@
-@page "/excelreports"
+@page "/reports"
 @layout MainLayout
 @inherits SecurePageBase
 @using PetelATH.BlazorServer.DTOs
@@ -10,12 +10,12 @@
 
 <div class="main-container">
     <div class="context-buttons-section">
-        <SecureButton ActionName="excelreports_create" ScreenName="@PageName" FunctionName="ShowCreateModal"
+        <SecureButton ActionName="reports_create" ScreenName="@PageName" FunctionName="ShowCreateModal"
                       OnClick="ShowCreateModal" CssClass="context-btn" Title="יצירת דוח חדש">
             + דוח חדש
         </SecureButton>
         <div class="context-spacer"></div>
-        <SecureButton ActionName="excelreports_back" ScreenName="@PageName" FunctionName="NavigateBack"
+        <SecureButton ActionName="reports_back" ScreenName="@PageName" FunctionName="NavigateBack"
                       OnClick="NavigateBack" CssClass="context-navigation-btn" Title="חזרה">
             חזרה
         </SecureButton>
@@ -24,7 +24,7 @@
     <div class="students-content">
         <div class="content-header">
             <div class="page-title-container">
-                <div class="page-title">דוחות Excel</div>
+                <div class="page-title">דוחות</div>
                 <div class="left-spacer"></div>
             </div>
         </div>
@@ -49,6 +49,7 @@
                                 <th>פעולות</th>
                                 <th>שם הדוח</th>
                                 <th>סוג</th>
+                                <th>פורמט</th>
                                 <th>תיאור</th>
                                 <th>חוצה שנים</th>
                                 <th>הקשר ישות</th>
@@ -62,7 +63,7 @@
                                         <button class="btn-icon" title="הפעל דוח" @onclick="() => ShowRunModal(r)">
                                             <img src="/images/stats_icon.png" alt="הפעל" class="action-icon-natural" />
                                         </button>
-                                        <SecureButton ActionName="can_edit_excel_report"
+                                        <SecureButton ActionName="can_edit_report"
                                                       ScreenName="@PageName"
                                                       FunctionName="EditReport"
                                                       OnClick="() => EditReport(r)"
@@ -71,7 +72,7 @@
                                                       HideIfNoAccess="true">
                                             <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural" />
                                         </SecureButton>
-                                        <SecureButton ActionName="can_delete_excel_report"
+                                        <SecureButton ActionName="can_delete_report"
                                                       ScreenName="@PageName"
                                                       FunctionName="ConfirmDelete"
                                                       OnClick="() => ConfirmDelete(r)"
@@ -83,6 +84,16 @@
                                     </td>
                                     <td>@r.Name</td>
                                     <td>@ReportTypeLabel(r.ReportType)</td>
+                                    <td>
+                                        @if (string.Equals(r.Format, "word", StringComparison.OrdinalIgnoreCase))
+                                        {
+                                            <span style="background:#198754;color:white;padding:2px 8px;border-radius:12px;font-size:0.78em;">Word</span>
+                                        }
+                                        else
+                                        {
+                                            <span style="background:#0d6efd;color:white;padding:2px 8px;border-radius:12px;font-size:0.78em;">Excel</span>
+                                        }
+                                    </td>
                                     <td>@r.Description</td>
                                     <td>@(r.AllowCrossYear ? "כן" : "לא")</td>
                                     <td>@(r.RequiresEntityContext ? "כן" : "לא")</td>
@@ -126,7 +137,14 @@
                     <label style="display:block;font-weight:600;margin-bottom:4px;">סוג דוח <span style="color:red;">*</span></label>
                     <select @bind="_formReportType" style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;background:white;">
                         <option value="query_builder">בונה שאילתות (Query Builder)</option>
-                        <option value="template">תבנית Excel</option>
+                        <option value="template">תבנית</option>
+                    </select>
+                </div>
+                <div style="margin-bottom:14px;">
+                    <label style="display:block;font-weight:600;margin-bottom:4px;">פורמט פלט</label>
+                    <select @bind="_formFormat" style="width:100%;padding:8px;border:1px solid #dee2e6;border-radius:4px;background:white;">
+                        <option value="excel">Excel (.xlsx)</option>
+                        <option value="word">Word (.docx)</option>
                     </select>
                 </div>
                 <div style="display:flex;gap:15px;margin-bottom:14px;">
@@ -152,7 +170,7 @@
                 {
                     <hr style="margin:16px 0 12px;" />
                     <div style="margin-bottom:6px;">
-                        <strong style="font-size:0.95em;">תבנית Excel</strong>
+                        <strong style="font-size:0.95em;">תבנית @(string.Equals(_editingReport?.Format, "word", StringComparison.OrdinalIgnoreCase) ? "Word" : "Excel")</strong>
                     </div>
                     @if (!string.IsNullOrEmpty(_editingReport.TemplateFilename))
                     {
@@ -163,7 +181,7 @@
                         <div style="font-size:0.88em;color:#6c757d;margin-bottom:8px;">עדיין לא הועלתה תבנית.</div>
                     }
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                        <InputFile OnChange="HandleTemplateFileSelected" accept=".xlsx"
+                        <InputFile OnChange="HandleTemplateFileSelected" accept="@TemplateFileAccept"
                                    style="flex:1;min-width:0;font-size:0.88em;" />
                         <button type="button" @onclick="UploadTemplate"
                                 disabled="@(_isUploadingTemplate || _selectedTemplateFile == null)"
@@ -309,20 +327,22 @@
 }
 
 @code {
-    protected override string PageName => "excelreports";
+    protected override string PageName => "reports";
 
     private bool _isLoading = true;
     private string _errorMessage = string.Empty;
-    private List<ExcelReportDto> _reports = new();
+    private List<ReportDto> _reports = new();
     private List<HebrewYearDto> _schoolYears = new();
     private bool _isAdmin = false;
 
     // Create/Edit modal
     private bool _showCreateModal = false;
-    private ExcelReportDto? _editingReport;
+    private ReportDto? _editingReport;
     private string _formName = string.Empty;
     private string _formDescription = string.Empty;
     private string _formReportType = "query_builder";
+    private string _formFormat = "excel";
+    private string TemplateFileAccept => _formFormat == "word" ? ".docx" : ".xlsx";
     private bool _formAllowCrossYear = false;
     private bool _formRequiresEntityContext = false;
     private bool _isSaving = false;
@@ -338,7 +358,7 @@
     private bool _paramsLoading  = false;
     private bool _isRunning      = false;
     private string _runError     = string.Empty;
-    private ExcelReportDto? _runningReport;
+    private ReportDto? _runningReport;
     private List<ReportParamDef> _paramDefs  = new();
     private Dictionary<string, string> _paramValues = new();
     private List<CouncilDto> _councils = new();
@@ -368,7 +388,7 @@
     {
         try
         {
-            var result = await ApiService.GetAsync<ApiResult<List<ExcelReportDto>>>("excelreports");
+            var result = await ApiService.GetAsync<ApiResult<List<ReportDto>>>("reports");
             if (result?.Success == true)
                 _reports = result.Data ?? new();
         }
@@ -394,7 +414,7 @@
         _formName = string.Empty;
         _formDescription = string.Empty;
         _formReportType = "query_builder";
-        _formAllowCrossYear = false;
+        _formFormat = "excel";
         _formRequiresEntityContext = false;
         _modalError = string.Empty;
         _showCreateModal = true;
@@ -419,13 +439,14 @@
                 Name = _formName,
                 Description = _formDescription,
                 ReportType = _formReportType,
+                Format = _formFormat,
                 AllowCrossYear = _formAllowCrossYear,
                 RequiresEntityContext = _formRequiresEntityContext
             };
 
             if (_editingReport == null)
             {
-                var result = await ApiService.PostAsync<SaveReportBody, ApiResult<object>>("excelreports", body);
+                var result = await ApiService.PostAsync<SaveReportBody, ApiResult<object>>("reports", body);
                 if (result?.Success != true)
                 {
                     _modalError = "שגיאה ביצירת הדוח";
@@ -435,7 +456,7 @@
             else
             {
                 var result = await ApiService.PutAsync<SaveReportBody, ApiResult<object>>(
-                    $"excelreports/{_editingReport.Id}", body);
+                    $"reports/{_editingReport.Id}", body);
                 if (result?.Success != true)
                 {
                     _modalError = "שגיאה בשמירת הדוח";
@@ -456,14 +477,14 @@
         }
     }
 
-    private async Task ConfirmDelete(ExcelReportDto r)
+    private async Task ConfirmDelete(ReportDto r)
     {
         if (!await JSRuntime.InvokeAsync<bool>("confirm", $"למחוק את הדוח '{r.Name}'?"))
             return;
 
         try
         {
-            await ApiService.DeleteAsync($"excelreports/{r.Id}");
+            await ApiService.DeleteAsync($"reports/{r.Id}");
             await LoadReports();
         }
         catch (Exception ex)
@@ -472,13 +493,13 @@
         }
     }
 
-    private void NavigateToBuilder(ExcelReportDto r)
+    private void NavigateToBuilder(ReportDto r)
     {
-        Navigation.NavigateTo($"/excelreports/{r.Id}/builder");
+        Navigation.NavigateTo($"/reports/{r.Id}/builder");
     }
 
     /// <summary>Routes to builder for query_builder reports, or opens the edit modal for template reports.</summary>
-    private void EditReport(ExcelReportDto r)
+    private void EditReport(ReportDto r)
     {
         if (r.ReportType == "template")
             ShowEditModal(r);
@@ -486,12 +507,13 @@
             NavigateToBuilder(r);
     }
 
-    private void ShowEditModal(ExcelReportDto r)
+    private void ShowEditModal(ReportDto r)
     {
         _editingReport = r;
         _formName = r.Name;
         _formDescription = r.Description ?? string.Empty;
         _formReportType = r.ReportType;
+        _formFormat = r.Format;
         _formAllowCrossYear = r.AllowCrossYear;
         _formRequiresEntityContext = r.RequiresEntityContext;
         _modalError = string.Empty;
@@ -522,7 +544,7 @@
             content.Add(fileContent, "file", _selectedTemplateFile.Name);
 
             var result = await ApiService.PostMultipartAsync<UploadTemplateResult>(
-                $"excelreporttemplates/{_editingReport.Id}/upload", content);
+                $"reporttemplates/{_editingReport.Id}/upload", content);
 
             if (result?.Success == true)
             {
@@ -531,7 +553,7 @@
                 // Update the display name without a full reload
                 var idx = _reports.FindIndex(rep => rep.Id == _editingReport.Id);
                 if (idx >= 0) _reports[idx].TemplateFilename = _selectedTemplateFile.Name;
-                _editingReport = new ExcelReportDto
+                _editingReport = new ReportDto
                 {
                     Id = _editingReport.Id, Name = _editingReport.Name,
                     Description = _editingReport.Description, ReportType = _editingReport.ReportType,
@@ -557,7 +579,7 @@
         }
     }
 
-    private async Task ShowRunModal(ExcelReportDto r)
+    private async Task ShowRunModal(ReportDto r)
     {
         _runningReport = r;
         _paramDefs     = new();
@@ -569,7 +591,7 @@
 
         try
         {
-            var result = await ApiService.GetAsync<ParamsApiResult>($"excelreports/{r.Id}/params");
+            var result = await ApiService.GetAsync<ParamsApiResult>($"reports/{r.Id}/params");
             if (result?.Success == true && result.Data != null)
             {
                 _paramDefs = result.Data;
@@ -635,7 +657,7 @@
                 .ToDictionary(kv => kv.Key, kv => kv.Value);
 
             var fileBytes = await ApiService.PostForFileAsync(
-                $"excelreports/{_runningReport.Id}/generate",
+                $"reports/{_runningReport.Id}/generate",
                 new GenerateReportBody { RuntimeParams = runtimeParams });
 
             if (fileBytes != null && fileBytes.Length > 0)
@@ -693,13 +715,14 @@
         public string? Name { get; set; }
         public string? Description { get; set; }
         public string? ReportType { get; set; }
+        public string? Format { get; set; }
         public bool AllowCrossYear { get; set; }
         public bool RequiresEntityContext { get; set; }
     }
 
     // ─── Run-modal helpers ──────────────────────────────────────────────────
 
-    /// <summary>Matches the shape returned by GET /api/excelreports/{id}/params</summary>
+    /// <summary>Matches the shape returned by GET /api/reports/{id}/params</summary>
     private class ReportParamDef
     {
         public string ParamName    { get; set; } = string.Empty;
@@ -716,7 +739,7 @@
         public List<ReportParamDef>? Data { get; set; }
     }
 
-    /// <summary>Body sent to POST /api/excelreports/{id}/generate</summary>
+    /// <summary>Body sent to POST /api/reports/{id}/generate</summary>
     private class GenerateReportBody
     {
         public Dictionary<string, string> RuntimeParams { get; set; } = new();

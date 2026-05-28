@@ -1875,7 +1875,7 @@ namespace PetelATH.Api.Controllers
 
                 // ── Pre-validate: template must exist before queuing ──────────
                 const string reportName = Services.CouncilExcelGenerationService.ReportDefinitionName;
-                var templateCheck = await _context.ExcelReportDefinitions
+                var templateCheck = await _context.ReportDefinitions
                     .Include(r => r.Template)
                     .AsNoTracking()
                     .Where(r => r.Name == reportName)

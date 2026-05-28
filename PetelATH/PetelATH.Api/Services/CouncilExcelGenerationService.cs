@@ -78,7 +78,7 @@ namespace PetelATH.Api.Services
             }
 
             // ── 2. Load the report template (REQUIRED) ───────────────────
-            var reportDef = await context.ExcelReportDefinitions
+            var reportDef = await context.ReportDefinitions
                 .Include(r => r.Template)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Name == ReportDefinitionName);

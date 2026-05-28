@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 namespace Petel.Core.Excel
 {
     /// <summary>
-    /// Fills an Excel template from a <see cref="ReportDefinition"/>.
+    /// Fills an Excel template from a <see cref="ReportTemplateSchema"/>.
     ///
     /// Template syntax
     /// ───────────────
@@ -51,7 +51,7 @@ namespace Petel.Core.Excel
         /// Generate a filled Excel file from a template and a definition.
         /// </summary>
         /// <param name="templateBytes">Raw bytes of the .xlsx template file.</param>
-        /// <param name="definitionJson">JSON string conforming to <see cref="ReportDefinition"/>.</param>
+        /// <param name="definitionJson">JSON string conforming to <see cref="ReportTemplateSchema"/>.</param>
         /// <param name="context">Entity/year scope for registry queries.</param>
         /// <param name="runtimeParams">
         ///   Values supplied by the caller (year id, council id, etc.).
@@ -66,7 +66,7 @@ namespace Petel.Core.Excel
             Dictionary<string, string> runtimeParams,
             CancellationToken ct = default)
         {
-            var definition = JsonSerializer.Deserialize<ReportDefinition>(definitionJson, JsonOpts)
+            var definition = JsonSerializer.Deserialize<ReportTemplateSchema>(definitionJson, JsonOpts)
                 ?? throw new InvalidOperationException("Invalid report definition JSON.");
 
             // ── Resolve all data sources ──────────────────────────────────

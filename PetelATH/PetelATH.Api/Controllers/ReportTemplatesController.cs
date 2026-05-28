@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Petel.Core.Excel;
+using Petel.Core.Documents;
 using PetelATH.Api.Data;
 using PetelATH.Api.Models;
 using PetelATH.Api.Session;
@@ -8,28 +9,31 @@ using PetelATH.Api.Session;
 namespace PetelATH.Api.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
-    public class ExcelReportTemplatesController : BaseController
+    [Route("api/reporttemplates")]
+    public class ReportTemplatesController : BaseController
     {
         private const long MaxTemplateSizeBytes = 10 * 1024 * 1024; // 10 MB
 
         private readonly AppDbContext _context;
-        private readonly ExcelTemplateService _templateService;
+        private readonly ExcelTemplateService _excelTemplateService;
+        private readonly DocumentTemplateService _docTemplateService;
 
-        public ExcelReportTemplatesController(
+        public ReportTemplatesController(
             AppDbContext context,
-            ExcelTemplateService templateService,
+            ExcelTemplateService excelTemplateService,
+            DocumentTemplateService docTemplateService,
             UserSessionService userSessionService,
-            ILogger<ExcelReportTemplatesController> logger)
+            ILogger<ReportTemplatesController> logger)
             : base(userSessionService, logger)
         {
             _context = context;
-            _templateService = templateService;
+            _excelTemplateService = excelTemplateService;
+            _docTemplateService = docTemplateService;
         }
 
         /// <summary>
-        /// POST /api/excelreporttemplates/{reportId}/upload
-        /// Upload a .xlsx template file and store it in the database.
+        /// POST /api/reporttemplates/{reportId}/upload
+        /// Upload a .xlsx or .docx template file and store it in the database.
         /// </summary>
         [HttpPost("{reportId:int}/upload")]
         public async Task<IActionResult> UploadTemplate(int reportId, IFormFile file)
@@ -51,8 +55,11 @@ namespace PetelATH.Api.Controllers
             if (file == null || file.Length == 0)
                 return BadRequest(new { success = false, message = "קובץ תבנית נדרש" });
 
-            if (!file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
-                return BadRequest(new { success = false, message = "יש להעלות קובץ בפורמט .xlsx בלבד" });
+            bool isWord  = file.FileName.EndsWith(".docx", StringComparison.OrdinalIgnoreCase);
+            bool isExcel = file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase);
+
+            if (!isWord && !isExcel)
+                return BadRequest(new { success = false, message = "יש להעלות קובץ בפורמט .xlsx (Excel) או .docx (Word)" });
 
             if (file.Length > MaxTemplateSizeBytes)
                 return BadRequest(new { success = false, message = "גודל הקובץ עולה על 10 MB" });
@@ -64,16 +71,20 @@ namespace PetelATH.Api.Controllers
                 templateBytes = ms.ToArray();
             }
 
-            // Validate that EPPlus can open it
+            // Validate the file and scan placeholders
             IReadOnlyList<string> placeholders;
             try
             {
-                placeholders = _templateService.ScanPlaceholders(templateBytes);
+                placeholders = isWord
+                    ? _docTemplateService.ScanPlaceholders(templateBytes)
+                    : _excelTemplateService.ScanPlaceholders(templateBytes);
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Uploaded template is not a valid Excel file for report {ReportId}", reportId);
-                return BadRequest(new { success = false, message = "הקובץ אינו קובץ Excel תקין" });
+                _logger.LogWarning(ex, "Uploaded template is not valid for report {ReportId}", reportId);
+                return BadRequest(new { success = false, message = isWord
+                    ? "הקובץ אינו קובץ Word תקין"
+                    : "הקובץ אינו קובץ Excel תקין" });
             }
 
             if (report.Template == null)
@@ -115,7 +126,7 @@ namespace PetelATH.Api.Controllers
         }
 
         /// <summary>
-        /// GET /api/excelreporttemplates/{reportId}/download
+        /// GET /api/reporttemplates/{reportId}/download
         /// Download the stored template file.
         /// </summary>
         [HttpGet("{reportId:int}/download")]
@@ -132,14 +143,16 @@ namespace PetelATH.Api.Controllers
             if (template == null)
                 return NotFound(new { success = false, message = "תבנית לא נמצאה" });
 
-            return File(
-                template.TemplateBlob,
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                template.TemplateFilename ?? $"template_{reportId}.xlsx");
+            var isWord = template.TemplateFilename?.EndsWith(".docx", StringComparison.OrdinalIgnoreCase) == true;
+            var contentType = isWord
+                ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+            return File(template.TemplateBlob, contentType, template.TemplateFilename ?? $"template_{reportId}");
         }
 
         /// <summary>
-        /// GET /api/excelreporttemplates/{reportId}/scan
+        /// GET /api/reporttemplates/{reportId}/scan
         /// Scan the stored template and return all {{placeholder}} names found.
         /// </summary>
         [HttpGet("{reportId:int}/scan")]
@@ -158,7 +171,10 @@ namespace PetelATH.Api.Controllers
 
             try
             {
-                var placeholders = _templateService.ScanPlaceholders(template.TemplateBlob);
+                var isWord = template.TemplateFilename?.EndsWith(".docx", StringComparison.OrdinalIgnoreCase) == true;
+                var placeholders = isWord
+                    ? _docTemplateService.ScanPlaceholders(template.TemplateBlob)
+                    : _excelTemplateService.ScanPlaceholders(template.TemplateBlob);
                 return Ok(new { success = true, data = placeholders });
             }
             catch (Exception ex)
@@ -169,7 +185,7 @@ namespace PetelATH.Api.Controllers
         }
 
         /// <summary>
-        /// PUT /api/excelreporttemplates/{reportId}/mappings
+        /// PUT /api/reporttemplates/{reportId}/mappings
         /// Save cell mapping configuration (JSON string) for a template.
         /// Format: [{"placeholder":"{{StudentName}}","entityName":"Students","fieldName":"FirstName","isCollection":false}]
         /// </summary>

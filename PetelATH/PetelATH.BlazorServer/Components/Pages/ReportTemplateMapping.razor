@@ -1,4 +1,4 @@
-@page "/excelreports/{ReportId:int}/template"
+@page "/reports/{ReportId:int}/template"
 @layout MainLayout
 @inherits SecurePageBase
 @using System.Text.Json
@@ -9,12 +9,12 @@
 
 <div class="main-container">
     <div class="context-buttons-section">
-        <SecureButton ActionName="excelreports_save_mappings" ScreenName="@PageName" FunctionName="SaveMappings"
+        <SecureButton ActionName="reports_save_mappings" ScreenName="@PageName" FunctionName="SaveMappings"
                       OnClick="SaveMappings" CssClass="context-btn" Title="שמור מיפויים">
             שמור מיפויים
         </SecureButton>
         <div class="context-spacer"></div>
-        <SecureButton ActionName="excelreports_back" ScreenName="@PageName" FunctionName="NavigateBack"
+        <SecureButton ActionName="reports_back" ScreenName="@PageName" FunctionName="NavigateBack"
                       OnClick="NavigateBack" CssClass="context-navigation-btn" Title="חזרה לרשימה">
             חזרה לרשימה
         </SecureButton>
@@ -139,7 +139,7 @@
 @code {
     [Parameter] public int ReportId { get; set; }
 
-    protected override string PageName => "excelreports";
+    protected override string PageName => "reports";
 
     private bool _isLoading = true;
     private string _reportName = string.Empty;
@@ -173,21 +173,21 @@
     {
         try
         {
-            var result = await ApiService.GetAsync<ApiResult<ReportDetailDto>>($"excelreports/{ReportId}");
+            var result = await ApiService.GetAsync<ApiResult<ReportDetailDto>>($"reports/{ReportId}");
             if (result?.Success == true && result.Data != null)
             {
                 _reportName = result.Data.Name;
             }
 
             // Try to load template info
-            var scanResult = await ApiService.GetAsync<ApiResult<List<string>>>($"excelreporttemplates/{ReportId}/scan");
+            var scanResult = await ApiService.GetAsync<ApiResult<List<string>>>($"reporttemplates/{ReportId}/scan");
             if (scanResult?.Success == true && scanResult.Data != null)
             {
                 _hasTemplate = true;
                 _placeholders = scanResult.Data;
 
                 // Load existing mappings from scan response
-                var mappingsResult = await ApiService.GetAsync<ApiResult<TemplateMappingsDto>>($"excelreporttemplates/{ReportId}/scan");
+                var mappingsResult = await ApiService.GetAsync<ApiResult<TemplateMappingsDto>>($"reporttemplates/{ReportId}/scan");
                 if (mappingsResult?.Success == true && mappingsResult.Data != null)
                 {
                     // Populate mapping objects if we have entity+field JSON
@@ -204,7 +204,7 @@
     {
         try
         {
-            var result = await ApiService.GetAsync<ApiResult<List<EntitySummaryDto>>>("excelreports/entities");
+            var result = await ApiService.GetAsync<ApiResult<List<EntitySummaryDto>>>("reports/entities");
             if (result?.Success == true)
                 _availableEntities = result.Data ?? new();
         }
@@ -238,7 +238,7 @@
             content.Add(new ByteArrayContent(bytes), "file", _selectedFile.Name);
 
             var result = await ApiService.PostMultipartAsync<UploadResponse>(
-                $"excelreporttemplates/{ReportId}/upload", content);
+                $"reporttemplates/{ReportId}/upload", content);
 
             if (result?.Success == true)
             {
@@ -270,7 +270,7 @@
 
     private async Task DownloadTemplate()
     {
-        var file = await ApiService.GetFileAsync($"excelreporttemplates/{ReportId}/download");
+        var file = await ApiService.GetFileAsync($"reporttemplates/{ReportId}/download");
         if (file?.Content != null)
         {
             var base64 = Convert.ToBase64String(file.Content);
@@ -303,7 +303,7 @@
     {
         try
         {
-            var result = await ApiService.GetAsync<ApiResult<EntityDescriptorDto>>($"excelreports/entities/{entityName}/fields");
+            var result = await ApiService.GetAsync<ApiResult<EntityDescriptorDto>>($"reports/entities/{entityName}/fields");
             if (result?.Success == true && result.Data?.Fields != null)
                 _entityFields[entityName] = result.Data.Fields;
         }
@@ -323,7 +323,7 @@
             var body = new { cellMappingsJson = json };
 
             var result = await ApiService.PutAsync<object, ApiResult<object>>(
-                $"excelreporttemplates/{ReportId}/mappings", body);
+                $"reporttemplates/{ReportId}/mappings", body);
 
             if (result?.Success == true)
                 ShowSuccess("המיפויים נשמרו בהצלחה");
@@ -336,7 +336,7 @@
         }
     }
 
-    private void NavigateBack() => Navigation.NavigateTo("/excelreports");
+    private void NavigateBack() => Navigation.NavigateTo("/reports");
 
     private void ShowError(string msg) { _statusMessage = msg; _isError = true; }
     private void ShowSuccess(string msg) { _statusMessage = msg; _isError = false; }

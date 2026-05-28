@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Petel.Core.Excel;
+using Petel.Core.Documents;
 using PetelATH.Api.Data;
 using PetelATH.Api.Models;
 using PetelATH.Api.Session;
@@ -10,8 +11,8 @@ using System.Text.Json;
 namespace PetelATH.Api.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
-    public class ExcelReportsController : BaseController
+    [Route("api/reports")]
+    public class ReportsController : BaseController
     {
         private static readonly JsonSerializerOptions _jsonOptions = new()
         {
@@ -24,15 +25,17 @@ namespace PetelATH.Api.Controllers
         private readonly ExcelGenerationService _generationService;
         private readonly ExcelTemplateService _templateService;
         private readonly ReportTemplateEngine _templateEngine;
+        private readonly DocumentTemplateEngine _docEngine;
 
-        public ExcelReportsController(
+        public ReportsController(
             AppDbContext context,
             IExcelEntityRegistry registry,
             ExcelGenerationService generationService,
             ExcelTemplateService templateService,
             ReportTemplateEngine templateEngine,
+            DocumentTemplateEngine docEngine,
             UserSessionService userSessionService,
-            ILogger<ExcelReportsController> logger)
+            ILogger<ReportsController> logger)
             : base(userSessionService, logger)
         {
             _context = context;
@@ -40,6 +43,7 @@ namespace PetelATH.Api.Controllers
             _generationService = generationService;
             _templateService = templateService;
             _templateEngine = templateEngine;
+            _docEngine = docEngine;
         }
 
         // ─── Metadata Endpoints ────────────────────────────────────────────
@@ -94,7 +98,7 @@ namespace PetelATH.Api.Controllers
                 .OrderBy(r => r.SortOrder).ThenBy(r => r.Name)
                 .Select(r => new
                 {
-                    r.Id, r.Name, r.Description, r.ReportType,
+                    r.Id, r.Name, r.Description, r.ReportType, r.Format,
                     r.AllowCrossYear, r.RequiresEntityContext,
                     r.SortOrder, r.IsActive,
                     templateFilename = r.Template != null ? r.Template.TemplateFilename : null
@@ -145,6 +149,7 @@ namespace PetelATH.Api.Controllers
                 Name = request.Name,
                 Description = request.Description,
                 ReportType = request.ReportType,
+                Format = request.Format ?? "excel",
                 AllowCrossYear = request.AllowCrossYear,
                 RequiresEntityContext = request.RequiresEntityContext,
                 SortOrder = request.SortOrder,
@@ -182,6 +187,7 @@ namespace PetelATH.Api.Controllers
 
             if (!string.IsNullOrWhiteSpace(request.Name)) report.Name = request.Name;
             if (request.Description != null) report.Description = request.Description;
+            if (request.Format != null) report.Format = request.Format;
             if (request.AllowCrossYear.HasValue) report.AllowCrossYear = request.AllowCrossYear.Value;
             if (request.RequiresEntityContext.HasValue) report.RequiresEntityContext = request.RequiresEntityContext.Value;
             if (request.SortOrder.HasValue) report.SortOrder = request.SortOrder.Value;
@@ -414,24 +420,34 @@ namespace PetelATH.Api.Controllers
             {
                 byte[] fileBytes;
                 string fileName;
+                string contentType;
 
                 if (report.ReportType == "template" && report.Template != null)
                 {
-                    fileBytes = await GenerateTemplateReportAsync(report, entityContext, runtimeParams, ct);
-                    fileName = $"{report.Name}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+                    if (string.Equals(report.Format, "word", StringComparison.OrdinalIgnoreCase))
+                    {
+                        fileBytes = await GenerateWordTemplateReportAsync(report, entityContext, runtimeParams, ct);
+                        fileName = $"{report.Name}_{DateTime.Now:yyyyMMdd_HHmmss}.docx";
+                        contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+                    }
+                    else
+                    {
+                        fileBytes = await GenerateTemplateReportAsync(report, entityContext, runtimeParams, ct);
+                        fileName = $"{report.Name}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+                        contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+                    }
                 }
                 else
                 {
                     fileBytes = await GenerateQueryReportAsync(report, entityContext, runtimeParams, ct);
                     fileName = $"{report.Name}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+                    contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
                 }
 
-                _logger.LogInformation("Excel report generated: Id={Id} Name={Name} by UserId={UserId} Size={Size}B",
-                    report.Id, report.Name, session.UserId, fileBytes.Length);
+                _logger.LogInformation("Report generated: Id={Id} Name={Name} Format={Format} by UserId={UserId} Size={Size}B",
+                    report.Id, report.Name, report.Format, session.UserId, fileBytes.Length);
 
-                return File(fileBytes,
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    fileName);
+                return File(fileBytes, contentType, fileName);
             }
             catch (NotSupportedException ex)
             {
@@ -619,6 +635,25 @@ namespace PetelATH.Api.Controllers
             return _templateService.FillTemplate(template.TemplateBlob, merged);
         }
 
+        private async Task<byte[]> GenerateWordTemplateReportAsync(
+            ReportDefinition report,
+            ExcelEntityContext entityContext,
+            Dictionary<string, string> runtimeParams,
+            CancellationToken ct)
+        {
+            var template = report.Template!;
+
+            if (string.IsNullOrWhiteSpace(report.DefinitionJson))
+                throw new InvalidOperationException("Word template report requires a definition_json.");
+
+            return await _docEngine.GenerateAsync(
+                template.TemplateBlob,
+                report.DefinitionJson,
+                entityContext,
+                runtimeParams,
+                ct);
+        }
+
         private static IReadOnlyList<(string Key, string Label)> BuildColumnList(
             IReadOnlyList<ExcelQueryConfig.SelectedField> selectedFields,
             ExcelEntityDescriptor? descriptor)
@@ -675,6 +710,7 @@ namespace PetelATH.Api.Controllers
         string Name,
         string? Description,
         string ReportType,
+        string? Format = null,
         bool AllowCrossYear = false,
         bool RequiresEntityContext = false,
         int SortOrder = 0,
@@ -684,6 +720,7 @@ namespace PetelATH.Api.Controllers
     public record UpdateReportRequest(
         string? Name = null,
         string? Description = null,
+        string? Format = null,
         bool? AllowCrossYear = null,
         bool? RequiresEntityContext = null,
         int? SortOrder = null,

@@ -106,11 +106,11 @@ public DbSet<Status> Statuses { get; set; }
         public DbSet<ActionAuditLog> ActionAuditLogs { get; set; }
         public DbSet<UserLockReason> UserLockReasons { get; set; }
 
-        // Excel Report Generation
-        public DbSet<ExcelReportDefinition> ExcelReportDefinitions { get; set; } = null!;
-        public DbSet<ExcelReportQuery> ExcelReportQueries { get; set; } = null!;
-        public DbSet<ExcelReportTemplate> ExcelReportTemplates { get; set; } = null!;
-        public DbSet<ExcelReportParameter> ExcelReportParameters { get; set; } = null!;
+        // Report Generation (Excel + Word)
+        public DbSet<ReportDefinition> ReportDefinitions { get; set; } = null!;
+        public DbSet<ReportQuery> ReportQueries { get; set; } = null!;
+        public DbSet<ReportTemplate> ReportTemplates { get; set; } = null!;
+        public DbSet<ReportParameter> ReportParameters { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -1033,37 +1033,37 @@ modelBuilder.Entity<SystemAction>(entity =>
                     .OnDelete(DeleteBehavior.SetNull);
             });
 
-            // Excel Report Generation
-            modelBuilder.Entity<ExcelReportDefinition>(entity =>
+            // Report Generation (Excel + Word)
+            modelBuilder.Entity<ReportDefinition>(entity =>
             {
-                entity.ToTable("excel_report_definitions");
+                entity.ToTable("report_definitions");
                 entity.HasMany(e => e.Parameters)
                     .WithOne(p => p.Definition)
                     .HasForeignKey(p => p.ReportId)
                     .OnDelete(DeleteBehavior.Cascade);
                 entity.HasOne(e => e.Query)
                     .WithOne(q => q.Definition)
-                    .HasForeignKey<ExcelReportQuery>(q => q.ReportId)
+                    .HasForeignKey<ReportQuery>(q => q.ReportId)
                     .OnDelete(DeleteBehavior.Cascade);
                 entity.HasOne(e => e.Template)
                     .WithOne(t => t.Definition)
-                    .HasForeignKey<ExcelReportTemplate>(t => t.ReportId)
+                    .HasForeignKey<ReportTemplate>(t => t.ReportId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            modelBuilder.Entity<ExcelReportQuery>(entity =>
+            modelBuilder.Entity<ReportQuery>(entity =>
             {
-                entity.ToTable("excel_report_queries");
+                entity.ToTable("report_queries");
             });
 
-            modelBuilder.Entity<ExcelReportTemplate>(entity =>
+            modelBuilder.Entity<ReportTemplate>(entity =>
             {
-                entity.ToTable("excel_report_templates");
+                entity.ToTable("report_templates");
             });
 
-            modelBuilder.Entity<ExcelReportParameter>(entity =>
+            modelBuilder.Entity<ReportParameter>(entity =>
             {
-                entity.ToTable("excel_report_parameters");
+                entity.ToTable("report_parameters");
             });
 
         }

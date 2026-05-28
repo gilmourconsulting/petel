@@ -9,7 +9,7 @@ namespace Petel.Core.Excel
     /// time to fill an Excel template (scalar {{ds.Field}} tokens and
     /// collection blocks {{#ds}} / {{/ds}}).
     /// </summary>
-    public class ReportDefinition
+    public class ReportTemplateSchema
     {
         /// <summary>
         /// Runtime parameters the report declares.
