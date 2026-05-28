@@ -425,6 +425,82 @@ Menu item: `name='reports'`, `reference='/reports'` (see `SQL/update-reports-men
 - `{{DataSourceName_FieldName}}` — scalar value (single-row dataset)
 - `{{listName}}` in a table row — collection binding (dataset name is the list key)
 
+#### Per-Entity Templates
+
+When each owning entity (network/רשת) needs a different `.docx` template (e.g. different logos), the same report name is stored multiple times in `report_definitions` with different `entity_id` values:
+
+| `entity_id` | Meaning |
+|---|---|
+| `NULL` | Shared default — used if no entity-specific row exists |
+| `12` | Template specific to entity 12 |
+
+**SQL migration**: `SQL/add-entity-id-to-report-definitions.sql` — idempotent, adds nullable FK column + index.
+
+To add an entity-specific template: insert a new `report_definitions` row with the same `name`, upload a different `.docx`, then set `entity_id` in the DB to the entity's ID.
+
+**Lookup pattern** (always prefer entity-specific, fall back to default):
+
+```csharp
+var reportDef = await context.ReportDefinitions
+    .Include(r => r.Template)
+    .AsNoTracking()
+    .Where(r => r.Name == ReportDefinitionName &&
+                (r.EntityId == entityId || r.EntityId == null))
+    .OrderByDescending(r => r.EntityId.HasValue)   // entity-specific first
+    .FirstOrDefaultAsync();
+```
+
+#### Batch Document Generation — CouncilWordGenerationService
+
+For generating one Word letter per council (e.g. council funding letters), use `CouncilWordGenerationService`. It mirrors the pattern of `CouncilExcelGenerationService`:
+
+```
+DocumentsController  POST /api/documents/generate-council-words?yearId=X
+  └─ pre-validates: entity-specific or default template exists
+  └─ Hangfire job (or sync fallback): CouncilWordGenerationService.GenerateForAllCouncils(entityId, yearId, userId)
+       └─ Loops CouncilSummaryVw for entityId
+       └─ For each council: calls DocumentTemplateEngine.GenerateAsync with runtimeParams:
+            hebrew_year_id, sending_council_id
+       └─ Upserts document in documents table (versioning)
+       └─ Logs whether entity-specific or default template was used
+```
+
+**Triggering from Blazor** (`SchoolList.razor`):
+```csharp
+await ApiService.PostAsync<object, object>(
+    $"documents/generate-council-words?yearId={yearId}", null);
+```
+
+**Council letter Word template placeholders**:
+
+| Placeholder | Data source | Field |
+|---|---|---|
+| `{{header_Name}}` | `OwnerEntity` | Owner entity name |
+| `{{council_LongName}}` | `Council` | Council long name (שם מלא) |
+| `{{summary_NumberOfStudents}}` | `CouncilStats` | Total student count |
+| `{{summary_TotalBasicCost}}` | `CouncilStats` | Sum of "בסיסית" element prices (formatted with thousand separators) |
+| `{{summary_CurrentDate}}` | `CouncilStats` | Generation date (dd/MM/yyyy) |
+
+**SQL scripts**:
+- `SQL/add-council-word-doctype.sql` — inserts document type "מכתב לרשות"
+- `SQL/add-council-word-report.sql` — inserts `report_definitions` row (`format='word'`, name `"מכתב לרשות תשפו"`, `entity_id=NULL`)
+- `SQL/Templates/council-word-report-definition.json` — the `definition_json` for this report
+
+#### Number Formatting in Entity Registry Queries
+
+Monetary/financial amounts returned from entity registry queries (`QueryEntityAsync`) must be **pre-formatted as strings** when they will be injected into Word templates (MiniWord does not format numbers):
+
+```csharp
+// ✅ CORRECT — pre-format monetary amounts for Word templates
+["TotalBasicCost"] = amount.ToString("N0"),   // e.g. "12,345" — thousands separator, no decimals
+["TotalAmount"]    = amount.ToString("N2"),   // e.g. "12,345.00" — if decimals needed
+
+// ❌ WRONG — raw decimal inserted into Word template renders without formatting
+["TotalBasicCost"] = amount,   // outputs "12345" or "12345.000"
+```
+
+For Excel template reports, raw `decimal` values are acceptable because `ReportTemplateEngine` formats them as `N2` automatically.
+
 #### Anti-Patterns
 
 ```csharp
@@ -717,8 +793,9 @@ Stored as JSON in `excel_report_definitions.definition_json`. Parsed at generati
 | `Transactions` | Financial transactions (cross-year ok) | School |
 | `TransactionAccounts` | Transaction accounts (cross-year ok) | School |
 | `OwnerEntity` | The logged-in user's organisation (scalar) | Any |
-| `Council` | All councils (for council selector filters) | Any |
+| `Council` | All councils (for council selector filters) — includes `LongName` field | Any |
 | `StudentsWithSchool` | Students joined with school name + council | Council / Admin |
+| `CouncilStats` | Per-council aggregate: student count + total basic cost + current date (scalar, filtered by `CouncilId`) | Council / Admin |
 
 #### Adding a New Entity to the Registry
 
