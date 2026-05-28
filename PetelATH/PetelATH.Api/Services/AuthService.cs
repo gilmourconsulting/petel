@@ -394,6 +394,9 @@ namespace PetelATH.Api.Services
             user.PasswordHash = newPasswordHash;
             user.PasswordChangedAt = DateTime.UtcNow;
             user.PasswordChangeRequired = false;
+            user.FailedPasswordAttempts = 0;
+            user.FailedOtpAttempts = 0;
+            user.LastFailedAttempt = null;
             user.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();

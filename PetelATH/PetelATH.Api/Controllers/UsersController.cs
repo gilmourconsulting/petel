@@ -700,6 +700,9 @@ namespace PetelATH.Api.Controllers
                 user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
                 user.PasswordChangedAt = DateTime.UtcNow; // ✅ NEW: Update timestamp
                 user.PasswordChangeRequired = false; // ✅ NEW: Clear forced change flag
+                user.FailedPasswordAttempts = 0;
+                user.FailedOtpAttempts = 0;
+                user.LastFailedAttempt = null;
                 user.UpdatedAt = DateTime.UtcNow;
                 user.UpdateUser = int.TryParse(session.UserId, out int updateUserId) ? updateUserId : null;
 
