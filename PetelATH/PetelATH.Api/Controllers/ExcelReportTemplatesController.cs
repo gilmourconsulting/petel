@@ -195,6 +195,4 @@ namespace PetelATH.Api.Controllers
             return Ok(new { success = true });
         }
     }
-
-    public record SaveMappingsRequest(string? CellMappingsJson);
 }

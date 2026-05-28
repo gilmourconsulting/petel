@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelATH.Api.Data;
+using PetelATH.Api.Session;
 using PetelATH.Api.Services;
 using PetelATH.Api.Models;
 using System.Text.Json;
@@ -15,7 +16,7 @@ namespace PetelATH.Api.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    public class SystemAttributesController : ControllerBase
+    public class SystemAttributesController : BaseController
     {
         private readonly SystemAttributeCache _cache;
         private readonly ILogger<SystemAttributesController> _logger;
@@ -26,7 +27,9 @@ namespace PetelATH.Api.Controllers
             SystemAttributeCache cache,
             ILogger<SystemAttributesController> logger,
             IServiceProvider serviceProvider,
-            AppDbContext context)
+            AppDbContext context,
+            UserSessionService userSessionService)
+            : base(userSessionService, logger)
         {
             _cache = cache;
             _logger = logger;

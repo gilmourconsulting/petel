@@ -1,0 +1,33 @@
+{
+  "parameters": [
+    { "name": "hebrew_year_id",     "type": "year_selector",    "label": "שנת לימודים",  "required": true },
+    { "name": "sending_council_id", "type": "council_selector", "label": "רשות שולחת",   "required": true }
+  ],
+  "dataSources": [
+    {
+      "name":    "header",
+      "entity":  "OwnerEntity",
+      "type":    "scalar",
+      "filters": [],
+      "sort":    []
+    },
+    {
+      "name":    "council",
+      "entity":  "Council",
+      "type":    "scalar",
+      "filters": [
+        { "field": "Id", "operator": "eq", "paramName": "sending_council_id" }
+      ],
+      "sort": []
+    },
+    {
+      "name":    "summary",
+      "entity":  "CouncilStats",
+      "type":    "scalar",
+      "filters": [
+        { "field": "CouncilId", "operator": "eq", "paramName": "sending_council_id" }
+      ],
+      "sort": []
+    }
+  ]
+}

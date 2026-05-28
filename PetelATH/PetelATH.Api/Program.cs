@@ -187,6 +187,9 @@ builder.Services.AddScoped<StudentsFileProcessor>();
 // Council Excel batch generation (Hangfire job or synchronous fallback)
 builder.Services.AddTransient<CouncilExcelGenerationService>();
 
+// Council Word batch generation (Hangfire job or synchronous fallback)
+builder.Services.AddTransient<CouncilWordGenerationService>();
+
 builder.Services.AddSingleton<ActionAuthorizationService>();
 
 // Hangfire (if used)

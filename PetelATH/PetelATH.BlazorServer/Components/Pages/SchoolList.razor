@@ -28,6 +28,14 @@
         {
             <span style="font-size: 0.85em; color: #0d6efd; margin-right: 8px;">יוצר דוח 10... אנא המתן</span>
         }
+        <SecureButton ActionName="schoollist_generateCouncilWords" ScreenName="@PageName" FunctionName="GenerateCouncilWords"
+                      OnClick="GenerateCouncilWords" CssClass="context-btn" Title="יצירת מכתב Word לכל רשות משלחת">
+            יצירת מכתב לרשות
+        </SecureButton>
+        @if (_isGeneratingWords)
+        {
+            <span style="font-size: 0.85em; color: #0d6efd; margin-right: 8px;">יוצר מכתבים... אנא המתן</span>
+        }
         <SecureButton ActionName="schoollist_linkCouncilDocuments" ScreenName="@PageName" FunctionName="LinkCouncilDocumentsForAllSchools"
                       OnClick="LinkCouncilDocumentsForAllSchools" CssClass="context-btn"
                       Title="קשר מסמכי תלמידים לישות הרשות השולחת שלהם לכל בתי הספר"
@@ -535,6 +543,12 @@
     private bool _generateSuccess;
     private List<string> _generateLog = new();
 
+    // Council Word export state
+    private bool _isGeneratingWords = false;
+    private string? _generateWordsSummary;
+    private bool _generateWordsSuccess;
+    private List<string> _generateWordsLog = new();
+
     // Council document link state
     private bool _isLinkingCouncilDocs = false;
     private string? _councilLinkSummary;
@@ -763,6 +777,56 @@
         int Failed,
         List<string> Log
     );
+
+    private async Task GenerateCouncilWords()
+    {
+        var warningMessage = "התהליך ייצור/יעדכן מכתבי Word לכל הרשויות המשלחות עבור שנת הלימודים שנבחרה. האם להמשיך?";
+        var shouldContinue = await JSRuntime.InvokeAsync<bool>("confirm", warningMessage);
+        if (!shouldContinue)
+        {
+            _generateWordsSuccess = false;
+            _generateWordsSummary = "הפעולה בוטלה על ידי המשתמש";
+            _generateWordsLog = new();
+            StateHasChanged();
+            return;
+        }
+
+        _isGeneratingWords = true;
+        _generateWordsSummary = null;
+        _generateWordsLog = new();
+        StateHasChanged();
+
+        try
+        {
+            var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearId");
+            var yearId = yearIdResponse?["value"];
+
+            if (string.IsNullOrEmpty(yearId))
+            {
+                _generateWordsSuccess = false;
+                _generateWordsSummary = "לא נבחרה שנת לימודים";
+                return;
+            }
+
+            var result = await ApiService.PostAsync<object, GenerateCouncilResult>(
+                $"documents/generate-council-words?yearId={yearId}", new object());
+
+            _generateWordsSuccess = result?.Success ?? false;
+            _generateWordsSummary = result?.Message ?? "הפעולה הסתיימה.";
+            _generateWordsLog     = result?.Log ?? new List<string>();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error generating council Words: {ex.Message}");
+            _generateWordsSuccess = false;
+            _generateWordsSummary = $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isGeneratingWords = false;
+            StateHasChanged();
+        }
+    }
 
     private async Task LinkCouncilDocumentsForAllSchools()
     {

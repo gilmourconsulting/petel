@@ -72,6 +72,7 @@ namespace PetelATH.Api.Services
                 "Council"                => await QueryCouncilsAsync(cancellationToken),
                 "StudentsWithSchool"          => await QueryStudentsWithSchoolAsync(context, cancellationToken),
                 "StudentsWithPricingElements" => await QueryStudentsWithPricingElementsAsync(context, cancellationToken),
+                "CouncilStats"               => await QueryCouncilStatsAsync(context, cancellationToken),
                 _ => throw new NotSupportedException(
                     $"Entity '{entityName}' is not supported by AthExcelEntityRegistry.")
             };
@@ -303,7 +304,7 @@ namespace PetelATH.Api.Services
             var councils = await _context.Councils
                 .AsNoTracking()
                 .OrderBy(c => c.Name)
-                .Select(c => new { c.Id, c.Name, c.CouncilCode })
+                .Select(c => new { c.Id, c.Name, c.CouncilCode, c.LongName })
                 .ToListAsync(ct);
 
             return councils.Select(c => new Dictionary<string, object?>
@@ -311,7 +312,87 @@ namespace PetelATH.Api.Services
                 ["Id"]          = c.Id,
                 ["Name"]        = c.Name,
                 ["CouncilCode"] = c.CouncilCode,
+                ["LongName"]    = c.LongName,
             }).ToList();
+        }
+
+        /// <summary>
+        /// Returns one row per council with aggregated stats for the current year+entity scope:
+        ///   CouncilId, NumberOfStudents, TotalBasicCost (sum of "בסיסית" pricing element), CurrentDate.
+        /// Use filter field="CouncilId" operator="eq" paramName="sending_council_id" to narrow to one.
+        /// </summary>
+        private async Task<List<Dictionary<string, object?>>> QueryCouncilStatsAsync(
+            ExcelEntityContext context,
+            CancellationToken ct)
+        {
+            if (!context.SchoolYearId.HasValue)
+                return new List<Dictionary<string, object?>>();
+
+            // ── Resolve school-year IDs for the Hebrew year ───────────────
+            var yearIds = await GetSchoolYearIdsAsync(context, ct);
+            if (yearIds.Count == 0)
+                return new List<Dictionary<string, object?>>();
+
+            // ── Count students per council (scoped view) ──────────────────
+            var summaryRows = await _context.CouncilSummaryVw
+                .AsNoTracking()
+                .Where(cs => cs.YearId == context.SchoolYearId.Value && cs.OwnerId == context.EntityId)
+                .Select(cs => new { cs.CouncilId, cs.NumberOfStudents })
+                .ToListAsync(ct);
+
+            var studentCountByCouncil = summaryRows.ToDictionary(r => r.CouncilId, r => r.NumberOfStudents);
+
+            // ── Find "בסיסית" pricing element IDs for the Hebrew year ─────
+            var basicElementIds = await _context.SpecialNeedsPricingElements
+                .AsNoTracking()
+                .Where(pe => pe.YearId == context.SchoolYearId.Value &&
+                             pe.ElementName == "בסיסית")
+                .Select(pe => pe.Id)
+                .ToListAsync(ct);
+
+            // ── Build student → council map ───────────────────────────────
+            var studentCouncilMap = await _context.SchoolStudents
+                .AsNoTracking()
+                .Where(s => yearIds.Contains(s.SchoolYearId) && s.IsLastVersion && s.SendingCouncil.HasValue)
+                .Select(s => new { s.Id, CouncilId = s.SendingCouncil!.Value })
+                .ToListAsync(ct);
+
+            var studentToCouncil = studentCouncilMap.ToDictionary(s => s.Id, s => s.CouncilId);
+
+            // ── Sum "בסיסית" prices per council ───────────────────────────
+            var basicCostByCouncil = new Dictionary<int, decimal>();
+            if (basicElementIds.Count > 0 && studentToCouncil.Count > 0)
+            {
+                var studentIds = studentToCouncil.Keys.ToList();
+                var assignments = await _context.SchoolStudentPricingElements
+                    .AsNoTracking()
+                    .Where(spe => basicElementIds.Contains(spe.PricingElementId) &&
+                                  studentIds.Contains(spe.StudentId))
+                    .Select(spe => new { spe.StudentId, spe.Price })
+                    .ToListAsync(ct);
+
+                foreach (var a in assignments)
+                {
+                    if (studentToCouncil.TryGetValue(a.StudentId, out int councilId))
+                    {
+                        basicCostByCouncil.TryGetValue(councilId, out decimal existing);
+                        basicCostByCouncil[councilId] = existing + a.Price;
+                    }
+                }
+            }
+
+            string currentDate = DateTime.Now.ToString("dd/MM/yyyy");
+
+            // ── Build one row per council that has student data ───────────
+            return studentCountByCouncil.Keys
+                .Select(councilId => new Dictionary<string, object?>
+                {
+                    ["CouncilId"]          = councilId,
+                    ["NumberOfStudents"]   = studentCountByCouncil[councilId],
+                    ["TotalBasicCost"]     = (basicCostByCouncil.TryGetValue(councilId, out var cost) ? cost : 0m).ToString("N0"),
+                    ["CurrentDate"]        = currentDate,
+                })
+                .ToList();
         }
 
         /// <summary>

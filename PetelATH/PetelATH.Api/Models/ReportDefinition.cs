@@ -74,6 +74,14 @@ namespace PetelATH.Api.Models
         [MaxLength(10)]
         public string Format { get; set; } = "excel";
 
+        /// <summary>
+        /// When set, this report definition (and its template) belongs to a specific entity.
+        /// Null = default/shared definition used as a fallback for all entities.
+        /// The batch generation service prefers the entity-specific row over the default.
+        /// </summary>
+        [Column("entity_id")]
+        public int? EntityId { get; set; }
+
         // Navigation properties
         public virtual ReportQuery? Query { get; set; }
         public virtual ReportTemplate? Template { get; set; }

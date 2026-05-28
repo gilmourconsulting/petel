@@ -2029,6 +2029,168 @@ namespace PetelATH.Api.Controllers
         }
 
         /// <summary>
+        /// Queues (or synchronously runs) a job that generates one Word (.docx) letter per sending council
+        /// for the given year, storing each file as a document linked to the caller's entity.
+        /// Returns 202 Accepted when Hangfire is available, 200 OK for the synchronous fallback.
+        /// </summary>
+        [HttpPost("generate-council-words")]
+        public async Task<IActionResult> GenerateCouncilWords([FromQuery] int? yearId = null)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                if (!int.TryParse(session.EntityId, out int entityId))
+                    return BadRequest(new { success = false, message = "מזהה ישות לא תקין" });
+
+                if (!yearId.HasValue)
+                {
+                    var yearIdStr = session.GetProperty("SelectedYearId");
+                    if (int.TryParse(yearIdStr, out int sessionYear))
+                        yearId = sessionYear;
+                }
+
+                if (!yearId.HasValue)
+                    return BadRequest(new { success = false, message = "נדרש מזהה שנה" });
+
+                int? userId = int.TryParse(session.UserId, out int uid) ? uid : (int?)null;
+
+                // ── Pre-validate: template must exist before queuing ──────────
+                // Accepts an entity-specific definition OR the shared default (entity_id IS NULL)
+                const string reportName = Services.CouncilWordGenerationService.ReportDefinitionName;
+                var templateCheck = await _context.ReportDefinitions
+                    .Include(r => r.Template)
+                    .AsNoTracking()
+                    .Where(r => r.Name == reportName &&
+                                (r.EntityId == entityId || r.EntityId == null))
+                    .OrderByDescending(r => r.EntityId.HasValue)
+                    .Select(r => new { HasDefinition = true, HasTemplate = r.Template != null && r.Template.TemplateBlob != null })
+                    .FirstOrDefaultAsync();
+
+                if (templateCheck == null)
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"הגדרת הדוח '{reportName}' לא נמצאה. יש להגדיר את הדוח בדף הדוחות."
+                    });
+
+                if (!templateCheck.HasTemplate)
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"תבנית ה-Word לדוח '{reportName}' לא הועלתה. יש להעלות את קובץ התבנית בדף הדוחות לפני הפעלת הייצוא."
+                    });
+
+                // ── Ownership-network (type 6) ────────────────────────────────
+                if (session.EntityTypeId == "6")
+                {
+                    var subNetworks = await _context.Entities
+                        .AsNoTracking()
+                        .Where(e => e.OwnerId == entityId && e.IsActive)
+                        .OrderBy(e => e.Name)
+                        .Select(e => new { e.Id, e.Name })
+                        .ToListAsync();
+
+                    if (subNetworks.Count == 0)
+                        return BadRequest(new { success = false, message = "לא נמצאו רשתות בנות לישות זו" });
+
+                    var jobClient6 = HttpContext.RequestServices
+                        .GetService<Hangfire.IBackgroundJobClient>();
+
+                    if (jobClient6 != null)
+                    {
+                        foreach (var sub in subNetworks)
+                            jobClient6.Enqueue<Services.CouncilWordGenerationService>(
+                                s => s.GenerateForAllCouncils(sub.Id, yearId.Value, userId));
+
+                        _logger.LogInformation(
+                            "Queued council Word generation for {Count} sub-networks of entityId={EntityId}, yearId={YearId}",
+                            subNetworks.Count, entityId, yearId.Value);
+
+                        return Accepted(new
+                        {
+                            success = true,
+                            message = $"הפעולה הועברת לביצוע ברקע עבור {subNetworks.Count} רשתות. הקבצים יופיעו במסמכי כל רשת בסיום."
+                        });
+                    }
+
+                    // Synchronous fallback
+                    var svc6 = HttpContext.RequestServices
+                        .GetRequiredService<Services.CouncilWordGenerationService>();
+
+                    var total6 = new Services.CouncilWordResult();
+                    foreach (var sub in subNetworks)
+                    {
+                        var r = await svc6.GenerateForAllCouncilsWithResult(sub.Id, yearId.Value, userId);
+                        total6.Created += r.Created;
+                        total6.Updated += r.Updated;
+                        total6.Failed  += r.Failed;
+                        total6.Log.AddRange(r.Log);
+                    }
+
+                    var summary6 = $"ייצוא הסתיים עבור {subNetworks.Count} רשתות: נוצרו {total6.Created}, עודכנו {total6.Updated}" +
+                                   (total6.Failed > 0 ? $", נכשלו {total6.Failed}" : "");
+
+                    return Ok(new
+                    {
+                        success = total6.Success,
+                        message = summary6,
+                        created = total6.Created,
+                        updated = total6.Updated,
+                        failed  = total6.Failed,
+                        log     = total6.Log,
+                    });
+                }
+
+                // ── Standard entity ───────────────────────────────────────────
+                var jobClient = HttpContext.RequestServices
+                    .GetService<Hangfire.IBackgroundJobClient>();
+
+                if (jobClient != null)
+                {
+                    jobClient.Enqueue<Services.CouncilWordGenerationService>(
+                        s => s.GenerateForAllCouncils(entityId, yearId.Value, userId));
+
+                    _logger.LogInformation(
+                        "Queued council Word generation job — entityId={EntityId}, yearId={YearId}",
+                        entityId, yearId.Value);
+
+                    return Accepted(new
+                    {
+                        success = true,
+                        message = "הפעולה הועברת לביצוע ברקע. הקבצים יופיעו במסמכי ישות בסיום."
+                    });
+                }
+
+                // Synchronous fallback (local dev without Hangfire)
+                var service = HttpContext.RequestServices
+                    .GetRequiredService<Services.CouncilWordGenerationService>();
+
+                var result = await service.GenerateForAllCouncilsWithResult(entityId, yearId.Value, userId);
+
+                var summaryMsg = $"ייצוא הסתיים: נוצרו {result.Created}, עודכנו {result.Updated}" +
+                                 (result.Failed > 0 ? $", נכשלו {result.Failed}" : "");
+
+                return Ok(new
+                {
+                    success = result.Success,
+                    message = summaryMsg,
+                    created = result.Created,
+                    updated = result.Updated,
+                    failed  = result.Failed,
+                    log     = result.Log,
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error queuing/running council Word generation");
+                return StatusCode(500, new { success = false, message = "שגיאה בהתחלת ייצוא Word", error = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// For a single student: adds a DocumentLink for each of their documents pointing to
         /// the entity of their sending_council (if not already linked).
         /// </summary>
