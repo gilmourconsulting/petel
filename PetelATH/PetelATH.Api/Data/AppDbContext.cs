@@ -53,6 +53,8 @@ public DbSet<Status> Statuses { get; set; }
         //  DbSets for Council and SchoolClass
         public DbSet<School> Schools { get; set; }
         public DbSet<Council> Councils { get; set; }
+        public DbSet<CouncilType> CouncilTypes { get; set; }
+        public DbSet<District> Districts { get; set; }
         public DbSet<SchoolClass> SchoolClasses { get; set; }
 
         // Person DbSet for contact management
@@ -404,6 +406,35 @@ modelBuilder.Entity<SpecialNeedsPricingCategory>(entity =>
                 entity.Ignore(e => e.Name);
                 entity.Ignore(e => e.ShortName);
             });*/
+
+            modelBuilder.Entity<CouncilType>(entity =>
+            {
+                entity.ToTable("council_types");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(50);
+            });
+
+            modelBuilder.Entity<District>(entity =>
+            {
+                entity.ToTable("districts");
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).IsRequired().HasMaxLength(50);
+            });
+
+            modelBuilder.Entity<Council>(entity =>
+            {
+                entity.ToTable("councils");
+
+                entity.HasOne(c => c.CouncilType)
+                    .WithMany(ct => ct.Councils)
+                    .HasForeignKey(c => c.CouncilTypeId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(c => c.District)
+                    .WithMany(d => d.Councils)
+                    .HasForeignKey(c => c.DistrictId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
 
             // SchoolClass entity configuration following Database Conventions
             modelBuilder.Entity<SchoolClass>(entity =>

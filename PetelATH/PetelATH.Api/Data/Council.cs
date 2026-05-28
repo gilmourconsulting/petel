@@ -24,6 +24,27 @@ namespace PetelATH.Api.Data
         [MaxLength(25)]
         public string Name { get; set; } = string.Empty;
 
+        /// <summary>
+        /// Long name used in templates and screens (שם מלא)
+        /// </summary>
+        [Column("long_name")]
+        [MaxLength(100)]
+        public string? LongName { get; set; }
+
+        /// <summary>
+        /// FK to council_types (סוג רשות): עירייה, מועצה מקומית, מועצה אזורית
+        /// </summary>
+        [ForeignKey("CouncilType")]
+        [Column("council_type_id")]
+        public int? CouncilTypeId { get; set; }
+
+        /// <summary>
+        /// FK to districts (מחוז)
+        /// </summary>
+        [ForeignKey("District")]
+        [Column("district_id")]
+        public int? DistrictId { get; set; }
+
         [Column("created_at")]
         public DateTime? CreatedAt { get; set; }
 
@@ -37,5 +58,9 @@ namespace PetelATH.Api.Data
         // ✅ Computed property for efficient Hebrew text matching (in-memory)
         [NotMapped]
         public string NormalizedName => GlobalFunctions.PureHebrewText(Name);
+
+        // Navigation properties
+        public virtual CouncilType? CouncilType { get; set; }
+        public virtual District? District { get; set; }
     }
 }

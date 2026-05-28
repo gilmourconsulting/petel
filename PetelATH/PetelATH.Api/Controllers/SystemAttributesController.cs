@@ -373,6 +373,98 @@ namespace PetelATH.Api.Controllers
         }
 
         /// <summary>
+        /// Get councils with extended fields (long_name, council_type, district) - REQUIRES AUTHENTICATION
+        /// Used for templates and screens that need the full council data
+        /// </summary>
+        [HttpGet("councils/extended")]
+        public async Task<IActionResult> GetCouncilsExtended()
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                var councils = await _context.Councils
+                    .AsNoTracking()
+                    .Include(c => c.CouncilType)
+                    .Include(c => c.District)
+                    .OrderBy(c => c.Name)
+                    .Select(c => new
+                    {
+                        id = c.Id,
+                        councilCode = c.CouncilCode,
+                        name = c.Name,
+                        longName = c.LongName,
+                        councilTypeId = c.CouncilTypeId,
+                        councilTypeName = c.CouncilType != null ? c.CouncilType.Name : null,
+                        districtId = c.DistrictId,
+                        districtName = c.District != null ? c.District.Name : null
+                    })
+                    .ToListAsync();
+
+                return Ok(new { success = true, data = councils });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading extended councils");
+                return StatusCode(500, new { success = false, message = "שגיאה בטעינת רשויות" });
+            }
+        }
+
+        /// <summary>
+        /// Get council types lookup - NO AUTHENTICATION REQUIRED
+        /// Returns: עירייה, מועצה מקומית, מועצה אזורית
+        /// </summary>
+        [HttpGet("council-types")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetCouncilTypes()
+        {
+            try
+            {
+                var types = await _context.CouncilTypes
+                    .AsNoTracking()
+                    .Where(ct => ct.IsActive)
+                    .OrderBy(ct => ct.SortOrder)
+                    .Select(ct => new { id = ct.Id, name = ct.Name })
+                    .ToListAsync();
+
+                return Ok(new { success = true, data = types });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading council types");
+                return StatusCode(500, new { success = false, message = "שגיאה בטעינת סוגי רשויות" });
+            }
+        }
+
+        /// <summary>
+        /// Get districts lookup - NO AUTHENTICATION REQUIRED
+        /// Returns: חיפה, הדרום, תל אביב, המרכז, אזור יהודה והשומרון, ירושלים, הצפון
+        /// </summary>
+        [HttpGet("districts")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetDistricts()
+        {
+            try
+            {
+                var districts = await _context.Districts
+                    .AsNoTracking()
+                    .Where(d => d.IsActive)
+                    .OrderBy(d => d.SortOrder)
+                    .Select(d => new { id = d.Id, name = d.Name })
+                    .ToListAsync();
+
+                return Ok(new { success = true, data = districts });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading districts");
+                return StatusCode(500, new { success = false, message = "שגיאה בטעינת מחוזות" });
+            }
+        }
+
+        /// <summary>
         /// Create a new system attribute - REQUIRES AUTHENTICATION
         /// </summary>
         [HttpPost]
