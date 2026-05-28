@@ -215,6 +215,56 @@ if (attr != null)
     _sessionsRemark = $"מספר מפגשים נדרש: {attr.Value}";
 ```
 
+### Council Entity Structure
+
+The `petel_schema.councils` table is the master list of Israeli local authorities. It now includes three additional fields:
+
+| Column | Type | Description |
+|---|---|---|
+| `long_name` | `VARCHAR(100) NULL` | Full name for templates and screens (שם מלא) |
+| `council_type_id` | `INT NULL FK` | FK → `council_types.id` (סוג רשות) |
+| `district_id` | `INT NULL FK` | FK → `districts.id` (מחוז) |
+
+**Lookup tables** (seeded once, rarely change):
+
+- `council_types` — עירייה · מועצה מקומית · מועצה אזורית
+- `districts` — חיפה · הדרום · תל אביב · המרכז · אזור יהודה והשומרון · ירושלים · הצפון
+
+Both tables have `id`, `name`, `sort_order`, `is_active`, and full audit fields.
+
+**Entity model** (`Data/Council.cs`):
+```csharp
+// New fields on Council:
+public string? LongName { get; set; }       // long_name — use in templates
+public int? CouncilTypeId { get; set; }     // FK
+public int? DistrictId { get; set; }        // FK
+public virtual CouncilType? CouncilType { get; set; }
+public virtual District? District { get; set; }
+```
+
+**API endpoints** (all in `SystemAttributesController`):
+
+| Endpoint | Auth | Returns |
+|---|---|---|
+| `GET /api/systemattributes/councils` | None | `{ id, councilName, councilCode }` — existing, unchanged |
+| `GET /api/systemattributes/councils/extended` | Required | `{ id, councilCode, name, longName, councilTypeId, councilTypeName, districtId, districtName }` |
+| `GET /api/systemattributes/council-types` | None | `{ id, name }` list |
+| `GET /api/systemattributes/districts` | None | `{ id, name }` list |
+
+**SQL migration**: `SQL/add-council-type-district.sql` — idempotent, creates the two tables with seed data and adds the three columns to `councils`.
+
+**EF migration**: `Migrations/20260528120000_AddCouncilTypeAndDistrict.cs`
+
+**Anti-patterns**:
+```csharp
+// ❌ WRONG — extended data via old endpoint
+var councils = await ApiService.GetAsync<List<CouncilDto>>("systemattributes/councils");
+var typeName = councils[0].CouncilTypeName;  // field doesn't exist here
+
+// ✅ CORRECT — use extended endpoint when type/district/longName is needed
+var councils = await ApiService.GetAsync<ApiResponse<List<CouncilExtendedDto>>>("systemattributes/councils/extended");
+```
+
 ### Entity Type System
 
 The `petel_schema.entities` table stores all entities (schools, councils/local authorities, networks, etc.). The `entity_type_id` column identifies the kind of entity:

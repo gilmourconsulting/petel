@@ -1766,6 +1766,12 @@ worksheet.View.RightToLeft = true;
 
 ### Council Data Structure
 
+**Extended fields (added May 2026)**: `councils` table now has `long_name`, `council_type_id` (FK → `council_types`), and `district_id` (FK → `districts`). Lookup tables are seeded with fixed values:
+- **Council types**: עירייה, מועצה מקומית, מועצה אזורית
+- **Districts**: חיפה, הדרום, תל אביב, המרכז, אזור יהודה והשומרון, ירושלים, הצפון
+
+Use `GET /api/systemattributes/councils/extended` (requires auth) when type, district, or long name is needed. Use the original `GET /api/systemattributes/councils` (no auth) for plain name/code dropdowns.
+
 **Problem**: Council dropdown shows "undefined" or incorrect data
 
 **Root Cause**: Backend API returns `councilName` property, but frontend code was using `councilShortName`
