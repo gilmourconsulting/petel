@@ -90,6 +90,12 @@ builder.Services.AddSingleton<JwtTokenService>();
 // GlobalFunctions — Hebrew normalization and entity lookups
 builder.Services.AddScoped<GlobalFunctions>();
 
+// DocumentTemplateEngine — Word/DOCX generation via MiniWord (Petel.Core)
+builder.Services.AddScoped<Petel.Core.Documents.DocumentTemplateEngine>();
+
+// DocumentTemplateService — scans .docx for {{placeholder}} tokens (Petel.Core)
+builder.Services.AddScoped<Petel.Core.Documents.DocumentTemplateService>();
+
 // Wire JwtTokenService into UserSessionService after build
 using (var scope = app.Services.CreateScope())
 {
@@ -369,6 +375,74 @@ All Excel operations use **EPPlus 7.0.0**. Multi-stage validation pattern:
 5. Reference validation (FK entities exist — via `GlobalFunctions`)
 
 Collect ALL errors; never throw on first error.
+
+### Report & Document Generation System
+
+PetelATH supports generating both Excel (`.xlsx`) and Word (`.docx`) documents from database-driven templates. Both formats share the same tables, controllers, and Blazor pages — the `format` column on `report_definitions` controls which engine is used.
+
+#### Database Tables
+
+| Table | EF Model Class | Description |
+|---|---|---|
+| `report_definitions` | `ReportDefinition` | Report metadata + `format` (`"excel"` \| `"word"`) |
+| `report_queries` | `ReportQuery` | SQL/data-source query per report |
+| `report_templates` | `ReportTemplate` | Template file blob (`.xlsx` or `.docx`) |
+| `report_parameters` | `ReportParameter` | Runtime parameter definitions |
+
+**SQL migration**: `SQL/rename-report-tables.sql` — renames `excel_report_*` → `report_*` and adds `format` column. Idempotent.
+
+#### Blazor Pages
+
+| Page | Route | Purpose |
+|---|---|---|
+| `Reports.razor` | `/reports` | List / manage report definitions |
+| `ReportBuilder.razor` | `/reports/{id}/builder` | Configure data sources and queries |
+| `ReportTemplateMapping.razor` | `/reports/{id}/template` | Map placeholders to data |
+
+Menu item: `name='reports'`, `reference='/reports'` (see `SQL/update-reports-menu-item.sql`).
+
+#### API Controllers
+
+| Controller | Route | Responsibility |
+|---|---|---|
+| `ReportsController` | `api/reports` | CRUD for definitions, trigger generation |
+| `ReportTemplatesController` | `api/reporttemplates` | Upload/download/scan template files |
+
+`ReportsController.GenerateReport` branches on `report.Format`:
+- `"word"` → calls `GenerateWordTemplateReportAsync()`, returns `.docx` with Word MIME type
+- else → calls `GenerateTemplateReportAsync()`, returns `.xlsx`
+
+`ReportTemplatesController` accepts `.xlsx` and `.docx` on upload; routes placeholder scanning to the correct service based on filename extension.
+
+#### Shared Services (`Petel.Core/Documents/`)
+
+| Class | Purpose |
+|---|---|
+| `DocumentTemplateEngine` | Generates `.docx` from a template blob using MiniWord. Uses temp files internally — never expose the temp path. |
+| `DocumentTemplateService` | Scans a `.docx` blob for `{{...}}` placeholder tokens (for template mapping UI). |
+
+**Word template syntax**:
+- `{{DataSourceName_FieldName}}` — scalar value (single-row dataset)
+- `{{listName}}` in a table row — collection binding (dataset name is the list key)
+
+#### Anti-Patterns
+
+```csharp
+// ❌ WRONG — old names (all removed)
+_context.ExcelReportDefinitions
+new ExcelReportDefinition()
+
+// ✅ CORRECT — unified names
+_context.ReportDefinitions
+new ReportDefinition { Format = "excel" }   // or "word"
+
+// ❌ WRONG — hardcoded format check bypasses engine routing
+if (fileName.EndsWith(".docx")) { ... }  // NO — use report.Format from DB
+
+// ✅ CORRECT — engine selected via Format field
+if (report.Format == "word")
+    return await GenerateWordTemplateReportAsync(...);
+```
 
 ### Document Proxy (IP Restrictions)
 

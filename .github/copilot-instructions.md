@@ -849,6 +849,121 @@ var classId = _context.SchoolClasses
     .FirstOrDefault(c => c.ClassName == className)?.Id;  // NO!
 ```
 
+## Document Template Generation (Word/DOCX)
+
+**Purpose**: Generate Word (`.docx`) documents from database-stored templates, mirroring the Excel generation pattern. Both formats share the same `report_*` tables and controllers — the `format` column on `report_definitions` selects the engine.
+
+### Required Package (Petel.Core)
+
+```xml
+<PackageReference Include="MiniWord" Version="0.9.2" />
+<PackageReference Include="DocumentFormat.OpenXml" Version="3.2.0" />
+```
+
+### Shared Services in `Petel.Core/Documents/`
+
+| Class | Namespace | Purpose |
+|---|---|---|
+| `DocumentTemplateEngine` | `Petel.Core.Documents` | Generates `.docx` from a template blob + data context |
+| `DocumentTemplateService` | `Petel.Core.Documents` | Scans `.docx` for `{{placeholder}}` tokens |
+
+Register in API `Program.cs`:
+```csharp
+builder.Services.AddScoped<Petel.Core.Documents.DocumentTemplateEngine>();
+builder.Services.AddScoped<Petel.Core.Documents.DocumentTemplateService>();
+```
+
+### Word Template Syntax
+
+| Syntax | Binding |
+|---|---|
+| `{{DataSourceName_FieldName}}` | Scalar value from a single-row dataset |
+| `{{listName}}` (in a table row) | Collection — dataset name is the list key |
+
+**CRITICAL**: `MiniWord.SaveAsByTemplate` requires **file paths**, not streams. `DocumentTemplateEngine` writes the template blob to a temp file internally and cleans up in a `finally` block. Never call MiniWord directly with streams.
+
+### Database Tables (Unified)
+
+All reports — Excel and Word — share the same four tables:
+
+| Table | Key Column | Notes |
+|---|---|---|
+| `report_definitions` | `format VARCHAR(10)` | `"excel"` (default) or `"word"` |
+| `report_queries` | — | SQL / data-source query |
+| `report_templates` | — | Binary blob of `.xlsx` or `.docx` |
+| `report_parameters` | — | Runtime parameter definitions |
+
+**SQL migration**: `SQL/rename-report-tables.sql` — renames legacy `excel_report_*` tables and adds `format` column.
+
+### Controller Pattern
+
+```csharp
+// ReportsController.cs  (route: "api/reports")
+[HttpGet("{id}/generate")]
+public async Task<IActionResult> GenerateReport(int id)
+{
+    var session = GetCurrentSession();
+    if (session == null) return Unauthorized(...);
+
+    var report = await _context.ReportDefinitions
+        .Include(r => r.Template)
+        .Include(r => r.Query)
+        .FirstOrDefaultAsync(r => r.Id == id);
+
+    if (report == null) return NotFound();
+
+    if (report.Format == "word")
+        return await GenerateWordTemplateReportAsync(report, session);
+    else
+        return await GenerateTemplateReportAsync(report, session);   // Excel
+}
+
+private async Task<IActionResult> GenerateWordTemplateReportAsync(
+    ReportDefinition report, UserSession session)
+{
+    var context = await BuildExcelEntityContext(report, session);   // shared helper
+    var docBytes = await _docEngine.GenerateAsync(
+        report.Template!.TemplateBlob, report.Query!.DefinitionJson,
+        context, runtimeParams: new Dictionary<string, string>());
+
+    var fileName = $"{report.Name}_{DateTime.Now:yyyyMMdd}.docx";
+    return File(docBytes,
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        fileName);
+}
+```
+
+### Template Upload / Scan
+
+`ReportTemplatesController` (`route: "api/reporttemplates"`) handles both formats:
+- Accepts `.xlsx` **and** `.docx` on upload
+- Routes placeholder scanning to `DocumentTemplateService` (Word) or `ExcelTemplateService` (Excel) based on filename extension
+- Returns format-appropriate `Content-Type` on download
+
+### Anti-Patterns
+
+```csharp
+// ❌ WRONG — old Excel-prefixed names (all removed)
+_context.ExcelReportDefinitions
+new ExcelReportDefinition()
+
+// ✅ CORRECT — unified names
+_context.ReportDefinitions
+new ReportDefinition { Format = "word" }
+
+// ❌ WRONG — calling MiniWord with a stream
+MiniWord.SaveAsByTemplate(outputStream, templateStream, dict);  // NOT SUPPORTED
+
+// ✅ CORRECT — use DocumentTemplateEngine (handles temp files internally)
+var bytes = await _docEngine.GenerateAsync(templateBlob, definitionJson, context, runtimeParams);
+
+// ❌ WRONG — selecting engine by file extension instead of DB format field
+if (fileName.EndsWith(".docx")) { ... }
+
+// ✅ CORRECT — use report.Format from DB
+if (report.Format == "word") return await GenerateWordTemplateReportAsync(...);
+```
+
 ## Authentication & Session Management
 
 ### Authentication Flow
