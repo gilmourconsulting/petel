@@ -407,6 +407,9 @@ private static bool IsAllZeros(string value)
                             .Where(o => o.Id == e.OwnerId)
                             .Select(o => o.Name)
                             .FirstOrDefault(),
+                        contactPersonName = e.ContactPerson != null
+                            ? (e.ContactPerson.FirstName + " " + e.ContactPerson.LastName).Trim()
+                            : null,
                         isActive = e.IsActive
                     })
                     .OrderBy(e => e.name)

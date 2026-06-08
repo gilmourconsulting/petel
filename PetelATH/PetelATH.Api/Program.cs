@@ -74,6 +74,8 @@ builder.Services.Configure<SecuritySettings>(
     builder.Configuration.GetSection("Security"));
 builder.Services.Configure<EmailSettings>(
     builder.Configuration.GetSection("Email"));
+builder.Services.Configure<GotenbergSettings>(
+    builder.Configuration.GetSection("Gotenberg"));
 
 builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
 {
@@ -178,6 +180,21 @@ builder.Services.AddSingleton<JwtTokenService>();
 // Business Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddSingleton<IEmailService, SmtpEmailService>();
+
+// Gotenberg HTTP client (DOCX → PDF conversion)
+var gotenbergSettings = builder.Configuration.GetSection("Gotenberg").Get<GotenbergSettings>();
+builder.Services.AddHttpClient("Gotenberg", client =>
+{
+    client.BaseAddress = new Uri(gotenbergSettings?.BaseUrl ?? "http://localhost:3000");
+    client.Timeout = TimeSpan.FromSeconds(120);
+    if (!string.IsNullOrEmpty(gotenbergSettings?.Username))
+    {
+        var credentials = Convert.ToBase64String(
+            System.Text.Encoding.ASCII.GetBytes($"{gotenbergSettings.Username}:{gotenbergSettings.Password}"));
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Basic", credentials);
+    }
+}).SetHandlerLifetime(TimeSpan.FromMinutes(10));
 builder.Services.AddScoped<UserRoleService>();
 builder.Services.AddScoped<AlertService>();
 

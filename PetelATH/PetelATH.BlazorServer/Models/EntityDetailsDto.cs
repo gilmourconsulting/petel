@@ -77,6 +77,7 @@ namespace PetelATH.BlazorServer.Models
         public string EntityTypeDescription { get; set; } = string.Empty;
         public int? OwnerId { get; set; }
         public string? OwnerName { get; set; }
+        public string? ContactPersonName { get; set; }
         public bool IsActive { get; set; }
     }
 

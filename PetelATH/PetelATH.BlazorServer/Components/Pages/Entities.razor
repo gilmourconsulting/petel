@@ -1,4 +1,4 @@
-@page "/entities"
+az account show --output tableaz account show --output table@page "/entities"
 @layout MainLayout
 @inherits SecurePageBase
 @using PetelATH.BlazorServer.DTOs
@@ -90,6 +90,9 @@
                                                 <th @onclick="() => SortTable(nameof(EntityListDto.OwnerName))">
                                                     בעלות @GetSortIcon(nameof(EntityListDto.OwnerName))
                                                 </th>
+                                                <th @onclick="() => SortTable(nameof(EntityListDto.ContactPersonName))">
+                                                    איש קשר @GetSortIcon(nameof(EntityListDto.ContactPersonName))
+                                                </th>
                                                 <th @onclick="() => SortTable(nameof(EntityListDto.IsActive))">
                                                     פעיל @GetSortIcon(nameof(EntityListDto.IsActive))
                                                 </th>
@@ -116,8 +119,9 @@
                                                     <td>@entity.Name</td>
                                                     <td>@entity.EntityTypeDescription</td>
                                                     <td>@entity.OwnerName</td>
+                                                    <td>@entity.ContactPersonName</td>
                                                     <td>
-                                                        <span style="color: @(entity.IsActive ? "#28a745" : "#dc3545");">
+                                                        <span style="color: @(entity.IsActive ? "#28a745" : "#dc3545");">  
                                                             @(entity.IsActive ? "כן" : "לא")
                                                         </span>
                                                     </td>
@@ -280,6 +284,9 @@
             nameof(EntityListDto.OwnerName) => _sortAscending 
                 ? filtered.OrderBy(e => e.OwnerName).ToList() 
                 : filtered.OrderByDescending(e => e.OwnerName).ToList(),
+            nameof(EntityListDto.ContactPersonName) => _sortAscending 
+                ? filtered.OrderBy(e => e.ContactPersonName).ToList() 
+                : filtered.OrderByDescending(e => e.ContactPersonName).ToList(),
             nameof(EntityListDto.IsActive) => _sortAscending 
                 ? filtered.OrderBy(e => e.IsActive).ToList() 
                 : filtered.OrderByDescending(e => e.IsActive).ToList(),

@@ -25,17 +25,17 @@ BEGIN
 
     -- ── Step 2: Remove the old /excelreports row ──────────────────────────
     DELETE FROM petel_schema.menu_items
-     WHERE reference = '/excelreports';
+     WHERE reference = '#excelreports';
 
     GET DIAGNOSTICS v_deleted = ROW_COUNT;
-    RAISE NOTICE 'Deleted /excelreports menu item (% rows)', v_deleted;
+    RAISE NOTICE 'Deleted #excelreports menu item (% rows)', v_deleted;
 
     -- ── Step 3: Insert /reports row (skip if already exists) ─────────────
     INSERT INTO petel_schema.menu_items (name, reference, text, action_id, sort_order, is_active)
-    VALUES ('reports', '/reports', 'דוחות', v_action_id, v_sort_order, true)
+    VALUES ('reports', '#reports', 'דוחות', v_action_id, v_sort_order, true)
     ON CONFLICT DO NOTHING;
 
-    RAISE NOTICE 'Inserted /reports menu item (sort_order=%, action_id=%)', v_sort_order, v_action_id;
+    RAISE NOTICE 'Inserted #reports menu item (sort_order=%, action_id=%)', v_sort_order, v_action_id;
 
 END
 $$;
