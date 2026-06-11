@@ -1106,6 +1106,23 @@ body {
     background-color: #f9f9f9;
 }
 
+.data-table tr.student-row-deleted td {
+    color: #999;
+    text-decoration: line-through;
+    background-color: #fff5f5 !important;
+    font-style: italic;
+}
+
+.data-table tr.student-row-deleted:hover td {
+    background-color: #ffecec !important;
+}
+
+.context-btn-active {
+    background-color: #dc3545 !important;
+    color: #fff !important;
+    border-color: #dc3545 !important;
+}
+
 .data-table td:nth-child(3) {
     font-weight: 600;
     color: #2c3e50;

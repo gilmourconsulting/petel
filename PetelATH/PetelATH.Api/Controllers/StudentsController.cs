@@ -25,7 +25,7 @@ namespace PetelATH.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetStudents([FromQuery] int? schoolYearId = null)
+        public async Task<IActionResult> GetStudents([FromQuery] int? schoolYearId = null, [FromQuery] bool includeDeleted = false)
         {
             try
             {
@@ -53,13 +53,14 @@ namespace PetelATH.Api.Controllers
                     schoolYearId = parsedSchoolYearId;
                 }
 
-                _logger.LogInformation("Loading students for entity {EntityId}", sessionEntityId);
+                _logger.LogInformation("Loading students for entity {EntityId}, includeDeleted={IncludeDeleted}", sessionEntityId, includeDeleted);
 
                 // Query students with enriched council and class names
                 // Following Entity-Based Request Flow from coding guidelines
                 var students = await _context.SchoolStudents
                     .AsNoTracking()
-                    .Where(s => s.SchoolYearId == schoolYearId.Value && s.IsLastVersion == true)
+                    .Where(s => s.SchoolYearId == schoolYearId.Value && s.IsLastVersion == true
+                        && (includeDeleted || s.StatusId != 8))
                     .Select(s => new
                     {
                         Id = s.Id,
@@ -206,6 +207,44 @@ namespace PetelATH.Api.Controllers
                 {
                     success = false,
                     message = "שגיאה בטעינת פרטי תלמיד",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Soft-delete a student: sets their status to 8 (נמחק)
+        /// </summary>
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteStudent(int id)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                var student = await _context.SchoolStudents.FindAsync(id);
+                if (student == null)
+                    return NotFound(new { success = false, message = "תלמיד לא נמצא" });
+
+                if (student.StatusId == 8)
+                    return BadRequest(new { success = false, message = "התלמיד כבר מחוק" });
+
+                student.StatusId = 8;
+                await _context.SaveChangesAsync();
+
+                _logger.LogInformation("Student {StudentId} soft-deleted by user {UserId}", id, session.UserId);
+
+                return Ok(new { success = true, message = "התלמיד נמחק בהצלחה" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting student {StudentId}", id);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה במחיקת תלמיד",
                     error = ex.Message
                 });
             }

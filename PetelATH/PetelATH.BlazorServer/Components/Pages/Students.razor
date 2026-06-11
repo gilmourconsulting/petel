@@ -48,6 +48,17 @@
             קשר מסמכים לרשויות
         </SecureButton>
         
+        <SecureButton
+            ActionName="students_viewDeleted"
+            ScreenName="@PageName"
+            FunctionName="ToggleShowDeleted"
+            OnClick="ToggleShowDeleted"
+            CssClass="@(_showDeleted ? "context-btn context-btn-active" : "context-btn")"
+            HideIfNoAccess="true"
+            Title="@(_showDeleted ? "הסתר תלמידים מחוקים" : "הצג תלמידים מחוקים")">
+            @(_showDeleted ? "הסתר מחוקים" : "הצג מחוקים")
+        </SecureButton>
+
         <div class="context-spacer"></div>
         
         <SecureButton
@@ -200,6 +211,7 @@
                                 <thead>
                                     <tr>
                                         <th></th>
+                                        <th></th>
                                         <th @onclick="() => SortTable(nameof(StudentDto.IdNumber))" style="cursor: pointer;">
                                             ת.ז @GetSortArrow(nameof(StudentDto.IdNumber))
                                         </th>
@@ -238,7 +250,7 @@
                                     {
                                         @foreach (var student in filtered)
                                         {
-                                            <tr>
+                                            <tr class="@(student.StatusId == 8 ? "student-row-deleted" : "")"> 
                                                 <td>
                                                     <SecureButton
                                                         ActionName="students_viewStudent"
@@ -250,6 +262,22 @@
                                                         HideIfNoAccess="true">
                                                         <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
                                                     </SecureButton>
+                                                </td>
+                                                <td>
+                                                    @if (student.StatusId != 8)
+                                                    {
+                                                        <SecureButton
+                                                            ActionName="students_deleteStudent"
+                                                            ScreenName="@PageName"
+                                                            FunctionName="DeleteStudent"
+                                                            ActionParams="@($"studentId={student.Id},name={student.FirstName} {student.LastName}")"
+                                                            OnClick="() => DeleteStudent(student.Id)"
+                                                            CssClass="btn-icon"
+                                                            HideIfNoAccess="true"
+                                                            Title="מחק תלמיד">
+                                                            <img src="/images/delete_icon.png" alt="מחיקה" class="action-icon-natural">
+                                                        </SecureButton>
+                                                    }
                                                 </td>
                                                 <td>@student.IdNumber</td>
                                                 <td>@student.FirstName</td>
@@ -535,6 +563,9 @@
     private string _documentProgressCurrentStudent = "";
     private List<string> _documentProgressErrors = new();
 
+    // Show-deleted toggle
+    private bool _showDeleted = false;
+
     // Council link progress
     private bool _showCouncilLinkProgress = false;
     private bool _showCouncilLinkSummary = false;
@@ -552,6 +583,33 @@
     protected override async Task OnPageInitializedAsync()
     {
         await LoadData();
+    }
+
+    private async Task ToggleShowDeleted()
+    {
+        _showDeleted = !_showDeleted;
+        await LoadData();
+    }
+
+    private async Task DeleteStudent(int studentId)
+    {
+        var student = _students.FirstOrDefault(s => s.Id == studentId);
+        var studentName = student != null ? $"{student.FirstName} {student.LastName}" : studentId.ToString();
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm",
+            $"האם אתה בטוח שברצונך למחוק את התלמיד {studentName}?\nסטטוס התלמיד ישונה ל\"נמחק\".");
+
+        if (!confirmed) return;
+
+        try
+        {
+            await ApiService.DeleteAsync($"students/{studentId}");
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה במחיקת תלמיד: {ex.Message}");
+        }
     }
 
     private async Task LoadData()
@@ -592,7 +650,7 @@
 
             // Load students data (API returns wrapped response)
             var studentsResponse = await ApiService.GetAsync<ApiResponse<List<StudentDto>>>(
-                $"students?schoolYearId={schoolYearId}");
+                $"students?schoolYearId={schoolYearId}&includeDeleted={_showDeleted}");
             
             if (studentsResponse?.Success == true && studentsResponse.Data != null)
             {
