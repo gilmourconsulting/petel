@@ -48,17 +48,6 @@
             קשר מסמכים לרשויות
         </SecureButton>
         
-        <SecureButton
-            ActionName="students_viewDeleted"
-            ScreenName="@PageName"
-            FunctionName="ToggleShowDeleted"
-            OnClick="ToggleShowDeleted"
-            CssClass="@(_showDeleted ? "context-btn context-btn-active" : "context-btn")"
-            HideIfNoAccess="true"
-            Title="@(_showDeleted ? "הסתר תלמידים מחוקים" : "הצג תלמידים מחוקים")">
-            @(_showDeleted ? "הסתר מחוקים" : "הצג מחוקים")
-        </SecureButton>
-
         <div class="context-spacer"></div>
         
         <SecureButton
@@ -168,6 +157,15 @@
                             נקה סינון
                         </button>
                     </div>
+                    @if (_canViewDeleted)
+                    {
+                        <div style="display: flex; align-items: center; gap: 6px; padding-bottom: 4px;">
+                            <input type="checkbox" id="showDeletedCheck" @bind="_showDeleted"
+                                @bind:after="OnShowDeletedChanged"
+                                style="width: 16px; height: 16px; cursor: pointer;" />
+                            <label for="showDeletedCheck" style="font-weight: 600; font-size: 0.88em; cursor: pointer; color: #dc3545; white-space: nowrap;">הצג מחוקים</label>
+                        </div>
+                    }
                 </div>
                 @if (HasActiveFilters)
                 {
@@ -565,6 +563,7 @@
 
     // Show-deleted toggle
     private bool _showDeleted = false;
+    private bool _canViewDeleted = false;
 
     // Council link progress
     private bool _showCouncilLinkProgress = false;
@@ -582,12 +581,17 @@
     // Override page initialization after security check
     protected override async Task OnPageInitializedAsync()
     {
+        _canViewDeleted = await SecurityService.VerifyActionAsync(
+            actionName: "students_viewdeleted",
+            screenName: PageName,
+            functionName: "ToggleShowDeleted",
+            eventType: "VISIBILITY_CHECK");
+
         await LoadData();
     }
 
-    private async Task ToggleShowDeleted()
+    private async Task OnShowDeletedChanged()
     {
-        _showDeleted = !_showDeleted;
         await LoadData();
     }
 
