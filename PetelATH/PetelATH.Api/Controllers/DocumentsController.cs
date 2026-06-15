@@ -2191,6 +2191,218 @@ namespace PetelATH.Api.Controllers
         }
 
         /// <summary>
+        /// Generates both Excel (נספח 10) and Word (מכתב לרשות) council documents in one call,
+        /// filtered by student status, and then advances student status to 9 (נשלח).
+        /// regenerateAll=true  → process councils that have students with StatusId 2 OR 9.
+        /// regenerateAll=false → process only councils that have students with StatusId 2.
+        /// After generation, all matching students are versioned to StatusId 9.
+        /// </summary>
+        [HttpPost("generate-council-combined")]
+        public async Task<IActionResult> GenerateCouncilCombined(
+            [FromQuery] int? yearId = null,
+            [FromQuery] bool regenerateAll = false)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                if (!int.TryParse(session.EntityId, out int entityId))
+                    return BadRequest(new { success = false, message = "מזהה ישות לא תקין" });
+
+                if (!yearId.HasValue)
+                {
+                    var yearIdStr = session.GetProperty("SelectedYearId");
+                    if (int.TryParse(yearIdStr, out int sessionYear))
+                        yearId = sessionYear;
+                }
+
+                if (!yearId.HasValue)
+                    return BadRequest(new { success = false, message = "נדרש מזהה שנה" });
+
+                int? userId = int.TryParse(session.UserId, out int uid) ? uid : (int?)null;
+
+                // ── 1. Validate Excel template ────────────────────────────
+                const string excelReportName = Services.CouncilExcelGenerationService.ReportDefinitionName;
+                var excelTemplateCheck = await _context.ReportDefinitions
+                    .Include(r => r.Template)
+                    .AsNoTracking()
+                    .Where(r => r.Name == excelReportName)
+                    .Select(r => new { HasDefinition = true, HasTemplate = r.Template != null && r.Template.TemplateBlob != null })
+                    .FirstOrDefaultAsync();
+
+                if (excelTemplateCheck == null)
+                    return BadRequest(new { success = false, message = $"הגדרת דוח Excel '{excelReportName}' לא נמצאה." });
+                if (!excelTemplateCheck.HasTemplate)
+                    return BadRequest(new { success = false, message = $"תבנית Excel לדוח '{excelReportName}' לא הועלתה." });
+
+                // ── 2. Check Word template (soft — skip Word if not configured) ──
+                const string wordReportName = Services.CouncilWordGenerationService.ReportDefinitionName;
+                var wordTemplateCheck = await _context.ReportDefinitions
+                    .Include(r => r.Template)
+                    .AsNoTracking()
+                    .Where(r => r.Name == wordReportName &&
+                                (r.EntityId == entityId || r.EntityId == null))
+                    .OrderByDescending(r => r.EntityId.HasValue)
+                    .Select(r => new { HasDefinition = true, HasTemplate = r.Template != null && r.Template.TemplateBlob != null })
+                    .FirstOrDefaultAsync();
+
+                bool generateWord = wordTemplateCheck?.HasTemplate == true;
+                string? wordSkipReason = wordTemplateCheck == null
+                    ? $"הגדרת דוח Word '{wordReportName}' לא נמצאה — מכתבי Word יודגו"
+                    : (!wordTemplateCheck.HasTemplate
+                        ? $"תבנית Word לדוח '{wordReportName}' לא הועלתה — מכתבי Word יודגו"
+                        : null);
+
+                // ── 3. Determine entity scope (schools owned by this entity) ─
+                var ownedEntityIds = await _context.Entities
+                    .AsNoTracking()
+                    .Where(e => e.OwnerId == entityId || e.Id == entityId)
+                    .Select(e => e.Id)
+                    .ToListAsync();
+
+                var schoolYearIds = await _context.SchoolYears
+                    .AsNoTracking()
+                    .Where(sy => sy.YearId == yearId.Value && ownedEntityIds.Contains(sy.SchoolId))
+                    .Select(sy => sy.Id)
+                    .ToListAsync();
+
+                if (!schoolYearIds.Any())
+                    return BadRequest(new { success = false, message = "לא נמצאו שנות לימוד לישות זו" });
+
+                // ── 4. Determine qualifying council IDs ────────────────────
+                // StatusId 2 = has pricing (תמחור), StatusId 9 = already sent (נשלח)
+                int[] qualifyingStatuses = regenerateAll ? [2, 9] : [2];
+
+                var qualifyingCouncilIds = await _context.SchoolStudents
+                    .AsNoTracking()
+                    .Where(s => s.IsLastVersion &&
+                                schoolYearIds.Contains(s.SchoolYearId) &&
+                                s.SendingCouncil.HasValue &&
+                                qualifyingStatuses.Contains(s.StatusId ?? 0))
+                    .Select(s => s.SendingCouncil!.Value)
+                    .Distinct()
+                    .ToListAsync();
+
+                if (!qualifyingCouncilIds.Any())
+                    return Ok(new
+                    {
+                        success = true,
+                        message = regenerateAll
+                            ? "לא נמצאו רשויות עם תלמידים בסטטוס תמחור או נשלח"
+                            : "לא נמצאו רשויות עם תלמידים בסטטוס תמחור",
+                        councilsProcessed = 0,
+                        excelCreated = 0, excelUpdated = 0,
+                        wordCreated = 0, wordUpdated = 0,
+                        studentsUpdated = 0
+                    });
+
+                _logger.LogInformation(
+                    "Combined council generation — entityId={EntityId}, yearId={YearId}, regenerateAll={All}, councils={Count}",
+                    entityId, yearId.Value, regenerateAll, qualifyingCouncilIds.Count);
+
+                // ── 5. Generate Excel documents ───────────────────────────
+                var excelService = HttpContext.RequestServices
+                    .GetRequiredService<Services.CouncilExcelGenerationService>();
+                var excelResult = await excelService.GenerateForAllCouncilsWithResult(
+                    entityId, yearId.Value, userId, qualifyingCouncilIds);
+
+                // ── 6. Generate Word documents (only if template exists) ──
+                Services.CouncilWordResult wordResult;
+                if (generateWord)
+                {
+                    var wordService = HttpContext.RequestServices
+                        .GetRequiredService<Services.CouncilWordGenerationService>();
+                    wordResult = await wordService.GenerateForAllCouncilsWithResult(
+                        entityId, yearId.Value, userId, qualifyingCouncilIds);
+                }
+                else
+                {
+                    wordResult = new Services.CouncilWordResult();
+                    _logger.LogWarning("Skipping Word generation: {Reason}", wordSkipReason);
+                }
+
+                // ── 7. Bulk-update matching students to status 9 (נשלח) ──
+                // Create new versions for all qualifying students
+                const int SentStatusId = 9;
+                var studentsToUpdate = await _context.SchoolStudents
+                    .Where(s => s.IsLastVersion &&
+                                schoolYearIds.Contains(s.SchoolYearId) &&
+                                s.SendingCouncil.HasValue &&
+                                qualifyingCouncilIds.Contains(s.SendingCouncil.Value) &&
+                                qualifyingStatuses.Contains(s.StatusId ?? 0))
+                    .ToListAsync();
+
+                int studentsUpdated = 0;
+                if (studentsToUpdate.Count > 0)
+                {
+                    foreach (var s in studentsToUpdate)
+                        s.IsLastVersion = false;
+
+                    var newVersions = studentsToUpdate.Select(s => new SchoolStudent
+                    {
+                        SchoolYearId      = s.SchoolYearId,
+                        IdNumber          = s.IdNumber,
+                        Version           = s.Version + 1,
+                        MasterStudentId   = s.MasterStudentId,
+                        FirstName         = s.FirstName,
+                        LastName          = s.LastName,
+                        Gender            = s.Gender,
+                        ClassId           = s.ClassId,
+                        StartDate         = s.StartDate,
+                        EndDate           = s.EndDate,
+                        DisabilityCategory = s.DisabilityCategory,
+                        Street            = s.Street,
+                        HouseNumber       = s.HouseNumber,
+                        City              = s.City,
+                        PostCode          = s.PostCode,
+                        SendingCouncil    = s.SendingCouncil,
+                        Cost              = s.Cost,
+                        EnrollmentMonths  = s.EnrollmentMonths,
+                        IsLastVersion     = true,
+                        StatusId          = SentStatusId,
+                    }).ToList();
+
+                    _context.SchoolStudents.AddRange(newVersions);
+                    await _context.SaveChangesAsync();
+                    studentsUpdated = newVersions.Count;
+
+                    _logger.LogInformation(
+                        "Updated {Count} students to StatusId={Status} for entityId={EntityId}, yearId={YearId}",
+                        studentsUpdated, SentStatusId, entityId, yearId.Value);
+                }
+
+                var summaryMsg = $"הושלם: {qualifyingCouncilIds.Count} רשויות — " +
+                    $"Excel: {excelResult.Created} חדשים, {excelResult.Updated} עדכונים; " +
+                    (generateWord
+                        ? $"Word: {wordResult.Created} חדשים, {wordResult.Updated} עדכונים; "
+                        : $"Word: דולג ({wordSkipReason}); ") +
+                    $"תלמידים שעברו לסטטוס נשלח: {studentsUpdated}";
+
+                return Ok(new
+                {
+                    success = excelResult.Success || wordResult.Success,
+                    message = summaryMsg,
+                    councilsProcessed = qualifyingCouncilIds.Count,
+                    excelCreated  = excelResult.Created,
+                    excelUpdated  = excelResult.Updated,
+                    excelFailed   = excelResult.Failed,
+                    wordCreated   = wordResult.Created,
+                    wordUpdated   = wordResult.Updated,
+                    wordFailed    = wordResult.Failed,
+                    studentsUpdated = studentsUpdated,
+                    log = excelResult.Log.Concat(wordResult.Log).ToList(),
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in combined council generation");
+                return StatusCode(500, new { success = false, message = "שגיאה בייצוא משולב של מסמכי רשויות", error = ex.Message });
+            }
+        }
+
+        /// <summary>
         /// For a single student: adds a DocumentLink for each of their documents pointing to
         /// the entity of their sending_council (if not already linked).
         /// </summary>

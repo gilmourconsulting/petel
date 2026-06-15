@@ -41,6 +41,7 @@ builder.Services.AddScoped<SessionStateService>();
 builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<SessionTimeoutService>();
 builder.Services.AddScoped<ActionSecurityService>();
+builder.Services.AddScoped<ExcelExportService>();
 
 // Configure Blazor Server options
 builder.Services.AddServerSideBlazor()

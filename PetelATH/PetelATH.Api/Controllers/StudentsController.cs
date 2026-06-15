@@ -1,8 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using OfficeOpenXml;
+using OfficeOpenXml.Style;
 using PetelATH.Api.Data;
 using PetelATH.Api.Services;
 using PetelATH.Api.Session;
+using System.Drawing;
 
 namespace PetelATH.Api.Controllers
 {
@@ -565,6 +568,125 @@ namespace PetelATH.Api.Controllers
             {
                 _logger.LogError(ex, "❌ Error toggling no-permit status for student {StudentId}", id);
                 return StatusCode(500, new { success = false, message = "שגיאה בעדכון סטטוס התלמיד", error = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Export the current student list to an Excel file.
+        /// Accepts the same query parameters as GET /api/students.
+        /// </summary>
+        [HttpGet("export")]
+        public async Task<IActionResult> ExportStudents(
+            [FromQuery] int? schoolYearId = null,
+            [FromQuery] bool includeDeleted = false)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+                if (!int.TryParse(session.EntityId, out int sessionEntityId))
+                    return BadRequest(new { success = false, message = "מזהה ישות לא תקין בסשן" });
+
+                if (!schoolYearId.HasValue)
+                {
+                    var sessionSchoolYearId = session.GetProperty("SelectedSchoolYearId");
+                    if (string.IsNullOrEmpty(sessionSchoolYearId) || !int.TryParse(sessionSchoolYearId, out int parsedId))
+                        return BadRequest(new { success = false, message = "לא נבחרה שנת לימודים" });
+                    schoolYearId = parsedId;
+                }
+
+                var students = await _context.SchoolStudents
+                    .AsNoTracking()
+                    .Where(s => s.SchoolYearId == schoolYearId.Value && s.IsLastVersion == true
+                        && (includeDeleted || s.StatusId != 8))
+                    .Select(s => new
+                    {
+                        s.IdNumber,
+                        s.FirstName,
+                        s.LastName,
+                        s.Gender,
+                        s.StartDate,
+                        s.EndDate,
+                        s.City,
+                        s.Street,
+                        s.HouseNumber,
+                        StatusName = s.Status != null ? s.Status.Name : null,
+                        CouncilName = _context.Councils
+                            .Where(c => c.Id == s.SendingCouncil)
+                            .Select(c => c.Name)
+                            .FirstOrDefault(),
+                        ClassName = _context.SchoolClasses
+                            .Where(sc => sc.Id == s.ClassId)
+                            .Select(sc => sc.Name)
+                            .FirstOrDefault()
+                    })
+                    .OrderBy(s => s.LastName)
+                    .ThenBy(s => s.FirstName)
+                    .ToListAsync();
+
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+                using var package = new ExcelPackage();
+                var ws = package.Workbook.Worksheets.Add("תלמידים");
+                ws.View.RightToLeft = true;
+
+                // Headers
+                var headers = new[]
+                {
+                    "ת.ז", "שם פרטי", "שם משפחה", "מגדר", "כיתה",
+                    "סטטוס", "תאריך התחלה", "תאריך סיום", "כתובת", "רשות שולחת"
+                };
+
+                for (int col = 1; col <= headers.Length; col++)
+                {
+                    var cell = ws.Cells[1, col];
+                    cell.Value = headers[col - 1];
+                    cell.Style.Font.Bold = true;
+                    cell.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                    cell.Style.Fill.BackgroundColor.SetColor(Color.FromArgb(0x21, 0x96, 0xF3)); // primary blue
+                    cell.Style.Font.Color.SetColor(Color.White);
+                    cell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                }
+
+                // Rows
+                for (int i = 0; i < students.Count; i++)
+                {
+                    var s = students[i];
+                    int row = i + 2;
+                    var address = string.Join(", ",
+                        new[] { s.City, s.Street, s.HouseNumber }
+                        .Where(p => !string.IsNullOrWhiteSpace(p)));
+
+                    ws.Cells[row, 1].Value = s.IdNumber;
+                    ws.Cells[row, 2].Value = s.FirstName;
+                    ws.Cells[row, 3].Value = s.LastName;
+                    ws.Cells[row, 4].Value = s.Gender switch { 1 => "זכר", 2 => "נקבה", _ => "" };
+                    ws.Cells[row, 5].Value = s.ClassName;
+                    ws.Cells[row, 6].Value = s.StatusName;
+                    ws.Cells[row, 7].Value = s.StartDate.HasValue ? s.StartDate.Value.ToString("dd/MM/yyyy") : "";
+                    ws.Cells[row, 8].Value = s.EndDate.HasValue ? s.EndDate.Value.ToString("dd/MM/yyyy") : "";
+                    ws.Cells[row, 9].Value = address;
+                    ws.Cells[row, 10].Value = s.CouncilName;
+
+                    for (int col = 1; col <= headers.Length; col++)
+                        ws.Cells[row, col].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+                }
+
+                ws.Cells[ws.Dimension.Address].AutoFitColumns();
+
+                var yearName = session.GetProperty("SelectedYearValue") ?? schoolYearId.Value.ToString();
+                var fileName = $"תלמידים_{yearName}_{DateTime.Now:yyyyMMdd}.xlsx";
+                var bytes = package.GetAsByteArray();
+
+                return File(bytes,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    fileName);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error exporting students to Excel");
+                return StatusCode(500, new { success = false, message = "שגיאה בייצוא לאקסל", error = ex.Message });
             }
         }
     }

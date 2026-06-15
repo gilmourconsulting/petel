@@ -7,6 +7,7 @@
 @using PetelATH.BlazorServer.Components.Modals
 @inject ApiService ApiService
 @inject SessionStateService SessionStateService
+@inject ExcelExportService ExcelExportService
 
 <div class="main-container">
     <!-- Context buttons -->
@@ -182,6 +183,9 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">רשימת תלמידים</h2>
                     <div class="card-header-actions">
+                        <button class="btn-icon" @onclick="ExportStudents" title="ייצא לאקסל">
+                            <img src="/images/download_icon.png" alt="ייצא" class="action-icon-natural" />
+                        </button>
                         <SecureButton
                             ActionName="students_refreshData"
                             ScreenName="@PageName"
@@ -225,11 +229,29 @@
                                         <th @onclick="() => SortTable(nameof(StudentDto.ClassName))" style="cursor: pointer;">
                                             כיתה @GetSortArrow(nameof(StudentDto.ClassName))
                                         </th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.DisabilityCategory))" style="cursor: pointer;">
+                                            קטגוריית נכות @GetSortArrow(nameof(StudentDto.DisabilityCategory))
+                                        </th>
                                         <th @onclick="() => SortTable(nameof(StudentDto.Status))" style="cursor: pointer;">
                                             סטטוס @GetSortArrow(nameof(StudentDto.Status))
                                         </th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.StartDate))" style="cursor: pointer;">
+                                            תאריך התחלה @GetSortArrow(nameof(StudentDto.StartDate))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.EndDate))" style="cursor: pointer;">
+                                            תאריך סיום @GetSortArrow(nameof(StudentDto.EndDate))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.Street))" style="cursor: pointer;">
+                                            רחוב @GetSortArrow(nameof(StudentDto.Street))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.HouseNumber))" style="cursor: pointer;">
+                                            מספר בית @GetSortArrow(nameof(StudentDto.HouseNumber))
+                                        </th>
                                         <th @onclick="() => SortTable(nameof(StudentDto.City))" style="cursor: pointer;">
                                             עיר @GetSortArrow(nameof(StudentDto.City))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(StudentDto.PostCode))" style="cursor: pointer;">
+                                            מיקוד @GetSortArrow(nameof(StudentDto.PostCode))
                                         </th>
                                         <th @onclick="() => SortTable(nameof(StudentDto.CouncilName))" style="cursor: pointer;">
                                             רשות שולחת @GetSortArrow(nameof(StudentDto.CouncilName))
@@ -241,7 +263,7 @@
                                     @if (filtered.Count == 0)
                                     {
                                         <tr>
-                                            <td colspan="9" style="text-align: center; padding: 20px; color: #666;">אין תלמידים התואמים לסינון</td>
+                                            <td colspan="16" style="text-align: center; padding: 20px; color: #666;">אין תלמידים התואמים לסינון</td>
                                         </tr>
                                     }
                                     else
@@ -282,8 +304,14 @@
                                                 <td>@student.LastName</td>
                                                 <td>@GetGenderDisplay(student.Gender)</td>
                                                 <td>@student.ClassName</td>
+                                                <td>@student.DisabilityCategory</td>
                                                 <td>@student.Status</td>
+                                                <td>@FormatDate(student.StartDate)</td>
+                                                <td>@FormatDate(student.EndDate)</td>
+                                                <td>@student.Street</td>
+                                                <td>@student.HouseNumber</td>
                                                 <td>@student.City</td>
+                                                <td>@student.PostCode</td>
                                                 <td>@student.CouncilName</td>
                                             </tr>
                                         }
@@ -724,12 +752,30 @@
             nameof(StudentDto.ClassName) => _sortAscending
                 ? _students.OrderBy(s => s.ClassName).ToList()
                 : _students.OrderByDescending(s => s.ClassName).ToList(),
+            nameof(StudentDto.DisabilityCategory) => _sortAscending
+                ? _students.OrderBy(s => s.DisabilityCategory).ToList()
+                : _students.OrderByDescending(s => s.DisabilityCategory).ToList(),
             nameof(StudentDto.Status) => _sortAscending
                 ? _students.OrderBy(s => s.Status).ToList()
                 : _students.OrderByDescending(s => s.Status).ToList(),
+            nameof(StudentDto.StartDate) => _sortAscending
+                ? _students.OrderBy(s => s.StartDate).ToList()
+                : _students.OrderByDescending(s => s.StartDate).ToList(),
+            nameof(StudentDto.EndDate) => _sortAscending
+                ? _students.OrderBy(s => s.EndDate).ToList()
+                : _students.OrderByDescending(s => s.EndDate).ToList(),
+            nameof(StudentDto.Street) => _sortAscending
+                ? _students.OrderBy(s => s.Street).ToList()
+                : _students.OrderByDescending(s => s.Street).ToList(),
+            nameof(StudentDto.HouseNumber) => _sortAscending
+                ? _students.OrderBy(s => s.HouseNumber).ToList()
+                : _students.OrderByDescending(s => s.HouseNumber).ToList(),
             nameof(StudentDto.City) => _sortAscending
                 ? _students.OrderBy(s => s.City).ToList()
                 : _students.OrderByDescending(s => s.City).ToList(),
+            nameof(StudentDto.PostCode) => _sortAscending
+                ? _students.OrderBy(s => s.PostCode).ToList()
+                : _students.OrderByDescending(s => s.PostCode).ToList(),
             nameof(StudentDto.CouncilName) => _sortAscending
                 ? _students.OrderBy(s => s.CouncilName).ToList()
                 : _students.OrderByDescending(s => s.CouncilName).ToList(),
@@ -746,6 +792,48 @@
     private async Task RefreshData()
     {
         await LoadData();
+    }
+
+    private async Task ExportStudents()
+    {
+        try
+        {
+            var headers = new[]
+            {
+                "ת.ז", "שם פרטי", "שם משפחה", "מגדר", "כיתה",
+                "קטגוריית נכות", "סטטוס", "תאריך התחלה", "תאריך סיום", "רחוב", "מספר בית", "עיר", "מיקוד", "רשות שולחת"
+            };
+
+            var rows = FilteredStudents.Select(s => new[]
+            {
+                s.IdNumber ?? "",
+                s.FirstName ?? "",
+                s.LastName ?? "",
+                GetGenderDisplay(s.Gender),
+                s.ClassName ?? "",
+                s.DisabilityCategory?.ToString() ?? "",
+                s.Status ?? "",
+                FormatDate(s.StartDate),
+                FormatDate(s.EndDate),
+                s.Street ?? "",
+                s.HouseNumber ?? "",
+                s.City ?? "",
+                s.PostCode ?? "",
+                s.CouncilName ?? ""
+            });
+
+            var bytes = ExcelExportService.Export(headers, rows, "תלמידים");
+            var yearName = _yearDisplay.Replace("שנת לימודים: ", "").Trim();
+            var fileName = $"{_pageTitle}_{yearName}_{DateTime.Now:yyyyMMdd}.xlsx";
+            var base64 = Convert.ToBase64String(bytes);
+
+            await JSRuntime.InvokeVoidAsync("downloadFileFromBase64", base64, fileName,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בייצוא לאקסל: {ex.Message}");
+        }
     }
 
     private async Task ViewStudent(int studentId)
@@ -1012,6 +1100,18 @@
             2 => "נקבה",
             _ => ""
         };
+    }
+
+    private static string FormatDate(DateOnly? date) =>
+        date.HasValue ? date.Value.ToString("dd/MM/yyyy") : string.Empty;
+
+    private static string GetFullAddress(StudentDto student)
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(student.City)) parts.Add(student.City);
+        if (!string.IsNullOrWhiteSpace(student.Street)) parts.Add(student.Street);
+        if (!string.IsNullOrWhiteSpace(student.HouseNumber)) parts.Add(student.HouseNumber);
+        return string.Join(", ", parts);
     }
 
     private int GetPercentage(int current, int total)

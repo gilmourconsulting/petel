@@ -36,6 +36,10 @@
         {
             <span style="font-size: 0.85em; color: #0d6efd; margin-right: 8px;">יוצר מכתבים... אנא המתן</span>
         }
+        <SecureButton ActionName="schoollist_generateCouncilCombined" ScreenName="@PageName" FunctionName="ShowGenerateCouncilDocsModal"
+                      OnClick="ShowGenerateCouncilDocsModal" CssClass="context-btn" Title="ייצוא Excel ו-Word לכל רשות שולחת ועדכון סטטוס לנשלח">
+            ייצא מסמכי רשויות
+        </SecureButton>
         <SecureButton ActionName="schoollist_linkCouncilDocuments" ScreenName="@PageName" FunctionName="LinkCouncilDocumentsForAllSchools"
                       OnClick="LinkCouncilDocumentsForAllSchools" CssClass="context-btn"
                       Title="קשר מסמכי תלמידים לישות הרשות השולחת שלהם לכל בתי הספר"
@@ -335,6 +339,105 @@
 <!-- Add School Modal -->
 <AddSchoolModal @ref="_addSchoolModal" OnSchoolAdded="LoadData" />
 
+<!-- Generate Council Docs — Options Modal -->
+@if (_showGenerateCouncilDocsModal)
+{
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000; direction: rtl;">
+        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); min-width: 460px; max-width: 90%;">
+            <h3 style="margin: 0 0 8px 0; text-align: center; color: #333;">ייצוא מסמכי רשויות (Excel + Word)</h3>
+            <p style="color: #555; margin-bottom: 20px; text-align: center; font-size: 13px;">
+                יייצר קובץ Excel ומכתב Word לכל רשות שולחת.<br />
+                בסיום הפעולה, תלמידים מתאימים יועברו לסטטוס <strong>נשלח</strong>.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                <button @onclick="() => RunGenerateCouncilDocs(true)"
+                    style="display: flex; flex-direction: column; align-items: flex-start; padding: 14px 18px; background: #f0f7ff; border: 2px solid #2196F3; border-radius: 8px; cursor: pointer; width: 100%; text-align: right;">
+                    <span style="font-weight: 700; font-size: 15px; color: #0066cc;">כולל שנשלחו</span>
+                    <span style="font-size: 13px; color: #555; margin-top: 3px;">לרשויות עם תלמידים בסטטוס תמחור (2) <em>וגם</em> נשלח (9)</span>
+                </button>
+
+                <button @onclick="() => RunGenerateCouncilDocs(false)"
+                    style="display: flex; flex-direction: column; align-items: flex-start; padding: 14px 18px; background: #f8f9fa; border: 2px solid #dee2e6; border-radius: 8px; cursor: pointer; width: 100%; text-align: right;">
+                    <span style="font-weight: 700; font-size: 15px; color: #333;">רק תמחור חדש</span>
+                    <span style="font-size: 13px; color: #555; margin-top: 3px;">רק לרשויות עם תלמידים בסטטוס תמחור (2) בלבד</span>
+                </button>
+
+                <button @onclick="() => _showGenerateCouncilDocsModal = false"
+                    style="padding: 11px 18px; background: white; border: 2px solid #6c757d; border-radius: 8px; cursor: pointer; font-size: 14px; color: #6c757d; font-weight: 600; width: 100%;">
+                    ביטול
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Generate Council Docs — Progress Modal -->
+@if (_showCouncilDocsProgress)
+{
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000; direction: rtl;">
+        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); min-width: 400px; max-width: 90%; text-align: center;">
+            <h3 style="margin: 0 0 20px 0; color: #333;">מייצא מסמכי רשויות…</h3>
+            <div style="margin-bottom: 16px;">
+                <div style="width: 60px; height: 60px; border: 6px solid #e9ecef; border-top-color: #2196F3; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+            </div>
+            <p style="color: #555; margin: 0;">מייצר קבצי Excel ו-Word לכל רשות שולחת ומעדכן סטטוסי תלמידים.<br />הפעולה עשויה לקחת מספר דקות.</p>
+        </div>
+    </div>
+}
+
+<!-- Generate Council Docs — Summary Modal -->
+@if (_showCouncilDocsSummary)
+{
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000; direction: rtl;">
+        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); min-width: 500px; max-width: 90%;">
+            <h3 style="margin: 0 0 20px 0; text-align: center; color: #333;">סיכום ייצוא מסמכי רשויות</h3>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+                <div style="padding: 14px; background: #e7f3ff; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 28px; font-weight: bold; color: #0066cc;">@_councilDocsResult?.CouncilsProcessed</div>
+                    <div style="font-size: 13px; color: #666;">רשויות שעובדו</div>
+                </div>
+                <div style="padding: 14px; background: #d4edda; border-radius: 8px; text-align: center;">
+                    <div style="font-size: 28px; font-weight: bold; color: #28a745;">@_councilDocsResult?.StudentsUpdated</div>
+                    <div style="font-size: 13px; color: #666;">תלמידים עברו לנשלח</div>
+                </div>
+            </div>
+
+            <div style="background: #f8f9fa; border-radius: 8px; padding: 14px; margin-bottom: 12px;">
+                <div style="font-weight: 600; margin-bottom: 6px; color: #333;">Excel (נספח 10):</div>
+                <div style="font-size: 14px; color: #555; line-height: 1.8;">
+                    <span style="color: #28a745;">✅ נוצרו: @_councilDocsResult?.ExcelCreated</span> &nbsp;|&nbsp;
+                    <span style="color: #17a2b8;">🔄 עודכנו: @_councilDocsResult?.ExcelUpdated</span>
+                    @if ((_councilDocsResult?.ExcelFailed ?? 0) > 0)
+                    {
+                        <span> &nbsp;|&nbsp; <span style="color: #dc3545;">❌ נכשלו: @_councilDocsResult?.ExcelFailed</span></span>
+                    }
+                </div>
+            </div>
+
+            <div style="background: #f8f9fa; border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+                <div style="font-weight: 600; margin-bottom: 6px; color: #333;">Word (מכתב לרשות):</div>
+                <div style="font-size: 14px; color: #555; line-height: 1.8;">
+                    <span style="color: #28a745;">✅ נוצרו: @_councilDocsResult?.WordCreated</span> &nbsp;|&nbsp;
+                    <span style="color: #17a2b8;">🔄 עודכנו: @_councilDocsResult?.WordUpdated</span>
+                    @if ((_councilDocsResult?.WordFailed ?? 0) > 0)
+                    {
+                        <span> &nbsp;|&nbsp; <span style="color: #dc3545;">❌ נכשלו: @_councilDocsResult?.WordFailed</span></span>
+                    }
+                </div>
+            </div>
+
+            <div style="text-align: center;">
+                <button @onclick="() => _showCouncilDocsSummary = false"
+                    style="padding: 10px 30px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">
+                    סגור
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private List<SchoolDto> _schools = new();
     private List<SchoolDto> _sortedSchools = new();
@@ -548,6 +651,12 @@
     private string? _generateWordsSummary;
     private bool _generateWordsSuccess;
     private List<string> _generateWordsLog = new();
+
+    // Generate council docs combined state
+    private bool _showGenerateCouncilDocsModal = false;
+    private bool _showCouncilDocsProgress = false;
+    private bool _showCouncilDocsSummary = false;
+    private CouncilDocsResult? _councilDocsResult;
 
     // Council document link state
     private bool _isLinkingCouncilDocs = false;
@@ -941,5 +1050,90 @@
             Console.WriteLine($"Error navigating to dashboard: {ex.Message}");
             await JSRuntime.InvokeVoidAsync("alert", "שגיאה בחזרה ללוח הבקרה");
         }
+    }
+
+    // ── Generate Council Docs (Excel + Word combined) ───────────────────
+
+    private void ShowGenerateCouncilDocsModal()
+    {
+        _showGenerateCouncilDocsModal = true;
+    }
+
+    private async Task RunGenerateCouncilDocs(bool regenerateAll)
+    {
+        _showGenerateCouncilDocsModal = false;
+
+        var yearIdResponse = await ApiService.GetAsync<Dictionary<string, string>>("session/property/SelectedYearId");
+        if (yearIdResponse == null || !yearIdResponse.TryGetValue("value", out var yearIdStr))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "לא נמצאה שנת לימודים נבחרת");
+            return;
+        }
+
+        _showCouncilDocsProgress = true;
+        _councilDocsResult = null;
+        StateHasChanged();
+
+        try
+        {
+            var response = await ApiService.PostAsync<object, CouncilDocsApiResponse>(
+                $"documents/generate-council-combined?yearId={yearIdStr}&regenerateAll={regenerateAll}",
+                new object());
+
+            _showCouncilDocsProgress = false;
+
+            if (response != null)
+            {
+                _councilDocsResult = new CouncilDocsResult
+                {
+                    CouncilsProcessed = response.CouncilsProcessed,
+                    ExcelCreated      = response.ExcelCreated,
+                    ExcelUpdated      = response.ExcelUpdated,
+                    ExcelFailed       = response.ExcelFailed,
+                    WordCreated       = response.WordCreated,
+                    WordUpdated       = response.WordUpdated,
+                    WordFailed        = response.WordFailed,
+                    StudentsUpdated   = response.StudentsUpdated,
+                };
+                _showCouncilDocsSummary = true;
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "הפעולה הסתיימה אך לא התקבלה תשובה מהשרת");
+            }
+        }
+        catch (Exception ex)
+        {
+            _showCouncilDocsProgress = false;
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בייצוא מסמכי רשויות:\n{ex.Message}");
+        }
+
+        StateHasChanged();
+    }
+
+    private class CouncilDocsApiResponse
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public int CouncilsProcessed { get; set; }
+        public int ExcelCreated { get; set; }
+        public int ExcelUpdated { get; set; }
+        public int ExcelFailed { get; set; }
+        public int WordCreated { get; set; }
+        public int WordUpdated { get; set; }
+        public int WordFailed { get; set; }
+        public int StudentsUpdated { get; set; }
+    }
+
+    private class CouncilDocsResult
+    {
+        public int CouncilsProcessed { get; set; }
+        public int ExcelCreated { get; set; }
+        public int ExcelUpdated { get; set; }
+        public int ExcelFailed { get; set; }
+        public int WordCreated { get; set; }
+        public int WordUpdated { get; set; }
+        public int WordFailed { get; set; }
+        public int StudentsUpdated { get; set; }
     }
 }
