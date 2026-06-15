@@ -250,7 +250,8 @@ namespace PetelATH.Api.Services
                     student.City = row.City;
                     student.PostCode = row.PostCode ?? string.Empty; // ✅ Optional field
                     student.SendingCouncil = councilId;
-                    student.StatusId = 1;
+                    // ✅ Set status to deleted (8) when start date equals end date
+                    student.StatusId = (student.StartDate.HasValue && student.EndDate.HasValue && student.StartDate == student.EndDate) ? 8 : 1;
                 });
 
             if (!studentId.HasValue)
@@ -318,7 +319,8 @@ namespace PetelATH.Api.Services
                     newVersion.City = row.City;
                     newVersion.PostCode = row.PostCode ?? string.Empty; // ✅ Optional field
                     newVersion.SendingCouncil = councilId;
-                    newVersion.StatusId = 1;
+                    // ✅ Set status to deleted (8) when start date equals end date
+                    newVersion.StatusId = (newVersion.StartDate.HasValue && newVersion.EndDate.HasValue && newVersion.StartDate == newVersion.EndDate) ? 8 : 1;
                     // Note: Cost is NOT updated here - it's preserved from existing version
                 });
 

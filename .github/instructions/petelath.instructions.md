@@ -349,6 +349,54 @@ if (councilEntityMap.TryGetValue(council.CouncilId, out var councilEntityId))
 }
 ```
 
+### Student File Upload — Business Rules
+
+**Service**: `PetelATH.Api/Services/StudentsFileProcessor.cs`
+
+The `StudentsFileProcessor` handles all logic when a student file (CSV/XLS/XLSX) is uploaded via `StudentsFileUploadController`.
+
+#### Status Assignment on Upload
+
+When creating a new student record or a new version of an existing student, the `StatusId` is set according to the following rule:
+
+| Condition | StatusId | Meaning |
+|---|---|---|
+| `StartDate == EndDate` | `8` | נמחק (deleted) |
+| `StartDate != EndDate` | `1` | Active |
+
+```csharp
+// ✅ CORRECT — applied in both CreateNewStudentAsync and UpdateStudentWithNewVersionAsync
+student.StatusId = (student.StartDate.HasValue && student.EndDate.HasValue
+    && student.StartDate == student.EndDate) ? 8 : 1;
+
+// ❌ WRONG — always setting active regardless of dates
+student.StatusId = 1;
+```
+
+This rule applies to **both** the create path (`CreateNewStudentAsync`) and the update/new-version path (`UpdateStudentWithNewVersionAsync`). Do not change one without updating the other.
+
+#### Processing Flow
+
+```
+UploadStudentsFile / UploadStudentsFileApi
+  └─ ResolveSchoolAndYearAsync  (resolve school + year from IDs or natural keys)
+  └─ StudentsFileValidator.ValidateStudentsFileAsync  (structure + header check)
+  └─ ParseFileAsync  (CSV or XLSX → List<StudentFileRow>)
+  └─ StudentsFileProcessor.ProcessStudentRowsAsync
+       └─ Per row: ValidateRowFormat → ResolveCouncilIdAsync → GetClassIdByName
+            ├─ New student  → CreateNewStudentAsync  (StatusId from date rule above)
+            └─ Existing     → HasDataChanged?
+                 ├─ No  → Unchanged
+                 └─ Yes → UpdateStudentWithNewVersionAsync  (StatusId from date rule above)
+  └─ AlertService.CreateSchoolAlertAsync  (on success)
+```
+
+#### Date Handling in Excel Files
+
+`GetFieldValue` in `StudentsFileUploadController` normalises Excel date cells to `dd/MM/yyyy` string format before they reach the processor. It handles four cell data types: `DateTime`, `Number` (OA date serial), `Text`, and `General`.
+
+---
+
 ### GlobalFunctions Service
 
 Provides Hebrew-normalized entity lookups for all controllers and Excel import:
@@ -550,6 +598,37 @@ Group related fields side-by-side using flexbox in Razor markup:
 ```
 
 Load contextual hints from backend attributes on modal open — never hardcode a default number.
+
+## Maintaining Instruction Files
+
+**Rule**: Whenever you add, change, or remove functionality in the PetelATH codebase, update the relevant instruction file(s) to reflect the change.
+
+### What to document
+
+- New business rules or processing logic (e.g. status assignment, validation rules)
+- New API endpoints, controllers, or services
+- New DB tables, columns, or constraints
+- New Blazor pages, modals, or components
+- Changes to existing patterns, flows, or conventions
+- Anti-patterns that were discovered and fixed
+
+### Where to document
+
+| Change location | Instruction file to update |
+|---|---|
+| `PetelATH/**` | `.github/instructions/petelath.instructions.md` |
+| `PetelAssistants/**` | `.github/instructions/petelassistants.instructions.md` |
+| `**/*.razor` | `.github/instructions/blazor-patterns.instructions.md` |
+| Shared patterns, EF, auth, config | `.github/copilot-instructions.md` |
+
+### How to document
+
+- Add a new `###` subsection under the most relevant `##` section
+- Include: what changed, why, code examples (correct and incorrect), and any anti-patterns
+- Keep examples minimal and focused — avoid copying entire methods
+- For anti-patterns, always pair `❌ WRONG` with a `✅ CORRECT` example
+
+---
 
 ## Adding a New Blazor Page — Checklist
 
