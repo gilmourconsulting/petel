@@ -329,6 +329,35 @@
 <!-- Student Upload Modal -->
 <StudentUploadModal @ref="_uploadModal" OnUploadComplete="RefreshData" />
 
+<!-- Bulk Pricing Options Modal -->
+@if (_showBulkPricingOptions)
+{
+    <div style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000; direction: rtl;">
+        <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); min-width: 480px; max-width: 90%;">
+            <h3 style="margin: 0 0 10px 0; text-align: center; color: #333;">חישוב תמחור לתלמידים</h3>
+            <p style="text-align: center; color: #666; margin-bottom: 25px; font-size: 0.9em;">בחר אילו תלמידים לכלול בחישוב:</p>
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <button @onclick="() => StartBulkPricing(1)"
+                    style="padding: 14px 20px; background: #2196F3; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; text-align: right;">
+                    <strong>הכל</strong> — כל הסטטוסים  (כולל כלולים בדוח 10 בסיסי)
+                </button>
+                <button @onclick="() => StartBulkPricing(2)"
+                    style="padding: 14px 20px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; text-align: right;">
+                    <strong>לא נשלחו</strong> — כל הסטטוסים  לא כולל כלולים בדוח 10 בסיסי
+                </button>
+                <button @onclick="() => StartBulkPricing(3)"
+                    style="padding: 14px 20px; background: #FF9800; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; text-align: right;">
+                    <strong>לא מחושבים בלבד</strong> — סטטוס איסוך נתונים בלבד
+                </button>
+                <button @onclick="() => _showBulkPricingOptions = false"
+                    style="padding: 14px 20px; background: #6c757d; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; text-align: center;">
+                    ביטול
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 <!-- Bulk Pricing Progress Modal -->
 @if (_showBulkPricingProgress)
 {
@@ -568,7 +597,8 @@
     // Upload modal reference
     private StudentUploadModal? _uploadModal;
 
-    // Bulk pricing progress
+    // Bulk pricing options / progress
+    private bool _showBulkPricingOptions = false;
     private bool _showBulkPricingProgress = false;
     private bool _showBulkPricingSummary = false;
     private int _bulkPricingTotal = 0;
@@ -866,26 +896,34 @@
             return;
         }
 
-        var studentsToProcess = _students.Where(s => s.StatusId != 7).ToList();
-        var skippedStudents = _students.Where(s => s.StatusId == 7).ToList();
+        _showBulkPricingOptions = true;
+        StateHasChanged();
+    }
 
-        var confirmMessage = $"⚠️ אזהרה: חישוב תמחור לכל התלמידים\n\n" +
-            $"יחושבו: {studentsToProcess.Count} תלמידים.\n";
-        if (skippedStudents.Count > 0)
-            confirmMessage += $"ידולגו (אין אישור לימודי חוץ): {skippedStudents.Count} תלמידים.\n";
-        confirmMessage += $"רכיבי התמחור הקיימים יוחלפו.\n\n" +
-            $"הפעולה עשויה לקחת מספר דקות.\n\nהאם להמשיך?";
+    private async Task StartBulkPricing(int option)
+    {
+        _showBulkPricingOptions = false;
 
-        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", confirmMessage);
+        var studentsToProcess = option switch
+        {
+            1 => _students.Where(s => s.StatusId == 1 || s.StatusId == 2 || s.StatusId == 9).ToList(),
+            2 => _students.Where(s => s.StatusId == 1 || s.StatusId == 2).ToList(),
+            3 => _students.Where(s => s.StatusId == 1).ToList(),
+            _ => new List<StudentDto>()
+        };
 
-        if (!confirmed) return;
+        if (studentsToProcess.Count == 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "אין תלמידים מתאימים לחישוב תמחור בסינון שנבחר");
+            return;
+        }
 
         _showBulkPricingProgress = true;
         _bulkPricingTotal = studentsToProcess.Count;
         _bulkPricingProcessed = 0;
         _bulkPricingSuccess = 0;
         _bulkPricingFailed = 0;
-        _bulkPricingSkipped = skippedStudents.Count;
+        _bulkPricingSkipped = 0;
         _bulkPricingErrors.Clear();
         StateHasChanged();
 
