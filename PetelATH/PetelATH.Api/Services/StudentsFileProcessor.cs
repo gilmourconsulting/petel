@@ -175,6 +175,15 @@ namespace PetelATH.Api.Services
             if (!DateTime.TryParse(row.EndDate, out _))
                 return (false, $"תאריך סיום לא תקין: '{row.EndDate}'");*/
 
+            // Validate that start date is not after end date
+            var dateParseculture = CultureInfo.GetCultureInfo("he-IL");
+            if (DateTime.TryParse(row.StartDate, dateParseculture, System.Globalization.DateTimeStyles.None, out var parsedStart) &&
+                DateTime.TryParse(row.EndDate, dateParseculture, System.Globalization.DateTimeStyles.None, out var parsedEnd))
+            {
+                if (parsedStart > parsedEnd)
+                    return (false, $"תאריך התחלה ({row.StartDate}) חייב להיות קטן מאו שווה לתאריך סיום ({row.EndDate})");
+            }
+
             // Validate disability category (integer or empty for none)
             if (!string.IsNullOrWhiteSpace(row.DisabilityCategory) && !int.TryParse(row.DisabilityCategory, out _))
                 return (false, "קטגוריית נכות לא תקינה");
