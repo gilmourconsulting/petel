@@ -42,10 +42,14 @@ namespace PetelATH.Api.Services
             => await RunAsync(entityId, yearId, userId);
 
         // ── Called synchronously from the controller ──────────────────────
-        public async Task<CouncilExcelResult> GenerateForAllCouncilsWithResult(int entityId, int yearId, int? userId)
-            => await RunAsync(entityId, yearId, userId);
+        public async Task<CouncilExcelResult> GenerateForAllCouncilsWithResult(
+            int entityId, int yearId, int? userId,
+            IReadOnlyList<int>? councilFilter = null)
+            => await RunAsync(entityId, yearId, userId, councilFilter);
 
-        private async Task<CouncilExcelResult> RunAsync(int entityId, int yearId, int? userId)
+        private async Task<CouncilExcelResult> RunAsync(
+            int entityId, int yearId, int? userId,
+            IReadOnlyList<int>? councilFilter = null)
         {
             var result = new CouncilExcelResult();
             void Log(string msg)
@@ -114,11 +118,16 @@ namespace PetelATH.Api.Services
                 .ToListAsync();
 
             // ── 5. Load distinct councils in scope ────────────────────────
-            var councils = await context.CouncilSummaryVw
+            var councilQuery = context.CouncilSummaryVw
                 .AsNoTracking()
                 .Where(cs => cs.YearId == yearId &&
                              (cs.OwnerId == entityId ||
-                              (cs.OwnerId.HasValue && ownedEntityIds.Contains(cs.OwnerId.Value))))
+                              (cs.OwnerId.HasValue && ownedEntityIds.Contains(cs.OwnerId.Value))));
+
+            if (councilFilter?.Count > 0)
+                councilQuery = councilQuery.Where(cs => councilFilter.Contains(cs.CouncilId));
+
+            var councils = await councilQuery
                 .GroupBy(cs => new { cs.CouncilId, cs.CouncilName })
                 .Select(g => new { g.Key.CouncilId, CouncilName = g.Key.CouncilName ?? "לא ידוע" })
                 .OrderBy(c => c.CouncilName)
