@@ -520,7 +520,27 @@ namespace PetelATH.BlazorServer.Services
                     );
                 }
 
-                response.EnsureSuccessStatusCode();
+                // For non-success responses, try to deserialize the error body as T
+                // The API always returns { success: false, message: "..." } on 4xx errors,
+                // so this surfaces the real Hebrew error to the UI instead of a generic exception.
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorBody = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("POST multipart failed {Status} for {Endpoint}: {Body}",
+                        (int)response.StatusCode, endpoint, errorBody);
+                    try
+                    {
+                        return System.Text.Json.JsonSerializer.Deserialize<T>(errorBody, _jsonOptions);
+                    }
+                    catch
+                    {
+                        throw new HttpRequestException(
+                            $"שגיאה ({(int)response.StatusCode}): {errorBody}",
+                            null,
+                            response.StatusCode);
+                    }
+                }
+
                 return await response.Content.ReadFromJsonAsync<T>(_jsonOptions);
             }
             catch (ObjectDisposedException ex)

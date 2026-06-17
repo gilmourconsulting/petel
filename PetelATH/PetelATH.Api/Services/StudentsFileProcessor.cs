@@ -41,11 +41,22 @@ namespace PetelATH.Api.Services
     rows.Count, schoolId, schoolYearId, userId);
             var result = new ProcessingResult();
 
+            var schoolYear = await _context.SchoolYears
+                .AsNoTracking()
+                .FirstOrDefaultAsync(sy => sy.Id == schoolYearId);
+
+            if (schoolYear == null)
+            {
+                result.Errors.Add($"שנת לימודים {schoolYearId} לא נמצאה במערכת");
+                _logger.LogError("School year not found. SchoolYearId={SchoolYearId}", schoolYearId);
+                return result;
+            }
+
             foreach (var row in rows)
             {
                 try
                 {
-                    await ProcessSingleStudentAsync(row, schoolId, schoolYearId, userId, result);
+                    await ProcessSingleStudentAsync(row, schoolId, schoolYearId, userId, result, schoolYear);
                 }
                 catch (Exception ex)
                 {
@@ -62,7 +73,8 @@ namespace PetelATH.Api.Services
           int schoolId,
           int schoolYearId,
           string userId,
-          ProcessingResult result)
+                    ProcessingResult result,
+                    SchoolYear schoolYear)
         {
             _logger.LogInformation("Processing student record: {IdNumber}", row.IdNumber);
 
@@ -70,7 +82,7 @@ namespace PetelATH.Api.Services
             bool validateIdChecksum = await ShouldValidateIdNumberAsync();
 
             // Validate data format
-            var (isValid, formatError) = ValidateRowFormat(row, validateIdChecksum);
+            var (isValid, formatError) = ValidateRowFormat(row, validateIdChecksum, schoolYear.StartDate, schoolYear.EndDate);
             if (!isValid)
             {
                 result.Errors.Add($"{row.IdNumber} - שגיאת פורמט: {formatError}");
@@ -140,7 +152,11 @@ namespace PetelATH.Api.Services
             }
         }
 
-        private (bool isValid, string? error) ValidateRowFormat(StudentFileRow row, bool validateIdChecksum = false)
+        private (bool isValid, string? error) ValidateRowFormat(
+            StudentFileRow row,
+            bool validateIdChecksum = false,
+            DateTime? schoolYearStartDate = null,
+            DateTime? schoolYearEndDate = null)
         {
             // Validate ID number (9 digits)
             if (string.IsNullOrWhiteSpace(row.IdNumber) || row.IdNumber.Length != 9 || !row.IdNumber.All(char.IsDigit))
@@ -175,13 +191,28 @@ namespace PetelATH.Api.Services
             if (!DateTime.TryParse(row.EndDate, out _))
                 return (false, $"תאריך סיום לא תקין: '{row.EndDate}'");*/
 
-            // Validate that start date is not after end date
             var dateParseculture = CultureInfo.GetCultureInfo("he-IL");
-            if (DateTime.TryParse(row.StartDate, dateParseculture, System.Globalization.DateTimeStyles.None, out var parsedStart) &&
-                DateTime.TryParse(row.EndDate, dateParseculture, System.Globalization.DateTimeStyles.None, out var parsedEnd))
+            if (!DateTime.TryParse(row.StartDate, dateParseculture, DateTimeStyles.None, out var parsedStart))
+                return (false, $"תאריך התחלה לא תקין: '{row.StartDate}'");
+
+            if (!DateTime.TryParse(row.EndDate, dateParseculture, DateTimeStyles.None, out var parsedEnd))
+                return (false, $"תאריך סיום לא תקין: '{row.EndDate}'");
+
+            // Validate that start date is not after end date
+            if (parsedStart > parsedEnd)
+                return (false, $"תאריך התחלה ({row.StartDate}) חייב להיות קטן מאו שווה לתאריך סיום ({row.EndDate})");
+
+            // Validate both dates are in school year range
+            if (schoolYearStartDate.HasValue && schoolYearEndDate.HasValue)
             {
-                if (parsedStart > parsedEnd)
-                    return (false, $"תאריך התחלה ({row.StartDate}) חייב להיות קטן מאו שווה לתאריך סיום ({row.EndDate})");
+                var schoolYearStart = schoolYearStartDate.Value.Date;
+                var schoolYearEnd = schoolYearEndDate.Value.Date;
+
+                if (parsedStart.Date < schoolYearStart || parsedStart.Date > schoolYearEnd)
+                    return (false, $"תאריך התחלה ({row.StartDate}) חייב להיות בין {schoolYearStart:dd/MM/yyyy} ל-{schoolYearEnd:dd/MM/yyyy}");
+
+                if (parsedEnd.Date < schoolYearStart || parsedEnd.Date > schoolYearEnd)
+                    return (false, $"תאריך סיום ({row.EndDate}) חייב להיות בין {schoolYearStart:dd/MM/yyyy} ל-{schoolYearEnd:dd/MM/yyyy}");
             }
 
             // Validate disability category (integer or empty for none)

@@ -395,6 +395,29 @@ UploadStudentsFile / UploadStudentsFileApi
 
 `GetFieldValue` in `StudentsFileUploadController` normalises Excel date cells to `dd/MM/yyyy` string format before they reach the processor. It handles four cell data types: `DateTime`, `Number` (OA date serial), `Text`, and `General`.
 
+#### Date Range Validation Against School Year
+
+When processing uploaded student rows, both `StartDate` and `EndDate` must be inside the selected school year range from `school_years.start_date` and `school_years.end_date`.
+
+Validation rules in `StudentsFileProcessor`:
+
+1. Parse `StartDate` and `EndDate` with `he-IL` culture
+2. Ensure `StartDate <= EndDate`
+3. Ensure both dates are between school year start and end dates (inclusive)
+
+```csharp
+// ✅ CORRECT — validate student dates against selected school year boundaries
+if (parsedStart.Date < schoolYearStart || parsedStart.Date > schoolYearEnd)
+  return (false, $"תאריך התחלה ({row.StartDate}) חייב להיות בין {schoolYearStart:dd/MM/yyyy} ל-{schoolYearEnd:dd/MM/yyyy}");
+
+if (parsedEnd.Date < schoolYearStart || parsedEnd.Date > schoolYearEnd)
+  return (false, $"תאריך סיום ({row.EndDate}) חייב להיות בין {schoolYearStart:dd/MM/yyyy} ל-{schoolYearEnd:dd/MM/yyyy}");
+
+// ❌ WRONG — validating start/end order only, without school-year boundary check
+if (parsedStart > parsedEnd)
+  return (false, "...");
+```
+
 ---
 
 ### GlobalFunctions Service

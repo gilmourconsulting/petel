@@ -294,7 +294,7 @@
 
         // Validate required fields (excluding optional fields: gender, street, house_number, post_code)
         var requiredFields = new[] { "id_number", "first_name", "last_name", "start_date", "end_date", 
-            "city", "sending_council" };
+            "city", "sending_council", "disability_category" };
         var mappedFields = reverseMapping.Keys.ToList();
 
         // Check class mapping - must be EITHER class name OR (level + number), not both
