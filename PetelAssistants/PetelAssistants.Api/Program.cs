@@ -1,34 +1,52 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using Petel.Core.Abstractions;
+using Petel.Core.Security;
+using Petel.Core.Session;
+using PetelAssistants.Api.Data;
+using PetelAssistants.Api.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+builder.Services.AddControllers();
+
+builder.Services.Configure<DatabaseSettings>(
+    builder.Configuration.GetSection("Database"));
+builder.Services.Configure<SecuritySettings>(
+    builder.Configuration.GetSection("Security"));
+
+builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
+{
+    var dbSettings = serviceProvider.GetRequiredService<IOptions<DatabaseSettings>>().Value;
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        npgsqlOptions => npgsqlOptions.MigrationsHistoryTable(
+            "__EFMigrationsHistory",
+            dbSettings.SchemaName
+        )
+    );
+});
+
+builder.Services.AddSingleton<SystemAttributeCache>();
+builder.Services.AddSingleton<IAttributeCache>(sp => sp.GetRequiredService<SystemAttributeCache>());
+builder.Services.AddSingleton<UserSessionService>();
+builder.Services.AddSingleton<JwtTokenService>();
+builder.Services.AddHostedService<SystemAttributeLoaderHostedService>();
 
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
-
-app.UseHttpsRedirection();
-
-var summaries = new[]
+using (var scope = app.Services.CreateScope())
 {
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+    var jwtService = scope.ServiceProvider.GetRequiredService<JwtTokenService>();
+    var sessionService = scope.ServiceProvider.GetRequiredService<UserSessionService>();
+    sessionService.SetJwtTokenService(jwtService);
+}
 
-app.MapGet("/weatherforecast", () =>
+if (!app.Environment.IsDevelopment())
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-});
+    app.UseHttpsRedirection();
+}
+
+app.MapControllers();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}

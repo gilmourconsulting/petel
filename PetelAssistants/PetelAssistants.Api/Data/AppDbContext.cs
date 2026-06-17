@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using PetelAssistants.Api.Models;
 
 namespace PetelAssistants.Api.Data
 {
@@ -10,6 +11,10 @@ namespace PetelAssistants.Api.Data
     public class AppDbContext : DbContext
     {
         private readonly string _schemaName;
+
+        public DbSet<Entity> Entities { get; set; }
+        public DbSet<SystemAttribute> SystemAttributes { get; set; }
+        public DbSet<User> Users { get; set; }
 
         public AppDbContext(
             DbContextOptions<AppDbContext> options,
@@ -23,11 +28,29 @@ namespace PetelAssistants.Api.Data
         {
             base.OnModelCreating(modelBuilder);
             modelBuilder.HasDefaultSchema(_schemaName);
+
+            modelBuilder.Entity<Entity>(entity =>
+            {
+                entity.ToTable("entities");
+                entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<SystemAttribute>(entity =>
+            {
+                entity.ToTable("system_attributes");
+                entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<User>(entity =>
+            {
+                entity.ToTable("users");
+                entity.HasKey(e => e.Id);
+            });
         }
     }
 
     public class DatabaseSettings
     {
-        public string SchemaName { get; set; } = "assistants_schema";
+        public string SchemaName { get; set; } = "assist_schema";
     }
 }
