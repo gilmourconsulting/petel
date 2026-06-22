@@ -4,7 +4,7 @@ using PetelAssistants.Api.Data;
 namespace PetelAssistants.Api.Services
 {
     /// <summary>
-    /// Loads system attributes from database into in-memory cache at application startup.
+    /// Loads system attributes from shared_schema into in-memory cache at application startup.
     /// </summary>
     public class SystemAttributeLoaderHostedService : IHostedService
     {
@@ -42,7 +42,7 @@ namespace PetelAssistants.Api.Services
         public async Task LoadAttributesAsync(CancellationToken cancellationToken = default)
         {
             using var scope = _serviceProvider.CreateScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var dbContext = scope.ServiceProvider.GetRequiredService<SharedDbContext>();
 
             var attributes = await dbContext.SystemAttributes
                 .AsNoTracking()

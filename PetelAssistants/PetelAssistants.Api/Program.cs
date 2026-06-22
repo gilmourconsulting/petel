@@ -5,17 +5,26 @@ using Petel.Core.Security;
 using Petel.Core.Session;
 using PetelAssistants.Api.Data;
 using PetelAssistants.Api.Services;
+using PetelAssistants.Api.Tenancy;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();
 
+// ── Configuration ──────────────────────────────────────────────────────────
 builder.Services.Configure<DatabaseSettings>(
     builder.Configuration.GetSection("Database"));
+builder.Services.Configure<SharedDatabaseSettings>(
+    builder.Configuration.GetSection("SharedDatabase"));
 builder.Services.Configure<SecuritySettings>(
     builder.Configuration.GetSection("Security"));
 
-builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
+// ── Tenant context (scoped per request) ───────────────────────────────────
+builder.Services.AddScoped<ITenantContext, HttpTenantContext>();
+
+// ── assist_schema DbContext (tenant-scoped, global query filters active) ──
+builder.Services.AddDbContext<AssistDbContext>((serviceProvider, options) =>
 {
     var dbSettings = serviceProvider.GetRequiredService<IOptions<DatabaseSettings>>().Value;
     options.UseNpgsql(
@@ -27,6 +36,15 @@ builder.Services.AddDbContext<AppDbContext>((serviceProvider, options) =>
     );
 });
 
+// ── shared_schema DbContext (global reference data, no tenant filter) ─────
+builder.Services.AddDbContext<SharedDbContext>((serviceProvider, options) =>
+{
+    options.UseNpgsql(
+        builder.Configuration.GetConnectionString("DefaultConnection")
+    );
+});
+
+// ── Session / auth services ────────────────────────────────────────────────
 builder.Services.AddSingleton<SystemAttributeCache>();
 builder.Services.AddSingleton<IAttributeCache>(sp => sp.GetRequiredService<SystemAttributeCache>());
 builder.Services.AddSingleton<UserSessionService>();

@@ -9,12 +9,12 @@ namespace PetelAssistants.Api.Controllers
     [Route("api/[controller]")]
     public class SystemAttributesController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly SharedDbContext _sharedContext;
         private readonly ILogger<SystemAttributesController> _logger;
 
-        public SystemAttributesController(AppDbContext context, ILogger<SystemAttributesController> logger)
+        public SystemAttributesController(SharedDbContext sharedContext, ILogger<SystemAttributesController> logger)
         {
-            _context = context;
+            _sharedContext = sharedContext;
             _logger = logger;
         }
 
@@ -23,7 +23,7 @@ namespace PetelAssistants.Api.Controllers
         {
             try
             {
-                var attrs = await _context.SystemAttributes
+                var attrs = await _sharedContext.SystemAttributes
                     .AsNoTracking()
                     .OrderBy(a => a.Id)
                     .Select(a => new

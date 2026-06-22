@@ -10,15 +10,15 @@ namespace PetelAssistants.Api.Controllers
     [Route("api/[controller]")]
     public class EntitiesController : BaseController
     {
-        private readonly AppDbContext _context;
+        private readonly SharedDbContext _sharedContext;
 
         public EntitiesController(
-            AppDbContext context,
+            SharedDbContext sharedContext,
             UserSessionService userSessionService,
             ILogger<EntitiesController> logger)
             : base(userSessionService, logger)
         {
-            _context = context;
+            _sharedContext = sharedContext;
         }
 
         [HttpGet("login")]
@@ -26,7 +26,7 @@ namespace PetelAssistants.Api.Controllers
         {
             try
             {
-                var entities = await _context.Entities
+                var entities = await _sharedContext.Entities
                     .AsNoTracking()
                     .Where(e => e.IsActive)
                     .OrderBy(e => e.Name)

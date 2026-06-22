@@ -9,16 +9,19 @@ namespace PetelAssistants.Api.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly AssistDbContext _context;
+        private readonly SharedDbContext _sharedContext;
         private readonly UserSessionService _sessionService;
         private readonly ILogger<AuthController> _logger;
 
         public AuthController(
-            AppDbContext context,
+            AssistDbContext context,
+            SharedDbContext sharedContext,
             UserSessionService sessionService,
             ILogger<AuthController> logger)
         {
             _context = context;
+            _sharedContext = sharedContext;
             _sessionService = sessionService;
             _logger = logger;
         }
@@ -53,8 +56,11 @@ namespace PetelAssistants.Api.Controllers
 
             try
             {
+                // IgnoreQueryFilters is required here: no session token exists yet during login,
+                // so ITenantContext.EntityId == 0 and the global filter would match nothing.
+                // The Where clause below enforces the same tenant scoping explicitly.
                 var user = await _context.Users
-                    .Include(u => u.Entity)
+                    .IgnoreQueryFilters()
                     .FirstOrDefaultAsync(u =>
                         u.Username == request.Username &&
                         u.EntityId == request.EntityId &&
@@ -92,19 +98,20 @@ namespace PetelAssistants.Api.Controllers
                 user.LastLogin = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
 
+                // Fetch entity name from shared_schema (separate context — no navigation property).
+                var entity = await _sharedContext.Entities.FindAsync(user.EntityId);
+
                 var fullName = $"{user.FirstName} {user.LastName}".Trim();
                 if (string.IsNullOrWhiteSpace(fullName))
-                {
                     fullName = user.Username;
-                }
 
                 var token = _sessionService.CreateSessionWithFullData(
                     userId: user.Id.ToString(),
                     username: user.Username,
                     userFullName: fullName,
                     entityId: user.EntityId.ToString(),
-                    entityName: user.Entity?.Name ?? string.Empty,
-                    entityTypeId: user.Entity?.EntityTypeId?.ToString() ?? string.Empty,
+                    entityName: entity?.Name ?? string.Empty,
+                    entityTypeId: entity?.EntityTypeId?.ToString() ?? string.Empty,
                     entityTypeName: string.Empty,
                     lastLogin: user.LastLogin);
 

@@ -10,10 +10,19 @@ applyTo: 'PetelAssistants/**'
 
 ```
 PetelAssistants/
-  PetelAssistants.Api/              ← Backend (ASP.NET Core Web API, net9.0)
-    Data/AppDbContext.cs            ← EF Core DbContext (schema: assistants_schema)
+  PetelAssistants.Api/
+    Controllers/                    ← API controllers (inherit BaseController)
+    Data/
+      AppDbContext.cs               ← AssistDbContext — assist_schema (tenant-scoped)
+      SharedDbContext.cs            ← SharedDbContext — shared_schema (global reference)
+    Models/                         ← Entity models
     Services/SystemAttributeCache.cs ← Implements IAttributeCache (Petel.Core)
-    Program.cs                      ← DI registration
+    Tenancy/
+      IEntityScoped.cs              ← Interface for all assist_schema entities
+      ITenantContext.cs             ← Tenant EntityId resolver
+      HttpTenantContext.cs          ← HTTP-request-scoped implementation
+    SQL/bootstrap.sql               ← One-time schema setup script
+    Program.cs
     appsettings.json
     appsettings.Development.json
   PetelAssistants.BlazorServer/     ← Frontend (Blazor Web App, net9.0, Server interactivity)
@@ -32,11 +41,16 @@ cd PetelAssistants/PetelAssistants.Api && dotnet run
 cd PetelAssistants/PetelAssistants.BlazorServer && dotnet run
 ```
 
-## Database
+## Database — Dual-Schema Multi-Tenancy
 
-- **Schema**: `assistants_schema`
-- **Connection string key**: `DefaultConnection`
-- **AppDbContext**: `PetelAssistants.Api.Data.AppDbContext`
+PetelAssistants uses **two fixed PostgreSQL schemas** regardless of tenant count. Adding a new local authority is a single `INSERT` into `shared_schema.entities` — no schema or infrastructure changes.
+
+| Schema | DbContext | Purpose |
+|---|---|---|
+| `shared_schema` | `SharedDbContext` | Global reference data — entities, entity types, system attributes. No `entity_id`. |
+| `assist_schema` | `AssistDbContext` | All operational tenant-scoped data. Every table has mandatory `entity_id`. |
+
+### Configuration
 
 ```json
 // appsettings.Development.json (PetelAssistants.Api)
@@ -45,12 +59,84 @@ cd PetelAssistants/PetelAssistants.BlazorServer && dotnet run
     "DefaultConnection": "Host=localhost;Database=petelappdb;Username=PetelAdmin;Password=..."
   },
   "Database": {
-    "SchemaName": "assistants_schema"
+    "SchemaName": "assist_schema"
+  },
+  "SharedDatabase": {
+    "SchemaName": "shared_schema"
   }
 }
 ```
 
-The `AppDbContext` reads schema from `DatabaseSettings` via `IOptions<DatabaseSettings>` and sets `HasDefaultSchema(_schemaName)`. Never hardcode `assistants_schema` in entity `[Table]` attributes or `ToTable()` calls.
+Never hardcode schema names in `[Table]` attributes or `ToTable()` calls. Both contexts read their schema from the respective `DatabaseSettings` / `SharedDatabaseSettings` configuration classes.
+
+### Database Bootstrap
+
+Run `PetelAssistants/SQL/bootstrap.sql` once per environment to create both schemas and seed reference data.
+
+## Multi-Tenancy Rules
+
+### Tenant-scoped entities (assist_schema)
+
+Every entity in `assist_schema` MUST:
+1. Implement `IEntityScoped` from `PetelAssistants.Api.Tenancy`
+2. Have `[Column("entity_id")] public int EntityId { get; set; }`
+3. Be registered in `AssistDbContext.OnModelCreating` with a `HasQueryFilter`
+
+```csharp
+// ✅ CORRECT — new tenant-scoped entity
+[Table("my_entities")]
+public class MyEntity : IEntityScoped
+{
+    [Key]
+    [Column("id")]
+    public int Id { get; set; }
+
+    [Required]
+    [Column("entity_id")]
+    public int EntityId { get; set; }
+
+    [Required]
+    [Column("name")]
+    [MaxLength(100)]
+    public string Name { get; set; } = string.Empty;
+
+    // Audit fields (required)
+    [Column("created_at")]  public DateTime CreatedAt   { get; set; } = DateTime.UtcNow;
+    [Column("created_user")] public int? CreatedUser   { get; set; }
+    [Column("updated_at")]  public DateTime UpdatedAt   { get; set; } = DateTime.UtcNow;
+    [Column("update_user")] public int? UpdateUser     { get; set; }
+}
+```
+
+In `AssistDbContext.OnModelCreating`:
+```csharp
+modelBuilder.Entity<MyEntity>(entity =>
+{
+    entity.ToTable("my_entities");
+    entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+});
+```
+
+### Global query filter — login endpoint exception
+
+During login, `ITenantContext.EntityId` is `0` (no session yet). The global filter would block all user lookups. Use `IgnoreQueryFilters()` in the login endpoint only:
+
+```csharp
+// ✅ CORRECT — login must bypass the filter, but scopes explicitly with the provided EntityId
+var user = await _context.Users
+    .IgnoreQueryFilters()
+    .FirstOrDefaultAsync(u => u.Username == request.Username
+                            && u.EntityId == request.EntityId
+                            && u.IsActive);
+```
+
+### Shared reference data (shared_schema)
+
+Global lookup tables (entities, entity types, system attributes) are in `SharedDbContext`. They have no `entity_id` and no global query filter.
+
+### Cross-entity persons
+
+An assistant who works for two authorities appears as two independent rows in `assist_schema.persons`, each with a different `entity_id`. There is no FK or unique constraint linking them across authorities. National ID (`id_number`) must be AES-encrypted at rest (use `DataEncryptionService` from `Petel.Core`). Any deduplication logic is application-layer only — never in SQL.
 
 ## Shared Libraries
 
@@ -67,19 +153,21 @@ Both projects reference the shared libraries:
 
 ### Using Petel.Core in PetelAssistants.Api
 
-Every new controller must inherit `BaseController` from `Petel.Core.Controllers`:
+Controllers that work with tenant-scoped data inject `AssistDbContext`. Controllers that need shared reference data inject `SharedDbContext`. Some controllers inject both.
 
 ```csharp
 using Petel.Core.Controllers;
 using Petel.Core.Session;
+using PetelAssistants.Api.Data;
 
 [ApiController]
 [Route("api/[controller]")]
 public class MyController : BaseController
 {
-    private readonly AppDbContext _context;
+    private readonly AssistDbContext _context;
+    // private readonly SharedDbContext _shared;  ← inject when shared lookups are needed
 
-    public MyController(AppDbContext context, UserSessionService sessionService, ILogger<MyController> logger)
+    public MyController(AssistDbContext context, UserSessionService sessionService, ILogger<MyController> logger)
         : base(sessionService, logger)
     {
         _context = context;
