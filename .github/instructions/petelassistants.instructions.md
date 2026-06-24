@@ -138,6 +138,185 @@ Global lookup tables (entities, entity types, system attributes) are in `SharedD
 
 An assistant who works for two authorities appears as two independent rows in `assist_schema.persons`, each with a different `entity_id`. There is no FK or unique constraint linking them across authorities. National ID (`id_number`) must be AES-encrypted at rest (use `DataEncryptionService` from `Petel.Core`). Any deduplication logic is application-layer only — never in SQL.
 
+---
+
+## Architecture Governance — Multi-Tenancy Rules
+
+> These rules apply to every feature added to PetelAssistants. They are non-negotiable.
+
+### 1 — Database Schema Structure
+
+**Two fixed schemas. Never add a third.**
+
+| Schema | DbContext | What goes here |
+|---|---|---|
+| `shared_schema` | `SharedDbContext` | Entity types, entities (authorities + schools), cities, assistant types, system attributes, any lookup that has no tenant owner |
+| `assist_schema` | `AssistDbContext` | Users, roles, persons (assistants, pupils), assignments, all operational data |
+
+**Rules:**
+
+- Every `assist_schema` table **MUST** have `entity_id INTEGER NOT NULL` as its second column (after `id`).
+- `shared_schema` tables **MUST NOT** have `entity_id`.
+- Adding a new local authority = one `INSERT INTO shared_schema.entities`. No DDL, no migration, no infrastructure change.
+- Schema-per-tenant is **explicitly excluded**. Do not use it, suggest it, or design for it.
+
+**Shared table candidates (shared_schema):**
+- `entities` — all local authorities, schools, and other org units
+- `entity_types` — authority, school, etc.
+- `assistant_types` — type codes for educational support staff
+- `cities` — city/settlement lookup
+- `system_attributes` — global key-value config
+
+**Tenant table candidates (assist_schema):**
+- `users`, `roles`, `user_roles`, `permissions`
+- `persons` — assistants, pupils (each row is owned by exactly one authority)
+- `assignments`, `placements`, `attendance`
+- Any table that stores data entered by a specific authority
+
+**SQL idempotent migration pattern:**
+
+```sql
+-- assist_schema table (always include entity_id)
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT FROM pg_tables WHERE schemaname = 'assist_schema' AND tablename = 'my_table'
+    ) THEN
+        CREATE TABLE assist_schema.my_table (
+            id          SERIAL PRIMARY KEY,
+            entity_id   INTEGER NOT NULL REFERENCES shared_schema.entities(id) ON DELETE CASCADE,
+            name        VARCHAR(100) NOT NULL,
+            is_active   BOOLEAN NOT NULL DEFAULT true,
+            created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_user INTEGER NULL,
+            updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            update_user  INTEGER NULL
+        );
+        CREATE INDEX idx_my_table_entity_id ON assist_schema.my_table(entity_id);
+        RAISE NOTICE 'Table assist_schema.my_table created';
+    END IF;
+END $$;
+```
+
+---
+
+### 2 — API-Layer Tenant Isolation
+
+**The session is the source of truth. The client never supplies `entity_id`.**
+
+- `entity_id` is **never** accepted from the request body, query string, or route parameter for write operations. It is always read from `session.EntityId`.
+- Every controller endpoint that touches `assist_schema` data must:
+  1. Call `GetCurrentSession()` and return `401` if null.
+  2. Parse `session.EntityId` to obtain the verified tenant id.
+  3. Let the `AssistDbContext` global query filter enforce row-level isolation automatically.
+- Shared (global) reference data endpoints (`SharedDbContext`) do not require `entity_id` scoping but still require a valid session unless the endpoint is explicitly public (e.g. entities list for login dropdowns).
+
+**Cross-tenant read is never allowed.** If business logic requires comparing data across two authorities, that logic must run in application code with each tenant's data fetched separately under its own session context — never via a single SQL query with no filter.
+
+**Login exception:**
+
+```csharp
+// Login only — bypass global filter and scope explicitly with the provided EntityId
+var user = await _context.Users
+    .IgnoreQueryFilters()
+    .FirstOrDefaultAsync(u => u.Username == dto.Username
+                            && u.EntityId == dto.EntityId
+                            && u.IsActive);
+```
+
+`IgnoreQueryFilters()` is used **only** in the login path. Everywhere else the filter handles isolation automatically.
+
+**Anti-patterns:**
+
+```csharp
+// ❌ WRONG — trusting client-supplied entity_id
+var entityId = dto.EntityId;  // NO
+
+// ❌ WRONG — adding a redundant manual filter when global filter is already active
+var rows = await _context.MyEntities
+    .Where(e => e.EntityId == entityId)  // REDUNDANT if HasQueryFilter is registered
+    .ToListAsync();
+
+// ✅ CORRECT — global filter is sufficient; no manual Where needed
+var rows = await _context.MyEntities
+    .AsNoTracking()
+    .ToListAsync();
+```
+
+---
+
+### 3 — EF Core Model Requirements
+
+**`AssistDbContext` — tenant-scoped (assist_schema)**
+
+Every entity must:
+
+1. Implement `IEntityScoped` (from `PetelAssistants.Api.Tenancy`).
+2. Declare `[Column("entity_id")] public int EntityId { get; set; }`.
+3. Be registered with a `HasQueryFilter` in `OnModelCreating`.
+
+```csharp
+// AssistDbContext.OnModelCreating — required pattern for every entity
+modelBuilder.Entity<MyEntity>(entity =>
+{
+    entity.ToTable("my_entities");   // HasDefaultSchema("assist_schema") applies
+    entity.HasQueryFilter(e =>
+        _tenantContext.EntityId != 0 &&
+        e.EntityId == _tenantContext.EntityId);
+});
+```
+
+`_tenantContext` is an `ITenantContext` resolved per HTTP request. On login the `EntityId` is `0`, which causes the filter to return no rows — that is intentional; login uses `IgnoreQueryFilters()` explicitly.
+
+**`SharedDbContext` — global reference (shared_schema)**
+
+- No `IEntityScoped`, no `entity_id`, no `HasQueryFilter`.
+- `OnModelCreating` calls `modelBuilder.HasDefaultSchema("shared_schema")`.
+- Entities here are read-only from most controllers; writes are restricted to admin/seed operations.
+
+**Never call `IgnoreQueryFilters()` on `AssistDbContext` outside the login path.** If a query needs it for a legitimate reason, that reason must be documented as a code comment.
+
+---
+
+### 4 — Blazor Frontend Concerns
+
+**The frontend never selects or transmits `entity_id`.**
+
+- The logged-in user's authority is established at login (the authority may be pre-selected from a shared lookup or embedded in the JWT). After that, no Blazor page should expose an authority-selection control or pass `entity_id` in API requests.
+- All API calls use `ApiService` from `Petel.BlazorCore`; the `Authorization: Bearer <token>` header carries the session, which the API uses to derive `entity_id` server-side.
+- Shared reference data (city lists, assistant types, etc.) is fetched from dedicated public or lightly-authenticated endpoints backed by `SharedDbContext`. These responses may be cached client-side and reused across pages — they contain no tenant-specific data.
+- Never hardcode an authority name or `entity_id` in a Razor file or DTO.
+
+**Shared vs. tenant data in forms:**
+
+```razor
+@* ✅ CORRECT — shared lookup dropdown, no entity_id sent *@
+<select @bind="_selectedCityId">
+    @foreach (var city in _cities)  @* loaded from shared_schema via GET /api/cities *@
+    {
+        <option value="@city.Id">@city.Name</option>
+    }
+</select>
+
+@* ❌ WRONG — embedding tenant id in form payload *@
+<input type="hidden" name="entityId" value="@_entityId" />
+```
+
+**Page initialisation pattern (tenant-scoped data):**
+
+```csharp
+protected override async Task OnPageInitializedAsync()
+{
+    var session = await SessionStateService.GetSessionAsync();
+    if (session == null) return;          // SecurePageBase redirects to login
+
+    // No entity_id parameter needed — API global filter handles isolation
+    _items = await ApiService.GetAsync<List<MyItemDto>>("myentities");
+    _cities = await ApiService.GetAsync<List<CityDto>>("cities");  // shared lookup
+}
+```
+
+---
+
 ## Shared Libraries
 
 ### Blazor Frontend
@@ -255,51 +434,53 @@ app.MapDocumentProxy();
 
 ### New Entity
 
+**Tenant-scoped entities go in `assist_schema` (the default):**
+
 1. Create the entity class in `PetelAssistants.Api/Models/`:
 ```csharp
-[Table("my_entities")]  // ✅ Table name only — NO schema
-public class MyEntity
+[Table("my_entities")]  // ✅ Table name only — NO schema parameter
+public class MyEntity : IEntityScoped   // ✅ Required for all assist_schema entities
 {
     [Key]
     [Column("id")]
     public int Id { get; set; }
 
     [Required]
+    [Column("entity_id")]               // ✅ Mandatory on every assist_schema table
+    public int EntityId { get; set; }
+
+    [Required]
     [Column("name")]
     [MaxLength(100)]
     public string Name { get; set; } = string.Empty;
 
-    [Column("created_at")]
-    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-    [Column("created_user")]
-    public int? CreatedUser { get; set; }
-
-    [Column("updated_at")]
-    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
-    [Column("update_user")]
-    public int? UpdateUser { get; set; }
+    [Column("created_at")]  public DateTime CreatedAt   { get; set; } = DateTime.UtcNow;
+    [Column("created_user")] public int? CreatedUser   { get; set; }
+    [Column("updated_at")]  public DateTime UpdatedAt   { get; set; } = DateTime.UtcNow;
+    [Column("update_user")] public int? UpdateUser     { get; set; }
 }
 ```
 
-2. Add `DbSet<MyEntity>` to `AppDbContext.cs` and configure in `OnModelCreating`:
+2. Add `DbSet<MyEntity>` to **`AssistDbContext.cs`** and register the global query filter in `OnModelCreating`:
 ```csharp
 public DbSet<MyEntity> MyEntities { get; set; }
 
-// In OnModelCreating:
+// In OnModelCreating — query filter is REQUIRED:
 modelBuilder.Entity<MyEntity>(entity =>
 {
-    entity.ToTable("my_entities");  // No schema — HasDefaultSchema handles it
+    entity.ToTable("my_entities");  // Schema comes from HasDefaultSchema("assist_schema")
+    entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
 });
 ```
 
 3. Create a migration:
 ```bash
 cd PetelAssistants/PetelAssistants.Api
-dotnet ef migrations add AddMyEntity
-dotnet ef database update
+dotnet ef migrations add AddMyEntity --context AssistDbContext
+dotnet ef database update --context AssistDbContext
 ```
+
+**Global reference entities go in `shared_schema` — use `SharedDbContext` instead, no `IEntityScoped`, no query filter.**
 
 ### New Controller
 
@@ -308,10 +489,11 @@ dotnet ef database update
 [Route("api/[controller]")]
 public class MyEntitiesController : BaseController
 {
-    private readonly AppDbContext _context;
+    private readonly AssistDbContext _context;   // ✅ AssistDbContext for tenant-scoped data
+    // private readonly SharedDbContext _shared; ← inject when shared lookups are needed
 
     public MyEntitiesController(
-        AppDbContext context,
+        AssistDbContext context,
         UserSessionService sessionService,
         ILogger<MyEntitiesController> logger)
         : base(sessionService, logger)
@@ -326,6 +508,7 @@ public class MyEntitiesController : BaseController
         if (session == null)
             return Unauthorized(new { success = false, message = "נדרש אימות" });
 
+        // ✅ No manual entity_id filter needed — AssistDbContext global query filter handles it
         var items = await _context.MyEntities
             .AsNoTracking()
             .OrderBy(e => e.Name)
@@ -341,10 +524,13 @@ public class MyEntitiesController : BaseController
         if (session == null)
             return Unauthorized(new { success = false, message = "נדרש אימות" });
 
+        // ✅ EntityId always comes from the verified session — NEVER from the request body
+        int entityId = int.Parse(session.EntityId);
         int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
 
         var entity = new MyEntity
         {
+            EntityId = entityId,    // ✅ Set from session
             Name = dto.Name,
             CreatedAt = DateTime.UtcNow,
             CreatedUser = userId,
@@ -362,19 +548,34 @@ public class MyEntitiesController : BaseController
 
 ### Database Table Template
 
+**For `assist_schema` tables** (tenant-scoped — the default for all operational data):
+
 ```sql
-CREATE TABLE assistants_schema.my_entities (
+CREATE TABLE assist_schema.my_entities (
     id SERIAL PRIMARY KEY,
+    entity_id INTEGER NOT NULL REFERENCES shared_schema.entities(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
     description VARCHAR(200) NULL,
     is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_user INTEGER NULL REFERENCES assistants_schema.users(id) ON DELETE SET NULL,
+    created_user INTEGER NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    update_user INTEGER NULL REFERENCES assistants_schema.users(id) ON DELETE SET NULL
+    update_user INTEGER NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL
 );
 
-CREATE INDEX idx_my_entities_name ON assistants_schema.my_entities(name);
+CREATE INDEX idx_my_entities_entity_id ON assist_schema.my_entities(entity_id);
+CREATE INDEX idx_my_entities_name ON assist_schema.my_entities(entity_id, name);
+```
+
+**For `shared_schema` tables** (global reference data — no `entity_id`):
+
+```sql
+CREATE TABLE shared_schema.my_lookup (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    description VARCHAR(200) NULL,
+    is_active BOOLEAN NOT NULL DEFAULT true
+);
 ```
 
 Always use idempotent migrations:
@@ -382,9 +583,9 @@ Always use idempotent migrations:
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT FROM pg_tables WHERE schemaname = 'assistants_schema' AND tablename = 'my_entities'
+        SELECT FROM pg_tables WHERE schemaname = 'assist_schema' AND tablename = 'my_entities'
     ) THEN
-        CREATE TABLE assistants_schema.my_entities ( ... );
+        CREATE TABLE assist_schema.my_entities ( ... );
         RAISE NOTICE 'Table my_entities created';
     END IF;
 END $$;
@@ -392,7 +593,7 @@ END $$;
 
 ## Authentication Setup
 
-PetelAssistants uses the same auth stack as PetelATH. Copy these files from `PetelATH.Api` and adapt for `assistants_schema`:
+PetelAssistants uses the same auth stack as PetelATH. Copy these files from `PetelATH.Api` and adapt for `assist_schema`:
 
 | File | Notes |
 |---|---|
@@ -434,12 +635,12 @@ builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Emai
 builder.Services.AddSingleton<IEmailService, SmtpEmailService>();
 ```
 
-### Required DB columns on `assistants_schema.users`
+### Required DB columns on `assist_schema.users`
 
 ```sql
-ALTER TABLE assistants_schema.users ADD COLUMN IF NOT EXISTS email_otp_code VARCHAR(100) NULL;
-ALTER TABLE assistants_schema.users ADD COLUMN IF NOT EXISTS email_otp_expiry TIMESTAMPTZ NULL;
-ALTER TABLE assistants_schema.users ADD COLUMN IF NOT EXISTS email_otp_attempts INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE assist_schema.users ADD COLUMN IF NOT EXISTS email_otp_code VARCHAR(100) NULL;
+ALTER TABLE assist_schema.users ADD COLUMN IF NOT EXISTS email_otp_expiry TIMESTAMPTZ NULL;
+ALTER TABLE assist_schema.users ADD COLUMN IF NOT EXISTS email_otp_attempts INTEGER NOT NULL DEFAULT 0;
 ```
 
 ### Login flow
@@ -477,7 +678,7 @@ See `petelath.instructions.md` → **Authentication & Email OTP** and `copilot-i
 
 PetelAssistants is a greenfield application. Build features in this order:
 
-1. **Authentication** — Copy ATH `AuthController`, adapt for `assistants_schema.users`
+1. **Authentication** — Copy ATH `AuthController`, adapt for `assist_schema.users`
 2. **Core Entities** — Define domain models and EF migrations
 3. **SystemAttributes** — Wire up `SystemAttributeCache` with a DB-backed attributes table
 4. **API Endpoints** — Controllers for each domain area (inherit `BaseController`)
