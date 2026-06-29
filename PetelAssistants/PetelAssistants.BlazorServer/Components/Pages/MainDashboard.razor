@@ -1,0 +1,166 @@
+@page "/maindashboard"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelAssistants.BlazorServer.Models
+@inject ApiService ApiService
+
+<!-- Context Buttons -->
+<div class="context-buttons-section">
+    @if (_previousYear != null)
+    {
+        <button class="context-btn @(_selectedYearId == _previousYear.Id ? "active" : "")"
+                @onclick="() => SelectYear(_previousYear)">
+            @_previousYear.YearName
+        </button>
+    }
+
+    @if (_currentYear != null)
+    {
+        <button class="context-btn @(_selectedYearId == _currentYear.Id || _selectedYearId == 0 ? "active" : "")"
+                @onclick="() => SelectYear(_currentYear)">
+            @_currentYear.YearName
+        </button>
+    }
+
+    <button class="context-navigation-btn" @onclick="OpenYearModal">
+        בחר שנה
+    </button>
+</div>
+
+<!-- Dashboard Content -->
+<div class="dashboard-flex-row">
+    <div class="dashboard-cards-wrapper">
+        @if (_isLoading)
+        {
+            <p style="padding: 30px; color: #666;">טוען...</p>
+        }
+        else
+        {
+            <div class="content-card" style="max-width: 600px; margin: 20px auto; text-align: center;">
+                <h2 style="color: var(--text-primary); margin-bottom: 10px;">ברוכים הבאים</h2>
+                @if (_selectedYearName != "")
+                {
+                    <p style="font-size: 18px; color: var(--text-accent); font-weight: 600;">
+                        שנה נבחרת: @_selectedYearName
+                    </p>
+                }
+                else
+                {
+                    <p style="color: var(--text-muted);">בחרו שנה לתחילת העבודה</p>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Year Selection Modal -->
+@if (_showYearModal)
+{
+    <div class="modal-overlay" @onclick="CloseYearModal">
+        <div class="modal-content" style="max-width: 400px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2>בחר שנה</h2>
+                <button class="modal-close" @onclick="CloseYearModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_allYears.Count == 0)
+                {
+                    <p style="color: var(--text-muted); text-align: center;">אין שנים זמינות</p>
+                }
+                else
+                {
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        @foreach (var year in _allYears)
+                        {
+                            <button class="context-btn @(_selectedYearId == year.Id ? "active" : "")"
+                                    @onclick="() => SelectYearAndClose(year)"
+                                    style="text-align: center; font-size: 16px;">
+                                @year.YearName
+                                @if (year.IsCurrent)  { <span style="font-size: 11px; margin-right: 8px; opacity: 0.7;">(שנה נוכחית)</span> }
+                                @if (year.IsPrevious) { <span style="font-size: 11px; margin-right: 8px; opacity: 0.7;">(שנה קודמת)</span> }
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    protected override string PageName => "maindashboard";
+
+    [SupplyParameterFromQuery(Name = "fromLogin")]
+    public bool FromLogin { get; set; }
+
+    private YearDto?       _currentYear  = null;
+    private YearDto?       _previousYear = null;
+    private List<YearDto>  _allYears     = new();
+
+    private int    _selectedYearId   = 0;
+    private string _selectedYearName = "";
+
+    private bool _isLoading     = true;
+    private bool _showYearModal = false;
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        await LoadYears();
+        _isLoading = false;
+    }
+
+    private async Task LoadYears()
+    {
+        try
+        {
+            var context = await ApiService.GetAsync<YearContextDto>("years/context");
+            if (context != null)
+            {
+                _currentYear  = context.CurrentYear;
+                _previousYear = context.PreviousYear;
+                _allYears     = context.AllYears;
+
+                // Default selection: current year
+                if (_currentYear != null)
+                    await SetSelectedYear(_currentYear, storeInSession: false);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading years: {ex.Message}");
+        }
+    }
+
+    private async Task SelectYear(YearDto year)
+    {
+        await SetSelectedYear(year, storeInSession: true);
+    }
+
+    private async Task SelectYearAndClose(YearDto year)
+    {
+        await SetSelectedYear(year, storeInSession: true);
+        _showYearModal = false;
+    }
+
+    private async Task SetSelectedYear(YearDto year, bool storeInSession)
+    {
+        _selectedYearId   = year.Id;
+        _selectedYearName = year.YearName;
+
+        if (storeInSession)
+        {
+            try
+            {
+                await ApiService.PostAsync<object, object>("session/property", new { key = "SelectedYearId",   value = year.Id.ToString() });
+                await ApiService.PostAsync<object, object>("session/property", new { key = "SelectedYearName", value = year.YearName });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error storing year in session: {ex.Message}");
+            }
+        }
+    }
+
+    private void OpenYearModal()  => _showYearModal = true;
+    private void CloseYearModal() => _showYearModal = false;
+}

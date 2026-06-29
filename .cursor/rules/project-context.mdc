@@ -1,0 +1,25 @@
+---
+description: "Master project context, global backend/frontend rules, and prompt file references"
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Project Guidelines & References
+
+Before starting any changes, read the pre-prompts in `.github/prompts/Pre%20processing%20prompts.md` to ensure you are following the best practices for coding and problem-solving.
+
+## Key Rules (Quick Reference)
+
+### Backend (API)
+- All controllers inherit `BaseController`; no `[Authorize]` — use `GetCurrentSession()` per endpoint.
+- All entities: `[Table("name")]` with no `Schema=` parameter; schema set via `HasDefaultSchema()` in `AppDbContext`.
+- Always include audit fields: `created_at`, `created_user`, `updated_at`, `update_user`.
+- Navigation properties required on all FK relationships.
+
+### Configuration
+- No hardcoded URLs, schema names, or environment-specific values in code.
+- API URLs in `appsettings.{Environment}.json` under `ApiSettings:BaseUrl`.
+- Schema name from `DatabaseSettings:SchemaName` configuration.
+
+## Scaffold Prompts
+- New Blazor page (razor + controller + DTOs + SQL): use `.github/prompts/new-blazor-page.prompt.md`.

@@ -1,0 +1,8 @@
+---
+description: "Guidelines for PetelATH module"
+globs: ["PetelATH/**"]
+alwaysApply: false
+---
+
+# PetelATH Guidelines
+Before making any changes under `PetelATH/`, read the instruction files in `.github/instructions/petelath.instructions.md` and adhere strictly to its specified patterns.

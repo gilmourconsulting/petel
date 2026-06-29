@@ -556,7 +556,7 @@
         _errorMessage = "";
     }
 
-    private async Task HandleAutocompleteKeyDown(KeyboardEventArgs e)
+    private void HandleAutocompleteKeyDown(KeyboardEventArgs e)
     {
         if (!_showDropdown || _filteredEntities.Count == 0)
         {

@@ -15,6 +15,8 @@ namespace PetelAssistants.Api.Data
 
         public DbSet<Entity>           Entities         { get; set; }
         public DbSet<SystemAttribute>  SystemAttributes { get; set; }
+        public DbSet<HebrewYear>       HebrewYears      { get; set; }
+        public DbSet<MenuItem>         MenuItems        { get; set; }
 
         public SharedDbContext(
             DbContextOptions<SharedDbContext> options,
@@ -38,6 +40,18 @@ namespace PetelAssistants.Api.Data
             modelBuilder.Entity<SystemAttribute>(entity =>
             {
                 entity.ToTable("system_attributes");
+                entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<HebrewYear>(entity =>
+            {
+                entity.ToTable("hebrew_years");
+                entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<MenuItem>(entity =>
+            {
+                entity.ToTable("menu_items");
                 entity.HasKey(e => e.Id);
             });
         }

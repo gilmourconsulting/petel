@@ -1,30 +1,106 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">PetelAssistants.BlazorServer</a>
+﻿@inject ApiService ApiService
+@inject NavigationManager Navigation
+@implements IDisposable
+@using PetelAssistants.BlazorServer.Models
+
+<nav class="side-menu @(_isCollapsed ? "collapsed" : "")">
+    <div class="menu-header">
+        <button class="menu-toggle" @onclick="ToggleMenu" type="button">☰</button>
     </div>
-</div>
 
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+    <div class="menu-items">
+        @if (_menuItems == null)
+        {
+            <div class="loading-menu">טוען תפריט...</div>
+        }
+        else if (_menuItems.Count == 0)
+        {
+            <div class="error-menu"></div>
+        }
+        else
+        {
+            @foreach (var item in _menuItems)
+            {
+                <a href="@GetMenuPath(item.Reference)"
+                   class="menu-item @(IsActive(item) ? "active" : "")"
+                   @onclick="() => HandleMenuClick(item)"
+                   @onclick:preventDefault="true">
+                    <span class="menu-item-text">@item.Text</span>
+                </a>
+            }
+        }
+    </div>
+</nav>
 
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
+@code {
+    private List<MenuItemDto>? _menuItems;
+    private string _currentPath = "/";
+    private bool _isCollapsed = true;
+    private bool _isLoading = false;
+    private bool _loadingFailed = false;
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
+    protected override async Task OnInitializedAsync()
+    {
+        _currentPath = new Uri(Navigation.Uri).AbsolutePath;
+        Navigation.LocationChanged += OnLocationChanged;
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-    </nav>
-</div>
+        if (!IsLoginPage())
+            await LoadMenuItems();
+        else
+            _menuItems = new List<MenuItemDto>();
+    }
 
+    private async Task LoadMenuItems()
+    {
+        if (_isLoading || _loadingFailed) return;
+        try
+        {
+            _isLoading = true;
+            _menuItems = await ApiService.GetAsync<List<MenuItemDto>>("menu") ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading menu: {ex.Message}");
+            _loadingFailed = true;
+            _menuItems = new List<MenuItemDto>();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _currentPath = new Uri(e.Location).AbsolutePath;
+
+        if (!IsLoginPage())
+            _loadingFailed = false;
+
+        if (!IsLoginPage() && (_menuItems == null || _menuItems.Count == 0) && !_isLoading && !_loadingFailed)
+            await LoadMenuItems();
+
+        StateHasChanged();
+    }
+
+    private bool IsLoginPage() => _currentPath.Contains("/login") || _currentPath == "/";
+
+    private string GetMenuPath(string reference)
+        => reference.StartsWith("#") ? reference.Substring(1) : reference;
+
+    private bool IsActive(MenuItemDto item)
+    {
+        var path = GetMenuPath(item.Reference);
+        return _currentPath.Equals($"/{path}", StringComparison.OrdinalIgnoreCase)
+            || _currentPath.StartsWith($"/{path}/", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void HandleMenuClick(MenuItemDto item)
+        => Navigation.NavigateTo($"/{GetMenuPath(item.Reference)}");
+
+    private void ToggleMenu()
+        => _isCollapsed = !_isCollapsed;
+
+    public void Dispose()
+        => Navigation.LocationChanged -= OnLocationChanged;
+}

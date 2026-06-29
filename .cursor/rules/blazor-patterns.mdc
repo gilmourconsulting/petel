@@ -1,0 +1,16 @@
+---
+description: "Rules for Blazor frontend changes"
+globs: ["**/*.razor"]
+alwaysApply: false
+---
+
+# Blazor Frontend Guidelines
+
+Before modifying this file, read the relevant instruction files in `.github/instructions/blazor-patterns.instructions.md`.
+
+## Mandatory Patterns:
+- All pages inherit `SecurePageBase`; override `OnPageInitializedAsync()`, not `OnInitializedAsync()`.
+- Use `ApiService` for all HTTP calls — never raw `HttpClient` or `fetch`.
+- Use `SessionStateService` for session data — never read cookies or local storage directly.
+- Use `NavigationManager.NavigateTo()` — never `window.location` or JS navigation.
+- Strictly no HTML files, no JavaScript SPA code, no `sessionStorage`, and no `AppConfig.getApiUrl()`.

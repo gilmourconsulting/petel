@@ -1,0 +1,8 @@
+---
+description: "Guidelines for PetelAssistants module"
+globs: ["PetelAssistants/**"]
+alwaysApply: false
+---
+
+# PetelAssistants Guidelines
+Before making any changes under `PetelAssistants/`, read the instruction files in `.github/instructions/petelassistants.instructions.md` and adhere strictly to its specified patterns.

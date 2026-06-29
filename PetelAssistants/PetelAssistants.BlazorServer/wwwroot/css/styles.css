@@ -1,0 +1,460 @@
+/* ============================================
+   PetelAssistants — Main Layout Styles
+   Mirrors the ATH styles.css pattern
+   ============================================ */
+
+/* Base Reset */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+    font-family: var(--primary-font) !important;
+    font-size: var(--font-size-base);
+    background: var(--main-background);
+    direction: rtl;
+    height: 100vh;
+    overflow: hidden;
+    color: var(--text-primary);
+    margin: 0;
+    padding: 0;
+}
+
+/* ── App container ─────────────────────────────────── */
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* ── Top Bar ───────────────────────────────────────── */
+.top-bar {
+    height: 60px;
+    background: var(--bar-background);
+    color: var(--bar-text-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    box-shadow: var(--box-shadow-light);
+    z-index: 1000;
+    flex-shrink: 0;
+}
+
+.top-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.top-bar-center {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.top-bar-center .app-title {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    text-align: center;
+}
+
+.system-logo-section {
+    display: flex;
+    align-items: center;
+}
+
+.system-logo {
+    width: 44px;
+    height: 44px;
+}
+
+.system-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: brightness(0) invert(1);
+}
+
+.top-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.user-section {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.user-name {
+    font-weight: 600;
+    font-size: var(--font-size-base);
+}
+
+.entity-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.entity-logo {
+    width: 38px;
+    height: 38px;
+    background: var(--bar-hover-background);
+    border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    border: 1px solid var(--bar-border-color);
+}
+
+.entity-info { display: flex; flex-direction: column; }
+
+.entity-name {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+}
+
+.logout-btn {
+    background: var(--bar-hover-background);
+    border: 1px solid var(--bar-border-color);
+    color: var(--bar-text-color);
+    padding: 7px 14px;
+    border-radius: var(--button-border-radius);
+    cursor: pointer;
+    transition: var(--button-transition);
+    font-size: var(--font-size-base);
+}
+
+.logout-btn:hover { background: rgba(255,255,255,0.3); }
+
+/* ── Main Container ────────────────────────────────── */
+.main-container {
+    display: flex;
+    background: var(--main-background);
+    flex-direction: row-reverse;
+    gap: 20px;
+    direction: rtl;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* ── Side Menu ─────────────────────────────────────── */
+.side-menu {
+    width: 12.5vw;
+    background: var(--menu-background);
+    box-shadow: var(--box-shadow-light);
+    transition: width 0.3s ease;
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 100;
+    flex-shrink: 0;
+}
+
+.side-menu.collapsed {
+    width: 60px;
+}
+
+.menu-header {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.menu-toggle {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 6px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.menu-toggle:hover { background: #f0f0f0; }
+
+.menu-items { padding: 8px 0; }
+
+.loading-menu,
+.error-menu {
+    padding: 12px 20px;
+    font-size: var(--font-size-small);
+    color: var(--text-muted);
+}
+
+.menu-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: var(--button-transition);
+    border-right: 3px solid transparent;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.menu-item:hover {
+    background: var(--hover-background);
+    color: var(--text-accent);
+    border-right-color: var(--active-border);
+}
+
+.menu-item.active {
+    background: var(--hover-background);
+    color: var(--text-accent);
+    border-right-color: var(--active-border);
+    font-weight: 600;
+}
+
+.menu-item-text {
+    transition: opacity 0.3s ease;
+}
+
+.side-menu.collapsed .menu-item-text {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.side-menu.collapsed .menu-item {
+    justify-content: center;
+    padding: 12px 6px;
+}
+
+/* ── Main Content ──────────────────────────────────── */
+.main-content {
+    order: 1;
+    flex: 1;
+    background: var(--main-background);
+    padding: 20px;
+    padding-bottom: 200px !important;
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-width: 0;
+}
+
+#dynamicContent {
+    display: flex;
+    flex-direction: row-reverse;
+    gap: 20px;
+    min-height: 100%;
+    align-items: flex-start;
+    margin-bottom: 150px;
+}
+
+/* ── Context Buttons Section ───────────────────────── */
+.context-buttons-section {
+    order: 2;
+    width: 180px;
+    min-width: 180px;
+    max-width: 180px;
+    height: 260px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 18px;
+    padding: 18px 8px;
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+/* ── Dashboard wrappers ────────────────────────────── */
+.dashboard-flex-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 32px;
+    width: 100%;
+    flex: 1;
+    min-width: 0;
+}
+
+.dashboard-cards-wrapper {
+    order: 1;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    flex: 1;
+    min-width: 0;
+    align-items: flex-start;
+}
+
+/* ── System Footer ─────────────────────────────────── */
+.system-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bar-background);
+    color: var(--bar-text-color);
+    padding: 4px 15px;
+    text-align: center;
+    font-size: 14px;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    z-index: 999;
+    flex-shrink: 0;
+}
+
+.footer-content {
+    direction: rtl;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.footer-content .system-logo {
+    display: inline-flex;
+    align-items: center;
+}
+
+.footer-content .system-logo img {
+    height: 32px;
+    width: auto;
+    filter: brightness(0) invert(1);
+}
+
+/* ── Buttons ───────────────────────────────────────── */
+.context-btn {
+    background: linear-gradient(135deg, #f7f7f7 0%, #f3f1ef 100%);
+    color: rgba(84, 4, 87, 0.7);
+    border: 1px solid rgba(0,0,0,0.15);
+    padding: 8px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    width: 100%;
+    min-height: 44px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: var(--primary-font);
+    transition: var(--button-transition);
+    box-shadow: var(--box-shadow-light);
+    text-align: center;
+}
+
+.context-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.context-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-color: transparent;
+}
+
+.context-navigation-btn {
+    background: linear-gradient(135deg, #b16ecc 0%, #7d3c98 100%);
+    color: white;
+    border: 1px solid rgba(0,0,0,0.15);
+    padding: 8px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    width: 100%;
+    min-height: 44px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: var(--primary-font);
+    transition: var(--button-transition);
+    box-shadow: var(--box-shadow-light);
+}
+
+.context-navigation-btn:hover {
+    transform: translateY(-1px);
+    opacity: 0.9;
+}
+
+/* ── Content Cards ─────────────────────────────────── */
+.content-card {
+    background: var(--card-background);
+    border-radius: var(--border-radius-large);
+    padding: 20px;
+    box-shadow: var(--box-shadow-medium);
+    margin-bottom: 10px;
+}
+
+/* ── Modal ─────────────────────────────────────────── */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.modal-content {
+    background: white;
+    border-radius: var(--border-radius-large);
+    padding: 0;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    direction: rtl;
+}
+
+.modal-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.modal-close:hover { background: #f0f0f0; }
+
+.modal-body {
+    padding: 20px;
+    direction: rtl;
+}
+
+/* ── Blazor error UI ───────────────────────────────── */
+#blazor-error-ui {
+    color-scheme: light only;
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0,0,0,0.2);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 9999;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
