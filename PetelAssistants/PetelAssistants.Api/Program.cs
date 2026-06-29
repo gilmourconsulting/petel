@@ -12,6 +12,19 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddHttpContextAccessor();
 
+// ── CORS ───────────────────────────────────────────────────────────────────
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[] { "http://localhost:5239", "https://localhost:7239" };
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowBlazorClient", policy =>
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials());
+});
+
 // ── Configuration ──────────────────────────────────────────────────────────
 builder.Services.Configure<DatabaseSettings>(
     builder.Configuration.GetSection("Database"));
@@ -64,6 +77,8 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseHttpsRedirection();
 }
+
+app.UseCors("AllowBlazorClient");
 
 app.MapControllers();
 

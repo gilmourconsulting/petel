@@ -8,12 +8,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <title>מערכת ניהול סייעות</title>
+
+    <!-- Favicon -->
     <link rel="icon" type="image/png" href="/images/petel_logo.png" />
+
+    <!-- Petel CSS Files -->
     <link rel="stylesheet" href="/css/theme.css" />
     <link rel="stylesheet" href="/css/styles.css" />
     <link rel="stylesheet" href="/css/login.css" />
+    <link rel="stylesheet" href="/css/ui-components.css" />
+    <link rel="stylesheet" href="/css/time-spinner.css" />
+    <link rel="stylesheet" href="/css/system-attributes.css" />
+    <link rel="stylesheet" href="/css/blazor-overrides.css" />
+
     <link rel="stylesheet" href="PetelAssistants.BlazorServer.styles.css" />
     <HeadOutlet />
+
+    <!-- Session timeout activity tracking -->
+    <script src="/js/sessionTimeout.js"></script>
+    <!-- CSP-compliant helper functions -->
+    <script src="/js/blazorHelpers.js"></script>
+    <!-- Layout and scroll management -->
+    <script src="/js/layoutHelpers.js"></script>
 </head>
 
 <body>

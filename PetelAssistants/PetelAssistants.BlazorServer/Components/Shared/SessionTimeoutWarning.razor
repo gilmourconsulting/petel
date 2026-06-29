@@ -1,0 +1,92 @@
+@implements IDisposable
+@inject SessionTimeoutService TimeoutService
+@inject IJSRuntime JSRuntime
+
+@if (_showWarning)
+{
+    <div class="modal-overlay" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 10000;">
+        <div class="modal-content" style="background: white; padding: 30px; border-radius: 8px; max-width: 400px; text-align: center; direction: rtl;">
+            <h2 style="margin-bottom: 15px; color: #d9534f;">⏰ אזהרת זמן קצוב</h2>
+            <p style="margin-bottom: 20px; font-size: 16px;">
+                השיחה שלך תסתיים בעוד <strong>@TimeoutService.RemainingMinutes דקות</strong> עקב חוסר פעילות.
+            </p>
+            <p style="margin-bottom: 25px; color: #666;">
+                לחץ "המשך" כדי להישאר מחובר, או "התנתק" כדי לצאת כעת.
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button @onclick="ContinueSession"
+                        class="btn btn-primary"
+                        style="padding: 10px 20px; font-size: 16px;">
+                    המשך פעילות
+                </button>
+                <button @onclick="LogoutNow"
+                        class="btn btn-secondary"
+                        style="padding: 10px 20px; font-size: 16px;">
+                    התנתק כעת
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private bool _showWarning = false;
+    private DotNetObjectReference<SessionTimeoutWarning>? _dotNetRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                _dotNetRef = DotNetObjectReference.Create(this);
+                await JSRuntime.InvokeVoidAsync("SessionTimeout.initialize", _dotNetRef);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error initializing session timeout JS: {ex.Message}");
+            }
+        }
+    }
+
+    [JSInvokable]
+    public void OnUserActivity()
+    {
+        TimeoutService.OnUserActivity();
+    }
+
+    protected override void OnInitialized()
+    {
+        TimeoutService.OnShowWarning += HandleShowWarning;
+        TimeoutService.OnHideWarning += HandleHideWarning;
+    }
+
+    private void HandleShowWarning()
+    {
+        _showWarning = true;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleHideWarning()
+    {
+        _showWarning = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void ContinueSession()
+    {
+        TimeoutService.ContinueSession();
+    }
+
+    private async Task LogoutNow()
+    {
+        await TimeoutService.LogoutNowAsync();
+    }
+
+    public void Dispose()
+    {
+        TimeoutService.OnShowWarning -= HandleShowWarning;
+        TimeoutService.OnHideWarning -= HandleHideWarning;
+        _dotNetRef?.Dispose();
+    }
+}
