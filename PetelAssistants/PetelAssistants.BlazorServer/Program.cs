@@ -1,4 +1,5 @@
 using PetelAssistants.BlazorServer.Components;
+using PetelAssistants.BlazorServer.Services;
 using Petel.BlazorCore.Models;
 using Petel.BlazorCore.Services;
 
@@ -28,6 +29,7 @@ builder.Services.AddScoped<AuthenticationService>();
 builder.Services.AddScoped<ApiService>();
 builder.Services.AddScoped<SessionStateService>();
 builder.Services.AddScoped<SessionTimeoutService>();
+builder.Services.AddScoped<ActionSecurityService>();
 
 // ── Blazor Server circuit options ──────────────────────────────────────────
 builder.Services.AddServerSideBlazor()

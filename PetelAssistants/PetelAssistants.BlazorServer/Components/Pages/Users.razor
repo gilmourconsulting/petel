@@ -1,0 +1,988 @@
+@page "/users"
+@layout MainLayout
+@inherits SecurePageBase
+@inject ApiService ApiService
+@inject SessionStateService SessionStateService
+
+<div class="school-title-section">
+    <h1 class="page-title">ניהול משתמשים</h1>
+</div>
+
+<div class="main-container">
+    <div class="context-buttons-section">
+        <SecureButton ActionName="users_refresh" ScreenName="@PageName" FunctionName="RefreshData" OnClick="RefreshData" CssClass="context-btn">
+            רענן נתונים
+        </SecureButton>
+        <SecureButton ActionName="users_create" ScreenName="@PageName" FunctionName="ShowCreateUserDialog" OnClick="ShowCreateUserDialog" CssClass="context-btn">
+            הוסף משתמש חדש
+        </SecureButton>
+        <SecureButton ActionName="users_roles" ScreenName="@PageName" FunctionName="NavigateToRoles" OnClick="NavigateToRoles" CssClass="context-btn">
+            ניהול תפקידים
+        </SecureButton>
+        <SecureButton ActionName="users_tenants" ScreenName="@PageName" FunctionName="NavigateToTenants" OnClick="NavigateToTenants" CssClass="context-btn">
+            ניהול רשויות
+        </SecureButton>
+        <SecureButton ActionName="users_refreshcache" ScreenName="@PageName" FunctionName="RefreshSecurityCache" OnClick="RefreshSecurityCache" CssClass="context-btn">
+            רענן מטמון אבטחה
+        </SecureButton>
+        <SecureButton ActionName="users_maindashboard" ScreenName="@PageName" FunctionName="NavigateToMainDashboard" OnClick="NavigateToMainDashboard" CssClass="context-navigation-btn">
+            חזרה לדף ראשי
+        </SecureButton>
+    </div>
+
+    <div class="students-content">
+        <TenantSelector TenantChanged="OnTenantChanged" />
+
+        <div class="content-card">
+            <h2 class="page-title">ניהול משתמשים</h2>
+
+            <div class="users-summary">
+                <div class="summary-grid">
+                    <div class="summary-card">
+                        <div class="summary-icon">👥</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@_summary.TotalUsers</div>
+                            <div class="summary-label">סה"כ משתמשים</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">✅</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@_summary.ActiveUsers</div>
+                            <div class="summary-label">משתמשים פעילים</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">🚫</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@_summary.InactiveUsers</div>
+                            <div class="summary-label">משתמשים לא פעילים</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="users-table-section">
+                <h3>רשימת משתמשים</h3>
+                @if (_isLoading)
+                {
+                    <div class="loading-spinner">טוען נתוני משתמשים...</div>
+                }
+                else if (_users.Count == 0)
+                {
+                    <div class="no-data-message">לא נמצאו משתמשים ברשות זו</div>
+                }
+                else
+                {
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>פעולות</th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.Username))" style="cursor: pointer;">
+                                        שם משתמש @GetSortArrow(nameof(UserDto.Username))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.FullName))" style="cursor: pointer;">
+                                        שם מלא @GetSortArrow(nameof(UserDto.FullName))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.Email))" style="cursor: pointer;">
+                                        אימייל @GetSortArrow(nameof(UserDto.Email))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.Phone))" style="cursor: pointer;">
+                                        טלפון @GetSortArrow(nameof(UserDto.Phone))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.IsActive))" style="cursor: pointer;">
+                                        סטטוס @GetSortArrow(nameof(UserDto.IsActive))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.LastLogin))" style="cursor: pointer;">
+                                        כניסה אחרונה @GetSortArrow(nameof(UserDto.LastLogin))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.FailedPasswordAttempts))" style="cursor: pointer;">
+                                        נסיונות סיסמה כושלים @GetSortArrow(nameof(UserDto.FailedPasswordAttempts))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.FailedOtpAttempts))" style="cursor: pointer;">
+                                        נסיונות OTP כושלים @GetSortArrow(nameof(UserDto.FailedOtpAttempts))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(UserDto.OtpVerified))" style="cursor: pointer;">
+                                        OTP מאומת @GetSortArrow(nameof(UserDto.OtpVerified))
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var user in _users)
+                                {
+                                    <tr>
+                                        <td>
+                                            <SecureButton ActionName="users_edit" ScreenName="@PageName" FunctionName="EditUser" OnClick="() => EditUser(user)" CssClass="btn-icon" Title="ערוך משתמש">
+                                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                                            </SecureButton>
+                                            <SecureButton ActionName="users_changepassword" ScreenName="@PageName" FunctionName="ShowChangePasswordDialog" OnClick="() => ShowChangePasswordDialog(user)" CssClass="btn-icon" Title="שנה סיסמה">
+                                                <img src="/images/change_password.png" alt="שנה סיסמה" class="action-icon-natural">
+                                            </SecureButton>
+                                            <SecureButton ActionName="users_manageroles" ScreenName="@PageName" FunctionName="ManageUserRoles" OnClick="() => ManageUserRoles(user)" CssClass="btn-icon" Title="נהל תפקידים">
+                                                <img src="/images/stats_icon.png" alt="תפקידים" class="action-icon-natural">
+                                            </SecureButton>
+                                            @if (user.IsLocked)
+                                            {
+                                                <SecureButton ActionName="users_unlock" ScreenName="@PageName" FunctionName="UnlockUser" OnClick="() => UnlockUser(user)" CssClass="btn-icon" Title="בטל נעילה">
+                                                    <img src="/images/unlock_icon.png" alt="בטל נעילה" class="action-icon-natural">
+                                                </SecureButton>
+                                            }
+                                            else
+                                            {
+                                                <SecureButton ActionName="users_lock" ScreenName="@PageName" FunctionName="LockUser" OnClick="() => LockUser(user)" CssClass="btn-icon" Title="נעל משתמש">
+                                                    <img src="/images/lock_icon.png" alt="נעל" class="action-icon-natural">
+                                                </SecureButton>
+                                            }
+                                            <SecureButton ActionName="users_resetotp" ScreenName="@PageName" FunctionName="ResetOtpVerification" OnClick="() => ResetOtpVerification(user)" CssClass="btn-icon" Title="אפס אימות דו-שלבי">
+                                                <img src="/images/reset_icon.png" alt="אפס OTP" class="action-icon-natural">
+                                            </SecureButton>
+                                            <SecureButton ActionName="users_resetfailedattempts" ScreenName="@PageName" FunctionName="ResetFailedAttempts" OnClick="() => ResetFailedAttempts(user)" CssClass="btn-icon" Title="אפס נסיונות כושלים">
+                                                <img src="/images/unlock_icon.png" alt="אפס נסיונות" class="action-icon-natural">
+                                            </SecureButton>
+                                        </td>
+                                        <td>@user.Username</td>
+                                        <td>@user.FullName</td>
+                                        <td>@user.Email</td>
+                                        <td>@(user.Phone ?? "")</td>
+                                        <td>
+                                            <span class="status-badge @(user.IsActive ? "active" : "inactive")">
+                                                @(user.IsActive ? "פעיל" : "לא פעיל")
+                                            </span>
+                                            @if (user.IsLocked)
+                                            {
+                                                <span class="status-badge locked" title="@(user.LockReasonName ?? "נעול")">
+                                                    נעול — @(user.LockReasonName ?? "סיבה לא ידועה")
+                                                </span>
+                                            }
+                                        </td>
+                                        <td>@(user.LastLogin?.ToString("dd/MM/yyyy HH:mm") ?? "אף פעם")</td>
+                                        <td style="text-align: center;">@(user.FailedPasswordAttempts > 0 ? user.FailedPasswordAttempts.ToString() : "-")</td>
+                                        <td style="text-align: center;">@(user.FailedOtpAttempts > 0 ? user.FailedOtpAttempts.ToString() : "-")</td>
+                                        <td style="text-align: center;">
+                                            <span class="status-badge @(user.OtpVerified ? "active" : "inactive")">
+                                                @(user.OtpVerified ? "כן" : "לא")
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ── Create/Edit User Dialog ──────────────────────────────────────────── *@
+@if (_showUserDialog)
+{
+    <div class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>@(_isEditMode ? "ערוך משתמש" : "משתמש חדש")</h3>
+                <button class="modal-close" @onclick="CloseUserDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="_userForm" OnValidSubmit="HandleUserSubmit">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-group">
+                        <label for="username">שם משתמש *</label>
+                        <InputText id="username" @bind-Value="_userForm.Username" class="form-control" disabled="@_isEditMode" />
+                        <ValidationMessage For="() => _userForm.Username" />
+                    </div>
+
+                    <div style="display: flex; gap: 15px;">
+                        <div class="form-group" style="flex: 1;">
+                            <label for="firstName">שם פרטי</label>
+                            <InputText id="firstName" @bind-Value="_userForm.FirstName" class="form-control" />
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label for="lastName">שם משפחה</label>
+                            <InputText id="lastName" @bind-Value="_userForm.LastName" class="form-control" />
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">אימייל</label>
+                        <InputText id="email" @bind-Value="_userForm.Email" class="form-control" type="email" />
+                    </div>
+
+                    <div class="form-group">
+                        <label for="phone">טלפון</label>
+                        <InputText id="phone" @bind-Value="_userForm.Phone" class="form-control" />
+                    </div>
+
+                    @if (!_isEditMode)
+                    {
+                        <div class="form-group">
+                            <label for="password">סיסמה *</label>
+                            <InputText id="password" @bind-Value="_userForm.Password" class="form-control" type="password" />
+                        </div>
+                    }
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <InputCheckbox @bind-Value="_userForm.IsActive" />
+                            משתמש פעיל
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <InputCheckbox @bind-Value="_userForm.PasswordChangeRequired" />
+                            דרוש שינוי סיסמה בכניסה הבאה
+                        </label>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" @onclick="CloseUserDialog">ביטול</button>
+                        <button type="submit" class="btn-primary">@(_isEditMode ? "שמור" : "צור משתמש")</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Change Password Dialog ───────────────────────────────────────────── *@
+@if (_showChangePasswordDialog)
+{
+    <div class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>שינוי סיסמה למשתמש: @_changePasswordUserName</h3>
+                <button class="modal-close" @onclick="CloseChangePasswordDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="_changePasswordForm" OnValidSubmit="HandleChangePasswordSubmit">
+                    <DataAnnotationsValidator />
+
+                    <div class="form-group">
+                        <label for="newPassword">סיסמה חדשה *</label>
+                        <InputText id="newPassword" @bind-Value="_changePasswordForm.NewPassword" class="form-control" type="password" />
+                        <small style="color: #666; font-size: 12px; margin-top: 4px; display: block;">
+                            סיסמה חייבת להכיל לפחות 6 תווים
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="confirmPassword">אימות סיסמה חדשה *</label>
+                        <InputText id="confirmPassword" @bind-Value="_changePasswordForm.ConfirmPassword" class="form-control" type="password" />
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn-secondary" @onclick="CloseChangePasswordDialog">ביטול</button>
+                        <button type="submit" class="btn-primary">שנה סיסמה</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Lock Reason Dialog ───────────────────────────────────────────────── *@
+@if (_showLockReasonDialog && _lockTargetUser != null)
+{
+    <div class="modal-overlay" @onclick="CloseLockReasonDialog">
+        <div class="modal-content" style="max-width: 450px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>נעילת משתמש: @_lockTargetUser.FullName</h3>
+                <button class="modal-close" @onclick="CloseLockReasonDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600;">סיבת הנעילה:</label>
+                    @if (_lockReasons.Count == 0)
+                    {
+                        <p style="color: #6c757d;">טוען סיבות נעילה...</p>
+                    }
+                    else
+                    {
+                        @foreach (var reason in _lockReasons)
+                        {
+                            <div style="margin-bottom: 10px;">
+                                <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer;">
+                                    <input type="radio"
+                                           name="lockReason"
+                                           value="@reason.Id"
+                                           checked="@(_selectedLockReasonId == reason.Id)"
+                                           @onchange="() => _selectedLockReasonId = reason.Id"
+                                           style="margin-top: 3px;" />
+                                    <span>
+                                        <strong>@reason.Name</strong>
+                                        @if (!string.IsNullOrEmpty(reason.Description))
+                                        {
+                                            <br /><small style="color: #6c757d;">@reason.Description</small>
+                                        }
+                                        @if (!reason.AllowForgotPassword)
+                                        {
+                                            <br /><small style="color: #dc3545;">⚠ שחזור סיסמה לא יהיה זמין למשתמש זה</small>
+                                        }
+                                    </span>
+                                </label>
+                            </div>
+                        }
+                    }
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" @onclick="CloseLockReasonDialog">ביטול</button>
+                <button type="button" class="btn-danger" @onclick="ConfirmLockUser" disabled="@(_selectedLockReasonId == null)">
+                    נעל משתמש
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@* ── Manage Roles Dialog ──────────────────────────────────────────────── *@
+@if (_showManageRolesDialog)
+{
+    <div class="modal-overlay" @onclick="CloseManageRolesDialog">
+        <div class="modal-content" style="min-width: 800px; max-width: 90%;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>ניהול תפקידים עבור: @_manageRolesUserName</h3>
+                <button class="modal-close" @onclick="CloseManageRolesDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_userCurrentRoles.Count > 0)
+                {
+                    <div style="margin-bottom: 20px;">
+                        <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">תפקידים נוכחיים (@_userCurrentRoles.Count)</h4>
+                        <div style="border: 1px solid #dee2e6; border-radius: 8px; padding: 10px; background-color: #f8f9fa; max-height: 200px; overflow-y: auto;">
+                            @foreach (var role in _userCurrentRoles)
+                            {
+                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px; margin-bottom: 8px; background-color: white; border: 1px solid #dee2e6; border-radius: 4px;">
+                                    <span style="font-weight: 500;">@role.Name</span>
+                                    <button type="button" class="btn-icon" @onclick="() => RemoveRoleFromUser(role.Id)" title="הסר תפקיד">
+                                        <img src="images/delete_icon.png" alt="הסר" class="action-icon-natural">
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">הוסף תפקידים</h4>
+                <div style="display: flex; gap: 20px; direction: rtl;">
+                    <div style="flex: 1;">
+                        <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">תפקידים זמינים</h4>
+                        <input type="text" @bind="_availableRolesSearchTerm" @bind:event="oninput" @onkeyup="FilterAvailableRoles"
+                               placeholder="חיפוש תפקיד..."
+                               style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #dee2e6; border-radius: 4px; direction: rtl;">
+                        <div style="border: 2px dashed #dee2e6; border-radius: 8px; min-height: 300px; max-height: 300px; overflow-y: auto; padding: 10px; background-color: #f8f9fa;">
+                            @if (_filteredAvailableRoles.Count == 0)
+                            {
+                                <p style="text-align: center; color: #6c757d; padding: 20px;">אין תפקידים זמינים</p>
+                            }
+                            else
+                            {
+                                @foreach (var role in _filteredAvailableRoles)
+                                {
+                                    <div class="action-item" @onclick="() => SelectRole(role)">
+                                        <div class="action-item-name">@role.Name</div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <small style="display: block; margin-top: 5px; color: #6c757d;">לחץ על תפקיד כדי לבחור</small>
+                    </div>
+
+                    <div style="flex: 1;">
+                        <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">תפקידים נבחרים (@_selectedRolesToAdd.Count)</h4>
+                        <div style="height: 34px; margin-bottom: 10px;"></div>
+                        <div style="border: 2px solid #28a745; border-radius: 8px; min-height: 300px; max-height: 300px; overflow-y: auto; padding: 10px; background-color: #f8f9fa;">
+                            @if (_selectedRolesToAdd.Count == 0)
+                            {
+                                <p style="text-align: center; color: #6c757d; padding: 20px;">בחר תפקידים</p>
+                            }
+                            else
+                            {
+                                @foreach (var role in _selectedRolesToAdd)
+                                {
+                                    <div class="action-item" @onclick="() => DeselectRole(role)">
+                                        <div class="action-item-name">@role.Name</div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <small style="display: block; margin-top: 5px; color: #6c757d;">לחץ על תפקיד כדי להסיר</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" @onclick="CloseManageRolesDialog">ביטול</button>
+                <button type="button" class="btn-primary" @onclick="SubmitRoleChanges"
+                        disabled="@(_selectedRolesToAdd.Count == 0)">
+                    הוסף תפקידים (@_selectedRolesToAdd.Count)
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    protected override string PageName => "users";
+
+    private List<UserDto> _users = new();
+    private bool _isLoading = true;
+    private UserSummaryDto _summary = new();
+    private List<LockReasonDto> _lockReasons = new();
+
+    private string _sortColumn = nameof(UserDto.FullName);
+    private bool _sortAscending = true;
+
+    // Create / Edit dialog
+    private bool _showUserDialog = false;
+    private bool _isEditMode = false;
+    private UserFormModel _userForm = new();
+    private int _editingUserId = 0;
+
+    // Change password dialog
+    private bool _showChangePasswordDialog = false;
+    private ChangePasswordFormModel _changePasswordForm = new();
+    private int _changePasswordUserId = 0;
+    private string _changePasswordUserName = string.Empty;
+
+    // Lock reason dialog
+    private bool _showLockReasonDialog = false;
+    private UserDto? _lockTargetUser = null;
+    private int? _selectedLockReasonId = null;
+
+    // Manage roles dialog
+    private bool _showManageRolesDialog = false;
+    private int _manageRolesUserId = 0;
+    private string _manageRolesUserName = string.Empty;
+    private List<RoleSummaryDto> _userCurrentRoles = new();
+    private List<RoleSummaryDto> _availableRoles = new();
+    private List<RoleSummaryDto> _filteredAvailableRoles = new();
+    private List<RoleSummaryDto> _selectedRolesToAdd = new();
+    private string _availableRolesSearchTerm = string.Empty;
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        await Task.WhenAll(LoadLockReasons(), LoadUsersData());
+    }
+
+    private async Task OnTenantChanged(int tenantId) => await LoadUsersData();
+
+    private async Task LoadUsersData()
+    {
+        try
+        {
+            _isLoading = true;
+            var response = await ApiService.GetAsync<ApiResponse<List<UserDto>>>("users");
+            if (response?.Success == true && response.Data != null)
+            {
+                _users = response.Data;
+                UpdateSummary();
+                ApplySort();
+            }
+            else
+            {
+                _users = new();
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בטעינת נתוני המשתמשים");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading users: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינת נתוני המשתמשים: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadLockReasons()
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<LockReasonDto>>>("users/lock-reasons");
+            if (response?.Success == true && response.Data != null)
+                _lockReasons = response.Data;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading lock reasons: {ex.Message}");
+        }
+    }
+
+    private void UpdateSummary()
+    {
+        _summary = new UserSummaryDto
+        {
+            TotalUsers    = _users.Count,
+            ActiveUsers   = _users.Count(u => u.IsActive),
+            InactiveUsers = _users.Count(u => !u.IsActive),
+            LockedUsers   = _users.Count(u => u.IsLocked)
+        };
+    }
+
+    private void SortTable(string columnName)
+    {
+        _sortAscending = (_sortColumn == columnName) ? !_sortAscending : true;
+        _sortColumn = columnName;
+        ApplySort();
+    }
+
+    private void ApplySort()
+    {
+        _users = _sortColumn switch
+        {
+            nameof(UserDto.Username)               => _sortAscending ? _users.OrderBy(u => u.Username).ToList()               : _users.OrderByDescending(u => u.Username).ToList(),
+            nameof(UserDto.FullName)               => _sortAscending ? _users.OrderBy(u => u.FullName).ToList()               : _users.OrderByDescending(u => u.FullName).ToList(),
+            nameof(UserDto.Email)                  => _sortAscending ? _users.OrderBy(u => u.Email).ToList()                  : _users.OrderByDescending(u => u.Email).ToList(),
+            nameof(UserDto.Phone)                  => _sortAscending ? _users.OrderBy(u => u.Phone ?? "").ToList()            : _users.OrderByDescending(u => u.Phone ?? "").ToList(),
+            nameof(UserDto.IsActive)               => _sortAscending ? _users.OrderBy(u => u.IsActive).ToList()               : _users.OrderByDescending(u => u.IsActive).ToList(),
+            nameof(UserDto.LastLogin)              => _sortAscending ? _users.OrderBy(u => u.LastLogin ?? DateTime.MinValue).ToList() : _users.OrderByDescending(u => u.LastLogin ?? DateTime.MinValue).ToList(),
+            nameof(UserDto.FailedPasswordAttempts) => _sortAscending ? _users.OrderBy(u => u.FailedPasswordAttempts).ToList() : _users.OrderByDescending(u => u.FailedPasswordAttempts).ToList(),
+            nameof(UserDto.FailedOtpAttempts)      => _sortAscending ? _users.OrderBy(u => u.FailedOtpAttempts).ToList()      : _users.OrderByDescending(u => u.FailedOtpAttempts).ToList(),
+            nameof(UserDto.OtpVerified)            => _sortAscending ? _users.OrderBy(u => u.OtpVerified).ToList()            : _users.OrderByDescending(u => u.OtpVerified).ToList(),
+            _ => _users
+        };
+    }
+
+    private string GetSortArrow(string columnName)
+    {
+        if (_sortColumn != columnName) return string.Empty;
+        return _sortAscending ? "▲" : "▼";
+    }
+
+    private async Task RefreshData() => await LoadUsersData();
+
+    // ── Create / Edit ─────────────────────────────────────────────────────────
+
+    private void ShowCreateUserDialog()
+    {
+        _isEditMode = false;
+        _editingUserId = 0;
+        _userForm = new UserFormModel();
+        _showUserDialog = true;
+    }
+
+    private void EditUser(UserDto user)
+    {
+        _isEditMode = true;
+        _editingUserId = user.Id;
+        _userForm = new UserFormModel
+        {
+            Username               = user.Username,
+            Email                  = user.Email ?? "",
+            Phone                  = user.Phone,
+            FirstName              = user.FirstName ?? "",
+            LastName               = user.LastName ?? "",
+            IsActive               = user.IsActive,
+            PasswordChangeRequired = user.PasswordChangeRequired
+        };
+        _showUserDialog = true;
+    }
+
+    private void CloseUserDialog()
+    {
+        _showUserDialog = false;
+        _userForm = new UserFormModel();
+        _editingUserId = 0;
+        _isEditMode = false;
+    }
+
+    private async Task HandleUserSubmit()
+    {
+        try
+        {
+            if (_isEditMode)
+            {
+                var response = await ApiService.PutAsync<UpdateUserRequest, ApiResponse<object>>(
+                    $"users/{_editingUserId}",
+                    new UpdateUserRequest
+                    {
+                        FirstName              = _userForm.FirstName,
+                        LastName               = _userForm.LastName,
+                        Email                  = _userForm.Email,
+                        Phone                  = _userForm.Phone,
+                        IsActive               = _userForm.IsActive,
+                        PasswordChangeRequired = _userForm.PasswordChangeRequired
+                    });
+
+                if (response?.Success == true)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "המשתמש עודכן בהצלחה");
+                    CloseUserDialog();
+                    await LoadUsersData();
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בעדכון המשתמש");
+                }
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(_userForm.Username) || string.IsNullOrWhiteSpace(_userForm.Password))
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "שם משתמש וסיסמה הם שדות חובה");
+                    return;
+                }
+
+                var response = await ApiService.PostAsync<CreateUserRequest, ApiResponse<object>>(
+                    "users",
+                    new CreateUserRequest
+                    {
+                        Username               = _userForm.Username,
+                        Password               = _userForm.Password,
+                        FirstName              = _userForm.FirstName,
+                        LastName               = _userForm.LastName,
+                        Email                  = _userForm.Email,
+                        Phone                  = _userForm.Phone,
+                        IsActive               = _userForm.IsActive,
+                        PasswordChangeRequired = _userForm.PasswordChangeRequired
+                    });
+
+                if (response?.Success == true)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "המשתמש נוצר בהצלחה");
+                    CloseUserDialog();
+                    await LoadUsersData();
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה ביצירת המשתמש");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירת המשתמש: {ex.Message}");
+        }
+    }
+
+    // ── Change password ────────────────────────────────────────────────────────
+
+    private void ShowChangePasswordDialog(UserDto user)
+    {
+        _changePasswordUserId = user.Id;
+        _changePasswordUserName = user.FullName;
+        _changePasswordForm = new ChangePasswordFormModel();
+        _showChangePasswordDialog = true;
+    }
+
+    private void CloseChangePasswordDialog()
+    {
+        _showChangePasswordDialog = false;
+        _changePasswordForm = new ChangePasswordFormModel();
+        _changePasswordUserId = 0;
+        _changePasswordUserName = string.Empty;
+    }
+
+    private async Task HandleChangePasswordSubmit()
+    {
+        try
+        {
+            if (_changePasswordForm.NewPassword != _changePasswordForm.ConfirmPassword)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "הסיסמאות אינן תואמות");
+                return;
+            }
+            if (_changePasswordForm.NewPassword.Length < 6)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "סיסמה חייבת להכיל לפחות 6 תווים");
+                return;
+            }
+
+            var response = await ApiService.PutAsync<ChangePasswordRequest, ApiResponse<object>>(
+                $"users/{_changePasswordUserId}/change-password",
+                new ChangePasswordRequest { NewPassword = _changePasswordForm.NewPassword });
+
+            if (response?.Success == true)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "הסיסמה שונתה בהצלחה");
+                CloseChangePasswordDialog();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בשינוי הסיסמה");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשינוי הסיסמה: {ex.Message}");
+        }
+    }
+
+    // ── Lock / Unlock ──────────────────────────────────────────────────────────
+
+    private void LockUser(UserDto user)
+    {
+        _lockTargetUser = user;
+        _selectedLockReasonId = _lockReasons.FirstOrDefault(r => r.Code == "ADMIN_LOCKED")?.Id;
+        _showLockReasonDialog = true;
+    }
+
+    private void CloseLockReasonDialog()
+    {
+        _showLockReasonDialog = false;
+        _lockTargetUser = null;
+        _selectedLockReasonId = null;
+    }
+
+    private async Task ConfirmLockUser()
+    {
+        if (_lockTargetUser == null) return;
+        try
+        {
+            var response = await ApiService.PostAsync<LockUserRequest, ApiResponse<object>>(
+                $"users/{_lockTargetUser.Id}/lock",
+                new LockUserRequest { LockReasonId = _selectedLockReasonId });
+
+            if (response?.Success == true)
+            {
+                CloseLockReasonDialog();
+                await JSRuntime.InvokeVoidAsync("alert", "המשתמש ננעל בהצלחה");
+                await LoadUsersData();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בנעילת המשתמש");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בנעילת המשתמש: {ex.Message}");
+        }
+    }
+
+    private async Task UnlockUser(UserDto user)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"האם אתה בטוח שברצונך לבטל את נעילת המשתמש '{user.FullName}'?"))
+            return;
+        try
+        {
+            var response = await ApiService.PostAsync<object, ApiResponse<object>>($"users/{user.Id}/unlock", new { });
+            if (response?.Success == true)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "נעילת המשתמש בוטלה בהצלחה");
+                await LoadUsersData();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בביטול נעילת המשתמש: {ex.Message}");
+        }
+    }
+
+    // ── OTP / Failed attempts ──────────────────────────────────────────────────
+
+    private async Task ResetOtpVerification(UserDto user)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"האם אתה בטוח שברצונך לאפס את אימות הדו-שלבי של המשתמש '{user.FullName}'?"))
+            return;
+        try
+        {
+            var response = await ApiService.PostAsync<object, ApiResponse<object>>($"users/{user.Id}/reset-otp", new { });
+            if (response?.Success == true)
+                await LoadUsersData();
+            else
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה באיפוס OTP");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה: {ex.Message}");
+        }
+    }
+
+    private async Task ResetFailedAttempts(UserDto user)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"האם אתה בטוח שברצונך לאפס את נסיונות הכניסה הכושלים של המשתמש '{user.FullName}'?"))
+            return;
+        try
+        {
+            var response = await ApiService.PostAsync<object, ApiResponse<object>>($"users/{user.Id}/reset-failed-attempts", new { });
+            if (response?.Success == true)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "נסיונות כושלים אופסו בהצלחה");
+                await LoadUsersData();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה: {ex.Message}");
+        }
+    }
+
+    // ── Manage roles ───────────────────────────────────────────────────────────
+
+    private async Task ManageUserRoles(UserDto user)
+    {
+        try
+        {
+            _manageRolesUserId = user.Id;
+            _manageRolesUserName = user.FullName;
+            await LoadUserRoles();
+            _showManageRolesDialog = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading user roles: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת תפקידי המשתמש");
+        }
+    }
+
+    private void CloseManageRolesDialog()
+    {
+        _showManageRolesDialog = false;
+        _manageRolesUserId = 0;
+        _manageRolesUserName = string.Empty;
+        _userCurrentRoles.Clear();
+        _availableRoles.Clear();
+        _filteredAvailableRoles.Clear();
+        _selectedRolesToAdd.Clear();
+        _availableRolesSearchTerm = string.Empty;
+    }
+
+    private async Task LoadUserRoles()
+    {
+        var currentResponse = await ApiService.GetAsync<ApiResponse<List<RoleSummaryDto>>>($"users/{_manageRolesUserId}/roles");
+        _userCurrentRoles = currentResponse?.Data ?? new();
+
+        var allResponse = await ApiService.GetAsync<ApiResponse<List<RoleSummaryDto>>>("roles");
+        if (allResponse?.Data != null)
+        {
+            _availableRoles = allResponse.Data
+                .Where(r => !_userCurrentRoles.Any(ur => ur.Id == r.Id))
+                .ToList();
+        }
+        else
+        {
+            _availableRoles = new();
+        }
+
+        _filteredAvailableRoles = _availableRoles;
+        _selectedRolesToAdd.Clear();
+    }
+
+    private void SelectRole(RoleSummaryDto role)
+    {
+        if (!_selectedRolesToAdd.Any(r => r.Id == role.Id))
+        {
+            _selectedRolesToAdd.Add(role);
+            FilterAvailableRoles();
+        }
+    }
+
+    private void DeselectRole(RoleSummaryDto role)
+    {
+        _selectedRolesToAdd.RemoveAll(r => r.Id == role.Id);
+        FilterAvailableRoles();
+    }
+
+    private void FilterAvailableRoles()
+    {
+        var term = _availableRolesSearchTerm?.ToLower() ?? string.Empty;
+        _filteredAvailableRoles = _availableRoles
+            .Where(r => !_selectedRolesToAdd.Any(s => s.Id == r.Id))
+            .Where(r => string.IsNullOrEmpty(term) || r.Name.ToLower().Contains(term))
+            .ToList();
+    }
+
+    private async Task RemoveRoleFromUser(int roleId)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך להסיר תפקיד זה מהמשתמש?"))
+            return;
+        try
+        {
+            var response = await ApiService.DeleteAsync<ApiResponse<object>>($"roles/{roleId}/users/{_manageRolesUserId}");
+            if (response?.Success == true)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "התפקיד הוסר בהצלחה");
+                await LoadUserRoles();
+                await LoadUsersData();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בהסרת התפקיד");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בהסרת התפקיד: {ex.Message}");
+        }
+    }
+
+    private async Task SubmitRoleChanges()
+    {
+        if (_selectedRolesToAdd.Count == 0) { await JSRuntime.InvokeVoidAsync("alert", "אנא בחר לפחות תפקיד אחד"); return; }
+        int ok = 0, fail = 0;
+        foreach (var role in _selectedRolesToAdd)
+        {
+            try
+            {
+                var r = await ApiService.PostAsync<object, ApiResponse<object>>($"roles/{role.Id}/users", new { userId = _manageRolesUserId });
+                if (r?.Success == true) ok++; else fail++;
+            }
+            catch { fail++; }
+        }
+        await JSRuntime.InvokeVoidAsync("alert", $"✅ {ok} תפקידים נוספו{(fail > 0 ? $"\n❌ {fail} נכשלו" : "")}");
+        if (ok > 0) { CloseManageRolesDialog(); await LoadUsersData(); }
+    }
+
+    // ── Navigation ─────────────────────────────────────────────────────────────
+
+    private void NavigateToRoles()        => Navigation.NavigateTo("/roles");
+    private void NavigateToTenants()      => Navigation.NavigateTo("/tenants");
+    private void NavigateToMainDashboard() => Navigation.NavigateTo("/maindashboard");
+
+    private async Task RefreshSecurityCache()
+    {
+        try
+        {
+            var response = await ApiService.PostAsync<object, ApiResponse<object>>("roles/refresh-cache", new { });
+            await JSRuntime.InvokeVoidAsync("alert", response?.Success == true
+                ? "מטמון האבטחה רוענן בהצלחה! הפעולות החדשות זמינות כעת."
+                : "שגיאה ברענון מטמון האבטחה");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה ברענון מטמון האבטחה: {ex.Message}");
+        }
+    }
+
+    // ── Nested types ───────────────────────────────────────────────────────────
+
+    public class UserFormModel
+    {
+        public string Username               { get; set; } = string.Empty;
+        public string Email                  { get; set; } = string.Empty;
+        public string? Phone                 { get; set; }
+        public string FirstName              { get; set; } = string.Empty;
+        public string LastName               { get; set; } = string.Empty;
+        public string Password               { get; set; } = string.Empty;
+        public bool IsActive                 { get; set; } = true;
+        public bool PasswordChangeRequired   { get; set; } = true;
+    }
+
+    public class ChangePasswordFormModel
+    {
+        public string NewPassword     { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+
+    private class RoleSummaryDto
+    {
+        public int    Id              { get; set; }
+        public int    RoleId          { get; set; }
+        public string Name            { get; set; } = string.Empty;
+        public string RoleName        { get; set; } = string.Empty;
+        public string? RoleDescription { get; set; }
+    }
+}

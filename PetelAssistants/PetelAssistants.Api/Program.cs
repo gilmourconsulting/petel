@@ -64,6 +64,9 @@ builder.Services.AddSingleton<UserSessionService>();
 builder.Services.AddSingleton<JwtTokenService>();
 builder.Services.AddHostedService<SystemAttributeLoaderHostedService>();
 
+// ── Action authorization service ───────────────────────────────────────────
+builder.Services.AddSingleton<ActionAuthorizationService>();
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -71,6 +74,18 @@ using (var scope = app.Services.CreateScope())
     var jwtService = scope.ServiceProvider.GetRequiredService<JwtTokenService>();
     var sessionService = scope.ServiceProvider.GetRequiredService<UserSessionService>();
     sessionService.SetJwtTokenService(jwtService);
+}
+
+// ── Initialize action authorization cache ─────────────────────────────────
+try
+{
+    var actionAuthService = app.Services.GetRequiredService<ActionAuthorizationService>();
+    await actionAuthService.InitializeAsync();
+}
+catch (Exception ex)
+{
+    var startupLogger = app.Services.GetRequiredService<ILogger<Program>>();
+    startupLogger.LogWarning(ex, "ActionAuthorizationService initialization failed — tables may not exist yet");
 }
 
 if (!app.Environment.IsDevelopment())

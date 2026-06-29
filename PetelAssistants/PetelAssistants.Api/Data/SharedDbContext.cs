@@ -6,17 +6,20 @@ namespace PetelAssistants.Api.Data
 {
     /// <summary>
     /// Read-mostly DbContext for shared_schema — global reference data with no tenant ownership.
-    /// Tables: entities, entity_types, assistant_types, cities, system_attributes, and similar lookup tables.
     /// No global query filters — shared data is visible to all tenants.
     /// </summary>
     public class SharedDbContext : DbContext
     {
         private readonly string _schemaName;
 
-        public DbSet<Entity>           Entities         { get; set; }
-        public DbSet<SystemAttribute>  SystemAttributes { get; set; }
-        public DbSet<HebrewYear>       HebrewYears      { get; set; }
-        public DbSet<MenuItem>         MenuItems        { get; set; }
+        public DbSet<Entity>          Entities         { get; set; }
+        public DbSet<EntityType>      EntityTypes      { get; set; }
+        public DbSet<SystemAttribute> SystemAttributes { get; set; }
+        public DbSet<HebrewYear>      HebrewYears      { get; set; }
+        public DbSet<MenuItem>        MenuItems        { get; set; }
+        public DbSet<SystemAction>    SystemActions    { get; set; }
+        public DbSet<ActionType>      ActionTypes      { get; set; }
+        public DbSet<UserLockReason>  UserLockReasons  { get; set; }
 
         public SharedDbContext(
             DbContextOptions<SharedDbContext> options,
@@ -35,6 +38,17 @@ namespace PetelAssistants.Api.Data
             {
                 entity.ToTable("entities");
                 entity.HasKey(e => e.Id);
+
+                entity.HasOne(e => e.EntityType)
+                    .WithMany(et => et.Entities)
+                    .HasForeignKey(e => e.EntityTypeId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            modelBuilder.Entity<EntityType>(entity =>
+            {
+                entity.ToTable("entity_types");
+                entity.HasKey(e => e.Id);
             });
 
             modelBuilder.Entity<SystemAttribute>(entity =>
@@ -52,6 +66,29 @@ namespace PetelAssistants.Api.Data
             modelBuilder.Entity<MenuItem>(entity =>
             {
                 entity.ToTable("menu_items");
+                entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<SystemAction>(entity =>
+            {
+                entity.ToTable("actions");
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(a => a.ActionType)
+                    .WithMany(at => at.Actions)
+                    .HasForeignKey(a => a.ActionTypeId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<ActionType>(entity =>
+            {
+                entity.ToTable("action_types");
+                entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<UserLockReason>(entity =>
+            {
+                entity.ToTable("user_lock_reasons");
                 entity.HasKey(e => e.Id);
             });
         }

@@ -1,0 +1,95 @@
+@inject ActionSecurityService SecurityService
+@inject IJSRuntime JSRuntime
+@using PetelAssistants.BlazorServer.Services
+
+@if (_isVisible)
+{
+    <button
+        class="@CssClass"
+        disabled="@(_isProcessing || Disabled)"
+        @onclick="HandleClickAsync"
+        title="@Title">
+        @if (_isProcessing)
+        {
+            <span class="spinner-border spinner-border-sm" style="margin-left: 4px;"></span>
+        }
+        @ChildContent
+    </button>
+}
+
+@code {
+    [Parameter, EditorRequired] public string ActionName   { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string ScreenName   { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string FunctionName { get; set; } = string.Empty;
+
+    [Parameter] public string?           ActionParams { get; set; }
+    [Parameter] public EventCallback     OnClick      { get; set; }
+    [Parameter] public RenderFragment?   ChildContent { get; set; }
+    [Parameter] public string            CssClass     { get; set; } = "btn btn-primary";
+    [Parameter] public string?           Title        { get; set; }
+    [Parameter] public bool              Disabled     { get; set; }
+    [Parameter] public bool              HideIfNoAccess { get; set; } = false;
+
+    private bool _isProcessing = false;
+    private bool _isVisible    = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (HideIfNoAccess && !string.IsNullOrEmpty(ActionName))
+        {
+            try
+            {
+                _isVisible = await SecurityService.VerifyActionAsync(
+                    actionName:   ActionName,
+                    screenName:   ScreenName,
+                    functionName: FunctionName,
+                    eventType:    "BUTTON_VISIBLE_CHECK",
+                    actionType:   7,
+                    reference:    ScreenName,
+                    actionParams: ActionParams);
+            }
+            catch
+            {
+                _isVisible = false;
+            }
+        }
+    }
+
+    private async Task HandleClickAsync()
+    {
+        if (_isProcessing) return;
+
+        _isProcessing = true;
+        StateHasChanged();
+
+        try
+        {
+            var allowed = await SecurityService.VerifyActionAsync(
+                actionName:   ActionName,
+                screenName:   ScreenName,
+                functionName: FunctionName,
+                eventType:    "BUTTON_CLICK",
+                actionType:   7,
+                reference:    ScreenName,
+                actionParams: ActionParams);
+
+            if (!allowed)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", SecurityService.GetAccessDeniedMessage(ActionName));
+                return;
+            }
+
+            await OnClick.InvokeAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error executing secure action: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בביצוע הפעולה. אנא נסה שוב.");
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+}

@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PetelAssistants.Api.Models
 {
-    [Table("entities")]
-    public class Entity
+    [Table("entity_types")]
+    public class EntityType
     {
         [Key]
         [Column("id")]
@@ -12,15 +12,16 @@ namespace PetelAssistants.Api.Models
 
         [Required]
         [Column("name")]
-        [MaxLength(200)]
+        [MaxLength(100)]
         public string Name { get; set; } = string.Empty;
 
-        [Column("entity_type_id")]
-        public int? EntityTypeId { get; set; }
+        [Column("description")]
+        [MaxLength(200)]
+        public string? Description { get; set; }
 
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
 
-        public virtual EntityType? EntityType { get; set; }
+        public virtual ICollection<Entity> Entities { get; set; } = new List<Entity>();
     }
 }
