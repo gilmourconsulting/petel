@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using PetelAssistants.Api.Data;
 using PetelAssistants.Api.Models;
 
@@ -241,18 +242,35 @@ namespace PetelAssistants.Api.Services
 
                 var newAction = new SystemAction
                 {
-                    Name          = actionName,
-                    DisplayName   = displayName,
-                    Reference     = reference ?? (parts.Length > 0 ? parts[0] : actionName),
-                    Description   = $"Auto-created from action name '{actionName}'",
-                    ActionTypeId  = actionTypeId,
-                    IsActive      = true,
-                    CreatedAt     = DateTime.UtcNow,
-                    UpdatedAt     = DateTime.UtcNow
+                    Name         = actionName,
+                    DisplayName  = displayName,
+                    Reference    = reference ?? (parts.Length > 0 ? parts[0] : actionName),
+                    Description  = $"Auto-created from action name '{actionName}'",
+                    ActionTypeId = actionTypeId,
+                    IsActive     = true,
+                    CreatedAt    = DateTime.UtcNow,
+                    UpdatedAt    = DateTime.UtcNow
                 };
 
                 shared.SystemActions.Add(newAction);
-                await shared.SaveChangesAsync();
+
+                try
+                {
+                    await shared.SaveChangesAsync();
+                    _logger.LogInformation("Auto-created action: {ActionName} (ID: {Id})", newAction.Name, newAction.Id);
+                }
+                catch (DbUpdateException dbEx) when (dbEx.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+                {
+                    // Another concurrent request created it first — fetch and return the winner.
+                    _logger.LogWarning("Race condition on action creation for '{ActionName}' — fetching existing record", actionName);
+                    var raceAction = await shared.SystemActions.FirstOrDefaultAsync(a => a.Name == actionName);
+                    if (raceAction != null)
+                    {
+                        lock (_cacheLock) { _actionsCache[raceAction.Name.ToLower()] = raceAction; }
+                        return raceAction;
+                    }
+                    throw;
+                }
 
                 lock (_cacheLock) { _actionsCache[newAction.Name.ToLower()] = newAction; }
                 return newAction;

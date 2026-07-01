@@ -59,10 +59,6 @@
                 {
                     <div class="loading-spinner">טוען נתוני תפקידים...</div>
                 }
-                else if (_roles.Count == 0)
-                {
-                    <div class="no-data-message">לא נמצאו תפקידים</div>
-                }
                 else
                 {
                     <div class="table-container">
@@ -88,29 +84,38 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var role in _roles)
+                                @if (_roles.Count == 0)
                                 {
                                     <tr>
-                                        <td>
-                                            <SecureButton ActionName="roles_view" ScreenName="@PageName" FunctionName="ViewRoleDetails" OnClick="() => ViewRoleDetails(role)" CssClass="btn-icon" Title="צפה בפרטי תפקיד">
-                                                <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
-                                            </SecureButton>
-                                            <SecureButton ActionName="roles_edit" ScreenName="@PageName" FunctionName="EditRole" OnClick="() => EditRole(role)" CssClass="btn-icon" Title="ערוך תפקיד">
-                                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
-                                            </SecureButton>
-                                            <SecureButton ActionName="roles_manageusers" ScreenName="@PageName" FunctionName="ManageRoleUsers" OnClick="() => ManageRoleUsers(role)" CssClass="btn-icon" Title="נהל משתמשים">
-                                                <img src="/images/stats_icon.png" alt="משתמשים" class="action-icon-natural">
-                                            </SecureButton>
-                                            <SecureButton ActionName="roles_delete" ScreenName="@PageName" FunctionName="DeleteRole" OnClick="() => DeleteRole(role)" CssClass="btn-icon" Title="מחק תפקיד">
-                                                <img src="/images/delete_icon.png" alt="מחק" class="action-icon-natural">
-                                            </SecureButton>
-                                        </td>
-                                        <td>@role.Name</td>
-                                        <td>@(role.Description ?? "")</td>
-                                        <td>@role.UserCount</td>
-                                        <td>@role.ActionCount</td>
-                                        <td>@role.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                        <td colspan="6" class="no-data-message">לא נמצאו תפקידים</td>
                                     </tr>
+                                }
+                                else
+                                {
+                                    @foreach (var role in _roles)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <SecureButton ActionName="roles_view" ScreenName="@PageName" FunctionName="ViewRoleDetails" OnClick="() => ViewRoleDetails(role)" CssClass="btn-icon" Title="צפה בפרטי תפקיד">
+                                                    <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                                </SecureButton>
+                                                <SecureButton ActionName="roles_edit" ScreenName="@PageName" FunctionName="EditRole" OnClick="() => EditRole(role)" CssClass="btn-icon" Title="ערוך תפקיד">
+                                                    <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                                                </SecureButton>
+                                                <SecureButton ActionName="roles_manageusers" ScreenName="@PageName" FunctionName="ManageRoleUsers" OnClick="() => ManageRoleUsers(role)" CssClass="btn-icon" Title="נהל משתמשים">
+                                                    <img src="/images/stats_icon.png" alt="משתמשים" class="action-icon-natural">
+                                                </SecureButton>
+                                                <SecureButton ActionName="roles_delete" ScreenName="@PageName" FunctionName="DeleteRole" OnClick="() => DeleteRole(role)" CssClass="btn-icon" Title="מחק תפקיד">
+                                                    <img src="/images/delete_icon.png" alt="מחק" class="action-icon-natural">
+                                                </SecureButton>
+                                            </td>
+                                            <td>@role.Name</td>
+                                            <td>@(role.Description ?? "")</td>
+                                            <td>@role.UserCount</td>
+                                            <td>@role.ActionCount</td>
+                                            <td>@role.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                        </tr>
+                                    }
                                 }
                             </tbody>
                         </table>
@@ -441,7 +446,7 @@
         font-weight: 600;
     }
 
-    .no-data-message {
+    td.no-data-message {
         text-align: center;
         padding: 40px;
         color: #6c757d;

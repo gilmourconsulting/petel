@@ -206,7 +206,7 @@
                 return;
             }
 
-            var distributorData = await ApiService.GetAsync<DistributorResponse>($"entities/{session.EntityId}/distributor");
+            var distributorData = await ApiService.GetOrDefaultAsync<DistributorResponse>($"entities/{session.EntityId}/distributor");
             if (distributorData != null && distributorData.Distributor == "Nativ")
             {
                 _topLogo = _nativLogo;

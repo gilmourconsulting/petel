@@ -34,6 +34,11 @@ namespace PetelAssistants.Api.Data
             base.OnModelCreating(modelBuilder);
             modelBuilder.HasDefaultSchema(_schemaName);
 
+            // Prevent assist-schema types from leaking into shared_schema.
+            // User and RolesAction live in AssistDbContext (assist_schema).
+            modelBuilder.Ignore<User>();
+            modelBuilder.Ignore<RolesAction>();
+
             modelBuilder.Entity<Entity>(entity =>
             {
                 entity.ToTable("entities");

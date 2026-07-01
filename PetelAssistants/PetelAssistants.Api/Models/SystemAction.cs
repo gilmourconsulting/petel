@@ -42,6 +42,5 @@ namespace PetelAssistants.Api.Models
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
         public virtual ActionType? ActionType { get; set; }
-        public virtual ICollection<RolesAction> RolesActions { get; set; } = new List<RolesAction>();
     }
 }

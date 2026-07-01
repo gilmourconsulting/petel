@@ -37,19 +37,16 @@ namespace PetelAssistants.Api.Controllers
             {
                 var years = await _sharedContext.HebrewYears
                     .AsNoTracking()
-                    .Where(y => y.IsActive)
                     .OrderByDescending(y => y.Id)
                     .Select(y => new
                     {
-                        id         = y.Id,
-                        yearName   = y.YearName,
-                        isCurrent  = y.IsCurrent,
-                        isPrevious = y.IsPrevious
+                        id       = y.Id,
+                        yearName = y.YearName
                     })
                     .ToListAsync();
 
-                var currentYear  = years.FirstOrDefault(y => y.isCurrent);
-                var previousYear = years.FirstOrDefault(y => y.isPrevious);
+                var currentYear  = years.FirstOrDefault();
+                var previousYear = years.Skip(1).FirstOrDefault();
 
                 return Ok(new
                 {

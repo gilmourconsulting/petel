@@ -72,7 +72,7 @@
     {
         try
         {
-            var response = await ApiService.GetAsync<SessionPropertyResponse>("session/property/AdminSelectedEntityId");
+            var response = await ApiService.GetOrDefaultAsync<SessionPropertyResponse>("session/property/AdminSelectedEntityId");
             if (response != null && int.TryParse(response.Value, out int id))
             {
                 _selectedTenantId = id;

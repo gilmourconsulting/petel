@@ -93,7 +93,8 @@ namespace PetelAssistants.Api.Controllers
 
                 var targetEntityId = ResolveTargetEntityId(session);
 
-                var role = await _context.Roles
+                // Step 1: load role + users + action IDs from assist_schema
+                var roleBase = await _context.Roles
                     .IgnoreQueryFilters()
                     .AsNoTracking()
                     .Where(r => r.Id == id && r.EntityId == targetEntityId)
@@ -116,23 +117,53 @@ namespace PetelAssistants.Api.Controllers
                                 FullName = (ur.User.FirstName ?? "") + " " + (ur.User.LastName ?? ""),
                                 ur.User.IsActive
                             }).ToList(),
-                        Actions = r.RolesActions
-                            .Select(ra => new
-                            {
-                                ra.Id,
-                                ra.ActionId,
-                                ActionName = ra.Action != null ? ra.Action.Name : "",
-                                ActionDisplayName = ra.Action != null ? ra.Action.DisplayName : "",
-                                ActionReference = ra.Action != null ? ra.Action.Reference : null,
-                                ActionTypeName = ra.Action != null && ra.Action.ActionType != null ? ra.Action.ActionType.Name : ""
-                            }).ToList()
+                        RoleActionIds = r.RolesActions
+                            .Select(ra => new { ra.Id, ra.ActionId })
+                            .ToList()
                     })
                     .FirstOrDefaultAsync();
 
-                if (role == null)
+                if (roleBase == null)
                     return NotFound(new { success = false, message = "תפקיד לא נמצא" });
 
-                return Ok(new { success = true, data = role });
+                // Step 2: load action details from shared_schema
+                var actionIds = roleBase.RoleActionIds.Select(a => a.ActionId).ToList();
+                var actionMap = await _sharedContext.SystemActions
+                    .AsNoTracking()
+                    .Where(a => actionIds.Contains(a.Id))
+                    .Include(a => a.ActionType)
+                    .ToDictionaryAsync(a => a.Id);
+
+                // Step 3: join in memory
+                var actions = roleBase.RoleActionIds.Select(a =>
+                {
+                    actionMap.TryGetValue(a.ActionId, out var sa);
+                    return new
+                    {
+                        a.Id,
+                        a.ActionId,
+                        ActionName = sa?.Name ?? "",
+                        ActionDisplayName = sa?.DisplayName ?? "",
+                        ActionReference = sa?.Reference,
+                        ActionTypeName = sa?.ActionType?.Name ?? ""
+                    };
+                }).ToList();
+
+                return Ok(new
+                {
+                    success = true,
+                    data = new
+                    {
+                        roleBase.Id,
+                        roleBase.Name,
+                        roleBase.Description,
+                        roleBase.EntityId,
+                        roleBase.CreatedAt,
+                        roleBase.UpdatedAt,
+                        roleBase.Users,
+                        Actions = actions
+                    }
+                });
             }
             catch (Exception ex)
             {

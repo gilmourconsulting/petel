@@ -59,9 +59,44 @@ namespace PetelAssistants.Api.Controllers
                 var targetEntityId = ResolveTargetEntityId(session);
                 _logger.LogInformation("Loading users for entity {EntityId}", targetEntityId);
 
-                var users = await QueryUsers(targetEntityId)
+                // Step 1: load tenant users from assist_schema (scalar columns only)
+                var rawUsers = await QueryUsers(targetEntityId)
                     .AsNoTracking()
+                    .OrderBy(u => u.Username)
                     .Select(u => new
+                    {
+                        u.Id,
+                        u.Username,
+                        u.Email,
+                        u.Phone,
+                        u.FirstName,
+                        u.LastName,
+                        u.IsActive,
+                        u.IsLocked,
+                        u.LockedAt,
+                        u.LastLogin,
+                        u.CreatedAt,
+                        u.UpdatedAt,
+                        u.PasswordChangedAt,
+                        u.PasswordChangeRequired,
+                        u.EntityId,
+                        u.FailedPasswordAttempts,
+                        u.FailedOtpAttempts,
+                        u.OtpVerified,
+                        u.LockReasonId
+                    })
+                    .ToListAsync();
+
+                // Step 2: load lock reasons from shared_schema (small lookup table)
+                var lockReasonMap = await _sharedContext.UserLockReasons
+                    .AsNoTracking()
+                    .ToDictionaryAsync(r => r.Id);
+
+                // Step 3: join in memory to produce the final projection
+                var users = rawUsers.Select(u =>
+                {
+                    lockReasonMap.TryGetValue(u.LockReasonId.GetValueOrDefault(), out var lr);
+                    return new
                     {
                         u.Id,
                         u.Username,
@@ -83,12 +118,11 @@ namespace PetelAssistants.Api.Controllers
                         u.FailedOtpAttempts,
                         u.OtpVerified,
                         u.LockReasonId,
-                        LockReasonCode = u.LockReason != null ? u.LockReason.Code : null,
-                        LockReasonName = u.LockReason != null ? u.LockReason.Name : null,
-                        LockReasonAllowForgotPassword = u.LockReason != null ? (bool?)u.LockReason.AllowForgotPassword : null
-                    })
-                    .OrderBy(u => u.Username)
-                    .ToListAsync();
+                        LockReasonCode = lr?.Code,
+                        LockReasonName = lr?.Name,
+                        LockReasonAllowForgotPassword = (bool?)lr?.AllowForgotPassword
+                    };
+                }).ToList();
 
                 return Ok(new { success = true, data = users });
             }

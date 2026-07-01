@@ -98,7 +98,7 @@ namespace PetelAssistants.Api.Models
         [Column("update_user")]
         public int? UpdateUser { get; set; }
 
-        public virtual UserLockReason? LockReason { get; set; }
+        /// <summary>LockReason navigation is intentionally absent — UserLockReason lives in shared_schema (SharedDbContext).</summary>
         public virtual ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     }
 }

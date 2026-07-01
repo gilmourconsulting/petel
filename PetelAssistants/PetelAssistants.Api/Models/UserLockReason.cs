@@ -36,8 +36,6 @@ namespace PetelAssistants.Api.Models
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        public virtual ICollection<User> Users { get; set; } = new List<User>();
-
         public const string LoginAttemptsExceeded = "LOGIN_ATTEMPTS_EXCEEDED";
         public const string AdminLocked = "ADMIN_LOCKED";
     }

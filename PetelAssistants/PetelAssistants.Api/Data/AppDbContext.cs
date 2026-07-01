@@ -38,16 +38,16 @@ namespace PetelAssistants.Api.Data
             base.OnModelCreating(modelBuilder);
             modelBuilder.HasDefaultSchema(_schemaName);
 
+            // Prevent shared-schema types from leaking into assist_schema.
+            // UserLockReason and SystemAction live in SharedDbContext (shared_schema).
+            modelBuilder.Ignore<UserLockReason>();
+            modelBuilder.Ignore<SystemAction>();
+
             modelBuilder.Entity<User>(entity =>
             {
                 entity.ToTable("users");
                 entity.HasKey(e => e.Id);
                 entity.HasIndex(e => new { e.EntityId, e.Username }).IsUnique();
-
-                entity.HasOne(u => u.LockReason)
-                    .WithMany(r => r.Users)
-                    .HasForeignKey(u => u.LockReasonId)
-                    .OnDelete(DeleteBehavior.SetNull);
 
                 entity.HasMany(u => u.UserRoles)
                     .WithOne(ur => ur.User)
@@ -90,11 +90,6 @@ namespace PetelAssistants.Api.Data
                 entity.ToTable("roles_actions");
                 entity.HasKey(e => e.Id);
                 entity.HasIndex(e => new { e.RoleId, e.ActionId }).IsUnique();
-
-                entity.HasOne(ra => ra.Action)
-                    .WithMany(a => a.RolesActions)
-                    .HasForeignKey(ra => ra.ActionId)
-                    .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasQueryFilter(ra => _tenantContext.EntityId != 0 && ra.EntityId == _tenantContext.EntityId);
             });

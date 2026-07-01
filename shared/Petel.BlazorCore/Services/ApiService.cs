@@ -189,6 +189,61 @@ namespace Petel.BlazorCore.Services
         }
 
         /// <summary>
+        /// GET request that returns default(T) on NotFound (404) without logging an error.
+        /// Use for optional resources that may legitimately not exist.
+        /// </summary>
+        public async Task<T?> GetOrDefaultAsync<T>(string endpoint)
+        {
+            try
+            {
+                var client = await GetAuthorizedClientAsync();
+                var url = $"{_baseUrl}/{endpoint}";
+                _logger.LogDebug("GET request to {Url}", url);
+                var response = await client.GetAsync(url);
+                _logger.LogInformation("GET {Endpoint} returned status {StatusCode}", endpoint, response.StatusCode);
+
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    _logger.LogDebug("GET {Endpoint} returned NotFound — treating as empty", endpoint);
+                    return default;
+                }
+
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogWarning("Unauthorized request to {Endpoint}", endpoint);
+                    throw new HttpStatusException(System.Net.HttpStatusCode.Unauthorized, "Authentication required", errorContent);
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("GET {Endpoint} failed with {StatusCode}: {Error}", endpoint, response.StatusCode, errorContent);
+                    throw new HttpStatusException(response.StatusCode, $"Request failed with status {response.StatusCode}", errorContent);
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                _logger.LogDebug("GET {Endpoint} response: {Content}", endpoint, content);
+                return JsonSerializer.Deserialize<T>(content, _jsonOptions);
+            }
+            catch (ObjectDisposedException ex)
+            {
+                _logger.LogWarning(ex, "HttpClient disposed during GET request to {Endpoint}", endpoint);
+                return default;
+            }
+            catch (TaskCanceledException ex)
+            {
+                _logger.LogDebug(ex, "GET request cancelled for {Endpoint}", endpoint);
+                return default;
+            }
+            catch (Exception ex) when (ex is not HttpStatusException)
+            {
+                _logger.LogError(ex, "GET request failed for {Endpoint}", endpoint);
+                throw;
+            }
+        }
+
+        /// <summary>
         /// GET request for downloading files (returns raw byte array with headers)
         /// </summary>
         public async Task<FileDownloadResponse?> GetFileAsync(string endpoint)

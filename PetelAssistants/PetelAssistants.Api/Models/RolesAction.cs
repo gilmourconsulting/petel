@@ -27,6 +27,5 @@ namespace PetelAssistants.Api.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public virtual Role? Role { get; set; }
-        public virtual SystemAction? Action { get; set; }
     }
 }
