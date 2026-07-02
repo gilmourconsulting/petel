@@ -160,6 +160,55 @@ namespace PetelAssistants.BlazorServer.DTOs
         public int ActionId { get; set; }
     }
 
+    public class RolesResponse
+    {
+        public bool Success { get; set; }
+        public List<RoleDto> Data { get; set; } = new();
+        public string? Message { get; set; }
+    }
+
+    public class RoleDetailsData
+    {
+        public RoleSummaryDto Role { get; set; } = new();
+        public List<RoleDetailsUserDto> Users { get; set; } = new();
+        public List<RoleDetailsActionDto> Actions { get; set; } = new();
+    }
+
+    public class RoleSummaryDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime UpdatedAt { get; set; }
+    }
+
+    public class RoleDetailsUserDto
+    {
+        public int Id { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string FullName { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+    }
+
+    public class RoleDetailsActionDto
+    {
+        public int Id { get; set; }
+        public int ActionId { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
+        public string? Reference { get; set; }
+        public string ActionTypeName { get; set; } = string.Empty;
+    }
+
+    public class PickListItemDto
+    {
+        public int Id { get; set; }
+        public string DisplayName { get; set; } = string.Empty;
+        public string? Reference { get; set; }
+        public string ActionTypeName { get; set; } = string.Empty;
+        public string? Subtitle { get; set; }
+    }
+
     // ── Tenants ───────────────────────────────────────────────────────────────
 
     public class TenantDto

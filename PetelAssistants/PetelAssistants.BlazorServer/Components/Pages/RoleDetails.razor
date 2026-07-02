@@ -1,302 +1,877 @@
 @page "/roledetails/{RoleId:int}"
 @layout MainLayout
 @inherits SecurePageBase
+@implements IDisposable
 @inject ApiService ApiService
+@inject ILogger<RoleDetails> Logger
 
 <div class="school-title-section">
-    <h1 class="page-title">פרטי תפקיד</h1>
+    <h1 class="page-title">@_pageTitle</h1>
 </div>
 
 <div class="main-container">
     <div class="context-buttons-section">
-        <SecureButton ActionName="roledetails_back" ScreenName="@PageName" FunctionName="NavigateBack" OnClick="NavigateBack" CssClass="context-navigation-btn">
-            חזרה לרשימת תפקידים
-        </SecureButton>
+        <SecureButton ActionName="roledetails_refresh" ScreenName="@PageName" FunctionName="RefreshData"
+                      OnClick="RefreshRoleDetails" CssClass="context-btn">רענן נתונים</SecureButton>
+        <SecureButton ActionName="roledetails_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                      OnClick="NavigateToRoles" CssClass="context-navigation-btn">חזרה לרשימת תפקידים</SecureButton>
     </div>
 
-    @if (_isLoading)
-    {
-        <div class="loading-spinner">טוען פרטי תפקיד...</div>
-    }
-    else if (_role == null)
-    {
-        <div class="no-data-message">תפקיד לא נמצא</div>
-    }
-    else
-    {
+    <div class="students-content">
         <div class="content-card">
-            <div class="role-header">
-                <h2>@_role.Name</h2>
-                @if (!string.IsNullOrEmpty(_role.Description))
-                {
-                    <p class="role-description">@_role.Description</p>
-                }
-                <div class="role-meta">
-                    <span>נוצר: @_role.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</span>
+            @if (_loading)
+            {
+                <div class="loading-spinner">טוען...</div>
+            }
+            else if (_roleData == null)
+            {
+                <div class="error-message">לא נמצאו נתונים</div>
+            }
+            else
+            {
+                <div class="detail-card @(_detailsExpanded ? "expanded" : "collapsed")">
+                    <div class="detail-card-header" @onclick="() => ToggleSection(1)">
+                        <h2 class="detail-card-title">פרטי התפקיד</h2>
+                        <div class="card-header-actions">
+                            <SecureButton ActionName="roledetails_editName" ScreenName="@PageName" FunctionName="EditRoleName"
+                                          OnClick="ShowEditRoleNameDialog" CssClass="btn-icon" Title="ערוך שם">
+                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                            </SecureButton>
+                            <button type="button" class="collapse-toggle" aria-label="הרחב/כווץ">@(_detailsExpanded ? "×" : "+")</button>
+                        </div>
+                    </div>
+                    <div class="detail-card-content">
+                        <div class="detail-fields-grid">
+                            <div class="detail-section">
+                                <h4 class="detail-section-title">פרטים בסיסיים</h4>
+                                <div>
+                                    <p class="detail-field">
+                                        <span class="detail-field-label">שם התפקיד:</span>
+                                        <span class="detail-field-value">@_roleData.Role.Name</span>
+                                    </p>
+                                    @if (!string.IsNullOrEmpty(_roleData.Role.Description))
+                                    {
+                                        <p class="detail-field">
+                                            <span class="detail-field-label">תיאור:</span>
+                                            <span class="detail-field-value">@_roleData.Role.Description</span>
+                                        </p>
+                                    }
+                                    <p class="detail-field">
+                                        <span class="detail-field-label">נוצר בתאריך:</span>
+                                        <span class="detail-field-value">@_roleData.Role.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                                    </p>
+                                    <p class="detail-field">
+                                        <span class="detail-field-label">עודכן בתאריך:</span>
+                                        <span class="detail-field-value">@_roleData.Role.UpdatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
+
+                <div class="detail-card @(_usersExpanded ? "expanded" : "collapsed")">
+                    <div class="detail-card-header" @onclick="() => ToggleSection(2)">
+                        <h2 class="detail-card-title">משתמשים בעלי תפקיד זה</h2>
+                        <div class="card-header-actions">
+                            <SecureButton ActionName="roledetails_addUsers" ScreenName="@PageName" FunctionName="AddUsers"
+                                          OnClick="ShowAddUserDialog" CssClass="btn-icon" Title="הוסף משתמש">
+                                <img src="/images/Plus icon.png" alt="הוספה" class="action-icon-natural">
+                            </SecureButton>
+                            <button type="button" class="collapse-toggle" aria-label="הרחב/כווץ">@(_usersExpanded ? "×" : "+")</button>
+                        </div>
+                    </div>
+                    <div class="detail-card-content">
+                        <div class="table-container">
+                            @if (_roleData.Users == null || _roleData.Users.Count == 0)
+                            {
+                                <p class="info-message">אין משתמשים המשויכים לתפקיד זה</p>
+                            }
+                            else
+                            {
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>שם משתמש</th>
+                                            <th>שם מלא</th>
+                                            <th>סטטוס</th>
+                                            <th>פעולות</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var user in _roleData.Users)
+                                        {
+                                            <tr>
+                                                <td>@user.Username</td>
+                                                <td>@user.FullName</td>
+                                                <td>
+                                                    <span class="status-badge @(user.IsActive ? "active" : "inactive")">
+                                                        @(user.IsActive ? "פעיל" : "לא פעיל")
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <SecureButton ActionName="roledetails_removeUser" ScreenName="@PageName" FunctionName="RemoveUser"
+                                                                  OnClick="() => RemoveUser(user.Id)" CssClass="btn-icon" Title="הסר משתמש">
+                                                        <img src="/images/delete_icon.png" alt="הסר" class="action-icon-natural">
+                                                    </SecureButton>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-card @(_actionsExpanded ? "expanded" : "collapsed")">
+                    <div class="detail-card-header" @onclick="() => ToggleSection(3)">
+                        <h2 class="detail-card-title">פעולות המותרות לתפקיד</h2>
+                        <div class="card-header-actions">
+                            <SecureButton ActionName="roledetails_addActions" ScreenName="@PageName" FunctionName="AddActions"
+                                          OnClick="ShowAddActionDialog" CssClass="btn-icon" Title="הוסף פעולה">
+                                <img src="/images/Plus icon.png" alt="הוספה" class="action-icon-natural">
+                            </SecureButton>
+                            <button type="button" class="collapse-toggle" aria-label="הרחב/כווץ">@(_actionsExpanded ? "×" : "+")</button>
+                        </div>
+                    </div>
+                    <div class="detail-card-content">
+                        <div style="margin-bottom: 15px;">
+                            <input type="text" @bind="_searchTerm" @bind:event="oninput" @onkeyup="FilterActions"
+                                   placeholder="חיפוש פעולה לפי שם, הפניה או סוג..."
+                                   style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px; direction: rtl; font-size: 14px;">
+                        </div>
+                        <div class="table-container">
+                            @if (_filteredActions == null || _filteredActions.Count == 0)
+                            {
+                                <p class="info-message">לא נמצאו פעולות</p>
+                            }
+                            else
+                            {
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>שם הפעולה</th>
+                                            <th>הפניה</th>
+                                            <th>סוג</th>
+                                            <th>פעולות</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var action in _filteredActions)
+                                        {
+                                            <tr>
+                                                <td>@action.DisplayName</td>
+                                                <td>@action.Reference</td>
+                                                <td>@action.ActionTypeName</td>
+                                                <td>
+                                                    <SecureButton ActionName="roledetails_removeAction" ScreenName="@PageName" FunctionName="RemoveAction"
+                                                                  OnClick="() => RemoveAction(action.ActionId)" CssClass="btn-icon" Title="הסר פעולה">
+                                                        <img src="/images/delete_icon.png" alt="הסר" class="action-icon-natural">
+                                                    </SecureButton>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
         </div>
-
-        <div class="row-two-columns">
-            @* ── Users in role ──────────────────────────────────────────────── *@
-            <div class="content-card half-card">
-                <div class="card-header-row">
-                    <h3>משתמשים בתפקיד (@_role.Users.Count)</h3>
-                </div>
-
-                @if (_role.Users.Count == 0)
-                {
-                    <p class="no-data-message">לא שויכו משתמשים לתפקיד זה</p>
-                }
-                else
-                {
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>פעולות</th>
-                                <th>שם משתמש</th>
-                                <th>שם מלא</th>
-                                <th>סטטוס</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var user in _role.Users)
-                            {
-                                <tr class="@(user.IsActive ? "" : "row-inactive")">
-                                    <td>
-                                        <SecureButton ActionName="roledetails_removeuser" ScreenName="@PageName" FunctionName="RemoveUserFromRole"
-                                                      ActionParams="@($"roleId={RoleId},userId={user.UserId}")"
-                                                      OnClick="() => RemoveUser(user.UserId)" CssClass="btn-icon btn-danger" Title="הסר מתפקיד" HideIfNoAccess="true">
-                                            <img src="/images/remove_icon.png" alt="הסר" class="action-icon-natural" />
-                                        </SecureButton>
-                                    </td>
-                                    <td>@user.Username</td>
-                                    <td>@user.FullName</td>
-                                    <td>
-                                        <span class="status-badge @(user.IsActive ? "status-active" : "status-inactive")">
-                                            @(user.IsActive ? "פעיל" : "לא פעיל")
-                                        </span>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-
-                <div class="add-item-row">
-                    <h4>הוסף משתמש לתפקיד</h4>
-                    <div class="inline-form">
-                        <select class="form-control" @bind="_userToAdd">
-                            <option value="0">— בחר משתמש —</option>
-                            @foreach (var user in _availableUsers)
-                            {
-                                <option value="@user.UserId">@user.Username (@user.FullName)</option>
-                            }
-                        </select>
-                        <SecureButton ActionName="roledetails_adduser" ScreenName="@PageName" FunctionName="AddUserToRole"
-                                      OnClick="AddUser" CssClass="btn btn-primary" Disabled="@(_userToAdd == 0)">
-                            הוסף
-                        </SecureButton>
-                    </div>
-                </div>
-            </div>
-
-            @* ── Actions in role ────────────────────────────────────────────── *@
-            <div class="content-card half-card">
-                <div class="card-header-row">
-                    <h3>הרשאות בתפקיד (@_role.Actions.Count)</h3>
-                </div>
-
-                @if (_role.Actions.Count == 0)
-                {
-                    <p class="no-data-message">לא הוגדרו הרשאות לתפקיד זה</p>
-                }
-                else
-                {
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>פעולות</th>
-                                <th>שם הרשאה</th>
-                                <th>תיאור</th>
-                                <th>מסך</th>
-                                <th>סוג</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var action in _role.Actions.OrderBy(a => a.ActionReference).ThenBy(a => a.ActionName))
-                            {
-                                <tr>
-                                    <td>
-                                        <SecureButton ActionName="roledetails_removeaction" ScreenName="@PageName" FunctionName="RemoveActionFromRole"
-                                                      ActionParams="@($"roleId={RoleId},actionId={action.ActionId}")"
-                                                      OnClick="() => RemoveAction(action.ActionId)" CssClass="btn-icon btn-danger" Title="הסר הרשאה" HideIfNoAccess="true">
-                                            <img src="/images/remove_icon.png" alt="הסר" class="action-icon-natural" />
-                                        </SecureButton>
-                                    </td>
-                                    <td><code>@action.ActionName</code></td>
-                                    <td>@action.ActionDisplayName</td>
-                                    <td>@(action.ActionReference ?? "—")</td>
-                                    <td>@action.ActionTypeName</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                }
-
-                <div class="add-item-row">
-                    <h4>הוסף הרשאה לתפקיד</h4>
-                    <div class="form-group">
-                        <input type="text" class="form-control" @bind="_actionFilter" @bind:event="oninput" placeholder="חיפוש הרשאה..." />
-                    </div>
-                    <div class="inline-form">
-                        <select class="form-control" size="6" @bind="_actionToAdd" style="height: 150px;">
-                            @foreach (var action in FilteredAvailableActions)
-                            {
-                                <option value="@action.Id">[@action.ActionTypeName] @action.Name — @action.DisplayName</option>
-                            }
-                        </select>
-                        <SecureButton ActionName="roledetails_addaction" ScreenName="@PageName" FunctionName="AddActionToRole"
-                                      OnClick="AddAction" CssClass="btn btn-primary" Disabled="@(_actionToAdd == 0)">
-                            הוסף
-                        </SecureButton>
-                    </div>
-                </div>
-            </div>
-        </div>
-    }
+    </div>
 </div>
+
+@if (_showEditRoleNameDialog)
+{
+    <div class="modal-overlay" @onclick="CloseEditRoleNameDialog">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>ערוך שם תפקיד</h3>
+                <button class="modal-close" @onclick="CloseEditRoleNameDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="editRoleName">שם התפקיד *</label>
+                    <input type="text" id="editRoleName" class="form-control" @bind="_editedRoleName" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" @onclick="CloseEditRoleNameDialog">ביטול</button>
+                <button type="button" class="btn-primary" @onclick="SaveRoleName">שמור</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showAddActionDialog)
+{
+    <div id="add-action-modal" class="modal-overlay" @onclick="CloseAddActionDialog">
+        <div class="modal-content" style="min-width: 800px; max-width: 90%;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>הוסף פעולות לתפקיד</h3>
+                <button class="modal-close" @onclick="CloseAddActionDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; gap: 20px; direction: rtl;">
+                    <div style="flex: 1;">
+                        <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">פעולות זמינות</h4>
+                        <input type="text" @bind="_availableSearchTerm" @bind:event="oninput" @onkeyup="FilterAvailableActions"
+                               placeholder="חיפוש פעולה..."
+                               style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #dee2e6; border-radius: 4px; direction: rtl;">
+                        <div id="available-actions-zone" data-pane="available"
+                             style="border: 2px dashed #dee2e6; border-radius: 8px; min-height: 400px; max-height: 400px; overflow-y: auto; padding: 10px; background-color: #f8f9fa;">
+                            @if (_filteredAvailableActions.Count == 0)
+                            {
+                                <p style="text-align: center; color: #6c757d; padding: 20px;">אין פעולות זמינות</p>
+                            }
+                            else
+                            {
+                                @foreach (var action in _filteredAvailableActions)
+                                {
+                                    <div class="action-item" data-item-id="@action.Id" @onclick="() => SelectAction(action)">
+                                        <div class="action-item-header">@action.ActionTypeName - @(action.Reference ?? "ללא הפניה")</div>
+                                        <div class="action-item-name">@action.DisplayName</div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <small style="display: block; margin-top: 5px; color: #6c757d;">לחץ או גרור פעולה כדי לבחור</small>
+                    </div>
+                    <div style="flex: 1;">
+                        <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">פעולות נבחרות (@_selectedActions.Count)</h4>
+                        <div style="height: 34px; margin-bottom: 10px;"></div>
+                        <div id="selected-actions-zone" data-pane="selected"
+                             style="border: 2px solid #28a745; border-radius: 8px; min-height: 400px; max-height: 400px; overflow-y: auto; padding: 10px; background-color: #f8f9fa;">
+                            @if (_selectedActions.Count == 0)
+                            {
+                                <p style="text-align: center; color: #6c757d; padding: 20px;">בחר פעולות</p>
+                            }
+                            else
+                            {
+                                @foreach (var action in _selectedActions)
+                                {
+                                    <div class="action-item" data-item-id="@action.Id" @onclick="() => DeselectAction(action)">
+                                        <div class="action-item-header">@action.ActionTypeName - @(action.Reference ?? "ללא הפניה")</div>
+                                        <div class="action-item-name">@action.DisplayName</div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <small style="display: block; margin-top: 5px; color: #6c757d;">לחץ או גרור פעולה כדי להסיר</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" @onclick="CloseAddActionDialog">ביטול</button>
+                <button type="button" class="btn-primary" @onclick="SubmitSelectedActions" disabled="@(_selectedActions.Count == 0)">
+                    הוסף פעולות (@_selectedActions.Count)
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showAddUserDialog)
+{
+    <div id="add-user-modal" class="modal-overlay" @onclick="CloseAddUserDialog">
+        <div class="modal-content" style="min-width: 800px; max-width: 90%;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>הוסף משתמשים לתפקיד</h3>
+                <button class="modal-close" @onclick="CloseAddUserDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: flex; gap: 20px; direction: rtl;">
+                    <div style="flex: 1;">
+                        <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">משתמשים זמינים</h4>
+                        <input type="text" @bind="_availableUsersSearchTerm" @bind:event="oninput" @onkeyup="FilterAvailableUsers"
+                               placeholder="חיפוש משתמש..."
+                               style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #dee2e6; border-radius: 4px; direction: rtl;">
+                        <div id="available-users-zone" data-pane="available"
+                             style="border: 2px dashed #dee2e6; border-radius: 8px; min-height: 400px; max-height: 400px; overflow-y: auto; padding: 10px; background-color: #f8f9fa;">
+                            @if (_filteredAvailableUsers.Count == 0)
+                            {
+                                <p style="text-align: center; color: #6c757d; padding: 20px;">אין משתמשים זמינים</p>
+                            }
+                            else
+                            {
+                                @foreach (var user in _filteredAvailableUsers)
+                                {
+                                    <div class="action-item" data-item-id="@user.Id" @onclick="() => SelectUser(user)">
+                                        <div class="action-item-header">@user.Username</div>
+                                        <div class="action-item-name">@user.FullName</div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <small style="display: block; margin-top: 5px; color: #6c757d;">לחץ או גרור משתמש כדי לבחור</small>
+                    </div>
+                    <div style="flex: 1;">
+                        <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">משתמשים נבחרים (@_selectedUsers.Count)</h4>
+                        <div style="height: 34px; margin-bottom: 10px;"></div>
+                        <div id="selected-users-zone" data-pane="selected"
+                             style="border: 2px solid #28a745; border-radius: 8px; min-height: 400px; max-height: 400px; overflow-y: auto; padding: 10px; background-color: #f8f9fa;">
+                            @if (_selectedUsers.Count == 0)
+                            {
+                                <p style="text-align: center; color: #6c757d; padding: 20px;">בחר משתמשים</p>
+                            }
+                            else
+                            {
+                                @foreach (var user in _selectedUsers)
+                                {
+                                    <div class="action-item" data-item-id="@user.Id" @onclick="() => DeselectUser(user)">
+                                        <div class="action-item-header">@user.Username</div>
+                                        <div class="action-item-name">@user.FullName</div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <small style="display: block; margin-top: 5px; color: #6c757d;">לחץ או גרור משתמש כדי להסיר</small>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" @onclick="CloseAddUserDialog">ביטול</button>
+                <button type="button" class="btn-primary" @onclick="SubmitSelectedUsers" disabled="@(_selectedUsers.Count == 0)">
+                    הוסף משתמשים (@_selectedUsers.Count)
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(_message))
+{
+    <div class="@(_messageType == "success" ? "success-alert" : "error-alert")" style="position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 2000;">
+        @_message
+    </div>
+}
 
 @code {
     [Parameter] public int RoleId { get; set; }
 
+    private RoleDetailsData? _roleData;
+    private List<RoleDetailsActionDto> _filteredActions = new();
+    private List<PickListItemDto> _availableActions = new();
+    private List<PickListItemDto> _filteredAvailableActions = new();
+    private List<PickListItemDto> _selectedActions = new();
+    private List<RoleDetailsUserDto> _availableUsers = new();
+    private List<RoleDetailsUserDto> _filteredAvailableUsers = new();
+    private List<RoleDetailsUserDto> _selectedUsers = new();
+
+    private bool _loading = true;
+    private bool _detailsExpanded = false;
+    private bool _usersExpanded = false;
+    private bool _actionsExpanded = false;
+    private bool _showEditRoleNameDialog = false;
+    private bool _showAddActionDialog = false;
+    private bool _showAddUserDialog = false;
+    private string _editedRoleName = string.Empty;
+    private string _searchTerm = string.Empty;
+    private string _availableSearchTerm = string.Empty;
+    private string _availableUsersSearchTerm = string.Empty;
+    private string _pageTitle = "פרטי תפקיד";
+    private string? _message;
+    private string _messageType = "success";
+
+    private DotNetObjectReference<RoleDetails>? _dotNetRef;
+    private bool _pendingActionDragInit;
+    private bool _pendingUserDragInit;
+
     protected override string PageName => "roledetails";
-
-    private RoleDetailsDto? _role;
-    private bool _isLoading = true;
-
-    // Users
-    private int _userToAdd = 0;
-    private List<RoleUserDto> _availableUsers = new();
-
-    // Actions
-    private int _actionToAdd = 0;
-    private List<AvailableActionDto> _availableActions = new();
-    private string _actionFilter = string.Empty;
-
-    private IEnumerable<AvailableActionDto> FilteredAvailableActions =>
-        string.IsNullOrWhiteSpace(_actionFilter)
-            ? _availableActions
-            : _availableActions.Where(a =>
-                a.Name.Contains(_actionFilter, StringComparison.OrdinalIgnoreCase) ||
-                a.DisplayName.Contains(_actionFilter, StringComparison.OrdinalIgnoreCase) ||
-                (a.Reference?.Contains(_actionFilter, StringComparison.OrdinalIgnoreCase) ?? false));
 
     protected override async Task OnPageInitializedAsync()
     {
-        await LoadDataAsync();
+        _dotNetRef = DotNetObjectReference.Create(this);
+        await LoadRoleDetails();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_pendingActionDragInit && _showAddActionDialog)
+        {
+            _pendingActionDragInit = false;
+            await InitActionDragDropAsync();
+        }
+
+        if (_pendingUserDragInit && _showAddUserDialog)
+        {
+            _pendingUserDragInit = false;
+            await InitUserDragDropAsync();
+        }
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!_isLoading)
-            await LoadDataAsync();
+        if (!_loading)
+            await LoadRoleDetails();
     }
 
-    private async Task LoadDataAsync()
+    private async Task LoadRoleDetails()
     {
+        _loading = true;
         try
         {
-            _isLoading = true;
-            await Task.WhenAll(LoadRoleDetailsAsync(), LoadAvailableUsersAsync(), LoadAvailableActionsAsync());
+            var response = await ApiService.GetAsync<ApiResponse<RoleDetailsData>>($"roles/{RoleId}");
+            if (response?.Data != null)
+            {
+                _roleData = response.Data;
+                _filteredActions = _roleData.Actions ?? new();
+                _pageTitle = $"תפקיד: {_roleData.Role.Name}";
+            }
+            else
+            {
+                _message = "לא נמצאו נתונים";
+                _messageType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading role details");
+            _message = "שגיאה בטעינת נתונים";
+            _messageType = "error";
         }
         finally
         {
-            _isLoading = false;
+            _loading = false;
         }
     }
 
-    private async Task LoadRoleDetailsAsync()
+    private async Task RefreshRoleDetails()
     {
         try
         {
-            var response = await ApiService.GetAsync<ApiResponse<RoleDetailsDto>>($"roles/{RoleId}");
-            _role = response?.Data;
+            await ApiService.PostAsync<object?, ApiResponse<object>>("roles/refresh-cache", null);
+            await LoadRoleDetails();
+            _message = "הנתונים רועננו בהצלחה";
+            _messageType = "success";
+            ClearMessageAfterDelay();
         }
-        catch (Exception ex) { Console.WriteLine($"Error loading role: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error refreshing role details");
+            _message = "שגיאה ברענון הנתונים";
+            _messageType = "error";
+        }
     }
 
-    private async Task LoadAvailableUsersAsync()
+    private void NavigateToRoles() => Navigation.NavigateTo("/roles");
+
+    private void ToggleSection(int section)
     {
-        try
+        switch (section)
         {
-            var response = await ApiService.GetAsync<ApiResponse<List<RoleUserDto>>>($"roles/available-users?roleId={RoleId}");
-            _availableUsers = response?.Data ?? new();
+            case 1: _detailsExpanded = !_detailsExpanded; break;
+            case 2: _usersExpanded = !_usersExpanded; break;
+            case 3: _actionsExpanded = !_actionsExpanded; break;
         }
-        catch (Exception ex) { Console.WriteLine($"Error loading available users: {ex.Message}"); }
     }
 
-    private async Task LoadAvailableActionsAsync()
+    private void ShowEditRoleNameDialog()
+    {
+        if (_roleData?.Role != null)
+        {
+            _editedRoleName = _roleData.Role.Name;
+            _showEditRoleNameDialog = true;
+        }
+    }
+
+    private void CloseEditRoleNameDialog()
+    {
+        _showEditRoleNameDialog = false;
+        _editedRoleName = string.Empty;
+    }
+
+    private async Task SaveRoleName()
+    {
+        if (string.IsNullOrWhiteSpace(_editedRoleName))
+        {
+            _message = "שם תפקיד לא יכול להיות ריק";
+            _messageType = "error";
+            return;
+        }
+
+        try
+        {
+            var response = await ApiService.PutAsync<UpdateRoleRequest, ApiResponse<object>>(
+                $"roles/{RoleId}", new UpdateRoleRequest { Name = _editedRoleName });
+
+            if (response?.Success == true)
+            {
+                _message = "שם התפקיד עודכן בהצלחה";
+                _messageType = "success";
+                CloseEditRoleNameDialog();
+                await RefreshRoleDetails();
+                ClearMessageAfterDelay();
+            }
+            else
+            {
+                _message = response?.Message ?? "שגיאה בעדכון שם התפקיד";
+                _messageType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving role name");
+            _message = "שגיאה בעדכון שם התפקיד";
+            _messageType = "error";
+        }
+    }
+
+    private async Task ShowAddActionDialog()
     {
         try
         {
-            var response = await ApiService.GetAsync<ApiResponse<List<AvailableActionDto>>>($"roles/available-actions?roleId={RoleId}");
-            _availableActions = (response?.Data ?? new()).Where(a => !a.IsAssigned).ToList();
+            var response = await ApiService.GetAsync<ApiResponse<List<PickListItemDto>>>($"roles/available-actions?roleId={RoleId}");
+            if (response?.Data != null)
+            {
+                _availableActions = response.Data;
+                _filteredAvailableActions = response.Data;
+                _selectedActions.Clear();
+                _availableSearchTerm = string.Empty;
+                _showAddActionDialog = true;
+                _pendingActionDragInit = true;
+            }
         }
-        catch (Exception ex) { Console.WriteLine($"Error loading available actions: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading available actions");
+            _message = "שגיאה בטעינת רשימת הפעולות";
+            _messageType = "error";
+        }
+    }
+
+    private async Task CloseAddActionDialog()
+    {
+        _showAddActionDialog = false;
+        _availableActions.Clear();
+        _filteredAvailableActions.Clear();
+        _selectedActions.Clear();
+        _availableSearchTerm = string.Empty;
+        try { await JSRuntime.InvokeVoidAsync("dragDropPickList.dispose", "add-action-modal"); } catch { }
+    }
+
+    private async Task ShowAddUserDialog()
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<RoleDetailsUserDto>>>($"roles/available-users?roleId={RoleId}");
+            if (response?.Data != null)
+            {
+                _availableUsers = response.Data;
+                _filteredAvailableUsers = response.Data;
+                _selectedUsers.Clear();
+                _availableUsersSearchTerm = string.Empty;
+                _showAddUserDialog = true;
+                _pendingUserDragInit = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading available users");
+            _message = "שגיאה בטעינת רשימת המשתמשים";
+            _messageType = "error";
+        }
+    }
+
+    private async Task CloseAddUserDialog()
+    {
+        _showAddUserDialog = false;
+        _availableUsers.Clear();
+        _filteredAvailableUsers.Clear();
+        _selectedUsers.Clear();
+        _availableUsersSearchTerm = string.Empty;
+        try { await JSRuntime.InvokeVoidAsync("dragDropPickList.dispose", "add-user-modal"); } catch { }
+    }
+
+    private async Task InitActionDragDropAsync()
+    {
+        if (_dotNetRef == null) return;
+        await JSRuntime.InvokeVoidAsync("dragDropPickList.init", new
+        {
+            modalId = "add-action-modal",
+            availableZoneId = "available-actions-zone",
+            selectedZoneId = "selected-actions-zone",
+            dotNetRef = _dotNetRef
+        });
+    }
+
+    private async Task InitUserDragDropAsync()
+    {
+        if (_dotNetRef == null) return;
+        await JSRuntime.InvokeVoidAsync("dragDropPickList.init", new
+        {
+            modalId = "add-user-modal",
+            availableZoneId = "available-users-zone",
+            selectedZoneId = "selected-users-zone",
+            dotNetRef = _dotNetRef
+        });
+    }
+
+    [JSInvokable]
+    public Task OnPickListDrop(int itemId, string targetPane)
+    {
+        if (_showAddUserDialog)
+        {
+            if (targetPane == "selected")
+            {
+                var user = _availableUsers.FirstOrDefault(u => u.Id == itemId)
+                           ?? _filteredAvailableUsers.FirstOrDefault(u => u.Id == itemId);
+                if (user != null) SelectUser(user);
+            }
+            else if (targetPane == "available")
+            {
+                var user = _selectedUsers.FirstOrDefault(u => u.Id == itemId);
+                if (user != null) DeselectUser(user);
+            }
+        }
+        else if (_showAddActionDialog)
+        {
+            if (targetPane == "selected")
+            {
+                var action = _availableActions.FirstOrDefault(a => a.Id == itemId)
+                             ?? _filteredAvailableActions.FirstOrDefault(a => a.Id == itemId);
+                if (action != null) SelectAction(action);
+            }
+            else if (targetPane == "available")
+            {
+                var action = _selectedActions.FirstOrDefault(a => a.Id == itemId);
+                if (action != null) DeselectAction(action);
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void SelectUser(RoleDetailsUserDto user)
+    {
+        if (!_selectedUsers.Any(u => u.Id == user.Id))
+        {
+            _selectedUsers.Add(user);
+            FilterAvailableUsers();
+            _ = RefreshUserDragDropAsync();
+        }
+    }
+
+    private void DeselectUser(RoleDetailsUserDto user)
+    {
+        _selectedUsers.RemoveAll(u => u.Id == user.Id);
+        FilterAvailableUsers();
+        _ = RefreshUserDragDropAsync();
+    }
+
+    private async Task RefreshUserDragDropAsync()
+    {
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("dragDropPickList.refresh", "add-user-modal"); } catch { }
+    }
+
+    private async Task RefreshActionDragDropAsync()
+    {
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("dragDropPickList.refresh", "add-action-modal"); } catch { }
+    }
+
+    private void FilterAvailableUsers()
+    {
+        var searchTerm = _availableUsersSearchTerm?.ToLower() ?? string.Empty;
+        _filteredAvailableUsers = _availableUsers
+            .Where(u => !_selectedUsers.Any(s => s.Id == u.Id))
+            .Where(u => string.IsNullOrEmpty(searchTerm) ||
+                        (u.Username?.ToLower().Contains(searchTerm) ?? false) ||
+                        (u.FullName?.ToLower().Contains(searchTerm) ?? false))
+            .ToList();
+    }
+
+    private async Task SubmitSelectedUsers()
+    {
+        if (_selectedUsers.Count == 0)
+        {
+            _message = "אנא בחר לפחות משתמש אחד";
+            _messageType = "error";
+            return;
+        }
+
+        var successCount = 0;
+        var failCount = 0;
+
+        foreach (var user in _selectedUsers)
+        {
+            try
+            {
+                var response = await ApiService.PostAsync<object, ApiResponse<object>>(
+                    $"roles/{RoleId}/users", new { userId = user.Id });
+                if (response?.Success == true) successCount++;
+                else failCount++;
+            }
+            catch { failCount++; }
+        }
+
+        _message = successCount > 0
+            ? $"✅ {successCount} משתמשים נוספו בהצלחה" + (failCount > 0 ? $"\n❌ {failCount} משתמשים נכשלו" : "")
+            : $"❌ {failCount} משתמשים נכשלו";
+        _messageType = successCount > 0 ? "success" : "error";
+
+        if (successCount > 0)
+        {
+            await CloseAddUserDialog();
+            await RefreshRoleDetails();
+        }
+        ClearMessageAfterDelay();
+    }
+
+    private void SelectAction(PickListItemDto action)
+    {
+        if (!_selectedActions.Any(a => a.Id == action.Id))
+        {
+            _selectedActions.Add(action);
+            FilterAvailableActions();
+            _ = RefreshActionDragDropAsync();
+        }
+    }
+
+    private void DeselectAction(PickListItemDto action)
+    {
+        _selectedActions.RemoveAll(a => a.Id == action.Id);
+        FilterAvailableActions();
+        _ = RefreshActionDragDropAsync();
+    }
+
+    private void FilterAvailableActions()
+    {
+        var searchTerm = _availableSearchTerm?.ToLower() ?? string.Empty;
+        _filteredAvailableActions = _availableActions
+            .Where(a => !_selectedActions.Any(s => s.Id == a.Id))
+            .Where(a => string.IsNullOrEmpty(searchTerm) ||
+                        (a.DisplayName?.ToLower().Contains(searchTerm) ?? false) ||
+                        (a.Reference?.ToLower().Contains(searchTerm) ?? false) ||
+                        (a.ActionTypeName?.ToLower().Contains(searchTerm) ?? false))
+            .ToList();
+    }
+
+    private async Task SubmitSelectedActions()
+    {
+        if (_selectedActions.Count == 0)
+        {
+            _message = "אנא בחר לפחות פעולה אחת";
+            _messageType = "error";
+            return;
+        }
+
+        var successCount = 0;
+        var failCount = 0;
+
+        foreach (var action in _selectedActions)
+        {
+            try
+            {
+                var response = await ApiService.PostAsync<object, ApiResponse<object>>(
+                    $"roles/{RoleId}/actions", new { actionId = action.Id });
+                if (response?.Success == true) successCount++;
+                else failCount++;
+            }
+            catch { failCount++; }
+        }
+
+        _message = successCount > 0
+            ? $"✅ {successCount} פעולות נוספו בהצלחה" + (failCount > 0 ? $"\n❌ {failCount} פעולות נכשלו" : "")
+            : $"❌ {failCount} פעולות נכשלו";
+        _messageType = successCount > 0 ? "success" : "error";
+
+        if (successCount > 0)
+        {
+            await CloseAddActionDialog();
+            await RefreshRoleDetails();
+        }
+        ClearMessageAfterDelay();
     }
 
     private async Task RemoveUser(int userId)
     {
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", "להסיר את המשתמש מהתפקיד?"))
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך להסיר את המשתמש הזה מהתפקיד?"))
             return;
+
         try
         {
             var response = await ApiService.DeleteAsync<ApiResponse<object>>($"roles/{RoleId}/users/{userId}");
-            if (response?.Success == true) await LoadDataAsync();
-            else await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה");
+            if (response?.Success == true)
+            {
+                _message = "המשתמש הוסר בהצלחה";
+                _messageType = "success";
+                await RefreshRoleDetails();
+                ClearMessageAfterDelay();
+            }
+            else
+            {
+                _message = response?.Message ?? "שגיאה בהסרת המשתמש";
+                _messageType = "error";
+            }
         }
-        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"שגיאה: {ex.Message}"); }
-    }
-
-    private async Task AddUser()
-    {
-        if (_userToAdd == 0) return;
-        try
+        catch (Exception ex)
         {
-            var response = await ApiService.PostAsync<object, ApiResponse<object>>(
-                $"roles/{RoleId}/users", new { userId = _userToAdd });
-            if (response?.Success == true) { _userToAdd = 0; await LoadDataAsync(); }
-            else await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה");
+            Logger.LogError(ex, "Error removing user from role");
+            _message = "שגיאה בהסרת המשתמש";
+            _messageType = "error";
         }
-        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"שגיאה: {ex.Message}"); }
     }
 
     private async Task RemoveAction(int actionId)
     {
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", "להסיר את ההרשאה מהתפקיד?"))
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "האם אתה בטוח שברצונך להסיר את הפעולה הזו מהתפקיד?"))
             return;
+
         try
         {
             var response = await ApiService.DeleteAsync<ApiResponse<object>>($"roles/{RoleId}/actions/{actionId}");
-            if (response?.Success == true) await LoadDataAsync();
-            else await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה");
+            if (response?.Success == true)
+            {
+                _message = "הפעולה הוסרה בהצלחה";
+                _messageType = "success";
+                await RefreshRoleDetails();
+                ClearMessageAfterDelay();
+            }
+            else
+            {
+                _message = response?.Message ?? "שגיאה בהסרת הפעולה";
+                _messageType = "error";
+            }
         }
-        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"שגיאה: {ex.Message}"); }
-    }
-
-    private async Task AddAction()
-    {
-        if (_actionToAdd == 0) return;
-        try
+        catch (Exception ex)
         {
-            var response = await ApiService.PostAsync<object, ApiResponse<object>>(
-                $"roles/{RoleId}/actions", new { actionId = _actionToAdd });
-            if (response?.Success == true) { _actionToAdd = 0; await LoadDataAsync(); }
-            else await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה");
+            Logger.LogError(ex, "Error removing action from role");
+            _message = "שגיאה בהסרת הפעולה";
+            _messageType = "error";
         }
-        catch (Exception ex) { await JSRuntime.InvokeVoidAsync("alert", $"שגיאה: {ex.Message}"); }
     }
 
-    private void NavigateBack() => Navigation.NavigateTo("/roles");
+    private void FilterActions()
+    {
+        if (_roleData?.Actions == null) return;
+
+        var searchTerm = _searchTerm?.ToLower() ?? string.Empty;
+        _filteredActions = string.IsNullOrEmpty(searchTerm)
+            ? _roleData.Actions
+            : _roleData.Actions
+                .Where(a => (a.DisplayName?.ToLower().Contains(searchTerm) ?? false) ||
+                            (a.Reference?.ToLower().Contains(searchTerm) ?? false) ||
+                            (a.ActionTypeName?.ToLower().Contains(searchTerm) ?? false))
+                .ToList();
+    }
+
+    private async void ClearMessageAfterDelay()
+    {
+        await Task.Delay(3000);
+        _message = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _dotNetRef?.Dispose();
+        try { _ = JSRuntime.InvokeVoidAsync("dragDropPickList.dispose", "add-action-modal"); } catch { }
+        try { _ = JSRuntime.InvokeVoidAsync("dragDropPickList.dispose", "add-user-modal"); } catch { }
+    }
 }
