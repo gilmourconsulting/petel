@@ -4,5 +4,10 @@ globs: ["PetelATH/**"]
 alwaysApply: false
 ---
 
-# PetelATH Guidelines
-Before making any changes under `PetelATH/`, read the instruction files in `.github/instructions/petelath.instructions.md` and adhere strictly to its specified patterns.
+# PetelATH
+
+Before changes under `PetelATH/`, read [docs/agents/apps/petel-ath.md](../../docs/agents/apps/petel-ath.md).
+
+For reports/Excel/Word work, also read [docs/agents/apps/petel-ath-reports-excel.md](../../docs/agents/apps/petel-ath-reports-excel.md).
+
+Shared backend/auth: [docs/agents/core/backend-patterns.md](../../docs/agents/core/backend-patterns.md), [docs/agents/core/auth-security.md](../../docs/agents/core/auth-security.md). Audit: `created_user`/`CreatedUser`.

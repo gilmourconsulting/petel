@@ -1,56 +1,17 @@
 ---
-description: "Guidelines for PetelAssistants module — architecture, security, and session patterns"
+description: "Guidelines for PetelAssistants — tenancy, security, domain"
 globs: ["PetelAssistants/**"]
 alwaysApply: false
 ---
 
-# PetelAssistants Guidelines
+# PetelAssistants
 
-Before making any changes under `PetelAssistants/`, read `.github/instructions/petelassistants.instructions.md`.
+Before changes under `PetelAssistants/`, read:
 
-For year-scoped UI (dashboard → year hub → assistants / entitlements), see `PetelAssistants/docs/year-management-screens.md`.
+1. [docs/agents/apps/petel-assistants.md](../../docs/agents/apps/petel-assistants.md) — dual-schema tenancy, security endpoints
+2. [docs/agents/apps/petel-assistants-domain.md](../../docs/agents/apps/petel-assistants-domain.md) — business rules
+3. [docs/agents/reference/audit-fields.md](../../docs/agents/reference/audit-fields.md) — creator column is `user_id`/`UserId`
 
-## Security — Required API Endpoints
+Year UI flow: [PetelAssistants/docs/year-management-screens.md](../../PetelAssistants/docs/year-management-screens.md).
 
-The shared Blazor stack (`Petel.BlazorCore`) calls these endpoints on startup or on every action. If any are missing the frontend degrades silently.
-
-### `SessionController` (all 5 required)
-| Endpoint | Why it is required |
-|---|---|
-| `GET  session/timeout-config` | `SessionTimeoutService.InitializeAsync()` — returns `{ timeoutMinutes, warningMinutes }` from `IAttributeCache("Security_SessionTimeoutMinutes")` + `SecuritySettings` fallback. **Missing → client defaults to 10 min, not the DB value.** |
-| `GET  session/properties` | Debug modal in `MainLayout.razor` |
-| `DELETE session/property/{key}` | Session property cleanup |
-| `GET  session` | Already present |
-| `POST session/property` | Already present |
-
-### `SecurityController` (all 5 required)
-| Endpoint | `ActionAuthorizationService` method |
-|---|---|
-| `GET  security/user-actions` | `GetUserAllowedActionIds(userId, entityId)` |
-| `POST security/verify-onclick` | `VerifyActionByNameAsync(…, "ONCLICK_BUTTON", screenName)` — `FunctionName` is the action name |
-| `POST security/verify-menu` | `VerifyActionByNameAsync(…, "MENU_NAVIGATION", "")` — `MenuItemName` is the action name |
-| `POST security/verify-action` | `VerifyUserActionAccessAsync(userId, entityId, actionId)` |
-| `POST security/verify-action-secure` | Full audit log path — already present |
-
-### `AuthController` (both required)
-| Endpoint | What it does |
-|---|---|
-| `POST auth/logout` | Reads `Authorization: Bearer` header, calls `InvalidateSession(token)` |
-| `GET  auth/check` | Returns `{ isAuthenticated, user }` from `GetUserSession(token)` |
-
-## Session Timeout — How It Works
-
-- **Blazor client** (`SessionTimeoutService`): calls `GET session/timeout-config` on init → uses `timeoutMinutes` returned. Falls back to **10 min** hardcoded default if the endpoint is unreachable.
-- **API server** (`UserSessionService.IsSessionValid`): re-reads `IAttributeCache("Security_SessionTimeoutMinutes")` on every session check → correctly uses DB value after startup.
-- **JWT expiry** (`JwtTokenService`): reads `JWT_ExpirationHours` from the attribute cache **once at construction**, which occurs before `SystemAttributeLoaderHostedService` runs → always uses `appsettings.json` `Security:Jwt:ExpirationHours` (default 8 h). This is a known limitation.
-
-## `SessionController` — Inject `IAttributeCache` for `timeout-config`
-
-```csharp
-public SessionController(
-    UserSessionService userSessionService,
-    IAttributeCache attributeCache,           // ← required for timeout-config
-    IOptions<SecuritySettings> securitySettings,
-    ILogger<SessionController> logger)
-    : base(userSessionService, logger) { … }
-```
+**Critical:** `GET session/timeout-config` must exist or client defaults to 10 min idle timeout. All five `SecurityController` endpoints required — missing endpoints degrade silently.

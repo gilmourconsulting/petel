@@ -1,9 +1,8 @@
 # Layer 4 — Code Conventions
 _PetelAssistants · ASP.NET Core 9 · Blazor Server · PostgreSQL / EF Core 9_
 
-> **Scope**: Syntax-level rules and idioms observed in the PetelAssistants codebase.  
-> For architecture, patterns, and configuration see `.github/copilot-instructions.md`.  
-> For Blazor-specific scaffolding see `.github/instructions/blazor-patterns.instructions.md`.
+> **Scope**: Syntax-level rules and idioms (Assistants-leaning, applicable to both apps).  
+> Architecture: [core/architecture.md](../core/architecture.md). Blazor: [core/blazor-patterns.md](../core/blazor-patterns.md). Index: [INDEX.md](../INDEX.md).
 
 ---
 

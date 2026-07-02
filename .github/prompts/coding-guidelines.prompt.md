@@ -1,42 +1,24 @@
 ---
 agent: agent, ask, edit, plan
-description: Reference the correct instruction files before making any code change or addition in the Petel monorepo.
+description: Reference the correct instruction files before making any code change in the Petel monorepo.
 ---
 
-Before making any code change, verify the relevant instruction files below are loaded for the files being modified.
-Before writing any code, read the relevant instruction files below and ensure your change adheres to the guidelines specified. If you are unsure which instructions apply, review the "Applies To" column for each file. Always follow the key rules outlined in the instruction files to maintain consistency and quality across the codebase.
+# Coding Guidelines Router
 
-Before starting any changes read the pre-prompts in `.github/prompts/Pre%20processing%20prompts.md` to ensure you are following the best practices for coding and problem-solving.
+**Start here:** [AGENTS.md](../AGENTS.md) and [docs/agents/INDEX.md](../docs/agents/INDEX.md)
 
-## Instruction File Reference
+Before any change, read [docs/agents/core/pre-processing.md](../docs/agents/core/pre-processing.md).
 
-| File | Applies To | Load When |
+## Instruction map
+
+| File | Applies To | Canonical path |
 |---|---|---|
-| `.github/copilot-instructions.md` | All files | Always — covers DB/EF, auth, session, deployment, shared patterns |
-| `.github/instructions/blazor-patterns.instructions.md` | `**/*.razor` | Any `.razor` file change |
-| `.github/instructions/petelath.instructions.md` | `PetelATH/**` | Any change under `PetelATH/` |
-| `.github/instructions/petelassistants.instructions.md` | `PetelAssistants/**` | Any change under `PetelAssistants/` |
+| Core platform | All files | [docs/agents/core/](../docs/agents/core/) |
+| Blazor | `**/*.razor` | [docs/agents/core/blazor-patterns.md](../docs/agents/core/blazor-patterns.md) |
+| PetelATH | `PetelATH/**` | [docs/agents/apps/petel-ath.md](../docs/agents/apps/petel-ath.md) |
+| PetelAssistants | `PetelAssistants/**` | [docs/agents/apps/petel-assistants.md](../docs/agents/apps/petel-assistants.md) |
 
-## Key Rules (Quick Reference)
+## Playbooks
 
-**Backend (API)**
-- All controllers inherit `BaseController`; no `[Authorize]` — use `GetCurrentSession()` per endpoint
-- All entities: `[Table("name")]` with no `Schema=` parameter; schema set via `HasDefaultSchema()` in `AppDbContext`
-- Always include audit fields: `created_at`, `user_id` (creator FK → users.id), `updated_at`, `update_user`
-- Navigation properties required on all FK relationships
-
-**Blazor Frontend**
-- All pages inherit `SecurePageBase`; override `OnPageInitializedAsync()`, not `OnInitializedAsync()`
-- Use `ApiService` for all HTTP calls — never raw `HttpClient` or `fetch`
-- Use `SessionStateService` for session data — never read cookies or local storage directly
-- Use `NavigationManager.NavigateTo()` — never `window.location` or JS navigation
-- No HTML files, no JavaScript SPA code, no `sessionStorage`, no `AppConfig.getApiUrl()`
-
-**Configuration**
-- No hardcoded URLs, schema names, or environment-specific values in code
-- API URLs in `appsettings.{Environment}.json` under `ApiSettings:BaseUrl`
-- Schema name from `DatabaseSettings:SchemaName` configuration
-
-## Scaffold Prompts
-
-- New Blazor page (razor + controller + DTOs + SQL): use `.github/prompts/new-blazor-page.prompt.md`
+- New Blazor page: [docs/agents/playbooks/new-blazor-page.md](../docs/agents/playbooks/new-blazor-page.md)
+- New entity + API: [docs/agents/playbooks/new-entity-and-api.md](../docs/agents/playbooks/new-entity-and-api.md)

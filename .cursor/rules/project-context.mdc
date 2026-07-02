@@ -1,25 +1,32 @@
 ---
-description: "Master project context, global backend/frontend rules, and prompt file references"
+description: "Master project context, global rules, and doc routing"
 globs: ["**/*"]
 alwaysApply: true
 ---
 
-# Project Guidelines & References
+# Project Guidelines
 
-Before starting any changes, read the pre-prompts in `.github/prompts/Pre%20processing%20prompts.md` to ensure you are following the best practices for coding and problem-solving.
+Before any code change, read [docs/agents/core/pre-processing.md](../../docs/agents/core/pre-processing.md).
 
-## Key Rules (Quick Reference)
+Full routing: [AGENTS.md](../../AGENTS.md) and [docs/agents/INDEX.md](../../docs/agents/INDEX.md).
 
-### Backend (API)
-- All controllers inherit `BaseController`; no `[Authorize]` — use `GetCurrentSession()` per endpoint.
-- All entities: `[Table("name")]` with no `Schema=` parameter; schema set via `HasDefaultSchema()` in `AppDbContext`.
-- Always include audit fields: `created_at`, `created_user`, `updated_at`, `update_user`.
-- Navigation properties required on all FK relationships.
+## Quick rules
 
-### Configuration
-- No hardcoded URLs, schema names, or environment-specific values in code.
-- API URLs in `appsettings.{Environment}.json` under `ApiSettings:BaseUrl`.
-- Schema name from `DatabaseSettings:SchemaName` configuration.
+**Backend:** `BaseController`; no `[Authorize]` — `GetCurrentSession()` per endpoint. `[Table("name")]` without `Schema=`. `HasDefaultSchema()` in DbContext. Navigation properties on all FKs.
 
-## Scaffold Prompts
-- New Blazor page (razor + controller + DTOs + SQL): use `.github/prompts/new-blazor-page.prompt.md`.
+**Blazor:** `SecurePageBase`; `OnPageInitializedAsync()` not `OnInitializedAsync()`. `ApiService`, `SessionStateService`, `NavigationManager` only.
+
+**Config:** No hardcoded URLs or schema names. `ApiSettings:BaseUrl`, `DatabaseSettings:SchemaName`.
+
+**Audit fields:** ATH uses `created_user`/`CreatedUser`; Assistants uses `user_id`/`UserId` for creator — see [docs/agents/reference/audit-fields.md](../../docs/agents/reference/audit-fields.md).
+
+## Scoped docs (read before editing)
+
+| Path | Doc |
+|---|---|
+| `PetelATH/**` | `docs/agents/apps/petel-ath.md` |
+| `PetelAssistants/**` | `docs/agents/apps/petel-assistants.md` |
+| `**/*.razor` | `docs/agents/core/blazor-patterns.md` |
+| Shared libs | `docs/agents/core/architecture.md` |
+
+**Playbooks:** new page → `docs/agents/playbooks/new-blazor-page.md`; new entity → `docs/agents/playbooks/new-entity-and-api.md`.
