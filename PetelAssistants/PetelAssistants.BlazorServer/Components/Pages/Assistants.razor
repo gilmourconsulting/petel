@@ -2,9 +2,18 @@
 @layout MainLayout
 @inherits SecurePageBase
 @using PetelAssistants.BlazorServer.Models
+@using PetelAssistants.BlazorServer.DTOs
 @inject ApiService ApiService
 
 <div class="context-buttons-section">
+    <SecureButton ActionName="assistants_refresh" ScreenName="@PageName" FunctionName="RefreshData"
+                  OnClick="RefreshData" CssClass="context-btn">
+        רענן נתונים
+    </SecureButton>
+    <SecureButton ActionName="assistants_add" ScreenName="@PageName" FunctionName="ShowCreateDialog"
+                  OnClick="ShowCreateDialog" CssClass="context-btn">
+        הוסף אדם
+    </SecureButton>
     <SecureButton ActionName="assistants_back" ScreenName="@PageName" FunctionName="NavigateBack"
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
         חזרה לניהול שנה
@@ -13,11 +22,226 @@
 
 <div class="school-title-section">
     <h1 class="page-title">סייעות @(_yearName != "" ? $"- {_yearName}" : "")</h1>
+    <p class="text-muted" style="margin-top: 8px;">ניהול פרטי אנשים ברמת הרשות. שיוך לשנה יתווסף בשלב הזכאויות.</p>
 </div>
 
-<div class="content-card" style="text-align: center; padding: 60px 20px;">
-    <p style="font-size: 18px; color: var(--text-muted);">בקרוב</p>
+<div class="main-container">
+    <div class="content-card">
+        <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
+            <label for="searchTerm">חיפוש לפי שם או מספר זהות</label>
+            <div style="display: flex; gap: 8px;">
+                <input id="searchTerm" class="form-control" @bind="_searchTerm" @bind:event="oninput" @onkeydown="HandleSearchKey" />
+                <button type="button" class="btn-primary" @onclick="SearchPersons">חפש</button>
+                @if (!string.IsNullOrWhiteSpace(_searchTerm))
+                {
+                    <button type="button" class="btn-secondary" @onclick="ClearSearch">נקה</button>
+                }
+            </div>
+        </div>
+
+        @if (_isLoading)
+        {
+            <div class="loading-spinner">טוען נתונים...</div>
+        }
+        else if (_persons.Count == 0)
+        {
+            <div class="no-data-message">לא נמצאו רשומות</div>
+        }
+        else
+        {
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>פעולות</th>
+                            <th @onclick="() => SortTable(nameof(PersonListItemDto.IdNumber))" style="cursor: pointer;">
+                                מספר זהות @GetSortArrow(nameof(PersonListItemDto.IdNumber))
+                            </th>
+                            <th @onclick="() => SortTable(nameof(PersonListItemDto.FullName))" style="cursor: pointer;">
+                                שם מלא @GetSortArrow(nameof(PersonListItemDto.FullName))
+                            </th>
+                            <th>טלפונים</th>
+                            <th @onclick="() => SortTable(nameof(PersonListItemDto.UpdatedAt))" style="cursor: pointer;">
+                                עודכן @GetSortArrow(nameof(PersonListItemDto.UpdatedAt))
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var person in _persons)
+                        {
+                            <tr>
+                                <td>
+                                    <SecureButton ActionName="assistants_edit" ScreenName="@PageName" FunctionName="EditPerson"
+                                                  OnClick="() => EditPerson(person.Id)" CssClass="btn-icon" Title="ערוך">
+                                        <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                                    </SecureButton>
+                                    <SecureButton ActionName="assistants_view_history" ScreenName="@PageName" FunctionName="ViewHistory"
+                                                  OnClick="() => ViewHistory(person.Id)" CssClass="btn-icon" Title="היסטוריה">
+                                        <img src="/images/stats_icon.png" alt="היסטוריה" class="action-icon-natural">
+                                    </SecureButton>
+                                </td>
+                                <td>@person.IdNumber</td>
+                                <td>@person.FullName</td>
+                                <td>@(person.PhoneSummary ?? "—")</td>
+                                <td>@person.UpdatedAt.ToString("dd/MM/yyyy")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
 </div>
+
+@if (_showPersonDialog)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 720px;">
+            <div class="modal-header">
+                <h3>@(_isEditMode ? "עריכת פרטי אדם" : "הוספת אדם חדש")</h3>
+                <button class="modal-close" @onclick="ClosePersonDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label>מספר זהות *</label>
+                        <input class="form-control" @bind="_form.IdNumber" />
+                    </div>
+                    <div class="form-group">
+                        <label>סוג זהות</label>
+                        <InputNumber class="form-control" @bind-Value="_form.IdType" />
+                    </div>
+                    <div class="form-group">
+                        <label>שם פרטי *</label>
+                        <input class="form-control" @bind="_form.FirstName" />
+                    </div>
+                    <div class="form-group">
+                        <label>שם משפחה *</label>
+                        <input class="form-control" @bind="_form.LastName" />
+                    </div>
+                    <div class="form-group">
+                        <label>מגדר</label>
+                        <InputNumber class="form-control" @bind-Value="_form.Gender" />
+                    </div>
+                    <div class="form-group">
+                        <label>תאריך לידה</label>
+                        <InputDate class="form-control" @bind-Value="_dateOfBirth" />
+                    </div>
+                    <div class="form-group">
+                        <label>אימייל</label>
+                        <input class="form-control" @bind="_form.Email" />
+                    </div>
+                    <div class="form-group">
+                        <label>תפקיד</label>
+                        <input class="form-control" @bind="_form.Position" />
+                    </div>
+                    @if (_isEditMode)
+                    {
+                        <div class="form-group">
+                            <label>תאריך תחילת תוקף שינוי</label>
+                            <InputDate class="form-control" @bind-Value="_effectiveDate" />
+                        </div>
+                    }
+                </div>
+
+                <h4 style="margin-top: 20px;">כתובת</h4>
+                <div class="form-row" style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label>רחוב</label>
+                        <input class="form-control" @bind="_form.Address.Street" />
+                    </div>
+                    <div class="form-group">
+                        <label>מספר בית</label>
+                        <input class="form-control" @bind="_form.Address.HouseNumber" />
+                    </div>
+                    <div class="form-group">
+                        <label>עיר</label>
+                        <input class="form-control" @bind="_form.Address.City" />
+                    </div>
+                    <div class="form-group">
+                        <label>מיקוד</label>
+                        <input class="form-control" @bind="_form.Address.PostCode" />
+                    </div>
+                </div>
+
+                <h4 style="margin-top: 20px;">טלפונים</h4>
+                @foreach (var phoneType in _phoneTypes)
+                {
+                    var phone = GetPhoneInput(phoneType.Id);
+                    <div class="form-row" style="display: grid; grid-template-columns: 120px 1fr 2fr; gap: 12px; margin-bottom: 8px;">
+                        <div class="form-group">
+                            <label>@phoneType.DisplayName</label>
+                        </div>
+                        <div class="form-group">
+                            <input class="form-control" placeholder="קידומת" @bind="phone.PhoneNumberPrefix" />
+                        </div>
+                        <div class="form-group">
+                            <input class="form-control" placeholder="מספר" @bind="phone.PhoneNumber" />
+                        </div>
+                    </div>
+                }
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" @onclick="ClosePersonDialog">ביטול</button>
+                    <button type="button" class="btn-primary" @onclick="SavePerson">@(_isEditMode ? "שמור" : "צור")</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showHistoryDialog)
+{
+    <div class="modal-overlay">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h3>היסטוריית גרסאות — @_historyPersonName</h3>
+                <button class="modal-close" @onclick="CloseHistoryDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_history.Count == 0)
+                {
+                    <div class="no-data-message">אין היסטוריה</div>
+                }
+                else
+                {
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>גרסה</th>
+                                    <th>תחילה</th>
+                                    <th>סיום</th>
+                                    <th>שם</th>
+                                    <th>אימייל</th>
+                                    <th>תפקיד</th>
+                                    <th>פעיל</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in _history)
+                                {
+                                    <tr>
+                                        <td>@row.Version</td>
+                                        <td>@row.StartDate.ToString("dd/MM/yyyy")</td>
+                                        <td>@(row.EndDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                        <td>@row.FirstName @row.LastName</td>
+                                        <td>@(row.Email ?? "—")</td>
+                                        <td>@(row.Position ?? "—")</td>
+                                        <td>@(row.IsLastVersion ? "כן" : "לא")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" @onclick="CloseHistoryDialog">סגור</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     [Parameter] public int YearId { get; set; }
@@ -25,10 +249,29 @@
     protected override string PageName => "assistants";
 
     private string _yearName = "";
+    private List<PersonListItemDto> _persons = new();
+    private List<PhoneTypeDto> _phoneTypes = new();
+    private List<PersonDetailHistoryDto> _history = new();
+    private bool _isLoading = true;
+    private string _searchTerm = "";
+    private string _sortColumn = nameof(PersonListItemDto.FullName);
+    private bool _sortAscending = true;
+
+    private bool _showPersonDialog;
+    private bool _isEditMode;
+    private int _editingPersonId;
+    private PersonFormModel _form = new();
+    private DateTime? _dateOfBirth;
+    private DateTime? _effectiveDate;
+
+    private bool _showHistoryDialog;
+    private string _historyPersonName = "";
 
     protected override async Task OnPageInitializedAsync()
     {
         await LoadYearName();
+        await LoadPhoneTypes();
+        await LoadPersons();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -49,5 +292,309 @@
         }
     }
 
+    private async Task LoadPhoneTypes()
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<PhoneTypeDto>>>("persons/phone-types");
+            _phoneTypes = response?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading phone types: {ex.Message}");
+            _phoneTypes = new();
+        }
+    }
+
+    private async Task LoadPersons()
+    {
+        try
+        {
+            _isLoading = true;
+            var response = await ApiService.GetAsync<ApiResponse<List<PersonListItemDto>>>("persons");
+            _persons = response?.Data ?? new();
+            ApplySort();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading persons: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינת נתונים: {ex.Message}");
+            _persons = new();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task SearchPersons()
+    {
+        try
+        {
+            _isLoading = true;
+            var url = string.IsNullOrWhiteSpace(_searchTerm)
+                ? "persons"
+                : $"persons/search?term={Uri.EscapeDataString(_searchTerm.Trim())}";
+            var response = await ApiService.GetAsync<ApiResponse<List<PersonListItemDto>>>(url);
+            _persons = response?.Data ?? new();
+            ApplySort();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בחיפוש: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ClearSearch()
+    {
+        _searchTerm = "";
+        await LoadPersons();
+    }
+
+    private async Task HandleSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await SearchPersons();
+    }
+
+    private async Task RefreshData() => await LoadPersons();
+
+    private void SortTable(string columnName)
+    {
+        if (_sortColumn == columnName)
+            _sortAscending = !_sortAscending;
+        else
+        {
+            _sortColumn = columnName;
+            _sortAscending = true;
+        }
+        ApplySort();
+    }
+
+    private void ApplySort()
+    {
+        _persons = _sortColumn switch
+        {
+            nameof(PersonListItemDto.IdNumber) => _sortAscending
+                ? _persons.OrderBy(p => p.IdNumber).ToList()
+                : _persons.OrderByDescending(p => p.IdNumber).ToList(),
+            nameof(PersonListItemDto.FullName) => _sortAscending
+                ? _persons.OrderBy(p => p.FullName).ToList()
+                : _persons.OrderByDescending(p => p.FullName).ToList(),
+            nameof(PersonListItemDto.UpdatedAt) => _sortAscending
+                ? _persons.OrderBy(p => p.UpdatedAt).ToList()
+                : _persons.OrderByDescending(p => p.UpdatedAt).ToList(),
+            _ => _persons
+        };
+    }
+
+    private string GetSortArrow(string columnName)
+    {
+        if (_sortColumn != columnName) return string.Empty;
+        return _sortAscending ? "▲" : "▼";
+    }
+
+    private void ShowCreateDialog()
+    {
+        _isEditMode = false;
+        _editingPersonId = 0;
+        _form = new PersonFormModel();
+        _dateOfBirth = null;
+        _effectiveDate = null;
+        EnsurePhoneInputs();
+        _showPersonDialog = true;
+    }
+
+    private async Task EditPerson(int personId)
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<PersonSnapshotDto>>($"persons/{personId}");
+            if (response?.Data == null)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "לא נמצא אדם");
+                return;
+            }
+
+            var snapshot = response.Data;
+            _isEditMode = true;
+            _editingPersonId = personId;
+            _form = new PersonFormModel
+            {
+                IdNumber = snapshot.IdNumber,
+                IdType = snapshot.IdType,
+                FirstName = snapshot.FirstName,
+                LastName = snapshot.LastName,
+                Gender = snapshot.Gender,
+                Email = snapshot.Email,
+                Position = snapshot.Position,
+                Address = new PersonAddressInputDto
+                {
+                    Street = snapshot.Address?.Street,
+                    HouseNumber = snapshot.Address?.HouseNumber,
+                    City = snapshot.Address?.City,
+                    PostCode = snapshot.Address?.PostCode
+                }
+            };
+            _dateOfBirth = snapshot.DateOfBirth?.ToDateTime(TimeOnly.MinValue);
+            _effectiveDate = DateTime.Today;
+            EnsurePhoneInputs(snapshot.Phones);
+            _showPersonDialog = true;
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינת פרטים: {ex.Message}");
+        }
+    }
+
+    private async Task ViewHistory(int personId)
+    {
+        try
+        {
+            var personResponse = await ApiService.GetAsync<ApiResponse<PersonSnapshotDto>>($"persons/{personId}");
+            _historyPersonName = personResponse?.Data?.FullName ?? string.Empty;
+
+            var response = await ApiService.GetAsync<ApiResponse<List<PersonDetailHistoryDto>>>($"persons/{personId}/history");
+            _history = response?.Data ?? new();
+            _showHistoryDialog = true;
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינת היסטוריה: {ex.Message}");
+        }
+    }
+
+    private void ClosePersonDialog()
+    {
+        _showPersonDialog = false;
+        _form = new PersonFormModel();
+        _editingPersonId = 0;
+        _isEditMode = false;
+    }
+
+    private void CloseHistoryDialog()
+    {
+        _showHistoryDialog = false;
+        _history = new();
+        _historyPersonName = "";
+    }
+
+    private async Task SavePerson()
+    {
+        if (string.IsNullOrWhiteSpace(_form.IdNumber) ||
+            string.IsNullOrWhiteSpace(_form.FirstName) ||
+            string.IsNullOrWhiteSpace(_form.LastName))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "יש למלא מספר זהות, שם פרטי ושם משפחה");
+            return;
+        }
+
+        try
+        {
+            if (_isEditMode)
+            {
+                var request = new UpdatePersonRequest
+                {
+                    IdNumber = _form.IdNumber,
+                    IdType = _form.IdType,
+                    FirstName = _form.FirstName,
+                    LastName = _form.LastName,
+                    Gender = _form.Gender,
+                    DateOfBirth = _dateOfBirth.HasValue ? DateOnly.FromDateTime(_dateOfBirth.Value) : null,
+                    Email = _form.Email,
+                    Position = _form.Position,
+                    EffectiveDate = _effectiveDate.HasValue ? DateOnly.FromDateTime(_effectiveDate.Value) : null,
+                    Address = _form.Address,
+                    Phones = _form.Phones.Where(p => !string.IsNullOrWhiteSpace(p.PhoneNumber)).ToList()
+                };
+
+                var response = await ApiService.PutAsync<UpdatePersonRequest, ApiResponse<PersonSnapshotDto>>(
+                    $"persons/{_editingPersonId}", request);
+
+                if (response?.Success == true)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "פרטי האדם עודכנו בהצלחה");
+                    ClosePersonDialog();
+                    await LoadPersons();
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בעדכון");
+                }
+            }
+            else
+            {
+                var request = new CreatePersonRequest
+                {
+                    IdNumber = _form.IdNumber,
+                    IdType = _form.IdType,
+                    FirstName = _form.FirstName,
+                    LastName = _form.LastName,
+                    Gender = _form.Gender,
+                    DateOfBirth = _dateOfBirth.HasValue ? DateOnly.FromDateTime(_dateOfBirth.Value) : null,
+                    Email = _form.Email,
+                    Position = _form.Position,
+                    Address = _form.Address,
+                    Phones = _form.Phones.Where(p => !string.IsNullOrWhiteSpace(p.PhoneNumber)).ToList()
+                };
+
+                var response = await ApiService.PostAsync<CreatePersonRequest, ApiResponse<PersonSnapshotDto>>(
+                    "persons", request);
+
+                if (response?.Success == true)
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", "אדם נוצר בהצלחה");
+                    ClosePersonDialog();
+                    await LoadPersons();
+                }
+                else
+                {
+                    await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה ביצירה");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירה: {ex.Message}");
+        }
+    }
+
+    private void EnsurePhoneInputs(List<PersonPhoneDto>? existing = null)
+    {
+        _form.Phones = _phoneTypes.Select(pt =>
+        {
+            var existingPhone = existing?.FirstOrDefault(p => p.PhoneTypeId == pt.Id);
+            return new PersonPhoneInputDto
+            {
+                PhoneTypeId = pt.Id,
+                PhoneNumberPrefix = existingPhone?.PhoneNumberPrefix,
+                PhoneNumber = existingPhone?.PhoneNumber
+            };
+        }).ToList();
+    }
+
+    private PersonPhoneInputDto GetPhoneInput(int phoneTypeId)
+    {
+        return _form.Phones.FirstOrDefault(p => p.PhoneTypeId == phoneTypeId)
+               ?? new PersonPhoneInputDto { PhoneTypeId = phoneTypeId };
+    }
+
     private void NavigateBack() => Navigation.NavigateTo($"/year/{YearId}");
+
+    private class PersonFormModel
+    {
+        public string IdNumber { get; set; } = string.Empty;
+        public int IdType { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public int? Gender { get; set; }
+        public string? Email { get; set; }
+        public string? Position { get; set; }
+        public PersonAddressInputDto Address { get; set; } = new();
+        public List<PersonPhoneInputDto> Phones { get; set; } = new();
+    }
 }

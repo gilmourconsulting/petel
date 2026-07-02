@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Petel.Core.Session;
 using PetelAssistants.Api.Models;
 using PetelAssistants.Api.Tenancy;
 
@@ -16,21 +17,28 @@ namespace PetelAssistants.Api.Data
     {
         private readonly string _schemaName;
         private readonly ITenantContext _tenantContext;
+        private readonly DataEncryptionService _encryptionService;
 
         public DbSet<User>           Users          { get; set; }
         public DbSet<Role>           Roles          { get; set; }
         public DbSet<UserRole>       UserRoles      { get; set; }
         public DbSet<RolesAction>    RolesActions   { get; set; }
         public DbSet<ActionAuditLog> ActionAuditLogs { get; set; }
+        public DbSet<Person>         Persons        { get; set; }
+        public DbSet<PersonDetail>   PersonDetails  { get; set; }
+        public DbSet<PersonAddress>  PersonAddresses { get; set; }
+        public DbSet<PersonPhone>     PersonPhones   { get; set; }
 
         public AssistDbContext(
             DbContextOptions<AssistDbContext> options,
             IOptions<DatabaseSettings> dbSettings,
-            ITenantContext tenantContext)
+            ITenantContext tenantContext,
+            DataEncryptionService encryptionService)
             : base(options)
         {
             _schemaName = dbSettings.Value.SchemaName;
             _tenantContext = tenantContext;
+            _encryptionService = encryptionService;
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -39,9 +47,9 @@ namespace PetelAssistants.Api.Data
             modelBuilder.HasDefaultSchema(_schemaName);
 
             // Prevent shared-schema types from leaking into assist_schema.
-            // UserLockReason and SystemAction live in SharedDbContext (shared_schema).
             modelBuilder.Ignore<UserLockReason>();
             modelBuilder.Ignore<SystemAction>();
+            modelBuilder.Ignore<PhoneType>();
 
             modelBuilder.Entity<User>(entity =>
             {
@@ -100,6 +108,77 @@ namespace PetelAssistants.Api.Data
                 entity.HasKey(e => e.Id);
 
                 entity.HasQueryFilter(a => _tenantContext.EntityId != 0 && a.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<Person>(entity =>
+            {
+                entity.ToTable("persons");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.IdNumber }).IsUnique();
+
+                entity.Property(e => e.IdNumber)
+                    .HasConversion(
+                        v => _encryptionService.EncryptDeterministic(v),
+                        v => _encryptionService.DecryptDeterministic(v));
+
+                entity.HasMany(p => p.Details)
+                    .WithOne(d => d.Person)
+                    .HasForeignKey(d => d.PersonId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasMany(p => p.Addresses)
+                    .WithOne(a => a.Person)
+                    .HasForeignKey(a => a.PersonId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasMany(p => p.Phones)
+                    .WithOne(ph => ph.Person)
+                    .HasForeignKey(ph => ph.PersonId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasQueryFilter(p => _tenantContext.EntityId != 0 && p.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<PersonDetail>(entity =>
+            {
+                entity.ToTable("person_details");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.PersonId);
+
+                entity.Property(e => e.Email)
+                    .HasConversion(
+                        v => v != null ? _encryptionService.Encrypt(v) : null,
+                        v => v != null ? _encryptionService.Decrypt(v) : null);
+
+                entity.HasQueryFilter(d => _tenantContext.EntityId != 0 && d.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<PersonAddress>(entity =>
+            {
+                entity.ToTable("person_addresses");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.PersonId);
+
+                entity.Property(e => e.Street)
+                    .HasConversion(
+                        v => v != null ? _encryptionService.Encrypt(v) : null,
+                        v => v != null ? _encryptionService.Decrypt(v) : null);
+
+                entity.HasQueryFilter(a => _tenantContext.EntityId != 0 && a.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<PersonPhone>(entity =>
+            {
+                entity.ToTable("person_phones");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.PersonId);
+
+                entity.Property(e => e.PhoneNumber)
+                    .HasConversion(
+                        v => v != null ? _encryptionService.Encrypt(v) : null,
+                        v => v != null ? _encryptionService.Decrypt(v) : null);
+
+                entity.HasQueryFilter(p => _tenantContext.EntityId != 0 && p.EntityId == _tenantContext.EntityId);
             });
         }
     }

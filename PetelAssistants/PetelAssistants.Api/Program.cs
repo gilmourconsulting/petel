@@ -36,6 +36,9 @@ builder.Services.Configure<SecuritySettings>(
 // ── Tenant context (scoped per request) ───────────────────────────────────
 builder.Services.AddScoped<ITenantContext, HttpTenantContext>();
 
+// ── Data encryption (required before AssistDbContext) ─────────────────────
+builder.Services.AddSingleton<DataEncryptionService>();
+
 // ── assist_schema DbContext (tenant-scoped, global query filters active) ──
 builder.Services.AddDbContext<AssistDbContext>((serviceProvider, options) =>
 {
@@ -66,6 +69,9 @@ builder.Services.AddHostedService<SystemAttributeLoaderHostedService>();
 
 // ── Action authorization service ───────────────────────────────────────────
 builder.Services.AddSingleton<ActionAuthorizationService>();
+
+// ── Domain services ────────────────────────────────────────────────────────
+builder.Services.AddScoped<PersonService>();
 
 var app = builder.Build();
 

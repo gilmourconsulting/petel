@@ -20,6 +20,7 @@ namespace PetelAssistants.Api.Data
         public DbSet<SystemAction>    SystemActions    { get; set; }
         public DbSet<ActionType>      ActionTypes      { get; set; }
         public DbSet<UserLockReason>  UserLockReasons  { get; set; }
+        public DbSet<PhoneType>       PhoneTypes       { get; set; }
 
         public SharedDbContext(
             DbContextOptions<SharedDbContext> options,
@@ -94,6 +95,12 @@ namespace PetelAssistants.Api.Data
             modelBuilder.Entity<UserLockReason>(entity =>
             {
                 entity.ToTable("user_lock_reasons");
+                entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<PhoneType>(entity =>
+            {
+                entity.ToTable("phone_types");
                 entity.HasKey(e => e.Id);
             });
         }
