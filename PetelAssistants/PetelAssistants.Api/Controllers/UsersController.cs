@@ -199,7 +199,7 @@ namespace PetelAssistants.Api.Controllers
                     PasswordChangedAt       = DateTime.UtcNow,
                     CreatedAt               = DateTime.UtcNow,
                     UpdatedAt               = DateTime.UtcNow,
-                    CreatedUser             = currentUserId,
+                    UserId                  = currentUserId,
                     UpdateUser              = currentUserId
                 };
 

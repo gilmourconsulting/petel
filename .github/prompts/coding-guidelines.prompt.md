@@ -22,7 +22,7 @@ Before starting any changes read the pre-prompts in `.github/prompts/Pre%20proce
 **Backend (API)**
 - All controllers inherit `BaseController`; no `[Authorize]` — use `GetCurrentSession()` per endpoint
 - All entities: `[Table("name")]` with no `Schema=` parameter; schema set via `HasDefaultSchema()` in `AppDbContext`
-- Always include audit fields: `created_at`, `created_user`, `updated_at`, `update_user`
+- Always include audit fields: `created_at`, `user_id` (creator FK → users.id), `updated_at`, `update_user`
 - Navigation properties required on all FK relationships
 
 **Blazor Frontend**

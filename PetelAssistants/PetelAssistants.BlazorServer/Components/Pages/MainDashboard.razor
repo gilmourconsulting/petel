@@ -8,16 +8,14 @@
 <div class="context-buttons-section">
     @if (_previousYear != null)
     {
-        <button class="context-btn @(_selectedYearId == _previousYear.Id ? "active" : "")"
-                @onclick="() => SelectYear(_previousYear)">
+        <button class="context-btn" @onclick="() => NavigateToYear(_previousYear)">
             @_previousYear.YearName
         </button>
     }
 
     @if (_currentYear != null)
     {
-        <button class="context-btn @(_selectedYearId == _currentYear.Id || _selectedYearId == 0 ? "active" : "")"
-                @onclick="() => SelectYear(_currentYear)">
+        <button class="context-btn active" @onclick="() => NavigateToYear(_currentYear)">
             @_currentYear.YearName
         </button>
     }
@@ -38,16 +36,7 @@
         {
             <div class="content-card" style="max-width: 600px; margin: 20px auto; text-align: center;">
                 <h2 style="color: var(--text-primary); margin-bottom: 10px;">ברוכים הבאים</h2>
-                @if (_selectedYearName != "")
-                {
-                    <p style="font-size: 18px; color: var(--text-accent); font-weight: 600;">
-                        שנה נבחרת: @_selectedYearName
-                    </p>
-                }
-                else
-                {
-                    <p style="color: var(--text-muted);">בחרו שנה לתחילת העבודה</p>
-                }
+                <p style="color: var(--text-muted);">לחצו על שנה לתחילת העבודה</p>
             </div>
         }
     </div>
@@ -72,8 +61,8 @@
                     <div style="display: flex; flex-direction: column; gap: 10px;">
                         @foreach (var year in _allYears)
                         {
-                            <button class="context-btn @(_selectedYearId == year.Id ? "active" : "")"
-                                    @onclick="() => SelectYearAndClose(year)"
+                            <button class="context-btn"
+                                    @onclick="() => NavigateToYear(year)"
                                     style="text-align: center; font-size: 16px;">
                                 @year.YearName
                                 @if (year.IsCurrent)  { <span style="font-size: 11px; margin-right: 8px; opacity: 0.7;">(שנה נוכחית)</span> }
@@ -94,12 +83,9 @@
     [SupplyParameterFromQuery(Name = "fromLogin")]
     public bool FromLogin { get; set; }
 
-    private YearDto?       _currentYear  = null;
-    private YearDto?       _previousYear = null;
-    private List<YearDto>  _allYears     = new();
-
-    private int    _selectedYearId   = 0;
-    private string _selectedYearName = "";
+    private YearDto?      _currentYear  = null;
+    private YearDto?      _previousYear = null;
+    private List<YearDto> _allYears     = new();
 
     private bool _isLoading     = true;
     private bool _showYearModal = false;
@@ -120,10 +106,6 @@
                 _currentYear  = context.CurrentYear;
                 _previousYear = context.PreviousYear;
                 _allYears     = context.AllYears;
-
-                // Default selection: current year
-                if (_currentYear != null)
-                    await SetSelectedYear(_currentYear, storeInSession: false);
             }
         }
         catch (Exception ex)
@@ -132,35 +114,7 @@
         }
     }
 
-    private async Task SelectYear(YearDto year)
-    {
-        await SetSelectedYear(year, storeInSession: true);
-    }
-
-    private async Task SelectYearAndClose(YearDto year)
-    {
-        await SetSelectedYear(year, storeInSession: true);
-        _showYearModal = false;
-    }
-
-    private async Task SetSelectedYear(YearDto year, bool storeInSession)
-    {
-        _selectedYearId   = year.Id;
-        _selectedYearName = year.YearName;
-
-        if (storeInSession)
-        {
-            try
-            {
-                await ApiService.PostAsync<object, object>("session/property", new { key = "SelectedYearId",   value = year.Id.ToString() });
-                await ApiService.PostAsync<object, object>("session/property", new { key = "SelectedYearName", value = year.YearName });
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error storing year in session: {ex.Message}");
-            }
-        }
-    }
+    private void NavigateToYear(YearDto year) => Navigation.NavigateTo($"/year/{year.Id}");
 
     private void OpenYearModal()  => _showYearModal = true;
     private void CloseYearModal() => _showYearModal = false;

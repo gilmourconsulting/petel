@@ -89,8 +89,8 @@ namespace PetelAssistants.Api.Models
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        [Column("created_user")]
-        public int? CreatedUser { get; set; }
+        [Column("user_id")]
+        public int? UserId { get; set; }
 
         [Column("updated_at")]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

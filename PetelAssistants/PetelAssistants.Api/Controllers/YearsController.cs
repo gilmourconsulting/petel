@@ -22,6 +22,33 @@ namespace PetelAssistants.Api.Controllers
             _sharedContext = sharedContext;
         }
 
+        [HttpGet("{id:int}")]
+        public async Task<IActionResult> GetYear(int id)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            try
+            {
+                var year = await _sharedContext.HebrewYears
+                    .AsNoTracking()
+                    .Where(y => y.Id == id)
+                    .Select(y => new { id = y.Id, yearName = y.YearName })
+                    .FirstOrDefaultAsync();
+
+                if (year == null)
+                    return NotFound(new { success = false, message = "שנה לא נמצאה" });
+
+                return Ok(year);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading year {Id}", id);
+                return StatusCode(500, new { success = false, message = "שגיאה בטעינת השנה" });
+            }
+        }
+
         /// <summary>
         /// Returns year context for the dashboard: previous year, current year, and
         /// the full list of active years for the "select another year" modal.

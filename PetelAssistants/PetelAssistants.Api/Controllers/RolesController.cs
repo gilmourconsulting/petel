@@ -202,7 +202,7 @@ namespace PetelAssistants.Api.Controllers
                     Name        = request.Name.Trim(),
                     Description = request.Description?.Trim(),
                     CreatedAt   = DateTime.UtcNow,
-                    CreatedUser = currentUserId,
+                    UserId      = currentUserId,
                     UpdatedAt   = DateTime.UtcNow,
                     UpdateUser  = currentUserId
                 };

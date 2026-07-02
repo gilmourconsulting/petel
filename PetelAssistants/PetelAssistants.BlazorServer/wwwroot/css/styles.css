@@ -458,3 +458,58 @@ html, body {
     right: 0.75rem;
     top: 0.5rem;
 }
+
+/* ── Page Title ─────────────────────────────────── */
+.school-title-section {
+    padding: 10px 0 5px;
+    text-align: center;
+}
+
+.page-title {
+    font-size: var(--font-size-xl);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 10px;
+    text-align: center;
+}
+
+/* ── Two-column row layout ──────────────────────── */
+.row-two-columns {
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.half-card {
+    flex: 1;
+    min-width: 280px;
+}
+
+/* ── Year-management hub cards ──────────────────── */
+.year-nav-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    text-align: center;
+}
+
+.year-nav-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--box-shadow-strong);
+}
+
+.year-nav-card-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.year-nav-card-title {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}

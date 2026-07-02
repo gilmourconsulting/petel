@@ -101,10 +101,10 @@ public class MyEntity : IEntityScoped
     public string Name { get; set; } = string.Empty;
 
     // Audit fields (required)
-    [Column("created_at")]  public DateTime CreatedAt   { get; set; } = DateTime.UtcNow;
-    [Column("created_user")] public int? CreatedUser   { get; set; }
-    [Column("updated_at")]  public DateTime UpdatedAt   { get; set; } = DateTime.UtcNow;
-    [Column("update_user")] public int? UpdateUser     { get; set; }
+    [Column("created_at")]  public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [Column("user_id")]     public int? UserId        { get; set; }  // creator FK → users.id
+    [Column("updated_at")]  public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    [Column("update_user")] public int? UpdateUser    { get; set; }
 }
 ```
 
@@ -187,7 +187,7 @@ DO $$ BEGIN
             name        VARCHAR(100) NOT NULL,
             is_active   BOOLEAN NOT NULL DEFAULT true,
             created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            created_user INTEGER NULL,
+            user_id      INTEGER NULL,
             updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             update_user  INTEGER NULL
         );
@@ -454,10 +454,10 @@ public class MyEntity : IEntityScoped   // ✅ Required for all assist_schema en
     [MaxLength(100)]
     public string Name { get; set; } = string.Empty;
 
-    [Column("created_at")]  public DateTime CreatedAt   { get; set; } = DateTime.UtcNow;
-    [Column("created_user")] public int? CreatedUser   { get; set; }
-    [Column("updated_at")]  public DateTime UpdatedAt   { get; set; } = DateTime.UtcNow;
-    [Column("update_user")] public int? UpdateUser     { get; set; }
+    [Column("created_at")]  public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    [Column("user_id")]     public int? UserId        { get; set; }  // creator FK → users.id
+    [Column("updated_at")]  public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    [Column("update_user")] public int? UpdateUser    { get; set; }
 }
 ```
 
@@ -558,7 +558,7 @@ CREATE TABLE assist_schema.my_entities (
     description VARCHAR(200) NULL,
     is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_user INTEGER NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL,
+    user_id    INTEGER NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     update_user INTEGER NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL
 );
@@ -590,6 +590,92 @@ BEGIN
     END IF;
 END $$;
 ```
+
+## Security Layer
+
+### Architecture overview
+
+```
+Blazor page / SecureButton
+    └─► ActionSecurityService       (PetelAssistants.BlazorServer/Services)
+            └─► POST api/security/verify-action-secure
+                    └─► ActionAuthorizationService  (singleton, in-memory cache)
+                            └─► assist_schema.roles_actions + shared_schema.actions
+```
+
+`SecurePageBase.cs` calls `verify-action-secure` with `PAGE_ACCESS` on `OnInitializedAsync`.  
+`SecureButton.razor` calls `verify-action-secure` with `BUTTON_CLICK` before executing its `OnClick`.
+
+### Required `SecurityController` endpoints
+
+All five must exist; the Blazor shared stack calls them. Missing endpoints degrade silently.
+
+| Endpoint | `ActionAuthorizationService` method | Request DTO |
+|---|---|---|
+| `GET  security/user-actions` | `GetUserAllowedActionIds(userId, entityId)` | — |
+| `POST security/verify-onclick` | `VerifyActionByNameAsync(…, "ONCLICK_BUTTON", screenName)` — `FunctionName` is the action name | `OnclickAccessRequest { ScreenName, FunctionName }` |
+| `POST security/verify-menu` | `VerifyActionByNameAsync(…, "MENU_NAVIGATION", "")` — `MenuItemName` is the action name | `MenuAccessRequest { MenuItemName }` |
+| `POST security/verify-action` | `VerifyUserActionAccessAsync(userId, entityId, actionId)` | `ActionAccessRequest { ActionId }` |
+| `POST security/verify-action-secure` | Full audit path via `VerifyActionByNameAsync` + writes `ActionAuditLog` | `SecureActionRequest` |
+
+Parsing pattern used in every SecurityController endpoint:
+```csharp
+if (!int.TryParse(session.UserId, out int userId) ||
+    !int.TryParse(session.EntityId, out int entityId))
+    return BadRequest(new { success = false, message = "מזהה משתמש או רשות לא תקין" });
+```
+
+### Required `SessionController` endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `GET  session/timeout-config` | **Critical.** `SessionTimeoutService.InitializeAsync()` calls this on every page load. Returns `{ timeoutMinutes, warningMinutes: 2 }`. If missing, client defaults to 10 min regardless of the DB attribute. |
+| `GET  session/properties` | Debug modal in `MainLayout.razor` (`session/properties`). |
+| `DELETE session/property/{key}` | Session property cleanup. |
+
+`timeout-config` implementation — inject `IAttributeCache` and `SecuritySettings`:
+```csharp
+int timeoutMinutes = _securitySettings.SessionTimeoutMinutes; // config fallback
+var val = _attributeCache.GetAttributeValue("Security_SessionTimeoutMinutes");
+if (int.TryParse(val, out int db) && db > 0) timeoutMinutes = db;
+return Ok(new { timeoutMinutes, warningMinutes = 2 });
+```
+
+### Required `AuthController` endpoints
+
+| Endpoint | Behaviour |
+|---|---|
+| `POST auth/logout` | Reads `Authorization: Bearer <token>` header, calls `_sessionService.InvalidateSession(token)`. |
+| `GET  auth/check` | Reads token from header, calls `_sessionService.GetUserSession(token)`, returns `{ isAuthenticated, user }`. |
+
+### Session timeout — layered enforcement
+
+| Layer | Source | Re-read on each request? |
+|---|---|---|
+| **Blazor client idle timer** | `GET session/timeout-config` → `Security_SessionTimeoutMinutes` in `shared_schema.system_attributes` | On `InitializeAsync()` only |
+| **API inactivity check** (`UserSessionService.IsSessionValid`) | `IAttributeCache.GetAttributeValue("Security_SessionTimeoutMinutes")` | ✅ Yes — re-read each call |
+| **JWT absolute expiry** (`JwtTokenService`) | `JWT_ExpirationHours` attribute read **once at construction** — before `SystemAttributeLoaderHostedService` runs, so always falls back to `appsettings.json` `Security:Jwt:ExpirationHours` | ❌ No — startup race; known limitation |
+
+### `ActionAuthorizationService` — available methods
+
+| Method | Signature | Use |
+|---|---|---|
+| `VerifyActionByNameAsync` | `(userId, entityId, actionName, eventType, screenName, reference?)` | All name-based checks |
+| `VerifyUserActionAccessAsync` | `(userId, entityId, actionId)` | ID-based check (`verify-action`) |
+| `GetUserAllowedActionIds` | `(userId, entityId)` → `List<int>` | `user-actions` endpoint |
+| `GetActionByName` | `(actionName)` → `SystemAction?` | Cache lookup |
+| `RefreshCacheAsync` / `InvalidateUserCache` | — | Cache management |
+
+`EventType` → action type name mapping (hardcoded in `ActionAuthorizationService`):
+
+| EventType | action_types.name |
+|---|---|
+| `MENU_NAVIGATION` | `menu_item` |
+| `BUTTON_CLICK` / `ONCLICK_BUTTON` / `BUTTON_VISIBLE_CHECK` | `button` |
+| `PAGE_ACCESS` | `page_action` |
+| `API_ENDPOINT` | `api_endpoint` |
+
+---
 
 ## Authentication Setup
 
