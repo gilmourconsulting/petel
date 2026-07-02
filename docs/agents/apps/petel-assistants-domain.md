@@ -28,6 +28,22 @@ Assistants will be allocated to an entitlement with a start and end date that mu
 
 **Encryption:** National IDs and emails must be encrypted in the database (use `DataEncryptionService` from `Petel.Core`). See [reference/conventions.md](../reference/conventions.md) for EF conversion patterns.
 
+## Persons (people)
+
+**Identity:** Each person belongs to exactly one tenant (`entity_id`). National ID (`id_number`) is unique per tenant — encrypted with deterministic AES for DB lookup and uniqueness. The same physical person in two authorities appears as two independent rows.
+
+**Not all persons are assistants.** Role linkage (assistant for a Hebrew year, pupil, etc.) is added in later features. The person domain is shared infrastructure.
+
+**Versioned main data:** `person_details` stores historical versions with `version`, `is_last_version`, `start_date`, and `end_date`. Default reads use the last version (`is_last_version = true`). Updates create a new version and close the previous row's `end_date`.
+
+**Address history:** `person_addresses` keeps all addresses; exactly one row is `is_active = true` per person. Changes deactivate the current row and insert a new active row.
+
+**Phone history:** `person_phones` supports multiple phone types (from `shared_schema.phone_types`). Exactly one active phone per `(person_id, phone_type_id)`.
+
+**Field alignment:** Main person fields follow PetelATH `persons` columns (`first_name`, `last_name`, `gender`, `date_of_birth`, `email`, `position`, etc.).
+
+**Year linkage:** Assistant registration per Hebrew year is **not** part of the person domain — it will be implemented with Entitlements.
+
 ## Related
 
 - Year management UI flow: [PetelAssistants/docs/year-management-screens.md](../../PetelAssistants/docs/year-management-screens.md)
