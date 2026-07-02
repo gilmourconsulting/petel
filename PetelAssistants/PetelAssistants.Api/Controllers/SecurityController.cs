@@ -32,39 +32,43 @@ namespace PetelAssistants.Api.Controllers
             var userId = 0;
             var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
 
+            _logger.LogInformation("VerifyActionSecure called: Action={ActionName} EventType={EventType} Screen={Screen}",
+                request.ActionName, request.EventType, request.ScreenName);
+
             try
             {
                 var session = GetCurrentSession();
                 if (session == null)
+                {
+                    _logger.LogWarning("VerifyActionSecure: session is null — returning 401 for action '{ActionName}'", request.ActionName);
                     return Unauthorized(new { success = false, allowed = false, message = "נדרש אימות" });
+                }
 
                 if (!int.TryParse(session.UserId, out userId))
+                {
+                    _logger.LogWarning("VerifyActionSecure: cannot parse UserId '{UserId}' — returning 400", session.UserId);
                     return BadRequest(new { success = false, allowed = false, message = "מזהה משתמש לא תקין" });
+                }
+
+                if (!int.TryParse(session.EntityId, out int entityId) || entityId == 0)
+                {
+                    _logger.LogWarning("VerifyActionSecure: cannot parse EntityId '{EntityId}' — returning 400", session.EntityId);
+                    return BadRequest(new { success = false, allowed = false, message = "מזהה רשות לא תקין" });
+                }
 
                 if (string.IsNullOrEmpty(request.ActionName))
+                {
+                    _logger.LogWarning("VerifyActionSecure: ActionName is empty — returning 400");
                     return BadRequest(new { success = false, allowed = false, message = "שם פעולה חסר" });
+                }
 
-                bool hasAccess;
-
-                if (request.EventType == "MENU_NAVIGATION")
-                {
-                    hasAccess = await _authService.VerifyMenuItemAccessAsync(userId, request.ActionName);
-                }
-                else if (request.EventType is "ONCLICK_BUTTON" or "BUTTON_CLICK")
-                {
-                    hasAccess = await _authService.VerifyOnclickAccessAsync(
-                        userId,
-                        request.ScreenName ?? "unknown",
-                        request.FunctionName ?? "unknown");
-                }
-                else
-                {
-                    hasAccess = await _authService.VerifyActionByNameAsync(
-                        userId,
-                        request.ActionName,
-                        request.ActionType,
-                        request.Reference);
-                }
+                var hasAccess = await _authService.VerifyActionByNameAsync(
+                    userId,
+                    entityId,
+                    request.ActionName,
+                    request.EventType ?? "BUTTON_CLICK",
+                    request.ScreenName ?? "",
+                    request.Reference);
 
                 await LogAuditAsync(session, userId, request, hasAccess ? "GRANTED" : "DENIED", ipAddress);
 
@@ -126,7 +130,6 @@ namespace PetelAssistants.Api.Controllers
         public string? ScreenName   { get; set; }
         public string? FunctionName { get; set; }
         public string? EventType    { get; set; }
-        public int     ActionType   { get; set; } = 7;
         public string? Reference    { get; set; }
         public string? ActionParams { get; set; }
         public string? Description  { get; set; }

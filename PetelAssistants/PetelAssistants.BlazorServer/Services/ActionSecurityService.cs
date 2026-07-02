@@ -30,7 +30,6 @@ namespace PetelAssistants.BlazorServer.Services
             string screenName,
             string functionName,
             string eventType = "BUTTON_CLICK",
-            int actionType = 7,
             string? reference = null,
             string? actionParams = null,
             string? description = null)
@@ -43,7 +42,6 @@ namespace PetelAssistants.BlazorServer.Services
                     ScreenName   = screenName,
                     FunctionName = functionName,
                     EventType    = eventType,
-                    ActionType   = actionType,
                     Reference    = reference,
                     ActionParams = actionParams,
                     Description  = description
@@ -69,22 +67,20 @@ namespace PetelAssistants.BlazorServer.Services
 
         public Task<bool> VerifyMenuNavigationAsync(string menuItemName, string menuReference)
             => VerifyActionAsync(
-                actionName:  menuItemName,
-                screenName:  "menu",
+                actionName:   menuItemName,
+                screenName:   "menu",
                 functionName: "navigateTo",
-                eventType:   "MENU_NAVIGATION",
-                actionType:  8,
-                reference:   menuReference,
+                eventType:    "MENU_NAVIGATION",
+                reference:    menuReference,
                 actionParams: menuReference);
 
         public Task<bool> VerifyPageAccessAsync(string pageName)
             => VerifyActionAsync(
-                actionName:  pageName,
-                screenName:  "navigation",
+                actionName:   pageName,
+                screenName:   "navigation",
                 functionName: "accessPage",
-                eventType:   "PAGE_ACCESS",
-                actionType:  8,
-                reference:   pageName);
+                eventType:    "PAGE_ACCESS",
+                reference:    pageName);
 
         public string GetAccessDeniedMessage(string actionName)
             => $"אין לך הרשאה לפעולה זו: {actionName}";
@@ -99,7 +95,6 @@ namespace PetelAssistants.BlazorServer.Services
         public string? ScreenName   { get; set; }
         public string? FunctionName { get; set; }
         public string? EventType    { get; set; }
-        public int     ActionType   { get; set; } = 7;
         public string? Reference    { get; set; }
         public string? ActionParams { get; set; }
         public string? Description  { get; set; }
@@ -107,8 +102,8 @@ namespace PetelAssistants.BlazorServer.Services
 
     public class SecureActionResponse
     {
-        public bool   Success  { get; set; }
-        public bool   Allowed  { get; set; }
-        public string? Message { get; set; }
+        public bool    Success  { get; set; }
+        public bool    Allowed  { get; set; }
+        public string? Message  { get; set; }
     }
 }

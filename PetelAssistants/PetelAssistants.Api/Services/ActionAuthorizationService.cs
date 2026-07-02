@@ -9,21 +9,49 @@ namespace PetelAssistants.Api.Services
     /// Singleton service for action-based access control.
     ///
     /// Cache structure:
-    ///   _actionsCache      — action_name (lowercase) → SystemAction  (global, from shared_schema)
-    ///   _roleActionsCache  — role_id → Set&lt;action_id&gt;               (all tenants, IgnoreQueryFilters)
-    ///   _userRoleCache     — user_id → Set&lt;role_id&gt;                  (all tenants, IgnoreQueryFilters)
+    ///   _actionsCache      — storedName (lowercase) → SystemAction  (from shared_schema)
+    ///   _actionTypeCache   — action_types.name (lowercase) → action_types.id
+    ///   _actionTypeIdCache — action_types.id → action_types.name
+    ///   _roleActionsCache  — (entity_id, role_id) → Set&lt;action_id&gt;  (tenant-scoped)
+    ///   _userRoleCache     — user_id → Set&lt;role_id&gt;
     ///
-    /// IDs are globally unique SERIAL values so tenant isolation is maintained by ID uniqueness.
+    /// Action names are unique by construction (see BuildActionName):
+    ///   menu_item  → "{actionName}"              e.g. "users"
+    ///   button     → "{actionName}"              e.g. "roles_create"
+    ///   page_action→ "{actionName}_page_action"  e.g. "users_page_action"
+    ///   others     → "{actionName}_{typeName}"   e.g. "users_api_endpoint"
+    ///
+    /// Action type IDs are never hardcoded — loaded from shared_schema.action_types at startup.
+    /// The only code-level mapping is EventType string → action_types.name string.
     /// </summary>
     public class ActionAuthorizationService
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<ActionAuthorizationService> _logger;
 
-        private static Dictionary<string, SystemAction> _actionsCache = new();
-        private static Dictionary<int, HashSet<int>>    _roleActionsCache = new();
-        private static Dictionary<int, HashSet<int>>    _userRoleCache = new();
+        private static Dictionary<string, SystemAction> _actionsCache     = new(StringComparer.OrdinalIgnoreCase);
+        private static Dictionary<string, int>          _actionTypeCache  = new(StringComparer.OrdinalIgnoreCase);
+        private static Dictionary<int, string>          _actionTypeIdCache = new();
+        private static Dictionary<(int EntityId, int RoleId), HashSet<int>> _roleActionsCache = new();
+        private static Dictionary<int, HashSet<int>>    _userRoleCache    = new();
         private static readonly object _cacheLock = new();
+
+        /// <summary>
+        /// Maps EventType values (sent by Blazor) to action_types.name in shared_schema.action_types.
+        /// IDs are never used here — always resolved via _actionTypeCache at runtime.
+        /// </summary>
+        private static readonly Dictionary<string, string> EventTypeToActionTypeName =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                { "MENU_NAVIGATION",      "menu_item"       },
+                { "BUTTON_CLICK",         "button"          },
+                { "BUTTON_VISIBLE_CHECK", "button"          },
+                { "ONCLICK_BUTTON",       "button"          },
+                { "PAGE_ACCESS",          "page_action"     },
+                { "API_ENDPOINT",         "api_endpoint"    },
+                { "REPORT",               "report"          },
+                { "SPECIFIC_ACTION",      "specific_action" },
+            };
 
         public ActionAuthorizationService(
             IServiceScopeFactory scopeFactory,
@@ -33,11 +61,14 @@ namespace PetelAssistants.Api.Services
             _logger = logger;
         }
 
+        // ── Startup / cache management ────────────────────────────────────────
+
         public async Task InitializeAsync()
         {
             _logger.LogInformation("Initializing ActionAuthorizationService...");
             try
             {
+                await LoadActionTypesAsync();
                 await LoadActionsAsync();
                 await LoadRoleActionsAsync();
                 _logger.LogInformation("ActionAuthorizationService initialized successfully");
@@ -45,6 +76,39 @@ namespace PetelAssistants.Api.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error initializing ActionAuthorizationService");
+            }
+        }
+
+        private async Task LoadActionTypesAsync()
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var shared = scope.ServiceProvider.GetRequiredService<SharedDbContext>();
+
+                var types = await shared.ActionTypes
+                    .AsNoTracking()
+                    .Where(t => t.IsActive)
+                    .ToListAsync();
+
+                lock (_cacheLock)
+                {
+                    _actionTypeCache.Clear();
+                    _actionTypeIdCache.Clear();
+                    foreach (var t in types)
+                    {
+                        _actionTypeCache[t.Name]  = t.Id;
+                        _actionTypeIdCache[t.Id]  = t.Name;
+                    }
+                }
+
+                _logger.LogInformation("Loaded {Count} action types: [{Types}]",
+                    types.Count,
+                    string.Join(", ", types.Select(t => $"{t.Name}={t.Id}")));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading action types cache");
             }
         }
 
@@ -64,7 +128,7 @@ namespace PetelAssistants.Api.Services
                 {
                     _actionsCache.Clear();
                     foreach (var action in actions)
-                        _actionsCache[action.Name.ToLower()] = action;
+                        _actionsCache[BuildCacheKey(action.Name)] = action;
                 }
 
                 _logger.LogInformation("Loaded {Count} actions into cache", actions.Count);
@@ -82,21 +146,26 @@ namespace PetelAssistants.Api.Services
                 using var scope = _scopeFactory.CreateScope();
                 var context = scope.ServiceProvider.GetRequiredService<AssistDbContext>();
 
-                var roleActions = await context.RolesActions
+                var allRows = await context.RolesActions
                     .IgnoreQueryFilters()
                     .AsNoTracking()
-                    .GroupBy(ra => ra.RoleId)
-                    .Select(g => new { RoleId = g.Key, ActionIds = g.Select(ra => ra.ActionId).ToList() })
+                    .Select(ra => new { ra.EntityId, ra.RoleId, ra.ActionId })
                     .ToListAsync();
 
                 lock (_cacheLock)
                 {
                     _roleActionsCache.Clear();
-                    foreach (var ra in roleActions)
-                        _roleActionsCache[ra.RoleId] = new HashSet<int>(ra.ActionIds);
+                    foreach (var row in allRows)
+                    {
+                        var key = (row.EntityId, row.RoleId);
+                        if (!_roleActionsCache.TryGetValue(key, out var set))
+                            _roleActionsCache[key] = set = new HashSet<int>();
+                        set.Add(row.ActionId);
+                    }
                 }
 
-                _logger.LogInformation("Loaded {Count} roles into role-actions cache", roleActions.Count);
+                _logger.LogInformation("Loaded {Count} role-action rows into cache ({Keys} entity/role keys)",
+                    allRows.Count, _roleActionsCache.Count);
             }
             catch (Exception ex)
             {
@@ -136,6 +205,7 @@ namespace PetelAssistants.Api.Services
             {
                 _userRoleCache.Clear();
             }
+            await LoadActionTypesAsync();
             await LoadActionsAsync();
             await LoadRoleActionsAsync();
             _logger.LogInformation("Cache refreshed successfully");
@@ -149,103 +219,159 @@ namespace PetelAssistants.Api.Services
             }
         }
 
-        public async Task<bool> VerifyMenuItemAccessAsync(int userId, string menuItemName)
+        // ── Helpers ───────────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Constructs the unique DB action name from request parameters.
+        /// - menu_item and button: use actionName as-is (existing naming convention)
+        /// - all other types: append the type suffix so the same base name can coexist
+        ///   per type, e.g. "users" (menu_item) and "users_page_action" (page_action).
+        /// </summary>
+        private static string BuildActionName(string actionName, string typeName)
+        {
+            var name = actionName.ToLower().Trim();
+            var type = typeName.ToLower().Trim();
+            return type is "menu_item" or "button" ? name : $"{name}_{type}";
+        }
+
+        /// <summary>Cache key equals the stored DB action name (both lowercased).</summary>
+        private static string BuildCacheKey(string storedName)
+            => storedName.ToLower();
+
+        // ── Core authorization ────────────────────────────────────────────────
+
+        /// <summary>
+        /// Verifies whether userId may perform actionName for the given EventType and screen.
+        ///
+        /// Flow:
+        ///   1. Resolve action_type from EventType via EventTypeToActionTypeName + _actionTypeCache.
+        ///   2. Check _actionsCache by composite key "{actionName}:{typeName}".
+        ///   3. Cache miss → check shared_schema.actions by (name, action_type_id).
+        ///      a. Not in DB  → create the action, log it, return DENIED.
+        ///      b. In DB      → add to cache, continue to role check.
+        ///   4. Cache hit (or step 3b) → check user roles → GRANTED or DENIED.
+        /// </summary>
+        public async Task<bool> VerifyActionByNameAsync(
+            int userId,
+            int entityId,
+            string actionName,
+            string eventType,
+            string screenName,
+            string? reference = null)
         {
             try
             {
-                SystemAction? action;
-                lock (_cacheLock)
+                // Step 1 — resolve action type from EventType
+                if (!EventTypeToActionTypeName.TryGetValue(eventType, out var typeName))
                 {
-                    _actionsCache.TryGetValue(menuItemName.ToLower(), out action);
+                    _logger.LogWarning("Unknown EventType '{EventType}' for action '{ActionName}' — defaulting to 'button'", eventType, actionName);
+                    typeName = "button";
                 }
-                if (action == null)
+
+                int actionTypeId;
+                lock (_cacheLock)
+                    _actionTypeCache.TryGetValue(typeName, out actionTypeId);
+
+                if (actionTypeId == 0)
                 {
-                    _logger.LogWarning("Menu item action not found: {MenuItem}", menuItemName);
+                    _logger.LogWarning("Action type '{TypeName}' not found in cache — cannot verify '{ActionName}'", typeName, actionName);
                     return false;
                 }
-                return await VerifyUserActionAccessAsync(userId, action.Id);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error verifying menu item access for user {UserId}", userId);
-                return false;
-            }
-        }
 
-        public async Task<bool> VerifyOnclickAccessAsync(int userId, string screenName, string functionName)
-        {
-            var whitelisted = new[] { "close", "toggle", "cancel", "refresh", "navigate" };
-            if (whitelisted.Any(p => functionName.ToLower().StartsWith(p)))
-                return true;
+                // Construct the unique DB name (e.g. "users_page_action" for PAGE_ACCESS)
+                var dbActionName = BuildActionName(actionName, typeName);
+                var cacheKey     = BuildCacheKey(dbActionName);
 
-            var actionId = $"{screenName}_{functionName}".ToLower();
-            return await VerifyActionByNameAsync(userId, actionId);
-        }
+                // Step 2 — cache lookup by constructed name
+                SystemAction? action;
+                lock (_cacheLock)
+                    _actionsCache.TryGetValue(cacheKey, out action);
 
-        public async Task<bool> VerifyActionByNameAsync(int userId, string actionName, int actionType = 7, string? reference = null)
-        {
-            try
-            {
+                if (action != null)
+                {
+                    _logger.LogInformation("Action '{DbName}' (ID: {Id}) — FOUND IN CACHE", dbActionName, action.Id);
+                }
+                else
+                {
+                    _logger.LogInformation("Action '{DbName}' — NOT in cache, checking DB", dbActionName);
+
+                    // Step 3 — DB lookup by constructed name
+                    using var scope = _scopeFactory.CreateScope();
+                    var shared = scope.ServiceProvider.GetRequiredService<SharedDbContext>();
+
+                    action = await shared.SystemActions
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(a => a.Name == dbActionName);
+
+                    if (action == null)
+                    {
+                        // Step 3a — not in DB: create, log, deny
+                        _logger.LogInformation("Action '{DbName}' — NOT in DB, creating", dbActionName);
+                        await CreateActionInDbAsync(shared, dbActionName, typeName, actionTypeId, screenName, reference);
+                        return false;
+                    }
+
+                    // Step 3b — found in DB: add to cache
+                    _logger.LogInformation("Action '{DbName}' (ID: {Id}) — found in DB, adding to cache", dbActionName, action.Id);
+                    lock (_cacheLock)
+                        _actionsCache[cacheKey] = action;
+                }
+
+                // Step 4 — role check
                 if (!_userRoleCache.ContainsKey(userId))
                     await LoadUserRolesAsync(userId);
 
                 if (!_userRoleCache.TryGetValue(userId, out var userRoles) || userRoles.Count == 0)
+                {
+                    _logger.LogWarning("Access DENIED for user {UserId} (entity {EntityId}) on '{DbName}' — user has no roles",
+                        userId, entityId, dbActionName);
                     return false;
-
-                SystemAction? action;
-                lock (_cacheLock)
-                {
-                    _actionsCache.TryGetValue(actionName.ToLower(), out action);
-                }
-
-                if (action == null)
-                {
-                    _logger.LogWarning("Action not found in cache: {ActionName} — auto-creating as active", actionName);
-                    action = await AutoCreateActionAsync(actionName, actionType, reference);
-                    if (action == null) return false;
                 }
 
                 lock (_cacheLock)
                 {
                     foreach (var roleId in userRoles)
                     {
-                        if (_roleActionsCache.TryGetValue(roleId, out var roleActions) && roleActions.Contains(action.Id))
+                        var roleKey = (entityId, roleId);
+                        if (_roleActionsCache.TryGetValue(roleKey, out var roleActions) && roleActions.Contains(action.Id))
                             return true;
                     }
                 }
 
+                _logger.LogWarning("Access DENIED for user {UserId} (entity {EntityId}) on '{DbName}' (ID: {ActionId}) — UserRoles=[{Roles}]",
+                    userId, entityId, dbActionName, action.Id, string.Join(",", userRoles));
                 return false;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error verifying action {ActionName} for user {UserId}", actionName, userId);
+                _logger.LogError(ex, "Error verifying action '{ActionName}' for user {UserId}", actionName, userId);
                 return false;
             }
         }
 
-        private async Task<SystemAction?> AutoCreateActionAsync(string actionName, int actionTypeId, string? reference)
+        /// <summary>
+        /// Inserts a new action into shared_schema.actions using the pre-constructed dbActionName.
+        /// Caller always returns DENIED after this — the action needs a role assignment first.
+        /// </summary>
+        private async Task CreateActionInDbAsync(
+            SharedDbContext shared,
+            string dbActionName,
+            string typeName,
+            int actionTypeId,
+            string screenName,
+            string? reference)
         {
             try
             {
-                using var scope = _scopeFactory.CreateScope();
-                var shared = scope.ServiceProvider.GetRequiredService<SharedDbContext>();
-
-                var existing = await shared.SystemActions.FirstOrDefaultAsync(a => a.Name == actionName);
-                if (existing != null)
-                {
-                    lock (_cacheLock) { _actionsCache[actionName.ToLower()] = existing; }
-                    return existing;
-                }
-
-                var parts = actionName.Split('_', 2);
-                var displayName = parts.Length > 1 ? parts[1] : actionName;
+                var parts       = dbActionName.Split('_', 2);
+                var displayName = parts.Length > 1 ? parts[1] : dbActionName;
 
                 var newAction = new SystemAction
                 {
-                    Name         = actionName,
+                    Name         = dbActionName,
                     DisplayName  = displayName,
-                    Reference    = reference ?? (parts.Length > 0 ? parts[0] : actionName),
-                    Description  = $"Auto-created from action name '{actionName}'",
+                    Reference    = reference ?? screenName,
+                    Description  = $"Auto-created: name='{dbActionName}' type='{typeName}' screen='{screenName}'",
                     ActionTypeId = actionTypeId,
                     IsActive     = true,
                     CreatedAt    = DateTime.UtcNow,
@@ -257,32 +383,31 @@ namespace PetelAssistants.Api.Services
                 try
                 {
                     await shared.SaveChangesAsync();
-                    _logger.LogInformation("Auto-created action: {ActionName} (ID: {Id})", newAction.Name, newAction.Id);
+                    _logger.LogInformation(
+                        "Created action '{DbName}' (ID: {Id}, type='{TypeName}', TypeId: {TypeId}, screen='{Screen}') in shared_schema.actions",
+                        newAction.Name, newAction.Id, typeName, actionTypeId, screenName);
+
+                    lock (_cacheLock)
+                        _actionsCache[BuildCacheKey(newAction.Name)] = newAction;
                 }
                 catch (DbUpdateException dbEx) when (dbEx.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
                 {
-                    // Another concurrent request created it first — fetch and return the winner.
-                    _logger.LogWarning("Race condition on action creation for '{ActionName}' — fetching existing record", actionName);
-                    var raceAction = await shared.SystemActions.FirstOrDefaultAsync(a => a.Name == actionName);
-                    if (raceAction != null)
-                    {
-                        lock (_cacheLock) { _actionsCache[raceAction.Name.ToLower()] = raceAction; }
-                        return raceAction;
-                    }
-                    throw;
+                    // Race condition — another request created the same name first
+                    _logger.LogWarning("Race condition creating '{DbName}' — fetching winner from DB", dbActionName);
+                    var winner = await shared.SystemActions.FirstOrDefaultAsync(a => a.Name == dbActionName);
+                    if (winner != null)
+                        lock (_cacheLock) { _actionsCache[BuildCacheKey(winner.Name)] = winner; }
                 }
-
-                lock (_cacheLock) { _actionsCache[newAction.Name.ToLower()] = newAction; }
-                return newAction;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error auto-creating action {ActionName}", actionName);
-                return null;
+                _logger.LogError(ex, "Error creating action '{DbName}' type='{TypeName}'", dbActionName, typeName);
             }
         }
 
-        public async Task<bool> VerifyUserActionAccessAsync(int userId, int actionId)
+        // ── Helpers used by other callers ────────────────────────────────────
+
+        public async Task<bool> VerifyUserActionAccessAsync(int userId, int entityId, int actionId)
         {
             try
             {
@@ -296,7 +421,8 @@ namespace PetelAssistants.Api.Services
                 {
                     foreach (var roleId in userRoles)
                     {
-                        if (_roleActionsCache.TryGetValue(roleId, out var roleActions) && roleActions.Contains(actionId))
+                        var key = (entityId, roleId);
+                        if (_roleActionsCache.TryGetValue(key, out var roleActions) && roleActions.Contains(actionId))
                             return true;
                     }
                 }
@@ -304,12 +430,12 @@ namespace PetelAssistants.Api.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error verifying action {ActionId} for user {UserId}", actionId, userId);
+                _logger.LogError(ex, "Error verifying action {ActionId} for user {UserId} (entity {EntityId})", actionId, userId, entityId);
                 return false;
             }
         }
 
-        public List<int> GetUserAllowedActionIds(int userId)
+        public List<int> GetUserAllowedActionIds(int userId, int entityId)
         {
             lock (_cacheLock)
             {
@@ -319,7 +445,8 @@ namespace PetelAssistants.Api.Services
                 var result = new HashSet<int>();
                 foreach (var roleId in userRoles)
                 {
-                    if (_roleActionsCache.TryGetValue(roleId, out var roleActions))
+                    var key = (entityId, roleId);
+                    if (_roleActionsCache.TryGetValue(key, out var roleActions))
                         result.UnionWith(roleActions);
                 }
                 return result.ToList();
@@ -330,7 +457,7 @@ namespace PetelAssistants.Api.Services
         {
             lock (_cacheLock)
             {
-                _actionsCache.TryGetValue(actionName.ToLower(), out var action);
+                _actionsCache.TryGetValue(BuildCacheKey(actionName), out var action);
                 return action;
             }
         }

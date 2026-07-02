@@ -1,0 +1,16 @@
+-- =============================================================================
+-- PetelAssistants — Actions unique constraint (informational, no DDL required)
+--
+-- The existing UNIQUE(name) constraint "actions_unique_pk" remains in place.
+-- Action name uniqueness is guaranteed by the application naming convention:
+--   - menu_item  : "{actionName}"              e.g. "users"
+--   - button     : "{screenName}_{function}"   e.g. "roles_create"
+--   - page_action: "{actionName}_page_action"  e.g. "users_page_action"
+--   - api_endpoint etc.: "{actionName}_{typeName}"
+-- This ensures each action has a distinct name across all types without
+-- requiring a composite (name, action_type_id) constraint.
+--
+-- If you need to inspect the current constraint:
+--   SELECT conname, contype FROM pg_constraint
+--   WHERE conrelid = 'shared_schema.actions'::regclass;
+-- =============================================================================

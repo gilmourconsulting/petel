@@ -146,7 +146,8 @@ BEGIN
         ('roles_delete',           'מחיקת תפקיד',               'roles', 'כפתור מחיקת תפקיד',                v_button_type_id),
         ('roles_viewdetails',      'צפייה בפרטי תפקיד',         'roles', 'כפתור צפה בפרטי תפקיד',            v_button_type_id),
         ('roles_maindashboard',    'חזרה ללוח בקרה מ-תפקידים', 'roles', 'כפתור חזרה ללוח בקרה',            v_button_type_id),
-        ('roles_users',            'מעבר למסך משתמשים',         'roles', 'כפתור מעבר לניהול משתמשים',        v_button_type_id)
+        ('roles_users',            'מעבר למסך משתמשים',         'roles', 'כפתור מעבר לניהול משתמשים',        v_button_type_id),
+        ('roles_manageusers',      'ניהול משתמשי תפקיד',        'roles', 'כפתור מעבר לניהול משתמשים בתפקיד', v_button_type_id)
     ON CONFLICT (name) DO NOTHING;
 
     -- ── roledetails screen ────────────────────────────────────────────────────

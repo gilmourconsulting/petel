@@ -26,6 +26,15 @@ namespace PetelAssistants.Api.Models
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        [Column("action_level")]
+        public int ActionLevel { get; set; } = 0;
+
+        [Column("updated_at")]
+        public DateTime? UpdatedAt { get; set; }
+
+        [Column("update_user")]
+        public int? UpdateUser { get; set; }
+
         public virtual Role? Role { get; set; }
     }
 }

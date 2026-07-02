@@ -89,6 +89,7 @@
 
 @code {
     protected override string PageName => "maindashboard";
+    protected override bool EnforcePageAccess => false;
 
     [SupplyParameterFromQuery(Name = "fromLogin")]
     public bool FromLogin { get; set; }

@@ -24,6 +24,8 @@
     </div>
 
     <div class="students-content">
+        <TenantSelector TenantChanged="OnTenantChanged" />
+
         <div class="content-card">
             <h2 class="page-title">רשימת תפקידים</h2>
 
@@ -42,10 +44,21 @@
                         <thead>
                             <tr>
                                 <th>פעולות</th>
-                                <th>שם תפקיד</th>
-                                <th>תיאור</th>
-                                <th>משתמשים</th>
-                                <th>הרשאות</th>
+                                <th @onclick="() => SortTable(nameof(RoleDto.Name))" style="cursor: pointer;">
+                                    שם תפקיד @GetSortArrow(nameof(RoleDto.Name))
+                                </th>
+                                <th @onclick="() => SortTable(nameof(RoleDto.Description))" style="cursor: pointer;">
+                                    תיאור @GetSortArrow(nameof(RoleDto.Description))
+                                </th>
+                                <th @onclick="() => SortTable(nameof(RoleDto.UserCount))" style="cursor: pointer;">
+                                    משתמשים @GetSortArrow(nameof(RoleDto.UserCount))
+                                </th>
+                                <th @onclick="() => SortTable(nameof(RoleDto.ActionCount))" style="cursor: pointer;">
+                                    הרשאות @GetSortArrow(nameof(RoleDto.ActionCount))
+                                </th>
+                                <th @onclick="() => SortTable(nameof(RoleDto.CreatedAt))" style="cursor: pointer;">
+                                    נוצר @GetSortArrow(nameof(RoleDto.CreatedAt))
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -55,17 +68,22 @@
                                     <td class="actions-cell">
                                         <SecureButton ActionName="roles_viewdetails" ScreenName="@PageName" FunctionName="ViewRoleDetails"
                                                       ActionParams="@($"roleId={role.Id}")"
-                                                      OnClick="() => ViewRoleDetails(role.Id)" CssClass="btn-icon" Title="פרטי תפקיד" HideIfNoAccess="true">
+                                                      OnClick="() => ViewRoleDetails(role.Id)" CssClass="btn-icon" Title="פרטי תפקיד">
                                             <img src="/images/view_icon.png" alt="פרטים" class="action-icon-natural" />
                                         </SecureButton>
                                         <SecureButton ActionName="roles_edit" ScreenName="@PageName" FunctionName="EditRole"
                                                       ActionParams="@($"roleId={role.Id}")"
-                                                      OnClick="() => ShowEditDialog(role)" CssClass="btn-icon" Title="עריכה" HideIfNoAccess="true">
+                                                      OnClick="() => ShowEditDialog(role)" CssClass="btn-icon" Title="עריכה">
                                             <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural" />
+                                        </SecureButton>
+                                        <SecureButton ActionName="roles_manageusers" ScreenName="@PageName" FunctionName="ManageRoleUsers"
+                                                      ActionParams="@($"roleId={role.Id}")"
+                                                      OnClick="() => ManageRoleUsers(role.Id)" CssClass="btn-icon" Title="נהל משתמשים">
+                                            <img src="/images/stats_icon.png" alt="משתמשים" class="action-icon-natural" />
                                         </SecureButton>
                                         <SecureButton ActionName="roles_delete" ScreenName="@PageName" FunctionName="DeleteRole"
                                                       ActionParams="@($"roleId={role.Id}")"
-                                                      OnClick="() => DeleteRole(role)" CssClass="btn-icon btn-danger" Title="מחיקה" HideIfNoAccess="true">
+                                                      OnClick="() => DeleteRole(role)" CssClass="btn-icon btn-danger" Title="מחיקה">
                                             <img src="/images/delete_icon.png" alt="מחיקה" class="action-icon-natural" />
                                         </SecureButton>
                                     </td>
@@ -73,6 +91,7 @@
                                     <td>@(role.Description ?? "—")</td>
                                     <td>@role.UserCount</td>
                                     <td>@role.ActionCount</td>
+                                    <td>@role.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</td>
                                 </tr>
                             }
                         </tbody>
@@ -128,6 +147,9 @@
     private string _formName = string.Empty;
     private string? _formDescription;
 
+    private string _sortColumn = nameof(RoleDto.Name);
+    private bool _sortAscending = true;
+
     protected override async Task OnPageInitializedAsync()
     {
         await LoadDataAsync();
@@ -140,6 +162,7 @@
             _isLoading = true;
             var response = await ApiService.GetAsync<ApiResponse<List<RoleDto>>>("roles");
             _roles = response?.Data ?? new();
+            ApplySort();
         }
         catch (Exception ex)
         {
@@ -151,7 +174,50 @@
         }
     }
 
+    private void SortTable(string columnName)
+    {
+        if (_sortColumn == columnName)
+            _sortAscending = !_sortAscending;
+        else
+        {
+            _sortColumn = columnName;
+            _sortAscending = true;
+        }
+        ApplySort();
+    }
+
+    private void ApplySort()
+    {
+        _roles = _sortColumn switch
+        {
+            nameof(RoleDto.Name) => _sortAscending
+                ? _roles.OrderBy(r => r.Name).ToList()
+                : _roles.OrderByDescending(r => r.Name).ToList(),
+            nameof(RoleDto.Description) => _sortAscending
+                ? _roles.OrderBy(r => r.Description ?? "").ToList()
+                : _roles.OrderByDescending(r => r.Description ?? "").ToList(),
+            nameof(RoleDto.UserCount) => _sortAscending
+                ? _roles.OrderBy(r => r.UserCount).ToList()
+                : _roles.OrderByDescending(r => r.UserCount).ToList(),
+            nameof(RoleDto.ActionCount) => _sortAscending
+                ? _roles.OrderBy(r => r.ActionCount).ToList()
+                : _roles.OrderByDescending(r => r.ActionCount).ToList(),
+            nameof(RoleDto.CreatedAt) => _sortAscending
+                ? _roles.OrderBy(r => r.CreatedAt).ToList()
+                : _roles.OrderByDescending(r => r.CreatedAt).ToList(),
+            _ => _roles
+        };
+    }
+
+    private string GetSortArrow(string columnName)
+    {
+        if (_sortColumn != columnName) return string.Empty;
+        return _sortAscending ? "▲" : "▼";
+    }
+
     private async Task RefreshData() => await LoadDataAsync();
+
+    private async Task OnTenantChanged(int tenantId) => await LoadDataAsync();
 
     private void ShowCreateDialog()
     {
@@ -208,6 +274,7 @@
     }
 
     private void ViewRoleDetails(int roleId) => Navigation.NavigateTo($"/roledetails/{roleId}");
+    private void ManageRoleUsers(int roleId) => Navigation.NavigateTo($"/roledetails/{roleId}");
     private void NavigateToUsers() => Navigation.NavigateTo("/users");
     private void NavigateToMainDashboard() => Navigation.NavigateTo("/maindashboard");
 }
