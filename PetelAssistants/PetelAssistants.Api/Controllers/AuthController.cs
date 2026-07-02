@@ -135,6 +135,64 @@ namespace PetelAssistants.Api.Controllers
             }
         }
 
+        [HttpPost("logout")]
+        public IActionResult Logout()
+        {
+            try
+            {
+                var authHeader = Request.Headers["Authorization"].ToString();
+                var token = authHeader.Replace("Bearer ", "").Trim();
+
+                if (!string.IsNullOrEmpty(token))
+                {
+                    _sessionService.InvalidateSession(token);
+                    _logger.LogInformation("Session invalidated via logout");
+                }
+
+                return Ok(new { success = true, message = "התנתקת בהצלחה" });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Logout error");
+                return StatusCode(500, new { success = false, message = "שגיאה בהתנתקות" });
+            }
+        }
+
+        [HttpGet("check")]
+        public IActionResult CheckAuth()
+        {
+            try
+            {
+                var authHeader = Request.Headers["Authorization"].ToString();
+                var token = authHeader.Replace("Bearer ", "").Trim();
+
+                if (string.IsNullOrEmpty(token))
+                    return Unauthorized(new { isAuthenticated = false });
+
+                var session = _sessionService.GetUserSession(token);
+                if (session == null)
+                    return Unauthorized(new { isAuthenticated = false });
+
+                return Ok(new
+                {
+                    isAuthenticated = true,
+                    user = new
+                    {
+                        id         = session.UserId,
+                        username   = session.Username,
+                        fullName   = session.UserFullName,
+                        entityId   = session.EntityId,
+                        entityName = session.EntityName
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Auth check error");
+                return Unauthorized(new { isAuthenticated = false });
+            }
+        }
+
         [HttpPost("forgot-password")]
         public IActionResult ForgotPassword([FromBody] object request)
         {

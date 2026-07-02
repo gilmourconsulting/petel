@@ -25,6 +25,83 @@ namespace PetelAssistants.Api.Controllers
             _context = context;
         }
 
+        /// <summary>Return the list of action IDs the current user is allowed to perform.</summary>
+        [HttpGet("user-actions")]
+        public IActionResult GetUserActions()
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (!int.TryParse(session.UserId, out int userId) ||
+                !int.TryParse(session.EntityId, out int entityId))
+                return BadRequest(new { success = false, message = "מזהה משתמש או רשות לא תקין" });
+
+            var actionIds = _authService.GetUserAllowedActionIds(userId, entityId);
+            return Ok(actionIds);
+        }
+
+        /// <summary>Verify button/onclick access by screen name and function name.</summary>
+        [HttpPost("verify-onclick")]
+        public async Task<IActionResult> VerifyOnclickAccess([FromBody] OnclickAccessRequest request)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (string.IsNullOrWhiteSpace(request.ScreenName) || string.IsNullOrWhiteSpace(request.FunctionName))
+                return BadRequest(new { success = false, message = "שם מסך או שם פונקציה חסר" });
+
+            if (!int.TryParse(session.UserId, out int userId) ||
+                !int.TryParse(session.EntityId, out int entityId))
+                return BadRequest(new { success = false, message = "מזהה משתמש או רשות לא תקין" });
+
+            var hasAccess = await _authService.VerifyActionByNameAsync(
+                userId, entityId, request.FunctionName, "ONCLICK_BUTTON", request.ScreenName);
+
+            return Ok(new { success = hasAccess, allowed = hasAccess });
+        }
+
+        /// <summary>Verify menu item access by name.</summary>
+        [HttpPost("verify-menu")]
+        public async Task<IActionResult> VerifyMenuAccess([FromBody] MenuAccessRequest request)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (string.IsNullOrWhiteSpace(request.MenuItemName))
+                return BadRequest(new { success = false, message = "שם פריט תפריט חסר" });
+
+            if (!int.TryParse(session.UserId, out int userId) ||
+                !int.TryParse(session.EntityId, out int entityId))
+                return BadRequest(new { success = false, message = "מזהה משתמש או רשות לא תקין" });
+
+            var hasAccess = await _authService.VerifyActionByNameAsync(
+                userId, entityId, request.MenuItemName, "MENU_NAVIGATION", "");
+
+            return Ok(new { success = hasAccess, allowed = hasAccess });
+        }
+
+        /// <summary>Verify action access by action ID.</summary>
+        [HttpPost("verify-action")]
+        public async Task<IActionResult> VerifyActionAccess([FromBody] ActionAccessRequest request)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (request.ActionId <= 0)
+                return BadRequest(new { success = false, message = "מזהה אקשן חסר" });
+
+            if (!int.TryParse(session.UserId, out int userId) ||
+                !int.TryParse(session.EntityId, out int entityId))
+                return BadRequest(new { success = false, message = "מזהה משתמש או רשות לא תקין" });
+
+            var hasAccess = await _authService.VerifyUserActionAccessAsync(userId, entityId, request.ActionId);
+            return Ok(new { success = hasAccess, allowed = hasAccess });
+        }
+
         /// <summary>Verify action and log to audit trail.</summary>
         [HttpPost("verify-action-secure")]
         public async Task<IActionResult> VerifyActionSecure([FromBody] SecureActionRequest request)
@@ -133,5 +210,21 @@ namespace PetelAssistants.Api.Controllers
         public string? Reference    { get; set; }
         public string? ActionParams { get; set; }
         public string? Description  { get; set; }
+    }
+
+    public class OnclickAccessRequest
+    {
+        public string ScreenName   { get; set; } = string.Empty;
+        public string FunctionName { get; set; } = string.Empty;
+    }
+
+    public class MenuAccessRequest
+    {
+        public string MenuItemName { get; set; } = string.Empty;
+    }
+
+    public class ActionAccessRequest
+    {
+        public int ActionId { get; set; }
     }
 }
