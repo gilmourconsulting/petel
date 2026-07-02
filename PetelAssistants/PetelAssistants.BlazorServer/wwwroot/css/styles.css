@@ -495,6 +495,9 @@ html, body {
     padding: 40px 20px;
     transition: transform 0.2s ease, box-shadow 0.2s ease;
     text-align: center;
+    border: none;
+    width: 100%;
+    font-family: inherit;
 }
 
 .year-nav-card:hover {

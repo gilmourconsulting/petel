@@ -8,6 +8,8 @@ alwaysApply: false
 
 Before making any changes under `PetelAssistants/`, read `.github/instructions/petelassistants.instructions.md`.
 
+For year-scoped UI (dashboard → year hub → assistants / entitlements), see `PetelAssistants/docs/year-management-screens.md`.
+
 ## Security — Required API Endpoints
 
 The shared Blazor stack (`Petel.BlazorCore`) calls these endpoints on startup or on every action. If any are missing the frontend degrades silently.

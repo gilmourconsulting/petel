@@ -41,6 +41,10 @@ cd PetelAssistants/PetelAssistants.Api && dotnet run
 cd PetelAssistants/PetelAssistants.BlazorServer && dotnet run
 ```
 
+## Year Management Screens
+
+See [PetelAssistants/docs/year-management-screens.md](../../PetelAssistants/docs/year-management-screens.md) for navigation flow, session keys, API endpoints, and security actions.
+
 ## Database — Dual-Schema Multi-Tenancy
 
 PetelAssistants uses **two fixed PostgreSQL schemas** regardless of tenant count. Adding a new local authority is a single `INSERT` into `shared_schema.entities` — no schema or infrastructure changes.
