@@ -20,8 +20,11 @@ namespace PetelAssistants.BlazorServer.Models
     {
         public int    Id         { get; set; }
         public string YearName   { get; set; } = string.Empty;
+        public DateOnly? StartDate { get; set; }
+        public DateOnly? EndDate   { get; set; }
         public bool   IsCurrent  { get; set; }
         public bool   IsPrevious { get; set; }
+        public bool   IsActive   { get; set; } = true;
     }
 
     public class YearContextDto

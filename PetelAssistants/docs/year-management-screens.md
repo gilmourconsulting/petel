@@ -12,14 +12,24 @@ Domain context: assistants and entitlements are managed per Jewish school year. 
 /maindashboard
     └── click year button or modal
             └── /year/{YearId}          (YearManagement — hub)
-                    ├── /year/{YearId}/assistants    (סייעות)
-                    └── /year/{YearId}/entitlements  (זכאיות)
+                    ├── /year/{YearId}/assistants                      (סייעות)
+                    ├── /year/{YearId}/entitlements/institutional      (זכאויות מוסדיות)
+                    ├── /year/{YearId}/entitlements/personal         (זכאויות אישיות)
+                    └── /year/{YearId}/org-units                     (בתי ספר וגנים)
 ```
 
 - **Main dashboard** (`MainDashboard.razor`, `/maindashboard`): shows current/previous year buttons and a "בחר שנה" modal. Clicking a year navigates to `/year/{yearId}` (does not only store year in session).
-- **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name and two navigation cards — **סייעות** and **זכאיות**.
-- **Assistants** (`Assistants.razor`, `/year/{YearId}/assistants`): person CRUD for the logged-in authority. Route includes `{YearId}` for navigation; person data is entity-scoped until Entitlements adds year linkage.
-- **Entitlements** (`Entitlements.razor`, `/year/{YearId}/entitlements`): stub page; full CRUD to be built.
+- **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name and navigation cards — **סייעות**, **זכאויות מוסדיות**, **זכאויות אישיות**, **בתי ספר וגנים**.
+- **Assistants** (`Assistants.razor`, `/year/{YearId}/assistants`): person CRUD for the logged-in authority.
+- **Institutional entitlements** (`InstitutionalEntitlements.razor`): school/kindergarten/class entitlements for the year.
+- **Personal entitlements** (`PersonalEntitlements.razor`): pupil (external id) entitlements for the year.
+- **Org units** (`OrgUnits.razor`, `/year/{YearId}/org-units`): manage schools and kindergartens for the logged-in authority (also available at `/org-units` from the main menu).
+- **Legacy route** `/year/{YearId}/entitlements` redirects to institutional entitlements.
+
+**System admin (not year-scoped):**
+
+- **Assistant types** (`AssistantTypes.razor`, `/assistant-types`)
+- **Hebrew years** (`HebrewYears.razor`, `/hebrew-years`)
 
 ## Session context
 
@@ -37,7 +47,19 @@ Downstream pages should read year from the route parameter `{YearId}` and/or ses
 | Endpoint | Purpose |
 |----------|---------|
 | `GET api/years/context` | Dashboard: current year, previous year, all years |
-| `GET api/years/{id}` | Single year lookup (id + yearName) |
+| `GET api/years/{id}` | Single year lookup (name + dates + flags) |
+| `GET api/years/admin` | System admin: all Hebrew years |
+| `PUT api/years/{id}` | System admin: update year dates and flags |
+| `GET api/assistant-types` | Active assistant types (optional `includeInactive`) |
+| `POST/PUT api/assistant-types` | System admin: manage assistant types |
+| `GET api/org-units?type=` | Schools/kindergartens for tenant |
+| `POST/PUT api/org-units` | Create/update org units |
+| `PUT api/org-units/{id}/activate\|deactivate` | Toggle org unit |
+| `GET api/entitlements?yearId=&kind=` | List entitlements (institutional or personal) |
+| `GET api/entitlements/{id}` | Single entitlement |
+| `POST api/entitlements` | Create entitlement |
+| `PUT api/entitlements/{id}` | Update entitlement |
+| `PUT api/entitlements/{id}/deactivate` | Soft-delete entitlement |
 | `GET api/persons` | List persons for tenant (latest snapshot each) |
 | `GET api/persons/search?term=` | Search by name or national ID |
 | `GET api/persons/{id}` | Person snapshot (details + address + phones) |
@@ -46,50 +68,53 @@ Downstream pages should read year from the route parameter `{YearId}` and/or ses
 | `POST api/persons` | Create person |
 | `PUT api/persons/{id}` | Update person (creates new detail version when needed) |
 
-Data source: `shared_schema.hebrew_years` via `YearsController` / `SharedDbContext`. Person data via `PersonsController` / `AssistDbContext`.
-
 ## Security actions
 
-Run `PetelAssistants/SQL/add-year-management-actions.sql` and `PetelAssistants/SQL/add-persons-actions.sql` to seed actions and assign them to existing roles.
+Run SQL scripts in order (see below). After running SQL, refresh the security cache (roles screen or API restart).
 
-| Screen | PageName | Page action (PAGE_ACCESS) | Button actions |
-|--------|----------|----------------------------|----------------|
-| Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_entitlements` |
+| Screen | PageName | Page action | Button actions |
+|--------|----------|-------------|----------------|
+| Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_institutional_entitlements`, `yearmanagement_personal_entitlements`, `yearmanagement_org_units` |
 | Assistants | `assistants` | `assistants_page_action` | `assistants_back`, `assistants_refresh`, `assistants_add`, `assistants_edit`, `assistants_view_history` |
-| Entitlements | `entitlements` | `entitlements_page_action` | `entitlements_back` |
+| Institutional entitlements | `institutional_entitlements` | `institutional_entitlements_page_action` | back, refresh, add, edit, deactivate |
+| Personal entitlements | `personal_entitlements` | `personal_entitlements_page_action` | back, refresh, add, edit, deactivate |
+| Org units | `org_units` | `org_units_page_action` | back, refresh, add, edit, activate, deactivate |
+| Assistant types | `assistant_types` | `assistant_types_page_action` | back, refresh, add, edit |
+| Hebrew years | `hebrew_years` | `hebrew_years_page_action` | back, refresh, edit |
 
 - Pages inherit `SecurePageBase` with default `EnforcePageAccess => true`.
 - Hub cards and back buttons use `SecureButton` with `HideIfNoAccess="true"` where appropriate.
-- After running SQL, refresh the security cache (roles screen or API restart).
 
-## SQL scripts (person domain)
+## SQL scripts (run order)
 
-Run in order after user-management scripts:
+After user-management scripts:
 
-1. `PetelAssistants/SQL/add-persons.sql` — tables + `phone_types` seed
-2. `PetelAssistants/SQL/add-persons-actions.sql` — assistants screen button actions
+1. `PetelAssistants/SQL/add-persons.sql`
+2. `PetelAssistants/SQL/add-persons-actions.sql`
+3. `PetelAssistants/SQL/add-entitlements-foundation.sql` — Hebrew year column fix, assistant types, org hierarchy
+4. `PetelAssistants/SQL/add-entitlements.sql` — entitlements table
+5. `PetelAssistants/SQL/add-entitlements-actions.sql` — security actions + menu items
+6. `PetelAssistants/SQL/add-year-org-units-nav.sql` — year hub card for org units
 
 ## Files
 
 | File | Route |
 |------|-------|
-| `PetelAssistants.BlazorServer/Components/Pages/MainDashboard.razor` | `/maindashboard` |
-| `PetelAssistants.BlazorServer/Components/Pages/YearManagement.razor` | `/year/{YearId:int}` |
-| `PetelAssistants.BlazorServer/Components/Pages/Assistants.razor` | `/year/{YearId:int}/assistants` |
-| `PetelAssistants.BlazorServer/Components/Pages/Entitlements.razor` | `/year/{YearId:int}/entitlements` |
-| `PetelAssistants.Api/Controllers/YearsController.cs` | `api/years/*` |
-| `PetelAssistants.Api/Controllers/PersonsController.cs` | `api/persons/*` |
-| `PetelAssistants/SQL/add-year-management-actions.sql` | Year hub security seed |
-| `PetelAssistants/SQL/add-persons.sql` | Person schema |
-| `PetelAssistants/SQL/add-persons-actions.sql` | Assistants screen security seed |
+| `MainDashboard.razor` | `/maindashboard` |
+| `YearManagement.razor` | `/year/{YearId:int}` |
+| `Assistants.razor` | `/year/{YearId:int}/assistants` |
+| `InstitutionalEntitlements.razor` | `/year/{YearId:int}/entitlements/institutional` |
+| `PersonalEntitlements.razor` | `/year/{YearId:int}/entitlements/personal` |
+| `Entitlements.razor` | `/year/{YearId:int}/entitlements` (redirect) |
+| `OrgUnits.razor` | `/org-units`, `/year/{YearId:int}/org-units` |
+| `AssistantTypes.razor` | `/assistant-types` |
+| `HebrewYears.razor` | `/hebrew-years` |
 
 ## Adding features under a year
 
-When building entitlements or year-scoped assistant linkage:
-
 1. Keep `{YearId}` in the route.
 2. Scope data by `session.EntityId` (tenant) and the selected year.
-3. Add page + button actions to SQL (follow `add-year-management-actions.sql` pattern).
-4. Use `SecurePageBase` + `SecureButton` per existing pages (e.g. `Roles.razor`).
+3. Add page + button actions to SQL (follow `add-entitlements-actions.sql` pattern).
+4. Use `SecurePageBase` + `SecureButton` per existing pages.
 
-Person CRUD on the assistants screen is entity-scoped today; year-scoped assistant registration will be added with Entitlements.
+Assistant-to-entitlement assignments (year-scoped assistant registration) are planned as a follow-on feature.

@@ -42,7 +42,35 @@ Assistants will be allocated to an entitlement with a start and end date that mu
 
 **Field alignment:** Main person fields follow PetelATH `persons` columns (`first_name`, `last_name`, `gender`, `date_of_birth`, `email`, `position`, etc.).
 
-**Year linkage:** Assistant registration per Hebrew year is **not** part of the person domain — it will be implemented with Entitlements.
+**Year linkage:** Assistant registration per Hebrew year is **not** part of the person domain — it will be implemented via entitlement assignments (future).
+
+## Hebrew years
+
+**Global definition:** `shared_schema.hebrew_years` stores the Hebrew year label (`hebrew_year`), Gregorian `start_date` / `end_date`, and flags `is_current`, `is_previous`, `is_active`. System administrators set dates across the entire system via the Hebrew years admin screen.
+
+**Validation:** Entitlement start/end dates must fall within the Hebrew year's date range. Defaults on create come from the year's dates.
+
+## Org units (schools and kindergartens)
+
+Each local authority maintains its own list of schools and kindergartens as rows in `shared_schema.entities` with `parent_entity_id` pointing to the authority entity. Entity types: `school`, `kindergarten`.
+
+## Assistant types
+
+Managed globally in `shared_schema.assistant_types` by the system manager. Tenants read active types when creating entitlements.
+
+## Entitlements (זכאויות)
+
+**Scope:** Tenant-owned rows in `assist_schema.entitlements`, filtered by `entity_id` and Hebrew year.
+
+**Two screens:**
+- **Institutional** (`entitlement_kind = institutional`): linked to a school or kindergarten (`school_entity_id`), optional free-text `class_name`, assistant type, hours (weekly or monthly), ministry participation %, start/end dates.
+- **Personal** (`entitlement_kind = personal`): linked via external `pupil_external_id` (no pupil CRUD yet), same hour/date/type fields.
+
+**Business rules:**
+- Dates must be within the Hebrew year bounds.
+- Institutional entitlements require a school/kindergarten belonging to the logged-in authority.
+- Personal entitlements require a non-empty pupil external id.
+- Assistant allocation to entitlements (with dates within entitlement range) is a follow-on feature.
 
 ## Related
 

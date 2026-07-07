@@ -21,6 +21,7 @@ namespace PetelAssistants.Api.Data
         public DbSet<ActionType>      ActionTypes      { get; set; }
         public DbSet<UserLockReason>  UserLockReasons  { get; set; }
         public DbSet<PhoneType>       PhoneTypes       { get; set; }
+        public DbSet<AssistantType>   AssistantTypes   { get; set; }
 
         public SharedDbContext(
             DbContextOptions<SharedDbContext> options,
@@ -49,6 +50,11 @@ namespace PetelAssistants.Api.Data
                     .WithMany(et => et.Entities)
                     .HasForeignKey(e => e.EntityTypeId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.ParentEntity)
+                    .WithMany(p => p.ChildEntities)
+                    .HasForeignKey(e => e.ParentEntityId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<EntityType>(entity =>
@@ -101,6 +107,12 @@ namespace PetelAssistants.Api.Data
             modelBuilder.Entity<PhoneType>(entity =>
             {
                 entity.ToTable("phone_types");
+                entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<AssistantType>(entity =>
+            {
+                entity.ToTable("assistant_types");
                 entity.HasKey(e => e.Id);
             });
         }

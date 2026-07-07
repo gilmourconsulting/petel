@@ -404,6 +404,17 @@ html, body {
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
 }
 
+/* Alias — prefer modal-content in new code (see docs/agents/core/blazor-patterns.md) */
+.modal-container {
+    background: white;
+    border-radius: var(--border-radius-large);
+    padding: 0;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
 .modal-header {
     display: flex;
     justify-content: space-between;

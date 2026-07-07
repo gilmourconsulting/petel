@@ -380,6 +380,58 @@ Do **not** use JavaScript `window.location` or `history.pushState` for navigatio
 }
 ```
 
+## Inline Modal Pattern (page-embedded dialogs)
+
+Use this for simple add/edit dialogs declared directly in a `.razor` page (no separate modal component). Styles live in `wwwroot/css/ui-components.css` (loaded after `styles.css`).
+
+**Required structure:**
+
+```razor
+@if (_showDialog)
+{
+    <div class="modal-overlay" @onclick="CloseDialog">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>כותרת</h3>
+                <button class="modal-close" @onclick="CloseDialog">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>שם <span class="required">*</span></label>
+                    <input type="text" class="form-control" @bind="_name" />
+                </div>
+                @if (!string.IsNullOrEmpty(_formError))
+                {
+                    <div class="error-message">@_formError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseDialog">ביטול</button>
+                <button class="btn btn-primary" @onclick="SaveAsync">שמור</button>
+            </div>
+        </div>
+    </div>
+}
+```
+
+**Rules:**
+
+| Rule | Detail |
+|------|--------|
+| Overlay class | `modal-overlay` — dimmed backdrop, centered flex |
+| Panel class | **`modal-content`** — white background, shadow, rounded corners. Do **not** use `modal-container` in new code (legacy alias only) |
+| Click outside | `@onclick="CloseDialog"` on overlay; `@onclick:stopPropagation="true"` on panel |
+| Size variants | `modal-large` (800px) for multi-field forms; `modal-small` (400px) for confirmations |
+| Form fields | Use `form-control` inside `modal-body` — inputs are full-width automatically |
+| Footer placement | `modal-footer` is a **sibling** of `modal-body`, not nested inside it |
+| Buttons | `btn btn-primary` / `btn btn-secondary` (Assistants app) or `btn-primary` / `btn-secondary` (ATH) — match surrounding page |
+
+**Common mistakes (missing white background):**
+
+- Using `modal-container` before the CSS alias existed — always use `modal-content`
+- Omitting `modal-content` / using a bare `div` inside `modal-overlay`
+- Inline `style="max-width: …"` instead of `modal-large` / `modal-small` classes
+
 ## Filter Bar Pattern
 
 Use `@bind:event="oninput"` for live (keystroke) filtering. Do NOT use a button submit:

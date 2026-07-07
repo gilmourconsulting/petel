@@ -4,6 +4,7 @@ using Npgsql;
 using Petel.Core.Controllers;
 using Petel.Core.Session;
 using PetelAssistants.Api.Data;
+using PetelAssistants.Api.DTOs;
 
 namespace PetelAssistants.Api.Controllers
 {
@@ -34,13 +35,31 @@ namespace PetelAssistants.Api.Controllers
                 var year = await _sharedContext.HebrewYears
                     .AsNoTracking()
                     .Where(y => y.Id == id)
-                    .Select(y => new { id = y.Id, yearName = y.YearName })
+                    .Select(y => new YearDetailDto
+                    {
+                        Id = y.Id,
+                        YearName = y.YearName,
+                        StartDate = y.StartDate,
+                        EndDate = y.EndDate,
+                        IsCurrent = y.IsCurrent,
+                        IsPrevious = y.IsPrevious,
+                        IsActive = y.IsActive
+                    })
                     .FirstOrDefaultAsync();
 
                 if (year == null)
                     return NotFound(new { success = false, message = "שנה לא נמצאה" });
 
-                return Ok(year);
+                return Ok(new
+                {
+                    id = year.Id,
+                    yearName = year.YearName,
+                    startDate = year.StartDate,
+                    endDate = year.EndDate,
+                    isCurrent = year.IsCurrent,
+                    isPrevious = year.IsPrevious,
+                    isActive = year.IsActive
+                });
             }
             catch (Exception ex)
             {
@@ -49,10 +68,6 @@ namespace PetelAssistants.Api.Controllers
             }
         }
 
-        /// <summary>
-        /// Returns year context for the dashboard: previous year, current year, and
-        /// the full list of active years for the "select another year" modal.
-        /// </summary>
         [HttpGet("context")]
         public async Task<IActionResult> GetYearContext()
         {
@@ -64,16 +79,23 @@ namespace PetelAssistants.Api.Controllers
             {
                 var years = await _sharedContext.HebrewYears
                     .AsNoTracking()
+                    .Where(y => y.IsActive)
                     .OrderByDescending(y => y.Id)
-                    .Select(y => new
+                    .Select(y => new YearDetailDto
                     {
-                        id       = y.Id,
-                        yearName = y.YearName
+                        Id = y.Id,
+                        YearName = y.YearName,
+                        StartDate = y.StartDate,
+                        EndDate = y.EndDate,
+                        IsCurrent = y.IsCurrent,
+                        IsPrevious = y.IsPrevious,
+                        IsActive = y.IsActive
                     })
                     .ToListAsync();
 
-                var currentYear  = years.FirstOrDefault();
-                var previousYear = years.Skip(1).FirstOrDefault();
+                var currentYear = years.FirstOrDefault(y => y.IsCurrent) ?? years.FirstOrDefault();
+                var previousYear = years.FirstOrDefault(y => y.IsPrevious)
+                    ?? years.Where(y => currentYear == null || y.Id != currentYear.Id).Skip(1).FirstOrDefault();
 
                 return Ok(new
                 {
@@ -92,6 +114,69 @@ namespace PetelAssistants.Api.Controllers
                 _logger.LogError(ex, "Error loading year context");
                 return StatusCode(500, new { success = false, message = "שגיאה בטעינת שנים" });
             }
+        }
+
+        [HttpGet("admin")]
+        public async Task<IActionResult> GetAllYearsAdmin()
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            var years = await _sharedContext.HebrewYears
+                .AsNoTracking()
+                .OrderByDescending(y => y.Id)
+                .Select(y => new YearDetailDto
+                {
+                    Id = y.Id,
+                    YearName = y.YearName,
+                    StartDate = y.StartDate,
+                    EndDate = y.EndDate,
+                    IsCurrent = y.IsCurrent,
+                    IsPrevious = y.IsPrevious,
+                    IsActive = y.IsActive
+                })
+                .ToListAsync();
+
+            return Ok(new { success = true, data = years });
+        }
+
+        [HttpPut("{id:int}")]
+        public async Task<IActionResult> UpdateYear(int id, [FromBody] UpdateHebrewYearRequest request)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            var year = await _sharedContext.HebrewYears.FirstOrDefaultAsync(y => y.Id == id);
+            if (year == null)
+                return NotFound(new { success = false, message = "שנה לא נמצאה" });
+
+            if (request.StartDate.HasValue && request.EndDate.HasValue && request.EndDate < request.StartDate)
+                return BadRequest(new { success = false, message = "תאריך סיום חייב להיות אחרי תאריך התחלה" });
+
+            if (request.IsCurrent)
+            {
+                var others = await _sharedContext.HebrewYears.Where(y => y.Id != id && y.IsCurrent).ToListAsync();
+                foreach (var other in others)
+                    other.IsCurrent = false;
+            }
+
+            if (request.IsPrevious)
+            {
+                var others = await _sharedContext.HebrewYears.Where(y => y.Id != id && y.IsPrevious).ToListAsync();
+                foreach (var other in others)
+                    other.IsPrevious = false;
+            }
+
+            year.StartDate = request.StartDate;
+            year.EndDate = request.EndDate;
+            year.IsCurrent = request.IsCurrent;
+            year.IsPrevious = request.IsPrevious;
+            year.IsActive = request.IsActive;
+
+            await _sharedContext.SaveChangesAsync();
+            return Ok(new { success = true, message = "שנת לימודים עודכנה בהצלחה" });
         }
     }
 }

@@ -270,7 +270,8 @@
     backdrop-filter: blur(2px);
 }
 
-.modal-content {
+.modal-content,
+.modal-container {
     background: white;
     border-radius: var(--border-radius-large);
     box-shadow: var(--box-shadow-strong);
@@ -292,13 +293,14 @@
     }
 }
 
-/* Large modal variant */
-.modal-content.modal-large {
+.modal-content.modal-large,
+.modal-container.modal-large {
     max-width: 800px;
 }
 
 /* Small modal variant */
-.modal-content.modal-small {
+.modal-content.modal-small,
+.modal-container.modal-small {
     max-width: 400px;
 }
 
@@ -345,6 +347,18 @@
 
 .modal-body {
     padding: 20px;
+}
+
+.modal-content .form-control,
+.modal-container .form-control,
+.modal-content .form-group input,
+.modal-container .form-group input,
+.modal-content .form-group select,
+.modal-container .form-group select,
+.modal-content .form-group textarea,
+.modal-container .form-group textarea {
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .modal-footer {

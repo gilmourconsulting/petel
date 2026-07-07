@@ -1,53 +1,15 @@
 @page "/year/{YearId:int}/entitlements"
 @layout MainLayout
 @inherits SecurePageBase
-@using PetelAssistants.BlazorServer.Models
-@inject ApiService ApiService
-
-<div class="context-buttons-section">
-    <SecureButton ActionName="entitlements_back" ScreenName="@PageName" FunctionName="NavigateBack"
-                  OnClick="NavigateBack" CssClass="context-navigation-btn">
-        חזרה לניהול שנה
-    </SecureButton>
-</div>
-
-<div class="school-title-section">
-    <h1 class="page-title">זכאיות @(_yearName != "" ? $"- {_yearName}" : "")</h1>
-</div>
-
-<div class="content-card" style="text-align: center; padding: 60px 20px;">
-    <p style="font-size: 18px; color: var(--text-muted);">בקרוב</p>
-</div>
 
 @code {
     [Parameter] public int YearId { get; set; }
 
-    protected override string PageName => "entitlements";
+    protected override string PageName => "institutional_entitlements";
 
-    private string _yearName = "";
-
-    protected override async Task OnPageInitializedAsync()
+    protected override Task OnPageInitializedAsync()
     {
-        await LoadYearName();
+        Navigation.NavigateTo($"/year/{YearId}/entitlements/institutional", replace: true);
+        return Task.CompletedTask;
     }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        await LoadYearName();
-    }
-
-    private async Task LoadYearName()
-    {
-        try
-        {
-            var year = await ApiService.GetAsync<YearDto>($"years/{YearId}");
-            _yearName = year?.YearName ?? "";
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading year name: {ex.Message}");
-        }
-    }
-
-    private void NavigateBack() => Navigation.NavigateTo($"/year/{YearId}");
 }

@@ -163,3 +163,4 @@ After generating all files, confirm:
 - [ ] All DB writes include `CreatedUser` / `UpdateUser` from `session.UserId`
 - [ ] DTOs exist on both API side and Blazor side
 - [ ] No `window.` / `sessionStorage` / `AppConfig.getApiUrl()` references anywhere
+- [ ] Add/edit dialogs use `modal-overlay` + `modal-content` per [blazor-patterns.md](../core/blazor-patterns.md#inline-modal-pattern-page-embedded-dialogs) — not `modal-container`

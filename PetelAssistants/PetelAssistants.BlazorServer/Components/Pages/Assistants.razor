@@ -95,8 +95,8 @@
 
 @if (_showPersonDialog)
 {
-    <div class="modal-overlay">
-        <div class="modal-content" style="max-width: 720px;">
+    <div class="modal-overlay" @onclick="ClosePersonDialog">
+        <div class="modal-content modal-large" @onclick:stopPropagation="true">
             <div class="modal-header">
                 <h3>@(_isEditMode ? "עריכת פרטי אדם" : "הוספת אדם חדש")</h3>
                 <button class="modal-close" @onclick="ClosePersonDialog">&times;</button>
@@ -192,8 +192,8 @@
 
 @if (_showHistoryDialog)
 {
-    <div class="modal-overlay">
-        <div class="modal-content" style="max-width: 900px;">
+    <div class="modal-overlay" @onclick="CloseHistoryDialog">
+        <div class="modal-content modal-large" @onclick:stopPropagation="true">
             <div class="modal-header">
                 <h3>היסטוריית גרסאות — @_historyPersonName</h3>
                 <button class="modal-close" @onclick="CloseHistoryDialog">&times;</button>

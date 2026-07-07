@@ -11,7 +11,7 @@ BEGIN
     ) THEN
         CREATE TABLE shared_schema.hebrew_years (
             id          SERIAL PRIMARY KEY,
-            year_name   VARCHAR(20)  NOT NULL UNIQUE,
+            hebrew_year VARCHAR(20)  NOT NULL UNIQUE,
             start_date  DATE         NULL,
             end_date    DATE         NULL,
             is_current  BOOLEAN NOT NULL DEFAULT false,
@@ -20,13 +20,13 @@ BEGIN
         );
 
         -- Seed with common years — update is_current / is_previous to match your environment
-        INSERT INTO shared_schema.hebrew_years (year_name, is_previous, is_current, is_active)
+        INSERT INTO shared_schema.hebrew_years (hebrew_year, is_previous, is_current, is_active)
         VALUES
             (E'\u05ea\u05e9\u05e4\u05d2', false, false, true),   -- תשפג 2022/23
             (E'\u05ea\u05e9\u05e4\u05d3', false, false, true),   -- תשפד 2023/24
             (E'\u05ea\u05e9\u05e4\u05d4', true,  false, true),   -- תשפה 2024/25 ← previous
             (E'\u05ea\u05e9\u05e4\u05d5', false, true,  true)    -- תשפו 2025/26 ← current
-        ON CONFLICT (year_name) DO NOTHING;
+        ON CONFLICT (hebrew_year) DO NOTHING;
 
         RAISE NOTICE 'Table hebrew_years created and seeded';
     ELSE

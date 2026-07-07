@@ -1,0 +1,287 @@
+@page "/org-units"
+@page "/year/{YearId:int}/org-units"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelAssistants.BlazorServer.Models
+@using PetelAssistants.BlazorServer.DTOs
+@inject ApiService ApiService
+
+<div class="school-title-section">
+    <h1 class="page-title">בתי ספר וגנים @(_yearName != "" ? $"- {_yearName}" : "")</h1>
+</div>
+
+<div class="main-container">
+    <div class="context-buttons-section">
+        <SecureButton ActionName="org_units_refresh" ScreenName="@PageName" FunctionName="RefreshData"
+                      OnClick="RefreshData" CssClass="context-btn">
+            רענן נתונים
+        </SecureButton>
+        <SecureButton ActionName="org_units_add" ScreenName="@PageName" FunctionName="ShowCreateDialog"
+                      OnClick="ShowCreateDialog" CssClass="context-btn">
+            הוסף מוסד
+        </SecureButton>
+        <SecureButton ActionName="org_units_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                      OnClick="NavigateBack" CssClass="context-navigation-btn">
+            @(YearId > 0 ? "חזרה לניהול שנה" : "חזרה לדף ראשי")
+        </SecureButton>
+    </div>
+
+    <div class="students-content">
+        <div class="content-card">
+            <h2 class="page-title">רשימת מוסדות</h2>
+
+            @if (_isLoading)
+            {
+                <div class="loading-spinner">טוען נתונים...</div>
+            }
+            else if (_orgUnits.Count == 0)
+            {
+                <div class="no-data-message">לא נמצאו מוסדות</div>
+            }
+            else
+            {
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>פעולות</th>
+                                <th>שם</th>
+                                <th>סוג</th>
+                                <th>סטטוס</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var unit in _orgUnits)
+                            {
+                                <tr class="@(unit.IsActive ? "" : "row-inactive")">
+                                    <td class="actions-cell">
+                                        <SecureButton ActionName="org_units_edit" ScreenName="@PageName" FunctionName="EditOrgUnit"
+                                                      OnClick="() => ShowEditDialog(unit)" CssClass="btn-icon" Title="עריכה" HideIfNoAccess="true">
+                                            <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural" />
+                                        </SecureButton>
+                                        @if (unit.IsActive)
+                                        {
+                                            <SecureButton ActionName="org_units_deactivate" ScreenName="@PageName" FunctionName="DeactivateOrgUnit"
+                                                          OnClick="() => DeactivateOrgUnit(unit)" CssClass="btn-icon btn-danger" Title="השבת" HideIfNoAccess="true">
+                                                <img src="/images/deactivate_icon.png" alt="השבת" class="action-icon-natural" />
+                                            </SecureButton>
+                                        }
+                                        else
+                                        {
+                                            <SecureButton ActionName="org_units_activate" ScreenName="@PageName" FunctionName="ActivateOrgUnit"
+                                                          OnClick="() => ActivateOrgUnit(unit)" CssClass="btn-icon btn-success" Title="הפעל" HideIfNoAccess="true">
+                                                <img src="/images/activate_icon.png" alt="הפעל" class="action-icon-natural" />
+                                            </SecureButton>
+                                        }
+                                    </td>
+                                    <td>@unit.Name</td>
+                                    <td>@GetOrgUnitTypeLabel(unit.OrgUnitType)</td>
+                                    <td>
+                                        <span class="status-badge @(unit.IsActive ? "status-active" : "status-inactive")">
+                                            @(unit.IsActive ? "פעיל" : "לא פעיל")
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@if (_showFormDialog)
+{
+    <div class="modal-overlay" @onclick="CloseDialog">
+        <div class="modal-content modal-large" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(_editUnit == null ? "הוספת מוסד" : "עריכת מוסד")</h3>
+                <button class="modal-close" @onclick="CloseDialog">✕</button>
+            </div>
+            <div class="modal-body">
+                @if (_editUnit == null)
+                {
+                    <div class="form-group">
+                        <label>סוג מוסד <span class="required">*</span></label>
+                        <select class="form-control" @bind="_formOrgUnitType">
+                            <option value="school">בית ספר</option>
+                            <option value="kindergarten">גן ילדים</option>
+                        </select>
+                    </div>
+                }
+                <div class="form-group">
+                    <label>שם <span class="required">*</span></label>
+                    <input type="text" class="form-control" @bind="_formName" placeholder="שם המוסד" />
+                </div>
+                @if (!string.IsNullOrEmpty(_formError))
+                {
+                    <div class="error-message">@_formError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseDialog">ביטול</button>
+                <button class="btn btn-primary" @onclick="SaveOrgUnit" disabled="@_isSaving">
+                    @(_isSaving ? "שומר..." : "שמור")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int YearId { get; set; }
+
+    protected override string PageName => "org_units";
+
+    private string _yearName = "";
+    private List<OrgUnitDto> _orgUnits = new();
+    private bool _isLoading = true;
+    private bool _showFormDialog;
+    private bool _isSaving;
+    private string _formError = string.Empty;
+    private OrgUnitDto? _editUnit;
+    private string _formName = string.Empty;
+    private string _formOrgUnitType = "school";
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        if (YearId > 0)
+            await LoadYearAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task LoadYearAsync()
+    {
+        try
+        {
+            var year = await ApiService.GetAsync<YearDto>($"years/{YearId}");
+            _yearName = year?.YearName ?? "";
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading year name: {ex.Message}");
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            var response = await ApiService.GetAsync<ApiResponse<List<OrgUnitDto>>>("org-units");
+            _orgUnits = response?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading org units: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task RefreshData() => await LoadDataAsync();
+
+    private void ShowCreateDialog()
+    {
+        _editUnit = null;
+        _formName = string.Empty;
+        _formOrgUnitType = "school";
+        _formError = string.Empty;
+        _showFormDialog = true;
+    }
+
+    private void ShowEditDialog(OrgUnitDto unit)
+    {
+        _editUnit = unit;
+        _formName = unit.Name;
+        _formError = string.Empty;
+        _showFormDialog = true;
+    }
+
+    private void CloseDialog()
+    {
+        _showFormDialog = false;
+        _formError = string.Empty;
+    }
+
+    private async Task SaveOrgUnit()
+    {
+        if (string.IsNullOrWhiteSpace(_formName))
+        {
+            _formError = "שם מוסד הוא שדה חובה";
+            return;
+        }
+
+        _isSaving = true;
+        _formError = string.Empty;
+
+        try
+        {
+            ApiResponse<object>? response;
+
+            if (_editUnit == null)
+            {
+                response = await ApiService.PostAsync<CreateOrgUnitRequest, ApiResponse<object>>(
+                    "org-units",
+                    new CreateOrgUnitRequest { Name = _formName, OrgUnitType = _formOrgUnitType });
+            }
+            else
+            {
+                response = await ApiService.PutAsync<UpdateOrgUnitRequest, ApiResponse<object>>(
+                    $"org-units/{_editUnit.Id}",
+                    new UpdateOrgUnitRequest { Name = _formName });
+            }
+
+            if (response?.Success == true)
+            {
+                CloseDialog();
+                await LoadDataAsync();
+            }
+            else
+            {
+                _formError = response?.Message ?? "שגיאה בשמירת המוסד";
+            }
+        }
+        catch (Exception ex)
+        {
+            _formError = $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task DeactivateOrgUnit(OrgUnitDto unit)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"האם להשבית את '{unit.Name}'?"))
+            return;
+
+        var response = await ApiService.PutAsync<object, ApiResponse<object>>($"org-units/{unit.Id}/deactivate", new { });
+        if (response?.Success == true)
+            await LoadDataAsync();
+        else
+            await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בהשבתת המוסד");
+    }
+
+    private async Task ActivateOrgUnit(OrgUnitDto unit)
+    {
+        var response = await ApiService.PutAsync<object, ApiResponse<object>>($"org-units/{unit.Id}/activate", new { });
+        if (response?.Success == true)
+            await LoadDataAsync();
+        else
+            await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בהפעלת המוסד");
+    }
+
+    private static string GetOrgUnitTypeLabel(string type) => type switch
+    {
+        "school" => "בית ספר",
+        "kindergarten" => "גן ילדים",
+        _ => type
+    };
+
+    private void NavigateBack() => Navigation.NavigateTo(YearId > 0 ? $"/year/{YearId}" : "/maindashboard");
+}

@@ -28,6 +28,7 @@ namespace PetelAssistants.Api.Data
         public DbSet<PersonDetail>   PersonDetails  { get; set; }
         public DbSet<PersonAddress>  PersonAddresses { get; set; }
         public DbSet<PersonPhone>     PersonPhones   { get; set; }
+        public DbSet<Entitlement>     Entitlements   { get; set; }
 
         public AssistDbContext(
             DbContextOptions<AssistDbContext> options,
@@ -50,6 +51,8 @@ namespace PetelAssistants.Api.Data
             modelBuilder.Ignore<UserLockReason>();
             modelBuilder.Ignore<SystemAction>();
             modelBuilder.Ignore<PhoneType>();
+            modelBuilder.Ignore<AssistantType>();
+            modelBuilder.Ignore<HebrewYear>();
 
             modelBuilder.Entity<User>(entity =>
             {
@@ -179,6 +182,15 @@ namespace PetelAssistants.Api.Data
                         v => v != null ? _encryptionService.Decrypt(v) : null);
 
                 entity.HasQueryFilter(p => _tenantContext.EntityId != 0 && p.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<Entitlement>(entity =>
+            {
+                entity.ToTable("entitlements");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.HebrewYearId, e.EntitlementKind });
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
             });
         }
     }

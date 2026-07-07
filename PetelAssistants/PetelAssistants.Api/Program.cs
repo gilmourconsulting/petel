@@ -72,6 +72,8 @@ builder.Services.AddSingleton<ActionAuthorizationService>();
 
 // ── Domain services ────────────────────────────────────────────────────────
 builder.Services.AddScoped<PersonService>();
+builder.Services.AddScoped<OrgUnitService>();
+builder.Services.AddScoped<EntitlementService>();
 
 var app = builder.Build();
 

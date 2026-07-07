@@ -100,7 +100,7 @@
 @if (_showFormDialog)
 {
     <div class="modal-overlay" @onclick="CloseDialog">
-        <div class="modal-container" @onclick:stopPropagation="true">
+        <div class="modal-content" @onclick:stopPropagation="true">
             <div class="modal-header">
                 <h3>@(_editTenant == null ? "הוספת רשות חדשה" : "עריכת רשות")</h3>
                 <button class="modal-close" @onclick="CloseDialog">✕</button>
