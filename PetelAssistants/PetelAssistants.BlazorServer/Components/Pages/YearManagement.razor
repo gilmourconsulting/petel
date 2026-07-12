@@ -11,42 +11,46 @@
     </SecureButton>
 </div>
 
-@if (_isLoading)
-{
-    <div class="loading-spinner">טוען...</div>
-}
-else
-{
-    <div class="school-title-section">
-        <h1 class="page-title">@_yearName</h1>
+<div class="main-container">
+    <div class="students-content">
+        @if (_isLoading)
+        {
+            <div class="loading-spinner">טוען...</div>
+        }
+        else
+        {
+            <div class="school-title-section">
+                <h1 class="page-title">@_yearName</h1>
+            </div>
+
+            <div class="row-two-columns" style="max-width: 900px; margin: 30px auto;">
+                <SecureButton ActionName="yearmanagement_assistants" ScreenName="@PageName" FunctionName="NavigateToAssistants"
+                              OnClick="NavigateToAssistants" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
+                    <div class="year-nav-card-icon">👩‍🏫</div>
+                    <h2 class="year-nav-card-title">סייעות</h2>
+                </SecureButton>
+
+                <SecureButton ActionName="yearmanagement_institutional_entitlements" ScreenName="@PageName" FunctionName="NavigateToInstitutionalEntitlements"
+                              OnClick="NavigateToInstitutionalEntitlements" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
+                    <div class="year-nav-card-icon">🏫</div>
+                    <h2 class="year-nav-card-title">זכאויות מוסדיות</h2>
+                </SecureButton>
+
+                <SecureButton ActionName="yearmanagement_personal_entitlements" ScreenName="@PageName" FunctionName="NavigateToPersonalEntitlements"
+                              OnClick="NavigateToPersonalEntitlements" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
+                    <div class="year-nav-card-icon">👤</div>
+                    <h2 class="year-nav-card-title">זכאויות אישיות</h2>
+                </SecureButton>
+
+                <SecureButton ActionName="yearmanagement_org_units" ScreenName="@PageName" FunctionName="NavigateToOrgUnits"
+                              OnClick="NavigateToOrgUnits" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
+                    <div class="year-nav-card-icon">🏢</div>
+                    <h2 class="year-nav-card-title">בתי ספר וגנים</h2>
+                </SecureButton>
+            </div>
+        }
     </div>
-
-    <div class="row-two-columns" style="max-width: 900px; margin: 30px auto;">
-        <SecureButton ActionName="yearmanagement_assistants" ScreenName="@PageName" FunctionName="NavigateToAssistants"
-                      OnClick="NavigateToAssistants" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
-            <div class="year-nav-card-icon">👩‍🏫</div>
-            <h2 class="year-nav-card-title">סייעות</h2>
-        </SecureButton>
-
-        <SecureButton ActionName="yearmanagement_institutional_entitlements" ScreenName="@PageName" FunctionName="NavigateToInstitutionalEntitlements"
-                      OnClick="NavigateToInstitutionalEntitlements" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
-            <div class="year-nav-card-icon">🏫</div>
-            <h2 class="year-nav-card-title">זכאויות מוסדיות</h2>
-        </SecureButton>
-
-        <SecureButton ActionName="yearmanagement_personal_entitlements" ScreenName="@PageName" FunctionName="NavigateToPersonalEntitlements"
-                      OnClick="NavigateToPersonalEntitlements" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
-            <div class="year-nav-card-icon">👤</div>
-            <h2 class="year-nav-card-title">זכאויות אישיות</h2>
-        </SecureButton>
-
-        <SecureButton ActionName="yearmanagement_org_units" ScreenName="@PageName" FunctionName="NavigateToOrgUnits"
-                      OnClick="NavigateToOrgUnits" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
-            <div class="year-nav-card-icon">🏢</div>
-            <h2 class="year-nav-card-title">בתי ספר וגנים</h2>
-        </SecureButton>
-    </div>
-}
+</div>
 
 @code {
     [Parameter] public int YearId { get; set; }

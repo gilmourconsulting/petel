@@ -470,6 +470,12 @@ html, body {
     top: 0.5rem;
 }
 
+/* ── Students Content ───────────────────────────── */
+.students-content {
+    flex: 1;
+    min-width: 0;
+}
+
 /* ── Page Title ─────────────────────────────────── */
 .school-title-section {
     padding: 10px 0 5px;

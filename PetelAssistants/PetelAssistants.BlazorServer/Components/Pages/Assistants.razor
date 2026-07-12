@@ -20,12 +20,12 @@
     </SecureButton>
 </div>
 
-<div class="school-title-section">
-    <h1 class="page-title">סייעות @(_yearName != "" ? $"- {_yearName}" : "")</h1>
-    <p class="text-muted" style="margin-top: 8px;">ניהול פרטי אנשים ברמת הרשות. שיוך לשנה יתווסף בשלב הזכאויות.</p>
-</div>
-
 <div class="main-container">
+    <div class="students-content">
+    <div class="school-title-section">
+        <h1 class="page-title">סייעות @(_yearName != "" ? $"- {_yearName}" : "")</h1>
+        <p class="text-muted" style="margin-top: 8px;">ניהול פרטי אנשים ברמת הרשות. שיוך לשנה יתווסף בשלב הזכאויות.</p>
+    </div>
     <div class="content-card">
         <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
             <label for="searchTerm">חיפוש לפי שם או מספר זהות</label>
@@ -90,6 +90,7 @@
                 </table>
             </div>
         }
+    </div>
     </div>
 </div>
 

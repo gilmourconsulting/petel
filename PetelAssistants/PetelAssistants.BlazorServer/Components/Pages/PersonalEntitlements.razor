@@ -20,11 +20,11 @@
     </SecureButton>
 </div>
 
-<div class="school-title-section">
-    <h1 class="page-title">זכאויות אישיות @(_yearName != "" ? $"- {_yearName}" : "")</h1>
-</div>
-
 <div class="main-container">
+    <div class="students-content">
+    <div class="school-title-section">
+        <h1 class="page-title">זכאויות אישיות @(_yearName != "" ? $"- {_yearName}" : "")</h1>
+    </div>
     <div class="content-card">
         @if (_isLoading)
         {
@@ -82,6 +82,7 @@
                 </table>
             </div>
         }
+    </div>
     </div>
 </div>
 

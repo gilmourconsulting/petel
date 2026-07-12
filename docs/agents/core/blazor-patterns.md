@@ -17,66 +17,73 @@ Every authenticated page follows this structure:
 @inject SessionStateService SessionStateService
 @inject NavigationManager Navigation
 
-<div class="page-container">
-    <!-- Context buttons (between menu and main content) -->
-    <div class="context-buttons-section">
-        <SecureButton ActionName="pagename_actionName"
-                      ScreenName="@PageName"
-                      FunctionName="DoAction"
-                      OnClick="DoAction"
-                      CssClass="context-btn"
-                      HideIfNoAccess="true">
-            <img src="/images/Plus icon.png" alt="הוסף" class="action-icon-natural" />
-            כותרת פעולה
-        </SecureButton>
-    </div>
+<!-- context-buttons-section is a DIRECT child of #dynamicContent (top-level sibling of main-container).
+     order:2 in CSS positions it to the LEFT side of the flex row. -->
+<div class="context-buttons-section">
+    <SecureButton ActionName="pagename_actionName"
+                  ScreenName="@PageName"
+                  FunctionName="DoAction"
+                  OnClick="DoAction"
+                  CssClass="context-btn"
+                  HideIfNoAccess="true">
+        <img src="/images/Plus icon.png" alt="הוסף" class="action-icon-natural" />
+        כותרת פעולה
+    </SecureButton>
+</div>
 
-    <div class="main-content">
-        <h1>כותרת עמוד</h1>
+<!-- main-container fills the remaining flex space (RIGHT side).
+     students-content is its only child — title first, then content. -->
+<div class="main-container">
+    <div class="students-content">
+        <div class="school-title-section">
+            <h1 class="page-title">כותרת עמוד</h1>
+        </div>
 
-        @if (_isLoading)
-        {
-            <p>טוען...</p>
-        }
-        else if (_items == null)
-        {
-            <p>שגיאה בטעינת הנתונים</p>
-        }
-        else
-        {
-            <!-- Filter bar -->
-            <div class="filter-bar">
-                <input type="text" @bind="_filterText" @bind:event="oninput"
-                       placeholder="סנן לפי שם..." />
-            </div>
+        <div class="content-card">
+            @if (_isLoading)
+            {
+                <p>טוען...</p>
+            }
+            else if (_items == null)
+            {
+                <p>שגיאה בטעינת הנתונים</p>
+            }
+            else
+            {
+                <!-- Filter bar -->
+                <div class="filter-bar">
+                    <input type="text" @bind="_filterText" @bind:event="oninput"
+                           placeholder="סנן לפי שם..." />
+                </div>
 
-            <!-- Table -->
-            <div class="table-container">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>פעולות</th>
-                            <th @onclick='() => SortTable("Name")' style="cursor:pointer">
-                                שם @GetSortArrow("Name")
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var item in FilteredItems)
-                        {
+                <!-- Table -->
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
                             <tr>
-                                <td>
-                                    <button class="btn-icon" @onclick="() => ViewItem(item.Id)" title="צפייה">
-                                        <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural" />
-                                    </button>
-                                </td>
-                                <td>@item.Name</td>
+                                <th>פעולות</th>
+                                <th @onclick='() => SortTable("Name")' style="cursor:pointer">
+                                    שם @GetSortArrow("Name")
+                                </th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        }
+                        </thead>
+                        <tbody>
+                            @foreach (var item in FilteredItems)
+                            {
+                                <tr>
+                                    <td>
+                                        <button class="btn-icon" @onclick="() => ViewItem(item.Id)" title="צפייה">
+                                            <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural" />
+                                        </button>
+                                    </td>
+                                    <td>@item.Name</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
     </div>
 </div>
 
