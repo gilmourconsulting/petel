@@ -21,7 +21,8 @@ namespace PetelAssistants.Api.Data
         public DbSet<ActionType>      ActionTypes      { get; set; }
         public DbSet<UserLockReason>  UserLockReasons  { get; set; }
         public DbSet<PhoneType>       PhoneTypes       { get; set; }
-        public DbSet<AssistantType>   AssistantTypes   { get; set; }
+        public DbSet<AssistantType>              AssistantTypes              { get; set; }
+        public DbSet<MinistryParticipationOption> MinistryParticipationOptions { get; set; }
 
         public SharedDbContext(
             DbContextOptions<SharedDbContext> options,
@@ -113,6 +114,12 @@ namespace PetelAssistants.Api.Data
             modelBuilder.Entity<AssistantType>(entity =>
             {
                 entity.ToTable("assistant_types");
+                entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<MinistryParticipationOption>(entity =>
+            {
+                entity.ToTable("ministry_participation_options");
                 entity.HasKey(e => e.Id);
             });
         }

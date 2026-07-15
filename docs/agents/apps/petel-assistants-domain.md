@@ -20,6 +20,15 @@ Assistants will be allocated to an entitlement with a start and end date that mu
 
 **Shared (global) configuration:** Some reference data is shared across all tenants — entity types, assistant types, cities, the list of authorities themselves, and similar lookup tables. Security actions appear here. System attributes as well. This data is managed centrally and read by all.
 
+Key system attributes:
+
+| Name | id | Type | Purpose |
+|---|---|---|---|
+| `validate_israeli_id_checksum` | 20 | bool | System-wide toggle: when `true`, all Israeli national ID entries (entitlements, persons, and any future features) are validated against the Luhn-like checksum algorithm. Read via `IAttributeCache`. |
+| `Security_PasswordPolicy` | — | string | Regex for password validation. |
+| `Security_OtpEnabled` | — | bool | Whether email OTP is required at login. |
+| `Security_SessionTimeoutMinutes` | — | integer | Idle session timeout in minutes. |
+
 **Tenant-specific configuration:** Some configuration belongs to a specific local authority — users, user roles, permission sets, local settings, and others to be defined.
 
 **Cross-entity persons:** A person (e.g. an assistant) may exist in more than one local authority. There is no shared identity record — each local authority holds a fully isolated copy of the person's data, with no linkage enforced at the database level between authorities. If the same physical person works for two authorities, they appear as two independent records, each fully owned by their respective authority. Any deduplication or identity matching, if needed in future, is an application-layer concern, not a schema constraint.
@@ -62,14 +71,31 @@ Managed globally in `shared_schema.assistant_types` by the system manager. Tenan
 
 **Scope:** Tenant-owned rows in `assist_schema.entitlements`, filtered by `entity_id` and Hebrew year.
 
-**Two screens:**
-- **Institutional** (`entitlement_kind = institutional`): linked to a school or kindergarten (`school_entity_id`), optional free-text `class_name`, assistant type, hours (weekly or monthly), ministry participation %, start/end dates.
-- **Personal** (`entitlement_kind = personal`): linked via external `pupil_external_id` (no pupil CRUD yet), same hour/date/type fields.
+**Single combined screen** at `/year/{YearId}/entitlements`. Personal and institutional entitlements are managed in the same table with unified filters.
+
+**Kind is derived from assistant type level** — there is no stored `entitlement_kind` column. The `level` field on `shared_schema.assistant_types` (values: `personal`, `class`, `school`, `kindergarten`) determines the entitlement type:
+- `personal` → personal entitlement (pupil fields required)
+- `class` / `school` / `kindergarten` → institutional entitlement (pupil fields null)
+
+**Personal entitlements:**
+- `pupil_id_number` (VARCHAR 9, exactly 9 digits, leading zero allowed) — Israeli national ID stored **encrypted** via deterministic AES.
+- `pupil_first_name`, `pupil_last_name` — required.
+- `school_entity_id` — the pupil's school (must belong to the authority).
+- `class_name` — optional free text.
+- Israeli ID checksum validation is gated by `system_attribute` key `validate_israeli_id_checksum` (bool, id=20 in production). This is a **system-wide flag** — it applies to all Israeli national ID entries across the application (entitlements, persons, and any future features). Read via `IAttributeCache.GetAttributeValue("validate_israeli_id_checksum")`.
+
+**Institutional entitlements:**
+- `school_entity_id` — the institution receiving the entitlement (required, must belong to the authority).
+- `class_name` — optional free text.
+- Pupil fields (`pupil_id_number`, `pupil_first_name`, `pupil_last_name`) must be null.
+
+**Ministry participation %** is selected from a dropdown backed by `shared_schema.ministry_participation_options` (seeded: 100%, 70%). Not free text.
 
 **Business rules:**
+- `school_entity_id` is required for all entitlements (both kinds).
+- Pupil fields must be all-set or all-null (enforced by DB CHECK constraint).
 - Dates must be within the Hebrew year bounds.
-- Institutional entitlements require a school/kindergarten belonging to the logged-in authority.
-- Personal entitlements require a non-empty pupil external id.
+- The school must belong to the logged-in authority (validated at service layer).
 - Assistant allocation to entitlements (with dates within entitlement range) is a follow-on feature.
 
 ## Related

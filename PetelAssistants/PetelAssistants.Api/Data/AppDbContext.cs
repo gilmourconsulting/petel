@@ -188,7 +188,13 @@ namespace PetelAssistants.Api.Data
             {
                 entity.ToTable("entitlements");
                 entity.HasKey(e => e.Id);
-                entity.HasIndex(e => new { e.EntityId, e.HebrewYearId, e.EntitlementKind });
+                entity.HasIndex(e => new { e.EntityId, e.HebrewYearId });
+
+                entity.Property(e => e.PupilIdNumber)
+                    .HasMaxLength(500)   // stores AES ciphertext, not raw 9-char ID
+                    .HasConversion(
+                        v => v == null ? null : _encryptionService.EncryptDeterministic(v),
+                        v => v == null ? null : _encryptionService.DecryptDeterministic(v));
 
                 entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
             });

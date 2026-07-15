@@ -4,15 +4,9 @@ using PetelAssistants.Api.Tenancy;
 
 namespace PetelAssistants.Api.Models
 {
-    public static class EntitlementKinds
-    {
-        public const string Institutional = "institutional";
-        public const string Personal = "personal";
-    }
-
     public static class HoursUnits
     {
-        public const string Weekly = "weekly";
+        public const string Weekly  = "weekly";
         public const string Monthly = "monthly";
     }
 
@@ -34,11 +28,6 @@ namespace PetelAssistants.Api.Models
         [Required]
         [Column("assistant_type_id")]
         public int AssistantTypeId { get; set; }
-
-        [Required]
-        [Column("entitlement_kind")]
-        [MaxLength(20)]
-        public string EntitlementKind { get; set; } = string.Empty;
 
         [Required]
         [Column("start_date")]
@@ -68,9 +57,18 @@ namespace PetelAssistants.Api.Models
         [MaxLength(100)]
         public string? ClassName { get; set; }
 
-        [Column("pupil_external_id")]
+        // Personal entitlement fields — all three are set together or all null
+        // NOTE: PupilIdNumber is stored AES-encrypted; column length is set in AppDbContext, not here.
+        [Column("pupil_id_number")]
+        public string? PupilIdNumber { get; set; }
+
+        [Column("pupil_first_name")]
         [MaxLength(100)]
-        public string? PupilExternalId { get; set; }
+        public string? PupilFirstName { get; set; }
+
+        [Column("pupil_last_name")]
+        [MaxLength(100)]
+        public string? PupilLastName { get; set; }
 
         [Column("is_active")]
         public bool IsActive { get; set; } = true;

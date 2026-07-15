@@ -1,15 +1,617 @@
 @page "/year/{YearId:int}/entitlements"
 @layout MainLayout
 @inherits SecurePageBase
+@using PetelAssistants.BlazorServer.Models
+@using PetelAssistants.BlazorServer.DTOs
+@inject ApiService ApiService
+
+<div class="context-buttons-section">
+    <SecureButton ActionName="entitlements_refresh" ScreenName="@PageName" FunctionName="RefreshData"
+                  OnClick="RefreshData" CssClass="context-btn">
+        רענן נתונים
+    </SecureButton>
+    <SecureButton ActionName="entitlements_add" ScreenName="@PageName" FunctionName="ShowCreateDialog"
+                  OnClick="ShowCreateDialog" CssClass="context-btn">
+        הוסף זכאות
+    </SecureButton>
+    <SecureButton ActionName="entitlements_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                  OnClick="NavigateBack" CssClass="context-navigation-btn">
+        חזרה לניהול שנה
+    </SecureButton>
+</div>
+
+<div class="main-container">
+    <div class="students-content">
+        <div class="school-title-section">
+            <h1 class="page-title">זכאויות @(_yearName != "" ? $"- {_yearName}" : "")</h1>
+        </div>
+        <div class="content-card">
+            @if (_isLoading)
+            {
+                <div class="loading-spinner">טוען נתונים...</div>
+            }
+            else
+            {
+                <!-- Filter bar -->
+                <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end;">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">סוג</label>
+                        <select class="form-control" style="min-width: 130px;" @bind="_filterKind" @bind:event="onchange">
+                            <option value="">הכל</option>
+                            <option value="personal">אישי</option>
+                            <option value="institutional">מוסדי</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">מוסד</label>
+                        <select class="form-control" style="min-width: 160px;" @bind="_filterSchoolId" @bind:event="onchange">
+                            <option value="0">הכל</option>
+                            @foreach (var unit in _orgUnits.Where(u => u.IsActive))
+                            {
+                                <option value="@unit.Id">@unit.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">סוג סייעת</label>
+                        <select class="form-control" style="min-width: 160px;" @bind="_filterAssistantTypeId" @bind:event="onchange">
+                            <option value="0">הכל</option>
+                            @foreach (var t in _assistantTypes)
+                            {
+                                <option value="@t.Id">@t.DisplayName</option>
+                            }
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">סטטוס</label>
+                        <select class="form-control" style="min-width: 120px;" @bind="_filterActiveOnly" @bind:event="onchange">
+                            <option value="true">פעיל בלבד</option>
+                            <option value="false">הכל</option>
+                        </select>
+                    </div>
+                    @if (HasActiveFilters)
+                    {
+                        <button class="btn btn-secondary" style="align-self: flex-end;" @onclick="ClearFilters">נקה סינון</button>
+                    }
+                </div>
+
+                @if (FilteredItems.Count == 0)
+                {
+                    <div class="no-data-message">לא נמצאו זכאויות</div>
+                }
+                else
+                {
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>פעולות</th>
+                                    <th>סוג</th>
+                                    <th>מוסד</th>
+                                    <th>שם תלמיד</th>
+                                    <th>ת"ז</th>
+                                    <th>כיתה</th>
+                                    <th>סוג סייעת</th>
+                                    <th>שעות</th>
+                                    <th>השתתפות משרד (%)</th>
+                                    <th>תאריכים</th>
+                                    <th>סטטוס</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in FilteredItems)
+                                {
+                                    bool isPersonal = IsPersonalLevel(item.AssistantTypeLevel);
+                                    <tr class="@(item.IsActive ? "" : "row-inactive")">
+                                        <td>
+                                            <SecureButton ActionName="entitlements_edit" ScreenName="@PageName" FunctionName="EditItem"
+                                                          OnClick="() => ShowEditDialog(item)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
+                                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                                            </SecureButton>
+                                            @if (item.IsActive)
+                                            {
+                                                <SecureButton ActionName="entitlements_deactivate" ScreenName="@PageName" FunctionName="DeactivateItem"
+                                                              OnClick="() => DeactivateItem(item)" CssClass="btn-icon btn-danger" Title="השבת" HideIfNoAccess="true">
+                                                    <img src="/images/deactivate_icon.png" alt="השבת" class="action-icon-natural">
+                                                </SecureButton>
+                                            }
+                                        </td>
+                                        <td>
+                                            <span class="status-badge @(isPersonal ? "status-personal" : "status-institutional")">
+                                                @(isPersonal ? "אישי" : "מוסדי")
+                                            </span>
+                                        </td>
+                                        <td>@(item.SchoolName ?? "—")</td>
+                                        <td>
+                                            @if (isPersonal && (!string.IsNullOrEmpty(item.PupilFirstName) || !string.IsNullOrEmpty(item.PupilLastName)))
+                                            {
+                                                @($"{item.PupilFirstName} {item.PupilLastName}".Trim())
+                                            }
+                                            else
+                                            {
+                                                <span>—</span>
+                                            }
+                                        </td>
+                                        <td>@(isPersonal ? (item.PupilIdNumber ?? "—") : "—")</td>
+                                        <td>@(item.ClassName ?? "—")</td>
+                                        <td>@item.AssistantTypeName</td>
+                                        <td>@item.Hours @GetHoursUnitLabel(item.HoursUnit)</td>
+                                        <td>@item.MinistryParticipationPct.ToString("0.##")%</td>
+                                        <td>@item.StartDate.ToString("dd/MM/yyyy") – @item.EndDate.ToString("dd/MM/yyyy")</td>
+                                        <td>
+                                            <span class="status-badge @(item.IsActive ? "status-active" : "status-inactive")">
+                                                @(item.IsActive ? "פעיל" : "לא פעיל")
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@if (_showFormDialog)
+{
+    <div class="modal-overlay" @onclick="CloseDialog">
+        <div class="modal-content modal-large" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(_editItem == null ? "הוספת זכאות" : "עריכת זכאות")</h3>
+                <button class="modal-close" @onclick="CloseDialog">✕</button>
+            </div>
+            <div class="modal-body">
+
+                <!-- Assistant type — drives field visibility -->
+                <div class="form-group">
+                    <label>סוג סייעת <span class="required">*</span></label>
+                    <select class="form-control" value="@_formAssistantTypeId" @onchange="OnAssistantTypeChanged">
+                        <option value="0">— בחר סוג —</option>
+                        @foreach (var type in _assistantTypes)
+                        {
+                            <option value="@type.Id">@type.DisplayName</option>
+                        }
+                    </select>
+                </div>
+
+                <!-- DEBUG — remove after confirming pupil fields appear -->
+                <div style="font-size:0.78em; color:#888; margin-bottom:8px;">
+                    debug: typeId=@_formAssistantTypeId &nbsp;|&nbsp;
+                    level=<strong>@(_assistantTypes.FirstOrDefault(t => t.Id == _formAssistantTypeId)?.Level ?? "—")</strong> &nbsp;|&nbsp;
+                    isPersonal=<strong>@_formIsPersonal</strong>
+                </div>
+
+                <!-- Personal-only fields — shown above school when assistant type level is personal -->
+                @if (_formIsPersonal)
+                {
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label>שם פרטי תלמיד <span class="required">*</span></label>
+                            <input class="form-control" @bind="_formPupilFirstName" placeholder="שם פרטי" />
+                        </div>
+                        <div class="form-group">
+                            <label>שם משפחה תלמיד <span class="required">*</span></label>
+                            <input class="form-control" @bind="_formPupilLastName" placeholder="שם משפחה" />
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>תעודת זהות תלמיד <span class="required">*</span></label>
+                        <input class="form-control" @bind="_formPupilIdNumber"
+                               placeholder="9 ספרות" maxlength="9"
+                               inputmode="numeric" pattern="[0-9]{9}" />
+                        <small class="form-text text-muted">9 ספרות בדיוק, ספרה מובילה 0 מותרת</small>
+                    </div>
+                }
+
+                <!-- School + class on the same row -->
+                <div class="form-row" style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label>מוסד (בית ספר / גן) <span class="required">*</span></label>
+                        <select class="form-control" @bind="_formSchoolEntityId">
+                            <option value="0">— בחר מוסד —</option>
+                            @foreach (var unit in _orgUnits.Where(u => u.IsActive))
+                            {
+                                <option value="@unit.Id">@unit.Name (@GetOrgUnitTypeLabel(unit.OrgUnitType))</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>כיתה</label>
+                        <input class="form-control" @bind="_formClassName" placeholder="לדוגמה: כיתה א׳" />
+                    </div>
+                </div>
+
+                <!-- Hours + unit + ministry % on the same row -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label>שעות <span class="required">*</span></label>
+                        <InputNumber class="form-control" @bind-Value="_formHours" />
+                    </div>
+                    <div class="form-group">
+                        <label>יחידת שעות <span class="required">*</span></label>
+                        <select class="form-control" @bind="_formHoursUnit">
+                            <option value="weekly">שבועי</option>
+                            <option value="monthly">חודשי</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>השתתפות משרד (%)<span class="required">*</span></label>
+                        <select class="form-control" @bind="_formMinistryPct">
+                            <option value="0">— בחר —</option>
+                            @foreach (var opt in _ministryOptions)
+                            {
+                                <option value="@opt.Percentage">@opt.Percentage.ToString("0.##")%</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Dates -->
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label>תאריך התחלה <span class="required">*</span></label>
+                        <InputDate class="form-control" @bind-Value="_formStartDate" />
+                    </div>
+                    <div class="form-group">
+                        <label>תאריך סיום <span class="required">*</span></label>
+                        <InputDate class="form-control" @bind-Value="_formEndDate" />
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_formError))
+                {
+                    <div class="error-message">@_formError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseDialog">ביטול</button>
+                <button class="btn btn-primary" @onclick="SaveItem" disabled="@_isSaving">
+                    @(_isSaving ? "שומר..." : "שמור")
+                </button>
+            </div>
+        </div>
+    </div>
+}
 
 @code {
     [Parameter] public int YearId { get; set; }
 
-    protected override string PageName => "institutional_entitlements";
+    protected override string PageName => "entitlements";
 
-    protected override Task OnPageInitializedAsync()
+    private string _yearName = "";
+    private YearDto? _year;
+    private List<EntitlementListItemDto> _items = new();
+    private List<AssistantTypeDto> _assistantTypes = new();
+    private List<OrgUnitDto> _orgUnits = new();
+    private List<MinistryParticipationOptionDto> _ministryOptions = new();
+    private bool _isLoading = true;
+    private bool _showFormDialog;
+    private bool _isSaving;
+    private string _formError = string.Empty;
+    private EntitlementListItemDto? _editItem;
+
+    // Filter state
+    private string _filterKind = "";
+    private int _filterSchoolId;
+    private int _filterAssistantTypeId;
+    private string _filterActiveOnly = "true";
+
+    // Form state
+    private int _formAssistantTypeId;
+    private bool _formIsPersonal;
+    private int _formSchoolEntityId;
+    private string? _formClassName;
+    private string _formPupilIdNumber = string.Empty;
+    private string _formPupilFirstName = string.Empty;
+    private string _formPupilLastName = string.Empty;
+    private decimal _formHours = 1;
+    private string _formHoursUnit = "weekly";
+    private decimal _formMinistryPct;
+    private DateTime? _formStartDate;
+    private DateTime? _formEndDate;
+
+    protected override async Task OnPageInitializedAsync()
     {
-        Navigation.NavigateTo($"/year/{YearId}/entitlements/institutional", replace: true);
-        return Task.CompletedTask;
+        await LoadLookupsAsync();
+        await LoadDataAsync();
     }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_isLoading)
+        {
+            await LoadLookupsAsync();
+            await LoadDataAsync();
+        }
+    }
+
+    private async Task LoadLookupsAsync()
+    {
+        _year = await ApiService.GetAsync<YearDto>($"years/{YearId}");
+        _yearName = _year?.YearName ?? "";
+
+        var typesResponse = await ApiService.GetAsync<ApiResponse<List<AssistantTypeDto>>>("assistant-types");
+        _assistantTypes = typesResponse?.Data ?? new();
+
+        var orgResponse = await ApiService.GetAsync<ApiResponse<List<OrgUnitDto>>>("org-units");
+        _orgUnits = orgResponse?.Data ?? new();
+
+        var ministryResponse = await ApiService.GetAsync<ApiResponse<List<MinistryParticipationOptionDto>>>("ministry-participation-options");
+        _ministryOptions = ministryResponse?.Data ?? new();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            var response = await ApiService.GetAsync<ApiResponse<List<EntitlementListItemDto>>>(
+                $"entitlements?yearId={YearId}");
+            _items = response?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בטעינת נתונים: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task RefreshData() => await LoadDataAsync();
+
+    // ─── Filtering ────────────────────────────────────────────────────────────
+
+    private List<EntitlementListItemDto> FilteredItems => _items.Where(item =>
+    {
+        bool activeOnly = _filterActiveOnly != "false";
+        if (activeOnly && !item.IsActive) return false;
+
+        if (!string.IsNullOrEmpty(_filterKind))
+        {
+            bool isPersonal = IsPersonalLevel(item.AssistantTypeLevel);
+            if (_filterKind == "personal" && !isPersonal) return false;
+            if (_filterKind == "institutional" && isPersonal) return false;
+        }
+
+        if (_filterSchoolId > 0 && item.SchoolEntityId != _filterSchoolId) return false;
+        if (_filterAssistantTypeId > 0 && item.AssistantTypeId != _filterAssistantTypeId) return false;
+
+        return true;
+    }).ToList();
+
+    private bool HasActiveFilters =>
+        !string.IsNullOrEmpty(_filterKind) ||
+        _filterSchoolId > 0 ||
+        _filterAssistantTypeId > 0 ||
+        _filterActiveOnly == "false";
+
+    private void ClearFilters()
+    {
+        _filterKind = "";
+        _filterSchoolId = 0;
+        _filterAssistantTypeId = 0;
+        _filterActiveOnly = "true";
+    }
+
+    // ─── Form helpers ─────────────────────────────────────────────────────────
+
+    private async Task OnAssistantTypeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int id))
+        {
+            _formAssistantTypeId = id;
+            var atype = _assistantTypes.FirstOrDefault(t => t.Id == id);
+            _formIsPersonal = IsPersonalLevel(atype?.Level);
+
+            await JSRuntime.InvokeVoidAsync("console.log",
+                $"[Entitlements] AssistantType selected: id={id}, level='{atype?.Level}', isPersonal={_formIsPersonal}, totalTypes={_assistantTypes.Count}");
+
+            if (!_formIsPersonal)
+            {
+                _formPupilIdNumber = string.Empty;
+                _formPupilFirstName = string.Empty;
+                _formPupilLastName = string.Empty;
+            }
+        }
+    }
+
+    private void ResetFormDefaults()
+    {
+        _formAssistantTypeId = 0;
+        _formIsPersonal = false;
+        _formSchoolEntityId = 0;
+        _formClassName = null;
+        _formPupilIdNumber = string.Empty;
+        _formPupilFirstName = string.Empty;
+        _formPupilLastName = string.Empty;
+        _formHours = 1;
+        _formHoursUnit = "weekly";
+        _formMinistryPct = _ministryOptions.FirstOrDefault()?.Percentage ?? 0;
+        _formStartDate = _year?.StartDate?.ToDateTime(TimeOnly.MinValue);
+        _formEndDate = _year?.EndDate?.ToDateTime(TimeOnly.MinValue);
+        _formError = string.Empty;
+    }
+
+    private void ShowCreateDialog()
+    {
+        _editItem = null;
+        ResetFormDefaults();
+        _showFormDialog = true;
+    }
+
+    private void ShowEditDialog(EntitlementListItemDto item)
+    {
+        _editItem = item;
+        _formAssistantTypeId = item.AssistantTypeId;
+        _formIsPersonal = IsPersonalLevel(item.AssistantTypeLevel);
+        _formSchoolEntityId = item.SchoolEntityId ?? 0;
+        _formClassName = item.ClassName;
+        _formPupilIdNumber = item.PupilIdNumber ?? string.Empty;
+        _formPupilFirstName = item.PupilFirstName ?? string.Empty;
+        _formPupilLastName = item.PupilLastName ?? string.Empty;
+        _formHours = item.Hours;
+        _formHoursUnit = item.HoursUnit;
+        _formMinistryPct = item.MinistryParticipationPct;
+        _formStartDate = item.StartDate.ToDateTime(TimeOnly.MinValue);
+        _formEndDate = item.EndDate.ToDateTime(TimeOnly.MinValue);
+        _formError = string.Empty;
+        _showFormDialog = true;
+    }
+
+    private void CloseDialog()
+    {
+        _showFormDialog = false;
+        _formError = string.Empty;
+    }
+
+    private async Task SaveItem()
+    {
+        _formError = string.Empty;
+
+        // Client-side validation
+        if (_formAssistantTypeId <= 0)
+        {
+            _formError = "יש לבחור סוג סייעת";
+            return;
+        }
+        if (_formSchoolEntityId <= 0)
+        {
+            _formError = "יש לבחור מוסד";
+            return;
+        }
+        if (_formIsPersonal)
+        {
+            if (string.IsNullOrWhiteSpace(_formPupilFirstName))
+            {
+                _formError = "שם פרטי תלמיד נדרש";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(_formPupilLastName))
+            {
+                _formError = "שם משפחה תלמיד נדרש";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(_formPupilIdNumber) || _formPupilIdNumber.Length != 9 || !_formPupilIdNumber.All(char.IsDigit))
+            {
+                _formError = "תעודת זהות חייבת להכיל בדיוק 9 ספרות";
+                return;
+            }
+        }
+        if (_formMinistryPct <= 0)
+        {
+            _formError = "יש לבחור אחוז השתתפות משרד החינוך";
+            return;
+        }
+        if (!_formStartDate.HasValue || !_formEndDate.HasValue)
+        {
+            _formError = "יש למלא תאריכי התחלה וסיום";
+            return;
+        }
+
+        _isSaving = true;
+
+        try
+        {
+            ApiResponse<object>? response;
+
+            if (_editItem == null)
+            {
+                response = await ApiService.PostAsync<CreateEntitlementRequest, ApiResponse<object>>(
+                    "entitlements",
+                    new CreateEntitlementRequest
+                    {
+                        HebrewYearId             = YearId,
+                        AssistantTypeId          = _formAssistantTypeId,
+                        StartDate                = DateOnly.FromDateTime(_formStartDate.Value),
+                        EndDate                  = DateOnly.FromDateTime(_formEndDate.Value),
+                        Hours                    = _formHours,
+                        HoursUnit                = _formHoursUnit,
+                        MinistryParticipationPct = _formMinistryPct,
+                        SchoolEntityId           = _formSchoolEntityId,
+                        ClassName                = _formClassName,
+                        PupilIdNumber            = _formIsPersonal ? _formPupilIdNumber : null,
+                        PupilFirstName           = _formIsPersonal ? _formPupilFirstName : null,
+                        PupilLastName            = _formIsPersonal ? _formPupilLastName : null
+                    });
+            }
+            else
+            {
+                response = await ApiService.PutAsync<UpdateEntitlementRequest, ApiResponse<object>>(
+                    $"entitlements/{_editItem.Id}",
+                    new UpdateEntitlementRequest
+                    {
+                        AssistantTypeId          = _formAssistantTypeId,
+                        StartDate                = DateOnly.FromDateTime(_formStartDate.Value),
+                        EndDate                  = DateOnly.FromDateTime(_formEndDate.Value),
+                        Hours                    = _formHours,
+                        HoursUnit                = _formHoursUnit,
+                        MinistryParticipationPct = _formMinistryPct,
+                        SchoolEntityId           = _formSchoolEntityId,
+                        ClassName                = _formClassName,
+                        PupilIdNumber            = _formIsPersonal ? _formPupilIdNumber : null,
+                        PupilFirstName           = _formIsPersonal ? _formPupilFirstName : null,
+                        PupilLastName            = _formIsPersonal ? _formPupilLastName : null
+                    });
+            }
+
+            if (response?.Success == true)
+            {
+                CloseDialog();
+                await LoadDataAsync();
+            }
+            else
+            {
+                _formError = response?.Message ?? "שגיאה בשמירה";
+            }
+        }
+        catch (Exception ex)
+        {
+            _formError = $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task DeactivateItem(EntitlementListItemDto item)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "האם להשבית זכאות זו?"))
+            return;
+
+        var response = await ApiService.PutAsync<object, ApiResponse<object>>($"entitlements/{item.Id}/deactivate", new { });
+        if (response?.Success == true)
+            await LoadDataAsync();
+        else
+            await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בהשבתה");
+    }
+
+    // ─── Display helpers ──────────────────────────────────────────────────────
+
+    private static bool IsPersonalLevel(string? level)
+        => string.Equals(level, "personal", StringComparison.OrdinalIgnoreCase);
+
+    private static string GetHoursUnitLabel(string unit) => unit == "monthly" ? "חודשי" : "שבועי";
+
+    private static string GetOrgUnitTypeLabel(string type) => type switch
+    {
+        "school"       => "בית ספר",
+        "kindergarten" => "גן",
+        _              => type
+    };
+
+    private static string GetLevelLabel(string? level) => level switch
+    {
+        "personal"      => "אישי",
+        "class"         => "כיתתי",
+        "school"        => "בית ספר",
+        "kindergarten"  => "גן",
+        _               => "מוסדי"
+    };
+
+    private void NavigateBack() => Navigation.NavigateTo($"/year/{YearId}");
 }

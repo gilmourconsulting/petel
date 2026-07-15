@@ -29,5 +29,9 @@ namespace PetelAssistants.Api.Models
 
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
+
+        [Column("level")]
+        [MaxLength(30)]
+        public string? Level { get; set; }
     }
 }

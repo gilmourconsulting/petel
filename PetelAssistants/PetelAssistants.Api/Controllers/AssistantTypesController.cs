@@ -44,7 +44,8 @@ namespace PetelAssistants.Api.Controllers
                     DisplayName = at.DisplayName,
                     Description = at.Description,
                     SortOrder = at.SortOrder,
-                    IsActive = at.IsActive
+                    IsActive = at.IsActive,
+                    Level = at.Level
                 })
                 .ToListAsync();
 
@@ -71,6 +72,7 @@ namespace PetelAssistants.Api.Controllers
                 DisplayName = request.DisplayName.Trim(),
                 Description = request.Description?.Trim(),
                 SortOrder = request.SortOrder,
+                Level = request.Level?.Trim().ToLowerInvariant(),
                 IsActive = true
             };
 
@@ -98,6 +100,7 @@ namespace PetelAssistants.Api.Controllers
             type.Description = request.Description?.Trim();
             type.SortOrder = request.SortOrder;
             type.IsActive = request.IsActive;
+            type.Level = request.Level?.Trim().ToLowerInvariant();
 
             await _sharedContext.SaveChangesAsync();
             return Ok(new { success = true, message = "סוג סייעת עודכן בהצלחה" });

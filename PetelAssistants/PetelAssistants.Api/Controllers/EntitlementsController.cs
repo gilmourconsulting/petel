@@ -22,7 +22,7 @@ namespace PetelAssistants.Api.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] int yearId, [FromQuery] string kind)
+        public async Task<IActionResult> GetAll([FromQuery] int yearId, [FromQuery] string? kind = null)
         {
             var session = GetCurrentSession();
             if (session == null)

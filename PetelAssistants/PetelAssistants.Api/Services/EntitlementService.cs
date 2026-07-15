@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Petel.Core.Abstractions;
 using PetelAssistants.Api.Data;
 using PetelAssistants.Api.DTOs;
 using PetelAssistants.Api.Models;
@@ -9,25 +10,31 @@ namespace PetelAssistants.Api.Services
     {
         private readonly AssistDbContext _context;
         private readonly SharedDbContext _sharedContext;
+        private readonly IAttributeCache _attributeCache;
         private readonly ILogger<EntitlementService> _logger;
 
         public EntitlementService(
             AssistDbContext context,
             SharedDbContext sharedContext,
+            IAttributeCache attributeCache,
             ILogger<EntitlementService> logger)
         {
             _context = context;
             _sharedContext = sharedContext;
+            _attributeCache = attributeCache;
             _logger = logger;
         }
 
-        public async Task<List<EntitlementListItemDto>> ListEntitlementsAsync(int entityId, int yearId, string kind)
+        /// <summary>
+        /// Returns entitlements for the given year. kind is optional; omit or pass null/empty to return all.
+        /// </summary>
+        public async Task<List<EntitlementListItemDto>> ListEntitlementsAsync(int entityId, int yearId, string? kind)
         {
-            ValidateKind(kind);
-
-            var items = await _context.Entitlements
+            var query = _context.Entitlements
                 .AsNoTracking()
-                .Where(e => e.HebrewYearId == yearId && e.EntitlementKind == kind)
+                .Where(e => e.HebrewYearId == yearId);
+
+            var items = await query
                 .OrderByDescending(e => e.Id)
                 .ToListAsync();
 
@@ -49,11 +56,10 @@ namespace PetelAssistants.Api.Services
 
         public async Task<int> CreateEntitlementAsync(int entityId, int? userId, CreateEntitlementRequest request)
         {
-            ValidateKind(request.EntitlementKind);
             ValidateHoursUnit(request.HoursUnit);
 
+            var assistantType = await LoadAssistantTypeAsync(request.AssistantTypeId);
             var year = await LoadHebrewYearAsync(request.HebrewYearId);
-            await ValidateAssistantTypeAsync(request.AssistantTypeId);
 
             var startDate = request.StartDate ?? year.StartDate
                 ?? throw new InvalidOperationException("תאריך התחלה נדרש — הגדר תאריכים לשנה העברית");
@@ -61,10 +67,14 @@ namespace PetelAssistants.Api.Services
                 ?? throw new InvalidOperationException("תאריך סיום נדרש — הגדר תאריכים לשנה העברית");
 
             ValidateDates(startDate, endDate, year);
-            ValidateKindFields(request.EntitlementKind, request.SchoolEntityId, request.PupilExternalId, request.ClassName);
 
-            if (request.EntitlementKind == EntitlementKinds.Institutional)
-                await ValidateSchoolBelongsToTenantAsync(entityId, request.SchoolEntityId!.Value);
+            bool isPersonal = IsPersonalLevel(assistantType.Level);
+            ValidateKindFields(isPersonal, request.SchoolEntityId, request.PupilIdNumber, request.PupilFirstName, request.PupilLastName);
+
+            if (isPersonal)
+                ValidatePupilIdNumber(request.PupilIdNumber!);
+
+            await ValidateSchoolBelongsToTenantAsync(entityId, request.SchoolEntityId!.Value);
 
             if (request.Hours <= 0)
                 throw new InvalidOperationException("מספר שעות חייב להיות גדול מאפס");
@@ -75,27 +85,24 @@ namespace PetelAssistants.Api.Services
             var now = DateTime.UtcNow;
             var entitlement = new Entitlement
             {
-                EntityId = entityId,
-                HebrewYearId = request.HebrewYearId,
+                EntityId    = entityId,
+                HebrewYearId    = request.HebrewYearId,
                 AssistantTypeId = request.AssistantTypeId,
-                EntitlementKind = request.EntitlementKind,
-                StartDate = startDate,
-                EndDate = endDate,
-                Hours = request.Hours,
-                HoursUnit = request.HoursUnit,
+                StartDate   = startDate,
+                EndDate     = endDate,
+                Hours       = request.Hours,
+                HoursUnit   = request.HoursUnit,
                 MinistryParticipationPct = request.MinistryParticipationPct,
-                SchoolEntityId = request.EntitlementKind == EntitlementKinds.Institutional ? request.SchoolEntityId : null,
-                ClassName = request.EntitlementKind == EntitlementKinds.Institutional
-                    ? NormalizeOptionalText(request.ClassName)
-                    : null,
-                PupilExternalId = request.EntitlementKind == EntitlementKinds.Personal
-                    ? NormalizeRequiredText(request.PupilExternalId, "מזהה תלמיד חיצוני")
-                    : null,
-                IsActive = true,
-                UserId = userId,
-                UpdateUser = userId,
-                CreatedAt = now,
-                UpdatedAt = now
+                SchoolEntityId = request.SchoolEntityId,
+                ClassName   = NormalizeOptionalText(request.ClassName),
+                PupilIdNumber  = isPersonal ? NormalizeRequiredText(request.PupilIdNumber,  "תעודת זהות תלמיד") : null,
+                PupilFirstName = isPersonal ? NormalizeRequiredText(request.PupilFirstName, "שם פרטי תלמיד")    : null,
+                PupilLastName  = isPersonal ? NormalizeRequiredText(request.PupilLastName,  "שם משפחה תלמיד")   : null,
+                IsActive    = true,
+                UserId      = userId,
+                UpdateUser  = userId,
+                CreatedAt   = now,
+                UpdatedAt   = now
             };
 
             _context.Entitlements.Add(entitlement);
@@ -112,14 +119,18 @@ namespace PetelAssistants.Api.Services
             var entitlement = await _context.Entitlements.FirstOrDefaultAsync(e => e.Id == id)
                 ?? throw new InvalidOperationException("זכאות לא נמצאה");
 
+            var assistantType = await LoadAssistantTypeAsync(request.AssistantTypeId);
             var year = await LoadHebrewYearAsync(entitlement.HebrewYearId);
-            await ValidateAssistantTypeAsync(request.AssistantTypeId);
 
             ValidateDates(request.StartDate, request.EndDate, year);
-            ValidateKindFields(entitlement.EntitlementKind, request.SchoolEntityId, request.PupilExternalId, request.ClassName);
 
-            if (entitlement.EntitlementKind == EntitlementKinds.Institutional)
-                await ValidateSchoolBelongsToTenantAsync(entityId, request.SchoolEntityId!.Value);
+            bool isPersonal = IsPersonalLevel(assistantType.Level);
+            ValidateKindFields(isPersonal, request.SchoolEntityId, request.PupilIdNumber, request.PupilFirstName, request.PupilLastName);
+
+            if (isPersonal)
+                ValidatePupilIdNumber(request.PupilIdNumber!);
+
+            await ValidateSchoolBelongsToTenantAsync(entityId, request.SchoolEntityId!.Value);
 
             if (request.Hours <= 0)
                 throw new InvalidOperationException("מספר שעות חייב להיות גדול מאפס");
@@ -128,22 +139,18 @@ namespace PetelAssistants.Api.Services
                 throw new InvalidOperationException("אחוז השתתפות משרד החינוך חייב להיות בין 0 ל-100");
 
             entitlement.AssistantTypeId = request.AssistantTypeId;
-            entitlement.StartDate = request.StartDate;
-            entitlement.EndDate = request.EndDate;
-            entitlement.Hours = request.Hours;
-            entitlement.HoursUnit = request.HoursUnit;
+            entitlement.StartDate       = request.StartDate;
+            entitlement.EndDate         = request.EndDate;
+            entitlement.Hours           = request.Hours;
+            entitlement.HoursUnit       = request.HoursUnit;
             entitlement.MinistryParticipationPct = request.MinistryParticipationPct;
-            entitlement.SchoolEntityId = entitlement.EntitlementKind == EntitlementKinds.Institutional
-                ? request.SchoolEntityId
-                : null;
-            entitlement.ClassName = entitlement.EntitlementKind == EntitlementKinds.Institutional
-                ? NormalizeOptionalText(request.ClassName)
-                : null;
-            entitlement.PupilExternalId = entitlement.EntitlementKind == EntitlementKinds.Personal
-                ? NormalizeRequiredText(request.PupilExternalId, "מזהה תלמיד חיצוני")
-                : null;
-            entitlement.UpdateUser = userId;
-            entitlement.UpdatedAt = DateTime.UtcNow;
+            entitlement.SchoolEntityId  = request.SchoolEntityId;
+            entitlement.ClassName       = NormalizeOptionalText(request.ClassName);
+            entitlement.PupilIdNumber   = isPersonal ? NormalizeRequiredText(request.PupilIdNumber,  "תעודת זהות תלמיד") : null;
+            entitlement.PupilFirstName  = isPersonal ? NormalizeRequiredText(request.PupilFirstName, "שם פרטי תלמיד")    : null;
+            entitlement.PupilLastName   = isPersonal ? NormalizeRequiredText(request.PupilLastName,  "שם משפחה תלמיד")   : null;
+            entitlement.UpdateUser      = userId;
+            entitlement.UpdatedAt       = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
         }
@@ -153,11 +160,13 @@ namespace PetelAssistants.Api.Services
             var entitlement = await _context.Entitlements.FirstOrDefaultAsync(e => e.Id == id)
                 ?? throw new InvalidOperationException("זכאות לא נמצאה");
 
-            entitlement.IsActive = false;
-            entitlement.UpdateUser = userId;
-            entitlement.UpdatedAt = DateTime.UtcNow;
+            entitlement.IsActive    = false;
+            entitlement.UpdateUser  = userId;
+            entitlement.UpdatedAt   = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
+
+        // ─── private helpers ──────────────────────────────────────────────────────
 
         private async Task<List<EntitlementListItemDto>> MapListAsync(List<Entitlement> items)
         {
@@ -165,12 +174,13 @@ namespace PetelAssistants.Api.Services
                 return new List<EntitlementListItemDto>();
 
             var assistantTypeIds = items.Select(i => i.AssistantTypeId).Distinct().ToList();
-            var schoolIds = items.Where(i => i.SchoolEntityId.HasValue).Select(i => i.SchoolEntityId!.Value).Distinct().ToList();
+            var schoolIds = items.Where(i => i.SchoolEntityId.HasValue)
+                                 .Select(i => i.SchoolEntityId!.Value).Distinct().ToList();
 
             var assistantTypes = await _sharedContext.AssistantTypes
                 .AsNoTracking()
                 .Where(at => assistantTypeIds.Contains(at.Id))
-                .ToDictionaryAsync(at => at.Id, at => at.DisplayName);
+                .ToDictionaryAsync(at => at.Id, at => at);
 
             var schools = schoolIds.Count == 0
                 ? new Dictionary<int, (string Name, string? TypeName)>()
@@ -183,28 +193,42 @@ namespace PetelAssistants.Api.Services
             return items.Select(item =>
             {
                 schools.TryGetValue(item.SchoolEntityId ?? 0, out var school);
-                assistantTypes.TryGetValue(item.AssistantTypeId, out var typeName);
+                assistantTypes.TryGetValue(item.AssistantTypeId, out var atype);
 
                 return new EntitlementListItemDto
                 {
-                    Id = item.Id,
-                    HebrewYearId = item.HebrewYearId,
-                    EntitlementKind = item.EntitlementKind,
-                    AssistantTypeId = item.AssistantTypeId,
-                    AssistantTypeName = typeName ?? string.Empty,
-                    StartDate = item.StartDate,
-                    EndDate = item.EndDate,
-                    Hours = item.Hours,
-                    HoursUnit = item.HoursUnit,
+                    Id                       = item.Id,
+                    HebrewYearId             = item.HebrewYearId,
+                    AssistantTypeId          = item.AssistantTypeId,
+                    AssistantTypeName        = atype?.DisplayName ?? string.Empty,
+                    AssistantTypeLevel       = atype?.Level,
+                    StartDate                = item.StartDate,
+                    EndDate                  = item.EndDate,
+                    Hours                    = item.Hours,
+                    HoursUnit                = item.HoursUnit,
                     MinistryParticipationPct = item.MinistryParticipationPct,
-                    SchoolEntityId = item.SchoolEntityId,
-                    SchoolName = item.SchoolEntityId.HasValue ? school.Name : null,
-                    OrgUnitType = item.SchoolEntityId.HasValue ? school.TypeName : null,
-                    ClassName = item.ClassName,
-                    PupilExternalId = item.PupilExternalId,
-                    IsActive = item.IsActive
+                    SchoolEntityId           = item.SchoolEntityId,
+                    SchoolName               = item.SchoolEntityId.HasValue ? school.Name : null,
+                    OrgUnitType              = item.SchoolEntityId.HasValue ? school.TypeName : null,
+                    ClassName                = item.ClassName,
+                    PupilIdNumber            = item.PupilIdNumber,
+                    PupilFirstName           = item.PupilFirstName,
+                    PupilLastName            = item.PupilLastName,
+                    IsActive                 = item.IsActive
                 };
             }).ToList();
+        }
+
+        private async Task<AssistantType> LoadAssistantTypeAsync(int assistantTypeId)
+        {
+            var atype = await _sharedContext.AssistantTypes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(at => at.Id == assistantTypeId && at.IsActive);
+
+            if (atype == null)
+                throw new InvalidOperationException("סוג סייעת לא תקין או לא פעיל");
+
+            return atype;
         }
 
         private async Task<HebrewYear> LoadHebrewYearAsync(int yearId)
@@ -215,16 +239,6 @@ namespace PetelAssistants.Api.Services
             if (!year.IsActive)
                 throw new InvalidOperationException("שנה עברית לא פעילה");
             return year;
-        }
-
-        private async Task ValidateAssistantTypeAsync(int assistantTypeId)
-        {
-            var exists = await _sharedContext.AssistantTypes
-                .AsNoTracking()
-                .AnyAsync(at => at.Id == assistantTypeId && at.IsActive);
-
-            if (!exists)
-                throw new InvalidOperationException("סוג סייעת לא תקין או לא פעיל");
         }
 
         private async Task ValidateSchoolBelongsToTenantAsync(int entityId, int schoolEntityId)
@@ -239,12 +253,6 @@ namespace PetelAssistants.Api.Services
 
             if (!valid)
                 throw new InvalidOperationException("מוסד חינוך לא תקין עבור הרשות");
-        }
-
-        private static void ValidateKind(string kind)
-        {
-            if (kind != EntitlementKinds.Institutional && kind != EntitlementKinds.Personal)
-                throw new InvalidOperationException("סוג זכאות לא תקין");
         }
 
         private static void ValidateHoursUnit(string hoursUnit)
@@ -272,23 +280,62 @@ namespace PetelAssistants.Api.Services
         }
 
         private static void ValidateKindFields(
-            string kind,
+            bool isPersonal,
             int? schoolEntityId,
-            string? pupilExternalId,
-            string? className)
+            string? pupilIdNumber,
+            string? pupilFirstName,
+            string? pupilLastName)
         {
-            if (kind == EntitlementKinds.Institutional)
+            if (!schoolEntityId.HasValue)
+                throw new InvalidOperationException("יש לבחור בית ספר או גן");
+
+            if (isPersonal)
             {
-                if (!schoolEntityId.HasValue)
-                    throw new InvalidOperationException("יש לבחור בית ספר או גן");
+                if (string.IsNullOrWhiteSpace(pupilIdNumber))
+                    throw new InvalidOperationException("תעודת זהות תלמיד נדרשת");
+                if (string.IsNullOrWhiteSpace(pupilFirstName))
+                    throw new InvalidOperationException("שם פרטי תלמיד נדרש");
+                if (string.IsNullOrWhiteSpace(pupilLastName))
+                    throw new InvalidOperationException("שם משפחה תלמיד נדרש");
             }
-            else if (kind == EntitlementKinds.Personal)
+        }
+
+        /// <summary>
+        /// Validates that the id is exactly 9 digits and, when the system attribute
+        /// validate_israeli_id_checksum is true, passes the Israeli Luhn-like checksum.
+        /// </summary>
+        private void ValidatePupilIdNumber(string idNumber)
+        {
+            if (string.IsNullOrWhiteSpace(idNumber) || idNumber.Length != 9 || !idNumber.All(char.IsDigit))
+                throw new InvalidOperationException("תעודת זהות חייבת להכיל בדיוק 9 ספרות");
+
+            var raw = _attributeCache.GetAttributeValue("validate_israeli_id_checksum");
+            if (bool.TryParse(raw, out bool doCheck) && doCheck && !IsValidIsraeliId(idNumber))
+                throw new InvalidOperationException("מספר תעודת זהות לא תקין — ספרת ביקורת שגויה");
+        }
+
+        /// <summary>
+        /// Israeli ID checksum — Luhn-like algorithm (identical to PetelATH StudentsFileProcessor).
+        /// </summary>
+        private static bool IsPersonalLevel(string? level)
+            => string.Equals(level, "personal", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsValidIsraeliId(string idNumber)
+        {
+            if (idNumber.Length != 9 || !idNumber.All(char.IsDigit))
+                return false;
+
+            int sum = 0;
+            for (int i = 0; i < 9; i++)
             {
-                if (string.IsNullOrWhiteSpace(pupilExternalId))
-                    throw new InvalidOperationException("מזהה תלמיד חיצוני נדרש");
+                int digit = idNumber[i] - '0';
+                int multiplied = digit * ((i % 2) + 1);
+                if (multiplied > 9)
+                    multiplied -= 9;
+                sum += multiplied;
             }
 
-            _ = className;
+            return sum % 10 == 0;
         }
 
         private static string? NormalizeOptionalText(string? value)
