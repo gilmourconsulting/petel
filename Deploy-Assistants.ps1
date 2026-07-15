@@ -22,36 +22,35 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 # Configuration based on environment
-# TODO: Update BlazorAppName values when the Assistants frontend moves to its own server
 $envConfig = @{
     'test'       = @{
-        ResourceGroup  = 'petel-test-rg'
-        AppServicePlan = 'petel-test-plan'
-        BlazorAppName  = 'petel-test-blazor'
-        ApiAppName     = 'petel-test-api'
-        ApiUrl         = 'https://petel-test-api.azurewebsites.net'
+        ResourceGroup  = 'petel-assist-test-rg'
+        AppServicePlan = 'petel-assist-test-plan'
+        BlazorAppName  = 'petel-assist-test-blazor'
+        ApiAppName     = 'petel-assist-test-api'
+        ApiUrl         = 'https://petel-assist-test-api.azurewebsites.net'
         Location       = 'israelcentral'
-        BlazorRuntime  = 'DOTNETCORE:8.0'
+        BlazorRuntime  = 'DOTNETCORE:9.0'
         ApiRuntime     = 'DOTNETCORE:9.0'
     }
     'staging'    = @{
-        ResourceGroup  = 'petel-staging-rg'
-        AppServicePlan = 'petel-staging-plan'
-        BlazorAppName  = 'petel-staging-blazor'
-        ApiAppName     = 'petel-staging-api'
-        ApiUrl         = 'https://petel-staging-api.azurewebsites.net'
+        ResourceGroup  = 'petel-assist-staging-rg'
+        AppServicePlan = 'petel-assist-staging-plan'
+        BlazorAppName  = 'petel-assist-staging-blazor'
+        ApiAppName     = 'petel-assist-staging-api'
+        ApiUrl         = 'https://petel-assist-staging-api.azurewebsites.net'
         Location       = 'israelcentral'
-        BlazorRuntime  = 'DOTNETCORE:8.0'
+        BlazorRuntime  = 'DOTNETCORE:9.0'
         ApiRuntime     = 'DOTNETCORE:9.0'
     }
     'production' = @{
-        ResourceGroup  = 'petel-prod-rg'
-        AppServicePlan = 'petel-prod-plan'
-        BlazorAppName  = 'petel-prod-blazor'
-        ApiAppName     = 'petel-prod-api'
-        ApiUrl         = 'https://petel-prod-api.azurewebsites.net'
+        ResourceGroup  = 'petel-assist-prod-rg'
+        AppServicePlan = 'petel-assist-prod-plan'
+        BlazorAppName  = 'petel-assist-prod-blazor'
+        ApiAppName     = 'petel-assist-prod-api'
+        ApiUrl         = 'https://petel-assist-prod-api.azurewebsites.net'
         Location       = 'israelcentral'
-        BlazorRuntime  = 'DOTNETCORE:8.0'
+        BlazorRuntime  = 'DOTNETCORE:9.0'
         ApiRuntime     = 'DOTNETCORE:9.0'
     }
 }
@@ -197,6 +196,14 @@ if (-not $ApiOnly) {
         --resource-group $ResourceGroup `
         --name $BlazorAppName `
         --settings ASPNETCORE_ENVIRONMENT="$aspnetEnv" | Out-Null
+    az webapp config set `
+        --resource-group $ResourceGroup `
+        --name $BlazorAppName `
+        --startup-file "dotnet PetelAssistants.BlazorServer.dll" | Out-Null
+    # Always update runtime version (handles upgrades on existing app services)
+    $blazorLinuxFxVersion = $BlazorRuntime.Replace(':', '|')
+    cmd /c "az webapp config set --resource-group $ResourceGroup --name $BlazorAppName --linux-fx-version ""$blazorLinuxFxVersion"" --output none" | Out-Null
+    Write-Host "Runtime set to: $blazorLinuxFxVersion" -ForegroundColor Gray
     
     Write-Host "Deploying Blazor application..." -ForegroundColor Gray
     $deployResult = az webapp deploy `
@@ -285,6 +292,10 @@ if (-not $BlazorOnly) {
         --resource-group $ResourceGroup `
         --name $ApiAppName `
         --settings ASPNETCORE_ENVIRONMENT="$aspnetEnv" | Out-Null
+    # Always update runtime version (handles upgrades on existing app services)
+    $apiLinuxFxVersion = $ApiRuntime.Replace(':', '|')
+    cmd /c "az webapp config set --resource-group $ResourceGroup --name $ApiAppName --linux-fx-version ""$apiLinuxFxVersion"" --output none" | Out-Null
+    Write-Host "Runtime set to: $apiLinuxFxVersion" -ForegroundColor Gray
     
     Write-Host "Deploying API application..." -ForegroundColor Gray
     $deployResult = az webapp deploy `

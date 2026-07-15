@@ -752,15 +752,24 @@ See [petel-ath.md](petel-ath.md) → **Authentication & Email OTP** and [core/au
 .\Deploy-Assistants.ps1 -Environment production -SkipBuild
 ```
 
-**Azure Resources**: PetelAssistants currently shares the PetelATH App Service infrastructure. The `$envConfig` in `Deploy-Assistants.ps1` points to the same App Service names as `Deploy-ATH.ps1`. Update those values when dedicated resources are provisioned.
+**Azure Resources**: PetelAssistants has dedicated App Service infrastructure separate from PetelATH. All environments use `israelcentral`, .NET 9.0 runtime.
 
-| Environment | Resource Group | API App | Blazor App |
-|---|---|---|---|
-| Test | `petel-test-rg` | `petel-test-api` | `petel-test-blazor` |
-| Staging | `petel-staging-rg` | `petel-staging-api` | `petel-staging-blazor` |
-| Production | `petel-prod-rg` | `petel-prod-api` | `petel-prod-blazor` |
+| Environment | Resource Group | App Service Plan | API App | Blazor App |
+|---|---|---|---|---|
+| Test | `petel-assist-test-rg` | `petel-assist-test-plan` | `petel-assist-test-api` | `petel-assist-test-blazor` |
+| Staging | `petel-assist-staging-rg` | `petel-assist-staging-plan` | `petel-assist-staging-api` | `petel-assist-staging-blazor` |
+| Production | `petel-assist-prod-rg` | `petel-assist-prod-plan` | `petel-assist-prod-api` | `petel-assist-prod-blazor` |
 
-> When PetelAssistants gets its own Azure App Services, update `BlazorAppName` and `ApiAppName` in `Deploy-Assistants.ps1`.
+**Test URLs**: API `https://petel-assist-test-api.azurewebsites.net`, Blazor `https://petel-assist-test-blazor.azurewebsites.net`
+
+**Secrets** (no Key Vault — set directly as Azure App Service Application Settings on the API app):
+
+| App Setting Key | Description |
+|---|---|
+| `ConnectionStrings__DefaultConnection` | PostgreSQL connection string (shared DB server) |
+| `Security__Jwt__SecretKey` | JWT signing key (≥32 chars) |
+| `Security__DataEncryption__EncryptionKey` | AES-256 base64 key |
+| `Email__FromAddress` / `Email__Username` / `Email__Password` | Gmail SMTP credentials |
 
 ## Development Roadmap
 
