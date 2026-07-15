@@ -1,0 +1,99 @@
+<div class="content-card" style="margin-top: 20px; border-top: 2px solid #dee2e6;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <h3 style="margin: 0; font-size: 1.1em;">
+            @HeaderPrefix
+            <span style="font-weight: 400;">@HeaderTitle</span>
+        </h3>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            @if (IsLoading)
+            {
+                <span style="font-size: 0.85em; color: #6c757d;">טוען...</span>
+            }
+            @if (ShowAddButton)
+            {
+                <button class="btn btn-primary btn-sm" @onclick="OnAddAllocation">@AddButtonLabel</button>
+            }
+            <button class="btn btn-secondary btn-sm" @onclick="OnClose" title="סגור">✕</button>
+        </div>
+    </div>
+
+    @if (Allocations.Count == 0 && !IsLoading)
+    {
+        <div class="no-data-message" style="padding: 12px 0; display: flex; flex-direction: column; align-items: center; gap: 12px;">
+            <span>@EmptyMessage</span>
+            @if (ShowAddButton)
+            {
+                <button class="btn btn-primary" @onclick="OnAddAllocation">@AddButtonLabel</button>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>פעולות</th>
+                        <th>@(ViewMode == AllocationsViewMode.ByEntitlement ? "שם הסייעת" : "זכאות")</th>
+                        <th>שעות</th>
+                        <th>תאריכים</th>
+                        <th>סטטוס</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var alloc in Allocations)
+                    {
+                        <tr class="@(alloc.IsActive ? "" : "row-inactive")">
+                            <td>
+                                @if (alloc.IsActive)
+                                {
+                                    <SecureButton ActionName="entitlements_deactivate_allocation" ScreenName="@SecurityScreenName"
+                                                  FunctionName="DeactivateAllocation"
+                                                  OnClick="() => OnDeactivateAllocation.InvokeAsync(alloc)"
+                                                  CssClass="btn-icon btn-danger" Title="השבת" HideIfNoAccess="true">
+                                        <img src="/images/deactivate_icon.png" alt="השבת" class="action-icon-natural">
+                                    </SecureButton>
+                                }
+                            </td>
+                            <td>
+                                @if (ViewMode == AllocationsViewMode.ByEntitlement)
+                                {
+                                    @alloc.PersonFullName
+                                }
+                                else
+                                {
+                                    @alloc.AssistantTypeName
+                                    @(alloc.SchoolName != null ? $" — {alloc.SchoolName}" : "")
+                                }
+                            </td>
+                            <td>@alloc.Hours @GetHoursUnitLabel(alloc.HoursUnit)</td>
+                            <td>@alloc.StartDate.ToString("dd/MM/yyyy") – @alloc.EndDate.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                <span class="status-badge @(alloc.IsActive ? "status-active" : "status-inactive")">
+                                    @(alloc.IsActive ? "פעיל" : "לא פעיל")
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public AllocationsViewMode ViewMode { get; set; } = AllocationsViewMode.ByEntitlement;
+    [Parameter] public string HeaderPrefix { get; set; } = "הקצאות לזכאות:";
+    [Parameter] public RenderFragment? HeaderTitle { get; set; }
+    [Parameter] public List<EntitlementAllocationDto> Allocations { get; set; } = new();
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public bool ShowAddButton { get; set; } = true;
+    [Parameter] public string AddButtonLabel { get; set; } = "+ הוסף הקצאה";
+    [Parameter] public string EmptyMessage { get; set; } = "אין הקצאות לזכאות זו";
+    [Parameter] public string SecurityScreenName { get; set; } = "entitlements";
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback OnAddAllocation { get; set; }
+    [Parameter] public EventCallback<EntitlementAllocationDto> OnDeactivateAllocation { get; set; }
+
+    private static string GetHoursUnitLabel(string unit) => unit == "monthly" ? "חודשי" : "שבועי";
+}

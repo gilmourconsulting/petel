@@ -69,8 +69,11 @@
                     <tbody>
                         @foreach (var person in _persons)
                         {
-                            <tr>
-                                <td>
+                            bool isSelected = _selectedPerson?.Id == person.Id;
+                            <tr class="@(isSelected ? "row-selected" : "")"
+                                style="cursor: pointer;"
+                                @onclick="() => SelectPerson(person)">
+                                <td @onclick:stopPropagation="true">
                                     <SecureButton ActionName="assistants_edit" ScreenName="@PageName" FunctionName="EditPerson"
                                                   OnClick="() => EditPerson(person.Id)" CssClass="btn-icon" Title="ערוך">
                                         <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
@@ -89,6 +92,22 @@
                     </tbody>
                 </table>
             </div>
+        }
+
+        @if (_selectedPerson != null)
+        {
+            <AllocationsPanel ViewMode="AllocationsViewMode.ByPerson"
+                              HeaderPrefix="הקצאות לסייעת:"
+                              Allocations="_allocations"
+                              IsLoading="_isLoadingAllocations"
+                              ShowAddButton="true"
+                              EmptyMessage="אין הקצאות לסייעת זו"
+                              SecurityScreenName="entitlements"
+                              OnClose="ClearSelectedPerson"
+                              OnAddAllocation="NavigateToEntitlements"
+                              OnDeactivateAllocation="DeactivateAllocation">
+                <HeaderTitle>@_selectedPerson.FullName (@_selectedPerson.IdNumber)</HeaderTitle>
+            </AllocationsPanel>
         }
     </div>
     </div>
@@ -264,6 +283,10 @@
     private bool _showHistoryDialog;
     private string _historyPersonName = "";
 
+    private PersonListItemDto? _selectedPerson;
+    private List<EntitlementAllocationDto> _allocations = new();
+    private bool _isLoadingAllocations;
+
     protected override async Task OnPageInitializedAsync()
     {
         await LoadYearName();
@@ -358,7 +381,67 @@
             await SearchPersons();
     }
 
-    private async Task RefreshData() => await LoadPersons();
+    private async Task RefreshData()
+    {
+        await LoadPersons();
+        if (_selectedPerson != null)
+            await LoadAllocationsAsync(_selectedPerson.Id);
+    }
+
+    private async Task SelectPerson(PersonListItemDto person)
+    {
+        if (_selectedPerson?.Id == person.Id)
+        {
+            _selectedPerson = null;
+            _allocations = new();
+            return;
+        }
+
+        _selectedPerson = person;
+        _allocations = new();
+        await LoadAllocationsAsync(person.Id);
+    }
+
+    private void ClearSelectedPerson()
+    {
+        _selectedPerson = null;
+        _allocations = new();
+    }
+
+    private async Task LoadAllocationsAsync(int personId)
+    {
+        _isLoadingAllocations = true;
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<EntitlementAllocationDto>>>(
+                $"persons/{personId}/allocations?yearId={YearId}");
+            _allocations = response?.Data ?? new();
+        }
+        catch
+        {
+            _allocations = new();
+        }
+        finally
+        {
+            _isLoadingAllocations = false;
+        }
+    }
+
+    private void NavigateToEntitlements() => Navigation.NavigateTo($"/year/{YearId}/entitlements");
+
+    private async Task DeactivateAllocation(EntitlementAllocationDto alloc)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "האם להשבית הקצאה זו?"))
+            return;
+
+        var response = await ApiService.PutAsync<object, ApiResponse<object>>(
+            $"entitlements/{alloc.EntitlementId}/allocations/{alloc.Id}/deactivate", new { });
+
+        if (response?.Success == true && _selectedPerson != null)
+            await LoadAllocationsAsync(_selectedPerson.Id);
+        else
+            await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בהשבתה");
+    }
 
     private void SortTable(string columnName)
     {

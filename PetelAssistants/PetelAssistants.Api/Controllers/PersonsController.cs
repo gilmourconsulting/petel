@@ -11,14 +11,17 @@ namespace PetelAssistants.Api.Controllers
     public class PersonsController : BaseController
     {
         private readonly PersonService _personService;
+        private readonly EntitlementService _entitlementService;
 
         public PersonsController(
             PersonService personService,
+            EntitlementService entitlementService,
             UserSessionService sessionService,
             ILogger<PersonsController> logger)
             : base(sessionService, logger)
         {
             _personService = personService;
+            _entitlementService = entitlementService;
         }
 
         [HttpGet("phone-types")]
@@ -81,6 +84,31 @@ namespace PetelAssistants.Api.Controllers
 
             var history = await _personService.GetDetailHistoryAsync(id);
             return Ok(new { success = true, data = history });
+        }
+
+        [HttpGet("{id:int}/allocations")]
+        public async Task<IActionResult> GetAllocations(int id, [FromQuery] int yearId)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (yearId <= 0)
+                return BadRequest(new { success = false, message = "שנה לא תקינה" });
+
+            var snapshot = await _personService.GetPersonSnapshotAsync(id);
+            if (snapshot == null)
+                return NotFound(new { success = false, message = "אדם לא נמצא" });
+
+            try
+            {
+                var items = await _entitlementService.ListAllocationsByPersonAsync(id, yearId);
+                return Ok(new { success = true, data = items });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
         }
 
         [HttpPost]

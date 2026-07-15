@@ -166,78 +166,20 @@
                 <!-- Allocations panel — shown when an entitlement row is selected -->
                 @if (_selectedEntitlement != null)
                 {
-                    <div class="content-card" style="margin-top: 20px; border-top: 2px solid #dee2e6;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <h3 style="margin: 0; font-size: 1.1em;">
-                                הקצאות לזכאות:
-                                <span style="font-weight: 400;">
-                                    @_selectedEntitlement.AssistantTypeName
-                                    @(_selectedEntitlement.SchoolName != null ? $" — {_selectedEntitlement.SchoolName}" : "")
-                                    (@_selectedEntitlement.Hours @GetHoursUnitLabel(_selectedEntitlement.HoursUnit))
-                                </span>
-                            </h3>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                @if (_isLoadingAllocations)
-                                {
-                                    <span style="font-size: 0.85em; color: #6c757d;">טוען...</span>
-                                }
-                                <button class="btn btn-primary btn-sm" @onclick="ShowAddAllocationDialog">
-                                    + הוסף הקצאה
-                                </button>
-                                <button class="btn btn-secondary btn-sm" @onclick="ClearSelectedEntitlement" title="סגור">✕</button>
-                            </div>
-                        </div>
-
-                        @if (_allocations.Count == 0 && !_isLoadingAllocations)
-                        {
-                            <div class="no-data-message" style="padding: 12px 0; display: flex; flex-direction: column; align-items: center; gap: 12px;">
-                                <span>אין הקצאות לזכאות זו</span>
-                                <button class="btn btn-primary" @onclick="ShowAddAllocationDialog">+ הוסף הקצאה</button>
-                            </div>
-                        }
-                        else
-                        {
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>פעולות</th>
-                                            <th>שם הסייעת</th>
-                                            <th>שעות</th>
-                                            <th>תאריכים</th>
-                                            <th>סטטוס</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var alloc in _allocations)
-                                        {
-                                            <tr class="@(alloc.IsActive ? "" : "row-inactive")">
-                                                <td>
-                                                    @if (alloc.IsActive)
-                                                    {
-                                                        <SecureButton ActionName="entitlements_deactivate_allocation" ScreenName="@PageName"
-                                                                      FunctionName="DeactivateAllocation"
-                                                                      OnClick="() => DeactivateAllocation(alloc)"
-                                                                      CssClass="btn-icon btn-danger" Title="השבת" HideIfNoAccess="true">
-                                                            <img src="/images/deactivate_icon.png" alt="השבת" class="action-icon-natural">
-                                                        </SecureButton>
-                                                    }
-                                                </td>
-                                                <td>@alloc.PersonFullName</td>
-                                                <td>@alloc.Hours @GetHoursUnitLabel(alloc.HoursUnit)</td>
-                                                <td>@alloc.StartDate.ToString("dd/MM/yyyy") – @alloc.EndDate.ToString("dd/MM/yyyy")</td>
-                                                <td>
-                                                    <span class="status-badge @(alloc.IsActive ? "status-active" : "status-inactive")">
-                                                        @(alloc.IsActive ? "פעיל" : "לא פעיל")
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                    </div>
+                    <AllocationsPanel ViewMode="AllocationsViewMode.ByEntitlement"
+                                      Allocations="_allocations"
+                                      IsLoading="_isLoadingAllocations"
+                                      ShowAddButton="true"
+                                      SecurityScreenName="entitlements"
+                                      OnClose="ClearSelectedEntitlement"
+                                      OnAddAllocation="ShowAddAllocationDialog"
+                                      OnDeactivateAllocation="DeactivateAllocation">
+                        <HeaderTitle>
+                            @_selectedEntitlement.AssistantTypeName
+                            @(_selectedEntitlement.SchoolName != null ? $" — {_selectedEntitlement.SchoolName}" : "")
+                            (@_selectedEntitlement.Hours @GetHoursUnitLabel(_selectedEntitlement.HoursUnit))
+                        </HeaderTitle>
+                    </AllocationsPanel>
                 }
             }
         </div>

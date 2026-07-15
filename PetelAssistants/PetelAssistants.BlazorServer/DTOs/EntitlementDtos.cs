@@ -67,6 +67,8 @@ namespace PetelAssistants.BlazorServer.DTOs
         public decimal Hours { get; set; }
         public string HoursUnit { get; set; } = string.Empty;
         public bool IsActive { get; set; }
+        public string? AssistantTypeName { get; set; }
+        public string? SchoolName { get; set; }
     }
 
     public class CreateEntitlementAllocationRequest

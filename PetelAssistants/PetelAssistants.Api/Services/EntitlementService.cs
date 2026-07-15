@@ -83,6 +83,63 @@ namespace PetelAssistants.Api.Services
             }).ToList();
         }
 
+        public async Task<List<EntitlementAllocationDto>> ListAllocationsByPersonAsync(int personId, int yearId)
+        {
+            var rows = await (
+                from a in _context.EntitlementAllocations.AsNoTracking()
+                join e in _context.Entitlements.AsNoTracking() on a.EntitlementId equals e.Id
+                where a.PersonId == personId && e.HebrewYearId == yearId
+                orderby a.Id descending
+                select new { Allocation = a, Entitlement = e }
+            ).ToListAsync();
+
+            if (rows.Count == 0)
+                return new List<EntitlementAllocationDto>();
+
+            var personName = await _context.PersonDetails
+                .AsNoTracking()
+                .Where(pd => pd.IsLastVersion && pd.PersonId == personId)
+                .Select(pd => $"{pd.FirstName} {pd.LastName}".Trim())
+                .FirstOrDefaultAsync() ?? string.Empty;
+
+            var assistantTypeIds = rows.Select(r => r.Entitlement.AssistantTypeId).Distinct().ToList();
+            var schoolIds = rows.Where(r => r.Entitlement.SchoolEntityId.HasValue)
+                                .Select(r => r.Entitlement.SchoolEntityId!.Value).Distinct().ToList();
+
+            var assistantTypes = await _sharedContext.AssistantTypes
+                .AsNoTracking()
+                .Where(at => assistantTypeIds.Contains(at.Id))
+                .ToDictionaryAsync(at => at.Id, at => at.DisplayName);
+
+            var schools = schoolIds.Count == 0
+                ? new Dictionary<int, string>()
+                : await _sharedContext.Entities
+                    .AsNoTracking()
+                    .Where(e => schoolIds.Contains(e.Id))
+                    .ToDictionaryAsync(e => e.Id, e => e.Name);
+
+            return rows.Select(r =>
+            {
+                schools.TryGetValue(r.Entitlement.SchoolEntityId ?? 0, out var schoolName);
+                assistantTypes.TryGetValue(r.Entitlement.AssistantTypeId, out var typeName);
+
+                return new EntitlementAllocationDto
+                {
+                    Id                = r.Allocation.Id,
+                    EntitlementId     = r.Allocation.EntitlementId,
+                    PersonId          = r.Allocation.PersonId,
+                    PersonFullName    = personName,
+                    StartDate         = r.Allocation.StartDate,
+                    EndDate           = r.Allocation.EndDate,
+                    Hours             = r.Allocation.Hours,
+                    HoursUnit         = r.Allocation.HoursUnit,
+                    IsActive          = r.Allocation.IsActive,
+                    AssistantTypeName = typeName,
+                    SchoolName        = r.Entitlement.SchoolEntityId.HasValue ? schoolName : null
+                };
+            }).ToList();
+        }
+
         public async Task<int> CreateAllocationAsync(int entityId, int? userId, int entitlementId, CreateEntitlementAllocationRequest request)
         {
             var entitlement = await _context.Entitlements.AsNoTracking()
