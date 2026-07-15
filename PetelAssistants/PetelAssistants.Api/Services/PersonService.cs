@@ -330,7 +330,7 @@ namespace PetelAssistants.Api.Services
                 return new PersonListItemDto
                 {
                     Id = p.Id,
-                    IdNumber = MaskIdNumber(p.IdNumber),
+                    IdNumber = p.IdNumber,
                     IdType = p.IdType,
                     FirstName = detail?.FirstName ?? string.Empty,
                     LastName = detail?.LastName ?? string.Empty,
@@ -432,13 +432,6 @@ namespace PetelAssistants.Api.Services
             !string.IsNullOrWhiteSpace(input.City) ||
             !string.IsNullOrWhiteSpace(input.PostCode);
 
-        private static string MaskIdNumber(string idNumber)
-        {
-            if (string.IsNullOrEmpty(idNumber) || idNumber.Length <= 4)
-                return idNumber;
-            return new string('*', idNumber.Length - 4) + idNumber[^4..];
-        }
-
         private static List<PersonListItemDto> MapListItems(List<Person> persons, Dictionary<int, PhoneType> phoneTypes) =>
             persons.Select(p => MapListItem(p, phoneTypes)).ToList();
 
@@ -454,7 +447,7 @@ namespace PetelAssistants.Api.Services
             return new PersonListItemDto
             {
                 Id = person.Id,
-                IdNumber = MaskIdNumber(person.IdNumber),
+                IdNumber = person.IdNumber,
                 IdType = person.IdType,
                 FirstName = detail?.FirstName ?? string.Empty,
                 LastName = detail?.LastName ?? string.Empty,

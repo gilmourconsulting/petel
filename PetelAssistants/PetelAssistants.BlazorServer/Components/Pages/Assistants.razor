@@ -12,7 +12,7 @@
     </SecureButton>
     <SecureButton ActionName="assistants_add" ScreenName="@PageName" FunctionName="ShowCreateDialog"
                   OnClick="ShowCreateDialog" CssClass="context-btn">
-        הוסף אדם
+        הוסף סעיית
     </SecureButton>
     <SecureButton ActionName="assistants_back" ScreenName="@PageName" FunctionName="NavigateBack"
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
@@ -99,7 +99,7 @@
     <div class="modal-overlay" @onclick="ClosePersonDialog">
         <div class="modal-content modal-large" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h3>@(_isEditMode ? "עריכת פרטי אדם" : "הוספת אדם חדש")</h3>
+                <h3>@(_isEditMode ? "עריכת פרטי סעיית" : "הוספת סעיית חדש")</h3>
                 <button class="modal-close" @onclick="ClosePersonDialog">&times;</button>
             </div>
             <div class="modal-body">
@@ -107,10 +107,6 @@
                     <div class="form-group">
                         <label>מספר זהות *</label>
                         <input class="form-control" @bind="_form.IdNumber" />
-                    </div>
-                    <div class="form-group">
-                        <label>סוג זהות</label>
-                        <InputNumber class="form-control" @bind-Value="_form.IdType" />
                     </div>
                     <div class="form-group">
                         <label>שם פרטי *</label>
@@ -417,7 +413,7 @@
             var response = await ApiService.GetAsync<ApiResponse<PersonSnapshotDto>>($"persons/{personId}");
             if (response?.Data == null)
             {
-                await JSRuntime.InvokeVoidAsync("alert", "לא נמצא אדם");
+                await JSRuntime.InvokeVoidAsync("alert", "לא נמצא סעיית");
                 return;
             }
 
@@ -518,7 +514,7 @@
 
                 if (response?.Success == true)
                 {
-                    await JSRuntime.InvokeVoidAsync("alert", "פרטי האדם עודכנו בהצלחה");
+                    await JSRuntime.InvokeVoidAsync("alert", "פרטי הסעיית עודכנו בהצלחה");
                     ClosePersonDialog();
                     await LoadPersons();
                 }
@@ -548,7 +544,7 @@
 
                 if (response?.Success == true)
                 {
-                    await JSRuntime.InvokeVoidAsync("alert", "אדם נוצר בהצלחה");
+                    await JSRuntime.InvokeVoidAsync("alert", "סעיית נוצר בהצלחה");
                     ClosePersonDialog();
                     await LoadPersons();
                 }
