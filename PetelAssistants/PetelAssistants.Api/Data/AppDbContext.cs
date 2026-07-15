@@ -28,7 +28,8 @@ namespace PetelAssistants.Api.Data
         public DbSet<PersonDetail>   PersonDetails  { get; set; }
         public DbSet<PersonAddress>  PersonAddresses { get; set; }
         public DbSet<PersonPhone>     PersonPhones   { get; set; }
-        public DbSet<Entitlement>     Entitlements   { get; set; }
+        public DbSet<Entitlement>            Entitlements           { get; set; }
+        public DbSet<EntitlementAllocation>  EntitlementAllocations { get; set; }
 
         public AssistDbContext(
             DbContextOptions<AssistDbContext> options,
@@ -197,6 +198,21 @@ namespace PetelAssistants.Api.Data
                         v => v == null ? null : _encryptionService.DecryptDeterministic(v));
 
                 entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<EntitlementAllocation>(entity =>
+            {
+                entity.ToTable("entitlement_allocations");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.EntitlementId });
+                entity.HasIndex(e => e.PersonId);
+
+                entity.HasOne(a => a.Person)
+                    .WithMany()
+                    .HasForeignKey(a => a.PersonId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasQueryFilter(a => _tenantContext.EntityId != 0 && a.EntityId == _tenantContext.EntityId);
             });
         }
     }

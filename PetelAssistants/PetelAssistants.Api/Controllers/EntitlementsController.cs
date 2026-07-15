@@ -124,5 +124,68 @@ namespace PetelAssistants.Api.Controllers
                 return BadRequest(new { success = false, message = ex.Message });
             }
         }
+
+        // ─── Allocation endpoints ─────────────────────────────────────────────────
+
+        [HttpGet("{id:int}/allocations")]
+        public async Task<IActionResult> GetAllocations(int id)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            try
+            {
+                var items = await _entitlementService.ListAllocationsAsync(id);
+                return Ok(new { success = true, data = items });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost("{id:int}/allocations")]
+        public async Task<IActionResult> CreateAllocation(int id, [FromBody] CreateEntitlementAllocationRequest request)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (!int.TryParse(session.EntityId, out int entityId))
+                return BadRequest(new { success = false, message = "מזהה רשות לא תקין" });
+
+            int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
+            try
+            {
+                var allocationId = await _entitlementService.CreateAllocationAsync(entityId, userId, id, request);
+                return Ok(new { success = true, message = "הקצאה נוצרה בהצלחה", data = new { id = allocationId } });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPut("{id:int}/allocations/{allocationId:int}/deactivate")]
+        public async Task<IActionResult> DeactivateAllocation(int id, int allocationId)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
+            try
+            {
+                await _entitlementService.DeactivateAllocationAsync(userId, allocationId);
+                return Ok(new { success = true, message = "הקצאה הושבתה בהצלחה" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
     }
 }

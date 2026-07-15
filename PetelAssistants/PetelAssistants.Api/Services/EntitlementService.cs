@@ -30,15 +30,114 @@ namespace PetelAssistants.Api.Services
         /// </summary>
         public async Task<List<EntitlementListItemDto>> ListEntitlementsAsync(int entityId, int yearId, string? kind)
         {
-            var query = _context.Entitlements
+            var items = await _context.Entitlements
                 .AsNoTracking()
-                .Where(e => e.HebrewYearId == yearId);
-
-            var items = await query
+                .Where(e => e.HebrewYearId == yearId)
                 .OrderByDescending(e => e.Id)
                 .ToListAsync();
 
-            return await MapListAsync(items);
+            var entitlementIds = items.Select(i => i.Id).ToList();
+
+            var allocatedHoursMap = entitlementIds.Count == 0
+                ? new Dictionary<int, decimal>()
+                : await _context.EntitlementAllocations
+                    .AsNoTracking()
+                    .Where(a => a.IsActive && entitlementIds.Contains(a.EntitlementId))
+                    .GroupBy(a => a.EntitlementId)
+                    .Select(g => new { EntitlementId = g.Key, TotalHours = g.Sum(a => a.Hours) })
+                    .ToDictionaryAsync(x => x.EntitlementId, x => x.TotalHours);
+
+            return await MapListAsync(items, allocatedHoursMap);
+        }
+
+        public async Task<List<EntitlementAllocationDto>> ListAllocationsAsync(int entitlementId)
+        {
+            var allocations = await _context.EntitlementAllocations
+                .AsNoTracking()
+                .Where(a => a.EntitlementId == entitlementId)
+                .OrderByDescending(a => a.Id)
+                .ToListAsync();
+
+            if (allocations.Count == 0)
+                return new List<EntitlementAllocationDto>();
+
+            var personIds = allocations.Select(a => a.PersonId).Distinct().ToList();
+
+            var nameMap = await _context.PersonDetails
+                .AsNoTracking()
+                .Where(pd => pd.IsLastVersion && personIds.Contains(pd.PersonId))
+                .Select(pd => new { pd.PersonId, pd.FirstName, pd.LastName })
+                .ToDictionaryAsync(pd => pd.PersonId, pd => $"{pd.FirstName} {pd.LastName}".Trim());
+
+            return allocations.Select(a => new EntitlementAllocationDto
+            {
+                Id             = a.Id,
+                EntitlementId  = a.EntitlementId,
+                PersonId       = a.PersonId,
+                PersonFullName = nameMap.TryGetValue(a.PersonId, out var n) ? n : string.Empty,
+                StartDate      = a.StartDate,
+                EndDate        = a.EndDate,
+                Hours          = a.Hours,
+                HoursUnit      = a.HoursUnit,
+                IsActive       = a.IsActive
+            }).ToList();
+        }
+
+        public async Task<int> CreateAllocationAsync(int entityId, int? userId, int entitlementId, CreateEntitlementAllocationRequest request)
+        {
+            var entitlement = await _context.Entitlements.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Id == entitlementId)
+                ?? throw new InvalidOperationException("זכאות לא נמצאה");
+
+            var personExists = await _context.Persons.AsNoTracking()
+                .AnyAsync(p => p.Id == request.PersonId);
+            if (!personExists)
+                throw new InvalidOperationException("אדם לא נמצא ברשות זו");
+
+            ValidateHoursUnit(request.HoursUnit);
+
+            if (request.Hours <= 0)
+                throw new InvalidOperationException("מספר שעות חייב להיות גדול מאפס");
+
+            var startDate = request.StartDate ?? entitlement.StartDate;
+            var endDate   = request.EndDate   ?? entitlement.EndDate;
+
+            if (startDate > endDate)
+                throw new InvalidOperationException("תאריך התחלה חייב להיות לפני תאריך סיום");
+
+            var now = DateTime.UtcNow;
+            var allocation = new EntitlementAllocation
+            {
+                EntityId      = entityId,
+                EntitlementId = entitlementId,
+                PersonId      = request.PersonId,
+                StartDate     = startDate,
+                EndDate       = endDate,
+                Hours         = request.Hours,
+                HoursUnit     = request.HoursUnit,
+                IsActive      = true,
+                UserId        = userId,
+                UpdateUser    = userId,
+                CreatedAt     = now,
+                UpdatedAt     = now
+            };
+
+            _context.EntitlementAllocations.Add(allocation);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation("Created allocation {Id} for entitlement {EntitlementId}", allocation.Id, entitlementId);
+            return allocation.Id;
+        }
+
+        public async Task DeactivateAllocationAsync(int? userId, int allocationId)
+        {
+            var allocation = await _context.EntitlementAllocations.FirstOrDefaultAsync(a => a.Id == allocationId)
+                ?? throw new InvalidOperationException("הקצאה לא נמצאה");
+
+            allocation.IsActive   = false;
+            allocation.UpdateUser = userId;
+            allocation.UpdatedAt  = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
         }
 
         public async Task<EntitlementListItemDto?> GetEntitlementAsync(int id)
@@ -168,7 +267,9 @@ namespace PetelAssistants.Api.Services
 
         // ─── private helpers ──────────────────────────────────────────────────────
 
-        private async Task<List<EntitlementListItemDto>> MapListAsync(List<Entitlement> items)
+        private async Task<List<EntitlementListItemDto>> MapListAsync(
+            List<Entitlement> items,
+            Dictionary<int, decimal>? allocatedHoursMap = null)
         {
             if (items.Count == 0)
                 return new List<EntitlementListItemDto>();
@@ -195,6 +296,11 @@ namespace PetelAssistants.Api.Services
                 schools.TryGetValue(item.SchoolEntityId ?? 0, out var school);
                 assistantTypes.TryGetValue(item.AssistantTypeId, out var atype);
 
+                var allocatedHours = allocatedHoursMap != null && allocatedHoursMap.TryGetValue(item.Id, out var h) ? h : 0m;
+                var allocationStatus = allocatedHours <= 0m ? "none"
+                    : allocatedHours >= item.Hours    ? "full"
+                    : "partial";
+
                 return new EntitlementListItemDto
                 {
                     Id                       = item.Id,
@@ -214,7 +320,9 @@ namespace PetelAssistants.Api.Services
                     PupilIdNumber            = item.PupilIdNumber,
                     PupilFirstName           = item.PupilFirstName,
                     PupilLastName            = item.PupilLastName,
-                    IsActive                 = item.IsActive
+                    IsActive                 = item.IsActive,
+                    AllocatedHours           = allocatedHours,
+                    AllocationStatus         = allocationStatus
                 };
             }).ToList();
         }

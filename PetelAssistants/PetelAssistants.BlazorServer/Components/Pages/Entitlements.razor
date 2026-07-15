@@ -14,6 +14,10 @@
                   OnClick="ShowCreateDialog" CssClass="context-btn">
         הוסף זכאות
     </SecureButton>
+    <SecureButton ActionName="entitlements_add_allocation" ScreenName="@PageName" FunctionName="ShowAddAllocationDialog"
+                  OnClick="ShowAddAllocationDialog" CssClass="context-btn">
+        הוסף הקצאה
+    </SecureButton>
     <SecureButton ActionName="entitlements_back" ScreenName="@PageName" FunctionName="NavigateBack"
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
         חזרה לניהול שנה
@@ -95,6 +99,7 @@
                                     <th>שעות</th>
                                     <th>השתתפות משרד (%)</th>
                                     <th>תאריכים</th>
+                                    <th>הקצאה</th>
                                     <th>סטטוס</th>
                                 </tr>
                             </thead>
@@ -102,8 +107,11 @@
                                 @foreach (var item in FilteredItems)
                                 {
                                     bool isPersonal = IsPersonalLevel(item.AssistantTypeLevel);
-                                    <tr class="@(item.IsActive ? "" : "row-inactive")">
-                                        <td>
+                                    bool isSelected = _selectedEntitlement?.Id == item.Id;
+                                    <tr class="@(item.IsActive ? "" : "row-inactive") @(isSelected ? "row-selected" : "")"
+                                        style="cursor: pointer;"
+                                        @onclick="() => SelectEntitlement(item)">
+                                        <td @onclick:stopPropagation="true">
                                             <SecureButton ActionName="entitlements_edit" ScreenName="@PageName" FunctionName="EditItem"
                                                           OnClick="() => ShowEditDialog(item)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
                                                 <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
@@ -139,6 +147,11 @@
                                         <td>@item.MinistryParticipationPct.ToString("0.##")%</td>
                                         <td>@item.StartDate.ToString("dd/MM/yyyy") – @item.EndDate.ToString("dd/MM/yyyy")</td>
                                         <td>
+                                            <span class="status-badge @GetAllocationStatusCss(item.AllocationStatus)">
+                                                @GetAllocationStatusLabel(item.AllocationStatus)
+                                            </span>
+                                        </td>
+                                        <td>
                                             <span class="status-badge @(item.IsActive ? "status-active" : "status-inactive")">
                                                 @(item.IsActive ? "פעיל" : "לא פעיל")
                                             </span>
@@ -149,11 +162,89 @@
                         </table>
                     </div>
                 }
+
+                <!-- Allocations panel — shown when an entitlement row is selected -->
+                @if (_selectedEntitlement != null)
+                {
+                    <div class="content-card" style="margin-top: 20px; border-top: 2px solid #dee2e6;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h3 style="margin: 0; font-size: 1.1em;">
+                                הקצאות לזכאות:
+                                <span style="font-weight: 400;">
+                                    @_selectedEntitlement.AssistantTypeName
+                                    @(_selectedEntitlement.SchoolName != null ? $" — {_selectedEntitlement.SchoolName}" : "")
+                                    (@_selectedEntitlement.Hours @GetHoursUnitLabel(_selectedEntitlement.HoursUnit))
+                                </span>
+                            </h3>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                @if (_isLoadingAllocations)
+                                {
+                                    <span style="font-size: 0.85em; color: #6c757d;">טוען...</span>
+                                }
+                                <button class="btn btn-primary btn-sm" @onclick="ShowAddAllocationDialog">
+                                    + הוסף הקצאה
+                                </button>
+                                <button class="btn btn-secondary btn-sm" @onclick="ClearSelectedEntitlement" title="סגור">✕</button>
+                            </div>
+                        </div>
+
+                        @if (_allocations.Count == 0 && !_isLoadingAllocations)
+                        {
+                            <div class="no-data-message" style="padding: 12px 0; display: flex; flex-direction: column; align-items: center; gap: 12px;">
+                                <span>אין הקצאות לזכאות זו</span>
+                                <button class="btn btn-primary" @onclick="ShowAddAllocationDialog">+ הוסף הקצאה</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>פעולות</th>
+                                            <th>שם הסייעת</th>
+                                            <th>שעות</th>
+                                            <th>תאריכים</th>
+                                            <th>סטטוס</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var alloc in _allocations)
+                                        {
+                                            <tr class="@(alloc.IsActive ? "" : "row-inactive")">
+                                                <td>
+                                                    @if (alloc.IsActive)
+                                                    {
+                                                        <SecureButton ActionName="entitlements_deactivate_allocation" ScreenName="@PageName"
+                                                                      FunctionName="DeactivateAllocation"
+                                                                      OnClick="() => DeactivateAllocation(alloc)"
+                                                                      CssClass="btn-icon btn-danger" Title="השבת" HideIfNoAccess="true">
+                                                            <img src="/images/deactivate_icon.png" alt="השבת" class="action-icon-natural">
+                                                        </SecureButton>
+                                                    }
+                                                </td>
+                                                <td>@alloc.PersonFullName</td>
+                                                <td>@alloc.Hours @GetHoursUnitLabel(alloc.HoursUnit)</td>
+                                                <td>@alloc.StartDate.ToString("dd/MM/yyyy") – @alloc.EndDate.ToString("dd/MM/yyyy")</td>
+                                                <td>
+                                                    <span class="status-badge @(alloc.IsActive ? "status-active" : "status-inactive")">
+                                                        @(alloc.IsActive ? "פעיל" : "לא פעיל")
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    </div>
+                }
             }
         </div>
     </div>
 </div>
 
+<!-- Entitlement form dialog -->
 @if (_showFormDialog)
 {
     <div class="modal-overlay" @onclick="CloseDialog">
@@ -275,6 +366,149 @@
     </div>
 }
 
+<!-- Add allocation modal -->
+@if (_showAllocationDialog)
+{
+    <div class="modal-overlay" @onclick="CloseAllocationDialog">
+        <div class="modal-content modal-large" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>הוספת הקצאה</h3>
+                <button class="modal-close" @onclick="CloseAllocationDialog">✕</button>
+            </div>
+            <div class="modal-body">
+
+                @if (_allocSelectedPerson == null)
+                {
+                    <!-- Step 1: Person search -->
+                    <div class="form-group">
+                        <label>חיפוש סייעת <span class="required">*</span></label>
+                        <input class="form-control" value="@_allocPersonSearchTerm"
+                               @oninput="OnPersonSearchInput"
+                               placeholder="הקלד שם או מספר זהות לחיפוש..." />
+                    </div>
+
+                    @if (_isSearchingPersons)
+                    {
+                        <div style="color: #6c757d; font-size: 0.9em; margin-bottom: 8px;">מחפש...</div>
+                    }
+                    else if (_personSearchResults.Count > 0)
+                    {
+                        <div style="border: 1px solid #dee2e6; border-radius: 4px; max-height: 200px; overflow-y: auto; margin-bottom: 12px;">
+                            @foreach (var person in _personSearchResults)
+                            {
+                                <div style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0;"
+                                     @onclick="() => SelectPerson(person)"
+                                     class="person-search-result">
+                                    <strong>@person.FullName</strong>
+                                    <span style="color: #6c757d; font-size: 0.85em; margin-right: 8px;">@person.IdNumber</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(_allocPersonSearchTerm) && _allocPersonSearchTerm.Length >= 2 && !_isSearchingPersons)
+                    {
+                        <div style="color: #6c757d; font-size: 0.9em; margin-bottom: 8px;">לא נמצאו תוצאות</div>
+                    }
+
+                    <!-- Add new person inline -->
+                    @if (!_showAddPersonForm)
+                    {
+                        <button class="btn btn-secondary" style="margin-top: 8px;" @onclick="() => _showAddPersonForm = true">
+                            + הוסף אדם חדש
+                        </button>
+                    }
+                    else
+                    {
+                        <div style="border: 1px solid #dee2e6; border-radius: 4px; padding: 16px; margin-top: 12px; background: #f8f9fa;">
+                            <h5 style="margin-top: 0; margin-bottom: 12px;">פרטי אדם חדש</h5>
+                            <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label>שם פרטי <span class="required">*</span></label>
+                                    <input class="form-control" @bind="_newPersonFirstName" placeholder="שם פרטי" />
+                                </div>
+                                <div class="form-group">
+                                    <label>שם משפחה <span class="required">*</span></label>
+                                    <input class="form-control" @bind="_newPersonLastName" placeholder="שם משפחה" />
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>מספר זהות <span class="required">*</span></label>
+                                <input class="form-control" @bind="_newPersonIdNumber" placeholder="9 ספרות" maxlength="9" inputmode="numeric" />
+                            </div>
+                            @if (!string.IsNullOrEmpty(_addPersonError))
+                            {
+                                <div class="error-message">@_addPersonError</div>
+                            }
+                            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                                <button class="btn btn-primary" @onclick="CreateNewPerson" disabled="@_isAddingPerson">
+                                    @(_isAddingPerson ? "שומר..." : "צור ובחר")
+                                </button>
+                                <button class="btn btn-secondary" @onclick="() => { _showAddPersonForm = false; _addPersonError = string.Empty; }">ביטול</button>
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <!-- Step 2: Allocation details after person is selected -->
+                    <div style="background: #e8f4f8; border-radius: 4px; padding: 10px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                        <span><strong>סייעת נבחרה:</strong> @_allocSelectedPerson.FullName</span>
+                        <button class="btn btn-secondary btn-sm" @onclick="ClearSelectedPerson">שנה</button>
+                    </div>
+
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label>שעות <span class="required">*</span></label>
+                            <InputNumber class="form-control" @bind-Value="_allocHours" />
+                        </div>
+                        <div class="form-group">
+                            <label>יחידת שעות <span class="required">*</span></label>
+                            <select class="form-control" @bind="_allocHoursUnit">
+                                <option value="weekly">שבועי</option>
+                                <option value="monthly">חודשי</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                        <div class="form-group">
+                            <label>תאריך התחלה <span class="required">*</span></label>
+                            <InputDate class="form-control" @bind-Value="_allocStartDate" />
+                        </div>
+                        <div class="form-group">
+                            <label>תאריך סיום <span class="required">*</span></label>
+                            <InputDate class="form-control" @bind-Value="_allocEndDate" />
+                        </div>
+                    </div>
+                }
+
+                @if (!string.IsNullOrEmpty(_allocError))
+                {
+                    <div class="error-message">@_allocError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseAllocationDialog">ביטול</button>
+                @if (_allocSelectedPerson != null)
+                {
+                    <button class="btn btn-primary" @onclick="SaveAllocation" disabled="@_isSavingAllocation">
+                        @(_isSavingAllocation ? "שומר..." : "שמור הקצאה")
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .row-selected {
+        background-color: #e3f2fd !important;
+    }
+    .person-search-result:hover {
+        background-color: #f0f7ff;
+    }
+</style>
+
 @code {
     [Parameter] public int YearId { get; set; }
 
@@ -298,7 +532,7 @@
     private int _filterAssistantTypeId;
     private string _filterActiveOnly = "true";
 
-    // Form state
+    // Entitlement form state
     private int _formAssistantTypeId;
     private bool _formIsPersonal;
     private int _formSchoolEntityId;
@@ -311,6 +545,35 @@
     private decimal _formMinistryPct;
     private DateTime? _formStartDate;
     private DateTime? _formEndDate;
+
+    // Allocation panel state
+    private EntitlementListItemDto? _selectedEntitlement;
+    private List<EntitlementAllocationDto> _allocations = new();
+    private bool _isLoadingAllocations;
+
+    // Add allocation modal state
+    private bool _showAllocationDialog;
+    private bool _isSavingAllocation;
+    private string _allocError = string.Empty;
+    private string _allocPersonSearchTerm = string.Empty;
+    private List<PersonListItemDto> _personSearchResults = new();
+    private bool _isSearchingPersons;
+    private PersonListItemDto? _allocSelectedPerson;
+    private decimal _allocHours;
+    private string _allocHoursUnit = "weekly";
+    private DateTime? _allocStartDate;
+    private DateTime? _allocEndDate;
+
+    // Add new person inline
+    private bool _showAddPersonForm;
+    private string _newPersonFirstName = string.Empty;
+    private string _newPersonLastName = string.Empty;
+    private string _newPersonIdNumber = string.Empty;
+    private string _addPersonError = string.Empty;
+    private bool _isAddingPerson;
+
+    // Search debounce
+    private CancellationTokenSource? _searchCts;
 
     protected override async Task OnPageInitializedAsync()
     {
@@ -350,6 +613,22 @@
             var response = await ApiService.GetAsync<ApiResponse<List<EntitlementListItemDto>>>(
                 $"entitlements?yearId={YearId}");
             _items = response?.Data ?? new();
+
+            // Refresh allocation panel if an entitlement is still selected
+            if (_selectedEntitlement != null)
+            {
+                var updated = _items.FirstOrDefault(i => i.Id == _selectedEntitlement.Id);
+                if (updated != null)
+                {
+                    _selectedEntitlement = updated;
+                    await LoadAllocationsAsync(_selectedEntitlement.Id);
+                }
+                else
+                {
+                    _selectedEntitlement = null;
+                    _allocations = new();
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -361,7 +640,272 @@
         }
     }
 
+    private async Task LoadAllocationsAsync(int entitlementId)
+    {
+        _isLoadingAllocations = true;
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<EntitlementAllocationDto>>>(
+                $"entitlements/{entitlementId}/allocations");
+            _allocations = response?.Data ?? new();
+        }
+        catch
+        {
+            _allocations = new();
+        }
+        finally
+        {
+            _isLoadingAllocations = false;
+        }
+    }
+
     private async Task RefreshData() => await LoadDataAsync();
+
+    // ─── Entitlement row selection ─────────────────────────────────────────────
+
+    private async Task SelectEntitlement(EntitlementListItemDto item)
+    {
+        if (_selectedEntitlement?.Id == item.Id)
+        {
+            _selectedEntitlement = null;
+            _allocations = new();
+            return;
+        }
+
+        _selectedEntitlement = item;
+        _allocations = new();
+        await LoadAllocationsAsync(item.Id);
+    }
+
+    private void ClearSelectedEntitlement()
+    {
+        _selectedEntitlement = null;
+        _allocations = new();
+    }
+
+    // ─── Allocation modal ─────────────────────────────────────────────────────
+
+    private async Task ShowAddAllocationDialog()
+    {
+        if (_selectedEntitlement == null)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "יש לבחור זכאות מהטבלה לפני הוספת הקצאה");
+            return;
+        }
+
+        _allocPersonSearchTerm = string.Empty;
+        _personSearchResults = new();
+        _allocSelectedPerson = null;
+        _allocError = string.Empty;
+        _showAddPersonForm = false;
+        _newPersonFirstName = string.Empty;
+        _newPersonLastName = string.Empty;
+        _newPersonIdNumber = string.Empty;
+        _addPersonError = string.Empty;
+
+        // Default values from the entitlement
+        _allocHours = _selectedEntitlement.Hours;
+        _allocHoursUnit = _selectedEntitlement.HoursUnit;
+        _allocStartDate = _selectedEntitlement.StartDate.ToDateTime(TimeOnly.MinValue);
+        _allocEndDate   = _selectedEntitlement.EndDate.ToDateTime(TimeOnly.MinValue);
+
+        _showAllocationDialog = true;
+    }
+
+    private void CloseAllocationDialog()
+    {
+        _showAllocationDialog = false;
+        _allocError = string.Empty;
+        _searchCts?.Cancel();
+    }
+
+    private async Task OnPersonSearchInput(ChangeEventArgs e)
+    {
+        _allocPersonSearchTerm = e.Value?.ToString() ?? string.Empty;
+        _searchCts?.Cancel();
+
+        if (_allocPersonSearchTerm.Length < 2)
+        {
+            _personSearchResults = new();
+            return;
+        }
+
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+
+        try
+        {
+            await Task.Delay(300, token);
+
+            _isSearchingPersons = true;
+            StateHasChanged();
+
+            var response = await ApiService.GetAsync<ApiResponse<List<PersonListItemDto>>>(
+                $"persons/search?term={Uri.EscapeDataString(_allocPersonSearchTerm)}");
+            _personSearchResults = response?.Data ?? new();
+        }
+        catch (TaskCanceledException)
+        {
+            // debounce cancellation — ignore
+        }
+        catch
+        {
+            _personSearchResults = new();
+        }
+        finally
+        {
+            _isSearchingPersons = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SelectPerson(PersonListItemDto person)
+    {
+        _allocSelectedPerson = person;
+        _personSearchResults = new();
+        _allocPersonSearchTerm = string.Empty;
+    }
+
+    private void ClearSelectedPerson()
+    {
+        _allocSelectedPerson = null;
+        _allocPersonSearchTerm = string.Empty;
+        _personSearchResults = new();
+    }
+
+    private async Task CreateNewPerson()
+    {
+        _addPersonError = string.Empty;
+
+        if (string.IsNullOrWhiteSpace(_newPersonFirstName))
+        {
+            _addPersonError = "שם פרטי נדרש";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_newPersonLastName))
+        {
+            _addPersonError = "שם משפחה נדרש";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_newPersonIdNumber))
+        {
+            _addPersonError = "מספר זהות נדרש";
+            return;
+        }
+
+        _isAddingPerson = true;
+        try
+        {
+            var request = new CreatePersonRequest
+            {
+                IdNumber  = _newPersonIdNumber.Trim(),
+                IdType    = 1,
+                FirstName = _newPersonFirstName.Trim(),
+                LastName  = _newPersonLastName.Trim()
+            };
+
+            var response = await ApiService.PostAsync<CreatePersonRequest, ApiResponse<PersonSnapshotDto>>(
+                "persons", request);
+
+            if (response?.Success == true && response.Data != null)
+            {
+                // Auto-select the newly created person
+                _allocSelectedPerson = new PersonListItemDto
+                {
+                    Id        = response.Data.Id,
+                    IdNumber  = response.Data.IdNumber,
+                    FirstName = response.Data.FirstName,
+                    LastName  = response.Data.LastName,
+                    FullName  = response.Data.FullName
+                };
+                _showAddPersonForm = false;
+            }
+            else
+            {
+                _addPersonError = response?.Message ?? "שגיאה ביצירת האדם";
+            }
+        }
+        catch (Exception ex)
+        {
+            _addPersonError = $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isAddingPerson = false;
+        }
+    }
+
+    private async Task SaveAllocation()
+    {
+        _allocError = string.Empty;
+
+        if (_selectedEntitlement == null) return;
+        if (_allocSelectedPerson == null)
+        {
+            _allocError = "יש לבחור סייעת";
+            return;
+        }
+        if (_allocHours <= 0)
+        {
+            _allocError = "מספר שעות חייב להיות גדול מאפס";
+            return;
+        }
+        if (!_allocStartDate.HasValue || !_allocEndDate.HasValue)
+        {
+            _allocError = "יש למלא תאריכי התחלה וסיום";
+            return;
+        }
+
+        _isSavingAllocation = true;
+        try
+        {
+            var request = new CreateEntitlementAllocationRequest
+            {
+                PersonId  = _allocSelectedPerson.Id,
+                Hours     = _allocHours,
+                HoursUnit = _allocHoursUnit,
+                StartDate = DateOnly.FromDateTime(_allocStartDate.Value),
+                EndDate   = DateOnly.FromDateTime(_allocEndDate.Value)
+            };
+
+            var response = await ApiService.PostAsync<CreateEntitlementAllocationRequest, ApiResponse<object>>(
+                $"entitlements/{_selectedEntitlement.Id}/allocations", request);
+
+            if (response?.Success == true)
+            {
+                CloseAllocationDialog();
+                await LoadDataAsync();
+            }
+            else
+            {
+                _allocError = response?.Message ?? "שגיאה בשמירה";
+            }
+        }
+        catch (Exception ex)
+        {
+            _allocError = $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isSavingAllocation = false;
+        }
+    }
+
+    private async Task DeactivateAllocation(EntitlementAllocationDto alloc)
+    {
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", "האם להשבית הקצאה זו?"))
+            return;
+
+        if (_selectedEntitlement == null) return;
+
+        var response = await ApiService.PutAsync<object, ApiResponse<object>>(
+            $"entitlements/{_selectedEntitlement.Id}/allocations/{alloc.Id}/deactivate", new { });
+
+        if (response?.Success == true)
+            await LoadDataAsync();
+        else
+            await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בהשבתה");
+    }
 
     // ─── Filtering ────────────────────────────────────────────────────────────
 
@@ -397,7 +941,7 @@
         _filterActiveOnly = "true";
     }
 
-    // ─── Form helpers ─────────────────────────────────────────────────────────
+    // ─── Entitlement form helpers ─────────────────────────────────────────────
 
     private async Task OnAssistantTypeChanged(ChangeEventArgs e)
     {
@@ -472,7 +1016,6 @@
     {
         _formError = string.Empty;
 
-        // Client-side validation
         if (_formAssistantTypeId <= 0)
         {
             _formError = "יש לבחור סוג סייעת";
@@ -604,13 +1147,18 @@
         _              => type
     };
 
-    private static string GetLevelLabel(string? level) => level switch
+    private static string GetAllocationStatusLabel(string status) => status switch
     {
-        "personal"      => "אישי",
-        "class"         => "כיתתי",
-        "school"        => "בית ספר",
-        "kindergarten"  => "גן",
-        _               => "מוסדי"
+        "full"    => "מוקצה במלואו",
+        "partial" => "מוקצה חלקית",
+        _         => "לא מוקצה"
+    };
+
+    private static string GetAllocationStatusCss(string status) => status switch
+    {
+        "full"    => "status-active",
+        "partial" => "status-personal",
+        _         => "status-inactive"
     };
 
     private void NavigateBack() => Navigation.NavigateTo($"/year/{YearId}");

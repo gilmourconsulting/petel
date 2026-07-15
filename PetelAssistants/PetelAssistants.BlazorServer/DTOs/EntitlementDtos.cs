@@ -56,6 +56,28 @@ namespace PetelAssistants.BlazorServer.DTOs
         public int DisplayOrder { get; set; }
     }
 
+    public class EntitlementAllocationDto
+    {
+        public int Id { get; set; }
+        public int EntitlementId { get; set; }
+        public int PersonId { get; set; }
+        public string PersonFullName { get; set; } = string.Empty;
+        public DateOnly StartDate { get; set; }
+        public DateOnly EndDate { get; set; }
+        public decimal Hours { get; set; }
+        public string HoursUnit { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+    }
+
+    public class CreateEntitlementAllocationRequest
+    {
+        public int PersonId { get; set; }
+        public decimal Hours { get; set; }
+        public string HoursUnit { get; set; } = "weekly";
+        public DateOnly? StartDate { get; set; }
+        public DateOnly? EndDate { get; set; }
+    }
+
     public class EntitlementListItemDto
     {
         public int Id { get; set; }
@@ -77,6 +99,9 @@ namespace PetelAssistants.BlazorServer.DTOs
         public string? PupilFirstName { get; set; }
         public string? PupilLastName { get; set; }
         public bool IsActive { get; set; }
+        // Allocation status
+        public decimal AllocatedHours { get; set; }
+        public string AllocationStatus { get; set; } = "none"; // "none" | "partial" | "full"
     }
 
     public class CreateEntitlementRequest
