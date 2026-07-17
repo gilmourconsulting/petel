@@ -24,6 +24,10 @@ namespace PetelAssistants.Api.Models
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
 
+        [Column("symbol_code")]
+        [MaxLength(20)]
+        public string? SymbolCode { get; set; }
+
         public virtual EntityType? EntityType { get; set; }
         public virtual Entity? ParentEntity { get; set; }
         public virtual ICollection<Entity> ChildEntities { get; set; } = new List<Entity>();

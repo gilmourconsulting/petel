@@ -103,24 +103,24 @@ namespace PetelAssistants.Api.Services
                 .FirstOrDefaultAsync() ?? string.Empty;
 
             var assistantTypeIds = rows.Select(r => r.Entitlement.AssistantTypeId).Distinct().ToList();
-            var schoolIds = rows.Where(r => r.Entitlement.SchoolEntityId.HasValue)
-                                .Select(r => r.Entitlement.SchoolEntityId!.Value).Distinct().ToList();
+            var institutionIds = rows.Where(r => r.Entitlement.InstitutionId.HasValue)
+                                .Select(r => r.Entitlement.InstitutionId!.Value).Distinct().ToList();
 
             var assistantTypes = await _sharedContext.AssistantTypes
                 .AsNoTracking()
                 .Where(at => assistantTypeIds.Contains(at.Id))
                 .ToDictionaryAsync(at => at.Id, at => at.DisplayName);
 
-            var schools = schoolIds.Count == 0
+            var schools = institutionIds.Count == 0
                 ? new Dictionary<int, string>()
-                : await _sharedContext.Entities
+                : await _context.Institutions
                     .AsNoTracking()
-                    .Where(e => schoolIds.Contains(e.Id))
+                    .Where(e => institutionIds.Contains(e.Id))
                     .ToDictionaryAsync(e => e.Id, e => e.Name);
 
             return rows.Select(r =>
             {
-                schools.TryGetValue(r.Entitlement.SchoolEntityId ?? 0, out var schoolName);
+                schools.TryGetValue(r.Entitlement.InstitutionId ?? 0, out var schoolName);
                 assistantTypes.TryGetValue(r.Entitlement.AssistantTypeId, out var typeName);
 
                 return new EntitlementAllocationDto
@@ -135,7 +135,7 @@ namespace PetelAssistants.Api.Services
                     HoursUnit         = r.Allocation.HoursUnit,
                     IsActive          = r.Allocation.IsActive,
                     AssistantTypeName = typeName,
-                    SchoolName        = r.Entitlement.SchoolEntityId.HasValue ? schoolName : null
+                    SchoolName        = r.Entitlement.InstitutionId.HasValue ? schoolName : null
                 };
             }).ToList();
         }
@@ -225,12 +225,12 @@ namespace PetelAssistants.Api.Services
             ValidateDates(startDate, endDate, year);
 
             bool isPersonal = IsPersonalLevel(assistantType.Level);
-            ValidateKindFields(isPersonal, request.SchoolEntityId, request.PupilIdNumber, request.PupilFirstName, request.PupilLastName);
+            ValidateKindFields(isPersonal, request.InstitutionId, request.PupilIdNumber, request.PupilFirstName, request.PupilLastName);
 
             if (isPersonal)
                 ValidatePupilIdNumber(request.PupilIdNumber!);
 
-            await ValidateSchoolBelongsToTenantAsync(entityId, request.SchoolEntityId!.Value);
+            await ValidateInstitutionBelongsToTenantAsync(request.InstitutionId!.Value);
 
             if (request.Hours <= 0)
                 throw new InvalidOperationException("מספר שעות חייב להיות גדול מאפס");
@@ -249,7 +249,7 @@ namespace PetelAssistants.Api.Services
                 Hours       = request.Hours,
                 HoursUnit   = request.HoursUnit,
                 MinistryParticipationPct = request.MinistryParticipationPct,
-                SchoolEntityId = request.SchoolEntityId,
+                InstitutionId = request.InstitutionId,
                 ClassName   = NormalizeOptionalText(request.ClassName),
                 PupilIdNumber  = isPersonal ? NormalizeRequiredText(request.PupilIdNumber,  "תעודת זהות תלמיד") : null,
                 PupilFirstName = isPersonal ? NormalizeRequiredText(request.PupilFirstName, "שם פרטי תלמיד")    : null,
@@ -281,12 +281,12 @@ namespace PetelAssistants.Api.Services
             ValidateDates(request.StartDate, request.EndDate, year);
 
             bool isPersonal = IsPersonalLevel(assistantType.Level);
-            ValidateKindFields(isPersonal, request.SchoolEntityId, request.PupilIdNumber, request.PupilFirstName, request.PupilLastName);
+            ValidateKindFields(isPersonal, request.InstitutionId, request.PupilIdNumber, request.PupilFirstName, request.PupilLastName);
 
             if (isPersonal)
                 ValidatePupilIdNumber(request.PupilIdNumber!);
 
-            await ValidateSchoolBelongsToTenantAsync(entityId, request.SchoolEntityId!.Value);
+            await ValidateInstitutionBelongsToTenantAsync(request.InstitutionId!.Value);
 
             if (request.Hours <= 0)
                 throw new InvalidOperationException("מספר שעות חייב להיות גדול מאפס");
@@ -300,7 +300,7 @@ namespace PetelAssistants.Api.Services
             entitlement.Hours           = request.Hours;
             entitlement.HoursUnit       = request.HoursUnit;
             entitlement.MinistryParticipationPct = request.MinistryParticipationPct;
-            entitlement.SchoolEntityId  = request.SchoolEntityId;
+            entitlement.InstitutionId   = request.InstitutionId;
             entitlement.ClassName       = NormalizeOptionalText(request.ClassName);
             entitlement.PupilIdNumber   = isPersonal ? NormalizeRequiredText(request.PupilIdNumber,  "תעודת זהות תלמיד") : null;
             entitlement.PupilFirstName  = isPersonal ? NormalizeRequiredText(request.PupilFirstName, "שם פרטי תלמיד")    : null;
@@ -332,25 +332,24 @@ namespace PetelAssistants.Api.Services
                 return new List<EntitlementListItemDto>();
 
             var assistantTypeIds = items.Select(i => i.AssistantTypeId).Distinct().ToList();
-            var schoolIds = items.Where(i => i.SchoolEntityId.HasValue)
-                                 .Select(i => i.SchoolEntityId!.Value).Distinct().ToList();
+            var institutionIds = items.Where(i => i.InstitutionId.HasValue)
+                                 .Select(i => i.InstitutionId!.Value).Distinct().ToList();
 
             var assistantTypes = await _sharedContext.AssistantTypes
                 .AsNoTracking()
                 .Where(at => assistantTypeIds.Contains(at.Id))
                 .ToDictionaryAsync(at => at.Id, at => at);
 
-            var schools = schoolIds.Count == 0
-                ? new Dictionary<int, (string Name, string? TypeName)>()
-                : await _sharedContext.Entities
+            var schools = institutionIds.Count == 0
+                ? new Dictionary<int, (string Name, string TypeName)>()
+                : await _context.Institutions
                     .AsNoTracking()
-                    .Where(e => schoolIds.Contains(e.Id))
-                    .Select(e => new { e.Id, e.Name, TypeName = e.EntityType != null ? e.EntityType.Name : null })
-                    .ToDictionaryAsync(e => e.Id, e => (e.Name, e.TypeName));
+                    .Where(e => institutionIds.Contains(e.Id))
+                    .ToDictionaryAsync(e => e.Id, e => (Name: e.Name, TypeName: e.InstitutionType));
 
             return items.Select(item =>
             {
-                schools.TryGetValue(item.SchoolEntityId ?? 0, out var school);
+                schools.TryGetValue(item.InstitutionId ?? 0, out var school);
                 assistantTypes.TryGetValue(item.AssistantTypeId, out var atype);
 
                 var allocatedHours = allocatedHoursMap != null && allocatedHoursMap.TryGetValue(item.Id, out var h) ? h : 0m;
@@ -370,9 +369,9 @@ namespace PetelAssistants.Api.Services
                     Hours                    = item.Hours,
                     HoursUnit                = item.HoursUnit,
                     MinistryParticipationPct = item.MinistryParticipationPct,
-                    SchoolEntityId           = item.SchoolEntityId,
-                    SchoolName               = item.SchoolEntityId.HasValue ? school.Name : null,
-                    OrgUnitType              = item.SchoolEntityId.HasValue ? school.TypeName : null,
+                    InstitutionId            = item.InstitutionId,
+                    SchoolName               = item.InstitutionId.HasValue ? school.Name : null,
+                    OrgUnitType              = item.InstitutionId.HasValue ? school.TypeName : null,
                     ClassName                = item.ClassName,
                     PupilIdNumber            = item.PupilIdNumber,
                     PupilFirstName           = item.PupilFirstName,
@@ -406,15 +405,12 @@ namespace PetelAssistants.Api.Services
             return year;
         }
 
-        private async Task ValidateSchoolBelongsToTenantAsync(int entityId, int schoolEntityId)
+        private async Task ValidateInstitutionBelongsToTenantAsync(int institutionId)
         {
-            var valid = await _sharedContext.Entities
+            // Global query filter already scopes to the current tenant.
+            var valid = await _context.Institutions
                 .AsNoTracking()
-                .AnyAsync(e => e.Id == schoolEntityId
-                            && e.ParentEntityId == entityId
-                            && e.IsActive
-                            && e.EntityType != null
-                            && (e.EntityType.Name == "school" || e.EntityType.Name == "kindergarten"));
+                .AnyAsync(e => e.Id == institutionId && e.IsActive);
 
             if (!valid)
                 throw new InvalidOperationException("מוסד חינוך לא תקין עבור הרשות");
@@ -446,12 +442,12 @@ namespace PetelAssistants.Api.Services
 
         private static void ValidateKindFields(
             bool isPersonal,
-            int? schoolEntityId,
+            int? institutionId,
             string? pupilIdNumber,
             string? pupilFirstName,
             string? pupilLastName)
         {
-            if (!schoolEntityId.HasValue)
+            if (!institutionId.HasValue)
                 throw new InvalidOperationException("יש לבחור בית ספר או גן");
 
             if (isPersonal)

@@ -47,6 +47,8 @@
                                 <th>פעולות</th>
                                 <th>שם</th>
                                 <th>סוג</th>
+                                <th>רמה</th>
+                                <th>חינוך מיוחד</th>
                                 <th>סטטוס</th>
                             </tr>
                         </thead>
@@ -76,6 +78,8 @@
                                     </td>
                                     <td>@unit.Name</td>
                                     <td>@GetOrgUnitTypeLabel(unit.OrgUnitType)</td>
+                                    <td>@GetSchoolLevelLabel(unit.SchoolLevel)</td>
+                                    <td>@(unit.IsSpecialEducation ? "כן" : "לא")</td>
                                     <td>
                                         <span class="status-badge @(unit.IsActive ? "status-active" : "status-inactive")">
                                             @(unit.IsActive ? "פעיל" : "לא פעיל")
@@ -104,15 +108,38 @@
                 {
                     <div class="form-group">
                         <label>סוג מוסד <span class="required">*</span></label>
-                        <select class="form-control" @bind="_formOrgUnitType">
+                        <select class="form-control" @bind="_formOrgUnitType" @bind:after="OnTypeChanged">
                             <option value="school">בית ספר</option>
                             <option value="kindergarten">גן ילדים</option>
                         </select>
                     </div>
                 }
+                else
+                {
+                    <div class="form-group">
+                        <label>סוג מוסד</label>
+                        <input class="form-control" value="@GetOrgUnitTypeLabel(_editUnit.OrgUnitType)" disabled />
+                    </div>
+                }
                 <div class="form-group">
                     <label>שם <span class="required">*</span></label>
                     <input type="text" class="form-control" @bind="_formName" placeholder="שם המוסד" />
+                </div>
+                @if (_formOrgUnitType == "school")
+                {
+                    <div class="form-group">
+                        <label>רמת בית ספר <span class="required">*</span></label>
+                        <select class="form-control" @bind="_formSchoolLevel">
+                            <option value="elementary">יסודי</option>
+                            <option value="high_school">תיכון</option>
+                        </select>
+                    </div>
+                }
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" @bind="_formIsSpecialEducation" />
+                        חינוך מיוחד
+                    </label>
                 </div>
                 @if (!string.IsNullOrEmpty(_formError))
                 {
@@ -143,6 +170,8 @@
     private OrgUnitDto? _editUnit;
     private string _formName = string.Empty;
     private string _formOrgUnitType = "school";
+    private string _formSchoolLevel = "elementary";
+    private bool _formIsSpecialEducation;
 
     protected override async Task OnPageInitializedAsync()
     {
@@ -189,6 +218,8 @@
         _editUnit = null;
         _formName = string.Empty;
         _formOrgUnitType = "school";
+        _formSchoolLevel = "elementary";
+        _formIsSpecialEducation = false;
         _formError = string.Empty;
         _showFormDialog = true;
     }
@@ -197,8 +228,17 @@
     {
         _editUnit = unit;
         _formName = unit.Name;
+        _formOrgUnitType = unit.OrgUnitType;
+        _formSchoolLevel = unit.SchoolLevel ?? "elementary";
+        _formIsSpecialEducation = unit.IsSpecialEducation;
         _formError = string.Empty;
         _showFormDialog = true;
+    }
+
+    private void OnTypeChanged()
+    {
+        if (_formOrgUnitType != "school")
+            _formSchoolLevel = "elementary";
     }
 
     private void CloseDialog()
@@ -215,6 +255,12 @@
             return;
         }
 
+        if (_formOrgUnitType == "school" && string.IsNullOrWhiteSpace(_formSchoolLevel))
+        {
+            _formError = "יש לבחור רמת בית ספר";
+            return;
+        }
+
         _isSaving = true;
         _formError = string.Empty;
 
@@ -226,13 +272,24 @@
             {
                 response = await ApiService.PostAsync<CreateOrgUnitRequest, ApiResponse<object>>(
                     "org-units",
-                    new CreateOrgUnitRequest { Name = _formName, OrgUnitType = _formOrgUnitType });
+                    new CreateOrgUnitRequest
+                    {
+                        Name = _formName,
+                        OrgUnitType = _formOrgUnitType,
+                        SchoolLevel = _formOrgUnitType == "school" ? _formSchoolLevel : null,
+                        IsSpecialEducation = _formIsSpecialEducation
+                    });
             }
             else
             {
                 response = await ApiService.PutAsync<UpdateOrgUnitRequest, ApiResponse<object>>(
                     $"org-units/{_editUnit.Id}",
-                    new UpdateOrgUnitRequest { Name = _formName });
+                    new UpdateOrgUnitRequest
+                    {
+                        Name = _formName,
+                        SchoolLevel = _formOrgUnitType == "school" ? _formSchoolLevel : null,
+                        IsSpecialEducation = _formIsSpecialEducation
+                    });
             }
 
             if (response?.Success == true)
@@ -281,6 +338,13 @@
         "school" => "בית ספר",
         "kindergarten" => "גן ילדים",
         _ => type
+    };
+
+    private static string GetSchoolLevelLabel(string? level) => level switch
+    {
+        "elementary" => "יסודי",
+        "high_school" => "תיכון",
+        _ => "—"
     };
 
     private void NavigateBack() => Navigation.NavigateTo(YearId > 0 ? $"/year/{YearId}" : "/maindashboard");

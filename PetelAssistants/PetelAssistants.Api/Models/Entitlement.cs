@@ -50,12 +50,14 @@ namespace PetelAssistants.Api.Models
         [Column("ministry_participation_pct")]
         public decimal MinistryParticipationPct { get; set; }
 
-        [Column("school_entity_id")]
-        public int? SchoolEntityId { get; set; }
+        [Column("institution_id")]
+        public int? InstitutionId { get; set; }
 
         [Column("class_name")]
         [MaxLength(100)]
         public string? ClassName { get; set; }
+
+        public virtual Institution? Institution { get; set; }
 
         // Personal entitlement fields — all three are set together or all null
         // NOTE: PupilIdNumber is stored AES-encrypted; column length is set in AppDbContext, not here.

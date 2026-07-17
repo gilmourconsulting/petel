@@ -152,7 +152,7 @@ An assistant who works for two authorities appears as two independent rows in `a
 
 | Schema | DbContext | What goes here |
 |---|---|---|
-| `shared_schema` | `SharedDbContext` | Entity types, entities (authorities + schools), cities, assistant types, system attributes, any lookup that has no tenant owner |
+| `shared_schema` | `SharedDbContext` | Entity types, entities (local authorities), cities, assistant types, system attributes, any lookup that has no tenant owner |
 | `assist_schema` | `AssistDbContext` | Users, roles, persons (assistants, pupils), assignments, all operational data |
 
 **Rules:**
@@ -163,14 +163,15 @@ An assistant who works for two authorities appears as two independent rows in `a
 - Schema-per-tenant is **explicitly excluded**. Do not use it, suggest it, or design for it.
 
 **Shared table candidates (shared_schema):**
-- `entities` — all local authorities, schools, and other org units
-- `entity_types` — authority, school, etc.
+- `entities` — local authorities (tenants) only
+- `entity_types` — authority, etc.
 - `assistant_types` — type codes for educational support staff
 - `cities` — city/settlement lookup
 - `system_attributes` — global key-value config
 
 **Tenant table candidates (assist_schema):**
 - `users`, `roles`, `user_roles`, `permissions`
+- `institutions` — schools and kindergartens owned by the authority
 - `persons` — assistants, pupils (each row is owned by exactly one authority)
 - `assignments`, `placements`, `attendance`
 - Any table that stores data entered by a specific authority

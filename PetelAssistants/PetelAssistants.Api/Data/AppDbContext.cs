@@ -28,6 +28,7 @@ namespace PetelAssistants.Api.Data
         public DbSet<PersonDetail>   PersonDetails  { get; set; }
         public DbSet<PersonAddress>  PersonAddresses { get; set; }
         public DbSet<PersonPhone>     PersonPhones   { get; set; }
+        public DbSet<Institution>            Institutions           { get; set; }
         public DbSet<Entitlement>            Entitlements           { get; set; }
         public DbSet<EntitlementAllocation>  EntitlementAllocations { get; set; }
 
@@ -185,6 +186,16 @@ namespace PetelAssistants.Api.Data
                 entity.HasQueryFilter(p => _tenantContext.EntityId != 0 && p.EntityId == _tenantContext.EntityId);
             });
 
+            modelBuilder.Entity<Institution>(entity =>
+            {
+                entity.ToTable("institutions");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.Name }).IsUnique();
+                entity.HasIndex(e => new { e.EntityId, e.InstitutionType });
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
             modelBuilder.Entity<Entitlement>(entity =>
             {
                 entity.ToTable("entitlements");
@@ -196,6 +207,11 @@ namespace PetelAssistants.Api.Data
                     .HasConversion(
                         v => v == null ? null : _encryptionService.EncryptDeterministic(v),
                         v => v == null ? null : _encryptionService.DecryptDeterministic(v));
+
+                entity.HasOne(e => e.Institution)
+                    .WithMany()
+                    .HasForeignKey(e => e.InstitutionId)
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
             });

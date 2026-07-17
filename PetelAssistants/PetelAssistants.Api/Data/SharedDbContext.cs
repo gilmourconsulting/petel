@@ -23,6 +23,7 @@ namespace PetelAssistants.Api.Data
         public DbSet<PhoneType>       PhoneTypes       { get; set; }
         public DbSet<AssistantType>              AssistantTypes              { get; set; }
         public DbSet<MinistryParticipationOption> MinistryParticipationOptions { get; set; }
+        public DbSet<MeitarDataFilterValue>       MeitarDataFilterValues       { get; set; }
 
         public SharedDbContext(
             DbContextOptions<SharedDbContext> options,
@@ -120,6 +121,12 @@ namespace PetelAssistants.Api.Data
             modelBuilder.Entity<MinistryParticipationOption>(entity =>
             {
                 entity.ToTable("ministry_participation_options");
+                entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<MeitarDataFilterValue>(entity =>
+            {
+                entity.ToTable("meitar_data_filter_values");
                 entity.HasKey(e => e.Id);
             });
         }

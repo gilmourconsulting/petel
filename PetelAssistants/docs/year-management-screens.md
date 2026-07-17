@@ -23,7 +23,7 @@ Domain context: assistants and entitlements are managed per Jewish school year. 
 - **Assistants** (`Assistants.razor`, `/year/{YearId}/assistants`): person CRUD for the logged-in authority.
 - **Institutional entitlements** (`InstitutionalEntitlements.razor`): school/kindergarten/class entitlements for the year.
 - **Personal entitlements** (`PersonalEntitlements.razor`): pupil (external id) entitlements for the year.
-- **Org units** (`OrgUnits.razor`, `/year/{YearId}/org-units`): manage schools and kindergartens for the logged-in authority (also available at `/org-units` from the main menu).
+- **Org units** (`OrgUnits.razor`, `/year/{YearId}/org-units`): manage tenant-owned institutions (schools and kindergartens in `assist_schema.institutions`; also available at `/org-units` from the main menu).
 - **Legacy route** `/year/{YearId}/entitlements` redirects to institutional entitlements.
 
 **System admin (not year-scoped):**
@@ -52,9 +52,9 @@ Downstream pages should read year from the route parameter `{YearId}` and/or ses
 | `PUT api/years/{id}` | System admin: update year dates and flags |
 | `GET api/assistant-types` | Active assistant types (optional `includeInactive`) |
 | `POST/PUT api/assistant-types` | System admin: manage assistant types |
-| `GET api/org-units?type=` | Schools/kindergartens for tenant |
-| `POST/PUT api/org-units` | Create/update org units |
-| `PUT api/org-units/{id}/activate\|deactivate` | Toggle org unit |
+| `GET api/org-units?type=` | Institutions (schools/kindergartens) for tenant |
+| `POST/PUT api/org-units` | Create/update institutions |
+| `PUT api/org-units/{id}/activate\|deactivate` | Toggle institution |
 | `GET api/entitlements?yearId=&kind=` | List entitlements (institutional or personal) |
 | `GET api/entitlements/{id}` | Single entitlement |
 | `POST api/entitlements` | Create entitlement |

@@ -16,7 +16,7 @@ Assistants will be allocated to an entitlement with a start and end date that mu
 
 ## Architecture
 
-**Multi-tenancy:** Each local authority's data must be strictly isolated — users of authority A must never see authority B's data. Local authorities are modelled as `entities` in the system; schools and other organisational units are also entities with their own type.
+**Multi-tenancy:** Each local authority's data must be strictly isolated — users of authority A must never see authority B's data. Local authorities are modelled as `entities` in `shared_schema`. Schools and kindergartens are tenant-owned `institutions` in `assist_schema` (not shared entities).
 
 **Shared (global) configuration:** Some reference data is shared across all tenants — entity types, assistant types, cities, the list of authorities themselves, and similar lookup tables. Security actions appear here. System attributes as well. This data is managed centrally and read by all.
 
@@ -59,9 +59,17 @@ Key system attributes:
 
 **Validation:** Entitlement start/end dates must fall within the Hebrew year's date range. Defaults on create come from the year's dates.
 
-## Org units (schools and kindergartens)
+## Institutions (schools and kindergartens)
 
-Each local authority maintains its own list of schools and kindergartens as rows in `shared_schema.entities` with `parent_entity_id` pointing to the authority entity. Entity types: `school`, `kindergarten`.
+Each local authority maintains its own list of schools and kindergartens as rows in `assist_schema.institutions` with mandatory `entity_id` (the owning authority). Institutions are **not** shared across tenants.
+
+| Field | Values | Notes |
+|---|---|---|
+| `institution_type` | `school`, `kindergarten` | Required |
+| `school_level` | `elementary` (יסודי), `high_school` (תיכון) | Required for schools; null for kindergartens |
+| `is_special_education` | bool | חינוך מיוחד — applies to any institution |
+
+CRUD UI remains at `/org-units` (`api/org-units`); storage is `institutions`.
 
 ## Assistant types
 
@@ -80,23 +88,40 @@ Managed globally in `shared_schema.assistant_types` by the system manager. Tenan
 **Personal entitlements:**
 - `pupil_id_number` (VARCHAR 9, exactly 9 digits, leading zero allowed) — Israeli national ID stored **encrypted** via deterministic AES.
 - `pupil_first_name`, `pupil_last_name` — required.
-- `school_entity_id` — the pupil's school (must belong to the authority).
+- `institution_id` — the pupil's school/kindergarten (must belong to the authority).
 - `class_name` — optional free text.
 - Israeli ID checksum validation is gated by `system_attribute` key `validate_israeli_id_checksum` (bool, id=20 in production). This is a **system-wide flag** — it applies to all Israeli national ID entries across the application (entitlements, persons, and any future features). Read via `IAttributeCache.GetAttributeValue("validate_israeli_id_checksum")`.
 
 **Institutional entitlements:**
-- `school_entity_id` — the institution receiving the entitlement (required, must belong to the authority).
+- `institution_id` — the institution receiving the entitlement (required, must belong to the authority).
 - `class_name` — optional free text.
 - Pupil fields (`pupil_id_number`, `pupil_first_name`, `pupil_last_name`) must be null.
 
 **Ministry participation %** is selected from a dropdown backed by `shared_schema.ministry_participation_options` (seeded: 100%, 70%). Not free text.
 
 **Business rules:**
-- `school_entity_id` is required for all entitlements (both kinds).
+- `institution_id` is required for all entitlements (both kinds).
 - Pupil fields must be all-set or all-null (enforced by DB CHECK constraint).
 - Dates must be within the Hebrew year bounds.
-- The school must belong to the logged-in authority (validated at service layer).
+- The institution must belong to the logged-in authority (validated at service layer via tenant filter).
 - Assistant allocation to entitlements (with dates within entitlement range) is a follow-on feature.
+
+## Meitar data integration
+
+Ministry budget data is queried from **PetelMeitar** via `MeitarDataService` (`IMeitarDataService`).
+
+| Component | Location |
+|---|---|
+| Service | `PetelAssistants.Api/Services/MeitarDataService.cs` |
+| API config | `MeitarApi:BaseUrl`, `MeitarApi:TimeoutSeconds` in appsettings |
+| Symbol codes | `shared_schema.entities.symbol_code` on active `local_authority` rows |
+| Filter config | `shared_schema.meitar_data_filter_values` (`file_name`, `filter_field`, `filter_value`) |
+
+**Primary use case:** `QueryMutavimByTopicDescriptionsAsync()` loads symbol codes from local authorities and TopicDescription filter values from the config table, then calls PetelMeitar `POST /api/data/query` with `fileName=MUTAVIM`.
+
+**Generic queries:** `QueryAsync()` accepts any supported file suffix (see `MeitarDataFileNames.All`). `QueryAllFileTypesAsync()` iterates all 19 documented file types.
+
+SQL migration: `PetelAssistants/SQL/add-meitar-data-integration.sql`. API reference: `PetelAssistants/docs/ApiReference.md`.
 
 ## Related
 

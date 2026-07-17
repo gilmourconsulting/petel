@@ -55,6 +55,8 @@ namespace PetelAssistants.Api.DTOs
         public string Name { get; set; } = string.Empty;
         public string OrgUnitType { get; set; } = string.Empty;
         public string? OrgUnitTypeDescription { get; set; }
+        public string? SchoolLevel { get; set; }
+        public bool IsSpecialEducation { get; set; }
         public bool IsActive { get; set; }
     }
 
@@ -62,11 +64,15 @@ namespace PetelAssistants.Api.DTOs
     {
         public string Name { get; set; } = string.Empty;
         public string OrgUnitType { get; set; } = string.Empty;
+        public string? SchoolLevel { get; set; }
+        public bool IsSpecialEducation { get; set; }
     }
 
     public class UpdateOrgUnitRequest
     {
         public string Name { get; set; } = string.Empty;
+        public string? SchoolLevel { get; set; }
+        public bool IsSpecialEducation { get; set; }
     }
 
     public class MinistryParticipationOptionDto
@@ -112,7 +118,7 @@ namespace PetelAssistants.Api.DTOs
         public decimal Hours { get; set; }
         public string HoursUnit { get; set; } = string.Empty;
         public decimal MinistryParticipationPct { get; set; }
-        public int? SchoolEntityId { get; set; }
+        public int? InstitutionId { get; set; }
         public string? SchoolName { get; set; }
         public string? OrgUnitType { get; set; }
         public string? ClassName { get; set; }
@@ -139,7 +145,7 @@ namespace PetelAssistants.Api.DTOs
         public decimal Hours { get; set; }
         public string HoursUnit { get; set; } = string.Empty;
         public decimal MinistryParticipationPct { get; set; }
-        public int? SchoolEntityId { get; set; }
+        public int? InstitutionId { get; set; }
         public string? ClassName { get; set; }
         // Personal entitlement fields (required when assistant type level == "personal")
         public string? PupilIdNumber { get; set; }
@@ -155,7 +161,7 @@ namespace PetelAssistants.Api.DTOs
         public decimal Hours { get; set; }
         public string HoursUnit { get; set; } = string.Empty;
         public decimal MinistryParticipationPct { get; set; }
-        public int? SchoolEntityId { get; set; }
+        public int? InstitutionId { get; set; }
         public string? ClassName { get; set; }
         // Personal entitlement fields (required when assistant type level == "personal")
         public string? PupilIdNumber { get; set; }

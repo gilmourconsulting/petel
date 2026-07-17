@@ -242,7 +242,7 @@
                 <div class="form-row" style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
                     <div class="form-group">
                         <label>מוסד (בית ספר / גן) <span class="required">*</span></label>
-                        <select class="form-control" @bind="_formSchoolEntityId">
+                        <select class="form-control" @bind="_formInstitutionId">
                             <option value="0">— בחר מוסד —</option>
                             @foreach (var unit in _orgUnits.Where(u => u.IsActive))
                             {
@@ -477,7 +477,7 @@
     // Entitlement form state
     private int _formAssistantTypeId;
     private bool _formIsPersonal;
-    private int _formSchoolEntityId;
+    private int _formInstitutionId;
     private string? _formClassName;
     private string _formPupilIdNumber = string.Empty;
     private string _formPupilFirstName = string.Empty;
@@ -863,7 +863,7 @@
             if (_filterKind == "institutional" && isPersonal) return false;
         }
 
-        if (_filterSchoolId > 0 && item.SchoolEntityId != _filterSchoolId) return false;
+        if (_filterSchoolId > 0 && item.InstitutionId != _filterSchoolId) return false;
         if (_filterAssistantTypeId > 0 && item.AssistantTypeId != _filterAssistantTypeId) return false;
 
         return true;
@@ -909,7 +909,7 @@
     {
         _formAssistantTypeId = 0;
         _formIsPersonal = false;
-        _formSchoolEntityId = 0;
+        _formInstitutionId = 0;
         _formClassName = null;
         _formPupilIdNumber = string.Empty;
         _formPupilFirstName = string.Empty;
@@ -934,7 +934,7 @@
         _editItem = item;
         _formAssistantTypeId = item.AssistantTypeId;
         _formIsPersonal = IsPersonalLevel(item.AssistantTypeLevel);
-        _formSchoolEntityId = item.SchoolEntityId ?? 0;
+        _formInstitutionId = item.InstitutionId ?? 0;
         _formClassName = item.ClassName;
         _formPupilIdNumber = item.PupilIdNumber ?? string.Empty;
         _formPupilFirstName = item.PupilFirstName ?? string.Empty;
@@ -963,7 +963,7 @@
             _formError = "יש לבחור סוג סייעת";
             return;
         }
-        if (_formSchoolEntityId <= 0)
+        if (_formInstitutionId <= 0)
         {
             _formError = "יש לבחור מוסד";
             return;
@@ -1016,7 +1016,7 @@
                         Hours                    = _formHours,
                         HoursUnit                = _formHoursUnit,
                         MinistryParticipationPct = _formMinistryPct,
-                        SchoolEntityId           = _formSchoolEntityId,
+                        InstitutionId           = _formInstitutionId,
                         ClassName                = _formClassName,
                         PupilIdNumber            = _formIsPersonal ? _formPupilIdNumber : null,
                         PupilFirstName           = _formIsPersonal ? _formPupilFirstName : null,
@@ -1035,7 +1035,7 @@
                         Hours                    = _formHours,
                         HoursUnit                = _formHoursUnit,
                         MinistryParticipationPct = _formMinistryPct,
-                        SchoolEntityId           = _formSchoolEntityId,
+                        InstitutionId           = _formInstitutionId,
                         ClassName                = _formClassName,
                         PupilIdNumber            = _formIsPersonal ? _formPupilIdNumber : null,
                         PupilFirstName           = _formIsPersonal ? _formPupilFirstName : null,

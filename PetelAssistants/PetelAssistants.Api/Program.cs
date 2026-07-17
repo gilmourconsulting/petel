@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Petel.Core.Abstractions;
 using Petel.Core.Security;
 using Petel.Core.Session;
+using PetelAssistants.Api.Configuration;
 using PetelAssistants.Api.Data;
 using PetelAssistants.Api.Services;
 using PetelAssistants.Api.Tenancy;
@@ -32,6 +33,8 @@ builder.Services.Configure<SharedDatabaseSettings>(
     builder.Configuration.GetSection("SharedDatabase"));
 builder.Services.Configure<SecuritySettings>(
     builder.Configuration.GetSection("Security"));
+builder.Services.Configure<MeitarApiSettings>(
+    builder.Configuration.GetSection("MeitarApi"));
 
 // ── Tenant context (scoped per request) ───────────────────────────────────
 builder.Services.AddScoped<ITenantContext, HttpTenantContext>();
@@ -74,6 +77,15 @@ builder.Services.AddSingleton<ActionAuthorizationService>();
 builder.Services.AddScoped<PersonService>();
 builder.Services.AddScoped<OrgUnitService>();
 builder.Services.AddScoped<EntitlementService>();
+
+// ── Meitar data API client ─────────────────────────────────────────────────
+var meitarSettings = builder.Configuration.GetSection("MeitarApi").Get<MeitarApiSettings>();
+builder.Services.AddHttpClient("MeitarApi", client =>
+{
+    client.BaseAddress = new Uri(meitarSettings?.BaseUrl ?? "http://localhost:5105/api");
+    client.Timeout = TimeSpan.FromSeconds(meitarSettings?.TimeoutSeconds ?? 60);
+});
+builder.Services.AddScoped<IMeitarDataService, MeitarDataService>();
 
 var app = builder.Build();
 

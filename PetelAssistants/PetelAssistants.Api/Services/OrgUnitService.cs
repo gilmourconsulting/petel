@@ -9,25 +9,31 @@ namespace PetelAssistants.Api.Services
     {
         private static readonly HashSet<string> AllowedTypes = new(StringComparer.OrdinalIgnoreCase)
         {
-            "school",
-            "kindergarten"
+            InstitutionTypes.School,
+            InstitutionTypes.Kindergarten
         };
 
-        private readonly SharedDbContext _sharedContext;
+        private static readonly HashSet<string> AllowedSchoolLevels = new(StringComparer.OrdinalIgnoreCase)
+        {
+            SchoolLevels.Elementary,
+            SchoolLevels.HighSchool
+        };
+
+        private readonly AssistDbContext _context;
         private readonly ILogger<OrgUnitService> _logger;
 
-        public OrgUnitService(SharedDbContext sharedContext, ILogger<OrgUnitService> logger)
+        public OrgUnitService(AssistDbContext context, ILogger<OrgUnitService> logger)
         {
-            _sharedContext = sharedContext;
+            _context = context;
             _logger = logger;
         }
 
         public async Task<List<OrgUnitDto>> ListOrgUnitsAsync(int entityId, string? typeFilter)
         {
-            var query = _sharedContext.Entities
-                .AsNoTracking()
-                .Include(e => e.EntityType)
-                .Where(e => e.ParentEntityId == entityId);
+            // entityId is used by the global query filter via ITenantContext; keep signature for controller.
+            _ = entityId;
+
+            var query = _context.Institutions.AsNoTracking();
 
             if (!string.IsNullOrWhiteSpace(typeFilter))
             {
@@ -35,89 +41,136 @@ namespace PetelAssistants.Api.Services
                 if (!AllowedTypes.Contains(type))
                     throw new InvalidOperationException("סוג מוסד לא תקין");
 
-                query = query.Where(e => e.EntityType != null && e.EntityType.Name == type);
-            }
-            else
-            {
-                query = query.Where(e => e.EntityType != null
-                                      && (e.EntityType.Name == "school" || e.EntityType.Name == "kindergarten"));
+                query = query.Where(e => e.InstitutionType == type);
             }
 
-            return await query
+            var rows = await query
                 .OrderBy(e => e.Name)
-                .Select(e => new OrgUnitDto
-                {
-                    Id = e.Id,
-                    Name = e.Name,
-                    OrgUnitType = e.EntityType != null ? e.EntityType.Name : string.Empty,
-                    OrgUnitTypeDescription = e.EntityType != null ? e.EntityType.Description : null,
-                    IsActive = e.IsActive
-                })
                 .ToListAsync();
+
+            return rows.Select(MapDto).ToList();
         }
 
-        public async Task<int> CreateOrgUnitAsync(int entityId, CreateOrgUnitRequest request)
+        public async Task<int> CreateOrgUnitAsync(int entityId, int? userId, CreateOrgUnitRequest request)
         {
             if (string.IsNullOrWhiteSpace(request.Name))
                 throw new InvalidOperationException("שם מוסד הוא שדה חובה");
 
-            var typeName = request.OrgUnitType.Trim().ToLowerInvariant();
-            if (!AllowedTypes.Contains(typeName))
-                throw new InvalidOperationException("סוג מוסד חייב להיות בית ספר או גן");
+            var typeName = NormalizeType(request.OrgUnitType);
+            var schoolLevel = NormalizeSchoolLevel(typeName, request.SchoolLevel);
 
-            var entityType = await _sharedContext.EntityTypes
-                .AsNoTracking()
-                .FirstOrDefaultAsync(et => et.Name == typeName && et.IsActive)
-                ?? throw new InvalidOperationException("סוג מוסד לא נמצא");
-
-            var exists = await _sharedContext.Entities
-                .AnyAsync(e => e.ParentEntityId == entityId && e.Name == request.Name.Trim());
+            var name = request.Name.Trim();
+            var exists = await _context.Institutions
+                .AnyAsync(e => e.Name == name);
 
             if (exists)
                 throw new InvalidOperationException("מוסד עם שם זה כבר קיים ברשות");
 
-            var orgUnit = new Entity
+            var now = DateTime.UtcNow;
+            var institution = new Institution
             {
-                Name = request.Name.Trim(),
-                EntityTypeId = entityType.Id,
-                ParentEntityId = entityId,
-                IsActive = true
+                EntityId = entityId,
+                Name = name,
+                InstitutionType = typeName,
+                SchoolLevel = schoolLevel,
+                IsSpecialEducation = request.IsSpecialEducation,
+                IsActive = true,
+                UserId = userId,
+                UpdateUser = userId,
+                CreatedAt = now,
+                UpdatedAt = now
             };
 
-            _sharedContext.Entities.Add(orgUnit);
-            await _sharedContext.SaveChangesAsync();
+            _context.Institutions.Add(institution);
+            await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Created org unit {Name} ({Type}) for entity {EntityId}", orgUnit.Name, typeName, entityId);
-            return orgUnit.Id;
+            _logger.LogInformation(
+                "Created institution {Name} ({Type}) for entity {EntityId}",
+                institution.Name, typeName, entityId);
+            return institution.Id;
         }
 
-        public async Task UpdateOrgUnitAsync(int entityId, int id, UpdateOrgUnitRequest request)
+        public async Task UpdateOrgUnitAsync(int entityId, int? userId, int id, UpdateOrgUnitRequest request)
         {
+            _ = entityId;
+
             if (string.IsNullOrWhiteSpace(request.Name))
                 throw new InvalidOperationException("שם מוסד הוא שדה חובה");
 
-            var orgUnit = await _sharedContext.Entities
-                .FirstOrDefaultAsync(e => e.Id == id && e.ParentEntityId == entityId)
+            var institution = await _context.Institutions.FirstOrDefaultAsync(e => e.Id == id)
                 ?? throw new InvalidOperationException("מוסד לא נמצא");
 
-            var duplicate = await _sharedContext.Entities
-                .AnyAsync(e => e.ParentEntityId == entityId && e.Name == request.Name.Trim() && e.Id != id);
+            var name = request.Name.Trim();
+            var duplicate = await _context.Institutions
+                .AnyAsync(e => e.Name == name && e.Id != id);
 
             if (duplicate)
                 throw new InvalidOperationException("מוסד עם שם זה כבר קיים ברשות");
 
-            orgUnit.Name = request.Name.Trim();
-            await _sharedContext.SaveChangesAsync();
+            var schoolLevel = NormalizeSchoolLevel(institution.InstitutionType, request.SchoolLevel);
+
+            institution.Name = name;
+            institution.SchoolLevel = schoolLevel;
+            institution.IsSpecialEducation = request.IsSpecialEducation;
+            institution.UpdateUser = userId;
+            institution.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
         }
 
-        public async Task SetOrgUnitActiveAsync(int entityId, int id, bool isActive)
+        public async Task SetOrgUnitActiveAsync(int entityId, int? userId, int id, bool isActive)
         {
-            var orgUnit = await _sharedContext.Entities
-                .FirstOrDefaultAsync(e => e.Id == id && e.ParentEntityId == entityId)
+            _ = entityId;
+
+            var institution = await _context.Institutions.FirstOrDefaultAsync(e => e.Id == id)
                 ?? throw new InvalidOperationException("מוסד לא נמצא");
 
-            orgUnit.IsActive = isActive;
-            await _sharedContext.SaveChangesAsync();
+            institution.IsActive = isActive;
+            institution.UpdateUser = userId;
+            institution.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
+        private static OrgUnitDto MapDto(Institution e) => new()
+        {
+            Id = e.Id,
+            Name = e.Name,
+            OrgUnitType = e.InstitutionType,
+            OrgUnitTypeDescription = GetTypeDescription(e.InstitutionType),
+            SchoolLevel = e.SchoolLevel,
+            IsSpecialEducation = e.IsSpecialEducation,
+            IsActive = e.IsActive
+        };
+
+        private static string GetTypeDescription(string type) => type switch
+        {
+            InstitutionTypes.School => "בית ספר",
+            InstitutionTypes.Kindergarten => "גן ילדים",
+            _ => type
+        };
+
+        private static string NormalizeType(string? orgUnitType)
+        {
+            var typeName = (orgUnitType ?? string.Empty).Trim().ToLowerInvariant();
+            if (!AllowedTypes.Contains(typeName))
+                throw new InvalidOperationException("סוג מוסד חייב להיות בית ספר או גן");
+            return typeName;
+        }
+
+        private static string? NormalizeSchoolLevel(string institutionType, string? schoolLevel)
+        {
+            if (institutionType == InstitutionTypes.Kindergarten)
+            {
+                if (!string.IsNullOrWhiteSpace(schoolLevel))
+                    throw new InvalidOperationException("רמת בית ספר אינה רלוונטית לגן ילדים");
+                return null;
+            }
+
+            var level = (schoolLevel ?? string.Empty).Trim().ToLowerInvariant();
+            if (!AllowedSchoolLevels.Contains(level))
+                throw new InvalidOperationException("רמת בית ספר חייבת להיות יסודי או תיכון");
+
+            return level;
         }
     }
 }

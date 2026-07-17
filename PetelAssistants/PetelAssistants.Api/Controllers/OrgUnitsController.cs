@@ -52,9 +52,11 @@ namespace PetelAssistants.Api.Controllers
             if (!int.TryParse(session.EntityId, out int entityId))
                 return BadRequest(new { success = false, message = "מזהה רשות לא תקין" });
 
+            int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
             try
             {
-                var id = await _orgUnitService.CreateOrgUnitAsync(entityId, request);
+                var id = await _orgUnitService.CreateOrgUnitAsync(entityId, userId, request);
                 return Ok(new { success = true, message = "מוסד נוצר בהצלחה", data = new { id } });
             }
             catch (InvalidOperationException ex)
@@ -73,9 +75,11 @@ namespace PetelAssistants.Api.Controllers
             if (!int.TryParse(session.EntityId, out int entityId))
                 return BadRequest(new { success = false, message = "מזהה רשות לא תקין" });
 
+            int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
             try
             {
-                await _orgUnitService.UpdateOrgUnitAsync(entityId, id, request);
+                await _orgUnitService.UpdateOrgUnitAsync(entityId, userId, id, request);
                 return Ok(new { success = true, message = "מוסד עודכן בהצלחה" });
             }
             catch (InvalidOperationException ex)
@@ -105,9 +109,11 @@ namespace PetelAssistants.Api.Controllers
             if (!int.TryParse(session.EntityId, out int entityId))
                 return BadRequest(new { success = false, message = "מזהה רשות לא תקין" });
 
+            int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
             try
             {
-                await _orgUnitService.SetOrgUnitActiveAsync(entityId, id, isActive);
+                await _orgUnitService.SetOrgUnitActiveAsync(entityId, userId, id, isActive);
                 return Ok(new { success = true, message = isActive ? "מוסד הופעל בהצלחה" : "מוסד הושבת בהצלחה" });
             }
             catch (InvalidOperationException ex)
