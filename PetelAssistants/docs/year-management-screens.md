@@ -67,6 +67,8 @@ Downstream pages should read year from the route parameter `{YearId}` and/or ses
 | `GET api/persons/phone-types` | Shared phone type lookup |
 | `POST api/persons` | Create person |
 | `PUT api/persons/{id}` | Update person (creates new detail version when needed) |
+| `POST api/personsfileupload/preview` | Preview Excel/CSV headers + suggested field mappings |
+| `POST api/personsfileupload/upload` | Import persons (create new; skip existing IDs) |
 
 ## Security actions
 
@@ -75,7 +77,7 @@ Run SQL scripts in order (see below). After running SQL, refresh the security ca
 | Screen | PageName | Page action | Button actions |
 |--------|----------|-------------|----------------|
 | Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_institutional_entitlements`, `yearmanagement_personal_entitlements`, `yearmanagement_org_units` |
-| Assistants | `assistants` | `assistants_page_action` | `assistants_back`, `assistants_refresh`, `assistants_add`, `assistants_edit`, `assistants_view_history` |
+| Assistants | `assistants` | `assistants_page_action` | `assistants_back`, `assistants_refresh`, `assistants_add`, `assistants_upload`, `assistants_edit`, `assistants_view_history` |
 | Institutional entitlements | `institutional_entitlements` | `institutional_entitlements_page_action` | back, refresh, add, edit, deactivate |
 | Personal entitlements | `personal_entitlements` | `personal_entitlements_page_action` | back, refresh, add, edit, deactivate |
 | Org units | `org_units` | `org_units_page_action` | back, refresh, add, edit, activate, deactivate |
@@ -91,10 +93,11 @@ After user-management scripts:
 
 1. `PetelAssistants/SQL/add-persons.sql`
 2. `PetelAssistants/SQL/add-persons-actions.sql`
-3. `PetelAssistants/SQL/add-entitlements-foundation.sql` — Hebrew year column fix, assistant types, org hierarchy
-4. `PetelAssistants/SQL/add-entitlements.sql` — entitlements table
-5. `PetelAssistants/SQL/add-entitlements-actions.sql` — security actions + menu items
-6. `PetelAssistants/SQL/add-year-org-units-nav.sql` — year hub card for org units
+3. `PetelAssistants/SQL/add-persons-upload-action.sql` — Excel upload button (`assistants_upload`)
+4. `PetelAssistants/SQL/add-entitlements-foundation.sql` — Hebrew year column fix, assistant types, org hierarchy
+5. `PetelAssistants/SQL/add-entitlements.sql` — entitlements table
+6. `PetelAssistants/SQL/add-entitlements-actions.sql` — security actions + menu items
+7. `PetelAssistants/SQL/add-year-org-units-nav.sql` — year hub card for org units
 
 ## Files
 

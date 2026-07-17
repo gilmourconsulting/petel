@@ -140,6 +140,17 @@ Global lookup tables (entities, entity types, system attributes) are in `SharedD
 
 An assistant who works for two authorities appears as two independent rows in `assist_schema.persons`, each with a different `entity_id`. There is no FK or unique constraint linking them across authorities. National ID (`id_number`) must be AES-encrypted at rest (use `DataEncryptionService` from `Petel.Core`). Any deduplication logic is application-layer only — never in SQL.
 
+### Person file upload (Excel/CSV)
+
+Bulk create from the Assistants screen (`PersonUploadModal` → `PersonsFileUploadController`):
+
+| Endpoint | Purpose |
+|---|---|
+| `POST api/personsfileupload/preview` | Headers + suggested mappings + available fields |
+| `POST api/personsfileupload/upload` | Multipart file + `mappingJson` (system field → file column) |
+
+Duplicate `id_number` within the tenant is skipped. Name mapping: full `name` (split) **or** `first_name` + `last_name`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Persons.
+
 ---
 
 ## Architecture Governance — Multi-Tenancy Rules

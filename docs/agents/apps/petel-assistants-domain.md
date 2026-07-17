@@ -53,6 +53,8 @@ Key system attributes:
 
 **Year linkage:** Assistant registration per Hebrew year is **not** part of the person domain — it will be implemented via entitlement assignments (future).
 
+**Excel import:** Assistants page supports bulk create via `POST api/personsfileupload/preview` then `/upload`. Flow: select file → map columns → process. Mapped fields today: `id_number` (required) plus either `name` (split on first space into first/last; single token → last name `-`) or both `first_name` and `last_name`. Existing national IDs for the tenant are **skipped** (not updated). SQL action: `assistants_upload` (`add-persons-upload-action.sql`).
+
 ## Hebrew years
 
 **Global definition:** `shared_schema.hebrew_years` stores the Hebrew year label (`hebrew_year`), Gregorian `start_date` / `end_date`, and flags `is_current`, `is_previous`, `is_active`. System administrators set dates across the entire system via the Hebrew years admin screen.

@@ -14,6 +14,10 @@
                   OnClick="ShowCreateDialog" CssClass="context-btn">
         הוסף סעיית
     </SecureButton>
+    <SecureButton ActionName="assistants_upload" ScreenName="@PageName" FunctionName="ShowUploadDialog"
+                  OnClick="ShowUploadDialog" CssClass="context-btn">
+        העלה קובץ סייעות
+    </SecureButton>
     <SecureButton ActionName="assistants_back" ScreenName="@PageName" FunctionName="NavigateBack"
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
         חזרה לניהול שנה
@@ -259,6 +263,8 @@
     </div>
 }
 
+<PersonUploadModal @ref="_uploadModal" OnUploadComplete="RefreshData" />
+
 @code {
     [Parameter] public int YearId { get; set; }
 
@@ -286,6 +292,7 @@
     private PersonListItemDto? _selectedPerson;
     private List<EntitlementAllocationDto> _allocations = new();
     private bool _isLoadingAllocations;
+    private PersonUploadModal? _uploadModal;
 
     protected override async Task OnPageInitializedAsync()
     {
@@ -487,6 +494,18 @@
         _effectiveDate = null;
         EnsurePhoneInputs();
         _showPersonDialog = true;
+    }
+
+    private async Task ShowUploadDialog()
+    {
+        if (_uploadModal != null)
+        {
+            _uploadModal.Show();
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בטעינת חלון העלאה");
+        }
     }
 
     private async Task EditPerson(int personId)
