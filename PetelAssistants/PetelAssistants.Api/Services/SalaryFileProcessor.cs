@@ -341,8 +341,63 @@ namespace PetelAssistants.Api.Services
                 _context.SalaryUploadProcesses.Update(processToUpdate);
             await _context.SaveChangesAsync();
 
+            await MatchPersonsForProcessAsync(process.Id, userId);
+
             result.TotalSalarySum = sum;
             return result;
+        }
+
+        /// <summary>
+        /// For each salary row in the process, look up persons by national ID (tenant-scoped)
+        /// and set matched_person_id to the person's primary key when found.
+        /// Compares canonical 9-digit IDs so a leading zero padded on salary import still
+        /// matches a person stored without it. Full person entities are loaded so IdNumber
+        /// is decrypted by the value converter (do not project encrypted fields).
+        /// </summary>
+        private async Task MatchPersonsForProcessAsync(int processId, int? userId)
+        {
+            var salaries = await _context.Salaries
+                .Where(s => s.ProcessId == processId)
+                .ToListAsync();
+
+            if (salaries.Count == 0)
+                return;
+
+            // Full entities — value converter decrypts IdNumber on materialization
+            var persons = await _context.Persons
+                .AsNoTracking()
+                .ToListAsync();
+
+            var personByCanonicalId = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (var person in persons)
+            {
+                var key = IsraeliIdHelper.ToCanonicalId(person.IdNumber);
+                if (string.IsNullOrEmpty(key))
+                    continue;
+                personByCanonicalId.TryAdd(key, person.Id);
+            }
+
+            if (personByCanonicalId.Count == 0)
+                return;
+
+            var now = DateTime.UtcNow;
+            var anyMatched = false;
+
+            foreach (var salary in salaries)
+            {
+                var key = IsraeliIdHelper.ToCanonicalId(salary.NationalId);
+                if (string.IsNullOrEmpty(key) ||
+                    !personByCanonicalId.TryGetValue(key, out var personId))
+                    continue;
+
+                salary.MatchedPersonId = personId;
+                salary.UpdatedAt = now;
+                salary.UpdateUser = userId;
+                anyMatched = true;
+            }
+
+            if (anyMatched)
+                await _context.SaveChangesAsync();
         }
 
         private List<SalaryFileRow> ParseExcel(Stream stream, Dictionary<string, string> mapping)

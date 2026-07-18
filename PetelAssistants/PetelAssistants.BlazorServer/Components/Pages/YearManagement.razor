@@ -14,6 +14,11 @@
                   OnClick="ShowSalaryUploadDialog" CssClass="context-btn" HideIfNoAccess="true">
         העלאת קובץ שכר
     </SecureButton>
+
+    <SecureButton ActionName="yearmanagement_salaries_view" ScreenName="@PageName" FunctionName="NavigateToSalaries"
+                  OnClick="NavigateToSalaries" CssClass="context-btn" HideIfNoAccess="true">
+        נתוני שכר
+    </SecureButton>
 </div>
 
 <SalaryUploadModal @ref="_salaryUploadModal" />
@@ -104,6 +109,7 @@
     private void NavigateToAssistants()   => Navigation.NavigateTo($"/year/{YearId}/assistants");
     private void NavigateToEntitlements() => Navigation.NavigateTo($"/year/{YearId}/entitlements");
     private void NavigateToOrgUnits()     => Navigation.NavigateTo($"/year/{YearId}/org-units");
+    private void NavigateToSalaries()     => Navigation.NavigateTo($"/salaries?fromYear={YearId}");
     private void NavigateBack()           => Navigation.NavigateTo("/maindashboard");
     private void ShowSalaryUploadDialog() => _salaryUploadModal?.Show();
 }

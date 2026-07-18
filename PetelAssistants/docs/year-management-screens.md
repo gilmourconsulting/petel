@@ -18,8 +18,9 @@ Domain context: assistants and entitlements are managed per Jewish school year. 
                     └── /year/{YearId}/org-units                     (בתי ספר וגנים)
 ```
 
-- **Main dashboard** (`MainDashboard.razor`, `/maindashboard`): shows current/previous year buttons, a "בחר שנה" modal, and context button **העלאת קובץ שכר** (`SalaryUploadModal`). Clicking a year navigates to `/year/{yearId}` (does not only store year in session).
-- **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name, navigation cards — **סייעות**, **זכאויות**, **בתי ספר וגנים** — and context button **העלאת קובץ שכר**.
+- **Main dashboard** (`MainDashboard.razor`, `/maindashboard`): shows current/previous year buttons, a "בחר שנה" modal, and context buttons **העלאת קובץ שכר** (`SalaryUploadModal`) and **נתוני שכר** (`/salaries`). Clicking a year navigates to `/year/{yearId}` (does not only store year in session).
+- **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name, navigation cards — **סייעות**, **זכאויות**, **בתי ספר וגנים** — and context buttons **העלאת קובץ שכר** and **נתוני שכר** (`/salaries?fromYear={YearId}`).
+- **Salaries view** (`Salaries.razor`, `/salaries`): read-only salary table with period and text filters (not Hebrew-year scoped; calendar year/month).
 - **Assistants** (`Assistants.razor`, `/year/{YearId}/assistants`): person CRUD for the logged-in authority.
 - **Institutional entitlements** (`InstitutionalEntitlements.razor`): school/kindergarten/class entitlements for the year.
 - **Personal entitlements** (`PersonalEntitlements.razor`): pupil (external id) entitlements for the year.
@@ -73,6 +74,7 @@ Downstream pages should read year from the route parameter `{YearId}` and/or ses
 | `GET/PUT api/salaryfileupload/mapping` | Entity-level salary column map |
 | `POST api/salaryfileupload/preview` | Preview salary file headers + mappings |
 | `POST api/salaryfileupload/upload` | Import salaries for period (optional replace) |
+| `GET api/salaries?year=&month=` | List salary rows for view screen |
 
 ## Security actions
 
@@ -80,8 +82,9 @@ Run SQL scripts in order (see below). After running SQL, refresh the security ca
 
 | Screen | PageName | Page action | Button actions |
 |--------|----------|-------------|----------------|
-| Main dashboard | `maindashboard` | (page access not enforced) | `maindashboard_salary_upload` |
-| Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_entitlements`, `yearmanagement_org_units`, `yearmanagement_salary_upload` |
+| Main dashboard | `maindashboard` | (page access not enforced) | `maindashboard_salary_upload`, `maindashboard_salaries_view` |
+| Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_entitlements`, `yearmanagement_org_units`, `yearmanagement_salary_upload`, `yearmanagement_salaries_view` |
+| Salaries view | `salaries` | `salaries_page_action` | `salaries_back`, `salaries_refresh` |
 | Assistants | `assistants` | `assistants_page_action` | `assistants_back`, `assistants_refresh`, `assistants_add`, `assistants_upload`, `assistants_edit`, `assistants_view_history` |
 | Institutional entitlements | `institutional_entitlements` | `institutional_entitlements_page_action` | back, refresh, add, edit, deactivate |
 | Personal entitlements | `personal_entitlements` | `personal_entitlements_page_action` | back, refresh, add, edit, deactivate |
@@ -104,6 +107,7 @@ After user-management scripts:
 6. `PetelAssistants/SQL/add-entitlements-actions.sql` — security actions + menu items
 7. `PetelAssistants/SQL/add-year-org-units-nav.sql` — year hub card for org units
 8. `PetelAssistants/SQL/add-salary-upload.sql` — salary tables + upload buttons
+9. `PetelAssistants/SQL/add-salaries-view-actions.sql` — salary view screen + nav buttons
 
 ## Files
 
@@ -112,6 +116,7 @@ After user-management scripts:
 | `MainDashboard.razor` | `/maindashboard` |
 | `YearManagement.razor` | `/year/{YearId:int}` |
 | `SalaryUploadModal.razor` | (modal from dashboard / year hub) |
+| `Salaries.razor` | `/salaries` |
 | `Assistants.razor` | `/year/{YearId:int}/assistants` |
 | `InstitutionalEntitlements.razor` | `/year/{YearId:int}/entitlements/institutional` |
 | `PersonalEntitlements.razor` | `/year/{YearId:int}/entitlements/personal` |

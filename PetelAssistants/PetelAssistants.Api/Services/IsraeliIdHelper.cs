@@ -13,6 +13,20 @@ namespace PetelAssistants.Api.Services
             return new string(value.Where(char.IsDigit).ToArray());
         }
 
+        /// <summary>
+        /// Canonical 9-digit form for comparing IDs across sources that may drop a leading zero
+        /// (e.g. salary import pads to 9; persons may store 8 digits).
+        /// </summary>
+        public static string ToCanonicalId(string? idNumber)
+        {
+            var digits = DigitsOnly(idNumber);
+            if (string.IsNullOrEmpty(digits))
+                return string.Empty;
+            if (digits.Length > 9)
+                digits = digits[^9..];
+            return digits.PadLeft(9, '0');
+        }
+
         public static bool IsValidIsraeliId(string idNumber)
         {
             if (idNumber.Length != 9 || !idNumber.All(char.IsDigit))

@@ -69,9 +69,11 @@ Manual Excel/CSV salary import for the logged-in authority. Entry points: contex
 
 **Column mapping:** Same preview → map → upload flow as persons. Mappable fields: `national_id`, `department_id`, `department_name`, `position_percentage`, `total_salary`. Entity-level saved map in `salary_field_mappings` (includes `id_includes_check_digit`); used as default when present.
 
-**National ID:** Encrypted deterministic AES at rest. When the map/upload flag says the ID includes a check digit, verify Israeli checksum; on failure save the row with `has_id_warning = true` and a `salary_upload_warnings` row (`invalid_id_checksum`). When it does not include a check digit, left-pad to 8 digits and append the computed check digit. No person/allocation matching at this stage (`matched_person_id` / `matched_allocation_id` remain null).
+**National ID:** Encrypted deterministic AES at rest. When the map/upload flag says the ID includes a check digit, verify Israeli checksum; on failure save the row with `has_id_warning = true` and a `salary_upload_warnings` row (`invalid_id_checksum`). When it does not include a check digit, left-pad to 8 digits and append the computed check digit. After rows are saved, each `national_id` is matched to `persons` for the same entity using a canonical 9-digit form (left-pad) so a leading zero on salary rows still matches a person stored without it; when found, `matched_person_id` is set to `persons.id`. Allocation matching is not done yet (`matched_allocation_id` remains null).
 
 **API:** `GET api/salaryfileupload/period-exists`, `GET/PUT mapping`, `POST preview`, `POST upload`. Security actions: `maindashboard_salary_upload`, `yearmanagement_salary_upload`.
+
+**View screen:** `/salaries` (`Salaries.razor`) — read-only table of uploaded salary rows. Entry points: context buttons on Main Dashboard and Year Management. Defaults to the previous calendar month. Filters above the table: period year/month (server reload), national ID, department, matched-to-person, ID warning. API: `GET api/salaries?year=&month=`. Security actions: `salaries_page_action`, `salaries_back`, `salaries_refresh`, `maindashboard_salaries_view`, `yearmanagement_salaries_view`. SQL: `add-salaries-view-actions.sql`.
 
 ## Hebrew years
 
