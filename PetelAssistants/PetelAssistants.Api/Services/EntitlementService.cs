@@ -471,33 +471,12 @@ namespace PetelAssistants.Api.Services
                 throw new InvalidOperationException("תעודת זהות חייבת להכיל בדיוק 9 ספרות");
 
             var raw = _attributeCache.GetAttributeValue("validate_israeli_id_checksum");
-            if (bool.TryParse(raw, out bool doCheck) && doCheck && !IsValidIsraeliId(idNumber))
+            if (bool.TryParse(raw, out bool doCheck) && doCheck && !IsraeliIdHelper.IsValidIsraeliId(idNumber))
                 throw new InvalidOperationException("מספר תעודת זהות לא תקין — ספרת ביקורת שגויה");
         }
 
-        /// <summary>
-        /// Israeli ID checksum — Luhn-like algorithm (identical to PetelATH StudentsFileProcessor).
-        /// </summary>
         private static bool IsPersonalLevel(string? level)
             => string.Equals(level, "personal", StringComparison.OrdinalIgnoreCase);
-
-        private static bool IsValidIsraeliId(string idNumber)
-        {
-            if (idNumber.Length != 9 || !idNumber.All(char.IsDigit))
-                return false;
-
-            int sum = 0;
-            for (int i = 0; i < 9; i++)
-            {
-                int digit = idNumber[i] - '0';
-                int multiplied = digit * ((i % 2) + 1);
-                if (multiplied > 9)
-                    multiplied -= 9;
-                sum += multiplied;
-            }
-
-            return sum % 10 == 0;
-        }
 
         private static string? NormalizeOptionalText(string? value)
             => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

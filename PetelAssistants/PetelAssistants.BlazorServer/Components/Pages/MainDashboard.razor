@@ -23,7 +23,14 @@
     <button class="context-navigation-btn" @onclick="OpenYearModal">
         בחר שנה
     </button>
+
+    <SecureButton ActionName="maindashboard_salary_upload" ScreenName="@PageName" FunctionName="ShowSalaryUploadDialog"
+                  OnClick="ShowSalaryUploadDialog" CssClass="context-btn" HideIfNoAccess="true">
+        העלאת קובץ שכר
+    </SecureButton>
 </div>
+
+<SalaryUploadModal @ref="_salaryUploadModal" />
 
 <!-- Dashboard Content -->
 <div class="dashboard-flex-row">
@@ -89,6 +96,7 @@
 
     private bool _isLoading     = true;
     private bool _showYearModal = false;
+    private SalaryUploadModal? _salaryUploadModal;
 
     protected override async Task OnPageInitializedAsync()
     {
@@ -118,4 +126,6 @@
 
     private void OpenYearModal()  => _showYearModal = true;
     private void CloseYearModal() => _showYearModal = false;
+
+    private void ShowSalaryUploadDialog() => _salaryUploadModal?.Show();
 }

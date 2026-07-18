@@ -31,6 +31,10 @@ namespace PetelAssistants.Api.Data
         public DbSet<Institution>            Institutions           { get; set; }
         public DbSet<Entitlement>            Entitlements           { get; set; }
         public DbSet<EntitlementAllocation>  EntitlementAllocations { get; set; }
+        public DbSet<SalaryUploadProcess>    SalaryUploadProcesses  { get; set; }
+        public DbSet<Salary>                 Salaries               { get; set; }
+        public DbSet<SalaryUploadWarning>    SalaryUploadWarnings   { get; set; }
+        public DbSet<SalaryFieldMapping>     SalaryFieldMappings    { get; set; }
 
         public AssistDbContext(
             DbContextOptions<AssistDbContext> options,
@@ -229,6 +233,75 @@ namespace PetelAssistants.Api.Data
                     .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasQueryFilter(a => _tenantContext.EntityId != 0 && a.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<SalaryUploadProcess>(entity =>
+            {
+                entity.ToTable("salary_upload_processes");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.PeriodYear, e.PeriodMonth });
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<Salary>(entity =>
+            {
+                entity.ToTable("salaries");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.PeriodYear, e.PeriodMonth, e.NationalId, e.DepartmentId })
+                    .IsUnique();
+
+                entity.Property(e => e.NationalId)
+                    .HasMaxLength(500)
+                    .HasConversion(
+                        v => _encryptionService.EncryptDeterministic(v),
+                        v => _encryptionService.DecryptDeterministic(v));
+
+                entity.HasOne(s => s.Process)
+                    .WithMany(p => p.Salaries)
+                    .HasForeignKey(s => s.ProcessId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(s => s.MatchedPerson)
+                    .WithMany()
+                    .HasForeignKey(s => s.MatchedPersonId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(s => s.MatchedAllocation)
+                    .WithMany()
+                    .HasForeignKey(s => s.MatchedAllocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasQueryFilter(s => _tenantContext.EntityId != 0 && s.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<SalaryUploadWarning>(entity =>
+            {
+                entity.ToTable("salary_upload_warnings");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.ProcessId);
+                entity.HasIndex(e => e.SalaryId);
+
+                entity.HasOne(w => w.Process)
+                    .WithMany(p => p.Warnings)
+                    .HasForeignKey(w => w.ProcessId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(w => w.Salary)
+                    .WithMany()
+                    .HasForeignKey(w => w.SalaryId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasQueryFilter(w => _tenantContext.EntityId != 0 && w.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<SalaryFieldMapping>(entity =>
+            {
+                entity.ToTable("salary_field_mappings");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.EntityId).IsUnique();
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
             });
         }
     }

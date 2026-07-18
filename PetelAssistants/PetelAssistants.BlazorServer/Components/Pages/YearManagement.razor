@@ -9,7 +9,14 @@
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
         חזרה לדף הבית
     </SecureButton>
+
+    <SecureButton ActionName="yearmanagement_salary_upload" ScreenName="@PageName" FunctionName="ShowSalaryUploadDialog"
+                  OnClick="ShowSalaryUploadDialog" CssClass="context-btn" HideIfNoAccess="true">
+        העלאת קובץ שכר
+    </SecureButton>
 </div>
+
+<SalaryUploadModal @ref="_salaryUploadModal" />
 
 <div class="main-container">
     <div class="students-content">
@@ -53,6 +60,7 @@
 
     private string _yearName  = "";
     private bool   _isLoading = true;
+    private SalaryUploadModal? _salaryUploadModal;
 
     protected override async Task OnPageInitializedAsync()
     {
@@ -97,4 +105,5 @@
     private void NavigateToEntitlements() => Navigation.NavigateTo($"/year/{YearId}/entitlements");
     private void NavigateToOrgUnits()     => Navigation.NavigateTo($"/year/{YearId}/org-units");
     private void NavigateBack()           => Navigation.NavigateTo("/maindashboard");
+    private void ShowSalaryUploadDialog() => _salaryUploadModal?.Show();
 }

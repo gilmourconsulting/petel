@@ -55,6 +55,24 @@ Key system attributes:
 
 **Excel import:** Assistants page supports bulk create via `POST api/personsfileupload/preview` then `/upload`. Flow: select file → map columns → process. Mapped fields today: `id_number` (required) plus either `name` (split on first space into first/last; single token → last name `-`) or both `first_name` and `last_name`. Existing national IDs for the tenant are **skipped** (not updated). SQL action: `assistants_upload` (`add-persons-upload-action.sql`).
 
+## Salary file upload
+
+Manual Excel/CSV salary import for the logged-in authority. Entry points: context buttons on Main Dashboard and Year Management (`SalaryUploadModal`).
+
+**Tables (assist_schema):** `salaries`, `salary_upload_processes`, `salary_upload_warnings`, `salary_field_mappings`. SQL: `add-salary-upload.sql`.
+
+**Period:** Separate integers `period_year` + `period_month` (1–12). UI defaults to the previous calendar month.
+
+**Business key:** `(entity_id, period_year, period_month, national_id, department_id)`. Re-upload for an existing period requires user confirmation; on continue, prior salary rows (and their warnings) for that period are deleted, then new data is inserted.
+
+**Process registration:** Each upload creates a `salary_upload_processes` row (`source = manual`). On completion: `row_count`, `total_salary_sum`, period, optional `file_name`.
+
+**Column mapping:** Same preview → map → upload flow as persons. Mappable fields: `national_id`, `department_id`, `department_name`, `position_percentage`, `total_salary`. Entity-level saved map in `salary_field_mappings` (includes `id_includes_check_digit`); used as default when present.
+
+**National ID:** Encrypted deterministic AES at rest. When the map/upload flag says the ID includes a check digit, verify Israeli checksum; on failure save the row with `has_id_warning = true` and a `salary_upload_warnings` row (`invalid_id_checksum`). When it does not include a check digit, left-pad to 8 digits and append the computed check digit. No person/allocation matching at this stage (`matched_person_id` / `matched_allocation_id` remain null).
+
+**API:** `GET api/salaryfileupload/period-exists`, `GET/PUT mapping`, `POST preview`, `POST upload`. Security actions: `maindashboard_salary_upload`, `yearmanagement_salary_upload`.
+
 ## Hebrew years
 
 **Global definition:** `shared_schema.hebrew_years` stores the Hebrew year label (`hebrew_year`), Gregorian `start_date` / `end_date`, and flags `is_current`, `is_previous`, `is_active`. System administrators set dates across the entire system via the Hebrew years admin screen.

@@ -151,6 +151,19 @@ Bulk create from the Assistants screen (`PersonUploadModal` → `PersonsFileUplo
 
 Duplicate `id_number` within the tenant is skipped. Name mapping: full `name` (split) **or** `first_name` + `last_name`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Persons.
 
+### Salary file upload (Excel/CSV)
+
+Manual upload from Main Dashboard / Year Management (`SalaryUploadModal` → `SalaryFileUploadController`). SQL: `PetelAssistants/SQL/add-salary-upload.sql`.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET api/salaryfileupload/period-exists` | Whether salaries already exist for year/month |
+| `GET/PUT api/salaryfileupload/mapping` | Entity-level column map + `idIncludesCheckDigit` |
+| `POST api/salaryfileupload/preview` | Headers + suggested/saved mappings |
+| `POST api/salaryfileupload/upload` | Multipart file + mapping + period + replace/save flags |
+
+Tables: `salaries`, `salary_upload_processes`, `salary_upload_warnings`, `salary_field_mappings`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Salary file upload.
+
 ---
 
 ## Architecture Governance — Multi-Tenancy Rules

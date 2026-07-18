@@ -76,6 +76,8 @@ builder.Services.AddSingleton<ActionAuthorizationService>();
 // ── Domain services ────────────────────────────────────────────────────────
 builder.Services.AddScoped<PersonService>();
 builder.Services.AddScoped<PersonsFileProcessor>();
+builder.Services.AddScoped<SalaryFileProcessor>();
+
 builder.Services.AddScoped<OrgUnitService>();
 builder.Services.AddScoped<EntitlementService>();
 
