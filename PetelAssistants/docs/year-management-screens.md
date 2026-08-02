@@ -85,7 +85,7 @@ Run SQL scripts in order (see below). After running SQL, refresh the security ca
 | Main dashboard | `maindashboard` | (page access not enforced) | `maindashboard_salary_upload`, `maindashboard_salaries_view` |
 | Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_entitlements`, `yearmanagement_org_units`, `yearmanagement_salary_upload`, `yearmanagement_salaries_view` |
 | Salaries view | `salaries` | `salaries_page_action` | `salaries_back`, `salaries_refresh` |
-| Assistants | `assistants` | `assistants_page_action` | `assistants_back`, `assistants_refresh`, `assistants_add`, `assistants_upload`, `assistants_edit`, `assistants_view_history` |
+| Assistants | `assistants` | `assistants_page_action` | `assistants_back`, `assistants_refresh`, `assistants_add`, `assistants_upload`, `assistants_view_details`, `assistants_edit`, `assistants_view_history` |
 | Institutional entitlements | `institutional_entitlements` | `institutional_entitlements_page_action` | back, refresh, add, edit, deactivate |
 | Personal entitlements | `personal_entitlements` | `personal_entitlements_page_action` | back, refresh, add, edit, deactivate |
 | Org units | `org_units` | `org_units_page_action` | back, refresh, add, edit, activate, deactivate |
@@ -102,12 +102,13 @@ After user-management scripts:
 1. `PetelAssistants/SQL/add-persons.sql`
 2. `PetelAssistants/SQL/add-persons-actions.sql`
 3. `PetelAssistants/SQL/add-persons-upload-action.sql` — Excel upload button (`assistants_upload`)
-4. `PetelAssistants/SQL/add-entitlements-foundation.sql` — Hebrew year column fix, assistant types, org hierarchy
-5. `PetelAssistants/SQL/add-entitlements.sql` — entitlements table
-6. `PetelAssistants/SQL/add-entitlements-actions.sql` — security actions + menu items
-7. `PetelAssistants/SQL/add-year-org-units-nav.sql` — year hub card for org units
-8. `PetelAssistants/SQL/add-salary-upload.sql` — salary tables + upload buttons
-9. `PetelAssistants/SQL/add-salaries-view-actions.sql` — salary view screen + nav buttons
+4. `PetelAssistants/SQL/add-assistants-view-details-action.sql` — view details button (`assistants_view_details`)
+5. `PetelAssistants/SQL/add-entitlements-foundation.sql` — Hebrew year column fix, assistant types, org hierarchy
+6. `PetelAssistants/SQL/add-entitlements.sql` — entitlements table
+7. `PetelAssistants/SQL/add-entitlements-actions.sql` — security actions + menu items
+8. `PetelAssistants/SQL/add-year-org-units-nav.sql` — year hub card for org units
+9. `PetelAssistants/SQL/add-salary-upload.sql` — salary tables + upload buttons
+10. `PetelAssistants/SQL/add-salaries-view-actions.sql` — salary view screen + nav buttons
 
 ## Files
 

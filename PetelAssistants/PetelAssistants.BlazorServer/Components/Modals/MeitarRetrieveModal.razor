@@ -1,0 +1,244 @@
+@using Petel.BlazorCore.Services
+@inject ApiService ApiService
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" style="display: flex;">
+        <div class="modal-content" style="max-width: 480px; width: 90%;">
+            <div class="modal-header">
+                <div>@_modalTitle</div>
+                <button class="modal-close" @onclick="CloseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_currentStep == RetrieveStep.PeriodSelection)
+                {
+                    <div>
+                        <div class="form-group" style="display: flex; gap: 16px; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 120px;">
+                                <label for="meitarPeriodMonth">חודש *</label>
+                                <select id="meitarPeriodMonth" class="form-control" @bind="_periodMonth">
+                                    @for (var m = 1; m <= 12; m++)
+                                    {
+                                        <option value="@m">@m</option>
+                                    }
+                                </select>
+                            </div>
+                            <div style="flex: 1; min-width: 120px;">
+                                <label for="meitarPeriodYear">שנה *</label>
+                                <input id="meitarPeriodYear" type="number" class="form-control" @bind="_periodYear" min="2000" max="2100" />
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_statusMessage))
+                        {
+                            <div class="upload-status upload-status-@_statusType" style="margin-top: 10px;">
+                                @((MarkupString)_statusMessage.Replace("\n", "<br>"))
+                            </div>
+                        }
+                    </div>
+                }
+                else if (_currentStep == RetrieveStep.ConfirmReplace)
+                {
+                    <div class="upload-status upload-status-warning" style="direction: rtl;">
+                        <p style="font-weight: bold; margin-bottom: 10px;">קיימים נתוני מייתר לתקופה @_periodMonth/@_periodYear</p>
+                        <p>שורות קיימות: @_existingRowCount</p>
+                        <p>סכום מחושב קיים: @_existingTotalCalculated.ToString("N2")</p>
+                        <p style="margin-top: 12px;">להמשיך? הנתונים הקיימים יימחקו ויוחלפו בנתונים החדשים.</p>
+                    </div>
+                }
+                else if (_currentStep == RetrieveStep.Complete)
+                {
+                    <div class="upload-status upload-status-@_statusType">
+                        @((MarkupString)_statusMessage.Replace("\n", "<br>"))
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                @if (_currentStep == RetrieveStep.PeriodSelection)
+                {
+                    <button type="button" class="btn-secondary" @onclick="CloseModal">ביטול</button>
+                    <button type="button" class="btn-primary" @onclick="HandleRetrieve" disabled="@_isProcessing">
+                        @(_isProcessing ? "בודק..." : "שליפה")
+                    </button>
+                }
+                else if (_currentStep == RetrieveStep.ConfirmReplace)
+                {
+                    <button type="button" class="btn-secondary" @onclick="BackToPeriod" disabled="@_isProcessing">ביטול</button>
+                    <button type="button" class="btn-primary" @onclick="() => ExecuteRetrieve(true)" disabled="@_isProcessing">
+                        @(_isProcessing ? "שולף..." : "המשך והחלף")
+                    </button>
+                }
+                else if (_currentStep == RetrieveStep.Complete)
+                {
+                    <button type="button" class="btn-primary" @onclick="CloseModal">אישור</button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private enum RetrieveStep
+    {
+        PeriodSelection,
+        ConfirmReplace,
+        Complete
+    }
+
+    private bool _isVisible;
+    private RetrieveStep _currentStep = RetrieveStep.PeriodSelection;
+    private string _modalTitle = "שליפת נתוני מייתר";
+    private string _statusMessage = string.Empty;
+    private string _statusType = "info";
+    private bool _isProcessing;
+
+    private int _periodMonth;
+    private int _periodYear;
+    private int _existingRowCount;
+    private decimal _existingTotalCalculated;
+
+    public void Show()
+    {
+        _isVisible = true;
+        ResetModal();
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        _isVisible = false;
+        ResetModal();
+        StateHasChanged();
+    }
+
+    private void BackToPeriod()
+    {
+        _currentStep = RetrieveStep.PeriodSelection;
+        _modalTitle = "שליפת נתוני מייתר";
+        _statusMessage = string.Empty;
+        StateHasChanged();
+    }
+
+    private void ResetModal()
+    {
+        var previous = DateTime.Today.AddMonths(-1);
+        _periodMonth = previous.Month;
+        _periodYear = previous.Year;
+        _currentStep = RetrieveStep.PeriodSelection;
+        _modalTitle = "שליפת נתוני מייתר";
+        _statusMessage = string.Empty;
+        _statusType = "info";
+        _isProcessing = false;
+        _existingRowCount = 0;
+        _existingTotalCalculated = 0;
+    }
+
+    private async Task HandleRetrieve()
+    {
+        if (_periodMonth < 1 || _periodMonth > 12)
+        {
+            _statusMessage = "חודש לא תקין";
+            _statusType = "error";
+            StateHasChanged();
+            return;
+        }
+
+        _isProcessing = true;
+        _statusMessage = "בודק תקופה...";
+        _statusType = "loading";
+        StateHasChanged();
+
+        try
+        {
+            var period = await ApiService.GetAsync<PeriodExistsResponse>(
+                $"meitardata/period-exists?year={_periodYear}&month={_periodMonth}");
+
+            if (period?.Success == true && period.Exists)
+            {
+                _existingRowCount = period.RowCount;
+                _existingTotalCalculated = period.TotalCalculated;
+                _currentStep = RetrieveStep.ConfirmReplace;
+                _modalTitle = "אישור החלפת נתונים";
+                _statusMessage = string.Empty;
+            }
+            else
+            {
+                await ExecuteRetrieve(false);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"❌ שגיאה בבדיקת תקופה: {ex.Message}";
+            _statusType = "error";
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task ExecuteRetrieve(bool replaceExisting)
+    {
+        _isProcessing = true;
+        _statusMessage = "שולף נתונים ממייתר...";
+        _statusType = "loading";
+        StateHasChanged();
+
+        try
+        {
+            var response = await ApiService.PostAsync<object, RetrieveResponse>(
+                "meitardata/retrieve",
+                new
+                {
+                    periodYear = _periodYear,
+                    periodMonth = _periodMonth,
+                    replaceExisting
+                });
+
+            if (response?.Success == true)
+            {
+                _currentStep = RetrieveStep.Complete;
+                _modalTitle = "שליפה הושלמה";
+                _statusType = "success";
+                _statusMessage = response.Message
+                    ?? $"נשלפו {response.RowCount} שורות. סכום: {response.TotalCalculated:N2}";
+            }
+            else
+            {
+                _currentStep = RetrieveStep.Complete;
+                _modalTitle = "שגיאה";
+                _statusType = "error";
+                _statusMessage = response?.Message ?? "שליפת נתוני מייתר נכשלה.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _currentStep = RetrieveStep.Complete;
+            _modalTitle = "שגיאה";
+            _statusType = "error";
+            _statusMessage = $"❌ {ex.Message}";
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private class PeriodExistsResponse
+    {
+        public bool Success { get; set; }
+        public bool Exists { get; set; }
+        public int RowCount { get; set; }
+        public decimal TotalCalculated { get; set; }
+    }
+
+    private class RetrieveResponse
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public int RowCount { get; set; }
+        public decimal TotalCalculated { get; set; }
+    }
+}

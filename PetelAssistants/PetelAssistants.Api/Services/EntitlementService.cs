@@ -83,15 +83,33 @@ namespace PetelAssistants.Api.Services
             }).ToList();
         }
 
-        public async Task<List<EntitlementAllocationDto>> ListAllocationsByPersonAsync(int personId, int yearId)
+        /// <summary>
+        /// Person IDs that have at least one active allocation on an entitlement for the given Hebrew year.
+        /// </summary>
+        public async Task<HashSet<int>> GetAllocatedPersonIdsAsync(int yearId)
         {
-            var rows = await (
+            var ids = await (
                 from a in _context.EntitlementAllocations.AsNoTracking()
                 join e in _context.Entitlements.AsNoTracking() on a.EntitlementId equals e.Id
-                where a.PersonId == personId && e.HebrewYearId == yearId
-                orderby a.Id descending
-                select new { Allocation = a, Entitlement = e }
-            ).ToListAsync();
+                where a.IsActive && e.HebrewYearId == yearId
+                select a.PersonId
+            ).Distinct().ToListAsync();
+
+            return ids.ToHashSet();
+        }
+
+        public async Task<List<EntitlementAllocationDto>> ListAllocationsByPersonAsync(int personId, int? yearId = null)
+        {
+            var query =
+                from a in _context.EntitlementAllocations.AsNoTracking()
+                join e in _context.Entitlements.AsNoTracking() on a.EntitlementId equals e.Id
+                where a.PersonId == personId
+                select new { Allocation = a, Entitlement = e };
+
+            if (yearId is > 0)
+                query = query.Where(r => r.Entitlement.HebrewYearId == yearId.Value);
+
+            var rows = await query.OrderByDescending(r => r.Allocation.Id).ToListAsync();
 
             if (rows.Count == 0)
                 return new List<EntitlementAllocationDto>();
@@ -105,6 +123,7 @@ namespace PetelAssistants.Api.Services
             var assistantTypeIds = rows.Select(r => r.Entitlement.AssistantTypeId).Distinct().ToList();
             var institutionIds = rows.Where(r => r.Entitlement.InstitutionId.HasValue)
                                 .Select(r => r.Entitlement.InstitutionId!.Value).Distinct().ToList();
+            var hebrewYearIds = rows.Select(r => r.Entitlement.HebrewYearId).Distinct().ToList();
 
             var assistantTypes = await _sharedContext.AssistantTypes
                 .AsNoTracking()
@@ -118,10 +137,16 @@ namespace PetelAssistants.Api.Services
                     .Where(e => institutionIds.Contains(e.Id))
                     .ToDictionaryAsync(e => e.Id, e => e.Name);
 
+            var hebrewYears = await _sharedContext.HebrewYears
+                .AsNoTracking()
+                .Where(y => hebrewYearIds.Contains(y.Id))
+                .ToDictionaryAsync(y => y.Id, y => y.YearName);
+
             return rows.Select(r =>
             {
                 schools.TryGetValue(r.Entitlement.InstitutionId ?? 0, out var schoolName);
                 assistantTypes.TryGetValue(r.Entitlement.AssistantTypeId, out var typeName);
+                hebrewYears.TryGetValue(r.Entitlement.HebrewYearId, out var yearName);
 
                 return new EntitlementAllocationDto
                 {
@@ -129,6 +154,8 @@ namespace PetelAssistants.Api.Services
                     EntitlementId     = r.Allocation.EntitlementId,
                     PersonId          = r.Allocation.PersonId,
                     PersonFullName    = personName,
+                    HebrewYearId      = r.Entitlement.HebrewYearId,
+                    HebrewYearName    = yearName,
                     StartDate         = r.Allocation.StartDate,
                     EndDate           = r.Allocation.EndDate,
                     Hours             = r.Allocation.Hours,

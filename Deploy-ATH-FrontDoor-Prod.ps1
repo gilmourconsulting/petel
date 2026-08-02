@@ -1,8 +1,8 @@
 # ============================================================
-# PetelATH Production — Azure Front Door Deployment
+# PetelATH Production -- Azure Front Door Deployment
 # ============================================================
 # Creates a Front Door Premium profile that routes ONLY to the
-# Blazor server. The API is fully private — accessible only from
+# Blazor server. The API is fully private -- accessible only from
 # the Blazor App Service (server-to-server), not from the web.
 #
 # Traffic flow:
@@ -10,7 +10,7 @@
 #                                       -> API App Service (internal only)
 #
 # WAF enforces Israel-only access via GeoMatch (country = IL).
-# No Israeli IP ranges needed — GeoMatch is maintained by Microsoft.
+# No Israeli IP ranges needed -- GeoMatch is maintained by Microsoft.
 #
 # Usage:
 #   .\Deploy-ATH-FrontDoor-Prod.ps1           # full deploy
@@ -26,7 +26,7 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference    = "SilentlyContinue"
 
-# ── Configuration ────────────────────────────────────────────
+# --- Configuration -----------------------------------------------------------
 $cfg = @{
     ResourceGroup    = 'petel-prod-rg'
     FrontDoorProfile = 'petel-frontdoor-prod'
@@ -38,34 +38,47 @@ $cfg = @{
     BlazorHostname   = 'petel-prod-blazor.azurewebsites.net'
 }
 
-# ── Helpers ──────────────────────────────────────────────────
-function Write-Step   { param([string]$m) Write-Host "`n$m" -ForegroundColor Yellow; Write-Host ("─" * $m.Length) -ForegroundColor Yellow }
-function Write-Ok     { param([string]$m) Write-Host "  OK  $m" -ForegroundColor Green }
-function Write-Skip   { param([string]$m) Write-Host "  --  $m" -ForegroundColor DarkGray }
-function Write-Warn   { param([string]$m) Write-Host "  !!  $m" -ForegroundColor Yellow }
-function Write-Err    { param([string]$m) Write-Host "  ERR $m" -ForegroundColor Red }
+# --- Helpers -----------------------------------------------------------------
+function Write-Step {
+    param([string]$m)
+    Write-Host ""
+    Write-Host $m -ForegroundColor Yellow
+    Write-Host ("-" * $m.Length) -ForegroundColor Yellow
+}
+function Write-Ok   { param([string]$m) Write-Host "  OK  $m" -ForegroundColor Green }
+function Write-Skip { param([string]$m) Write-Host "  --  $m" -ForegroundColor DarkGray }
+function Write-Warn { param([string]$m) Write-Host "  !!  $m" -ForegroundColor Yellow }
+function Write-Err  { param([string]$m) Write-Host "  ERR $m" -ForegroundColor Red }
 
 function Invoke-Az {
-    param([string[]]$Args)
-    if ($DryRun) { Write-Host "  [DRY RUN] az $($Args -join ' ')" -ForegroundColor DarkCyan; return $null }
-    $result = az @Args 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "az $($Args[0..2] -join ' ') failed: $result" }
+    param([string[]]$AzArgs)
+    if ($DryRun) {
+        Write-Host "  [DRY RUN] az $($AzArgs -join ' ')" -ForegroundColor DarkCyan
+        return $null
+    }
+    $result = az @AzArgs 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "az $($AzArgs[0..2] -join ' ') failed: $result" }
     return $result
 }
 
 function Test-AzResource {
-    param([string[]]$Args)
-    az @Args --only-show-errors 2>$null | Out-Null
-    return $LASTEXITCODE -eq 0
+    param([string[]]$AzArgs)
+    try {
+        $output = az @AzArgs 2>&1
+        return ($LASTEXITCODE -eq 0)
+    }
+    catch {
+        return $false
+    }
 }
 
-# ── Banner ────────────────────────────────────────────────────
+# --- Banner ------------------------------------------------------------------
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Cyan
-Write-Host "  PetelATH Production — Azure Front Door Deployment" -ForegroundColor Cyan
+Write-Host "  PetelATH Production -- Azure Front Door Deployment"        -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan
-if ($DryRun)  { Write-Host "  DRY RUN MODE — no resources will be created" -ForegroundColor Yellow }
-if ($WafOnly) { Write-Host "  WAF-ONLY MODE — skipping Front Door infrastructure" -ForegroundColor Yellow }
+if ($DryRun)  { Write-Host "  DRY RUN MODE -- no resources will be created"          -ForegroundColor Yellow }
+if ($WafOnly) { Write-Host "  WAF-ONLY MODE -- skipping Front Door infrastructure"   -ForegroundColor Yellow }
 Write-Host ""
 Write-Host "  Resource Group:    $($cfg.ResourceGroup)"    -ForegroundColor White
 Write-Host "  Front Door:        $($cfg.FrontDoorProfile)" -ForegroundColor White
@@ -74,14 +87,23 @@ Write-Host "  Blazor Backend:    $($cfg.BlazorHostname)"   -ForegroundColor Whit
 Write-Host "  API (private):     $($cfg.ApiAppName).azurewebsites.net (no FD route)" -ForegroundColor White
 Write-Host ""
 
-# ── Prerequisites ─────────────────────────────────────────────
+# --- Prerequisites -----------------------------------------------------------
 Write-Step "Verifying Prerequisites"
 
-try { az account show --only-show-errors | Out-Null; Write-Ok "Azure CLI authenticated" }
-catch { Write-Err "Not authenticated. Run: az login"; exit 1 }
+try {
+    az account show --only-show-errors | Out-Null
+    Write-Ok "Azure CLI authenticated"
+}
+catch {
+    Write-Err "Not authenticated. Run: az login"
+    exit 1
+}
 
 $rgOk = az group exists --name $cfg.ResourceGroup
-if ($rgOk -ne 'true') { Write-Err "Resource group '$($cfg.ResourceGroup)' not found"; exit 1 }
+if ($rgOk -ne 'true') {
+    Write-Err "Resource group '$($cfg.ResourceGroup)' not found"
+    exit 1
+}
 Write-Ok "Resource group exists"
 
 if (-not $WafOnly) {
@@ -94,7 +116,7 @@ if (-not $WafOnly) {
     Write-Ok "API App Service exists"
 }
 
-# ── Step 1: WAF Policy ────────────────────────────────────────
+# --- Step 1: WAF Policy ------------------------------------------------------
 Write-Step "Step 1: WAF Policy"
 
 $wafExists = Test-AzResource @("network", "front-door", "waf-policy", "show",
@@ -109,79 +131,92 @@ if (-not $wafExists) {
         "--mode", "Prevention",
         "--only-show-errors") | Out-Null
     Write-Ok "WAF policy created"
-} else {
+}
+else {
     Write-Skip "WAF policy already exists"
 }
 
-# Managed rule sets
-Write-Host "  Configuring managed rule sets..." -ForegroundColor Gray
+# Enable managed rule sets via ARM REST GET+PUT
+# (CLI 'managed-rules add' sends an unsupported action for Premium WAF; PATCH not supported)
+Write-Host "  Enabling managed rule sets (DefaultRuleSet 2.0 + BotManagerRuleSet 1.0) via ARM..." -ForegroundColor Gray
+if (-not $DryRun) {
+    $subId        = (az account show --query id -o tsv)
+    $wafPolicyUrl = "https://management.azure.com/subscriptions/$subId/resourceGroups/$($cfg.ResourceGroup)/providers/Microsoft.Network/frontDoorWebApplicationFirewallPolicies/$($cfg.WafPolicyName)?api-version=2022-05-01"
 
-# OWASP / Default Rule Set
-$owaspResult = az network front-door waf-policy managed-rule-set add `
-    --policy-name $cfg.WafPolicyName `
-    --resource-group $cfg.ResourceGroup `
-    --type "Microsoft_DefaultRuleSet" `
-    --version "2.1" `
-    --only-show-errors 2>&1
+    # GET current policy
+    $policyJson = az rest --method get --url $wafPolicyUrl --only-show-errors 2>&1
+    if ($LASTEXITCODE -ne 0) { throw "Failed to GET WAF policy: $policyJson" }
 
-if ($LASTEXITCODE -eq 0) { Write-Ok "OWASP DefaultRuleSet 2.1 enabled" }
-else { Write-Warn "OWASP rules may already be configured (skipping)" }
+    $policy = $policyJson | ConvertFrom-Json
 
-# Bot Protection
-$botResult = az network front-door waf-policy managed-rule-set add `
-    --policy-name $cfg.WafPolicyName `
-    --resource-group $cfg.ResourceGroup `
-    --type "Microsoft_BotManagerRuleSet" `
-    --version "1.0" `
-    --only-show-errors 2>&1
+    # Inject managed rule sets
+    $managedRuleSets = @(
+        [PSCustomObject]@{ ruleSetType = "Microsoft_DefaultRuleSet";    ruleSetVersion = "2.0"; ruleSetAction = "Block" },
+        [PSCustomObject]@{ ruleSetType = "Microsoft_BotManagerRuleSet"; ruleSetVersion = "1.0"; ruleSetAction = "Block" }
+    )
 
-if ($LASTEXITCODE -eq 0) { Write-Ok "BotManagerRuleSet 1.0 enabled" }
-else { Write-Warn "Bot rules may already be configured (skipping)" }
-
-# Custom rule: Block non-Israeli traffic via GeoMatch
-Write-Host "  Configuring Israel-only GeoMatch block rule..." -ForegroundColor Gray
-
-$geoRuleExists = Test-AzResource @("network", "front-door", "waf-policy", "rule", "show",
-    "--policy-name", $cfg.WafPolicyName, "--resource-group", $cfg.ResourceGroup, "--name", "BlockNonIsrael")
-
-if ($geoRuleExists) {
-    Write-Host "  Removing existing GeoMatch rule for update..." -ForegroundColor Gray
-    if (-not $DryRun) {
-        az network front-door waf-policy rule delete `
-            --policy-name $cfg.WafPolicyName `
-            --resource-group $cfg.ResourceGroup `
-            --name "BlockNonIsrael" `
-            --only-show-errors | Out-Null
+    if (-not $policy.properties.PSObject.Properties["managedRules"]) {
+        $policy.properties | Add-Member -MemberType NoteProperty -Name "managedRules" -Value ([PSCustomObject]@{})
     }
+    $policy.properties.managedRules | Add-Member -MemberType NoteProperty -Name "managedRuleSets" -Value $managedRuleSets -Force
+
+    # PUT the full policy back
+    $tmpFile = [System.IO.Path]::GetTempFileName() + ".json"
+    $policy | ConvertTo-Json -Depth 20 | Out-File $tmpFile -Encoding utf8
+
+    az rest --method put `
+        --url $wafPolicyUrl `
+        --body "@$tmpFile" `
+        --headers "Content-Type=application/json" `
+        --only-show-errors 2>&1 | Out-Null
+
+    Remove-Item $tmpFile -Force -ErrorAction SilentlyContinue
+
+    if ($LASTEXITCODE -eq 0) { Write-Ok "Managed rule sets enabled (DefaultRuleSet 2.0 + BotManagerRuleSet 1.0)" }
+    else { Write-Warn "Managed rules may need to be enabled manually in Azure Portal (WAF -> Managed rules)" }
+}
+else {
+    Write-Host "  [DRY RUN] Would enable Microsoft_DefaultRuleSet 2.0 and Microsoft_BotManagerRuleSet 1.0" -ForegroundColor DarkCyan
 }
 
-# Create the block rule (deferred — match condition added next)
+# Custom rule: Block non-Israeli traffic via GeoMatch
+# Uses ARM REST GET+PUT to avoid CLI --defer limitation and add the rule + match condition in one call.
+Write-Host "  Configuring BlockNonIsrael GeoMatch rule via ARM..." -ForegroundColor Gray
+
 if (-not $DryRun) {
-    az network front-door waf-policy rule create `
-        --policy-name $cfg.WafPolicyName `
-        --resource-group $cfg.ResourceGroup `
-        --name "BlockNonIsrael" `
-        --rule-type "MatchRule" `
-        --action "Block" `
-        --priority 100 `
-        --defer `
-        --only-show-errors | Out-Null
+    $subId   = (az account show --query id -o tsv)
+    $wafUrl  = "https://management.azure.com/subscriptions/$subId/resourceGroups/$($cfg.ResourceGroup)/providers/Microsoft.Network/frontDoorWebApplicationFirewallPolicies/$($cfg.WafPolicyName)?api-version=2022-05-01"
 
-    # Add match condition: block when country is NOT Israel
-    az network front-door waf-policy rule match-condition add `
-        --policy-name $cfg.WafPolicyName `
-        --resource-group $cfg.ResourceGroup `
-        --name "BlockNonIsrael" `
-        --match-variable "RemoteAddr" `
-        --operator "GeoMatch" `
-        --negate true `
-        --values "IL" `
-        --only-show-errors | Out-Null
+    $policy = (az rest --method get --url $wafUrl --only-show-errors 2>&1) | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0) { throw "Failed to GET WAF policy" }
 
-    if ($LASTEXITCODE -eq 0) { Write-Ok "GeoMatch block rule (non-IL -> 403) configured" }
-    else { Write-Warn "GeoMatch rule may need manual verification in Azure Portal" }
-} else {
-    Write-Host "  [DRY RUN] Would create GeoMatch block rule: non-IL -> Block (priority 100)" -ForegroundColor DarkCyan
+    $geoRule = [PSCustomObject]@{
+        name            = "BlockNonIsrael"
+        priority        = 100
+        ruleType        = "MatchRule"
+        action          = "Block"
+        matchConditions = @(
+            [PSCustomObject]@{
+                matchVariable   = "RemoteAddr"
+                operator        = "GeoMatch"
+                negateCondition = $true
+                matchValue      = @("IL")
+            }
+        )
+    }
+    $policy.properties.customRules.rules = @($geoRule)
+
+    $tmpFile = [System.IO.Path]::GetTempFileName() + ".json"
+    $policy | ConvertTo-Json -Depth 20 | Out-File $tmpFile -Encoding utf8
+
+    az rest --method put --url $wafUrl --body "@$tmpFile" --headers "Content-Type=application/json" --only-show-errors 2>&1 | Out-Null
+    Remove-Item $tmpFile -Force -ErrorAction SilentlyContinue
+
+    if ($LASTEXITCODE -eq 0) { Write-Ok "BlockNonIsrael GeoMatch rule configured (non-IL -> Block 403)" }
+    else { Write-Warn "GeoMatch rule may need manual verification in the Azure Portal" }
+}
+else {
+    Write-Host "  [DRY RUN] Would create BlockNonIsrael: GeoMatch != IL -> Block (priority 100)" -ForegroundColor DarkCyan
 }
 
 if ($WafOnly) {
@@ -191,11 +226,12 @@ if ($WafOnly) {
     exit 0
 }
 
-# ── Step 2: Front Door Profile ────────────────────────────────
+# --- Step 2: Front Door Profile ----------------------------------------------
 Write-Step "Step 2: Front Door Profile"
 
 $fdExists = Test-AzResource @("afd", "profile", "show",
-    "--profile-name", $cfg.FrontDoorProfile, "--resource-group", $cfg.ResourceGroup)
+    "--profile-name", $cfg.FrontDoorProfile,
+    "--resource-group", $cfg.ResourceGroup)
 
 if (-not $fdExists) {
     Write-Host "  Creating Front Door Premium profile (may take 2-3 minutes)..." -ForegroundColor Gray
@@ -205,11 +241,12 @@ if (-not $fdExists) {
         "--sku", "Premium_AzureFrontDoor",
         "--only-show-errors") | Out-Null
     Write-Ok "Front Door profile created"
-} else {
+}
+else {
     Write-Skip "Front Door profile already exists"
 }
 
-# ── Step 3: Endpoint ──────────────────────────────────────────
+# --- Step 3: Endpoint --------------------------------------------------------
 Write-Step "Step 3: Endpoint"
 
 $epExists = Test-AzResource @("afd", "endpoint", "show",
@@ -225,12 +262,13 @@ if (-not $epExists) {
         "--enabled-state", "Enabled",
         "--only-show-errors") | Out-Null
     Write-Ok "Endpoint created"
-} else {
+}
+else {
     Write-Skip "Endpoint already exists"
 }
 
-# ── Step 4: Origin Group (Blazor only) ───────────────────────
-Write-Step "Step 4: Origin Group — Blazor"
+# --- Step 4: Origin Group (Blazor only) --------------------------------------
+Write-Step "Step 4: Origin Group -- Blazor"
 
 $ogExists = Test-AzResource @("afd", "origin-group", "show",
     "--origin-group-name", "blazor-origins",
@@ -251,7 +289,8 @@ if (-not $ogExists) {
         "--additional-latency-in-milliseconds", "50",
         "--only-show-errors") | Out-Null
     Write-Ok "blazor-origins origin group created"
-} else {
+}
+else {
     Write-Skip "blazor-origins already exists"
 }
 
@@ -276,11 +315,12 @@ if (-not $originExists) {
         "--https-port", "443",
         "--only-show-errors") | Out-Null
     Write-Ok "blazor-backend origin added"
-} else {
+}
+else {
     Write-Skip "blazor-backend origin already exists"
 }
 
-# ── Step 5: Route ─────────────────────────────────────────────
+# --- Step 5: Route -----------------------------------------------------------
 Write-Step "Step 5: Route (/* -> Blazor)"
 
 $routeExists = Test-AzResource @("afd", "route", "show",
@@ -303,16 +343,17 @@ if (-not $routeExists) {
         "--link-to-default-domain", "Enabled",
         "--only-show-errors") | Out-Null
     Write-Ok "blazor-route created (/* -> blazor-origins, HTTPS only)"
-} else {
+}
+else {
     Write-Skip "blazor-route already exists"
 }
 
-# ── Step 6: Security Policy (WAF <-> Endpoint) ────────────────
+# --- Step 6: Security Policy (WAF <-> Endpoint) ------------------------------
 Write-Step "Step 6: Security Policy"
 
 $subscriptionId = (az account show --query id -o tsv)
-$wafPolicyId  = "/subscriptions/$subscriptionId/resourceGroups/$($cfg.ResourceGroup)/providers/Microsoft.Network/frontDoorWebApplicationFirewallPolicies/$($cfg.WafPolicyName)"
-$endpointId   = "/subscriptions/$subscriptionId/resourceGroups/$($cfg.ResourceGroup)/providers/Microsoft.Cdn/profiles/$($cfg.FrontDoorProfile)/afdEndpoints/$($cfg.EndpointName)"
+$wafPolicyId = "/subscriptions/$subscriptionId/resourceGroups/$($cfg.ResourceGroup)/providers/Microsoft.Network/frontDoorWebApplicationFirewallPolicies/$($cfg.WafPolicyName)"
+$endpointId  = "/subscriptions/$subscriptionId/resourceGroups/$($cfg.ResourceGroup)/providers/Microsoft.Cdn/profiles/$($cfg.FrontDoorProfile)/afdEndpoints/$($cfg.EndpointName)"
 
 $spExists = Test-AzResource @("afd", "security-policy", "show",
     "--security-policy-name", $cfg.SecurityPolicy,
@@ -339,49 +380,52 @@ Invoke-Az @("afd", "security-policy", "create",
     "--only-show-errors") | Out-Null
 Write-Ok "WAF policy associated with Front Door endpoint"
 
-# ── Step 7: Lock Blazor to Front Door only ────────────────────
-Write-Step "Step 7: App Service Lockdown — Blazor (Allow AzureFrontDoor.Backend only)"
+# --- Step 7: Lock Blazor to Front Door only ----------------------------------
+# Uses ARM REST PUT to replace all rules atomically -- avoids slow per-rule remove loop.
+Write-Step "Step 7: App Service Lockdown -- Blazor"
 
-# Remove any existing named rules first so we can set a clean state
-Write-Host "  Clearing existing access restriction rules on Blazor..." -ForegroundColor Gray
 if (-not $DryRun) {
-    $existingRules = az webapp config access-restriction show `
-        --name $cfg.BlazorAppName `
-        --resource-group $cfg.ResourceGroup `
-        --query "ipSecurityRestrictions[?name!='Allow all' && name!='Deny all'].name" -o tsv 2>$null
+    $subId       = (az account show --query id -o tsv)
+    $blazorWebUrl = "https://management.azure.com/subscriptions/$subId/resourceGroups/$($cfg.ResourceGroup)/providers/Microsoft.Web/sites/$($cfg.BlazorAppName)/config/web?api-version=2022-03-01"
 
-    foreach ($r in $existingRules) {
-        if ($r) {
-            az webapp config access-restriction remove `
-                --name $cfg.BlazorAppName `
-                --resource-group $cfg.ResourceGroup `
-                --rule-name $r 2>$null | Out-Null
+    $blazorRestrictions = @(
+        [PSCustomObject]@{
+            ipAddress   = "AzureFrontDoor.Backend"
+            tag         = "ServiceTag"
+            action      = "Allow"
+            priority    = 100
+            name        = "AllowFrontDoor"
+            description = "Allow traffic only from Azure Front Door"
+        }
+    )
+
+    $blazorBody = [PSCustomObject]@{
+        properties = [PSCustomObject]@{
+            ipSecurityRestrictions              = $blazorRestrictions
+            ipSecurityRestrictionsDefaultAction = "Deny"
         }
     }
+
+    $tmpFile = [System.IO.Path]::GetTempFileName() + ".json"
+    $blazorBody | ConvertTo-Json -Depth 10 | Out-File $tmpFile -Encoding utf8
+
+    az rest --method put --url $blazorWebUrl --body "@$tmpFile" --headers "Content-Type=application/json" --only-show-errors 2>&1 | Out-Null
+    Remove-Item $tmpFile -Force -ErrorAction SilentlyContinue
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Ok "Blazor: AllowFrontDoor (AzureFrontDoor.Backend) + Deny default"
+    }
+    else {
+        Write-Warn "Blazor access restriction update failed -- check Azure Portal"
+    }
+}
+else {
+    Write-Host "  [DRY RUN] Would set Blazor: Allow AzureFrontDoor.Backend + Deny default" -ForegroundColor DarkCyan
 }
 
-# Allow Azure Front Door Backend service tag
-Invoke-Az @("webapp", "config", "access-restriction", "add",
-    "--name", $cfg.BlazorAppName,
-    "--resource-group", $cfg.ResourceGroup,
-    "--rule-name", "AllowFrontDoor",
-    "--action", "Allow",
-    "--service-tag", "AzureFrontDoor.Backend",
-    "--priority", "100") | Out-Null
-Write-Ok "AllowFrontDoor rule added (AzureFrontDoor.Backend, priority 100)"
-
-# Deny everything else
-Invoke-Az @("webapp", "config", "access-restriction", "add",
-    "--name", $cfg.BlazorAppName,
-    "--resource-group", $cfg.ResourceGroup,
-    "--rule-name", "DenyAll",
-    "--action", "Deny",
-    "--ip-address", "0.0.0.0/0",
-    "--priority", "200") | Out-Null
-Write-Ok "DenyAll rule added (0.0.0.0/0, priority 200) — direct access blocked"
-
-# ── Step 8: Lock API to Blazor outbound IPs only ─────────────
-Write-Step "Step 8: App Service Lockdown — API (Allow Blazor outbound IPs only)"
+# --- Step 8: Lock API to Blazor outbound IPs only ----------------------------
+# Uses ARM REST PUT to replace all rules atomically -- avoids slow per-rule remove loop.
+Write-Step "Step 8: App Service Lockdown -- API (Blazor outbound IPs only)"
 
 Write-Host "  Fetching Blazor outbound IP addresses..." -ForegroundColor Gray
 $blazorOutboundIps = @()
@@ -395,67 +439,64 @@ if (-not $DryRun) {
     if ($ipString) {
         $blazorOutboundIps = $ipString -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ }
         Write-Ok "$($blazorOutboundIps.Count) outbound IPs retrieved from Blazor App Service"
-    } else {
-        Write-Warn "Could not retrieve Blazor outbound IPs — API lockdown skipped"
-        Write-Host "  Manually add Blazor outbound IPs to API access restrictions." -ForegroundColor Yellow
     }
-} else {
-    $blazorOutboundIps = @("10.0.0.1", "10.0.0.2")  # placeholder for dry run output
+    else {
+        Write-Warn "Could not retrieve Blazor outbound IPs -- API lockdown skipped"
+        Write-Host "  Manually add Blazor outbound IPs to the API access restrictions." -ForegroundColor Yellow
+    }
+}
+else {
+    $blazorOutboundIps = @("10.0.0.1", "10.0.0.2")
     Write-Host "  [DRY RUN] Would fetch outbound IPs from $($cfg.BlazorAppName)" -ForegroundColor DarkCyan
 }
 
 if ($blazorOutboundIps.Count -gt 0) {
-    # Clear existing named rules on API
-    Write-Host "  Clearing existing access restriction rules on API..." -ForegroundColor Gray
-    if (-not $DryRun) {
-        $existingApiRules = az webapp config access-restriction show `
-            --name $cfg.ApiAppName `
-            --resource-group $cfg.ResourceGroup `
-            --query "ipSecurityRestrictions[?name!='Allow all' && name!='Deny all'].name" -o tsv 2>$null
+    $subId      = (az account show --query id -o tsv)
+    $apiWebUrl  = "https://management.azure.com/subscriptions/$subId/resourceGroups/$($cfg.ResourceGroup)/providers/Microsoft.Web/sites/$($cfg.ApiAppName)/config/web?api-version=2022-03-01"
 
-        foreach ($r in $existingApiRules) {
-            if ($r) {
-                az webapp config access-restriction remove `
-                    --name $cfg.ApiAppName `
-                    --resource-group $cfg.ResourceGroup `
-                    --rule-name $r 2>$null | Out-Null
-            }
-        }
-    }
-
-    # Add one Allow rule per outbound IP
+    $apiRestrictions = @()
     $ipIndex = 1
     foreach ($ip in $blazorOutboundIps) {
-        $ruleName = "AllowBlazor_$ipIndex"
-        $priority = 100 + $ipIndex
-
-        Invoke-Az @("webapp", "config", "access-restriction", "add",
-            "--name", $cfg.ApiAppName,
-            "--resource-group", $cfg.ResourceGroup,
-            "--rule-name", $ruleName,
-            "--action", "Allow",
-            "--ip-address", "$ip/32",
-            "--priority", "$priority") | Out-Null
-
-        Write-Ok "$ruleName: Allow $ip/32 (priority $priority)"
+        $apiRestrictions += [PSCustomObject]@{
+            ipAddress   = "$ip/32"
+            action      = "Allow"
+            priority    = 100 + $ipIndex
+            name        = "AllowBlazor_$ipIndex"
+            description = "Blazor server outbound IP $ip"
+        }
         $ipIndex++
     }
 
-    # Deny all other traffic
-    Invoke-Az @("webapp", "config", "access-restriction", "add",
-        "--name", $cfg.ApiAppName,
-        "--resource-group", $cfg.ResourceGroup,
-        "--rule-name", "DenyAll",
-        "--action", "Deny",
-        "--ip-address", "0.0.0.0/0",
-        "--priority", "200") | Out-Null
-    Write-Ok "DenyAll rule added on API — API is now private (Blazor server-to-server only)"
+    $apiBody = [PSCustomObject]@{
+        properties = [PSCustomObject]@{
+            ipSecurityRestrictions              = $apiRestrictions
+            ipSecurityRestrictionsDefaultAction = "Deny"
+        }
+    }
+
+    if (-not $DryRun) {
+        $tmpFile = [System.IO.Path]::GetTempFileName() + ".json"
+        $apiBody | ConvertTo-Json -Depth 10 | Out-File $tmpFile -Encoding utf8
+
+        az rest --method put --url $apiWebUrl --body "@$tmpFile" --headers "Content-Type=application/json" --only-show-errors 2>&1 | Out-Null
+        Remove-Item $tmpFile -Force -ErrorAction SilentlyContinue
+
+        if ($LASTEXITCODE -eq 0) {
+            Write-Ok "API: $($apiRestrictions.Count) AllowBlazor rules + Deny default -- API is private"
+        }
+        else {
+            Write-Warn "API access restriction update failed -- check Azure Portal"
+        }
+    }
+    else {
+        Write-Host "  [DRY RUN] Would set API: Allow $($blazorOutboundIps.Count) Blazor IPs + Deny default" -ForegroundColor DarkCyan
+    }
 }
 
-# ── Summary ───────────────────────────────────────────────────
+# --- Summary -----------------------------------------------------------------
 Write-Host ""
 Write-Host "============================================================" -ForegroundColor Green
-Write-Host "  Deployment Complete!" -ForegroundColor Green
+Write-Host "  Deployment Complete!"                                        -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green
 Write-Host ""
 
@@ -468,8 +509,9 @@ if (-not $DryRun) {
 
     Write-Host "  Front Door URL:    https://$endpointHostname" -ForegroundColor Cyan
     Write-Host ""
-} else {
-    Write-Host "  (dry run — no resources were created)" -ForegroundColor Yellow
+}
+else {
+    Write-Host "  (dry run -- no resources were created)" -ForegroundColor Yellow
     Write-Host ""
 }
 

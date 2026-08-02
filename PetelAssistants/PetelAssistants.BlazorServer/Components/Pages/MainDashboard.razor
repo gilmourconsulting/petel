@@ -33,9 +33,15 @@
                   OnClick="NavigateToSalaries" CssClass="context-btn" HideIfNoAccess="true">
         נתוני שכר
     </SecureButton>
+
+    <SecureButton ActionName="maindashboard_meitar_retrieve" ScreenName="@PageName" FunctionName="ShowMeitarRetrieveDialog"
+                  OnClick="ShowMeitarRetrieveDialog" CssClass="context-btn" HideIfNoAccess="true">
+        שליפת נתוני מייתר
+    </SecureButton>
 </div>
 
 <SalaryUploadModal @ref="_salaryUploadModal" />
+<MeitarRetrieveModal @ref="_meitarRetrieveModal" />
 
 <!-- Dashboard Content -->
 <div class="dashboard-flex-row">
@@ -102,6 +108,7 @@
     private bool _isLoading     = true;
     private bool _showYearModal = false;
     private SalaryUploadModal? _salaryUploadModal;
+    private MeitarRetrieveModal? _meitarRetrieveModal;
 
     protected override async Task OnPageInitializedAsync()
     {
@@ -133,6 +140,7 @@
     private void CloseYearModal() => _showYearModal = false;
 
     private void ShowSalaryUploadDialog() => _salaryUploadModal?.Show();
+    private void ShowMeitarRetrieveDialog() => _meitarRetrieveModal?.Show();
 
     private void NavigateToSalaries() => Navigation.NavigateTo("/salaries");
 }

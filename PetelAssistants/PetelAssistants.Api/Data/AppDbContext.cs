@@ -35,6 +35,8 @@ namespace PetelAssistants.Api.Data
         public DbSet<Salary>                 Salaries               { get; set; }
         public DbSet<SalaryUploadWarning>    SalaryUploadWarnings   { get; set; }
         public DbSet<SalaryFieldMapping>     SalaryFieldMappings    { get; set; }
+        public DbSet<MeitarRetrieveProcess>  MeitarRetrieveProcesses { get; set; }
+        public DbSet<MeitarMutavim>          MeitarMutavim          { get; set; }
 
         public AssistDbContext(
             DbContextOptions<AssistDbContext> options,
@@ -302,6 +304,29 @@ namespace PetelAssistants.Api.Data
                 entity.HasIndex(e => e.EntityId).IsUnique();
 
                 entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<MeitarRetrieveProcess>(entity =>
+            {
+                entity.ToTable("meitar_retrieve_processes");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.PeriodYear, e.PeriodMonth });
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<MeitarMutavim>(entity =>
+            {
+                entity.ToTable("meitar_mutavim");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.PeriodYear, e.PeriodMonth });
+
+                entity.HasOne(m => m.Process)
+                    .WithMany(p => p.Rows)
+                    .HasForeignKey(m => m.ProcessId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasQueryFilter(m => _tenantContext.EntityId != 0 && m.EntityId == _tenantContext.EntityId);
             });
         }
     }

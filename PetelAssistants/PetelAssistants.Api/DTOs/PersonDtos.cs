@@ -10,6 +10,8 @@ namespace PetelAssistants.Api.DTOs
         public string FullName { get; set; } = string.Empty;
         public string? PhoneSummary { get; set; }
         public DateTime UpdatedAt { get; set; }
+        /// <summary>True when the person has at least one active allocation for the requested year.</summary>
+        public bool HasAllocation { get; set; }
     }
 
     public class PersonPhoneDto

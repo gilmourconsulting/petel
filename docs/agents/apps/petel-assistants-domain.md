@@ -51,7 +51,7 @@ Key system attributes:
 
 **Field alignment:** Main person fields follow PetelATH `persons` columns (`first_name`, `last_name`, `gender`, `date_of_birth`, `email`, `position`, etc.).
 
-**Year linkage:** Assistant registration per Hebrew year is **not** part of the person domain — it will be implemented via entitlement assignments (future).
+**Year linkage:** The Assistants screen (`/year/{YearId}/assistants`) lists persons for the authority and shows year-scoped allocation status. List/search accept optional `yearId` to populate `HasAllocation` (any active entitlement allocation for that Hebrew year). Filters: name/ID search + allocated / not allocated. **View details** (`assistants_view_details`) opens a read-only modal with the person snapshot, allocation history across all Hebrew years (`GET persons/{id}/allocations` without `yearId`), and salary history matched to the person (`GET persons/{id}/salaries` via `matched_person_id`).
 
 **Excel import:** Assistants page supports bulk create via `POST api/personsfileupload/preview` then `/upload`. Flow: select file → map columns → process. Mapped fields today: `id_number` (required) plus either `name` (split on first space into first/last; single token → last name `-`) or both `first_name` and `last_name`. Existing national IDs for the tenant are **skipped** (not updated). SQL action: `assistants_upload` (`add-persons-upload-action.sql`).
 
@@ -101,7 +101,7 @@ Managed globally in `shared_schema.assistant_types` by the system manager. Tenan
 
 **Scope:** Tenant-owned rows in `assist_schema.entitlements`, filtered by `entity_id` and Hebrew year.
 
-**Single combined screen** at `/year/{YearId}/entitlements`. Personal and institutional entitlements are managed in the same table with unified filters.
+**Single combined screen** at `/year/{YearId}/entitlements`. Personal and institutional entitlements are managed in the same table with unified filters (kind, institution, assistant type, active status, allocation status: none / partial / full).
 
 **Kind is derived from assistant type level** — there is no stored `entitlement_kind` column. The `level` field on `shared_schema.assistant_types` (values: `personal`, `class`, `school`, `kindergarten`) determines the entitlement type:
 - `personal` → personal entitlement (pupil fields required)
@@ -139,11 +139,32 @@ Ministry budget data is queried from **PetelMeitar** via `MeitarDataService` (`I
 | Symbol codes | `shared_schema.entities.symbol_code` on active `local_authority` rows |
 | Filter config | `shared_schema.meitar_data_filter_values` (`file_name`, `filter_field`, `filter_value`) |
 
-**Primary use case:** `QueryMutavimByTopicDescriptionsAsync()` loads symbol codes from local authorities and TopicDescription filter values from the config table, then calls PetelMeitar `POST /api/data/query` with `fileName=MUTAVIM`.
+**Primary use case:** `QueryMutavimByTopicDescriptionsAsync()` loads symbol codes from local authorities and active filter rows from `meitar_data_filter_values` for `MUTAVIM` (typically `TopicCode`, per ApiReference), then calls PetelMeitar `POST /api/data/query` with that `filterField` + values.
 
 **Generic queries:** `QueryAsync()` accepts any supported file suffix (see `MeitarDataFileNames.All`). `QueryAllFileTypesAsync()` iterates all 19 documented file types.
 
 SQL migration: `PetelAssistants/SQL/add-meitar-data-integration.sql`. API reference: `PetelAssistants/docs/ApiReference.md`.
+
+### MUTAVIM retrieve (period pull into Assistants)
+
+Manual retrieve from Main Dashboard / Year Management context buttons (`MeitarRetrieveModal` → `MeitarDataController`). SQL: `PetelAssistants/SQL/add-meitar-mutavim-retrieve.sql`.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET api/meitardata/period-exists?year=&month=` | Whether MUTAVIM rows already exist for the current entity + period |
+| `POST api/meitardata/retrieve` | Pull MUTAVIM for the authority’s `symbol_code` and period; body: `{ periodYear, periodMonth, replaceExisting }` |
+
+**Period:** calendar `period_year` + `period_month` (1–12). UI defaults to the previous calendar month. Meitar filter uses `CalcDate` as `MM/yyyy`.
+
+**Scope:** session entity only — never queries other authorities’ symbols. Requires `entities.symbol_code` on the logged-in authority.
+
+**Topic filter:** same as `QueryMutavimByTopicDescriptionsAsync` — Meitar is queried using the active `filter_field` + `filter_value` rows for `MUTAVIM` in `meitar_data_filter_values` (e.g. `TopicCode` / `101`). Required; fails if none configured. Period is applied in Assistants by keeping rows whose `calcDate` matches the selected month/year.
+
+**Override:** re-retrieve for an existing period requires confirmation; on continue, prior `meitar_mutavim` rows for that period are deleted, then a new `meitar_retrieve_processes` row and fresh fact rows are inserted.
+
+**Tables (assist_schema):** `meitar_retrieve_processes`, `meitar_mutavim`.
+
+**Security actions:** `maindashboard_meitar_retrieve`, `yearmanagement_meitar_retrieve`.
 
 ## Related
 

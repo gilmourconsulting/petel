@@ -24,12 +24,12 @@
     </SecureButton>
 </div>
 
-<div class="main-container">
-    <div class="students-content">
+<div class="main-container entitlements-main">
+    <div class="students-content entitlements-page">
         <div class="school-title-section">
             <h1 class="page-title">זכאויות @(_yearName != "" ? $"- {_yearName}" : "")</h1>
         </div>
-        <div class="content-card">
+        <div class="content-card entitlements-list-panel">
             @if (_isLoading)
             {
                 <div class="loading-spinner">טוען נתונים...</div>
@@ -37,7 +37,7 @@
             else
             {
                 <!-- Filter bar -->
-                <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end;">
+                <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end; flex-shrink: 0;">
                     <div style="display: flex; flex-direction: column; gap: 4px;">
                         <label style="font-size: 0.82em; font-weight: 600;">סוג</label>
                         <select class="form-control" style="min-width: 130px;" @bind="_filterKind" @bind:event="onchange">
@@ -71,6 +71,15 @@
                         <select class="form-control" style="min-width: 120px;" @bind="_filterActiveOnly" @bind:event="onchange">
                             <option value="true">פעיל בלבד</option>
                             <option value="false">הכל</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">הקצאה</label>
+                        <select class="form-control" style="min-width: 140px;" @bind="_filterAllocation" @bind:event="onchange">
+                            <option value="">הכל</option>
+                            <option value="none">לא מוקצה</option>
+                            <option value="partial">מוקצה חלקית</option>
+                            <option value="full">מוקצה במלואו</option>
                         </select>
                     </div>
                     @if (HasActiveFilters)
@@ -162,27 +171,29 @@
                         </table>
                     </div>
                 }
-
-                <!-- Allocations panel — shown when an entitlement row is selected -->
-                @if (_selectedEntitlement != null)
-                {
-                    <AllocationsPanel ViewMode="AllocationsViewMode.ByEntitlement"
-                                      Allocations="_allocations"
-                                      IsLoading="_isLoadingAllocations"
-                                      ShowAddButton="true"
-                                      SecurityScreenName="entitlements"
-                                      OnClose="ClearSelectedEntitlement"
-                                      OnAddAllocation="ShowAddAllocationDialog"
-                                      OnDeactivateAllocation="DeactivateAllocation">
-                        <HeaderTitle>
-                            @_selectedEntitlement.AssistantTypeName
-                            @(_selectedEntitlement.SchoolName != null ? $" — {_selectedEntitlement.SchoolName}" : "")
-                            (@_selectedEntitlement.Hours @GetHoursUnitLabel(_selectedEntitlement.HoursUnit))
-                        </HeaderTitle>
-                    </AllocationsPanel>
-                }
             }
         </div>
+
+        @if (_selectedEntitlement != null)
+        {
+            <div class="entitlements-allocations-dock">
+                <AllocationsPanel ViewMode="AllocationsViewMode.ByEntitlement"
+                                  Allocations="_allocations"
+                                  IsLoading="_isLoadingAllocations"
+                                  ShowAddButton="true"
+                                  SecurityScreenName="entitlements"
+                                  CssClass="allocations-panel-docked"
+                                  OnClose="ClearSelectedEntitlement"
+                                  OnAddAllocation="ShowAddAllocationDialog"
+                                  OnDeactivateAllocation="DeactivateAllocation">
+                    <HeaderTitle>
+                        @_selectedEntitlement.AssistantTypeName
+                        @(_selectedEntitlement.SchoolName != null ? $" — {_selectedEntitlement.SchoolName}" : "")
+                        (@_selectedEntitlement.Hours @GetHoursUnitLabel(_selectedEntitlement.HoursUnit))
+                    </HeaderTitle>
+                </AllocationsPanel>
+            </div>
+        }
     </div>
 </div>
 
@@ -443,6 +454,63 @@
 }
 
 <style>
+    .entitlements-main {
+        height: calc(100vh - 60px - 50px);
+        min-height: 0;
+        align-self: stretch;
+    }
+
+    .entitlements-page {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .entitlements-page .school-title-section {
+        flex-shrink: 0;
+    }
+
+    .entitlements-page .entitlements-list-panel {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        margin-bottom: 0;
+    }
+
+    .entitlements-page .entitlements-list-panel .table-container {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+    }
+
+    .entitlements-page .entitlements-allocations-dock {
+        flex: 0 0 auto;
+        max-height: 30%;
+        min-height: 0;
+        overflow: auto;
+        margin-top: 8px;
+    }
+
+    .entitlements-page .entitlements-allocations-dock > .content-card,
+    .entitlements-page .allocations-panel-docked {
+        margin-top: 0;
+        margin-bottom: 0;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    .entitlements-page .allocations-panel-docked .table-container {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+    }
+
     .row-selected {
         background-color: #e3f2fd !important;
     }
@@ -473,6 +541,7 @@
     private int _filterSchoolId;
     private int _filterAssistantTypeId;
     private string _filterActiveOnly = "true";
+    private string _filterAllocation = "";
 
     // Entitlement form state
     private int _formAssistantTypeId;
@@ -865,6 +934,7 @@
 
         if (_filterSchoolId > 0 && item.InstitutionId != _filterSchoolId) return false;
         if (_filterAssistantTypeId > 0 && item.AssistantTypeId != _filterAssistantTypeId) return false;
+        if (!string.IsNullOrEmpty(_filterAllocation) && item.AllocationStatus != _filterAllocation) return false;
 
         return true;
     }).ToList();
@@ -873,7 +943,8 @@
         !string.IsNullOrEmpty(_filterKind) ||
         _filterSchoolId > 0 ||
         _filterAssistantTypeId > 0 ||
-        _filterActiveOnly == "false";
+        _filterActiveOnly == "false" ||
+        !string.IsNullOrEmpty(_filterAllocation);
 
     private void ClearFilters()
     {
@@ -881,6 +952,7 @@
         _filterSchoolId = 0;
         _filterAssistantTypeId = 0;
         _filterActiveOnly = "true";
+        _filterAllocation = "";
     }
 
     // ─── Entitlement form helpers ─────────────────────────────────────────────

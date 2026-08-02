@@ -13,6 +13,7 @@ Adapters: [AGENTS.md](../../AGENTS.md) (root), [.cursor/rules/](../../.cursor/ru
 | [core/backend-patterns.md](core/backend-patterns.md) | EF Core, BaseController, entities, migrations |
 | [core/auth-security.md](core/auth-security.md) | JWT, session, password policy, OTP, document proxy |
 | [core/blazor-patterns.md](core/blazor-patterns.md) | Any `.razor` file — SecurePageBase, ApiService, modals |
+| [../azure-setup.md](../azure-setup.md) | Azure infra for new/other apps — region, naming, Front Door, secrets, checklist |
 
 ## Reference
 
@@ -59,6 +60,7 @@ Adapters: [AGENTS.md](../../AGENTS.md) (root), [.cursor/rules/](../../.cursor/ru
 | `PetelAssistants/**` Blazor | blazor-patterns → petel-assistants → petel-assistants-domain |
 | New Blazor page | new-blazor-page + app doc |
 | New table/entity | new-entity-and-api + app doc |
+| Azure resources / deploying a new app | [azure-setup.md](../azure-setup.md) + app doc |
 
 ## Maintenance mapping
 
@@ -69,4 +71,5 @@ Adapters: [AGENTS.md](../../AGENTS.md) (root), [.cursor/rules/](../../.cursor/ru
 | Assistants tenancy/security | `apps/petel-assistants.md` |
 | Assistants business rules | `apps/petel-assistants-domain.md` |
 | Blazor UI pattern | `core/blazor-patterns.md` |
+| Azure infra / new app on Azure | `docs/azure-setup.md` (+ app doc resource table) |
 | New repeatable workflow | New file under `playbooks/` |

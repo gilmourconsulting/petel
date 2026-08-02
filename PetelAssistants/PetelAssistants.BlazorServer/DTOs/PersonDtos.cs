@@ -10,6 +10,7 @@ namespace PetelAssistants.BlazorServer.DTOs
         public string FullName { get; set; } = string.Empty;
         public string? PhoneSummary { get; set; }
         public DateTime UpdatedAt { get; set; }
+        public bool HasAllocation { get; set; }
     }
 
     public class PersonPhoneDto

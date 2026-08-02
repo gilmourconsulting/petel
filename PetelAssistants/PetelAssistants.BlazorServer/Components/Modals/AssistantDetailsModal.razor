@@ -1,0 +1,241 @@
+@using Petel.BlazorCore.Services
+@using PetelAssistants.BlazorServer.DTOs
+@using PetelAssistants.BlazorServer.Models
+@inject ApiService ApiService
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" @onclick="Close">
+        <div class="modal-content modal-large" @onclick:stopPropagation="true" style="max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h3>פרטי סייעת — @(_person?.FullName ?? "")</h3>
+                <button class="modal-close" @onclick="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_isLoading)
+                {
+                    <div class="loading-spinner">טוען נתונים...</div>
+                }
+                else if (_person == null)
+                {
+                    <div class="no-data-message">@(_errorMessage ?? "אדם לא נמצא")</div>
+                }
+                else
+                {
+                    <h4 style="margin-top: 0;">פרטים</h4>
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.82em; font-weight: 600; color: #6c757d;">מספר זהות</label>
+                            <div>@_person.IdNumber</div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.82em; font-weight: 600; color: #6c757d;">שם מלא</label>
+                            <div>@_person.FullName</div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.82em; font-weight: 600; color: #6c757d;">מגדר</label>
+                            <div>@(FormatGender(_person.Gender))</div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.82em; font-weight: 600; color: #6c757d;">תאריך לידה</label>
+                            <div>@(_person.DateOfBirth?.ToString("dd/MM/yyyy") ?? "—")</div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.82em; font-weight: 600; color: #6c757d;">אימייל</label>
+                            <div>@(_person.Email ?? "—")</div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label style="font-size: 0.82em; font-weight: 600; color: #6c757d;">תפקיד</label>
+                            <div>@(_person.Position ?? "—")</div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; grid-column: 1 / -1;">
+                            <label style="font-size: 0.82em; font-weight: 600; color: #6c757d;">כתובת</label>
+                            <div>@FormatAddress(_person.Address)</div>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; grid-column: 1 / -1;">
+                            <label style="font-size: 0.82em; font-weight: 600; color: #6c757d;">טלפונים</label>
+                            <div>
+                                @if (_person.Phones.Count == 0)
+                                {
+                                    <span>—</span>
+                                }
+                                else
+                                {
+                                    @string.Join(" · ", _person.Phones.Select(FormatPhone))
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <h4>היסטוריית הקצאות</h4>
+                    @if (_allocations.Count == 0)
+                    {
+                        <div class="no-data-message" style="padding: 8px 0;">אין הקצאות</div>
+                    }
+                    else
+                    {
+                        <div class="table-container" style="margin-bottom: 16px;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>שנה</th>
+                                        <th>סוג סייעת</th>
+                                        <th>מוסד</th>
+                                        <th>שעות</th>
+                                        <th>תאריכים</th>
+                                        <th>סטטוס</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var alloc in _allocations)
+                                    {
+                                        <tr class="@(alloc.IsActive ? "" : "row-inactive")">
+                                            <td>@(alloc.HebrewYearName ?? "—")</td>
+                                            <td>@(alloc.AssistantTypeName ?? "—")</td>
+                                            <td>@(alloc.SchoolName ?? "—")</td>
+                                            <td>@alloc.Hours @GetHoursUnitLabel(alloc.HoursUnit)</td>
+                                            <td>@alloc.StartDate.ToString("dd/MM/yyyy") – @alloc.EndDate.ToString("dd/MM/yyyy")</td>
+                                            <td>
+                                                <span class="status-badge @(alloc.IsActive ? "status-active" : "status-inactive")">
+                                                    @(alloc.IsActive ? "פעיל" : "לא פעיל")
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    <h4>היסטוריית שכר</h4>
+                    @if (_salaries.Count == 0)
+                    {
+                        <div class="no-data-message" style="padding: 8px 0;">אין רשומות שכר</div>
+                    }
+                    else
+                    {
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>תקופה</th>
+                                        <th>מחלקה</th>
+                                        <th>אחוז משרה</th>
+                                        <th>שכר כולל</th>
+                                        <th>אזהרת זהות</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var salary in _salaries)
+                                    {
+                                        <tr class="@(salary.HasIdWarning ? "row-inactive" : "")">
+                                            <td>@salary.PeriodMonth.ToString("00")/@salary.PeriodYear</td>
+                                            <td>@(salary.DepartmentName ?? salary.DepartmentId)</td>
+                                            <td>@salary.PositionPercentage.ToString("0.##")%</td>
+                                            <td>@salary.TotalSalary.ToString("N2")</td>
+                                            <td>@(salary.HasIdWarning ? "כן" : "לא")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
+
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" @onclick="Close">סגור</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private bool _isVisible;
+    private bool _isLoading;
+    private string? _errorMessage;
+    private PersonSnapshotDto? _person;
+    private List<EntitlementAllocationDto> _allocations = new();
+    private List<SalaryListItemDto> _salaries = new();
+
+    public async Task ShowAsync(int personId)
+    {
+        _isVisible = true;
+        _isLoading = true;
+        _errorMessage = null;
+        _person = null;
+        _allocations = new();
+        _salaries = new();
+        StateHasChanged();
+
+        try
+        {
+            var personTask = ApiService.GetAsync<ApiResponse<PersonSnapshotDto>>($"persons/{personId}");
+            var allocationsTask = ApiService.GetAsync<ApiResponse<List<EntitlementAllocationDto>>>($"persons/{personId}/allocations");
+            var salariesTask = ApiService.GetAsync<ApiResponse<List<SalaryListItemDto>>>($"persons/{personId}/salaries");
+
+            await Task.WhenAll(personTask, allocationsTask, salariesTask);
+
+            var personResponse = await personTask;
+            var allocationsResponse = await allocationsTask;
+            var salariesResponse = await salariesTask;
+
+            _person = personResponse?.Data;
+            if (_person == null)
+                _errorMessage = personResponse?.Message ?? "אדם לא נמצא";
+
+            _allocations = allocationsResponse?.Data ?? new();
+            _salaries = salariesResponse?.Data ?? new();
+        }
+        catch (Exception)
+        {
+            _errorMessage = "שגיאה בטעינת פרטי הסייעת";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Close()
+    {
+        _isVisible = false;
+        _person = null;
+        _allocations = new();
+        _salaries = new();
+        await OnClose.InvokeAsync();
+    }
+
+    private static string FormatGender(int? gender) => gender switch
+    {
+        1 => "זכר",
+        2 => "נקבה",
+        _ => gender?.ToString() ?? "—"
+    };
+
+    private static string FormatAddress(PersonAddressDto? address)
+    {
+        if (address == null)
+            return "—";
+
+        var parts = new[] { address.Street, address.HouseNumber, address.City, address.PostCode }
+            .Where(p => !string.IsNullOrWhiteSpace(p));
+        var text = string.Join(", ", parts);
+        return string.IsNullOrWhiteSpace(text) ? "—" : text;
+    }
+
+    private static string FormatPhone(PersonPhoneDto phone)
+    {
+        var number = $"{phone.PhoneNumberPrefix}{phone.PhoneNumber}".Trim();
+        if (string.IsNullOrWhiteSpace(number))
+            return phone.PhoneTypeDisplayName;
+        return string.IsNullOrWhiteSpace(phone.PhoneTypeDisplayName)
+            ? number
+            : $"{phone.PhoneTypeDisplayName}: {number}";
+    }
+
+    private static string GetHoursUnitLabel(string unit) => unit == "monthly" ? "חודשי" : "שבועי";
+}

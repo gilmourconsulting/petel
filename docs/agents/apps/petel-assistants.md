@@ -165,6 +165,17 @@ Manual upload from Main Dashboard / Year Management (`SalaryUploadModal` → `Sa
 
 Tables: `salaries`, `salary_upload_processes`, `salary_upload_warnings`, `salary_field_mappings`. View UI: `/salaries`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Salary file upload.
 
+## Meitar MUTAVIM retrieve
+
+Pull ministry MUTAVIM rows for the logged-in authority’s period from PetelMeitar into Assistants. Entry points: context buttons on Main Dashboard and Year Management (`MeitarRetrieveModal` → `MeitarDataController`). SQL: `PetelAssistants/SQL/add-meitar-mutavim-retrieve.sql`.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET api/meitardata/period-exists` | Whether MUTAVIM rows exist for year/month |
+| `POST api/meitardata/retrieve` | Query Meitar + persist (`replaceExisting` for override) |
+
+Tables: `meitar_retrieve_processes`, `meitar_mutavim`. Actions: `maindashboard_meitar_retrieve`, `yearmanagement_meitar_retrieve`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Meitar data integration.
+
 ---
 
 ## Architecture Governance — Multi-Tenancy Rules

@@ -82,10 +82,13 @@ builder.Services.AddScoped<OrgUnitService>();
 builder.Services.AddScoped<EntitlementService>();
 
 // ── Meitar data API client ─────────────────────────────────────────────────
+// BaseAddress must end with '/' so relative paths like "data/query" resolve under /api/
+// (without it, HttpClient replaces the last segment → http://host/data/query → 405).
 var meitarSettings = builder.Configuration.GetSection("MeitarApi").Get<MeitarApiSettings>();
+var meitarBaseUrl = (meitarSettings?.BaseUrl ?? "http://localhost:5105/api").TrimEnd('/') + "/";
 builder.Services.AddHttpClient("MeitarApi", client =>
 {
-    client.BaseAddress = new Uri(meitarSettings?.BaseUrl ?? "http://localhost:5105/api");
+    client.BaseAddress = new Uri(meitarBaseUrl);
     client.Timeout = TimeSpan.FromSeconds(meitarSettings?.TimeoutSeconds ?? 60);
 });
 builder.Services.AddScoped<IMeitarDataService, MeitarDataService>();

@@ -88,6 +88,8 @@ namespace PetelAssistants.Api.DTOs
         public int EntitlementId { get; set; }
         public int PersonId { get; set; }
         public string PersonFullName { get; set; } = string.Empty;
+        public int HebrewYearId { get; set; }
+        public string? HebrewYearName { get; set; }
         public DateOnly StartDate { get; set; }
         public DateOnly EndDate { get; set; }
         public decimal Hours { get; set; }

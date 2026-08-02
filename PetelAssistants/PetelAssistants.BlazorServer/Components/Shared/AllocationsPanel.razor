@@ -1,4 +1,4 @@
-<div class="content-card" style="margin-top: 20px; border-top: 2px solid #dee2e6;">
+<div class="content-card @CssClass" style="@(string.IsNullOrWhiteSpace(CssClass) ? "margin-top: 20px; border-top: 2px solid #dee2e6;" : null)">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
         <h3 style="margin: 0; font-size: 1.1em;">
             @HeaderPrefix
@@ -91,6 +91,7 @@
     [Parameter] public string AddButtonLabel { get; set; } = "+ הוסף הקצאה";
     [Parameter] public string EmptyMessage { get; set; } = "אין הקצאות לזכאות זו";
     [Parameter] public string SecurityScreenName { get; set; } = "entitlements";
+    [Parameter] public string CssClass { get; set; } = "";
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnAddAllocation { get; set; }
     [Parameter] public EventCallback<EntitlementAllocationDto> OnDeactivateAllocation { get; set; }
