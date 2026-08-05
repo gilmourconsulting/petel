@@ -12,6 +12,7 @@ namespace PetelAssistants.BlazorServer.DTOs
         public decimal TotalSalary { get; set; }
         public int? MatchedPersonId { get; set; }
         public string? MatchedPersonName { get; set; }
+        public bool HasAllocationForPeriod { get; set; }
         public bool HasIdWarning { get; set; }
         public int ProcessId { get; set; }
     }

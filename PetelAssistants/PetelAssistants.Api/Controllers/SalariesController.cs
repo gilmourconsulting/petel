@@ -63,6 +63,8 @@ namespace PetelAssistants.Api.Controllers
                 })
                 .ToListAsync();
 
+            await ApplyAllocationFlagsAsync(items);
+
             // Sort in memory — national_id is encrypted at rest, so DB ORDER BY is not meaningful.
             items = items
                 .OrderBy(s => s.NationalId)
@@ -70,6 +72,45 @@ namespace PetelAssistants.Api.Controllers
                 .ToList();
 
             return Ok(new { success = true, data = items });
+        }
+
+        /// <summary>
+        /// Sets HasAllocationForPeriod per row: the matched person has at least one active
+        /// allocation whose date range overlaps the row's salary month.
+        /// </summary>
+        private async Task ApplyAllocationFlagsAsync(List<SalaryListItemDto> items)
+        {
+            var personIds = items
+                .Where(i => i.MatchedPersonId.HasValue)
+                .Select(i => i.MatchedPersonId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (personIds.Count == 0)
+                return;
+
+            var allocations = await _context.EntitlementAllocations
+                .AsNoTracking()
+                .Where(a => a.IsActive && personIds.Contains(a.PersonId))
+                .Select(a => new { a.PersonId, a.StartDate, a.EndDate })
+                .ToListAsync();
+
+            var allocationsByPerson = allocations
+                .GroupBy(a => a.PersonId)
+                .ToDictionary(g => g.Key, g => g.ToList());
+
+            foreach (var item in items)
+            {
+                if (!item.MatchedPersonId.HasValue ||
+                    !allocationsByPerson.TryGetValue(item.MatchedPersonId.Value, out var personAllocations))
+                    continue;
+
+                var monthStart = new DateOnly(item.PeriodYear, item.PeriodMonth, 1);
+                var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+
+                item.HasAllocationForPeriod = personAllocations
+                    .Any(a => a.StartDate <= monthEnd && a.EndDate >= monthStart);
+            }
         }
     }
 }

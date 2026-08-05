@@ -28,6 +28,58 @@
             }
             else
             {
+                @if (_items.Count > 0)
+                {
+                    <div class="summary-grid" style="margin-bottom: 16px;">
+                        <div class="summary-card">
+                            <div class="summary-icon">📄</div>
+                            <div class="summary-info">
+                                <div class="summary-value">@_items.Count</div>
+                                <div class="summary-label">סה"כ רשומות שכר</div>
+                            </div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-icon">💰</div>
+                            <div class="summary-info">
+                                <div class="summary-value">@_items.Sum(i => i.TotalSalary).ToString("N0")</div>
+                                <div class="summary-label">סה"כ שכר (₪)</div>
+                            </div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-icon">👥</div>
+                            <div class="summary-info">
+                                <div class="summary-value">@_items.Select(i => i.NationalId).Distinct().Count()</div>
+                                <div class="summary-label">ת"ז ייחודיות</div>
+                            </div>
+                        </div>
+                        <div class="summary-card summary-card-clickable" @onclick="ShowUnmatched"
+                             title="הצג רק רשומות שלא נמצאה עבורן התאמה לאדם">
+                            <div class="summary-icon">❓</div>
+                            <div class="summary-info">
+                                <div class="summary-value">@UnmatchedItems.Count()</div>
+                                <div class="summary-label">לא קיימים בטבלת האנשים</div>
+                                <div class="summary-extra">₪ @UnmatchedItems.Sum(i => i.TotalSalary).ToString("N0")</div>
+                            </div>
+                        </div>
+                        <div class="summary-card summary-card-clickable" @onclick="ShowNoAllocation"
+                             title="הצג רק רשומות מאומתות ללא שיבוץ פעיל בתקופה">
+                            <div class="summary-icon">📌</div>
+                            <div class="summary-info">
+                                <div class="summary-value">@NoAllocationItems.Count()</div>
+                                <div class="summary-label">מאומתים ללא שיבוץ לתקופה</div>
+                                <div class="summary-extra">₪ @NoAllocationItems.Sum(i => i.TotalSalary).ToString("N0")</div>
+                            </div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-icon">⚠️</div>
+                            <div class="summary-info">
+                                <div class="summary-value">@_items.Count(i => i.HasIdWarning)</div>
+                                <div class="summary-label">אזהרות ת"ז</div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
                 <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end;">
                     <div style="display: flex; flex-direction: column; gap: 4px;">
                         <label style="font-size: 0.82em; font-weight: 600;">שנה</label>
@@ -64,6 +116,15 @@
                             <option value="">הכל</option>
                             <option value="yes">מאומת</option>
                             <option value="no">לא מאומת</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">שיבוץ לתקופה</label>
+                        <select class="form-control" style="min-width: 120px;"
+                                @bind="_filterAllocation" @bind:event="onchange">
+                            <option value="">הכל</option>
+                            <option value="yes">עם שיבוץ</option>
+                            <option value="no">ללא שיבוץ</option>
                         </select>
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -165,6 +226,7 @@
     private string _filterDepartment = "";
     private string _filterMatched = "";
     private string _filterIdWarning = "";
+    private string _filterAllocation = "";
 
     private string _sortColumn = "NationalId";
     private bool _sortAscending = true;
@@ -179,7 +241,14 @@
         !string.IsNullOrWhiteSpace(_filterNationalId) ||
         !string.IsNullOrWhiteSpace(_filterDepartment) ||
         !string.IsNullOrEmpty(_filterMatched) ||
-        !string.IsNullOrEmpty(_filterIdWarning);
+        !string.IsNullOrEmpty(_filterIdWarning) ||
+        !string.IsNullOrEmpty(_filterAllocation);
+
+    private IEnumerable<SalaryListItemDto> UnmatchedItems =>
+        _items.Where(i => !i.MatchedPersonId.HasValue);
+
+    private IEnumerable<SalaryListItemDto> NoAllocationItems =>
+        _items.Where(i => i.MatchedPersonId.HasValue && !i.HasAllocationForPeriod);
 
     private List<SalaryListItemDto> FilteredItems
     {
@@ -211,6 +280,11 @@
                 query = query.Where(i => i.HasIdWarning);
             else if (_filterIdWarning == "no")
                 query = query.Where(i => !i.HasIdWarning);
+
+            if (_filterAllocation == "yes")
+                query = query.Where(i => i.MatchedPersonId.HasValue && i.HasAllocationForPeriod);
+            else if (_filterAllocation == "no")
+                query = query.Where(i => i.MatchedPersonId.HasValue && !i.HasAllocationForPeriod);
 
             query = _sortColumn switch
             {
@@ -278,6 +352,19 @@
         _filterDepartment = "";
         _filterMatched = "";
         _filterIdWarning = "";
+        _filterAllocation = "";
+    }
+
+    private void ShowUnmatched()
+    {
+        _filterMatched = "no";
+        _filterAllocation = "";
+    }
+
+    private void ShowNoAllocation()
+    {
+        _filterAllocation = "no";
+        _filterMatched = "";
     }
 
     private void NavigateBack()
