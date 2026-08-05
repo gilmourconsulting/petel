@@ -522,6 +522,9 @@
 @code {
     [Parameter] public int YearId { get; set; }
 
+    [SupplyParameterFromQuery(Name = "personId")]
+    public int? FromPersonId { get; set; }
+
     protected override string PageName => "entitlements";
 
     private string _yearName = "";
@@ -570,6 +573,7 @@
     private List<PersonListItemDto> _personSearchResults = new();
     private bool _isSearchingPersons;
     private PersonListItemDto? _allocSelectedPerson;
+    private PersonListItemDto? _defaultPerson;
     private decimal _allocHours;
     private string _allocHoursUnit = "weekly";
     private DateTime? _allocStartDate;
@@ -590,6 +594,32 @@
     {
         await LoadLookupsAsync();
         await LoadDataAsync();
+        await LoadDefaultPersonAsync();
+    }
+
+    private async Task LoadDefaultPersonAsync()
+    {
+        if (!FromPersonId.HasValue) return;
+
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<PersonSnapshotDto>>($"persons/{FromPersonId.Value}");
+            if (response?.Data != null)
+            {
+                _defaultPerson = new PersonListItemDto
+                {
+                    Id        = response.Data.Id,
+                    IdNumber  = response.Data.IdNumber,
+                    FirstName = response.Data.FirstName,
+                    LastName  = response.Data.LastName,
+                    FullName  = response.Data.FullName
+                };
+            }
+        }
+        catch
+        {
+            _defaultPerson = null;
+        }
     }
 
     protected override async Task OnParametersSetAsync()
@@ -706,7 +736,7 @@
 
         _allocPersonSearchTerm = string.Empty;
         _personSearchResults = new();
-        _allocSelectedPerson = null;
+        _allocSelectedPerson = _defaultPerson;
         _allocError = string.Empty;
         _showAddPersonForm = false;
         _newPersonFirstName = string.Empty;

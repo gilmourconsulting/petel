@@ -545,7 +545,7 @@
         }
     }
 
-    private void NavigateToEntitlements() => Navigation.NavigateTo($"/year/{YearId}/entitlements");
+    private void NavigateToEntitlements() => Navigation.NavigateTo($"/year/{YearId}/entitlements?personId={_selectedPerson!.Id}");
 
     private async Task DeactivateAllocation(EntitlementAllocationDto alloc)
     {
