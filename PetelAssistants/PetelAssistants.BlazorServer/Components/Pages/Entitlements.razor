@@ -36,6 +36,36 @@
             }
             else
             {
+                <!-- Summary dashboard -->
+                <div class="summary-grid" style="margin-bottom: 16px; flex-shrink: 0;">
+                    <div class="summary-card">
+                        <div class="summary-icon">📋</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@ActiveItems.Count</div>
+                            <div class="summary-label">סה"כ זכאויות</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">📊</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@AllocatedPercent.ToString("0.#")%</div>
+                            <div class="summary-label">אחוז מוקצה (שעות)</div>
+                            <div class="summary-extra">@ActiveItems.Count(i => i.AllocationStatus == "full") מלא · @ActiveItems.Count(i => i.AllocationStatus == "partial") חלקי · @ActiveItems.Count(i => i.AllocationStatus == "none") ללא</div>
+                        </div>
+                    </div>
+                    @foreach (var type in TypeSummaries)
+                    {
+                        <div class="summary-card">
+                            <div class="summary-icon">🏷️</div>
+                            <div class="summary-info">
+                                <div class="summary-value">@type.Count</div>
+                                <div class="summary-label">@type.TypeName</div>
+                                <div class="summary-extra">@type.AllocatedPercent.ToString("0.#")% מוקצה</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
                 <!-- Filter bar -->
                 <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end; flex-shrink: 0;">
                     <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -946,6 +976,27 @@
             await LoadDataAsync();
         else
             await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בהשבתה");
+    }
+
+    // ─── Summary dashboard ────────────────────────────────────────────────────
+
+    private List<EntitlementListItemDto> ActiveItems => _items.Where(i => i.IsActive).ToList();
+
+    private decimal AllocatedPercent => ComputeAllocatedPercent(ActiveItems);
+
+    private IEnumerable<(string TypeName, int Count, decimal AllocatedPercent)> TypeSummaries =>
+        ActiveItems
+            .GroupBy(i => i.AssistantTypeName)
+            .Select(g => (TypeName: g.Key, Count: g.Count(), AllocatedPercent: ComputeAllocatedPercent(g.ToList())))
+            .OrderByDescending(t => t.Count)
+            .ThenBy(t => t.TypeName);
+
+    private static decimal ComputeAllocatedPercent(List<EntitlementListItemDto> items)
+    {
+        var totalHours = items.Sum(i => i.Hours);
+        if (totalHours <= 0) return 0;
+        var allocatedHours = items.Sum(i => Math.Min(i.AllocatedHours, i.Hours));
+        return Math.Round(allocatedHours / totalHours * 100, 1);
     }
 
     // ─── Filtering ────────────────────────────────────────────────────────────

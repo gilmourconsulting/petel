@@ -31,6 +31,27 @@
             <p class="text-muted" style="margin-top: 8px;">ניהול פרטי אנשים ברמת הרשות. שיוך לשנה יתווסף בשלב הזכאויות.</p>
         </div>
         <div class="content-card assistants-list-panel">
+            @if (!_isLoading)
+            {
+                <!-- Summary dashboard -->
+                <div class="summary-grid" style="margin-bottom: 16px; flex-shrink: 0;">
+                    <div class="summary-card">
+                        <div class="summary-icon">👥</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@_persons.Count</div>
+                            <div class="summary-label">סה"כ סייעות</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">📊</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@AllocatedPercent.ToString("0.#")%</div>
+                            <div class="summary-label">אחוז מוקצות</div>
+                            <div class="summary-extra">@_persons.Count(p => p.HasAllocation) מתוך @_persons.Count</div>
+                        </div>
+                    </div>
+                </div>
+            }
             <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end; flex-shrink: 0;">
                 <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 220px; max-width: 400px;">
                     <label for="searchTerm" style="font-size: 0.82em; font-weight: 600;">חיפוש לפי שם או מספר זהות</label>
@@ -366,6 +387,10 @@
     private string _filterAllocation = "";
     private string _sortColumn = nameof(PersonListItemDto.FullName);
     private bool _sortAscending = true;
+
+    private decimal AllocatedPercent => _persons.Count == 0
+        ? 0
+        : Math.Round((decimal)_persons.Count(p => p.HasAllocation) / _persons.Count * 100, 1);
 
     private List<PersonListItemDto> FilteredPersons => _persons.Where(p =>
     {
