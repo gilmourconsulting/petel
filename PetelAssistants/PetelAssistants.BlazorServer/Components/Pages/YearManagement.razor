@@ -2,6 +2,7 @@
 @layout MainLayout
 @inherits SecurePageBase
 @using PetelAssistants.BlazorServer.Models
+@using PetelAssistants.BlazorServer.DTOs
 @inject ApiService ApiService
 
 <div class="context-buttons-section">
@@ -41,6 +42,53 @@
                 <h1 class="page-title">@_yearName</h1>
             </div>
 
+            <!-- Summary dashboard -->
+            <div style="max-width: 900px; margin: 20px auto 0;">
+                <div class="summary-grid" style="margin-bottom: 0;">
+                    <div class="summary-card">
+                        <div class="summary-icon">📋</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@ActiveEntitlements.Count</div>
+                            <div class="summary-label">סה"כ זכאויות</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">📊</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@EntitlementAllocatedPercent.ToString("0.#")%</div>
+                            <div class="summary-label">אחוז מוקצה (שעות)</div>
+                            <div class="summary-extra">@ActiveEntitlements.Count(i => i.AllocationStatus == "full") מלא · @ActiveEntitlements.Count(i => i.AllocationStatus == "partial") חלקי · @ActiveEntitlements.Count(i => i.AllocationStatus == "none") ללא</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">👥</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@_persons.Count</div>
+                            <div class="summary-label">סה"כ סייעות</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-icon">📊</div>
+                        <div class="summary-info">
+                            <div class="summary-value">@PersonsAllocatedPercent.ToString("0.#")%</div>
+                            <div class="summary-label">אחוז מוקצות</div>
+                            <div class="summary-extra">@_persons.Count(p => p.HasAllocation) מתוך @_persons.Count</div>
+                        </div>
+                    </div>
+                    @foreach (var type in TypeSummaries)
+                    {
+                        <div class="summary-card">
+                            <div class="summary-icon">🏷️</div>
+                            <div class="summary-info">
+                                <div class="summary-value">@type.Count</div>
+                                <div class="summary-label">@type.TypeName</div>
+                                <div class="summary-extra">@type.AllocatedPercent.ToString("0.#")% מוקצה</div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
             <div class="row-two-columns" style="max-width: 900px; margin: 30px auto;">
                 <SecureButton ActionName="yearmanagement_assistants" ScreenName="@PageName" FunctionName="NavigateToAssistants"
                               OnClick="NavigateToAssistants" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
@@ -71,19 +119,70 @@
 
     private string _yearName  = "";
     private bool   _isLoading = true;
+    private List<EntitlementListItemDto> _entitlements = new();
+    private List<PersonListItemDto> _persons = new();
     private SalaryUploadModal? _salaryUploadModal;
     private MeitarRetrieveModal? _meitarRetrieveModal;
 
     protected override async Task OnPageInitializedAsync()
     {
         await LoadYearAsync();
+        await LoadSummaryDataAsync();
         _isLoading = false;
     }
 
     protected override async Task OnParametersSetAsync()
     {
         if (!_isLoading)
+        {
             await LoadYearAsync();
+            await LoadSummaryDataAsync();
+        }
+    }
+
+    private async Task LoadSummaryDataAsync()
+    {
+        try
+        {
+            var entitlementsResponse = await ApiService.GetAsync<ApiResponse<List<EntitlementListItemDto>>>(
+                $"entitlements?yearId={YearId}");
+            _entitlements = entitlementsResponse?.Data ?? new();
+
+            var personsResponse = await ApiService.GetAsync<ApiResponse<List<PersonListItemDto>>>(
+                $"persons?yearId={YearId}");
+            _persons = personsResponse?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading summary data: {ex.Message}");
+            _entitlements = new();
+            _persons = new();
+        }
+    }
+
+    // ─── Summary dashboard ────────────────────────────────────────────────────
+
+    private List<EntitlementListItemDto> ActiveEntitlements => _entitlements.Where(i => i.IsActive).ToList();
+
+    private decimal EntitlementAllocatedPercent => ComputeAllocatedPercent(ActiveEntitlements);
+
+    private decimal PersonsAllocatedPercent => _persons.Count == 0
+        ? 0
+        : Math.Round((decimal)_persons.Count(p => p.HasAllocation) / _persons.Count * 100, 1);
+
+    private IEnumerable<(string TypeName, int Count, decimal AllocatedPercent)> TypeSummaries =>
+        ActiveEntitlements
+            .GroupBy(i => i.AssistantTypeName)
+            .Select(g => (TypeName: g.Key, Count: g.Count(), AllocatedPercent: ComputeAllocatedPercent(g.ToList())))
+            .OrderByDescending(t => t.Count)
+            .ThenBy(t => t.TypeName);
+
+    private static decimal ComputeAllocatedPercent(List<EntitlementListItemDto> items)
+    {
+        var totalHours = items.Sum(i => i.Hours);
+        if (totalHours <= 0) return 0;
+        var allocatedHours = items.Sum(i => Math.Min(i.AllocatedHours, i.Hours));
+        return Math.Round(allocatedHours / totalHours * 100, 1);
     }
 
     private async Task LoadYearAsync()
