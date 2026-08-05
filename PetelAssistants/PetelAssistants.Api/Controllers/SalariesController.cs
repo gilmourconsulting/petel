@@ -4,6 +4,7 @@ using Petel.Core.Controllers;
 using Petel.Core.Session;
 using PetelAssistants.Api.Data;
 using PetelAssistants.Api.DTOs;
+using PetelAssistants.Api.Services;
 
 namespace PetelAssistants.Api.Controllers
 {
@@ -12,14 +13,17 @@ namespace PetelAssistants.Api.Controllers
     public class SalariesController : BaseController
     {
         private readonly AssistDbContext _context;
+        private readonly SalaryFileProcessor _processor;
 
         public SalariesController(
             AssistDbContext context,
+            SalaryFileProcessor processor,
             UserSessionService sessionService,
             ILogger<SalariesController> logger)
             : base(sessionService, logger)
         {
             _context = context;
+            _processor = processor;
         }
 
         [HttpGet]
@@ -58,12 +62,11 @@ namespace PetelAssistants.Api.Controllers
                             .Select(d => (d.FirstName + " " + d.LastName).Trim())
                             .FirstOrDefault()
                         : null,
+                    HasAllocationForPeriod = s.MatchedAllocationId != null,
                     HasIdWarning = s.HasIdWarning,
                     ProcessId = s.ProcessId
                 })
                 .ToListAsync();
-
-            await ApplyAllocationFlagsAsync(items);
 
             // Sort in memory — national_id is encrypted at rest, so DB ORDER BY is not meaningful.
             items = items
@@ -75,42 +78,25 @@ namespace PetelAssistants.Api.Controllers
         }
 
         /// <summary>
-        /// Sets HasAllocationForPeriod per row: the matched person has at least one active
-        /// allocation whose date range overlaps the row's salary month.
+        /// Re-runs matching for the period: person matching for rows still unmatched (picks up
+        /// person records created after upload), then allocation matching for all matched rows —
+        /// updating the stored matched_allocation_id (added / removed / re-pointed).
         /// </summary>
-        private async Task ApplyAllocationFlagsAsync(List<SalaryListItemDto> items)
+        [HttpPost("recheck")]
+        public async Task<IActionResult> Recheck([FromQuery] int year, [FromQuery] int month)
         {
-            var personIds = items
-                .Where(i => i.MatchedPersonId.HasValue)
-                .Select(i => i.MatchedPersonId!.Value)
-                .Distinct()
-                .ToList();
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
 
-            if (personIds.Count == 0)
-                return;
+            if (month < 1 || month > 12)
+                return BadRequest(new { success = false, message = "חודש לא תקין" });
 
-            var allocations = await _context.EntitlementAllocations
-                .AsNoTracking()
-                .Where(a => a.IsActive && personIds.Contains(a.PersonId))
-                .Select(a => new { a.PersonId, a.StartDate, a.EndDate })
-                .ToListAsync();
+            int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
 
-            var allocationsByPerson = allocations
-                .GroupBy(a => a.PersonId)
-                .ToDictionary(g => g.Key, g => g.ToList());
+            var result = await _processor.RecheckPeriodAsync(year, month, userId);
 
-            foreach (var item in items)
-            {
-                if (!item.MatchedPersonId.HasValue ||
-                    !allocationsByPerson.TryGetValue(item.MatchedPersonId.Value, out var personAllocations))
-                    continue;
-
-                var monthStart = new DateOnly(item.PeriodYear, item.PeriodMonth, 1);
-                var monthEnd = monthStart.AddMonths(1).AddDays(-1);
-
-                item.HasAllocationForPeriod = personAllocations
-                    .Any(a => a.StartDate <= monthEnd && a.EndDate >= monthStart);
-            }
+            return Ok(new { success = true, data = result });
         }
     }
 }

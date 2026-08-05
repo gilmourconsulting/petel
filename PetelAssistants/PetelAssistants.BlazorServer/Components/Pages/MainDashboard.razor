@@ -38,6 +38,11 @@
                   OnClick="ShowMeitarRetrieveDialog" CssClass="context-btn" HideIfNoAccess="true">
         שליפת נתוני מייתר
     </SecureButton>
+
+    <SecureButton ActionName="maindashboard_meitar_view" ScreenName="@PageName" FunctionName="NavigateToMeitarData"
+                  OnClick="NavigateToMeitarData" CssClass="context-btn" HideIfNoAccess="true">
+        נתוני מייתר
+    </SecureButton>
 </div>
 
 <SalaryUploadModal @ref="_salaryUploadModal" />
@@ -143,4 +148,6 @@
     private void ShowMeitarRetrieveDialog() => _meitarRetrieveModal?.Show();
 
     private void NavigateToSalaries() => Navigation.NavigateTo("/salaries");
+
+    private void NavigateToMeitarData() => Navigation.NavigateTo("/meitar-data");
 }

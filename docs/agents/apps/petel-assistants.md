@@ -162,6 +162,7 @@ Manual upload from Main Dashboard / Year Management (`SalaryUploadModal` → `Sa
 | `POST api/salaryfileupload/preview` | Headers + suggested/saved mappings |
 | `POST api/salaryfileupload/upload` | Multipart file + mapping + period + replace/save flags |
 | `GET api/salaries?year=&month=` | List salary rows for period (view screen) |
+| `POST api/salaries/recheck?year=&month=` | Re-match salary rows to persons + allocations (view screen recheck) |
 
 Tables: `salaries`, `salary_upload_processes`, `salary_upload_warnings`, `salary_field_mappings`. View UI: `/salaries`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Salary file upload.
 

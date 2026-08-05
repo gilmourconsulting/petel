@@ -1,0 +1,369 @@
+@page "/meitar-data"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelAssistants.BlazorServer.Models
+@using PetelAssistants.BlazorServer.DTOs
+@inject ApiService ApiService
+
+<div class="context-buttons-section">
+    <SecureButton ActionName="meitardata_refresh" ScreenName="@PageName" FunctionName="RefreshData"
+                  OnClick="RefreshData" CssClass="context-btn">
+        רענן נתונים
+    </SecureButton>
+    <SecureButton ActionName="meitardata_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                  OnClick="NavigateBack" CssClass="context-navigation-btn">
+        @(_returnYearId.HasValue ? "חזרה לניהול שנה" : "חזרה לדף הבית")
+    </SecureButton>
+</div>
+
+<div class="main-container">
+    <div class="students-content">
+        <div class="school-title-section">
+            <h1 class="page-title">נתוני מייתר</h1>
+        </div>
+        <div class="content-card">
+            @if (_isLoading)
+            {
+                <div class="loading-spinner">טוען נתונים...</div>
+            }
+            else
+            {
+                @if (_items.Count > 0)
+                {
+                    <div class="summary-grid" style="margin-bottom: 16px;">
+                        <div class="summary-card">
+                            <div class="summary-icon">📄</div>
+                            <div class="summary-info">
+                                <div class="summary-value">@_items.Count</div>
+                                <div class="summary-label">סה"כ רשומות</div>
+                            </div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-icon">💰</div>
+                            <div class="summary-info">
+                                <div class="summary-value">@_items.Sum(i => i.CalculatedAmount).ToString("N0")</div>
+                                <div class="summary-label">סה"כ סכום מחושב (₪)</div>
+                            </div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-icon">🏷️</div>
+                            <div class="summary-info">
+                                <div class="summary-value">@_items.Select(i => i.TopicCode).Distinct().Count()</div>
+                                <div class="summary-label">נושאים ייחודיים</div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end;">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">שנה</label>
+                        <input type="number" class="form-control" style="width: 100px;"
+                               @bind="_filterYear" @bind:event="onchange" @bind:after="OnPeriodChanged"
+                               min="2000" max="2100" />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">חודש</label>
+                        <select class="form-control" style="min-width: 120px;"
+                                @bind="_filterMonth" @bind:event="onchange" @bind:after="OnPeriodChanged">
+                            @for (int m = 1; m <= 12; m++)
+                            {
+                                <option value="@m">@GetMonthLabel(m)</option>
+                            }
+                        </select>
+                    </div>
+                    @if (!_returnYearId.HasValue)
+                    {
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <label style="font-size: 0.82em; font-weight: 600;">סינון לפי</label>
+                            <select class="form-control" style="min-width: 140px;"
+                                    @bind="_dateField" @bind:event="onchange" @bind:after="OnPeriodChanged">
+                                <option value="calc">תאריך חישוב</option>
+                                <option value="effective">תאריך תחולה</option>
+                            </select>
+                        </div>
+                    }
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">קוד מוטב</label>
+                        <input type="text" class="form-control" style="min-width: 140px;"
+                               @bind="_filterBeneficiary" @bind:event="oninput"
+                               placeholder="חיפוש קוד מוטב..." />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">נושא</label>
+                        <input type="text" class="form-control" style="min-width: 160px;"
+                               @bind="_filterTopic" @bind:event="oninput"
+                               placeholder="קוד או תיאור נושא..." />
+                    </div>
+                    @if (HasActiveClientFilters)
+                    {
+                        <button class="btn btn-secondary" style="align-self: flex-end;" @onclick="ClearClientFilters">נקה סינון</button>
+                    }
+                </div>
+
+                @if (_items.Count > 0)
+                {
+                    <div style="margin-bottom: 12px; color: var(--text-muted); font-size: 0.9em;">
+                        מציג @FilteredItems.Count מתוך @_items.Count רשומות
+                        · סה״כ סכום מחושב: @FilteredItems.Sum(i => i.CalculatedAmount).ToString("N2")
+                    </div>
+                }
+
+                @if (FilteredItems.Count == 0)
+                {
+                    <div class="no-data-message">לא נמצאו נתוני מייתר לתקופה זו</div>
+                }
+                else
+                {
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th @onclick='() => SortTable("BeneficiaryCode")' style="cursor:pointer">
+                                        קוד מוטב @GetSortArrow("BeneficiaryCode")
+                                    </th>
+                                    <th @onclick='() => SortTable("CalcDate")' style="cursor:pointer">
+                                        תאריך חישוב @GetSortArrow("CalcDate")
+                                    </th>
+                                    <th @onclick='() => SortTable("EffectiveDate")' style="cursor:pointer">
+                                        תאריך תחולה @GetSortArrow("EffectiveDate")
+                                    </th>
+                                    <th @onclick='() => SortTable("TopicCode")' style="cursor:pointer">
+                                        קוד נושא @GetSortArrow("TopicCode")
+                                    </th>
+                                    <th>תיאור נושא</th>
+                                    <th @onclick='() => SortTable("UnitCount")' style="cursor:pointer">
+                                        מספר יחידות @GetSortArrow("UnitCount")
+                                    </th>
+                                    <th @onclick='() => SortTable("Cost")' style="cursor:pointer">
+                                        עלות @GetSortArrow("Cost")
+                                    </th>
+                                    <th @onclick='() => SortTable("ParticipationPercent")' style="cursor:pointer">
+                                        אחוז השתתפות @GetSortArrow("ParticipationPercent")
+                                    </th>
+                                    <th @onclick='() => SortTable("CalculatedAmount")' style="cursor:pointer">
+                                        סכום מחושב @GetSortArrow("CalculatedAmount")
+                                    </th>
+                                    <th @onclick='() => SortTable("PreviousCalculatedAmount")' style="cursor:pointer">
+                                        סכום קודם @GetSortArrow("PreviousCalculatedAmount")
+                                    </th>
+                                    <th @onclick='() => SortTable("CalculatedDifference")' style="cursor:pointer">
+                                        הפרש @GetSortArrow("CalculatedDifference")
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in FilteredItems)
+                                {
+                                    <tr>
+                                        <td>@item.BeneficiaryCode</td>
+                                        <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
+                                        <td>@(item.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                        <td>@(item.TopicCode ?? "—")</td>
+                                        <td>@(item.TopicDescription ?? "—")</td>
+                                        <td>@(item.UnitCount?.ToString("0.##") ?? "—")</td>
+                                        <td>@(item.Cost?.ToString("N2") ?? "—")</td>
+                                        <td>@(item.ParticipationPercent is not null ? $"{item.ParticipationPercent:0.##}%" : "—")</td>
+                                        <td>@item.CalculatedAmount.ToString("N2")</td>
+                                        <td>@(item.PreviousCalculatedAmount?.ToString("N2") ?? "—")</td>
+                                        <td>@(item.CalculatedDifference?.ToString("N2") ?? "—")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override string PageName => "meitardata";
+
+    [SupplyParameterFromQuery(Name = "fromYear")]
+    public int? FromYear { get; set; }
+
+    private List<MeitarMutavimListItemDto> _items = new();
+    private bool _isLoading = true;
+    private int? _returnYearId;
+
+    private int _filterYear;
+    private int _filterMonth;
+    private string _dateField = "calc";
+    private string _filterBeneficiary = "";
+    private string _filterTopic = "";
+
+    private string _sortColumn = "BeneficiaryCode";
+    private bool _sortAscending = true;
+
+    private static readonly string[] MonthNames =
+    {
+        "", "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+        "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"
+    };
+
+    private bool HasActiveClientFilters =>
+        !string.IsNullOrWhiteSpace(_filterBeneficiary) ||
+        !string.IsNullOrWhiteSpace(_filterTopic);
+
+    private List<MeitarMutavimListItemDto> FilteredItems
+    {
+        get
+        {
+            IEnumerable<MeitarMutavimListItemDto> query = _items;
+
+            if (!string.IsNullOrWhiteSpace(_filterBeneficiary))
+            {
+                var term = _filterBeneficiary.Trim();
+                query = query.Where(i => i.BeneficiaryCode.Contains(term, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (!string.IsNullOrWhiteSpace(_filterTopic))
+            {
+                var term = _filterTopic.Trim();
+                query = query.Where(i =>
+                    (!string.IsNullOrEmpty(i.TopicCode) &&
+                     i.TopicCode.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(i.TopicDescription) &&
+                     i.TopicDescription.Contains(term, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            query = _sortColumn switch
+            {
+                "BeneficiaryCode" => _sortAscending
+                    ? query.OrderBy(i => i.BeneficiaryCode)
+                    : query.OrderByDescending(i => i.BeneficiaryCode),
+                "CalcDate" => _sortAscending
+                    ? query.OrderBy(i => i.CalcDate)
+                    : query.OrderByDescending(i => i.CalcDate),
+                "EffectiveDate" => _sortAscending
+                    ? query.OrderBy(i => i.EffectiveDate ?? DateOnly.MinValue)
+                    : query.OrderByDescending(i => i.EffectiveDate ?? DateOnly.MinValue),
+                "TopicCode" => _sortAscending
+                    ? query.OrderBy(i => i.TopicCode ?? "")
+                    : query.OrderByDescending(i => i.TopicCode ?? ""),
+                "UnitCount" => _sortAscending
+                    ? query.OrderBy(i => i.UnitCount ?? 0)
+                    : query.OrderByDescending(i => i.UnitCount ?? 0),
+                "Cost" => _sortAscending
+                    ? query.OrderBy(i => i.Cost ?? 0)
+                    : query.OrderByDescending(i => i.Cost ?? 0),
+                "ParticipationPercent" => _sortAscending
+                    ? query.OrderBy(i => i.ParticipationPercent ?? 0)
+                    : query.OrderByDescending(i => i.ParticipationPercent ?? 0),
+                "CalculatedAmount" => _sortAscending
+                    ? query.OrderBy(i => i.CalculatedAmount)
+                    : query.OrderByDescending(i => i.CalculatedAmount),
+                "PreviousCalculatedAmount" => _sortAscending
+                    ? query.OrderBy(i => i.PreviousCalculatedAmount ?? 0)
+                    : query.OrderByDescending(i => i.PreviousCalculatedAmount ?? 0),
+                "CalculatedDifference" => _sortAscending
+                    ? query.OrderBy(i => i.CalculatedDifference ?? 0)
+                    : query.OrderByDescending(i => i.CalculatedDifference ?? 0),
+                _ => query
+            };
+
+            return query.ToList();
+        }
+    }
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        _returnYearId = FromYear;
+        await SetDefaultPeriodAsync();
+        await LoadDataAsync();
+    }
+
+    /// <summary>
+    /// From Year Management: default to September of the Gregorian year in which
+    /// the Hebrew year starts, filtered by calc date.
+    /// From Main Dashboard: default to the previous calendar month.
+    /// </summary>
+    private async Task SetDefaultPeriodAsync()
+    {
+        if (_returnYearId.HasValue)
+        {
+            _dateField = "calc";
+            try
+            {
+                var year = await ApiService.GetAsync<YearDto>($"years/{_returnYearId.Value}");
+                if (year?.StartDate is not null)
+                {
+                    _filterYear = year.StartDate.Value.Year;
+                    _filterMonth = 9;
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading year {_returnYearId.Value}: {ex.Message}");
+            }
+        }
+
+        var previous = DateTime.Today.AddMonths(-1);
+        _filterYear = previous.Year;
+        _filterMonth = previous.Month;
+    }
+
+    private async Task OnPeriodChanged()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<MeitarMutavimListItemDto>>>(
+                $"meitardata?year={_filterYear}&month={_filterMonth}&dateField={_dateField}");
+            _items = response?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading meitar data: {ex.Message}");
+            _items = new();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task RefreshData() => await LoadDataAsync();
+
+    private void ClearClientFilters()
+    {
+        _filterBeneficiary = "";
+        _filterTopic = "";
+    }
+
+    private void NavigateBack()
+    {
+        if (_returnYearId.HasValue)
+            Navigation.NavigateTo($"/year/{_returnYearId.Value}");
+        else
+            Navigation.NavigateTo("/maindashboard");
+    }
+
+    private void SortTable(string column)
+    {
+        if (_sortColumn == column)
+            _sortAscending = !_sortAscending;
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = true;
+        }
+    }
+
+    private string GetSortArrow(string column)
+    {
+        if (_sortColumn != column) return "";
+        return _sortAscending ? "▲" : "▼";
+    }
+
+    private static string GetMonthLabel(int month) =>
+        month is >= 1 and <= 12 ? $"{month} - {MonthNames[month]}" : month.ToString();
+}

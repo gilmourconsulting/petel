@@ -25,6 +25,11 @@
                   OnClick="ShowMeitarRetrieveDialog" CssClass="context-btn" HideIfNoAccess="true">
         שליפת נתוני מייתר
     </SecureButton>
+
+    <SecureButton ActionName="yearmanagement_meitar_view" ScreenName="@PageName" FunctionName="NavigateToMeitarData"
+                  OnClick="NavigateToMeitarData" CssClass="context-btn" HideIfNoAccess="true">
+        נתוני מייתר
+    </SecureButton>
 </div>
 
 <SalaryUploadModal @ref="_salaryUploadModal" />
@@ -216,6 +221,7 @@
     private void NavigateToEntitlements() => Navigation.NavigateTo($"/year/{YearId}/entitlements");
     private void NavigateToOrgUnits()     => Navigation.NavigateTo($"/year/{YearId}/org-units");
     private void NavigateToSalaries()     => Navigation.NavigateTo($"/salaries?fromYear={YearId}");
+    private void NavigateToMeitarData()   => Navigation.NavigateTo($"/meitar-data?fromYear={YearId}");
     private void NavigateBack()           => Navigation.NavigateTo("/maindashboard");
     private void ShowSalaryUploadDialog() => _salaryUploadModal?.Show();
     private void ShowMeitarRetrieveDialog() => _meitarRetrieveModal?.Show();

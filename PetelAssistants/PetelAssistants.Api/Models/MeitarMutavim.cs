@@ -32,6 +32,9 @@ namespace PetelAssistants.Api.Models
         [Column("calc_date")]
         public DateOnly CalcDate { get; set; }
 
+        [Column("effective_date")]
+        public DateOnly? EffectiveDate { get; set; }
+
         [Column("topic_code")]
         [MaxLength(50)]
         public string? TopicCode { get; set; }
@@ -40,9 +43,24 @@ namespace PetelAssistants.Api.Models
         [MaxLength(500)]
         public string? TopicDescription { get; set; }
 
+        [Column("unit_count")]
+        public decimal? UnitCount { get; set; }
+
+        [Column("cost")]
+        public decimal? Cost { get; set; }
+
+        [Column("participation_percent")]
+        public decimal? ParticipationPercent { get; set; }
+
         [Required]
         [Column("calculated_amount")]
         public decimal CalculatedAmount { get; set; }
+
+        [Column("previous_calculated_amount")]
+        public decimal? PreviousCalculatedAmount { get; set; }
+
+        [Column("calculated_difference")]
+        public decimal? CalculatedDifference { get; set; }
 
         [Required]
         [Column("process_id")]

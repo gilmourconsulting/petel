@@ -10,6 +10,10 @@
                   OnClick="RefreshData" CssClass="context-btn">
         רענן נתונים
     </SecureButton>
+    <SecureButton ActionName="salaries_recheck" ScreenName="@PageName" FunctionName="RecheckData"
+                  OnClick="RecheckData" CssClass="context-btn" Disabled="_isRechecking">
+        @(_isRechecking ? "בודק..." : "בדיקת התאמות מחדש")
+    </SecureButton>
     <SecureButton ActionName="salaries_back" ScreenName="@PageName" FunctionName="NavigateBack"
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
         @(_returnYearId.HasValue ? "חזרה לניהול שנה" : "חזרה לדף הבית")
@@ -210,6 +214,78 @@
     </div>
 </div>
 
+@if (_showRecheckSummary)
+{
+    <div class="modal-overlay" @onclick="CloseRecheckSummary">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>סיכום בדיקת התאמות</h3>
+                <button class="modal-close" @onclick="CloseRecheckSummary">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 60vh; overflow-y: auto;">
+                @if (!string.IsNullOrEmpty(_recheckError))
+                {
+                    <div class="error-message">@_recheckError</div>
+                }
+                else if (_recheckNewlyMatched.Count == 0 &&
+                         _recheckAllocationsAdded.Count == 0 &&
+                         _recheckAllocationsRemoved.Count == 0)
+                {
+                    <div>לא נמצאו שינויים — כל הנתונים עדכניים.</div>
+                }
+                else
+                {
+                    @if (_recheckNewlyMatched.Count > 0)
+                    {
+                        <div style="margin-bottom: 14px;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">
+                                רשומות שהותאמו לאדם (@_recheckNewlyMatched.Count)
+                            </div>
+                            <ul style="margin: 0; padding-inline-start: 20px;">
+                                @foreach (var item in _recheckNewlyMatched)
+                                {
+                                    <li>@item.NationalId — @(item.MatchedPersonName ?? "ללא שם")</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                    @if (_recheckAllocationsAdded.Count > 0)
+                    {
+                        <div style="margin-bottom: 14px;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">
+                                רשומות שנוסף להן שיבוץ לתקופה (@_recheckAllocationsAdded.Count)
+                            </div>
+                            <ul style="margin: 0; padding-inline-start: 20px;">
+                                @foreach (var item in _recheckAllocationsAdded)
+                                {
+                                    <li>@item.NationalId — @(item.MatchedPersonName ?? "ללא שם")</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                    @if (_recheckAllocationsRemoved.Count > 0)
+                    {
+                        <div style="margin-bottom: 14px;">
+                            <div style="font-weight: 600; margin-bottom: 4px;">
+                                רשומות שהוסר מהן שיבוץ לתקופה (@_recheckAllocationsRemoved.Count)
+                            </div>
+                            <ul style="margin: 0; padding-inline-start: 20px;">
+                                @foreach (var item in _recheckAllocationsRemoved)
+                                {
+                                    <li>@item.NationalId — @(item.MatchedPersonName ?? "ללא שם")</li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseRecheckSummary">סגור</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     protected override string PageName => "salaries";
 
@@ -219,6 +295,13 @@
     private List<SalaryListItemDto> _items = new();
     private bool _isLoading = true;
     private int? _returnYearId;
+
+    private bool _isRechecking;
+    private bool _showRecheckSummary;
+    private string _recheckError = "";
+    private List<SalaryListItemDto> _recheckNewlyMatched = new();
+    private List<SalaryListItemDto> _recheckAllocationsAdded = new();
+    private List<SalaryListItemDto> _recheckAllocationsRemoved = new();
 
     private int _filterYear;
     private int _filterMonth;
@@ -345,6 +428,62 @@
     }
 
     private async Task RefreshData() => await LoadDataAsync();
+
+    /// <summary>
+    /// Re-runs matching on the server for the period — person matching for unmatched rows and
+    /// allocation matching (stored matched_allocation_id) for all matched rows — then reloads
+    /// the data and shows a summary of the changes relative to the currently displayed rows:
+    /// newly matched persons and allocations added/removed for the period.
+    /// </summary>
+    private async Task RecheckData()
+    {
+        _isRechecking = true;
+        _recheckError = "";
+        try
+        {
+            var oldState = _items.ToDictionary(
+                i => i.Id,
+                i => (i.MatchedPersonId, i.HasAllocationForPeriod));
+
+            await ApiService.PostAsync<object, ApiResponse<object>>(
+                $"salaries/recheck?year={_filterYear}&month={_filterMonth}", new { });
+
+            await LoadDataAsync();
+
+            _recheckNewlyMatched = _items
+                .Where(i => i.MatchedPersonId.HasValue &&
+                            oldState.TryGetValue(i.Id, out var old) &&
+                            !old.MatchedPersonId.HasValue)
+                .ToList();
+
+            _recheckAllocationsAdded = _items
+                .Where(i => i.HasAllocationForPeriod &&
+                            oldState.TryGetValue(i.Id, out var old) &&
+                            !old.HasAllocationForPeriod)
+                .ToList();
+
+            _recheckAllocationsRemoved = _items
+                .Where(i => !i.HasAllocationForPeriod &&
+                            oldState.TryGetValue(i.Id, out var old) &&
+                            old.HasAllocationForPeriod)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error rechecking salaries: {ex.Message}");
+            _recheckError = "שגיאה בבדיקת הנתונים. נסה שוב.";
+            _recheckNewlyMatched = new();
+            _recheckAllocationsAdded = new();
+            _recheckAllocationsRemoved = new();
+        }
+        finally
+        {
+            _isRechecking = false;
+            _showRecheckSummary = true;
+        }
+    }
+
+    private void CloseRecheckSummary() => _showRecheckSummary = false;
 
     private void ClearClientFilters()
     {

@@ -29,6 +29,54 @@ namespace PetelAssistants.Api.Controllers
             _meitarDataService = meitarDataService;
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetAll(
+            [FromQuery] int year,
+            [FromQuery] int month,
+            [FromQuery] string? dateField)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (month < 1 || month > 12)
+                return BadRequest(new { success = false, message = "חודש לא תקין" });
+
+            var byEffectiveDate = string.Equals(dateField, "effective", StringComparison.OrdinalIgnoreCase);
+
+            var query = _context.MeitarMutavim.AsNoTracking();
+
+            query = byEffectiveDate
+                ? query.Where(m => m.EffectiveDate != null &&
+                                   m.EffectiveDate.Value.Year == year &&
+                                   m.EffectiveDate.Value.Month == month)
+                : query.Where(m => m.CalcDate.Year == year && m.CalcDate.Month == month);
+
+            var items = await query
+                .OrderBy(m => m.BeneficiaryCode)
+                .ThenBy(m => m.TopicCode)
+                .Select(m => new MeitarMutavimListItemDto
+                {
+                    Id = m.Id,
+                    PeriodYear = m.PeriodYear,
+                    PeriodMonth = m.PeriodMonth,
+                    BeneficiaryCode = m.BeneficiaryCode,
+                    CalcDate = m.CalcDate,
+                    EffectiveDate = m.EffectiveDate,
+                    TopicCode = m.TopicCode,
+                    TopicDescription = m.TopicDescription,
+                    UnitCount = m.UnitCount,
+                    Cost = m.Cost,
+                    ParticipationPercent = m.ParticipationPercent,
+                    CalculatedAmount = m.CalculatedAmount,
+                    PreviousCalculatedAmount = m.PreviousCalculatedAmount,
+                    CalculatedDifference = m.CalculatedDifference
+                })
+                .ToListAsync();
+
+            return Ok(new { success = true, data = items });
+        }
+
         [HttpGet("period-exists")]
         public async Task<IActionResult> PeriodExists([FromQuery] int year, [FromQuery] int month)
         {
@@ -143,9 +191,15 @@ namespace PetelAssistants.Api.Controllers
                         PeriodMonth = request.PeriodMonth,
                         BeneficiaryCode = mapped.BeneficiaryCode,
                         CalcDate = mapped.CalcDate,
+                        EffectiveDate = mapped.EffectiveDate,
                         TopicCode = mapped.TopicCode,
                         TopicDescription = mapped.TopicDescription,
+                        UnitCount = mapped.UnitCount,
+                        Cost = mapped.Cost,
+                        ParticipationPercent = mapped.ParticipationPercent,
                         CalculatedAmount = mapped.CalculatedAmount,
+                        PreviousCalculatedAmount = mapped.PreviousCalculatedAmount,
+                        CalculatedDifference = mapped.CalculatedDifference,
                         ProcessId = process.Id,
                         CreatedAt = now,
                         UserId = userId,
@@ -210,6 +264,11 @@ namespace PetelAssistants.Api.Controllers
                 !TryGetDateOnly(row, "CalcDate", out calcDate))
                 return false;
 
+            DateOnly? effectiveDate = null;
+            if (TryGetDateOnly(row, "effectiveDate", out var effective) ||
+                TryGetDateOnly(row, "EffectiveDate", out effective))
+                effectiveDate = effective;
+
             TryGetString(row, "topicCode", out var topicCode);
             if (topicCode == null)
                 TryGetString(row, "TopicCode", out topicCode);
@@ -225,9 +284,15 @@ namespace PetelAssistants.Api.Controllers
             mapped = new MappedMutavimRow(
                 beneficiary!,
                 calcDate,
+                effectiveDate,
                 topicCode,
                 topicDescription,
-                amount);
+                TryGetOptionalDecimal(row, "unitCount", "UnitCount"),
+                TryGetOptionalDecimal(row, "cost", "Cost"),
+                TryGetOptionalDecimal(row, "participationPercent", "ParticipationPercent"),
+                amount,
+                TryGetOptionalDecimal(row, "previousCalculatedAmount", "PreviousCalculatedAmount"),
+                TryGetOptionalDecimal(row, "calculatedDifference", "CalculatedDifference"));
             return true;
         }
 
@@ -241,6 +306,14 @@ namespace PetelAssistants.Api.Controllers
 
             value = prop.ValueKind == JsonValueKind.String ? prop.GetString() : prop.ToString();
             return !string.IsNullOrWhiteSpace(value);
+        }
+
+        private static decimal? TryGetOptionalDecimal(JsonElement row, string camelName, string pascalName)
+        {
+            if (TryGetDecimal(row, camelName, out var value) ||
+                TryGetDecimal(row, pascalName, out value))
+                return value;
+            return null;
         }
 
         private static bool TryGetDecimal(JsonElement row, string name, out decimal value)
@@ -301,8 +374,14 @@ namespace PetelAssistants.Api.Controllers
         private sealed record MappedMutavimRow(
             string BeneficiaryCode,
             DateOnly CalcDate,
+            DateOnly? EffectiveDate,
             string? TopicCode,
             string? TopicDescription,
-            decimal CalculatedAmount);
+            decimal? UnitCount,
+            decimal? Cost,
+            decimal? ParticipationPercent,
+            decimal CalculatedAmount,
+            decimal? PreviousCalculatedAmount,
+            decimal? CalculatedDifference);
     }
 }

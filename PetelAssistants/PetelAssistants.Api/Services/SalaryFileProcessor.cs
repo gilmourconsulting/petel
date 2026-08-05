@@ -341,27 +341,139 @@ namespace PetelAssistants.Api.Services
                 _context.SalaryUploadProcesses.Update(processToUpdate);
             await _context.SaveChangesAsync();
 
-            await MatchPersonsForProcessAsync(process.Id, userId);
+            await MatchPersonsAndAllocationsForProcessAsync(process.Id, userId);
 
             result.TotalSalarySum = sum;
             return result;
         }
 
         /// <summary>
-        /// For each salary row in the process, look up persons by national ID (tenant-scoped)
-        /// and set matched_person_id to the person's primary key when found.
-        /// Compares canonical 9-digit IDs so a leading zero padded on salary import still
-        /// matches a person stored without it. Full person entities are loaded so IdNumber
-        /// is decrypted by the value converter (do not project encrypted fields).
+        /// For each salary row in the process, look up persons by national ID (tenant-scoped),
+        /// set matched_person_id when found, then match allocations for the salary period
+        /// (matched_allocation_id).
         /// </summary>
-        private async Task MatchPersonsForProcessAsync(int processId, int? userId)
+        private async Task MatchPersonsAndAllocationsForProcessAsync(int processId, int? userId)
         {
             var salaries = await _context.Salaries
                 .Where(s => s.ProcessId == processId)
                 .ToListAsync();
 
+            await MatchSalariesToPersonsAsync(salaries, userId);
+            await MatchSalariesToAllocationsAsync(salaries, userId);
+        }
+
+        /// <summary>
+        /// Re-runs matching for the salary rows of a period:
+        /// person matching for rows that are still unmatched (picks up person records created
+        /// after the salary file was uploaded), then allocation matching for all matched rows —
+        /// setting matched_allocation_id when an active allocation now overlaps the salary
+        /// month, and clearing it when the stored allocation no longer applies.
+        /// </summary>
+        public async Task<SalaryRecheckResult> RecheckPeriodAsync(int periodYear, int periodMonth, int? userId)
+        {
+            var salaries = await _context.Salaries
+                .Where(s => s.PeriodYear == periodYear && s.PeriodMonth == periodMonth)
+                .ToListAsync();
+
+            var newlyMatchedPersons = await MatchSalariesToPersonsAsync(
+                salaries.Where(s => s.MatchedPersonId == null).ToList(), userId);
+
+            var (allocationsAdded, allocationsRemoved) =
+                await MatchSalariesToAllocationsAsync(salaries, userId);
+
+            return new SalaryRecheckResult
+            {
+                NewlyMatchedPersons = newlyMatchedPersons,
+                AllocationsAdded = allocationsAdded,
+                AllocationsRemoved = allocationsRemoved
+            };
+        }
+
+        /// <summary>
+        /// Matches salary rows with a matched person to an active entitlement allocation whose
+        /// date range overlaps the row's salary month, storing the result in
+        /// matched_allocation_id. A stored allocation that is still valid is kept; one that is
+        /// no longer active/overlapping is replaced or cleared. Returns how many rows gained
+        /// an allocation (null → value) and how many lost it (value → null).
+        /// </summary>
+        private async Task<(int Added, int Removed)> MatchSalariesToAllocationsAsync(
+            List<Salary> salaries,
+            int? userId)
+        {
+            var matchedRows = salaries.Where(s => s.MatchedPersonId.HasValue).ToList();
+            if (matchedRows.Count == 0)
+                return (0, 0);
+
+            var personIds = matchedRows
+                .Select(s => s.MatchedPersonId!.Value)
+                .Distinct()
+                .ToList();
+
+            var allocations = await _context.EntitlementAllocations
+                .AsNoTracking()
+                .Where(a => a.IsActive && personIds.Contains(a.PersonId))
+                .Select(a => new { a.Id, a.PersonId, a.StartDate, a.EndDate })
+                .ToListAsync();
+
+            var allocationsByPerson = allocations
+                .GroupBy(a => a.PersonId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderBy(a => a.StartDate).ThenBy(a => a.Id).ToList());
+
+            var now = DateTime.UtcNow;
+            var added = 0;
+            var removed = 0;
+            var anyChanged = false;
+
+            foreach (var salary in matchedRows)
+            {
+                var monthStart = new DateOnly(salary.PeriodYear, salary.PeriodMonth, 1);
+                var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+
+                var candidates = allocationsByPerson.TryGetValue(salary.MatchedPersonId!.Value, out var list)
+                    ? list.Where(a => a.StartDate <= monthEnd && a.EndDate >= monthStart).ToList()
+                    : [];
+
+                // Keep the stored allocation if it is still valid; otherwise take the first
+                // (earliest-starting) valid allocation, or null when none exists.
+                int? desired = salary.MatchedAllocationId.HasValue &&
+                               candidates.Any(a => a.Id == salary.MatchedAllocationId.Value)
+                    ? salary.MatchedAllocationId
+                    : candidates.FirstOrDefault()?.Id;
+
+                if (desired == salary.MatchedAllocationId)
+                    continue;
+
+                if (salary.MatchedAllocationId == null)
+                    added++;
+                else if (desired == null)
+                    removed++;
+                // non-null → different non-null: re-pointed, allocation status unchanged
+
+                salary.MatchedAllocationId = desired;
+                salary.UpdatedAt = now;
+                salary.UpdateUser = userId;
+                anyChanged = true;
+            }
+
+            if (anyChanged)
+                await _context.SaveChangesAsync();
+
+            return (added, removed);
+        }
+
+        /// <summary>
+        /// Matches the given salary rows to persons by national ID (tenant-scoped) and sets
+        /// matched_person_id when found. Compares canonical 9-digit IDs so a leading zero
+        /// padded on salary import still matches a person stored without it. Full person
+        /// entities are loaded so IdNumber is decrypted by the value converter (do not
+        /// project encrypted fields). Returns the number of rows matched.
+        /// </summary>
+        private async Task<int> MatchSalariesToPersonsAsync(List<Salary> salaries, int? userId)
+        {
             if (salaries.Count == 0)
-                return;
+                return 0;
 
             // Full entities — value converter decrypts IdNumber on materialization
             var persons = await _context.Persons
@@ -378,10 +490,10 @@ namespace PetelAssistants.Api.Services
             }
 
             if (personByCanonicalId.Count == 0)
-                return;
+                return 0;
 
             var now = DateTime.UtcNow;
-            var anyMatched = false;
+            var matched = 0;
 
             foreach (var salary in salaries)
             {
@@ -393,11 +505,13 @@ namespace PetelAssistants.Api.Services
                 salary.MatchedPersonId = personId;
                 salary.UpdatedAt = now;
                 salary.UpdateUser = userId;
-                anyMatched = true;
+                matched++;
             }
 
-            if (anyMatched)
+            if (matched > 0)
                 await _context.SaveChangesAsync();
+
+            return matched;
         }
 
         private List<SalaryFileRow> ParseExcel(Stream stream, Dictionary<string, string> mapping)

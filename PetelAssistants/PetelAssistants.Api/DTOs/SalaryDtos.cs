@@ -16,4 +16,11 @@ namespace PetelAssistants.Api.DTOs
         public bool HasIdWarning { get; set; }
         public int ProcessId { get; set; }
     }
+
+    public class SalaryRecheckResult
+    {
+        public int NewlyMatchedPersons { get; set; }
+        public int AllocationsAdded { get; set; }
+        public int AllocationsRemoved { get; set; }
+    }
 }
