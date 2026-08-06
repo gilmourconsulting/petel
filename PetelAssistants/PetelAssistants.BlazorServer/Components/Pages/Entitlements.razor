@@ -129,18 +129,42 @@
                             <thead>
                                 <tr>
                                     <th>פעולות</th>
-                                    <th>סוג</th>
-                                    <th>מוסד</th>
-                                    <th>שם תלמיד</th>
-                                    <th>ת"ז</th>
-                                    <th>כיתה</th>
-                                    <th>סיווג כיתה</th>
-                                    <th>סוג סייעת</th>
-                                    <th>שעות</th>
-                                    <th>השתתפות משרד (%)</th>
-                                    <th>תאריכים</th>
-                                    <th>הקצאה</th>
-                                    <th>סטטוס</th>
+                                    <th @onclick='() => SortTable("Kind")' style="cursor: pointer;">
+                                        סוג @GetSortArrow("Kind")
+                                    </th>
+                                    <th @onclick='() => SortTable("SchoolName")' style="cursor: pointer;">
+                                        מוסד @GetSortArrow("SchoolName")
+                                    </th>
+                                    <th @onclick='() => SortTable("PupilName")' style="cursor: pointer;">
+                                        שם תלמיד @GetSortArrow("PupilName")
+                                    </th>
+                                    <th @onclick='() => SortTable("PupilIdNumber")' style="cursor: pointer;">
+                                        ת"ז @GetSortArrow("PupilIdNumber")
+                                    </th>
+                                    <th @onclick='() => SortTable("ClassName")' style="cursor: pointer;">
+                                        כיתה @GetSortArrow("ClassName")
+                                    </th>
+                                    <th @onclick='() => SortTable("ClassClassificationName")' style="cursor: pointer;">
+                                        סיווג כיתה @GetSortArrow("ClassClassificationName")
+                                    </th>
+                                    <th @onclick='() => SortTable("AssistantTypeName")' style="cursor: pointer;">
+                                        סוג סייעת @GetSortArrow("AssistantTypeName")
+                                    </th>
+                                    <th @onclick='() => SortTable("Hours")' style="cursor: pointer;">
+                                        שעות @GetSortArrow("Hours")
+                                    </th>
+                                    <th @onclick='() => SortTable("MinistryParticipationPct")' style="cursor: pointer;">
+                                        השתתפות משרד (%) @GetSortArrow("MinistryParticipationPct")
+                                    </th>
+                                    <th @onclick='() => SortTable("StartDate")' style="cursor: pointer;">
+                                        תאריכים @GetSortArrow("StartDate")
+                                    </th>
+                                    <th @onclick='() => SortTable("AllocationStatus")' style="cursor: pointer;">
+                                        הקצאה @GetSortArrow("AllocationStatus")
+                                    </th>
+                                    <th @onclick='() => SortTable("Status")' style="cursor: pointer;">
+                                        סטטוס @GetSortArrow("Status")
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -212,21 +236,125 @@
         @if (_selectedEntitlement != null)
         {
             <div class="entitlements-allocations-dock">
-                <AllocationsPanel ViewMode="AllocationsViewMode.ByEntitlement"
-                                  Allocations="_allocations"
-                                  IsLoading="_isLoadingAllocations"
-                                  ShowAddButton="true"
-                                  SecurityScreenName="entitlements"
-                                  CssClass="allocations-panel-docked"
-                                  OnClose="ClearSelectedEntitlement"
-                                  OnAddAllocation="ShowAddAllocationDialog"
-                                  OnDeactivateAllocation="DeactivateAllocation">
-                    <HeaderTitle>
-                        @_selectedEntitlement.AssistantTypeName
-                        @(_selectedEntitlement.SchoolName != null ? $" — {_selectedEntitlement.SchoolName}" : "")
-                        (@_selectedEntitlement.Hours @GetHoursUnitLabel(_selectedEntitlement.HoursUnit))
-                    </HeaderTitle>
-                </AllocationsPanel>
+                <div class="content-card allocations-panel-docked">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h3 style="margin: 0; font-size: 1.1em;">
+                            @(_dockTab == "history" && HasEntitlementHistory ? "היסטוריית זכאות:" : "הקצאות לזכאות:")
+                            <span style="font-weight: 400;">
+                                @_selectedEntitlement.AssistantTypeName
+                                @(_selectedEntitlement.SchoolName != null ? $" — {_selectedEntitlement.SchoolName}" : "")
+                                (@_selectedEntitlement.Hours @GetHoursUnitLabel(_selectedEntitlement.HoursUnit))
+                            </span>
+                        </h3>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            @if (_dockTab == "allocations" && _isLoadingAllocations)
+                            {
+                                <span style="font-size: 0.85em; color: #6c757d;">טוען...</span>
+                            }
+                            @if (_dockTab == "history" && _isLoadingHistory)
+                            {
+                                <span style="font-size: 0.85em; color: #6c757d;">טוען...</span>
+                            }
+                            @if (_dockTab == "allocations")
+                            {
+                                <button class="btn btn-primary btn-sm" @onclick="ShowAddAllocationDialog">+ הוסף הקצאה</button>
+                            }
+                            <button class="btn btn-secondary btn-sm" @onclick="ClearSelectedEntitlement" title="סגור">✕</button>
+                        </div>
+                    </div>
+
+                    @if (HasEntitlementHistory)
+                    {
+                        <div class="tabs-header" style="margin-bottom: 12px; padding: 0;">
+                            <button type="button"
+                                    class="tab-button @(_dockTab == "allocations" ? "active" : "")"
+                                    @onclick='() => _dockTab = "allocations"'>
+                                הקצאות
+                            </button>
+                            <button type="button"
+                                    class="tab-button @(_dockTab == "history" ? "active" : "")"
+                                    @onclick='() => _dockTab = "history"'>
+                                היסטוריה
+                            </button>
+                        </div>
+                    }
+
+                    @if (_dockTab == "allocations" || !HasEntitlementHistory)
+                    {
+                        <AllocationsPanel ViewMode="AllocationsViewMode.ByEntitlement"
+                                          Allocations="_allocations"
+                                          IsLoading="_isLoadingAllocations"
+                                          ShowAddButton="true"
+                                          ShowChrome="false"
+                                          SecurityScreenName="entitlements"
+                                          OnAddAllocation="ShowAddAllocationDialog"
+                                          OnDeactivateAllocation="DeactivateAllocation" />
+                    }
+                    else
+                    {
+                        @if (_isLoadingHistory)
+                        {
+                            <div class="loading-spinner">טוען היסטוריה...</div>
+                        }
+                        else if (_entitlementHistory.Count == 0)
+                        {
+                            <div class="no-data-message" style="padding: 12px 0;">אין היסטוריה</div>
+                        }
+                        else
+                        {
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>גרסה</th>
+                                            <th>תאריכים</th>
+                                            <th>שעות</th>
+                                            <th>השתתפות משרד (%)</th>
+                                            <th>סיווג כיתה</th>
+                                            <th>שם תלמיד</th>
+                                            <th>סטטוס</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var row in _entitlementHistory.OrderByDescending(h => h.Version))
+                                        {
+                                            bool isPersonal = IsPersonalLevel(row.AssistantTypeLevel);
+                                            bool isCurrent = row.Id == _selectedEntitlement.Id;
+                                            <tr class="@(isCurrent ? "row-selected" : row.IsActive ? "" : "row-inactive")">
+                                                <td>
+                                                    @row.Version
+                                                    @if (isCurrent)
+                                                    {
+                                                        <span class="status-badge status-personal" style="margin-right: 6px;">נוכחית</span>
+                                                    }
+                                                </td>
+                                                <td>@row.StartDate.ToString("dd/MM/yyyy") – @row.EndDate.ToString("dd/MM/yyyy")</td>
+                                                <td>@row.Hours @GetHoursUnitLabel(row.HoursUnit)</td>
+                                                <td>@row.MinistryParticipationPct.ToString("0.##")%</td>
+                                                <td>@(row.ClassClassificationName ?? "—")</td>
+                                                <td>
+                                                    @if (isPersonal && (!string.IsNullOrEmpty(row.PupilFirstName) || !string.IsNullOrEmpty(row.PupilLastName)))
+                                                    {
+                                                        @($"{row.PupilFirstName} {row.PupilLastName}".Trim())
+                                                    }
+                                                    else
+                                                    {
+                                                        <span>—</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <span class="status-badge @(row.IsCancelled ? "status-inactive" : row.IsActive ? "status-active" : "status-inactive")">
+                                                        @(row.IsCancelled ? "בוטל" : row.IsActive ? "פעיל" : "לא פעיל")
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    }
+                </div>
             </div>
         }
     </div>
@@ -585,6 +713,10 @@
         overflow: hidden;
     }
 
+    .entitlements-page .allocations-panel-docked .tabs-header {
+        flex-shrink: 0;
+    }
+
     .entitlements-page .allocations-panel-docked .table-container {
         flex: 1;
         min-height: 0;
@@ -627,6 +759,10 @@
     private string _filterActiveOnly = "true";
     private string _filterAllocation = "";
 
+    // Sort state
+    private string _sortColumn = "SchoolName";
+    private bool _sortAscending = true;
+
     // Entitlement form state
     private int _formAssistantTypeId;
     private bool _formIsPersonal;
@@ -642,10 +778,15 @@
     private DateTime? _formStartDate;
     private DateTime? _formEndDate;
 
-    // Allocation panel state
+    // Allocation / history dock state
     private EntitlementListItemDto? _selectedEntitlement;
     private List<EntitlementAllocationDto> _allocations = new();
     private bool _isLoadingAllocations;
+    private string _dockTab = "allocations";
+    private List<EntitlementListItemDto> _entitlementHistory = new();
+    private bool _isLoadingHistory;
+
+    private bool HasEntitlementHistory => _entitlementHistory.Count > 1;
 
     // Add allocation modal state
     private bool _showAllocationDialog;
@@ -749,11 +890,16 @@
                 {
                     _selectedEntitlement = updated;
                     await LoadAllocationsAsync(_selectedEntitlement.Id);
+                    await LoadEntitlementHistoryAsync(_selectedEntitlement.MasterEntitlementId);
+                    if (!HasEntitlementHistory)
+                        _dockTab = "allocations";
                 }
                 else
                 {
                     _selectedEntitlement = null;
                     _allocations = new();
+                    _entitlementHistory = new();
+                    _dockTab = "allocations";
                 }
             }
         }
@@ -786,6 +932,25 @@
         }
     }
 
+    private async Task LoadEntitlementHistoryAsync(int masterEntitlementId)
+    {
+        _isLoadingHistory = true;
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<EntitlementListItemDto>>>(
+                $"entitlements/history/{masterEntitlementId}");
+            _entitlementHistory = response?.Data ?? new();
+        }
+        catch
+        {
+            _entitlementHistory = new();
+        }
+        finally
+        {
+            _isLoadingHistory = false;
+        }
+    }
+
     private async Task RefreshData() => await LoadDataAsync();
 
     // ─── Entitlement row selection ─────────────────────────────────────────────
@@ -796,18 +961,25 @@
         {
             _selectedEntitlement = null;
             _allocations = new();
+            _entitlementHistory = new();
+            _dockTab = "allocations";
             return;
         }
 
         _selectedEntitlement = item;
         _allocations = new();
+        _entitlementHistory = new();
+        _dockTab = "allocations";
         await LoadAllocationsAsync(item.Id);
+        await LoadEntitlementHistoryAsync(item.MasterEntitlementId);
     }
 
     private void ClearSelectedEntitlement()
     {
         _selectedEntitlement = null;
         _allocations = new();
+        _entitlementHistory = new();
+        _dockTab = "allocations";
     }
 
     // ─── Allocation modal ─────────────────────────────────────────────────────
@@ -1057,24 +1229,73 @@
 
     // ─── Filtering ────────────────────────────────────────────────────────────
 
-    private List<EntitlementListItemDto> FilteredItems => _items.Where(item =>
+    private List<EntitlementListItemDto> FilteredItems
     {
-        bool activeOnly = _filterActiveOnly != "false";
-        if (activeOnly && !item.IsActive) return false;
-
-        if (!string.IsNullOrEmpty(_filterKind))
+        get
         {
-            bool isPersonal = IsPersonalLevel(item.AssistantTypeLevel);
-            if (_filterKind == "personal" && !isPersonal) return false;
-            if (_filterKind == "institutional" && isPersonal) return false;
+            IEnumerable<EntitlementListItemDto> query = _items.Where(item =>
+            {
+                bool activeOnly = _filterActiveOnly != "false";
+                if (activeOnly && !item.IsActive) return false;
+
+                if (!string.IsNullOrEmpty(_filterKind))
+                {
+                    bool isPersonal = IsPersonalLevel(item.AssistantTypeLevel);
+                    if (_filterKind == "personal" && !isPersonal) return false;
+                    if (_filterKind == "institutional" && isPersonal) return false;
+                }
+
+                if (_filterSchoolId > 0 && item.InstitutionId != _filterSchoolId) return false;
+                if (_filterAssistantTypeId > 0 && item.AssistantTypeId != _filterAssistantTypeId) return false;
+                if (!string.IsNullOrEmpty(_filterAllocation) && item.AllocationStatus != _filterAllocation) return false;
+
+                return true;
+            });
+
+            query = _sortColumn switch
+            {
+                "Kind" => _sortAscending
+                    ? query.OrderBy(i => IsPersonalLevel(i.AssistantTypeLevel) ? 0 : 1)
+                    : query.OrderByDescending(i => IsPersonalLevel(i.AssistantTypeLevel) ? 0 : 1),
+                "SchoolName" => _sortAscending
+                    ? query.OrderBy(i => i.SchoolName ?? "")
+                    : query.OrderByDescending(i => i.SchoolName ?? ""),
+                "PupilName" => _sortAscending
+                    ? query.OrderBy(i => i.PupilLastName ?? "").ThenBy(i => i.PupilFirstName ?? "")
+                    : query.OrderByDescending(i => i.PupilLastName ?? "").ThenByDescending(i => i.PupilFirstName ?? ""),
+                "PupilIdNumber" => _sortAscending
+                    ? query.OrderBy(i => i.PupilIdNumber ?? "")
+                    : query.OrderByDescending(i => i.PupilIdNumber ?? ""),
+                "ClassName" => _sortAscending
+                    ? query.OrderBy(i => i.ClassName ?? "")
+                    : query.OrderByDescending(i => i.ClassName ?? ""),
+                "ClassClassificationName" => _sortAscending
+                    ? query.OrderBy(i => i.ClassClassificationName ?? "")
+                    : query.OrderByDescending(i => i.ClassClassificationName ?? ""),
+                "AssistantTypeName" => _sortAscending
+                    ? query.OrderBy(i => i.AssistantTypeName)
+                    : query.OrderByDescending(i => i.AssistantTypeName),
+                "Hours" => _sortAscending
+                    ? query.OrderBy(i => i.Hours)
+                    : query.OrderByDescending(i => i.Hours),
+                "MinistryParticipationPct" => _sortAscending
+                    ? query.OrderBy(i => i.MinistryParticipationPct)
+                    : query.OrderByDescending(i => i.MinistryParticipationPct),
+                "StartDate" => _sortAscending
+                    ? query.OrderBy(i => i.StartDate).ThenBy(i => i.EndDate)
+                    : query.OrderByDescending(i => i.StartDate).ThenByDescending(i => i.EndDate),
+                "AllocationStatus" => _sortAscending
+                    ? query.OrderBy(i => i.AllocationStatus)
+                    : query.OrderByDescending(i => i.AllocationStatus),
+                "Status" => _sortAscending
+                    ? query.OrderBy(i => i.IsCancelled).ThenBy(i => i.IsActive)
+                    : query.OrderByDescending(i => i.IsCancelled).ThenByDescending(i => i.IsActive),
+                _ => query
+            };
+
+            return query.ToList();
         }
-
-        if (_filterSchoolId > 0 && item.InstitutionId != _filterSchoolId) return false;
-        if (_filterAssistantTypeId > 0 && item.AssistantTypeId != _filterAssistantTypeId) return false;
-        if (!string.IsNullOrEmpty(_filterAllocation) && item.AllocationStatus != _filterAllocation) return false;
-
-        return true;
-    }).ToList();
+    }
 
     private bool HasActiveFilters =>
         !string.IsNullOrEmpty(_filterKind) ||
@@ -1090,6 +1311,23 @@
         _filterAssistantTypeId = 0;
         _filterActiveOnly = "true";
         _filterAllocation = "";
+    }
+
+    private void SortTable(string column)
+    {
+        if (_sortColumn == column)
+            _sortAscending = !_sortAscending;
+        else
+        {
+            _sortColumn = column;
+            _sortAscending = true;
+        }
+    }
+
+    private string GetSortArrow(string column)
+    {
+        if (_sortColumn != column) return "";
+        return _sortAscending ? "▲" : "▼";
     }
 
     // ─── Entitlement form helpers ─────────────────────────────────────────────

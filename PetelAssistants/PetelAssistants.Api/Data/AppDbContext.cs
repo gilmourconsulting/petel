@@ -37,6 +37,9 @@ namespace PetelAssistants.Api.Data
         public DbSet<SalaryFieldMapping>     SalaryFieldMappings    { get; set; }
         public DbSet<MeitarRetrieveProcess>  MeitarRetrieveProcesses { get; set; }
         public DbSet<MeitarMutavim>          MeitarMutavim          { get; set; }
+        public DbSet<YearlyBudget>             YearlyBudgets            { get; set; }
+        public DbSet<YearlyBudgetDetail>       YearlyBudgetDetails      { get; set; }
+        public DbSet<YearlyBudgetMonthDetail>  YearlyBudgetMonthDetails { get; set; }
 
         public AssistDbContext(
             DbContextOptions<AssistDbContext> options,
@@ -327,6 +330,46 @@ namespace PetelAssistants.Api.Data
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasQueryFilter(m => _tenantContext.EntityId != 0 && m.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<YearlyBudget>(entity =>
+            {
+                entity.ToTable("yearly_budgets");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.HebrewYearId });
+                entity.HasIndex(e => e.MasterYearlyBudgetId);
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<YearlyBudgetDetail>(entity =>
+            {
+                entity.ToTable("yearly_budget_details");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.YearlyBudgetId);
+                entity.HasIndex(e => new { e.YearlyBudgetId, e.AssistantTypeId }).IsUnique();
+
+                entity.HasOne(d => d.YearlyBudget)
+                    .WithMany(b => b.Details)
+                    .HasForeignKey(d => d.YearlyBudgetId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<YearlyBudgetMonthDetail>(entity =>
+            {
+                entity.ToTable("yearly_budget_month_details");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.YearlyBudgetId);
+                entity.HasIndex(e => new { e.YearlyBudgetId, e.AssistantTypeId, e.PeriodYear, e.PeriodMonth }).IsUnique();
+
+                entity.HasOne(m => m.YearlyBudget)
+                    .WithMany(b => b.MonthDetails)
+                    .HasForeignKey(m => m.YearlyBudgetId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
             });
         }
     }

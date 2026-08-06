@@ -85,6 +85,26 @@ Manual Excel/CSV salary import for the logged-in authority. Entry points: contex
 
 **Validation:** Entitlement start/end dates must fall within the Hebrew year's date range. Defaults on create come from the year's dates.
 
+## Yearly budget (תקציב שנתי)
+
+Tenant-owned budget per Hebrew year with versions. Entry: Year Management nav card → `/year/{YearId}/yearly-budget`. SQL: `add-yearly-budget.sql`, `add-yearly-budget-actions.sql`.
+
+**Tables (`assist_schema`):**
+
+| Table | Role |
+|---|---|
+| `yearly_budgets` | Version header: `master_yearly_budget_id`, `version`, `is_last_version`, `status` (`open` / `locked` / `deleted`) |
+| `yearly_budget_details` | Year-level lines per `assistant_type_id` for a specific version |
+| `yearly_budget_month_details` | Monthly lines for that version (`period_year` + `period_month`) |
+
+**Lifecycle:** No auto-create on open — if there are no versions, the screen shows empty state with **גרסה חדשה** (creates version **0**). Open versions edit and save in place. Lock makes the version read-only. When the last non-deleted version is Locked, **גרסה חדשה** copies it to the next Open version. Soft-delete sets `status = deleted` and promotes the previous non-deleted version to `is_last_version` when needed.
+
+**Months:** Gregorian months covering `hebrew_years.start_date`–`end_date` (inclusive by calendar month). On create/save, month values are an equal split of yearly FTE / hours / amount across those months; remarks are copied. Monthly rows are read-only in the UI for now.
+
+**API:** `GET api/yearly-budgets?yearId=` (last or empty shell with `CanCreateNewVersion`), `GET api/yearly-budgets/{id}`, `PUT api/yearly-budgets/{id}`, `PUT …/lock`, `POST api/yearly-budgets/new-version?yearId=` (first v0 or next from locked), `PUT …/delete`.
+
+**Security:** `yearly_budget_page_action`, `yearly_budget_back`, `yearly_budget_refresh`, `yearly_budget_save`, `yearly_budget_lock`, `yearly_budget_new_version`, `yearly_budget_delete`, `yearmanagement_yearly_budget`.
+
 ## Institutions (schools and kindergartens)
 
 Each local authority maintains its own list of schools and kindergartens as rows in `assist_schema.institutions` with mandatory `entity_id` (the owning authority). Institutions are **not** shared across tenants.
@@ -147,6 +167,8 @@ Additional fields:
 | `is_cancelled` | Cancel state on a version row |
 
 List/read current rows with `is_last_version = true`. History: `GET api/entitlements/history/{masterEntitlementId}`.
+
+**UI (entitlements screen):** Main table data columns are client-side sortable (Actions column excluded). Selecting a row opens the bottom dock with **הקצאות** as the default tab. When the master has more than one version, an **היסטוריה** tab appears listing prior versions; with a single version the history tab is omitted.
 
 **Cancel** creates a **new** version with `is_cancelled = true` / `is_active = false` (prior versions stay unchanged). Do not flip cancel in place. Route `PUT api/entitlements/{id}/deactivate` performs cancel-via-version.
 

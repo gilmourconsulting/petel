@@ -98,14 +98,33 @@ Every authenticated page follows this structure:
     private List<MyItemDto>? _items;
     private bool _isLoading = true;
     private string _filterText = "";
-    private string _sortColumn = "";
+    private string _sortColumn = "Name";
     private bool _sortAscending = true;
     private MyModal? _myModal;
 
-    // Filtered + sorted list
-    private IEnumerable<MyItemDto> FilteredItems => (_items ?? [])
-        .Where(i => string.IsNullOrWhiteSpace(_filterText) ||
-                    i.Name.Contains(_filterText, StringComparison.OrdinalIgnoreCase));
+    // Filtered + sorted list — filter first, then OrderBy from sort state
+    private List<MyItemDto> FilteredItems
+    {
+        get
+        {
+            IEnumerable<MyItemDto> query = (_items ?? [])
+                .Where(i => string.IsNullOrWhiteSpace(_filterText) ||
+                            i.Name.Contains(_filterText, StringComparison.OrdinalIgnoreCase));
+
+            query = _sortColumn switch
+            {
+                "Name" => _sortAscending
+                    ? query.OrderBy(i => i.Name)
+                    : query.OrderByDescending(i => i.Name),
+                "Id" => _sortAscending
+                    ? query.OrderBy(i => i.Id)
+                    : query.OrderByDescending(i => i.Id),
+                _ => query
+            };
+
+            return query.ToList();
+        }
+    }
 
     // OVERRIDE OnPageInitializedAsync — NOT OnInitializedAsync
     protected override async Task OnPageInitializedAsync()
@@ -136,7 +155,7 @@ Every authenticated page follows this structure:
 
     private void ShowAddModal() => _myModal?.Show();
 
-    // Sorting helpers
+    // Sorting helpers — toggle state only; FilteredItems applies the OrderBy
     private void SortTable(string column)
     {
         if (_sortColumn == column)
@@ -146,16 +165,12 @@ Every authenticated page follows this structure:
             _sortColumn = column;
             _sortAscending = true;
         }
-        // Apply sort to _items
-        _items = _sortAscending
-            ? [.. (_items ?? []).OrderBy(i => i.Name)]
-            : [.. (_items ?? []).OrderByDescending(i => i.Name)];
     }
 
     private string GetSortArrow(string column)
     {
         if (_sortColumn != column) return "";
-        return _sortAscending ? " ▲" : " ▼";
+        return _sortAscending ? "▲" : "▼";
     }
 
     private async Task DoAction()
@@ -504,9 +519,9 @@ Simple `<table>` in markup with `@foreach`. Use for standard list pages:
 </div>
 ```
 
-### Option 2: SortableTableBase<T> (for reusable components)
+### Option 2: SortableTableBase<T> (ATH reusable components only)
 
-Inherit from `SortableTableBase<T>` in `Shared/SortableTableBase.cs` when the same table is shared across multiple pages:
+`SortableTableBase<T>` lives under `PetelATH/PetelATH.BlazorServer/Components/Shared/SortableTableBase.cs` — it is **not** in shared BlazorCore. Use it only for ATH components reused across multiple ATH pages. PetelAssistants list pages use Option 1 (inline `SortTable` / filter-then-sort in `FilteredItems`).
 
 ```csharp
 // In the component's @code

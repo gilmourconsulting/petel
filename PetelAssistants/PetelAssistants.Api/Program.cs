@@ -80,6 +80,7 @@ builder.Services.AddScoped<SalaryFileProcessor>();
 
 builder.Services.AddScoped<OrgUnitService>();
 builder.Services.AddScoped<EntitlementService>();
+builder.Services.AddScoped<YearlyBudgetService>();
 
 // ── Meitar data API client ─────────────────────────────────────────────────
 // BaseAddress must end with '/' so relative paths like "data/query" resolve under /api/

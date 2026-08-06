@@ -1,21 +1,25 @@
-<div class="content-card @CssClass" style="@(string.IsNullOrWhiteSpace(CssClass) ? "margin-top: 20px; border-top: 2px solid #dee2e6;" : null)">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h3 style="margin: 0; font-size: 1.1em;">
-            @HeaderPrefix
-            <span style="font-weight: 400;">@HeaderTitle</span>
-        </h3>
-        <div style="display: flex; gap: 8px; align-items: center;">
-            @if (IsLoading)
-            {
-                <span style="font-size: 0.85em; color: #6c757d;">טוען...</span>
-            }
-            @if (ShowAddButton)
-            {
-                <button class="btn btn-primary btn-sm" @onclick="OnAddAllocation">@AddButtonLabel</button>
-            }
-            <button class="btn btn-secondary btn-sm" @onclick="OnClose" title="סגור">✕</button>
+<div class="@(ShowChrome ? $"content-card {CssClass}" : CssClass)"
+     style="@(ShowChrome && string.IsNullOrWhiteSpace(CssClass) ? "margin-top: 20px; border-top: 2px solid #dee2e6;" : null)">
+    @if (ShowChrome)
+    {
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h3 style="margin: 0; font-size: 1.1em;">
+                @HeaderPrefix
+                <span style="font-weight: 400;">@HeaderTitle</span>
+            </h3>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                @if (IsLoading)
+                {
+                    <span style="font-size: 0.85em; color: #6c757d;">טוען...</span>
+                }
+                @if (ShowAddButton)
+                {
+                    <button class="btn btn-primary btn-sm" @onclick="OnAddAllocation">@AddButtonLabel</button>
+                }
+                <button class="btn btn-secondary btn-sm" @onclick="OnClose" title="סגור">✕</button>
+            </div>
         </div>
-    </div>
+    }
 
     @if (Allocations.Count == 0 && !IsLoading)
     {
@@ -92,6 +96,8 @@
     [Parameter] public string EmptyMessage { get; set; } = "אין הקצאות לזכאות זו";
     [Parameter] public string SecurityScreenName { get; set; } = "entitlements";
     [Parameter] public string CssClass { get; set; } = "";
+    /// <summary>When false, renders only the body (no card/header) so the parent can own chrome/tabs.</summary>
+    [Parameter] public bool ShowChrome { get; set; } = true;
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnAddAllocation { get; set; }
     [Parameter] public EventCallback<EntitlementAllocationDto> OnDeactivateAllocation { get; set; }

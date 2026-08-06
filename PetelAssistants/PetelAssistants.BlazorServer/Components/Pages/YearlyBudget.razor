@@ -1,0 +1,507 @@
+@page "/year/{YearId:int}/yearly-budget"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelAssistants.BlazorServer.Models
+@using PetelAssistants.BlazorServer.DTOs
+@inject ApiService ApiService
+
+<div class="context-buttons-section">
+    <SecureButton ActionName="yearly_budget_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                  OnClick="NavigateBack" CssClass="context-navigation-btn">
+        חזרה לניהול שנה
+    </SecureButton>
+
+    <SecureButton ActionName="yearly_budget_refresh" ScreenName="@PageName" FunctionName="RefreshData"
+                  OnClick="RefreshData" CssClass="context-btn">
+        רענן
+    </SecureButton>
+
+    @if (_budget?.CanEdit == true)
+    {
+        <SecureButton ActionName="yearly_budget_save" ScreenName="@PageName" FunctionName="SaveBudget"
+                      OnClick="SaveBudget" CssClass="context-btn" HideIfNoAccess="true">
+            שמור
+        </SecureButton>
+        <SecureButton ActionName="yearly_budget_lock" ScreenName="@PageName" FunctionName="LockBudget"
+                      OnClick="LockBudget" CssClass="context-btn" HideIfNoAccess="true">
+            נעילה
+        </SecureButton>
+    }
+
+    @if (_budget?.CanCreateNewVersion == true)
+    {
+        <SecureButton ActionName="yearly_budget_new_version" ScreenName="@PageName" FunctionName="CreateNewVersion"
+                      OnClick="CreateNewVersion" CssClass="context-btn" HideIfNoAccess="true">
+            גרסה חדשה
+        </SecureButton>
+    }
+
+    @if (_budget?.CanDelete == true)
+    {
+        <SecureButton ActionName="yearly_budget_delete" ScreenName="@PageName" FunctionName="DeleteBudget"
+                      OnClick="DeleteBudget" CssClass="context-btn" HideIfNoAccess="true">
+            מחיקה
+        </SecureButton>
+    }
+</div>
+
+<div class="main-container">
+    <div class="students-content">
+        <div class="school-title-section">
+            <h1 class="page-title">תקציב שנתי@(!string.IsNullOrEmpty(_yearName) ? $" — {_yearName}" : "")</h1>
+        </div>
+
+        <div class="content-card">
+            @if (_isLoading)
+            {
+                <div class="loading-spinner">טוען...</div>
+            }
+            else if (!string.IsNullOrEmpty(_error))
+            {
+                <div class="error-message">@_error</div>
+            }
+            else if (_budget != null && _budget.Id == 0)
+            {
+                <div style="color: var(--text-muted);">
+                    אין עדיין גרסת תקציב לשנה זו. לחץ על <strong>גרסה חדשה</strong> ליצירת גרסה 0.
+                </div>
+            }
+            else if (_budget != null)
+            {
+                <div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 20px;">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">גרסה</label>
+                        <select class="form-control" style="min-width: 220px;"
+                                value="@_budget.Id"
+                                @onchange="OnVersionChanged">
+                            @foreach (var v in _budget.Versions)
+                            {
+                                <option value="@v.Id">@FormatVersionOption(v)</option>
+                            }
+                        </select>
+                    </div>
+                    <div style="padding-bottom: 6px;">
+                        <span style="font-weight: 600;">סטטוס:</span> @StatusLabel(_budget.Status)
+                        @if (_budget.IsLastVersion)
+                        {
+                            <span style="color: var(--text-muted); margin-inline-start: 8px;">(אחרונה)</span>
+                        }
+                    </div>
+                </div>
+
+                <h2 style="font-size: 1.15em; margin-bottom: 12px;">פירוט שנתי</h2>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>סוג סייעת</th>
+                                <th>משרות</th>
+                                <th>שעות</th>
+                                <th>סכום</th>
+                                <th>הערות</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var detail in _editDetails)
+                            {
+                                <tr>
+                                    <td>@detail.AssistantTypeName</td>
+                                    @if (_budget.CanEdit)
+                                    {
+                                        <td>
+                                            <input type="number" class="form-control" step="0.01" min="0"
+                                                   @bind="detail.Fte" @bind:event="onchange" style="width: 100px;" />
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control" step="0.01" min="0"
+                                                   @bind="detail.Hours" @bind:event="onchange" style="width: 100px;" />
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control" step="0.01" min="0"
+                                                   @bind="detail.Amount" @bind:event="onchange" style="width: 120px;" />
+                                        </td>
+                                        <td>
+                                            <input type="text" class="form-control"
+                                                   @bind="detail.Remarks" @bind:event="onchange" />
+                                        </td>
+                                    }
+                                    else
+                                    {
+                                        <td>@detail.Fte.ToString("N2")</td>
+                                        <td>@detail.Hours.ToString("N2")</td>
+                                        <td>@detail.Amount.ToString("N2")</td>
+                                        <td>@(detail.Remarks ?? "—")</td>
+                                    }
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <h2 style="font-size: 1.15em; margin: 28px 0 12px;">פירוט חודשי</h2>
+                <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 12px;">
+                    ערכי החודשים מחולקים באופן שווה לפי חודשי השנה העברית (לקריאה בלבד).
+                </p>
+
+                @if (MonthGroups.Count == 0)
+                {
+                    <div>אין נתונים חודשיים.</div>
+                }
+                else
+                {
+                    @foreach (var group in MonthGroups)
+                    {
+                        var key = $"{group.PeriodYear}-{group.PeriodMonth}";
+                        var expanded = _expandedMonths.Contains(key);
+                        <div style="margin-bottom: 10px; border: 1px solid var(--border-color, #ddd); border-radius: 6px;">
+                            <button type="button"
+                                    style="width: 100%; text-align: start; padding: 10px 14px; background: transparent; border: none; cursor: pointer; font-weight: 600;"
+                                    @onclick="() => ToggleMonth(key)">
+                                @(expanded ? "▾" : "▸") @GetMonthLabel(group.PeriodMonth) @group.PeriodYear
+                            </button>
+                            @if (expanded)
+                            {
+                                <div class="table-responsive" style="padding: 0 10px 10px;">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>סוג סייעת</th>
+                                                <th>משרות</th>
+                                                <th>שעות</th>
+                                                <th>סכום</th>
+                                                <th>הערות</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var row in group.Rows)
+                                            {
+                                                <tr>
+                                                    <td>@row.AssistantTypeName</td>
+                                                    <td>@row.Fte.ToString("N2")</td>
+                                                    <td>@row.Hours.ToString("N2")</td>
+                                                    <td>@row.Amount.ToString("N2")</td>
+                                                    <td>@(row.Remarks ?? "—")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int YearId { get; set; }
+
+    protected override string PageName => "yearly_budget";
+
+    private bool _isLoading = true;
+    private string _error = "";
+    private string _yearName = "";
+    private YearlyBudgetDto? _budget;
+    private List<YearlyBudgetDetailDto> _editDetails = new();
+    private HashSet<string> _expandedMonths = new();
+
+    private List<(int PeriodYear, int PeriodMonth, List<YearlyBudgetMonthDetailDto> Rows)> MonthGroups =>
+        (_budget?.MonthDetails ?? new List<YearlyBudgetMonthDetailDto>())
+            .GroupBy(m => (m.PeriodYear, m.PeriodMonth))
+            .OrderBy(g => g.Key.PeriodYear)
+            .ThenBy(g => g.Key.PeriodMonth)
+            .Select(g => (
+                g.Key.PeriodYear,
+                g.Key.PeriodMonth,
+                g.OrderBy(r => r.AssistantTypeName).ToList()))
+            .ToList();
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        await LoadYearNameAsync();
+        await LoadLastBudgetAsync();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_isLoading)
+        {
+            await LoadYearNameAsync();
+            await LoadLastBudgetAsync();
+        }
+    }
+
+    private async Task RefreshData()
+    {
+        if (_budget != null)
+            await LoadBudgetByIdAsync(_budget.Id);
+        else
+            await LoadLastBudgetAsync();
+    }
+
+    private async Task LoadYearNameAsync()
+    {
+        try
+        {
+            var year = await ApiService.GetAsync<YearDto>($"years/{YearId}");
+            _yearName = year?.YearName ?? "";
+        }
+        catch
+        {
+            _yearName = "";
+        }
+    }
+
+    private async Task LoadLastBudgetAsync()
+    {
+        _isLoading = true;
+        _error = "";
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<YearlyBudgetDto>>(
+                $"yearly-budgets?yearId={YearId}");
+            if (response?.Success == true && response.Data != null)
+            {
+                ApplyBudget(response.Data);
+            }
+            else
+            {
+                _budget = null;
+                _editDetails = new();
+                _error = response?.Message ?? "שגיאה בטעינת התקציב";
+            }
+        }
+        catch (Exception ex)
+        {
+            _budget = null;
+            _editDetails = new();
+            _error = $"שגיאה בטעינת התקציב: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadBudgetByIdAsync(int id)
+    {
+        _isLoading = true;
+        _error = "";
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<YearlyBudgetDto>>(
+                $"yearly-budgets/{id}");
+            if (response?.Success == true && response.Data != null)
+            {
+                ApplyBudget(response.Data);
+            }
+            else
+            {
+                _error = response?.Message ?? "שגיאה בטעינת הגרסה";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"שגיאה בטעינת הגרסה: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void ApplyBudget(YearlyBudgetDto data)
+    {
+        _budget = data;
+        _editDetails = data.Details.Select(d => new YearlyBudgetDetailDto
+        {
+            Id = d.Id,
+            AssistantTypeId = d.AssistantTypeId,
+            AssistantTypeName = d.AssistantTypeName,
+            Fte = d.Fte,
+            Hours = d.Hours,
+            Amount = d.Amount,
+            Remarks = d.Remarks
+        }).ToList();
+    }
+
+    private async Task OnVersionChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var id) && id > 0)
+            await LoadBudgetByIdAsync(id);
+    }
+
+    private async Task SaveBudget()
+    {
+        if (_budget == null || !_budget.CanEdit)
+            return;
+
+        try
+        {
+            var request = new UpdateYearlyBudgetRequest
+            {
+                Details = _editDetails.Select(d => new UpdateYearlyBudgetDetailRequest
+                {
+                    AssistantTypeId = d.AssistantTypeId,
+                    Fte = d.Fte,
+                    Hours = d.Hours,
+                    Amount = d.Amount,
+                    Remarks = d.Remarks
+                }).ToList()
+            };
+
+            var response = await ApiService.PutAsync<UpdateYearlyBudgetRequest, ApiResponse<YearlyBudgetDto>>(
+                $"yearly-budgets/{_budget.Id}", request);
+
+            if (response?.Success == true && response.Data != null)
+            {
+                ApplyBudget(response.Data);
+                await JSRuntime.InvokeVoidAsync("alert", "התקציב נשמר בהצלחה");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בשמירה");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירה: {ex.Message}");
+        }
+    }
+
+    private async Task LockBudget()
+    {
+        if (_budget == null || !_budget.CanLock)
+            return;
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם לנעול את גרסת התקציב? לא ניתן יהיה לערוך אותה לאחר הנעילה.");
+        if (!confirmed)
+            return;
+
+        try
+        {
+            var response = await ApiService.PutAsync<object, ApiResponse<YearlyBudgetDto>>(
+                $"yearly-budgets/{_budget.Id}/lock", new { });
+
+            if (response?.Success == true && response.Data != null)
+            {
+                ApplyBudget(response.Data);
+                await JSRuntime.InvokeVoidAsync("alert", "התקציב ננעל");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בנעילה");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בנעילה: {ex.Message}");
+        }
+    }
+
+    private async Task CreateNewVersion()
+    {
+        if (_budget == null || !_budget.CanCreateNewVersion)
+            return;
+
+        try
+        {
+            var response = await ApiService.PostAsync<object, ApiResponse<YearlyBudgetDto>>(
+                $"yearly-budgets/new-version?yearId={YearId}", new { });
+
+            if (response?.Success == true && response.Data != null)
+            {
+                ApplyBudget(response.Data);
+                await JSRuntime.InvokeVoidAsync("alert", $"נוצרה גרסה {_budget.Version}");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה ביצירת גרסה");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה ביצירת גרסה: {ex.Message}");
+        }
+    }
+
+    private async Task DeleteBudget()
+    {
+        if (_budget == null || !_budget.CanDelete)
+            return;
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>("confirm", "האם למחוק את גרסת התקציב?");
+        if (!confirmed)
+            return;
+
+        try
+        {
+            var response = await ApiService.PutAsync<object, ApiResponse<YearlyBudgetDto>>(
+                $"yearly-budgets/{_budget.Id}/delete", new { });
+
+            if (response?.Success == true)
+            {
+                if (response.Data != null)
+                {
+                    ApplyBudget(response.Data);
+                }
+                else
+                {
+                    await LoadLastBudgetAsync();
+                }
+                await JSRuntime.InvokeVoidAsync("alert", "הגרסה נמחקה");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה במחיקה");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה במחיקה: {ex.Message}");
+        }
+    }
+
+    private void ToggleMonth(string key)
+    {
+        if (!_expandedMonths.Add(key))
+            _expandedMonths.Remove(key);
+    }
+
+    private void NavigateBack() => Navigation.NavigateTo($"/year/{YearId}");
+
+    private static string StatusLabel(string status) => status switch
+    {
+        "open" => "פתוח",
+        "locked" => "נעול",
+        "deleted" => "מחוק",
+        _ => status
+    };
+
+    private static string FormatVersionOption(YearlyBudgetVersionItemDto v)
+    {
+        var label = $"גרסה {v.Version} — {StatusLabel(v.Status)}";
+        if (v.IsLastVersion)
+            label += " (אחרונה)";
+        return label;
+    }
+
+    private static string GetMonthLabel(int month) => month switch
+    {
+        1 => "ינואר",
+        2 => "פברואר",
+        3 => "מרץ",
+        4 => "אפריל",
+        5 => "מאי",
+        6 => "יוני",
+        7 => "יולי",
+        8 => "אוגוסט",
+        9 => "ספטמבר",
+        10 => "אוקטובר",
+        11 => "נובמבר",
+        12 => "דצמבר",
+        _ => month.ToString()
+    };
+}
