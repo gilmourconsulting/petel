@@ -143,57 +143,137 @@
                     ערכי החודשים מחולקים באופן שווה לפי חודשי השנה העברית (לקריאה בלבד).
                 </p>
 
-                @if (MonthGroups.Count == 0)
+                @if (MonthColumns.Count == 0 || AssistantTypeRows.Count == 0)
                 {
                     <div>אין נתונים חודשיים.</div>
                 }
                 else
                 {
-                    @foreach (var group in MonthGroups)
-                    {
-                        var key = $"{group.PeriodYear}-{group.PeriodMonth}";
-                        var expanded = _expandedMonths.Contains(key);
-                        <div style="margin-bottom: 10px; border: 1px solid var(--border-color, #ddd); border-radius: 6px;">
-                            <button type="button"
-                                    style="width: 100%; text-align: start; padding: 10px 14px; background: transparent; border: none; cursor: pointer; font-weight: 600;"
-                                    @onclick="() => ToggleMonth(key)">
-                                @(expanded ? "▾" : "▸") @GetMonthLabel(group.PeriodMonth) @group.PeriodYear
-                            </button>
-                            @if (expanded)
-                            {
-                                <div class="table-responsive" style="padding: 0 10px 10px;">
-                                    <table class="data-table">
-                                        <thead>
-                                            <tr>
-                                                <th>סוג סייעת</th>
-                                                <th>משרות</th>
-                                                <th>שעות</th>
-                                                <th>סכום</th>
-                                                <th>הערות</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach (var row in group.Rows)
+                    <div class="table-container monthly-budget-scroll">
+                        <table class="data-table monthly-budget-matrix">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2" class="monthly-budget-sticky">סוג סייעת</th>
+                                    @for (var mi = 0; mi < MonthColumns.Count; mi++)
+                                    {
+                                        var month = MonthColumns[mi];
+                                        <th colspan="3" class="@(mi > 0 ? "month-separator" : null)" style="text-align: center; white-space: nowrap;">
+                                            @GetMonthLabel(month.PeriodMonth)
+                                            <span class="month-year"> @month.PeriodYear</span>
+                                        </th>
+                                    }
+                                </tr>
+                                <tr>
+                                    @for (var mi = 0; mi < MonthColumns.Count; mi++)
+                                    {
+                                        <th class="metric-header @(mi > 0 ? "month-separator" : null)">משרות</th>
+                                        <th class="metric-header">שעות</th>
+                                        <th class="metric-header">סכום</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var type in AssistantTypeRows)
+                                {
+                                    <tr>
+                                        <td class="monthly-budget-sticky type-name">@type.AssistantTypeName</td>
+                                        @for (var mi = 0; mi < MonthColumns.Count; mi++)
+                                        {
+                                            var month = MonthColumns[mi];
+                                            var cell = GetMonthCell(type.AssistantTypeId, month.PeriodYear, month.PeriodMonth);
+                                            var sep = mi > 0 ? "month-separator" : null;
+                                            @if (cell != null)
                                             {
-                                                <tr>
-                                                    <td>@row.AssistantTypeName</td>
-                                                    <td>@row.Fte.ToString("N2")</td>
-                                                    <td>@row.Hours.ToString("N2")</td>
-                                                    <td>@row.Amount.ToString("N2")</td>
-                                                    <td>@(row.Remarks ?? "—")</td>
-                                                </tr>
+                                                <td class="@sep" style="text-align: center; white-space: nowrap;" title="@(cell.Remarks ?? "")">@cell.Fte.ToString("N2")</td>
+                                                <td style="text-align: center; white-space: nowrap;" title="@(cell.Remarks ?? "")">@cell.Hours.ToString("N2")</td>
+                                                <td style="text-align: center; white-space: nowrap;" title="@(cell.Remarks ?? "")">@cell.Amount.ToString("N2")</td>
                                             }
-                                        </tbody>
-                                    </table>
-                                </div>
-                            }
-                        </div>
-                    }
+                                            else
+                                            {
+                                                <td class="@sep" style="text-align: center; color: var(--text-muted);">—</td>
+                                                <td style="text-align: center; color: var(--text-muted);">—</td>
+                                                <td style="text-align: center; color: var(--text-muted);">—</td>
+                                            }
+                                        }
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 }
             }
         </div>
     </div>
 </div>
+
+<style>
+    .monthly-budget-scroll {
+        overflow-x: auto;
+        overflow-y: visible;
+        max-width: 100%;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .monthly-budget-matrix {
+        width: max-content;
+        min-width: 100%;
+        font-size: 1em !important;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    .monthly-budget-matrix th,
+    .monthly-budget-matrix td {
+        padding: 12px 14px !important;
+        font-size: 1em !important;
+        line-height: 1.35 !important;
+    }
+
+    .monthly-budget-matrix .metric-header {
+        text-align: center;
+        font-weight: 500;
+        font-size: 0.95em !important;
+        white-space: nowrap;
+        min-width: 88px;
+    }
+
+    .monthly-budget-matrix .month-year {
+        font-weight: 400;
+        font-size: 0.9em;
+        color: var(--text-muted);
+    }
+
+    .monthly-budget-matrix .month-separator {
+        border-inline-start: 2px solid var(--border-color, #c8c8c8) !important;
+    }
+
+    .monthly-budget-matrix thead .month-separator {
+        border-inline-start: 2px solid rgba(255, 255, 255, 0.45) !important;
+    }
+
+    .monthly-budget-matrix .monthly-budget-sticky {
+        position: sticky;
+        inset-inline-start: 0;
+        z-index: 2;
+        min-width: 160px;
+        vertical-align: middle;
+        background: var(--table-header-background, #fff);
+    }
+
+    .monthly-budget-matrix tbody .monthly-budget-sticky {
+        background: #fff;
+        z-index: 1;
+        box-shadow: -2px 0 4px rgba(0, 0, 0, 0.04);
+    }
+
+    .monthly-budget-matrix tbody tr:hover .monthly-budget-sticky {
+        background: var(--hover-background, #f5f5f5);
+    }
+
+    .monthly-budget-matrix .type-name {
+        font-weight: 600;
+    }
+</style>
 
 @code {
     [Parameter] public int YearId { get; set; }
@@ -205,18 +285,27 @@
     private string _yearName = "";
     private YearlyBudgetDto? _budget;
     private List<YearlyBudgetDetailDto> _editDetails = new();
-    private HashSet<string> _expandedMonths = new();
 
-    private List<(int PeriodYear, int PeriodMonth, List<YearlyBudgetMonthDetailDto> Rows)> MonthGroups =>
+    private List<(int PeriodYear, int PeriodMonth)> MonthColumns =>
         (_budget?.MonthDetails ?? new List<YearlyBudgetMonthDetailDto>())
-            .GroupBy(m => (m.PeriodYear, m.PeriodMonth))
-            .OrderBy(g => g.Key.PeriodYear)
-            .ThenBy(g => g.Key.PeriodMonth)
-            .Select(g => (
-                g.Key.PeriodYear,
-                g.Key.PeriodMonth,
-                g.OrderBy(r => r.AssistantTypeName).ToList()))
+            .Select(m => (m.PeriodYear, m.PeriodMonth))
+            .Distinct()
+            .OrderBy(m => m.PeriodYear)
+            .ThenBy(m => m.PeriodMonth)
             .ToList();
+
+    private List<(int AssistantTypeId, string AssistantTypeName)> AssistantTypeRows =>
+        (_budget?.MonthDetails ?? new List<YearlyBudgetMonthDetailDto>())
+            .GroupBy(m => new { m.AssistantTypeId, m.AssistantTypeName })
+            .OrderBy(g => g.Key.AssistantTypeName)
+            .Select(g => (g.Key.AssistantTypeId, g.Key.AssistantTypeName))
+            .ToList();
+
+    private YearlyBudgetMonthDetailDto? GetMonthCell(int assistantTypeId, int periodYear, int periodMonth) =>
+        _budget?.MonthDetails.FirstOrDefault(m =>
+            m.AssistantTypeId == assistantTypeId &&
+            m.PeriodYear == periodYear &&
+            m.PeriodMonth == periodMonth);
 
     protected override async Task OnPageInitializedAsync()
     {
@@ -462,12 +551,6 @@
         {
             await JSRuntime.InvokeVoidAsync("alert", $"שגיאה במחיקה: {ex.Message}");
         }
-    }
-
-    private void ToggleMonth(string key)
-    {
-        if (!_expandedMonths.Add(key))
-            _expandedMonths.Remove(key);
     }
 
     private void NavigateBack() => Navigation.NavigateTo($"/year/{YearId}");
