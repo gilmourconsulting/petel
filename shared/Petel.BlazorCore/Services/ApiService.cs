@@ -443,8 +443,35 @@ namespace Petel.BlazorCore.Services
                         errorContent
                     );
                 }
-                
-                response.EnsureSuccessStatusCode();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError("PUT request failed for {Endpoint}: {StatusCode} - {ErrorContent}",
+                        endpoint, response.StatusCode, errorContent);
+
+                    // Prefer returning a deserialized error payload (e.g. ApiResponse with message)
+                    // so callers can show the server message to the user without parsing exceptions.
+                    if (!string.IsNullOrWhiteSpace(errorContent))
+                    {
+                        try
+                        {
+                            var errorResponse = JsonSerializer.Deserialize<TResponse>(errorContent, _jsonOptions);
+                            if (errorResponse != null)
+                                return errorResponse;
+                        }
+                        catch (JsonException)
+                        {
+                            // fall through to exception
+                        }
+                    }
+
+                    throw new HttpStatusException(
+                        response.StatusCode,
+                        $"Request failed with status {response.StatusCode}",
+                        errorContent);
+                }
+
                 return await response.Content.ReadFromJsonAsync<TResponse>(_jsonOptions);
             }
             catch (ObjectDisposedException ex)
@@ -457,7 +484,7 @@ namespace Petel.BlazorCore.Services
                 _logger.LogDebug(ex, "PUT request cancelled for {Endpoint}", endpoint);
                 return default;
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not HttpStatusException)
             {
                 _logger.LogError(ex, "PUT request failed for {Endpoint}", endpoint);
                 throw;

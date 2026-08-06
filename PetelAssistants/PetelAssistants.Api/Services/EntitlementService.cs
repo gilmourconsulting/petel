@@ -26,35 +26,32 @@ namespace PetelAssistants.Api.Services
         }
 
         /// <summary>
-        /// Returns entitlements for the given year. kind is optional; omit or pass null/empty to return all.
+        /// Returns last-version entitlements for the given year. kind is optional; omit or pass null/empty to return all.
         /// </summary>
         public async Task<List<EntitlementListItemDto>> ListEntitlementsAsync(int entityId, int yearId, string? kind)
         {
             var items = await _context.Entitlements
                 .AsNoTracking()
-                .Where(e => e.HebrewYearId == yearId)
+                .Where(e => e.HebrewYearId == yearId && e.IsLastVersion)
                 .OrderByDescending(e => e.Id)
                 .ToListAsync();
 
-            var entitlementIds = items.Select(i => i.Id).ToList();
-
-            var allocatedHoursMap = entitlementIds.Count == 0
-                ? new Dictionary<int, decimal>()
-                : await _context.EntitlementAllocations
-                    .AsNoTracking()
-                    .Where(a => a.IsActive && entitlementIds.Contains(a.EntitlementId))
-                    .GroupBy(a => a.EntitlementId)
-                    .Select(g => new { EntitlementId = g.Key, TotalHours = g.Sum(a => a.Hours) })
-                    .ToDictionaryAsync(x => x.EntitlementId, x => x.TotalHours);
+            var allocatedHoursMap = await BuildAllocatedHoursByMasterAsync(items);
 
             return await MapListAsync(items, allocatedHoursMap);
         }
 
         public async Task<List<EntitlementAllocationDto>> ListAllocationsAsync(int entitlementId)
         {
+            var entitlement = await _context.Entitlements.AsNoTracking()
+                .FirstOrDefaultAsync(e => e.Id == entitlementId)
+                ?? throw new InvalidOperationException("זכאות לא נמצאה");
+
+            var versionIds = await GetVersionIdsForMasterAsync(entitlement.MasterEntitlementId);
+
             var allocations = await _context.EntitlementAllocations
                 .AsNoTracking()
-                .Where(a => a.EntitlementId == entitlementId)
+                .Where(a => versionIds.Contains(a.EntitlementId))
                 .OrderByDescending(a => a.Id)
                 .ToListAsync();
 
@@ -173,6 +170,9 @@ namespace PetelAssistants.Api.Services
                 .FirstOrDefaultAsync(e => e.Id == entitlementId)
                 ?? throw new InvalidOperationException("זכאות לא נמצאה");
 
+            if (!entitlement.IsLastVersion || entitlement.IsCancelled)
+                throw new InvalidOperationException("ניתן להקצות רק לזכאות פעילה בגרסה האחרונה");
+
             var personExists = await _context.Persons.AsNoTracking()
                 .AnyAsync(p => p.Id == request.PersonId);
             if (!personExists)
@@ -233,8 +233,24 @@ namespace PetelAssistants.Api.Services
             if (item == null)
                 return null;
 
-            var list = await MapListAsync(new List<Entitlement> { item });
+            var allocatedHoursMap = await BuildAllocatedHoursByMasterAsync(new List<Entitlement> { item });
+            var list = await MapListAsync(new List<Entitlement> { item }, allocatedHoursMap);
             return list.FirstOrDefault();
+        }
+
+        public async Task<List<EntitlementListItemDto>> GetHistoryAsync(int masterEntitlementId)
+        {
+            var items = await _context.Entitlements
+                .AsNoTracking()
+                .Where(e => e.MasterEntitlementId == masterEntitlementId)
+                .OrderBy(e => e.Version)
+                .ToListAsync();
+
+            if (items.Count == 0)
+                return new List<EntitlementListItemDto>();
+
+            var allocatedHoursMap = await BuildAllocatedHoursByMasterAsync(items);
+            return await MapListAsync(items, allocatedHoursMap);
         }
 
         public async Task<int> CreateEntitlementAsync(int entityId, int? userId, CreateEntitlementRequest request)
@@ -254,10 +270,15 @@ namespace PetelAssistants.Api.Services
             bool isPersonal = IsPersonalLevel(assistantType.Level);
             ValidateKindFields(isPersonal, request.InstitutionId, request.PupilIdNumber, request.PupilFirstName, request.PupilLastName);
 
+            var className = NormalizeOptionalText(request.ClassName);
+            if (IsClassHelp(assistantType.Name) && string.IsNullOrWhiteSpace(className))
+                throw new InvalidOperationException("שם כיתה נדרש לזכאות מסוג סייעת כיתתית");
+
             if (isPersonal)
                 ValidatePupilIdNumber(request.PupilIdNumber!);
 
             await ValidateInstitutionBelongsToTenantAsync(request.InstitutionId!.Value);
+            await ValidateClassClassificationAsync(request.ClassClassificationId);
 
             if (request.Hours <= 0)
                 throw new InvalidOperationException("מספר שעות חייב להיות גדול מאפס");
@@ -265,30 +286,49 @@ namespace PetelAssistants.Api.Services
             if (request.MinistryParticipationPct < 0 || request.MinistryParticipationPct > 100)
                 throw new InvalidOperationException("אחוז השתתפות משרד החינוך חייב להיות בין 0 ל-100");
 
+            var pupilIdNumber = isPersonal ? NormalizeRequiredText(request.PupilIdNumber, "תעודת זהות תלמיד") : null;
+
+            await ValidateNoOverlapAsync(
+                excludeMasterId: null,
+                assistantType,
+                startDate,
+                endDate,
+                request.InstitutionId,
+                className,
+                pupilIdNumber);
+
             var now = DateTime.UtcNow;
             var entitlement = new Entitlement
             {
-                EntityId    = entityId,
-                HebrewYearId    = request.HebrewYearId,
-                AssistantTypeId = request.AssistantTypeId,
-                StartDate   = startDate,
-                EndDate     = endDate,
-                Hours       = request.Hours,
-                HoursUnit   = request.HoursUnit,
+                EntityId                 = entityId,
+                HebrewYearId             = request.HebrewYearId,
+                AssistantTypeId          = request.AssistantTypeId,
+                StartDate                = startDate,
+                EndDate                  = endDate,
+                Hours                    = request.Hours,
+                HoursUnit                = request.HoursUnit,
                 MinistryParticipationPct = request.MinistryParticipationPct,
-                InstitutionId = request.InstitutionId,
-                ClassName   = NormalizeOptionalText(request.ClassName),
-                PupilIdNumber  = isPersonal ? NormalizeRequiredText(request.PupilIdNumber,  "תעודת זהות תלמיד") : null,
-                PupilFirstName = isPersonal ? NormalizeRequiredText(request.PupilFirstName, "שם פרטי תלמיד")    : null,
-                PupilLastName  = isPersonal ? NormalizeRequiredText(request.PupilLastName,  "שם משפחה תלמיד")   : null,
-                IsActive    = true,
-                UserId      = userId,
-                UpdateUser  = userId,
-                CreatedAt   = now,
-                UpdatedAt   = now
+                InstitutionId            = request.InstitutionId,
+                ClassName                = className,
+                ClassClassificationId    = request.ClassClassificationId,
+                PupilIdNumber            = pupilIdNumber,
+                PupilFirstName           = isPersonal ? NormalizeRequiredText(request.PupilFirstName, "שם פרטי תלמיד") : null,
+                PupilLastName            = isPersonal ? NormalizeRequiredText(request.PupilLastName, "שם משפחה תלמיד") : null,
+                MasterEntitlementId      = 0,
+                Version                  = 1,
+                IsLastVersion            = true,
+                IsCancelled              = false,
+                IsActive                 = true,
+                UserId                   = userId,
+                UpdateUser               = userId,
+                CreatedAt                = now,
+                UpdatedAt                = now
             };
 
             _context.Entitlements.Add(entitlement);
+            await _context.SaveChangesAsync();
+
+            entitlement.MasterEntitlementId = entitlement.Id;
             await _context.SaveChangesAsync();
 
             _logger.LogInformation("Created entitlement {Id} for entity {EntityId}", entitlement.Id, entityId);
@@ -297,59 +337,262 @@ namespace PetelAssistants.Api.Services
 
         public async Task UpdateEntitlementAsync(int entityId, int? userId, int id, UpdateEntitlementRequest request)
         {
-            ValidateHoursUnit(request.HoursUnit);
-
             var entitlement = await _context.Entitlements.FirstOrDefaultAsync(e => e.Id == id)
                 ?? throw new InvalidOperationException("זכאות לא נמצאה");
 
-            var assistantType = await LoadAssistantTypeAsync(request.AssistantTypeId);
-            var year = await LoadHebrewYearAsync(entitlement.HebrewYearId);
+            if (!entitlement.IsLastVersion)
+                throw new InvalidOperationException("ניתן לערוך רק את הגרסה האחרונה של הזכאות");
 
-            ValidateDates(request.StartDate, request.EndDate, year);
+            if (entitlement.IsCancelled)
+                throw new InvalidOperationException("לא ניתן לערוך זכאות שבוטלה");
 
-            bool isPersonal = IsPersonalLevel(assistantType.Level);
-            ValidateKindFields(isPersonal, request.InstitutionId, request.PupilIdNumber, request.PupilFirstName, request.PupilLastName);
+            // Repair rows created before master backfill / failed post-insert master assignment.
+            if (entitlement.MasterEntitlementId <= 0)
+                entitlement.MasterEntitlementId = entitlement.Id;
 
-            if (isPersonal)
-                ValidatePupilIdNumber(request.PupilIdNumber!);
-
-            await ValidateInstitutionBelongsToTenantAsync(request.InstitutionId!.Value);
-
-            if (request.Hours <= 0)
-                throw new InvalidOperationException("מספר שעות חייב להיות גדול מאפס");
+            // Existing entitlements may reference a type that was later deactivated.
+            var assistantType = await LoadAssistantTypeAsync(entitlement.AssistantTypeId, requireActive: false);
+            var year = await LoadHebrewYearAsync(entitlement.HebrewYearId, requireActive: false);
 
             if (request.MinistryParticipationPct < 0 || request.MinistryParticipationPct > 100)
                 throw new InvalidOperationException("אחוז השתתפות משרד החינוך חייב להיות בין 0 ל-100");
 
-            entitlement.AssistantTypeId = request.AssistantTypeId;
-            entitlement.StartDate       = request.StartDate;
-            entitlement.EndDate         = request.EndDate;
-            entitlement.Hours           = request.Hours;
-            entitlement.HoursUnit       = request.HoursUnit;
-            entitlement.MinistryParticipationPct = request.MinistryParticipationPct;
-            entitlement.InstitutionId   = request.InstitutionId;
-            entitlement.ClassName       = NormalizeOptionalText(request.ClassName);
-            entitlement.PupilIdNumber   = isPersonal ? NormalizeRequiredText(request.PupilIdNumber,  "תעודת זהות תלמיד") : null;
-            entitlement.PupilFirstName  = isPersonal ? NormalizeRequiredText(request.PupilFirstName, "שם פרטי תלמיד")    : null;
-            entitlement.PupilLastName   = isPersonal ? NormalizeRequiredText(request.PupilLastName,  "שם משפחה תלמיד")   : null;
-            entitlement.UpdateUser      = userId;
-            entitlement.UpdatedAt       = DateTime.UtcNow;
+            await ValidateClassClassificationAsync(request.ClassClassificationId);
 
-            await _context.SaveChangesAsync();
+            bool isPersonal = IsPersonalLevel(assistantType.Level);
+            string? pupilFirstName = entitlement.PupilFirstName;
+            string? pupilLastName = entitlement.PupilLastName;
+
+            if (isPersonal)
+            {
+                pupilFirstName = NormalizeRequiredText(request.PupilFirstName, "שם פרטי תלמיד");
+                pupilLastName = NormalizeRequiredText(request.PupilLastName, "שם משפחה תלמיד");
+            }
+
+            var datesChanged =
+                entitlement.StartDate != request.StartDate ||
+                entitlement.EndDate != request.EndDate;
+
+            var changed =
+                datesChanged ||
+                entitlement.MinistryParticipationPct != request.MinistryParticipationPct ||
+                entitlement.ClassClassificationId != request.ClassClassificationId ||
+                (isPersonal && (
+                    !string.Equals(entitlement.PupilFirstName, pupilFirstName, StringComparison.Ordinal) ||
+                    !string.Equals(entitlement.PupilLastName, pupilLastName, StringComparison.Ordinal)));
+
+            if (!changed)
+                return;
+
+            // Only re-validate year bounds when dates actually change (legacy rows may predate tighter year ranges).
+            if (datesChanged)
+                ValidateDates(request.StartDate, request.EndDate, year);
+
+            await ValidateNoOverlapAsync(
+                excludeMasterId: entitlement.MasterEntitlementId,
+                assistantType,
+                request.StartDate,
+                request.EndDate,
+                entitlement.InstitutionId,
+                entitlement.ClassName,
+                entitlement.PupilIdNumber);
+
+            await CreateNewEntitlementVersionAsync(entitlement, userId, newVersion =>
+            {
+                newVersion.StartDate = request.StartDate;
+                newVersion.EndDate = request.EndDate;
+                newVersion.MinistryParticipationPct = request.MinistryParticipationPct;
+                newVersion.ClassClassificationId = request.ClassClassificationId;
+                if (isPersonal)
+                {
+                    newVersion.PupilFirstName = pupilFirstName;
+                    newVersion.PupilLastName = pupilLastName;
+                }
+            });
         }
 
+        /// <summary>
+        /// Cancel creates a new version with is_cancelled=true; prior versions are preserved.
+        /// </summary>
         public async Task DeactivateEntitlementAsync(int? userId, int id)
         {
             var entitlement = await _context.Entitlements.FirstOrDefaultAsync(e => e.Id == id)
                 ?? throw new InvalidOperationException("זכאות לא נמצאה");
 
-            entitlement.IsActive    = false;
-            entitlement.UpdateUser  = userId;
-            entitlement.UpdatedAt   = DateTime.UtcNow;
-            await _context.SaveChangesAsync();
+            if (!entitlement.IsLastVersion)
+                throw new InvalidOperationException("ניתן לבטל רק את הגרסה האחרונה של הזכאות");
+
+            if (entitlement.IsCancelled)
+                throw new InvalidOperationException("הזכאות כבר בוטלה");
+
+            await CreateNewEntitlementVersionAsync(entitlement, userId, newVersion =>
+            {
+                newVersion.IsCancelled = true;
+                newVersion.IsActive = false;
+            });
         }
 
         // ─── private helpers ──────────────────────────────────────────────────────
+
+        private async Task<Entitlement> CreateNewEntitlementVersionAsync(
+            Entitlement existing,
+            int? userId,
+            Action<Entitlement> applyUpdates)
+        {
+            var now = DateTime.UtcNow;
+
+            existing.IsLastVersion = false;
+            existing.UpdateUser = userId;
+            existing.UpdatedAt = now;
+
+            var newVersion = new Entitlement
+            {
+                EntityId                 = existing.EntityId,
+                HebrewYearId             = existing.HebrewYearId,
+                AssistantTypeId          = existing.AssistantTypeId,
+                StartDate                = existing.StartDate,
+                EndDate                  = existing.EndDate,
+                Hours                    = existing.Hours,
+                HoursUnit                = existing.HoursUnit,
+                MinistryParticipationPct = existing.MinistryParticipationPct,
+                InstitutionId            = existing.InstitutionId,
+                ClassName                = existing.ClassName,
+                ClassClassificationId    = existing.ClassClassificationId,
+                PupilIdNumber            = existing.PupilIdNumber,
+                PupilFirstName           = existing.PupilFirstName,
+                PupilLastName            = existing.PupilLastName,
+                MasterEntitlementId      = existing.MasterEntitlementId,
+                Version                  = existing.Version + 1,
+                IsLastVersion            = true,
+                IsCancelled              = false,
+                IsActive                 = true,
+                UserId                   = userId,
+                UpdateUser               = userId,
+                CreatedAt                = now,
+                UpdatedAt                = now
+            };
+
+            applyUpdates(newVersion);
+
+            // Keep is_active in sync with cancelled for legacy UI filters
+            if (newVersion.IsCancelled)
+                newVersion.IsActive = false;
+
+            _context.Entitlements.Add(newVersion);
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Created entitlement version {Version} (id={Id}) for master {MasterId}",
+                newVersion.Version, newVersion.Id, newVersion.MasterEntitlementId);
+
+            return newVersion;
+        }
+
+        private async Task ValidateNoOverlapAsync(
+            int? excludeMasterId,
+            AssistantType assistantType,
+            DateOnly startDate,
+            DateOnly endDate,
+            int? institutionId,
+            string? className,
+            string? pupilIdNumber)
+        {
+            var candidates = await _context.Entitlements
+                .AsNoTracking()
+                .Where(e => e.IsLastVersion && !e.IsCancelled)
+                .Where(e => excludeMasterId == null || e.MasterEntitlementId != excludeMasterId.Value)
+                .Where(e => e.StartDate <= endDate && startDate <= e.EndDate)
+                .ToListAsync();
+
+            if (candidates.Count == 0)
+                return;
+
+            if (IsPersonalLevel(assistantType.Level))
+            {
+                if (!string.IsNullOrEmpty(pupilIdNumber) &&
+                    candidates.Any(e => e.PupilIdNumber == pupilIdNumber))
+                {
+                    throw new InvalidOperationException(
+                        "קיימת כבר זכאות אישית פעילה לאותו תלמיד בטווח תאריכים חופף");
+                }
+                return;
+            }
+
+            var candidateTypeIds = candidates.Select(c => c.AssistantTypeId).Distinct().ToList();
+            var typeNames = await _sharedContext.AssistantTypes
+                .AsNoTracking()
+                .Where(at => candidateTypeIds.Contains(at.Id))
+                .ToDictionaryAsync(at => at.Id, at => at.Name);
+
+            if (IsClassHelp(assistantType.Name))
+            {
+                var conflict = candidates.Any(e =>
+                    e.InstitutionId == institutionId &&
+                    string.Equals(e.ClassName, className, StringComparison.Ordinal) &&
+                    typeNames.TryGetValue(e.AssistantTypeId, out var name) &&
+                    IsClassHelp(name));
+
+                if (conflict)
+                    throw new InvalidOperationException(
+                        "קיימת כבר זכאות סייעת כיתתית פעילה לאותה כיתה באותו מוסד בטווח תאריכים חופף");
+                return;
+            }
+
+            if (IsSchoolHelp(assistantType.Name))
+            {
+                var conflict = candidates.Any(e =>
+                    e.InstitutionId == institutionId &&
+                    typeNames.TryGetValue(e.AssistantTypeId, out var name) &&
+                    IsSchoolHelp(name));
+
+                if (conflict)
+                    throw new InvalidOperationException(
+                        "קיימת כבר זכאות סייעת מוסדית פעילה לאותו מוסד בטווח תאריכים חופף");
+            }
+        }
+
+        private async Task<Dictionary<int, decimal>> BuildAllocatedHoursByMasterAsync(List<Entitlement> items)
+        {
+            if (items.Count == 0)
+                return new Dictionary<int, decimal>();
+
+            var masterIds = items.Select(i => i.MasterEntitlementId).Distinct().ToList();
+            var versions = await _context.Entitlements
+                .AsNoTracking()
+                .Where(e => masterIds.Contains(e.MasterEntitlementId))
+                .Select(e => new { e.Id, e.MasterEntitlementId })
+                .ToListAsync();
+
+            var versionIds = versions.Select(v => v.Id).ToList();
+            var hoursByVersion = versionIds.Count == 0
+                ? new Dictionary<int, decimal>()
+                : await _context.EntitlementAllocations
+                    .AsNoTracking()
+                    .Where(a => a.IsActive && versionIds.Contains(a.EntitlementId))
+                    .GroupBy(a => a.EntitlementId)
+                    .Select(g => new { EntitlementId = g.Key, TotalHours = g.Sum(a => a.Hours) })
+                    .ToDictionaryAsync(x => x.EntitlementId, x => x.TotalHours);
+
+            var hoursByMaster = versions
+                .GroupBy(v => v.MasterEntitlementId)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Sum(v => hoursByVersion.TryGetValue(v.Id, out var h) ? h : 0m));
+
+            // Map to each item id using its master (so list/detail keyed by row id works)
+            return items.ToDictionary(
+                i => i.Id,
+                i => hoursByMaster.TryGetValue(i.MasterEntitlementId, out var h) ? h : 0m);
+        }
+
+        private async Task<List<int>> GetVersionIdsForMasterAsync(int masterEntitlementId)
+        {
+            return await _context.Entitlements
+                .AsNoTracking()
+                .Where(e => e.MasterEntitlementId == masterEntitlementId)
+                .Select(e => e.Id)
+                .ToListAsync();
+        }
 
         private async Task<List<EntitlementListItemDto>> MapListAsync(
             List<Entitlement> items,
@@ -361,6 +604,8 @@ namespace PetelAssistants.Api.Services
             var assistantTypeIds = items.Select(i => i.AssistantTypeId).Distinct().ToList();
             var institutionIds = items.Where(i => i.InstitutionId.HasValue)
                                  .Select(i => i.InstitutionId!.Value).Distinct().ToList();
+            var classificationIds = items.Where(i => i.ClassClassificationId.HasValue)
+                                    .Select(i => i.ClassClassificationId!.Value).Distinct().ToList();
 
             var assistantTypes = await _sharedContext.AssistantTypes
                 .AsNoTracking()
@@ -374,10 +619,20 @@ namespace PetelAssistants.Api.Services
                     .Where(e => institutionIds.Contains(e.Id))
                     .ToDictionaryAsync(e => e.Id, e => (Name: e.Name, TypeName: e.InstitutionType));
 
+            var classifications = classificationIds.Count == 0
+                ? new Dictionary<int, string>()
+                : await _sharedContext.ClassClassifications
+                    .AsNoTracking()
+                    .Where(c => classificationIds.Contains(c.Id))
+                    .ToDictionaryAsync(c => c.Id, c => c.Name);
+
             return items.Select(item =>
             {
                 schools.TryGetValue(item.InstitutionId ?? 0, out var school);
                 assistantTypes.TryGetValue(item.AssistantTypeId, out var atype);
+                string? classificationName = null;
+                if (item.ClassClassificationId.HasValue)
+                    classifications.TryGetValue(item.ClassClassificationId.Value, out classificationName);
 
                 var allocatedHours = allocatedHoursMap != null && allocatedHoursMap.TryGetValue(item.Id, out var h) ? h : 0m;
                 var allocationStatus = allocatedHours <= 0m ? "none"
@@ -387,10 +642,13 @@ namespace PetelAssistants.Api.Services
                 return new EntitlementListItemDto
                 {
                     Id                       = item.Id,
+                    MasterEntitlementId      = item.MasterEntitlementId,
+                    Version                  = item.Version,
                     HebrewYearId             = item.HebrewYearId,
                     AssistantTypeId          = item.AssistantTypeId,
                     AssistantTypeName        = atype?.DisplayName ?? string.Empty,
                     AssistantTypeLevel       = atype?.Level,
+                    AssistantTypeCode        = atype?.Name,
                     StartDate                = item.StartDate,
                     EndDate                  = item.EndDate,
                     Hours                    = item.Hours,
@@ -400,41 +658,60 @@ namespace PetelAssistants.Api.Services
                     SchoolName               = item.InstitutionId.HasValue ? school.Name : null,
                     OrgUnitType              = item.InstitutionId.HasValue ? school.TypeName : null,
                     ClassName                = item.ClassName,
+                    ClassClassificationId    = item.ClassClassificationId,
+                    ClassClassificationName  = classificationName,
                     PupilIdNumber            = item.PupilIdNumber,
                     PupilFirstName           = item.PupilFirstName,
                     PupilLastName            = item.PupilLastName,
-                    IsActive                 = item.IsActive,
+                    IsCancelled              = item.IsCancelled,
+                    IsActive                 = item.IsActive && !item.IsCancelled,
                     AllocatedHours           = allocatedHours,
                     AllocationStatus         = allocationStatus
                 };
             }).ToList();
         }
 
-        private async Task<AssistantType> LoadAssistantTypeAsync(int assistantTypeId)
+        private async Task ValidateClassClassificationAsync(int? classClassificationId)
         {
-            var atype = await _sharedContext.AssistantTypes
+            if (!classClassificationId.HasValue)
+                return;
+
+            // Allow inactive classification if it is already stored on the entitlement (clearing/changing still ok).
+            var exists = await _sharedContext.ClassClassifications
                 .AsNoTracking()
-                .FirstOrDefaultAsync(at => at.Id == assistantTypeId && at.IsActive);
+                .AnyAsync(c => c.Id == classClassificationId.Value);
+
+            if (!exists)
+                throw new InvalidOperationException("סיווג כיתה לא תקין");
+        }
+
+        private async Task<AssistantType> LoadAssistantTypeAsync(int assistantTypeId, bool requireActive = true)
+        {
+            var query = _sharedContext.AssistantTypes.AsNoTracking().Where(at => at.Id == assistantTypeId);
+            if (requireActive)
+                query = query.Where(at => at.IsActive);
+
+            var atype = await query.FirstOrDefaultAsync();
 
             if (atype == null)
-                throw new InvalidOperationException("סוג סייעת לא תקין או לא פעיל");
+                throw new InvalidOperationException(
+                    requireActive ? "סוג סייעת לא תקין או לא פעיל" : "סוג סייעת לא נמצא");
 
             return atype;
         }
 
-        private async Task<HebrewYear> LoadHebrewYearAsync(int yearId)
+        private async Task<HebrewYear> LoadHebrewYearAsync(int yearId, bool requireActive = true)
         {
             var year = await _sharedContext.HebrewYears.AsNoTracking().FirstOrDefaultAsync(y => y.Id == yearId);
             if (year == null)
                 throw new InvalidOperationException("שנה עברית לא נמצאה");
-            if (!year.IsActive)
+            if (requireActive && !year.IsActive)
                 throw new InvalidOperationException("שנה עברית לא פעילה");
             return year;
         }
 
         private async Task ValidateInstitutionBelongsToTenantAsync(int institutionId)
         {
-            // Global query filter already scopes to the current tenant.
             var valid = await _context.Institutions
                 .AsNoTracking()
                 .AnyAsync(e => e.Id == institutionId && e.IsActive);
@@ -488,10 +765,6 @@ namespace PetelAssistants.Api.Services
             }
         }
 
-        /// <summary>
-        /// Validates that the id is exactly 9 digits and, when the system attribute
-        /// validate_israeli_id_checksum is true, passes the Israeli Luhn-like checksum.
-        /// </summary>
         private void ValidatePupilIdNumber(string idNumber)
         {
             if (string.IsNullOrWhiteSpace(idNumber) || idNumber.Length != 9 || !idNumber.All(char.IsDigit))
@@ -504,6 +777,12 @@ namespace PetelAssistants.Api.Services
 
         private static bool IsPersonalLevel(string? level)
             => string.Equals(level, "personal", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsClassHelp(string? typeName)
+            => string.Equals(typeName, "class_help", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsSchoolHelp(string? typeName)
+            => string.Equals(typeName, "school_help", StringComparison.OrdinalIgnoreCase);
 
         private static string? NormalizeOptionalText(string? value)
             => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

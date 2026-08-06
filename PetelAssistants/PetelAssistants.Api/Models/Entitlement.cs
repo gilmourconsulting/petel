@@ -57,6 +57,9 @@ namespace PetelAssistants.Api.Models
         [MaxLength(100)]
         public string? ClassName { get; set; }
 
+        [Column("class_classification_id")]
+        public int? ClassClassificationId { get; set; }
+
         public virtual Institution? Institution { get; set; }
 
         // Personal entitlement fields — all three are set together or all null
@@ -71,6 +74,18 @@ namespace PetelAssistants.Api.Models
         [Column("pupil_last_name")]
         [MaxLength(100)]
         public string? PupilLastName { get; set; }
+
+        [Column("master_entitlement_id")]
+        public int MasterEntitlementId { get; set; }
+
+        [Column("version")]
+        public int Version { get; set; } = 1;
+
+        [Column("is_last_version")]
+        public bool IsLastVersion { get; set; } = true;
+
+        [Column("is_cancelled")]
+        public bool IsCancelled { get; set; }
 
         [Column("is_active")]
         public bool IsActive { get; set; } = true;

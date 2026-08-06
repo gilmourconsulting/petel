@@ -45,6 +45,27 @@ namespace PetelAssistants.Api.Controllers
             }
         }
 
+        [HttpGet("history/{masterEntitlementId:int}")]
+        public async Task<IActionResult> GetHistory(int masterEntitlementId)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            try
+            {
+                var items = await _entitlementService.GetHistoryAsync(masterEntitlementId);
+                if (items.Count == 0)
+                    return NotFound(new { success = false, message = "זכאות לא נמצאה" });
+
+                return Ok(new { success = true, data = items });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {
@@ -117,7 +138,7 @@ namespace PetelAssistants.Api.Controllers
             try
             {
                 await _entitlementService.DeactivateEntitlementAsync(userId, id);
-                return Ok(new { success = true, message = "זכאות הושבתה בהצלחה" });
+                return Ok(new { success = true, message = "זכאות בוטלה בהצלחה" });
             }
             catch (InvalidOperationException ex)
             {

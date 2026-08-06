@@ -26,6 +26,7 @@ namespace PetelAssistants.Api.Data
         public DbSet<MinistryParticipationOption> MinistryParticipationOptions { get; set; }
         public DbSet<MeitarDataFilterValue>       MeitarDataFilterValues       { get; set; }
         public DbSet<MeitarTopic>                 MeitarTopics                 { get; set; }
+        public DbSet<ClassClassification>         ClassClassifications         { get; set; }
 
         public SharedDbContext(
             DbContextOptions<SharedDbContext> options,
@@ -141,6 +142,12 @@ namespace PetelAssistants.Api.Data
             modelBuilder.Entity<MeitarTopic>(entity =>
             {
                 entity.ToTable("meitar_topics");
+                entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<ClassClassification>(entity =>
+            {
+                entity.ToTable("class_classifications");
                 entity.HasKey(e => e.Id);
             });
         }

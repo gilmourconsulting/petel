@@ -99,6 +99,15 @@ namespace PetelAssistants.Api.DTOs
         public bool IsActive { get; set; }
     }
 
+    public class ClassClassificationDto
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int? ForeignId { get; set; }
+        public int SortOrder { get; set; }
+        public bool IsActive { get; set; }
+    }
+
     public class EntitlementAllocationDto
     {
         public int Id { get; set; }
@@ -128,10 +137,13 @@ namespace PetelAssistants.Api.DTOs
     public class EntitlementListItemDto
     {
         public int Id { get; set; }
+        public int MasterEntitlementId { get; set; }
+        public int Version { get; set; }
         public int HebrewYearId { get; set; }
         public int AssistantTypeId { get; set; }
         public string AssistantTypeName { get; set; } = string.Empty;
         public string? AssistantTypeLevel { get; set; }
+        public string? AssistantTypeCode { get; set; }
         public DateOnly StartDate { get; set; }
         public DateOnly EndDate { get; set; }
         public decimal Hours { get; set; }
@@ -141,10 +153,13 @@ namespace PetelAssistants.Api.DTOs
         public string? SchoolName { get; set; }
         public string? OrgUnitType { get; set; }
         public string? ClassName { get; set; }
+        public int? ClassClassificationId { get; set; }
+        public string? ClassClassificationName { get; set; }
         // Personal entitlement fields (null for institutional)
         public string? PupilIdNumber { get; set; }
         public string? PupilFirstName { get; set; }
         public string? PupilLastName { get; set; }
+        public bool IsCancelled { get; set; }
         public bool IsActive { get; set; }
         // Allocation status
         public decimal AllocatedHours { get; set; }
@@ -166,24 +181,22 @@ namespace PetelAssistants.Api.DTOs
         public decimal MinistryParticipationPct { get; set; }
         public int? InstitutionId { get; set; }
         public string? ClassName { get; set; }
+        public int? ClassClassificationId { get; set; }
         // Personal entitlement fields (required when assistant type level == "personal")
         public string? PupilIdNumber { get; set; }
         public string? PupilFirstName { get; set; }
         public string? PupilLastName { get; set; }
     }
 
+    /// <summary>
+    /// Only versionable fields — immutable fields (type, institution, hours, pupil id, class name) cannot change.
+    /// </summary>
     public class UpdateEntitlementRequest
     {
-        public int AssistantTypeId { get; set; }
         public DateOnly StartDate { get; set; }
         public DateOnly EndDate { get; set; }
-        public decimal Hours { get; set; }
-        public string HoursUnit { get; set; } = string.Empty;
         public decimal MinistryParticipationPct { get; set; }
-        public int? InstitutionId { get; set; }
-        public string? ClassName { get; set; }
-        // Personal entitlement fields (required when assistant type level == "personal")
-        public string? PupilIdNumber { get; set; }
+        public int? ClassClassificationId { get; set; }
         public string? PupilFirstName { get; set; }
         public string? PupilLastName { get; set; }
     }

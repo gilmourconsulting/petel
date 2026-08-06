@@ -137,26 +137,50 @@ Additional fields:
 - `personal` → personal entitlement (pupil fields required)
 - `class` / `school` / `kindergarten` → institutional entitlement (pupil fields null)
 
+**Version history** (ATH student pattern on the same table). SQL: `add-entitlement-versioning.sql`.
+
+| Column | Meaning |
+|---|---|
+| `master_entitlement_id` | Stable identity across versions (set to `id` on first insert) |
+| `version` | Starts at 1; increments on each new version |
+| `is_last_version` | Exactly one current row per master |
+| `is_cancelled` | Cancel state on a version row |
+
+List/read current rows with `is_last_version = true`. History: `GET api/entitlements/history/{masterEntitlementId}`.
+
+**Cancel** creates a **new** version with `is_cancelled = true` / `is_active = false` (prior versions stay unchanged). Do not flip cancel in place. Route `PUT api/entitlements/{id}/deactivate` performs cancel-via-version.
+
+**Editable after create** (any change creates a new version): `start_date`, `end_date`, `class_classification_id`, `ministry_participation_pct`, `pupil_first_name`, `pupil_last_name` (personal), cancel.
+
+**Immutable after create:** `hebrew_year_id`, `assistant_type_id`, `institution_id`, `hours`, `hours_unit`, `pupil_id_number`, `class_name`.
+
+**Class classifications:** `shared_schema.class_classifications` (seeded from `petel_schema.special_needs_characterizations` when available). Optional FK `entitlements.class_classification_id`. API: `GET api/class-classifications`.
+
 **Personal entitlements:**
 - `pupil_id_number` (VARCHAR 9, exactly 9 digits, leading zero allowed) — Israeli national ID stored **encrypted** via deterministic AES.
 - `pupil_first_name`, `pupil_last_name` — required.
 - `institution_id` — the pupil's school/kindergarten (must belong to the authority).
-- `class_name` — optional free text.
+- `class_name` — optional free text (immutable after create).
 - Israeli ID checksum validation is gated by `system_attribute` key `validate_israeli_id_checksum` (bool, id=20 in production). This is a **system-wide flag** — it applies to all Israeli national ID entries across the application (entitlements, persons, and any future features). Read via `IAttributeCache.GetAttributeValue("validate_israeli_id_checksum")`.
 
 **Institutional entitlements:**
 - `institution_id` — the institution receiving the entitlement (required, must belong to the authority).
-- `class_name` — optional free text.
+- `class_name` — required when assistant type `name = class_help`; optional otherwise. Immutable after create.
 - Pupil fields (`pupil_id_number`, `pupil_first_name`, `pupil_last_name`) must be null.
 
 **Ministry participation %** is selected from a dropdown backed by `shared_schema.ministry_participation_options` (seeded: 100%, 70%). Not free text.
+
+**Overlap integrity** (against other masters where `is_last_version && !is_cancelled`, overlapping date ranges):
+- Personal (`assistant_types.level = personal`): same `pupil_id_number`
+- `class_help`: same `institution_id` + same `class_name`
+- `school_help`: same `institution_id`
 
 **Business rules:**
 - `institution_id` is required for all entitlements (both kinds).
 - Pupil fields must be all-set or all-null (enforced by DB CHECK constraint).
 - Dates must be within the Hebrew year bounds.
 - The institution must belong to the logged-in authority (validated at service layer via tenant filter).
-- Assistant allocation to entitlements (with dates within entitlement range) is a follow-on feature.
+- Allocations (`entitlement_allocations.entitlement_id`) point at a **specific entitlement version**. Read paths that show allocations for the UI resolve sibling version ids via `master_entitlement_id`. Allocation create/update when entitlement dates change is a later iteration.
 
 ## Meitar data integration
 
