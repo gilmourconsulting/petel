@@ -22,8 +22,10 @@ namespace PetelAssistants.Api.Data
         public DbSet<UserLockReason>  UserLockReasons  { get; set; }
         public DbSet<PhoneType>       PhoneTypes       { get; set; }
         public DbSet<AssistantType>              AssistantTypes              { get; set; }
+        public DbSet<AssistantLevel>             AssistantLevels             { get; set; }
         public DbSet<MinistryParticipationOption> MinistryParticipationOptions { get; set; }
         public DbSet<MeitarDataFilterValue>       MeitarDataFilterValues       { get; set; }
+        public DbSet<MeitarTopic>                 MeitarTopics                 { get; set; }
 
         public SharedDbContext(
             DbContextOptions<SharedDbContext> options,
@@ -118,6 +120,12 @@ namespace PetelAssistants.Api.Data
                 entity.HasKey(e => e.Id);
             });
 
+            modelBuilder.Entity<AssistantLevel>(entity =>
+            {
+                entity.ToTable("assistant_levels");
+                entity.HasKey(e => e.Id);
+            });
+
             modelBuilder.Entity<MinistryParticipationOption>(entity =>
             {
                 entity.ToTable("ministry_participation_options");
@@ -127,6 +135,12 @@ namespace PetelAssistants.Api.Data
             modelBuilder.Entity<MeitarDataFilterValue>(entity =>
             {
                 entity.ToTable("meitar_data_filter_values");
+                entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<MeitarTopic>(entity =>
+            {
+                entity.ToTable("meitar_topics");
                 entity.HasKey(e => e.Id);
             });
         }

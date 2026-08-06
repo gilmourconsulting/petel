@@ -97,9 +97,35 @@ Each local authority maintains its own list of schools and kindergartens as rows
 
 CRUD UI remains at `/org-units` (`api/org-units`); storage is `institutions`.
 
+## System settings hub (הגדרות מערכת)
+
+Central admin UI at `/system-data` (`SystemData.razor`, `PageName`: `system_data`) with tabs for shared reference data. Menu item: **הגדרות מערכת** (`#system-data`). SQL: `PetelAssistants/SQL/add-system-data-hub.sql`.
+
+| Tab | Table | Notes |
+|---|---|---|
+| מאפייני מערכת | `system_attributes` | Add/edit + reload in-memory cache (`POST systemattributes/reload`) |
+| סוגי סייעות | `assistant_types` | Includes `position_type` / `position_hours` |
+| סוגי רשויות | `entity_types` | |
+| שנות לימודים | `hebrew_years` | Create + edit dates/flags |
+| אחוזי השתתפות משרד | `ministry_participation_options` | |
+| ערכי סינון מיתר | `meitar_data_filter_values` | Used by Meitar retrieve |
+| נושאי מיתר | `meitar_topics` | Lookup for future use — **not** wired to retrieve yet |
+
+Legacy routes `/assistant-types` and `/hebrew-years` redirect to the hub with the matching `?tab=`.
+
 ## Assistant types
 
-Managed globally in `shared_schema.assistant_types` by the system manager. Tenants read active types when creating entitlements.
+Managed globally in `shared_schema.assistant_types` by the system manager (hub tab). Tenants read active types when creating entitlements.
+
+Additional fields:
+
+| Column | Values | UI label |
+|---|---|---|
+| `level` | code from `shared_schema.assistant_levels` | רמה (Hebrew `display_name`) |
+| `position_type` | `weekly` / `monthly` (nullable) | סוג משרה (שבועי / חודשי) |
+| `position_hours` | `NUMERIC(8,2)` nullable | שעות משרה |
+
+**Assistant levels lookup:** `shared_schema.assistant_levels` (`code`, `display_name`, `sort_order`, `is_active`). Seeded: `personal`/אישי, `class`/כיתתי, `school`/בית ספרי, `kindergarten`/גן. `assistant_types.level` stores the English code (entitlement logic still uses `personal`). SQL: `add-assistant-levels.sql`. API: `GET api/assistant-levels`.
 
 ## Entitlements (זכאויות)
 
@@ -162,7 +188,7 @@ Manual retrieve from Main Dashboard / Year Management context buttons (`MeitarRe
 
 **Scope:** session entity only — never queries other authorities’ symbols. Requires `entities.symbol_code` on the logged-in authority.
 
-**Topic filter:** same as `QueryMutavimByTopicDescriptionsAsync` — Meitar is queried using the active `filter_field` + `filter_value` rows for `MUTAVIM` in `meitar_data_filter_values` (e.g. `TopicCode` / `101`). Required; fails if none configured. Period is applied in Assistants by keeping rows whose `calcDate` matches the selected month/year.
+**Topic filter:** same as `QueryMutavimByTopicDescriptionsAsync` — Meitar is queried using the active `filter_field` + `filter_value` rows for `MUTAVIM` in `meitar_data_filter_values` (e.g. `TopicCode` / `101`). Required; fails if none configured. Period is applied in Assistants by keeping rows whose `calcDate` matches the selected month/year. `shared_schema.meitar_topics` is a separate admin lookup (hub tab) for future use and does **not** drive retrieve yet.
 
 **Override:** re-retrieve for an existing period requires confirmation; on continue, prior `meitar_mutavim` rows for that period are deleted, then a new `meitar_retrieve_processes` row and fresh fact rows are inserted.
 

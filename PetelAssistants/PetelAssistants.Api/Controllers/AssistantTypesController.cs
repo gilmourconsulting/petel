@@ -4,6 +4,7 @@ using Petel.Core.Controllers;
 using Petel.Core.Session;
 using PetelAssistants.Api.Data;
 using PetelAssistants.Api.DTOs;
+using PetelAssistants.Api.Helpers;
 using PetelAssistants.Api.Models;
 
 namespace PetelAssistants.Api.Controllers
@@ -30,22 +31,30 @@ namespace PetelAssistants.Api.Controllers
             if (session == null)
                 return Unauthorized(new { success = false, message = "נדרש אימות" });
 
-            var query = _sharedContext.AssistantTypes.AsNoTracking();
+            var query = from at in _sharedContext.AssistantTypes.AsNoTracking()
+                        join lvl in _sharedContext.AssistantLevels.AsNoTracking()
+                            on at.Level equals lvl.Code into levelJoin
+                        from lvl in levelJoin.DefaultIfEmpty()
+                        select new { at, LevelDisplayName = lvl != null ? lvl.DisplayName : null };
+
             if (!includeInactive)
-                query = query.Where(at => at.IsActive);
+                query = query.Where(x => x.at.IsActive);
 
             var types = await query
-                .OrderBy(at => at.SortOrder)
-                .ThenBy(at => at.DisplayName)
-                .Select(at => new AssistantTypeDto
+                .OrderBy(x => x.at.SortOrder)
+                .ThenBy(x => x.at.DisplayName)
+                .Select(x => new AssistantTypeDto
                 {
-                    Id = at.Id,
-                    Name = at.Name,
-                    DisplayName = at.DisplayName,
-                    Description = at.Description,
-                    SortOrder = at.SortOrder,
-                    IsActive = at.IsActive,
-                    Level = at.Level
+                    Id = x.at.Id,
+                    Name = x.at.Name,
+                    DisplayName = x.at.DisplayName,
+                    Description = x.at.Description,
+                    SortOrder = x.at.SortOrder,
+                    IsActive = x.at.IsActive,
+                    Level = x.at.Level,
+                    LevelDisplayName = x.LevelDisplayName,
+                    PositionType = x.at.PositionType,
+                    PositionHours = x.at.PositionHours
                 })
                 .ToListAsync();
 
@@ -62,6 +71,13 @@ namespace PetelAssistants.Api.Controllers
             if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.DisplayName))
                 return BadRequest(new { success = false, message = "שם ושם תצוגה הם שדות חובה" });
 
+            if (!PositionTypeHelper.TryNormalize(request.PositionType, out var positionType, out var positionError))
+                return BadRequest(new { success = false, message = positionError });
+
+            var levelResult = await NormalizeLevelAsync(request.Level);
+            if (!levelResult.Ok)
+                return BadRequest(new { success = false, message = levelResult.Error });
+
             var name = request.Name.Trim().ToLowerInvariant().Replace(' ', '_');
             if (await _sharedContext.AssistantTypes.AnyAsync(at => at.Name == name))
                 return BadRequest(new { success = false, message = "סוג סייעת עם שם זה כבר קיים" });
@@ -72,7 +88,9 @@ namespace PetelAssistants.Api.Controllers
                 DisplayName = request.DisplayName.Trim(),
                 Description = request.Description?.Trim(),
                 SortOrder = request.SortOrder,
-                Level = request.Level?.Trim().ToLowerInvariant(),
+                Level = levelResult.Code,
+                PositionType = positionType,
+                PositionHours = request.PositionHours,
                 IsActive = true
             };
 
@@ -92,6 +110,13 @@ namespace PetelAssistants.Api.Controllers
             if (string.IsNullOrWhiteSpace(request.DisplayName))
                 return BadRequest(new { success = false, message = "שם תצוגה הוא שדה חובה" });
 
+            if (!PositionTypeHelper.TryNormalize(request.PositionType, out var positionType, out var positionError))
+                return BadRequest(new { success = false, message = positionError });
+
+            var levelResult = await NormalizeLevelAsync(request.Level);
+            if (!levelResult.Ok)
+                return BadRequest(new { success = false, message = levelResult.Error });
+
             var type = await _sharedContext.AssistantTypes.FindAsync(id);
             if (type == null)
                 return NotFound(new { success = false, message = "סוג סייעת לא נמצא" });
@@ -100,10 +125,28 @@ namespace PetelAssistants.Api.Controllers
             type.Description = request.Description?.Trim();
             type.SortOrder = request.SortOrder;
             type.IsActive = request.IsActive;
-            type.Level = request.Level?.Trim().ToLowerInvariant();
+            type.Level = levelResult.Code;
+            type.PositionType = positionType;
+            type.PositionHours = request.PositionHours;
 
             await _sharedContext.SaveChangesAsync();
             return Ok(new { success = true, message = "סוג סייעת עודכן בהצלחה" });
+        }
+
+        private async Task<(bool Ok, string? Code, string? Error)> NormalizeLevelAsync(string? level)
+        {
+            if (string.IsNullOrWhiteSpace(level))
+                return (true, null, null);
+
+            var code = level.Trim().ToLowerInvariant();
+            var exists = await _sharedContext.AssistantLevels
+                .AsNoTracking()
+                .AnyAsync(l => l.Code == code && l.IsActive);
+
+            if (!exists)
+                return (false, null, "רמת סייעת לא חוקית");
+
+            return (true, code, null);
         }
     }
 }

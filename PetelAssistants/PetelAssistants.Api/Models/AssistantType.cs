@@ -33,5 +33,14 @@ namespace PetelAssistants.Api.Models
         [Column("level")]
         [MaxLength(30)]
         public string? Level { get; set; }
+
+        /// <summary>weekly or monthly (סוג משרה).</summary>
+        [Column("position_type")]
+        [MaxLength(20)]
+        public string? PositionType { get; set; }
+
+        /// <summary>שעות משרה.</summary>
+        [Column("position_hours")]
+        public decimal? PositionHours { get; set; }
     }
 }

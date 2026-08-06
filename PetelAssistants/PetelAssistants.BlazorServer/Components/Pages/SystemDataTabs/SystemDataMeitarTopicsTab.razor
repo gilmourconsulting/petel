@@ -1,0 +1,204 @@
+@inject ApiService ApiService
+
+@if (_isLoading)
+{
+    <div class="loading-spinner">טוען...</div>
+}
+else
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>פעולות</th>
+                    <th>קוד</th>
+                    <th>שם</th>
+                    <th>תיאור</th>
+                    <th>סוג משרה</th>
+                    <th>סטטוס</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _items)
+                {
+                    <tr class="@(item.IsActive ? "" : "row-inactive")">
+                        <td>
+                            <SecureButton ActionName="system_data_meitar_topics_edit" ScreenName="@ScreenName" FunctionName="Edit"
+                                          OnClick="() => ShowEditDialog(item)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
+                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                            </SecureButton>
+                        </td>
+                        <td>@item.Code</td>
+                        <td>@item.Name</td>
+                        <td>@(item.Description ?? "—")</td>
+                        <td>@FormatPositionType(item.PositionType)</td>
+                        <td>@(item.IsActive ? "פעיל" : "לא פעיל")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (_showFormDialog)
+{
+    <div class="modal-overlay" @onclick="CloseDialog">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(_editItem == null ? "הוספת נושא מיתר" : "עריכת נושא מיתר")</h3>
+                <button class="modal-close" @onclick="CloseDialog">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>קוד <span class="required">*</span></label>
+                    <input class="form-control" @bind="_formCode" />
+                </div>
+                <div class="form-group">
+                    <label>שם <span class="required">*</span></label>
+                    <input class="form-control" @bind="_formName" />
+                </div>
+                <div class="form-group">
+                    <label>תיאור</label>
+                    <input class="form-control" @bind="_formDescription" />
+                </div>
+                <div class="form-group">
+                    <label>סוג משרה</label>
+                    <select class="form-control" @bind="_formPositionType">
+                        <option value="">—</option>
+                        <option value="weekly">שבועי</option>
+                        <option value="monthly">חודשי</option>
+                    </select>
+                </div>
+                @if (_editItem != null)
+                {
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" @bind="_formIsActive" /> פעיל
+                        </label>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(_formError))
+                {
+                    <div class="error-message">@_formError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseDialog">ביטול</button>
+                <button class="btn btn-primary" @onclick="Save" disabled="@_isSaving">@(_isSaving ? "שומר..." : "שמור")</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string ScreenName { get; set; } = "system_data";
+
+    private List<MeitarTopicDto> _items = new();
+    private bool _isLoading = true;
+    private bool _showFormDialog;
+    private bool _isSaving;
+    private string _formError = string.Empty;
+    private MeitarTopicDto? _editItem;
+    private string _formCode = string.Empty;
+    private string _formName = string.Empty;
+    private string? _formDescription;
+    private string _formPositionType = string.Empty;
+    private bool _formIsActive = true;
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    public async Task RefreshAsync() => await LoadDataAsync();
+
+    public void ShowCreateDialog()
+    {
+        _editItem = null;
+        _formCode = string.Empty;
+        _formName = string.Empty;
+        _formDescription = null;
+        _formPositionType = string.Empty;
+        _formError = string.Empty;
+        _showFormDialog = true;
+        StateHasChanged();
+    }
+
+    private static string FormatPositionType(string? value) => value switch
+    {
+        "weekly" => "שבועי",
+        "monthly" => "חודשי",
+        _ => "—"
+    };
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        var response = await ApiService.GetAsync<ApiResponse<List<MeitarTopicDto>>>("meitar-topics?includeInactive=true");
+        _items = response?.Data ?? new();
+        _isLoading = false;
+        StateHasChanged();
+    }
+
+    private void ShowEditDialog(MeitarTopicDto item)
+    {
+        _editItem = item;
+        _formCode = item.Code;
+        _formName = item.Name;
+        _formDescription = item.Description;
+        _formPositionType = item.PositionType ?? string.Empty;
+        _formIsActive = item.IsActive;
+        _formError = string.Empty;
+        _showFormDialog = true;
+    }
+
+    private void CloseDialog() => _showFormDialog = false;
+
+    private async Task Save()
+    {
+        _isSaving = true;
+        _formError = string.Empty;
+        try
+        {
+            var positionType = string.IsNullOrWhiteSpace(_formPositionType) ? null : _formPositionType;
+            ApiResponse<object>? response;
+
+            if (_editItem == null)
+            {
+                response = await ApiService.PostAsync<CreateMeitarTopicRequest, ApiResponse<object>>(
+                    "meitar-topics",
+                    new CreateMeitarTopicRequest
+                    {
+                        Code = _formCode,
+                        Name = _formName,
+                        Description = _formDescription,
+                        PositionType = positionType
+                    });
+            }
+            else
+            {
+                response = await ApiService.PutAsync<UpdateMeitarTopicRequest, ApiResponse<object>>(
+                    $"meitar-topics/{_editItem.Id}",
+                    new UpdateMeitarTopicRequest
+                    {
+                        Code = _formCode,
+                        Name = _formName,
+                        Description = _formDescription,
+                        PositionType = positionType,
+                        IsActive = _formIsActive
+                    });
+            }
+
+            if (response?.Success == true)
+            {
+                CloseDialog();
+                await LoadDataAsync();
+            }
+            else
+            {
+                _formError = response?.Message ?? "שגיאה בשמירה";
+            }
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

@@ -1,0 +1,227 @@
+@page "/system-data"
+@layout MainLayout
+@inherits SecurePageBase
+@inject NavigationManager NavigationManager
+
+<div class="school-title-section">
+    <h1 class="page-title">הגדרות מערכת</h1>
+</div>
+
+<div class="main-container">
+    <div class="context-buttons-section">
+        <SecureButton ActionName="system_data_refresh" ScreenName="@PageName" FunctionName="RefreshData"
+                      OnClick="RefreshActiveTab" CssClass="context-btn">
+            רענן נתונים
+        </SecureButton>
+
+        @if (_activeTab == "attributes")
+        {
+            <SecureButton ActionName="system_data_attributes_add" ScreenName="@PageName" FunctionName="ShowCreate"
+                          OnClick="() => InvokeTabCreate()" CssClass="context-btn" HideIfNoAccess="true">
+                הוסף מאפיין
+            </SecureButton>
+            <SecureButton ActionName="system_data_attributes_reload" ScreenName="@PageName" FunctionName="ReloadCache"
+                          OnClick="() => InvokeAttributesReload()" CssClass="context-btn" HideIfNoAccess="true">
+                טען מחדש למטמון
+            </SecureButton>
+        }
+        else if (_activeTab == "assistant-types")
+        {
+            <SecureButton ActionName="system_data_assistant_types_add" ScreenName="@PageName" FunctionName="ShowCreate"
+                          OnClick="() => InvokeTabCreate()" CssClass="context-btn" HideIfNoAccess="true">
+                הוסף סוג
+            </SecureButton>
+        }
+        else if (_activeTab == "entity-types")
+        {
+            <SecureButton ActionName="system_data_entity_types_add" ScreenName="@PageName" FunctionName="ShowCreate"
+                          OnClick="() => InvokeTabCreate()" CssClass="context-btn" HideIfNoAccess="true">
+                הוסף סוג רשות
+            </SecureButton>
+        }
+        else if (_activeTab == "hebrew-years")
+        {
+            <SecureButton ActionName="system_data_hebrew_years_add" ScreenName="@PageName" FunctionName="ShowCreate"
+                          OnClick="() => InvokeTabCreate()" CssClass="context-btn" HideIfNoAccess="true">
+                הוסף שנה
+            </SecureButton>
+        }
+        else if (_activeTab == "ministry-options")
+        {
+            <SecureButton ActionName="system_data_ministry_options_add" ScreenName="@PageName" FunctionName="ShowCreate"
+                          OnClick="() => InvokeTabCreate()" CssClass="context-btn" HideIfNoAccess="true">
+                הוסף אחוז
+            </SecureButton>
+        }
+        else if (_activeTab == "meitar-filters")
+        {
+            <SecureButton ActionName="system_data_meitar_filters_add" ScreenName="@PageName" FunctionName="ShowCreate"
+                          OnClick="() => InvokeTabCreate()" CssClass="context-btn" HideIfNoAccess="true">
+                הוסף ערך סינון
+            </SecureButton>
+        }
+        else if (_activeTab == "meitar-topics")
+        {
+            <SecureButton ActionName="system_data_meitar_topics_add" ScreenName="@PageName" FunctionName="ShowCreate"
+                          OnClick="() => InvokeTabCreate()" CssClass="context-btn" HideIfNoAccess="true">
+                הוסף נושא
+            </SecureButton>
+        }
+
+        <SecureButton ActionName="system_data_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                      OnClick="NavigateBack" CssClass="context-navigation-btn">
+            חזרה לדף ראשי
+        </SecureButton>
+    </div>
+
+    <div class="content-card">
+        <div class="tabs-header">
+            @foreach (var tab in _tabs)
+            {
+                <button type="button"
+                        class="tab-button @(_activeTab == tab.Key ? "active" : "")"
+                        @onclick="() => SelectTab(tab.Key)">
+                    @tab.Label
+                </button>
+            }
+        </div>
+
+        <div class="tab-content">
+            @if (_activeTab == "attributes")
+            {
+                <SystemDataAttributesTab @ref="_attributesTab" ScreenName="@PageName" />
+            }
+            else if (_activeTab == "assistant-types")
+            {
+                <SystemDataAssistantTypesTab @ref="_assistantTypesTab" ScreenName="@PageName" />
+            }
+            else if (_activeTab == "entity-types")
+            {
+                <SystemDataEntityTypesTab @ref="_entityTypesTab" ScreenName="@PageName" />
+            }
+            else if (_activeTab == "hebrew-years")
+            {
+                <SystemDataHebrewYearsTab @ref="_hebrewYearsTab" ScreenName="@PageName" />
+            }
+            else if (_activeTab == "ministry-options")
+            {
+                <SystemDataMinistryOptionsTab @ref="_ministryOptionsTab" ScreenName="@PageName" />
+            }
+            else if (_activeTab == "meitar-filters")
+            {
+                <SystemDataMeitarFiltersTab @ref="_meitarFiltersTab" ScreenName="@PageName" />
+            }
+            else if (_activeTab == "meitar-topics")
+            {
+                <SystemDataMeitarTopicsTab @ref="_meitarTopicsTab" ScreenName="@PageName" />
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override string PageName => "system_data";
+
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? TabQuery { get; set; }
+
+    private string _activeTab = "attributes";
+
+    private SystemDataAttributesTab? _attributesTab;
+    private SystemDataAssistantTypesTab? _assistantTypesTab;
+    private SystemDataEntityTypesTab? _entityTypesTab;
+    private SystemDataHebrewYearsTab? _hebrewYearsTab;
+    private SystemDataMinistryOptionsTab? _ministryOptionsTab;
+    private SystemDataMeitarFiltersTab? _meitarFiltersTab;
+    private SystemDataMeitarTopicsTab? _meitarTopicsTab;
+
+    private static readonly (string Key, string Label)[] _tabs =
+    {
+        ("attributes", "מאפייני מערכת"),
+        ("assistant-types", "סוגי סייעות"),
+        ("entity-types", "סוגי רשויות"),
+        ("hebrew-years", "שנות לימודים"),
+        ("ministry-options", "אחוזי השתתפות משרד"),
+        ("meitar-filters", "ערכי סינון מיתר"),
+        ("meitar-topics", "נושאי מיתר")
+    };
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(TabQuery) && _tabs.Any(t => t.Key == TabQuery))
+            _activeTab = TabQuery!;
+
+        await Task.CompletedTask;
+    }
+
+    private void SelectTab(string key)
+    {
+        _activeTab = key;
+        var uri = NavigationManager.GetUriWithQueryParameter("tab", key);
+        NavigationManager.NavigateTo(uri, replace: true);
+    }
+
+    private async Task RefreshActiveTab()
+    {
+        switch (_activeTab)
+        {
+            case "attributes":
+                if (_attributesTab != null) await _attributesTab.RefreshAsync();
+                break;
+            case "assistant-types":
+                if (_assistantTypesTab != null) await _assistantTypesTab.RefreshAsync();
+                break;
+            case "entity-types":
+                if (_entityTypesTab != null) await _entityTypesTab.RefreshAsync();
+                break;
+            case "hebrew-years":
+                if (_hebrewYearsTab != null) await _hebrewYearsTab.RefreshAsync();
+                break;
+            case "ministry-options":
+                if (_ministryOptionsTab != null) await _ministryOptionsTab.RefreshAsync();
+                break;
+            case "meitar-filters":
+                if (_meitarFiltersTab != null) await _meitarFiltersTab.RefreshAsync();
+                break;
+            case "meitar-topics":
+                if (_meitarTopicsTab != null) await _meitarTopicsTab.RefreshAsync();
+                break;
+        }
+    }
+
+    private void InvokeTabCreate()
+    {
+        switch (_activeTab)
+        {
+            case "attributes":
+                _attributesTab?.ShowCreateDialog();
+                break;
+            case "assistant-types":
+                _assistantTypesTab?.ShowCreateDialog();
+                break;
+            case "entity-types":
+                _entityTypesTab?.ShowCreateDialog();
+                break;
+            case "hebrew-years":
+                _hebrewYearsTab?.ShowCreateDialog();
+                break;
+            case "ministry-options":
+                _ministryOptionsTab?.ShowCreateDialog();
+                break;
+            case "meitar-filters":
+                _meitarFiltersTab?.ShowCreateDialog();
+                break;
+            case "meitar-topics":
+                _meitarTopicsTab?.ShowCreateDialog();
+                break;
+        }
+    }
+
+    private async Task InvokeAttributesReload()
+    {
+        if (_attributesTab != null)
+            await _attributesTab.ReloadCacheAsync();
+    }
+
+    private void NavigateBack() => Navigation.NavigateTo("/maindashboard");
+}

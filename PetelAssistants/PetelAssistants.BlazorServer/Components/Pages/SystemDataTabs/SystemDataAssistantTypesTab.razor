@@ -1,0 +1,248 @@
+@inject ApiService ApiService
+
+@if (_isLoading)
+{
+    <div class="loading-spinner">טוען...</div>
+}
+else
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>פעולות</th>
+                    <th>שם תצוגה</th>
+                    <th>קוד</th>
+                    <th>רמה</th>
+                    <th>סוג משרה</th>
+                    <th>שעות משרה</th>
+                    <th>סדר</th>
+                    <th>סטטוס</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var type in _items)
+                {
+                    <tr class="@(type.IsActive ? "" : "row-inactive")">
+                        <td>
+                            <SecureButton ActionName="system_data_assistant_types_edit" ScreenName="@ScreenName" FunctionName="Edit"
+                                          OnClick="() => ShowEditDialog(type)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
+                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                            </SecureButton>
+                        </td>
+                        <td>@type.DisplayName</td>
+                        <td>@type.Name</td>
+                        <td>@(type.LevelDisplayName ?? "—")</td>
+                        <td>@FormatPositionType(type.PositionType)</td>
+                        <td>@(type.PositionHours?.ToString("0.##") ?? "—")</td>
+                        <td>@type.SortOrder</td>
+                        <td>@(type.IsActive ? "פעיל" : "לא פעיל")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (_showFormDialog)
+{
+    <div class="modal-overlay" @onclick="CloseDialog">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(_editItem == null ? "הוספת סוג סייעת" : "עריכת סוג סייעת")</h3>
+                <button class="modal-close" @onclick="CloseDialog">✕</button>
+            </div>
+            <div class="modal-body">
+                @if (_editItem == null)
+                {
+                    <div class="form-group">
+                        <label>קוד (אנגלית) <span class="required">*</span></label>
+                        <input class="form-control" @bind="_formName" placeholder="class_help" />
+                    </div>
+                }
+                <div class="form-group">
+                    <label>שם תצוגה <span class="required">*</span></label>
+                    <input class="form-control" @bind="_formDisplayName" />
+                </div>
+                <div class="form-group">
+                    <label>תיאור</label>
+                    <input class="form-control" @bind="_formDescription" />
+                </div>
+                <div class="form-group">
+                    <label>רמה</label>
+                    <select class="form-control" @bind="_formLevel">
+                        <option value="">—</option>
+                        @foreach (var level in _levels)
+                        {
+                            <option value="@level.Code">@level.DisplayName</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>סוג משרה</label>
+                    <select class="form-control" @bind="_formPositionType">
+                        <option value="">—</option>
+                        <option value="weekly">שבועי</option>
+                        <option value="monthly">חודשי</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>שעות משרה</label>
+                    <InputNumber class="form-control" @bind-Value="_formPositionHours" />
+                </div>
+                <div class="form-group">
+                    <label>סדר</label>
+                    <InputNumber class="form-control" @bind-Value="_formSortOrder" />
+                </div>
+                @if (_editItem != null)
+                {
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" @bind="_formIsActive" /> פעיל
+                        </label>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(_formError))
+                {
+                    <div class="error-message">@_formError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseDialog">ביטול</button>
+                <button class="btn btn-primary" @onclick="Save" disabled="@_isSaving">@(_isSaving ? "שומר..." : "שמור")</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string ScreenName { get; set; } = "system_data";
+
+    private List<AssistantTypeDto> _items = new();
+    private List<AssistantLevelDto> _levels = new();
+    private bool _isLoading = true;
+    private bool _showFormDialog;
+    private bool _isSaving;
+    private string _formError = string.Empty;
+    private AssistantTypeDto? _editItem;
+    private string _formName = string.Empty;
+    private string _formDisplayName = string.Empty;
+    private string? _formDescription;
+    private string _formPositionType = string.Empty;
+    private decimal? _formPositionHours;
+    private int _formSortOrder;
+    private string _formLevel = string.Empty;
+    private bool _formIsActive = true;
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    public async Task RefreshAsync() => await LoadDataAsync();
+
+    public void ShowCreateDialog()
+    {
+        _editItem = null;
+        _formName = string.Empty;
+        _formDisplayName = string.Empty;
+        _formDescription = null;
+        _formPositionType = string.Empty;
+        _formPositionHours = null;
+        _formSortOrder = 0;
+        _formLevel = string.Empty;
+        _formError = string.Empty;
+        _showFormDialog = true;
+        StateHasChanged();
+    }
+
+    private static string FormatPositionType(string? value) => value switch
+    {
+        "weekly" => "שבועי",
+        "monthly" => "חודשי",
+        _ => "—"
+    };
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        var typesTask = ApiService.GetAsync<ApiResponse<List<AssistantTypeDto>>>("assistant-types?includeInactive=true");
+        var levelsTask = ApiService.GetAsync<ApiResponse<List<AssistantLevelDto>>>("assistant-levels");
+        await Task.WhenAll(typesTask, levelsTask);
+
+        _items = typesTask.Result?.Data ?? new();
+        _levels = levelsTask.Result?.Data ?? new();
+        _isLoading = false;
+        StateHasChanged();
+    }
+
+    private void ShowEditDialog(AssistantTypeDto type)
+    {
+        _editItem = type;
+        _formDisplayName = type.DisplayName;
+        _formDescription = type.Description;
+        _formPositionType = type.PositionType ?? string.Empty;
+        _formPositionHours = type.PositionHours;
+        _formSortOrder = type.SortOrder;
+        _formLevel = type.Level ?? string.Empty;
+        _formIsActive = type.IsActive;
+        _formError = string.Empty;
+        _showFormDialog = true;
+    }
+
+    private void CloseDialog() => _showFormDialog = false;
+
+    private async Task Save()
+    {
+        _isSaving = true;
+        _formError = string.Empty;
+        try
+        {
+            var positionType = string.IsNullOrWhiteSpace(_formPositionType) ? null : _formPositionType;
+            var level = string.IsNullOrWhiteSpace(_formLevel) ? null : _formLevel;
+            ApiResponse<object>? response;
+
+            if (_editItem == null)
+            {
+                response = await ApiService.PostAsync<CreateAssistantTypeRequest, ApiResponse<object>>(
+                    "assistant-types",
+                    new CreateAssistantTypeRequest
+                    {
+                        Name = _formName,
+                        DisplayName = _formDisplayName,
+                        Description = _formDescription,
+                        SortOrder = _formSortOrder,
+                        Level = level,
+                        PositionType = positionType,
+                        PositionHours = _formPositionHours
+                    });
+            }
+            else
+            {
+                response = await ApiService.PutAsync<UpdateAssistantTypeRequest, ApiResponse<object>>(
+                    $"assistant-types/{_editItem.Id}",
+                    new UpdateAssistantTypeRequest
+                    {
+                        DisplayName = _formDisplayName,
+                        Description = _formDescription,
+                        SortOrder = _formSortOrder,
+                        IsActive = _formIsActive,
+                        Level = level,
+                        PositionType = positionType,
+                        PositionHours = _formPositionHours
+                    });
+            }
+
+            if (response?.Success == true)
+            {
+                CloseDialog();
+                await LoadDataAsync();
+            }
+            else
+            {
+                _formError = response?.Message ?? "שגיאה בשמירה";
+            }
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

@@ -9,6 +9,9 @@ namespace PetelAssistants.BlazorServer.DTOs
         public int SortOrder { get; set; }
         public bool IsActive { get; set; }
         public string? Level { get; set; }
+        public string? LevelDisplayName { get; set; }
+        public string? PositionType { get; set; }
+        public decimal? PositionHours { get; set; }
     }
 
     public class CreateAssistantTypeRequest
@@ -18,6 +21,8 @@ namespace PetelAssistants.BlazorServer.DTOs
         public string? Description { get; set; }
         public int SortOrder { get; set; }
         public string? Level { get; set; }
+        public string? PositionType { get; set; }
+        public decimal? PositionHours { get; set; }
     }
 
     public class UpdateAssistantTypeRequest
@@ -27,6 +32,8 @@ namespace PetelAssistants.BlazorServer.DTOs
         public int SortOrder { get; set; }
         public bool IsActive { get; set; } = true;
         public string? Level { get; set; }
+        public string? PositionType { get; set; }
+        public decimal? PositionHours { get; set; }
     }
 
     public class OrgUnitDto
@@ -60,6 +67,16 @@ namespace PetelAssistants.BlazorServer.DTOs
         public int Id { get; set; }
         public decimal Percentage { get; set; }
         public int DisplayOrder { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+
+    public class AssistantLevelDto
+    {
+        public int Id { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public int SortOrder { get; set; }
+        public bool IsActive { get; set; }
     }
 
     public class EntitlementAllocationDto

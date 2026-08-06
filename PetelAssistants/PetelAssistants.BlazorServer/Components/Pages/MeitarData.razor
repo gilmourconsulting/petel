@@ -84,12 +84,6 @@
                         </div>
                     }
                     <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-size: 0.82em; font-weight: 600;">קוד מוטב</label>
-                        <input type="text" class="form-control" style="min-width: 140px;"
-                               @bind="_filterBeneficiary" @bind:event="oninput"
-                               placeholder="חיפוש קוד מוטב..." />
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 4px;">
                         <label style="font-size: 0.82em; font-weight: 600;">נושא</label>
                         <input type="text" class="form-control" style="min-width: 160px;"
                                @bind="_filterTopic" @bind:event="oninput"
@@ -119,9 +113,6 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
-                                    <th @onclick='() => SortTable("BeneficiaryCode")' style="cursor:pointer">
-                                        קוד מוטב @GetSortArrow("BeneficiaryCode")
-                                    </th>
                                     <th @onclick='() => SortTable("CalcDate")' style="cursor:pointer">
                                         תאריך חישוב @GetSortArrow("CalcDate")
                                     </th>
@@ -156,7 +147,6 @@
                                 @foreach (var item in FilteredItems)
                                 {
                                     <tr>
-                                        <td>@item.BeneficiaryCode</td>
                                         <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
                                         <td>@(item.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
                                         <td>@(item.TopicCode ?? "—")</td>
@@ -191,10 +181,9 @@
     private int _filterYear;
     private int _filterMonth;
     private string _dateField = "calc";
-    private string _filterBeneficiary = "";
     private string _filterTopic = "";
 
-    private string _sortColumn = "BeneficiaryCode";
+    private string _sortColumn = "CalcDate";
     private bool _sortAscending = true;
 
     private static readonly string[] MonthNames =
@@ -204,7 +193,6 @@
     };
 
     private bool HasActiveClientFilters =>
-        !string.IsNullOrWhiteSpace(_filterBeneficiary) ||
         !string.IsNullOrWhiteSpace(_filterTopic);
 
     private List<MeitarMutavimListItemDto> FilteredItems
@@ -212,12 +200,6 @@
         get
         {
             IEnumerable<MeitarMutavimListItemDto> query = _items;
-
-            if (!string.IsNullOrWhiteSpace(_filterBeneficiary))
-            {
-                var term = _filterBeneficiary.Trim();
-                query = query.Where(i => i.BeneficiaryCode.Contains(term, StringComparison.OrdinalIgnoreCase));
-            }
 
             if (!string.IsNullOrWhiteSpace(_filterTopic))
             {
@@ -231,9 +213,6 @@
 
             query = _sortColumn switch
             {
-                "BeneficiaryCode" => _sortAscending
-                    ? query.OrderBy(i => i.BeneficiaryCode)
-                    : query.OrderByDescending(i => i.BeneficiaryCode),
                 "CalcDate" => _sortAscending
                     ? query.OrderBy(i => i.CalcDate)
                     : query.OrderByDescending(i => i.CalcDate),
@@ -335,7 +314,6 @@
 
     private void ClearClientFilters()
     {
-        _filterBeneficiary = "";
         _filterTopic = "";
     }
 

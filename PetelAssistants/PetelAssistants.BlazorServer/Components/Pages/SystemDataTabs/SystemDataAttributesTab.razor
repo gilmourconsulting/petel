@@ -1,0 +1,198 @@
+@inject ApiService ApiService
+
+@if (_isLoading)
+{
+    <div class="loading-spinner">טוען...</div>
+}
+else
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>פעולות</th>
+                    <th>שם</th>
+                    <th>ערך</th>
+                    <th>סוג</th>
+                    <th>תיאור</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var attr in _items)
+                {
+                    <tr>
+                        <td>
+                            <SecureButton ActionName="system_data_attributes_edit" ScreenName="@ScreenName" FunctionName="Edit"
+                                          OnClick="() => ShowEditDialog(attr)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
+                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                            </SecureButton>
+                        </td>
+                        <td>@attr.Name</td>
+                        <td>@attr.Value</td>
+                        <td>@attr.ValueType</td>
+                        <td>@(attr.Description ?? "—")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (_showFormDialog)
+{
+    <div class="modal-overlay" @onclick="CloseDialog">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(_editItem == null ? "הוספת מאפיין מערכת" : "עריכת מאפיין מערכת")</h3>
+                <button class="modal-close" @onclick="CloseDialog">✕</button>
+            </div>
+            <div class="modal-body">
+                @if (_editItem == null)
+                {
+                    <div class="form-group">
+                        <label>שם <span class="required">*</span></label>
+                        <input class="form-control" @bind="_formName" />
+                    </div>
+                    <div class="form-group">
+                        <label>סוג ערך</label>
+                        <select class="form-control" @bind="_formValueType">
+                            <option value="string">string</option>
+                            <option value="integer">integer</option>
+                            <option value="boolean">boolean</option>
+                        </select>
+                    </div>
+                }
+                else
+                {
+                    <div class="form-group">
+                        <label>שם</label>
+                        <input class="form-control" value="@_editItem.Name" disabled />
+                    </div>
+                }
+                <div class="form-group">
+                    <label>ערך <span class="required">*</span></label>
+                    <input class="form-control" @bind="_formValue" />
+                </div>
+                <div class="form-group">
+                    <label>תיאור</label>
+                    <input class="form-control" @bind="_formDescription" />
+                </div>
+                @if (!string.IsNullOrEmpty(_formError))
+                {
+                    <div class="error-message">@_formError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseDialog">ביטול</button>
+                <button class="btn btn-primary" @onclick="Save" disabled="@_isSaving">@(_isSaving ? "שומר..." : "שמור")</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string ScreenName { get; set; } = "system_data";
+
+    private List<SystemAttributeAdminDto> _items = new();
+    private bool _isLoading = true;
+    private bool _showFormDialog;
+    private bool _isSaving;
+    private string _formError = string.Empty;
+    private SystemAttributeAdminDto? _editItem;
+    private string _formName = string.Empty;
+    private string _formValue = string.Empty;
+    private string _formValueType = "string";
+    private string? _formDescription;
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    public async Task RefreshAsync() => await LoadDataAsync();
+
+    public async Task ReloadCacheAsync()
+    {
+        var response = await ApiService.PostAsync<object, ApiResponse<object>>("systemattributes/reload", new { });
+        if (response?.Success != true)
+            _formError = response?.Message ?? "שגיאה בטעינת המטמון";
+        await LoadDataAsync();
+    }
+
+    public void ShowCreateDialog()
+    {
+        _editItem = null;
+        _formName = string.Empty;
+        _formValue = string.Empty;
+        _formValueType = "string";
+        _formDescription = null;
+        _formError = string.Empty;
+        _showFormDialog = true;
+        StateHasChanged();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        var response = await ApiService.GetAsync<ApiResponse<List<SystemAttributeAdminDto>>>("systemattributes/admin");
+        _items = response?.Data ?? new();
+        _isLoading = false;
+        StateHasChanged();
+    }
+
+    private void ShowEditDialog(SystemAttributeAdminDto item)
+    {
+        _editItem = item;
+        _formValue = item.Value;
+        _formValueType = item.ValueType;
+        _formDescription = item.Description;
+        _formError = string.Empty;
+        _showFormDialog = true;
+    }
+
+    private void CloseDialog() => _showFormDialog = false;
+
+    private async Task Save()
+    {
+        _isSaving = true;
+        _formError = string.Empty;
+        try
+        {
+            ApiResponse<object>? response;
+            if (_editItem == null)
+            {
+                response = await ApiService.PostAsync<CreateSystemAttributeRequest, ApiResponse<object>>(
+                    "systemattributes",
+                    new CreateSystemAttributeRequest
+                    {
+                        Name = _formName,
+                        Value = _formValue,
+                        ValueType = _formValueType,
+                        Description = _formDescription
+                    });
+            }
+            else
+            {
+                response = await ApiService.PutAsync<UpdateSystemAttributeRequest, ApiResponse<object>>(
+                    $"systemattributes/{_editItem.Id}",
+                    new UpdateSystemAttributeRequest
+                    {
+                        Value = _formValue,
+                        ValueType = _formValueType,
+                        Description = _formDescription
+                    });
+            }
+
+            if (response?.Success == true)
+            {
+                CloseDialog();
+                await LoadDataAsync();
+            }
+            else
+            {
+                _formError = response?.Message ?? "שגיאה בשמירה";
+            }
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

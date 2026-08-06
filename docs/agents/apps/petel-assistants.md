@@ -202,9 +202,13 @@ Tables: `meitar_retrieve_processes`, `meitar_mutavim`. Actions: `maindashboard_m
 **Shared table candidates (shared_schema):**
 - `entities` — local authorities (tenants) only
 - `entity_types` — authority, etc.
-- `assistant_types` — type codes for educational support staff
+- `assistant_types` — type codes for educational support staff (`position_type`, `position_hours`)
+- `hebrew_years`, `ministry_participation_options`, `meitar_data_filter_values`
+- `meitar_topics` — Meitar topic lookup (future use; managed on `/system-data`)
 - `cities` — city/settlement lookup
 - `system_attributes` — global key-value config
+
+Admin UI for shared lookups: `/system-data` (הגדרות מערכת). SQL: `PetelAssistants/SQL/add-system-data-hub.sql`.
 
 **Tenant table candidates (assist_schema):**
 - `users`, `roles`, `user_roles`, `permissions`

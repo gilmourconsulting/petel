@@ -1,0 +1,165 @@
+@inject ApiService ApiService
+
+@if (_isLoading)
+{
+    <div class="loading-spinner">טוען...</div>
+}
+else
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>פעולות</th>
+                    <th>שם</th>
+                    <th>תיאור</th>
+                    <th>סטטוס</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _items)
+                {
+                    <tr class="@(item.IsActive ? "" : "row-inactive")">
+                        <td>
+                            <SecureButton ActionName="system_data_entity_types_edit" ScreenName="@ScreenName" FunctionName="Edit"
+                                          OnClick="() => ShowEditDialog(item)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
+                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                            </SecureButton>
+                        </td>
+                        <td>@item.Name</td>
+                        <td>@(item.Description ?? "—")</td>
+                        <td>@(item.IsActive ? "פעיל" : "לא פעיל")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (_showFormDialog)
+{
+    <div class="modal-overlay" @onclick="CloseDialog">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(_editItem == null ? "הוספת סוג רשות" : "עריכת סוג רשות")</h3>
+                <button class="modal-close" @onclick="CloseDialog">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>שם <span class="required">*</span></label>
+                    <input class="form-control" @bind="_formName" />
+                </div>
+                <div class="form-group">
+                    <label>תיאור</label>
+                    <input class="form-control" @bind="_formDescription" />
+                </div>
+                @if (_editItem != null)
+                {
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" @bind="_formIsActive" /> פעיל
+                        </label>
+                    </div>
+                }
+                @if (!string.IsNullOrEmpty(_formError))
+                {
+                    <div class="error-message">@_formError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseDialog">ביטול</button>
+                <button class="btn btn-primary" @onclick="Save" disabled="@_isSaving">@(_isSaving ? "שומר..." : "שמור")</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string ScreenName { get; set; } = "system_data";
+
+    private List<EntityTypeDto> _items = new();
+    private bool _isLoading = true;
+    private bool _showFormDialog;
+    private bool _isSaving;
+    private string _formError = string.Empty;
+    private EntityTypeDto? _editItem;
+    private string _formName = string.Empty;
+    private string? _formDescription;
+    private bool _formIsActive = true;
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    public async Task RefreshAsync() => await LoadDataAsync();
+
+    public void ShowCreateDialog()
+    {
+        _editItem = null;
+        _formName = string.Empty;
+        _formDescription = null;
+        _formError = string.Empty;
+        _showFormDialog = true;
+        StateHasChanged();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        var response = await ApiService.GetAsync<ApiResponse<List<EntityTypeDto>>>("entity-types?includeInactive=true");
+        _items = response?.Data ?? new();
+        _isLoading = false;
+        StateHasChanged();
+    }
+
+    private void ShowEditDialog(EntityTypeDto item)
+    {
+        _editItem = item;
+        _formName = item.Name;
+        _formDescription = item.Description;
+        _formIsActive = item.IsActive;
+        _formError = string.Empty;
+        _showFormDialog = true;
+    }
+
+    private void CloseDialog() => _showFormDialog = false;
+
+    private async Task Save()
+    {
+        _isSaving = true;
+        _formError = string.Empty;
+        try
+        {
+            ApiResponse<object>? response;
+            if (_editItem == null)
+            {
+                response = await ApiService.PostAsync<CreateEntityTypeRequest, ApiResponse<object>>(
+                    "entity-types",
+                    new CreateEntityTypeRequest { Name = _formName, Description = _formDescription });
+            }
+            else
+            {
+                response = await ApiService.PutAsync<UpdateEntityTypeRequest, ApiResponse<object>>(
+                    $"entity-types/{_editItem.Id}",
+                    new UpdateEntityTypeRequest
+                    {
+                        Name = _formName,
+                        Description = _formDescription,
+                        IsActive = _formIsActive
+                    });
+            }
+
+            if (response?.Success == true)
+            {
+                CloseDialog();
+                await LoadDataAsync();
+            }
+            else
+            {
+                _formError = response?.Message ?? "שגיאה בשמירה";
+            }
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

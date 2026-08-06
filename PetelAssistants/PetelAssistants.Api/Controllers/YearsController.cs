@@ -178,5 +178,52 @@ namespace PetelAssistants.Api.Controllers
             await _sharedContext.SaveChangesAsync();
             return Ok(new { success = true, message = "שנת לימודים עודכנה בהצלחה" });
         }
+
+        [HttpPost]
+        public async Task<IActionResult> CreateYear([FromBody] CreateHebrewYearRequest request)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (string.IsNullOrWhiteSpace(request.YearName))
+                return BadRequest(new { success = false, message = "שם השנה הוא שדה חובה" });
+
+            if (request.StartDate.HasValue && request.EndDate.HasValue && request.EndDate < request.StartDate)
+                return BadRequest(new { success = false, message = "תאריך סיום חייב להיות אחרי תאריך התחלה" });
+
+            var yearName = request.YearName.Trim();
+            if (await _sharedContext.HebrewYears.AnyAsync(y => y.YearName == yearName))
+                return BadRequest(new { success = false, message = "שנה עם שם זה כבר קיימת" });
+
+            if (request.IsCurrent)
+            {
+                var others = await _sharedContext.HebrewYears.Where(y => y.IsCurrent).ToListAsync();
+                foreach (var other in others)
+                    other.IsCurrent = false;
+            }
+
+            if (request.IsPrevious)
+            {
+                var others = await _sharedContext.HebrewYears.Where(y => y.IsPrevious).ToListAsync();
+                foreach (var other in others)
+                    other.IsPrevious = false;
+            }
+
+            var year = new Models.HebrewYear
+            {
+                YearName = yearName,
+                StartDate = request.StartDate,
+                EndDate = request.EndDate,
+                IsCurrent = request.IsCurrent,
+                IsPrevious = request.IsPrevious,
+                IsActive = request.IsActive
+            };
+
+            _sharedContext.HebrewYears.Add(year);
+            await _sharedContext.SaveChangesAsync();
+
+            return Ok(new { success = true, message = "שנת לימודים נוצרה בהצלחה", data = new { year.Id } });
+        }
     }
 }

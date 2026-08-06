@@ -1,0 +1,200 @@
+@inject ApiService ApiService
+
+@if (_isLoading)
+{
+    <div class="loading-spinner">טוען...</div>
+}
+else
+{
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>פעולות</th>
+                    <th>שנה</th>
+                    <th>תאריך התחלה</th>
+                    <th>תאריך סיום</th>
+                    <th>נוכחית</th>
+                    <th>קודמת</th>
+                    <th>פעילה</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var year in _items)
+                {
+                    <tr class="@(year.IsActive ? "" : "row-inactive")">
+                        <td>
+                            <SecureButton ActionName="system_data_hebrew_years_edit" ScreenName="@ScreenName" FunctionName="Edit"
+                                          OnClick="() => ShowEditDialog(year)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
+                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                            </SecureButton>
+                        </td>
+                        <td>@year.YearName</td>
+                        <td>@(year.StartDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                        <td>@(year.EndDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                        <td>@(year.IsCurrent ? "כן" : "לא")</td>
+                        <td>@(year.IsPrevious ? "כן" : "לא")</td>
+                        <td>@(year.IsActive ? "כן" : "לא")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (_showFormDialog)
+{
+    <div class="modal-overlay" @onclick="CloseDialog">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>@(_editItem == null ? "הוספת שנת לימודים" : $"עריכת {_editItem.YearName}")</h3>
+                <button class="modal-close" @onclick="CloseDialog">✕</button>
+            </div>
+            <div class="modal-body">
+                @if (_editItem == null)
+                {
+                    <div class="form-group">
+                        <label>שם שנה <span class="required">*</span></label>
+                        <input class="form-control" @bind="_formYearName" placeholder="תשפ״ו" />
+                    </div>
+                }
+                <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div class="form-group">
+                        <label>תאריך התחלה</label>
+                        <InputDate class="form-control" @bind-Value="_formStartDate" />
+                    </div>
+                    <div class="form-group">
+                        <label>תאריך סיום</label>
+                        <InputDate class="form-control" @bind-Value="_formEndDate" />
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" @bind="_formIsCurrent" /> שנה נוכחית</label>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" @bind="_formIsPrevious" /> שנה קודמת</label>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" @bind="_formIsActive" /> פעילה</label>
+                </div>
+                @if (!string.IsNullOrEmpty(_formError))
+                {
+                    <div class="error-message">@_formError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseDialog">ביטול</button>
+                <button class="btn btn-primary" @onclick="Save" disabled="@_isSaving">@(_isSaving ? "שומר..." : "שמור")</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string ScreenName { get; set; } = "system_data";
+
+    private List<YearDto> _items = new();
+    private bool _isLoading = true;
+    private bool _showFormDialog;
+    private bool _isSaving;
+    private string _formError = string.Empty;
+    private YearDto? _editItem;
+    private string _formYearName = string.Empty;
+    private DateOnly? _formStartDate;
+    private DateOnly? _formEndDate;
+    private bool _formIsCurrent;
+    private bool _formIsPrevious;
+    private bool _formIsActive = true;
+
+    protected override async Task OnInitializedAsync() => await LoadDataAsync();
+
+    public async Task RefreshAsync() => await LoadDataAsync();
+
+    public void ShowCreateDialog()
+    {
+        _editItem = null;
+        _formYearName = string.Empty;
+        _formStartDate = null;
+        _formEndDate = null;
+        _formIsCurrent = false;
+        _formIsPrevious = false;
+        _formIsActive = true;
+        _formError = string.Empty;
+        _showFormDialog = true;
+        StateHasChanged();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        var response = await ApiService.GetAsync<ApiResponse<List<YearDto>>>("Years/admin");
+        _items = response?.Data ?? new();
+        _isLoading = false;
+        StateHasChanged();
+    }
+
+    private void ShowEditDialog(YearDto year)
+    {
+        _editItem = year;
+        _formStartDate = year.StartDate;
+        _formEndDate = year.EndDate;
+        _formIsCurrent = year.IsCurrent;
+        _formIsPrevious = year.IsPrevious;
+        _formIsActive = year.IsActive;
+        _formError = string.Empty;
+        _showFormDialog = true;
+    }
+
+    private void CloseDialog() => _showFormDialog = false;
+
+    private async Task Save()
+    {
+        _isSaving = true;
+        _formError = string.Empty;
+        try
+        {
+            ApiResponse<object>? response;
+            if (_editItem == null)
+            {
+                response = await ApiService.PostAsync<CreateHebrewYearRequest, ApiResponse<object>>(
+                    "Years",
+                    new CreateHebrewYearRequest
+                    {
+                        YearName = _formYearName,
+                        StartDate = _formStartDate,
+                        EndDate = _formEndDate,
+                        IsCurrent = _formIsCurrent,
+                        IsPrevious = _formIsPrevious,
+                        IsActive = _formIsActive
+                    });
+            }
+            else
+            {
+                response = await ApiService.PutAsync<UpdateHebrewYearRequest, ApiResponse<object>>(
+                    $"Years/{_editItem.Id}",
+                    new UpdateHebrewYearRequest
+                    {
+                        StartDate = _formStartDate,
+                        EndDate = _formEndDate,
+                        IsCurrent = _formIsCurrent,
+                        IsPrevious = _formIsPrevious,
+                        IsActive = _formIsActive
+                    });
+            }
+
+            if (response?.Success == true)
+            {
+                CloseDialog();
+                await LoadDataAsync();
+            }
+            else
+            {
+                _formError = response?.Message ?? "שגיאה בשמירה";
+            }
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}
