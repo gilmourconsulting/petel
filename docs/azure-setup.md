@@ -15,10 +15,9 @@
 Each application is deployed as **two App Services** behind one App Service Plan (per environment):
 
 ```
-Browser
-  → [Production only] Azure Front Door Premium + WAF (Israel GeoMatch)
-  → Blazor App Service  (public entry for users)
-  → API App Service     (Blazor calls API server-side; not exposed on Front Door)
+Browser (Israeli IPs only)
+  → Blazor App Service  (public entry; App Service Israeli CIDR allowlist)
+  → API App Service     (Blazor outbound IPs only; not browser-reachable)
   → Azure Database for PostgreSQL Flexible Server
 ```
 
@@ -27,12 +26,14 @@ Browser
 | Rule | Why |
 |---|---|
 | Region = `israelcentral` | Data residency / latency for IL users |
-| Blazor is the only public origin on Front Door | Users never hit the API hostname directly |
+| Blazor is the only public entry | Users never hit the API hostname directly |
+| Blazor allowlist = Israeli CIDRs | Geographic restriction without Front Door cost |
 | API allowlist = Blazor outbound IPs | API is invisible from the internet |
-| No `/api/*` route on Front Door | Blazor Server calls API over Azure outbound networking |
 | `ASPNETCORE_ENVIRONMENT` set on each App Service | Loads the correct `appsettings.*.json` |
 
 Azure Portal / ARM management always bypasses App Service access restrictions — no special rule needed for ops.
+
+> Retired: Azure Front Door Premium + WAF GeoMatch. Prefer App Service IP restrictions for cost. Historical Front Door scripts remain in the repo but are not the current pattern.
 
 ## Environments
 
@@ -63,7 +64,7 @@ Examples:
 | Blazor app | `petel-test-blazor` | `petel-assist-test-blazor` | `petel-payroll-test-blazor` |
 | PostgreSQL | `petel-*-db[-NNNN]` | shared or dedicated | `petel-payroll-*-db[-NNNN]` |
 | Key Vault | `petel-kv-*-NNNN` | optional | `petel-kv-payroll-*-NNNN` |
-| Front Door (prod) | `petel-frontdoor-prod` | *(add when needed)* | `petel-payroll-frontdoor-prod` |
+| Front Door (prod) | *(retired — use App Service IP restrictions)* | *(retired)* | *(retired)* |
 
 Hostnames follow Azure defaults: `{app-name}.azurewebsites.net`.
 
@@ -87,7 +88,7 @@ Hostnames follow Azure defaults: `{app-name}.azurewebsites.net`.
 - Runtime: `DOTNETCORE:9.0` (Linux) for API and Blazor  
 - Production plan SKU (infra script): `P1V3`  
 - Deploy: `.\Deploy-ATH.ps1 -Environment {test|staging|production}`  
-- Production Front Door: `.\Deploy-ATH-FrontDoor-Prod.ps1`
+- Edge security: `.\Apply-AppService-IP-Restrictions.ps1` (Blazor) + `.\Fix-API-Security.ps1` (API)
 
 ### PetelAssistants
 
@@ -132,33 +133,34 @@ Single Blazor Server Web app + Playwright Worker (not dual API/Blazor). Scripts 
 
 Apps may share a PostgreSQL server with separate databases/schemas, or get a dedicated server — prefer **dedicated resource groups per app**, even if the DB server is shared.
 
-## Production edge security (Front Door pattern)
+## Production edge security (App Service IP restrictions)
 
-Canonical production traffic for ATH:
+Canonical production traffic:
 
 ```
 Browser (Israeli IPs only)
-  → Front Door Premium (`petel-frontdoor-prod`)
-  → WAF (`petelWafProd`) — GeoMatch ≠ IL → 403; OWASP + Bot rules
-  → Blazor (`petel-prod-blazor`)
-  → API (`petel-prod-api`) via Blazor outbound IPs only
+  → Blazor (`petel-*-blazor`) — Israeli CIDR allowlist
+  → API (`petel-*-api`) — Blazor outbound IPs only
 ```
 
-| Resource | Example name | Notes |
+| Resource | Control | Notes |
 |---|---|---|
-| Front Door profile | `petel-frontdoor-prod` | Premium SKU, lives in prod RG |
-| Endpoint | `petel-prod` | `*.azurefd.net` hostname |
-| WAF policy | `petelWafProd` | Prevention mode |
-| Managed rules | DRS 2.1 + Bot Manager 1.0 | OWASP + bots |
-| Custom rule | `BlockNonIsrael` | GeoMatch country ≠ IL |
-| Blazor access | Allow `AzureFrontDoor.Backend`, then DenyAll | Blocks direct `.azurewebsites.net` |
-| API access | Allow Blazor `outboundIpAddresses`, then DenyAll | No Front Door route to API |
+| Blazor access | Israeli CIDR allow rules + DenyAll | Applied by `Apply-AppService-IP-Restrictions.ps1` (Blazor only) |
+| API access | Allow Blazor `possibleOutboundIpAddresses` `/32` + DenyAll | Applied by `Fix-API-Security.ps1` / deploy scripts |
+| Front Door / WAF | **Retired** | Remove with `Remove-FrontDoor.ps1` if present |
 
-**Prefer GeoMatch over long Israeli CIDR lists** — one WAF rule, Microsoft-maintained country mapping, no 512-rule App Service limit issues.
+**Scripts:**
 
-Blazor outbound IPs are tied to the App Service Plan. They change mainly on plan migration or region move. After such a change, refresh API access restrictions (ATH: re-run `Deploy-ATH-FrontDoor-Prod.ps1`, optionally `-DryRun` first).
+```powershell
+.\Apply-AppService-IP-Restrictions.ps1 -Environment all -App all -RemoveExisting
+.\Fix-API-Security.ps1 -Environment all -App all
+.\Remove-FrontDoor.ps1 -DryRun
+.\Remove-FrontDoor.ps1 -Confirm -Force
+```
 
-> Historical note: some older docs describe App Service Israeli CIDR allowlists *instead of* Front Door. The current production pattern for ATH is Front Door + GeoMatch + private API. New apps should follow that pattern unless there is an explicit cost/ops decision otherwise.
+Blazor outbound IPs are tied to the App Service Plan. They change mainly on plan migration or region move. After such a change, re-run `Fix-API-Security.ps1` (or deploy with IP restrictions enabled) to refresh API allowlists.
+
+> Historical note: ATH briefly used Front Door Premium + WAF GeoMatch. That pattern was retired for cost; App Service Israeli CIDRs on Blazor + private API is the current standard.
 
 ## Secrets and configuration
 
@@ -205,10 +207,12 @@ Per-app scripts at repo root:
 |---|---|
 | ATH | `Deploy-ATH.ps1` |
 | Assistants | `Deploy-Assistants.ps1` |
-| ATH Front Door (prod) | `Deploy-ATH-FrontDoor-Prod.ps1` |
+| Blazor Israeli IP allowlist | `Apply-AppService-IP-Restrictions.ps1` |
+| API Blazor-only lock | `Fix-API-Security.ps1` |
+| Remove Front Door (if present) | `Remove-FrontDoor.ps1` |
 | One-time prod infra (ATH-oriented) | `Setup-Production-Infrastructure.ps1` |
 
-Flags commonly supported: `-ApiOnly`, `-BlazorOnly`, `-SkipBuild`, `-SkipIpRestrictions`, `-DryRun` / `-WafOnly` on Front Door scripts.
+Flags commonly supported: `-ApiOnly`, `-BlazorOnly`, `-SkipBuild`, `-SkipIpRestrictions`, `-DryRun` / `-Force` on removal scripts.
 
 ## Checklist: add a new app on the same Azure pattern
 
@@ -219,14 +223,14 @@ Flags commonly supported: `-ApiOnly`, `-BlazorOnly`, `-SkipBuild`, `-SkipIpRestr
 5. **Wire secrets** — App Settings and/or Key Vault; never commit connection strings or JWT keys.  
 6. **Config** — `ApiSettings:BaseUrl` pointing at the API hostname; `Database:SchemaName` from config.  
 7. **Deploy script** — clone `Deploy-Assistants.ps1` / `Deploy-ATH.ps1`, update `$envConfig` paths and names.  
-8. **Production hardening** — Front Door Premium → Blazor only; WAF GeoMatch IL; API locked to Blazor outbound IPs.  
-9. **Validate** — login + Blazor→API round-trip; confirm direct API URL is blocked from the internet; confirm non-IL blocked at WAF.
+8. **Production hardening** — Israeli CIDRs on Blazor; API locked to Blazor outbound IPs (`Apply-AppService-IP-Restrictions.ps1` + `Fix-API-Security.ps1`).  
+9. **Validate** — login + Blazor→API round-trip; confirm direct API URL is blocked from the internet; confirm non-IL blocked on Blazor.
 
 ## What other apps should *not* copy
 
 - Hardcoded API URLs or schema names in C# / Razor.  
-- Exposing the API on Front Door or leaving `.azurewebsites.net` open in production.  
-- Relying on long Israeli CIDR allowlists as the primary geo control when Front Door GeoMatch is available.  
+- Leaving the API `.azurewebsites.net` hostname open to the public internet.  
+- Reintroducing Azure Front Door Premium unless there is an explicit cost/ops decision.  
 - Sharing one App Service between unrelated apps (use separate RGs / plans / apps).  
 - Putting secrets only in `appsettings.*.json` committed to git.
 
@@ -235,12 +239,14 @@ Flags commonly supported: `-ApiOnly`, `-BlazorOnly`, `-SkipBuild`, `-SkipIpRestr
 | Doc | Use when |
 |---|---|
 | [docs/agents/core/configuration.md](agents/core/configuration.md) | appsettings, schema, CSP, deploy commands |
-| [docs/agents/apps/petel-ath.md](agents/apps/petel-ath.md) | ATH resources + Front Door details |
+| [docs/agents/apps/petel-ath.md](agents/apps/petel-ath.md) | ATH resources + edge security |
 | [docs/agents/apps/petel-assistants.md](agents/apps/petel-assistants.md) | Assistants resources + App Settings secrets |
 | [docs/agents/core/auth-security.md](agents/core/auth-security.md) | JWT, OTP, IP restriction implications for Blazor→API |
 | `Setup-Production-Infrastructure.ps1` | Example one-shot prod resource creation |
-| `Deploy-ATH-FrontDoor-Prod.ps1` | Canonical Front Door + private API script |
+| `Apply-AppService-IP-Restrictions.ps1` | Blazor Israeli CIDR allowlist |
+| `Fix-API-Security.ps1` | Lock API to Blazor outbound IPs |
+| `Remove-FrontDoor.ps1` | Delete leftover Front Door / WAF |
 
 ## Maintenance
 
-When you provision a new Petel app or change shared Azure conventions (region, naming, Front Door rules, secret strategy), update **this file** and the app-specific section in `docs/agents/apps/`. Do not duplicate long resource tables in multiple places without a pointer here.
+When you provision a new Petel app or change shared Azure conventions (region, naming, edge IP security, secret strategy), update **this file** and the app-specific section in `docs/agents/apps/`. Do not duplicate long resource tables in multiple places without a pointer here.

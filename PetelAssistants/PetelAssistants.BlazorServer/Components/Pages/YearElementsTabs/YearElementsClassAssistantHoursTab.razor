@@ -1,0 +1,247 @@
+@using PetelAssistants.BlazorServer.DTOs
+@using PetelAssistants.BlazorServer.Models
+@inject ApiService ApiService
+@inject IJSRuntime JSRuntime
+
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 20px;">
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-size: 0.82em; font-weight: 600;">שנת לימודים</label>
+        <select class="form-control" style="min-width: 200px;"
+                value="@_selectedYearId"
+                @onchange="OnYearChanged"
+                disabled="@_isLoading">
+            @if (_years.Count == 0)
+            {
+                <option value="0">אין שנים</option>
+            }
+            else
+            {
+                @foreach (var year in _years)
+                {
+                    <option value="@year.Id">@year.YearName@(year.IsCurrent ? " (נוכחית)" : "")</option>
+                }
+            }
+        </select>
+    </div>
+</div>
+
+@if (_isLoading)
+{
+    <div class="loading-spinner">טוען...</div>
+}
+else if (!string.IsNullOrEmpty(_error))
+{
+    <div class="error-message">@_error</div>
+}
+else if (_selectedYearId <= 0)
+{
+    <div style="color: var(--text-muted);">בחר שנת לימודים להגדרת שעות.</div>
+}
+else if (_classifications.Count == 0)
+{
+    <div style="color: var(--text-muted);">אין סיווגי כיתה פעילים להגדרה.</div>
+}
+else
+{
+    <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 12px;">
+        הגדרת שעות תקציב לסייעת כיתתית לפי רמת בית ספר וסיווג כיתה. ערך כספי לשעה יוגדר בנפרד בעתיד.
+    </p>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>סיווג כיתה</th>
+                    <th>יסודי — שעות</th>
+                    <th>תיכון — שעות</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _classifications)
+                {
+                    <tr>
+                        <td>@row.Name</td>
+                        <td>
+                            <input type="number" class="form-control" step="0.01" min="0"
+                                   style="width: 120px;"
+                                   @bind="row.ElementaryHours" @bind:event="onchange" />
+                        </td>
+                        <td>
+                            <input type="number" class="form-control" step="0.01" min="0"
+                                   style="width: 120px;"
+                                   @bind="row.HighSchoolHours" @bind:event="onchange" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public string ScreenName { get; set; } = "year_elements";
+
+    private List<YearDto> _years = new();
+    private List<ClassificationHoursRow> _classifications = new();
+    private int _selectedYearId;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string _error = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    public async Task RefreshAsync() => await LoadAsync(keepYear: true);
+
+    public async Task SaveAsync()
+    {
+        if (_selectedYearId <= 0 || _isSaving)
+            return;
+
+        _isSaving = true;
+        try
+        {
+            var request = new UpsertClassAssistantBudgetHoursRequest
+            {
+                HebrewYearId = _selectedYearId,
+                Lines = _classifications.SelectMany(r => new[]
+                {
+                    new ClassAssistantBudgetHoursLineRequest
+                    {
+                        SchoolLevel = "elementary",
+                        ClassClassificationId = r.Id,
+                        Hours = r.ElementaryHours
+                    },
+                    new ClassAssistantBudgetHoursLineRequest
+                    {
+                        SchoolLevel = "high_school",
+                        ClassClassificationId = r.Id,
+                        Hours = r.HighSchoolHours
+                    }
+                }).ToList()
+            };
+
+            var response = await ApiService.PutAsync<UpsertClassAssistantBudgetHoursRequest, ApiResponse<List<ClassAssistantBudgetHoursDto>>>(
+                "class-assistant-budget-hours", request);
+
+            if (response?.Success == true)
+            {
+                ApplyMatrix(response.Data ?? new());
+                await JSRuntime.InvokeVoidAsync("alert", "השעות נשמרו בהצלחה");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בשמירה");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירה: {ex.Message}");
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task LoadAsync(bool keepYear = false)
+    {
+        _isLoading = true;
+        _error = string.Empty;
+        try
+        {
+            var yearsResponse = await ApiService.GetAsync<ApiResponse<List<YearDto>>>("Years/admin");
+            _years = (yearsResponse?.Data ?? new())
+                .Where(y => y.IsActive)
+                .OrderByDescending(y => y.IsCurrent)
+                .ThenByDescending(y => y.Id)
+                .ToList();
+
+            if (!keepYear || !_years.Any(y => y.Id == _selectedYearId))
+            {
+                _selectedYearId = _years.FirstOrDefault(y => y.IsCurrent)?.Id
+                    ?? _years.FirstOrDefault()?.Id
+                    ?? 0;
+            }
+
+            if (_selectedYearId > 0)
+                await LoadMatrixAsync();
+            else
+                _classifications = new();
+        }
+        catch (Exception ex)
+        {
+            _error = $"שגיאה בטעינה: {ex.Message}";
+            _classifications = new();
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnYearChanged(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var yearId))
+            return;
+
+        _selectedYearId = yearId;
+        _isLoading = true;
+        _error = string.Empty;
+        try
+        {
+            await LoadMatrixAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"שגיאה בטעינה: {ex.Message}";
+            _classifications = new();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadMatrixAsync()
+    {
+        var response = await ApiService.GetAsync<ApiResponse<List<ClassAssistantBudgetHoursDto>>>(
+            $"class-assistant-budget-hours?yearId={_selectedYearId}");
+
+        if (response?.Success != true)
+        {
+            _error = response?.Message ?? "שגיאה בטעינת שעות";
+            _classifications = new();
+            return;
+        }
+
+        ApplyMatrix(response.Data ?? new());
+    }
+
+    private void ApplyMatrix(List<ClassAssistantBudgetHoursDto> items)
+    {
+        _classifications = items
+            .GroupBy(i => new { i.ClassClassificationId, i.ClassClassificationName })
+            .OrderBy(g => g.Key.ClassClassificationName)
+            .Select(g =>
+            {
+                var elementary = g.FirstOrDefault(x => x.SchoolLevel == "elementary");
+                var highSchool = g.FirstOrDefault(x => x.SchoolLevel == "high_school");
+                return new ClassificationHoursRow
+                {
+                    Id = g.Key.ClassClassificationId,
+                    Name = g.Key.ClassClassificationName,
+                    ElementaryHours = elementary?.Hours ?? 0,
+                    HighSchoolHours = highSchool?.Hours ?? 0
+                };
+            })
+            .ToList();
+    }
+
+    private sealed class ClassificationHoursRow
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public decimal ElementaryHours { get; set; }
+        public decimal HighSchoolHours { get; set; }
+    }
+}

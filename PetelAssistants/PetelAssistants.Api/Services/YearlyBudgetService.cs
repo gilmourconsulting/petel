@@ -48,6 +48,166 @@ namespace PetelAssistants.Api.Services
             return await MapDtoAsync(id, year);
         }
 
+        /// <summary>
+        /// Calculates class_help yearly hours from entitlements using shared year rate matrix.
+        /// Other assistant types are left unchanged. Failures do not block successful rows.
+        /// </summary>
+        public async Task<CalculateYearlyBudgetResultDto> CalculateAsync(int entityId, int? userId, int id)
+        {
+            var budget = await _context.YearlyBudgets
+                .FirstOrDefaultAsync(b => b.Id == id)
+                ?? throw new InvalidOperationException("תקציב לא נמצא");
+
+            EnsureEditable(budget);
+
+            var year = await LoadHebrewYearAsync(budget.HebrewYearId, requireActive: false);
+            var months = GetMonthsInYear(year);
+            if (months.Count == 0)
+                throw new InvalidOperationException("טווח תאריכי השנה אינו תקין");
+
+            var classHelpType = await _sharedContext.AssistantTypes.AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Name == "class_help")
+                ?? throw new InvalidOperationException("סוג סייעת כיתתית לא נמצא");
+
+            var rates = await _sharedContext.ClassAssistantBudgetHours.AsNoTracking()
+                .Where(r => r.HebrewYearId == budget.HebrewYearId)
+                .ToListAsync();
+            var rateLookup = rates.ToDictionary(
+                r => (r.SchoolLevel, r.ClassClassificationId),
+                r => r.Hours);
+
+            var entitlements = await _context.Entitlements
+                .AsNoTracking()
+                .Include(e => e.Institution)
+                .Where(e => e.HebrewYearId == budget.HebrewYearId
+                            && e.AssistantTypeId == classHelpType.Id
+                            && e.IsLastVersion
+                            && !e.IsCancelled)
+                .ToListAsync();
+
+            var failures = new List<CalculateBudgetFailureDto>();
+            decimal totalHours = 0;
+            var successCount = 0;
+
+            foreach (var entitlement in entitlements)
+            {
+                var institutionName = entitlement.Institution?.Name;
+                var className = entitlement.ClassName;
+
+                if (entitlement.Institution == null || string.IsNullOrWhiteSpace(entitlement.Institution.SchoolLevel))
+                {
+                    failures.Add(MakeFailure(entitlement, institutionName, className, "חסרה רמת בית ספר במוסד"));
+                    continue;
+                }
+
+                if (entitlement.ClassClassificationId is null or <= 0)
+                {
+                    failures.Add(MakeFailure(entitlement, institutionName, className, "חסר סיווג כיתה בזכאות"));
+                    continue;
+                }
+
+                var schoolLevel = entitlement.Institution.SchoolLevel;
+                if (!string.Equals(schoolLevel, SchoolLevels.Elementary, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(schoolLevel, SchoolLevels.HighSchool, StringComparison.OrdinalIgnoreCase))
+                {
+                    failures.Add(MakeFailure(entitlement, institutionName, className, "רמת בית ספר במוסד אינה תקינה"));
+                    continue;
+                }
+
+                var normalizedLevel = schoolLevel.Equals(SchoolLevels.HighSchool, StringComparison.OrdinalIgnoreCase)
+                    ? SchoolLevels.HighSchool
+                    : SchoolLevels.Elementary;
+
+                if (!rateLookup.TryGetValue((normalizedLevel, entitlement.ClassClassificationId.Value), out var hours))
+                {
+                    failures.Add(MakeFailure(entitlement, institutionName, className,
+                        "לא הוגדרו שעות תקציב לרמת בית ספר ולסיווג כיתה אלה בניהול שנה"));
+                    continue;
+                }
+
+                totalHours += hours;
+                successCount++;
+            }
+
+            totalHours = Round2(totalHours);
+
+            var detail = await _context.YearlyBudgetDetails
+                .FirstOrDefaultAsync(d => d.YearlyBudgetId == budget.Id && d.AssistantTypeId == classHelpType.Id);
+
+            if (detail == null)
+            {
+                detail = new YearlyBudgetDetail
+                {
+                    EntityId = entityId,
+                    YearlyBudgetId = budget.Id,
+                    AssistantTypeId = classHelpType.Id,
+                    Fte = 0,
+                    Amount = 0,
+                    UserId = userId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _context.YearlyBudgetDetails.Add(detail);
+            }
+
+            detail.Hours = totalHours;
+            detail.UpdatedAt = DateTime.UtcNow;
+            detail.UpdateUser = userId;
+
+            var oldMonths = await _context.YearlyBudgetMonthDetails
+                .Where(m => m.YearlyBudgetId == budget.Id && m.AssistantTypeId == classHelpType.Id)
+                .ToListAsync();
+            _context.YearlyBudgetMonthDetails.RemoveRange(oldMonths);
+
+            foreach (var (periodYear, periodMonth) in months)
+            {
+                _context.YearlyBudgetMonthDetails.Add(new YearlyBudgetMonthDetail
+                {
+                    EntityId = entityId,
+                    YearlyBudgetId = budget.Id,
+                    AssistantTypeId = classHelpType.Id,
+                    PeriodYear = periodYear,
+                    PeriodMonth = periodMonth,
+                    Fte = Round2(detail.Fte / months.Count),
+                    Hours = Round2(detail.Hours / months.Count),
+                    Amount = Round2(detail.Amount / months.Count),
+                    Remarks = detail.Remarks,
+                    UserId = userId,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    UpdateUser = userId
+                });
+            }
+
+            budget.UpdatedAt = DateTime.UtcNow;
+            budget.UpdateUser = userId;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Calculated class_help hours for budget {BudgetId}: total={TotalHours}, success={Success}, failures={Failures}",
+                budget.Id, totalHours, successCount, failures.Count);
+
+            var budgetDto = await MapDtoAsync(budget.Id, year);
+            return new CalculateYearlyBudgetResultDto
+            {
+                Budget = budgetDto,
+                TotalHours = totalHours,
+                EntitlementCount = entitlements.Count,
+                SuccessCount = successCount,
+                Failures = failures
+            };
+        }
+
+        private static CalculateBudgetFailureDto MakeFailure(
+            Entitlement entitlement, string? institutionName, string? className, string reason)
+            => new()
+            {
+                EntitlementId = entitlement.Id,
+                MasterEntitlementId = entitlement.MasterEntitlementId,
+                InstitutionName = institutionName,
+                ClassName = className,
+                Reason = reason
+            };
+
         public async Task<YearlyBudgetDto> SaveAsync(int entityId, int? userId, int id, UpdateYearlyBudgetRequest request)
         {
             var budget = await _context.YearlyBudgets

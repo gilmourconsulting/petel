@@ -698,61 +698,41 @@ Load contextual hints from backend attributes on modal open — never hardcode a
 5. ✅ Email credentials (Gmail App Password) loaded from Azure Key Vault
 6. ✅ `Security.OtpEnabled = true` in `appsettings.test.json` and `appsettings.Production.json`
 
-## Production Front Door (Israel-Only Access)
+## Edge security (Israel-only Blazor + private API)
 
 ### Architecture
 
-Traffic flow for production:
+Traffic flow:
 ```
 Browser (Israeli IPs only)
-  → Front Door Premium (petel-frontdoor-prod)
-  → WAF (petelWafProd) — GeoMatch blocks non-IL, OWASP 2.1, Bot 1.0
-  → Blazor App Service (petel-prod-blazor)
-  → API App Service (petel-prod-api) [server-to-server, not internet-reachable]
+  → Blazor App Service (Israeli CIDR allowlist)
+  → API App Service [server-to-server; Blazor outbound IPs only]
 ```
 
 **Key rules:**
-- Front Door routes **only to Blazor** — there is no `/api/*` route in Front Door
+- Blazor is the **only** public entry — Israeli CIDR allowlist via App Service access restrictions
 - The API is **not reachable from the internet** — locked to Blazor's outbound IPs only
 - Azure Portal / ARM management plane always bypasses App Service network restrictions (no config needed)
+- Azure Front Door is **retired** (cost); historical scripts remain but are not the current pattern
 
-### Script
+### Scripts
 
 ```powershell
-.\Deploy-ATH-FrontDoor-Prod.ps1           # full deploy
-.\Deploy-ATH-FrontDoor-Prod.ps1 -WafOnly  # update WAF rules only (geo/OWASP changes)
-.\Deploy-ATH-FrontDoor-Prod.ps1 -DryRun   # print config, no changes
+.\Apply-AppService-IP-Restrictions.ps1 -Environment all -App ath -RemoveExisting
+.\Fix-API-Security.ps1 -Environment all -App ath
+.\Remove-FrontDoor.ps1 -DryRun
+.\Remove-FrontDoor.ps1 -Confirm -Force
 ```
 
-### What the script creates
-
-| Resource | Name | Notes |
+| Resource | Control | Notes |
 |---|---|---|
-| Front Door profile | `petel-frontdoor-prod` | Premium SKU, `petel-prod-rg` |
-| Endpoint | `petel-prod` | `petel-prod-XXXX.z01.azurefd.net` |
-| WAF policy | `petelWafProd` | Prevention mode |
-| WAF managed rules | `Microsoft_DefaultRuleSet 2.1` | OWASP protection |
-| WAF managed rules | `Microsoft_BotManagerRuleSet 1.0` | Bot protection |
-| WAF custom rule | `BlockNonIsrael` (priority 100) | GeoMatch != IL → Block 403 |
-| Origin group | `blazor-origins` | Health probe: `HEAD /`, 30 s interval |
-| Origin | `blazor-backend` | `petel-prod-blazor.azurewebsites.net` |
-| Route | `blazor-route` | `/*` → blazor-origins, HTTPS only |
-| Security policy | `petelSecurityPolicy` | Links WAF to endpoint |
-| Blazor access rule | `AllowFrontDoor` (priority 100) | ServiceTag `AzureFrontDoor.Backend` |
-| Blazor access rule | `DenyAll` (priority 200) | Blocks direct `.azurewebsites.net` access |
-| API access rules | `AllowBlazor_1..N` (priority 100+) | One rule per Blazor outbound IP |
-| API access rule | `DenyAll` (priority 200) | API invisible from internet |
-
-### Why GeoMatch (not IP ranges)
-
-The `BlockNonIsrael` WAF rule uses `RemoteAddr GeoMatch IL` (negated → Block) rather than a list of Israeli CIDR ranges. GeoMatch is:
-- A single rule (no batching required)
-- Maintained by Microsoft (IP-to-country mapping updated automatically)
-- Accurate at country level for this use case
+| Blazor access | `Allow-Israeli-*` CIDRs | From proven Feb 2026 44-range list (+ inventory extras) |
+| API access | `Allow-Blazor-*` per outbound `/32` | Refresh after App Service Plan migration |
+| Front Door / WAF | Removed | Use `Remove-FrontDoor.ps1` if profiles reappear |
 
 ### Outbound IP stability note
 
-The API access restriction allowlist is built from Blazor's current `outboundIpAddresses`. These IPs are tied to the App Service Plan and change only during plan migrations or region moves. Re-run the script with `-DryRun` first if you suspect they have changed, then run without `-DryRun` to refresh the rules.
+The API access restriction allowlist is built from Blazor's current `possibleOutboundIpAddresses`. These IPs are tied to the App Service Plan and change only during plan migrations or region moves. Re-run `Fix-API-Security.ps1` after such a change.
 
 ## Authentication & Email OTP
 

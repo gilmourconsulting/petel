@@ -3,12 +3,19 @@
 # ============================================
 # Cost-effective approach using built-in App Service features
 # No additional cost - replaces Front Door Premium ($330/month)
+#
+# SECURITY: Israeli CIDRs are applied to BLAZOR only.
+# API must be locked to Blazor outbound IPs via Fix-API-Security.ps1
 # ============================================
 
 param(
     [Parameter(Mandatory = $false)]
-    [ValidateSet('test', 'production', 'both')]
-    [string]$Environment = 'both',
+    [ValidateSet('test', 'staging', 'production', 'both', 'all')]
+    [string]$Environment = 'all',
+    
+    [Parameter(Mandatory = $false)]
+    [ValidateSet('ath', 'assistants', 'all')]
+    [string]$App = 'all',
     
     [switch]$RemoveExisting
 )
@@ -16,11 +23,9 @@ param(
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-# Israeli IP ranges - comprehensive list covering major ISPs
-# Updated: February 18, 2026 - Option A (Priority 1-3)
-# Source: https://www.ipdeny.com/ipblocks/data/aggregated/il-aggregated.zone
+# Israeli IP ranges - proven Feb 17-18 2026 successful apply (git 5bb6ab8)
+# DO NOT use the unapplied Option A ~130 expansion
 $israeliIpRanges = @(
-    # Previously configured ranges
     "79.176.0.0/13",
     "80.178.0.0/15",
     "80.246.0.0/15",
@@ -65,124 +70,60 @@ $israeliIpRanges = @(
     "87.70.0.0/16",
     "95.86.0.0/16",
     "103.209.0.0/16",
-    
-    # Manually added ranges from production
-    "103.209.0.0/32",
-    "147.236.0.0/16",
-    "185.24.0.0/16",
-    "78.138.0.0/16",
-    "84.228.0.0/16",
-    "77.137.0.0/16",
-    
-    # Priority 1: Critical ISP blocks
-    "77.124.0.0/14",
-    "31.12.76.0/22",
-    "31.40.220.0/22",
-    "31.44.128.0/20",
-    "62.0.0.0/16",
-    "62.90.0.0/16",
-    "81.218.0.0/16",
-    "83.130.0.0/16",
-    "132.64.0.0/13",
-    "212.143.0.0/16",
-    "213.8.0.0/16",
-    "5.29.0.0/16",
-    "37.142.0.0/16",
-    "46.116.0.0/15",
-    "46.120.0.0/15",
-    "46.210.0.0/16",
-    "85.250.0.0/16",
-    "176.12.128.0/17",
-    "176.13.0.0/16",
-    "2.52.0.0/14",
-    "5.102.192.0/18",
-    "62.219.0.0/16",
-    "80.230.0.0/16",
-    "81.5.0.0/18",
-    "82.80.0.0/15",
-    "82.102.128.0/18",
-    "94.159.128.0/17",
-    "95.35.0.0/16",
-    "132.72.0.0/14",
-    "132.76.0.0/15",
-    "132.78.0.0/16",
-    "147.233.0.0/16",
-    "147.234.0.0/17",
-    "147.235.0.0/16",
-    "192.114.0.0/15",
-    "192.116.0.0/15",
-    "192.118.0.0/16",
-    
-    # Priority 2: Business & Cloud Infrastructure
-    "84.94.0.0/15",
-    "84.108.0.0/14",
-    "85.130.128.0/17",
-    "109.64.0.0/14",
-    "109.253.0.0/16",
-    "138.134.0.0/16",
-    "141.226.0.0/18",
-    "62.56.128.0/19",
-    "62.128.32.0/19",
-    "80.74.96.0/19",
-    "81.199.0.0/20",
-    "89.208.0.0/21",
-    "93.172.0.0/15",
-    "176.228.0.0/14",
-    "188.64.200.0/21",
-    "188.120.128.0/19",
-    "212.25.64.0/18",
-    "212.68.128.0/19",
-    "212.117.128.0/19",
-    "217.132.0.0/16",
-    
-    # Priority 3: Additional ISPs & Regional
-    "5.100.248.0/21",
-    "5.144.48.0/20",
-    "37.19.112.0/20",
-    "37.44.200.0/22",
-    "37.60.40.0/21",
-    "62.182.192.0/21",
-    "78.138.4.0/22",
-    "85.155.128.0/20",
-    "86.104.226.0/24",
-    "88.202.216.0/21",
-    "91.135.96.0/20",
-    "91.143.224.0/20",
-    "93.157.80.0/21",
-    "95.142.16.0/20",
-    "95.175.32.0/19",
-    "109.160.128.0/17",
-    "109.226.0.0/18",
-    "109.234.16.0/21",
-    "144.249.128.0/18",
-    "146.185.56.0/21",
-    "149.49.0.0/16",
-    "164.138.112.0/20",
-    "167.17.128.0/19"
+    # Inventory extras preserved from prior live rules (test Blazor)
+    "147.236.0.0/16"
 )
 
-# Environment configurations
+# Environment configurations - Blazor only (API is locked separately)
 $envConfig = @{
-    'test' = @{
+    'ath-test' = @{
         ResourceGroup = 'petel-test-rg'
-        ApiAppName    = 'petel-test-api'
         BlazorAppName = 'petel-test-blazor'
+        Product       = 'ath'
+        Env           = 'test'
     }
-    'production' = @{
+    'ath-staging' = @{
+        ResourceGroup = 'petel-staging-rg'
+        BlazorAppName = 'petel-staging-blazor'
+        Product       = 'ath'
+        Env           = 'staging'
+    }
+    'ath-production' = @{
         ResourceGroup = 'petel-prod-rg'
-        ApiAppName    = 'petel-prod-api'
         BlazorAppName = 'petel-prod-blazor'
+        Product       = 'ath'
+        Env           = 'production'
+    }
+    'assistants-test' = @{
+        ResourceGroup = 'petel-assist-test-rg'
+        BlazorAppName = 'petel-assist-test-blazor'
+        Product       = 'assistants'
+        Env           = 'test'
+    }
+    'assistants-staging' = @{
+        ResourceGroup = 'petel-assist-staging-rg'
+        BlazorAppName = 'petel-assist-staging-blazor'
+        Product       = 'assistants'
+        Env           = 'staging'
+    }
+    'assistants-production' = @{
+        ResourceGroup = 'petel-assist-prod-rg'
+        BlazorAppName = 'petel-assist-prod-blazor'
+        Product       = 'assistants'
+        Env           = 'production'
     }
 }
 
 Write-Host ""
 Write-Host "============================================" -ForegroundColor Cyan
-Write-Host "Apply Israeli IP Restrictions" -ForegroundColor Cyan
+Write-Host "Apply Israeli IP Restrictions (Blazor only)" -ForegroundColor Cyan
 Write-Host "============================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Cost Savings: Replaces Front Door Premium (~`$330/month)" -ForegroundColor Green
 Write-Host "IP Ranges: $($israeliIpRanges.Count) Israeli CIDR blocks" -ForegroundColor White
 Write-Host "Environment: $Environment" -ForegroundColor White
+Write-Host "App: $App" -ForegroundColor White
+Write-Host "Target: Blazor App Services ONLY (API stays private)" -ForegroundColor Yellow
 Write-Host ""
 
 # Verify Azure CLI
@@ -195,7 +136,6 @@ catch {
     exit 1
 }
 
-# Function to apply IP restrictions to an app
 function Apply-IpRestrictions {
     param(
         [string]$AppName,
@@ -207,8 +147,11 @@ function Apply-IpRestrictions {
     Write-Host "Configuring $AppType : $AppName" -ForegroundColor Yellow
     Write-Host ("=" * 60) -ForegroundColor Yellow
     
-    # Verify app exists
+    # Verify app exists (missing RGs/apps must not abort other targets)
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     $appExists = az webapp show --name $AppName --resource-group $ResourceGroup --query "name" -o tsv 2>$null
+    $ErrorActionPreference = $prevEap
     if (-not $appExists) {
         Write-Host "[SKIP] App service not found" -ForegroundColor Yellow
         return
@@ -217,19 +160,22 @@ function Apply-IpRestrictions {
     # Remove existing restrictions if requested
     if ($RemoveExisting) {
         Write-Host "  Removing existing IP restrictions..." -ForegroundColor Gray
-        $existingRules = az webapp config access-restriction show `
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        $existingRuleNames = az webapp config access-restriction show `
             --name $AppName `
             --resource-group $ResourceGroup `
-            --query "ipSecurityRestrictions[?name!='Allow all'].name" -o tsv 2>$null
+            --query "ipSecurityRestrictions[?name!='Allow all' && name!='Deny all'].name" -o tsv 2>$null
         
-        foreach ($ruleName in $existingRules) {
+        foreach ($ruleName in $existingRuleNames) {
             if ($ruleName) {
                 az webapp config access-restriction remove `
                     --name $AppName `
                     --resource-group $ResourceGroup `
-                    --rule-name $ruleName 2>$null
+                    --rule-name $ruleName 2>$null | Out-Null
             }
         }
+        $ErrorActionPreference = $prevEap
         Write-Host "  [OK] Existing restrictions cleared" -ForegroundColor Green
     }
     
@@ -266,11 +212,13 @@ function Apply-IpRestrictions {
         $ruleName = "Allow-Israeli-$ruleNumber"
         
         # Find available priority
-        while ($existingRules.priority -contains $priority) {
+        while ($existingRules -and ($existingRules.priority -contains $priority)) {
             $priority++
         }
         
-        # Try to add the rule
+        # Try to add the rule (Azure CLI stderr must not abort the loop)
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
         $null = az webapp config access-restriction add `
             --name $AppName `
             --resource-group $ResourceGroup `
@@ -278,8 +226,10 @@ function Apply-IpRestrictions {
             --action Allow `
             --ip-address $ipRange `
             --priority $priority 2>&1
+        $addOk = ($LASTEXITCODE -eq 0)
+        $ErrorActionPreference = $prevEap
         
-        if ($LASTEXITCODE -eq 0) {
+        if ($addOk) {
             Write-Host "    [$ruleNumber/$($israeliIpRanges.Count)] Added: $ipRange (priority $priority)" -ForegroundColor Green
             $addedCount++
         }
@@ -300,34 +250,56 @@ function Apply-IpRestrictions {
     $ruleCount = ($finalRules | Measure-Object).Count
     
     Write-Host ""
-    Write-Host "  ✅ $AppType configured:" -ForegroundColor Green
+    Write-Host "  [OK] $AppType configured:" -ForegroundColor Green
     Write-Host "     Added: $addedCount new rules" -ForegroundColor Green
     Write-Host "     Skipped: $skippedCount existing rules" -ForegroundColor Gray
     Write-Host "     Total: $ruleCount IP restriction rules" -ForegroundColor Cyan
-    Write-Host "  ✅ Only Israeli traffic allowed" -ForegroundColor Green
+    Write-Host "  [OK] Only Israeli traffic allowed to Blazor" -ForegroundColor Green
 }
 
-# Apply to requested environments
-$environments = @()
-if ($Environment -eq 'both') {
-    $environments = @('test', 'production')
+function Test-ResourceGroupExists {
+    param([string]$ResourceGroup)
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $rg = az group show --name $ResourceGroup --query name -o tsv 2>$null
+    $ErrorActionPreference = $prevEap
+    return [bool]$rg
+}
+
+# Resolve which configs to apply
+$envFilter = @()
+if ($Environment -eq 'all' -or $Environment -eq 'both') {
+    $envFilter = @('test', 'staging', 'production')
 }
 else {
-    $environments = @($Environment)
+    $envFilter = @($Environment)
 }
 
-foreach ($env in $environments) {
-    $config = $envConfig[$env]
+$productFilter = @()
+if ($App -eq 'all') {
+    $productFilter = @('ath', 'assistants')
+}
+else {
+    $productFilter = @($App)
+}
+
+$targets = $envConfig.GetEnumerator() | Where-Object {
+    ($productFilter -contains $_.Value.Product) -and ($envFilter -contains $_.Value.Env)
+} | Sort-Object Name
+
+foreach ($target in $targets) {
+    $config = $target.Value
     
     Write-Host ""
     Write-Host "========================================" -ForegroundColor Cyan
-    Write-Host "Environment: $($env.ToUpper())" -ForegroundColor Cyan
+    Write-Host "Target: $($target.Name)" -ForegroundColor Cyan
     Write-Host "========================================" -ForegroundColor Cyan
+
+    if (-not (Test-ResourceGroupExists -ResourceGroup $config.ResourceGroup)) {
+        Write-Host "[SKIP] Resource group $($config.ResourceGroup) not found" -ForegroundColor Yellow
+        continue
+    }
     
-    # Apply to API
-    Apply-IpRestrictions -AppName $config.ApiAppName -ResourceGroup $config.ResourceGroup -AppType "API"
-    
-    # Apply to Blazor
     Apply-IpRestrictions -AppName $config.BlazorAppName -ResourceGroup $config.ResourceGroup -AppType "Blazor"
 }
 
@@ -338,19 +310,16 @@ Write-Host "DEPLOYMENT COMPLETE" -ForegroundColor Green
 Write-Host "============================================" -ForegroundColor Green
 Write-Host ""
 Write-Host "Security Status:" -ForegroundColor Cyan
-Write-Host "  [OK] Israeli IP restrictions applied" -ForegroundColor Green
+Write-Host "  [OK] Israeli IP restrictions applied to Blazor" -ForegroundColor Green
 Write-Host "  [OK] Non-Israeli traffic blocked at network layer" -ForegroundColor Green
+Write-Host "  [OK] API NOT modified - lock with Fix-API-Security.ps1" -ForegroundColor Yellow
 Write-Host "  [OK] No additional costs" -ForegroundColor Green
 Write-Host ""
-Write-Host "Testing:" -ForegroundColor Cyan
-Write-Host "  1. Access from Israeli IP - should work" -ForegroundColor White
-Write-Host "  2. Access from non-Israeli IP - should be blocked (403)" -ForegroundColor White
-Write-Host ""
 Write-Host "Next Steps:" -ForegroundColor Cyan
-Write-Host "  1. Test access to production apps" -ForegroundColor White
-Write-Host "  2. Test access to test apps" -ForegroundColor White
-Write-Host "  3. Verify blocking from non-Israeli IP" -ForegroundColor White
-Write-Host "  4. Run .\Remove-FrontDoor.ps1 to delete Front Door" -ForegroundColor Yellow
+Write-Host "  1. Run .\Fix-API-Security.ps1 -Environment all" -ForegroundColor White
+Write-Host "  2. Test Blazor from Israeli IP" -ForegroundColor White
+Write-Host "  3. Verify API returns 403 from browser" -ForegroundColor White
+Write-Host "  4. Run .\Remove-FrontDoor.ps1 -Confirm" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Annual Cost Savings: ~`$3,960" -ForegroundColor Green
 Write-Host ""

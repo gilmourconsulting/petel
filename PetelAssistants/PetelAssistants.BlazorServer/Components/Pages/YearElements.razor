@@ -1,0 +1,94 @@
+@page "/year-elements"
+@layout MainLayout
+@inherits SecurePageBase
+@inject NavigationManager NavigationManager
+
+<div class="school-title-section">
+    <h1 class="page-title">ניהול שנה</h1>
+</div>
+
+<div class="main-container">
+    <div class="context-buttons-section">
+        <SecureButton ActionName="year_elements_refresh" ScreenName="@PageName" FunctionName="RefreshData"
+                      OnClick="RefreshActiveTab" CssClass="context-btn">
+            רענן נתונים
+        </SecureButton>
+
+        @if (_activeTab == "class-assistant-hours")
+        {
+            <SecureButton ActionName="year_elements_class_hours_save" ScreenName="@PageName" FunctionName="SaveClassHours"
+                          OnClick="() => InvokeClassHoursSave()" CssClass="context-btn" HideIfNoAccess="true">
+                שמור
+            </SecureButton>
+        }
+
+        <SecureButton ActionName="year_elements_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                      OnClick="NavigateBack" CssClass="context-navigation-btn">
+            חזרה לדף ראשי
+        </SecureButton>
+    </div>
+
+    <div class="content-card">
+        <div class="tabs-header">
+            @foreach (var tab in _tabs)
+            {
+                <button type="button"
+                        class="tab-button @(_activeTab == tab.Key ? "active" : "")"
+                        @onclick="() => SelectTab(tab.Key)">
+                    @tab.Label
+                </button>
+            }
+        </div>
+
+        <div class="tab-content">
+            @if (_activeTab == "class-assistant-hours")
+            {
+                <YearElementsClassAssistantHoursTab @ref="_classHoursTab" ScreenName="@PageName" />
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override string PageName => "year_elements";
+
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? TabQuery { get; set; }
+
+    private string _activeTab = "class-assistant-hours";
+    private YearElementsClassAssistantHoursTab? _classHoursTab;
+
+    private static readonly (string Key, string Label)[] _tabs =
+    {
+        ("class-assistant-hours", "שעות תקציב סייעת כיתתית")
+    };
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(TabQuery) && _tabs.Any(t => t.Key == TabQuery))
+            _activeTab = TabQuery!;
+
+        await Task.CompletedTask;
+    }
+
+    private void SelectTab(string key)
+    {
+        _activeTab = key;
+        var uri = NavigationManager.GetUriWithQueryParameter("tab", key);
+        NavigationManager.NavigateTo(uri, replace: true);
+    }
+
+    private async Task RefreshActiveTab()
+    {
+        if (_activeTab == "class-assistant-hours" && _classHoursTab != null)
+            await _classHoursTab.RefreshAsync();
+    }
+
+    private async Task InvokeClassHoursSave()
+    {
+        if (_classHoursTab != null)
+            await _classHoursTab.SaveAsync();
+    }
+
+    private void NavigateBack() => Navigation.NavigateTo("/maindashboard");
+}

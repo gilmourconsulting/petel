@@ -2,7 +2,9 @@
 
 ## Purpose
 
-After login, the user lands on the main dashboard and selects a **Hebrew school year**. That opens the year management hub for that year. All year-scoped work (assistants, entitlements) flows through this hub.
+After login, the user lands on the main dashboard and selects a **Hebrew school year**. That opens the **operational** year management hub for that year. All year-scoped tenant work (assistants, entitlements, yearly budget) flows through this hub.
+
+Separately, system admins configure **shared year-dependent rates** (equal across entities) via the side-menu hub **ניהול שנה** (`/year-elements`). See domain doc § Year Elements hub.
 
 Domain context: assistants and entitlements are managed per Jewish school year. See [petel-assistants-domain.md](../../docs/agents/apps/petel-assistants-domain.md) for business rules.
 
@@ -11,25 +13,31 @@ Domain context: assistants and entitlements are managed per Jewish school year. 
 ```
 /maindashboard
     └── click year button or modal
-            └── /year/{YearId}          (YearManagement — hub)
+            └── /year/{YearId}          (YearManagement — operational hub)
                     ├── /year/{YearId}/assistants       (סייעות)
                     ├── /year/{YearId}/entitlements     (זכאויות)
                     ├── /year/{YearId}/org-units        (בתי ספר וגנים)
                     └── /year/{YearId}/yearly-budget    (תקציב שנתי)
+
+Side menu
+    └── ניהול שנה → /year-elements     (Year Elements — shared year rates hub)
+            └── tab: class-assistant-hours
 ```
 
 - **Main dashboard** (`MainDashboard.razor`, `/maindashboard`): shows current/previous year buttons, a "בחר שנה" modal, and context buttons **העלאת קובץ שכר** (`SalaryUploadModal`) and **נתוני שכר** (`/salaries`). Clicking a year navigates to `/year/{yearId}` (does not only store year in session).
 - **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name, navigation cards — **סייעות**, **זכאויות**, **בתי ספר וגנים**, **תקציב שנתי** — and context buttons for salary / Meitar tools.
+- **Year Elements hub** (`YearElements.razor`, `/year-elements`): shared admin multi-tab screen for year-scoped configuration (first tab: class assistant budget hours). Menu item **ניהול שנה**.
 - **Salaries view** (`Salaries.razor`, `/salaries`): read-only salary table with period and text filters (not Hebrew-year scoped; calendar year/month).
 - **Assistants** (`Assistants.razor`, `/year/{YearId}/assistants`): person CRUD for the logged-in authority.
 - **Entitlements** (`Entitlements.razor`, `/year/{YearId}/entitlements`): combined personal + institutional entitlements for the year.
 - **Org units** (`OrgUnits.razor`, `/year/{YearId}/org-units`): manage tenant-owned institutions (schools and kindergartens in `assist_schema.institutions`; also available at `/org-units` from the main menu).
-- **Yearly budget** (`YearlyBudget.razor`, `/year/{YearId}/yearly-budget`): versioned yearly budget by assistant type, with equal monthly split.
+- **Yearly budget** (`YearlyBudget.razor`, `/year/{YearId}/yearly-budget`): versioned yearly budget by assistant type, with equal monthly split and **חשב תקציב** on open versions.
 
-**System admin (not year-scoped):**
+**System admin (not year-scoped operational data):**
 
-- **Assistant types** (`AssistantTypes.razor`, `/assistant-types`)
-- **Hebrew years** (`HebrewYears.razor`, `/hebrew-years`)
+- **הגדרות מערכת** (`SystemData.razor`, `/system-data`) — shared reference (attributes, assistant types, Hebrew years CRUD, etc.)
+- **Year Elements** (`YearElements.razor`, `/year-elements`) — year-dependent shared rates (not System Data)
+- Legacy redirects: `/assistant-types`, `/hebrew-years` → system-data tabs
 
 ## Session context
 
@@ -77,9 +85,12 @@ Downstream pages should read year from the route parameter `{YearId}` and/or ses
 | `GET api/yearly-budgets?yearId=` | Last yearly budget for year, or empty shell if none |
 | `GET api/yearly-budgets/{id}` | Specific budget version |
 | `PUT api/yearly-budgets/{id}` | Save open budget (year lines; months re-split) |
+| `POST api/yearly-budgets/{id}/calculate` | Calculate hours (class_help for now) from entitlements + shared rates |
 | `PUT api/yearly-budgets/{id}/lock` | Lock open version |
 | `POST api/yearly-budgets/new-version?yearId=` | Create first version (0) or next from locked last |
 | `PUT api/yearly-budgets/{id}/delete` | Soft-delete version |
+| `GET api/class-assistant-budget-hours?yearId=` | Shared class assistant hours matrix for a Hebrew year |
+| `PUT api/class-assistant-budget-hours` | Upsert hours matrix for a year |
 
 ## Security actions
 
@@ -92,7 +103,8 @@ Run SQL scripts in order (see below). After running SQL, refresh the security ca
 | Salaries view | `salaries` | `salaries_page_action` | `salaries_back`, `salaries_refresh` |
 | Assistants | `assistants` | `assistants_page_action` | `assistants_back`, `assistants_refresh`, `assistants_add`, `assistants_upload`, `assistants_view_details`, `assistants_edit`, `assistants_view_history` |
 | Entitlements | `entitlements` | `entitlements_page_action` | back, refresh, add, edit, deactivate, allocations |
-| Yearly budget | `yearly_budget` | `yearly_budget_page_action` | `yearly_budget_back`, `yearly_budget_refresh`, `yearly_budget_save`, `yearly_budget_lock`, `yearly_budget_new_version`, `yearly_budget_delete` |
+| Yearly budget | `yearly_budget` | `yearly_budget_page_action` | `yearly_budget_back`, `yearly_budget_refresh`, `yearly_budget_calculate`, `yearly_budget_save`, `yearly_budget_lock`, `yearly_budget_new_version`, `yearly_budget_delete` |
+| Year Elements | `year_elements` | `year_elements_page_action` | `year_elements_back`, `year_elements_refresh`, `year_elements_class_hours_save` |
 | Org units | `org_units` | `org_units_page_action` | back, refresh, add, edit, activate, deactivate |
 | Assistant types | `assistant_types` | `assistant_types_page_action` | back, refresh, add, edit |
 | Hebrew years | `hebrew_years` | `hebrew_years_page_action` | back, refresh, edit |
@@ -116,6 +128,7 @@ After user-management scripts:
 10. `PetelAssistants/SQL/add-salaries-view-actions.sql` — salary view screen + nav buttons
 11. `PetelAssistants/SQL/add-yearly-budget.sql` — yearly budget tables
 12. `PetelAssistants/SQL/add-yearly-budget-actions.sql` — yearly budget page + hub card actions
+13. `PetelAssistants/SQL/add-class-assistant-budget-hours.sql` — shared rates table, Year Elements menu/actions, `yearly_budget_calculate`
 
 ## Files
 
@@ -123,6 +136,8 @@ After user-management scripts:
 |------|-------|
 | `MainDashboard.razor` | `/maindashboard` |
 | `YearManagement.razor` | `/year/{YearId:int}` |
+| `YearElements.razor` | `/year-elements` |
+| `YearElementsTabs/YearElementsClassAssistantHoursTab.razor` | (tab under year-elements) |
 | `SalaryUploadModal.razor` | (modal from dashboard / year hub) |
 | `Salaries.razor` | `/salaries` |
 | `Assistants.razor` | `/year/{YearId:int}/assistants` |
@@ -138,5 +153,12 @@ After user-management scripts:
 2. Scope data by `session.EntityId` (tenant) and the selected year.
 3. Add page + button actions to SQL (follow `add-entitlements-actions.sql` pattern).
 4. Use `SecurePageBase` + `SecureButton` per existing pages.
+
+## Adding shared year elements
+
+1. Add a tab under `/year-elements` (not System Data).
+2. Store rates in `shared_schema` keyed by `hebrew_year_id` (no `entity_id`).
+3. Add security actions `year_elements_*` and document in domain + this file.
+4. Wire tenant calculate/budget logic to read those shared rates.
 
 Assistant-to-entitlement assignments (year-scoped assistant registration) are planned as a follow-on feature.

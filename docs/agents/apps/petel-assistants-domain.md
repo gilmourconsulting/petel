@@ -87,7 +87,7 @@ Manual Excel/CSV salary import for the logged-in authority. Entry points: contex
 
 ## Yearly budget (תקציב שנתי)
 
-Tenant-owned budget per Hebrew year with versions. Entry: Year Management nav card → `/year/{YearId}/yearly-budget`. SQL: `add-yearly-budget.sql`, `add-yearly-budget-actions.sql`.
+Tenant-owned budget per Hebrew year with versions. Entry: Year Management nav card → `/year/{YearId}/yearly-budget`. SQL: `add-yearly-budget.sql`, `add-yearly-budget-actions.sql`, `add-class-assistant-budget-hours.sql` (calculate action + shared rates).
 
 **Tables (`assist_schema`):**
 
@@ -101,9 +101,27 @@ Tenant-owned budget per Hebrew year with versions. Entry: Year Management nav ca
 
 **Months:** Gregorian months covering `hebrew_years.start_date`–`end_date` (inclusive by calendar month). On create/save, month values are an equal split of yearly FTE / hours / amount across those months; remarks are copied. Monthly rows are read-only in the UI for now.
 
-**API:** `GET api/yearly-budgets?yearId=` (last or empty shell with `CanCreateNewVersion`), `GET api/yearly-budgets/{id}`, `PUT api/yearly-budgets/{id}`, `PUT …/lock`, `POST api/yearly-budgets/new-version?yearId=` (first v0 or next from locked), `PUT …/delete`.
+**Calculate budget (חשב תקציב):** Enabled only on the open last version (`CanEdit`). `POST api/yearly-budgets/{id}/calculate`. Each assistant type has its own calculator; **only `class_help` (סייעת כיתתית) is implemented** so far. For class assistants: iterate last-version, non-cancelled entitlements of type `class_help` for the budget year; look up shared hours rates by institution `school_level` + entitlement `class_classification_id`; sum successful hours into `yearly_budget_details.hours` for `class_help` (FTE/amount and other types unchanged); re-split months for that type. Missing school level, missing class classification, or missing rate row → per-entitlement failure (Hebrew reason); failures do not block applying hours for successful entitlements. Response includes summary + failure list identifying each entitlement (id, institution, class name, reason). Monetary hour value / amount calculation is **TBD** (separate shared year config later).
 
-**Security:** `yearly_budget_page_action`, `yearly_budget_back`, `yearly_budget_refresh`, `yearly_budget_save`, `yearly_budget_lock`, `yearly_budget_new_version`, `yearly_budget_delete`, `yearmanagement_yearly_budget`.
+**API:** `GET api/yearly-budgets?yearId=` (last or empty shell with `CanCreateNewVersion`), `GET api/yearly-budgets/{id}`, `PUT api/yearly-budgets/{id}`, `POST …/calculate`, `PUT …/lock`, `POST api/yearly-budgets/new-version?yearId=` (first v0 or next from locked), `PUT …/delete`.
+
+**Security:** `yearly_budget_page_action`, `yearly_budget_back`, `yearly_budget_refresh`, `yearly_budget_calculate`, `yearly_budget_save`, `yearly_budget_lock`, `yearly_budget_new_version`, `yearly_budget_delete`, `yearmanagement_yearly_budget`.
+
+## Year Elements hub (ניהול שנה — shared)
+
+**Guideline:** Year-dependent shared pricing/rates (equal across all entities) belong under the side-menu **ניהול שנה** hub at `/year-elements` (`PageName`: `year_elements`), with **tabs per year element**. Do **not** put these rates in System Data or in per-entity tables. This is distinct from the **operational** year hub at `/year/{YearId}` (assistants, entitlements, tenant budget).
+
+SQL: `PetelAssistants/SQL/add-class-assistant-budget-hours.sql`. Menu: `year_elements` → `#year-elements`.
+
+| Tab | Purpose |
+|---|---|
+| שעות תקציב סייעת כיתתית | `shared_schema.class_assistant_budget_hours` — hours per `(hebrew_year_id, school_level, class_classification_id)` |
+
+Future tabs (hour monetary value, other assistant-type rate matrices, etc.) are added here as year elements.
+
+**API:** `GET api/class-assistant-budget-hours?yearId=`, `PUT api/class-assistant-budget-hours` (upsert matrix for a year).
+
+**Security:** `year_elements_page_action`, `year_elements_back`, `year_elements_refresh`, `year_elements_class_hours_save`.
 
 ## Institutions (schools and kindergartens)
 

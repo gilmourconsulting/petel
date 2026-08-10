@@ -86,6 +86,29 @@ namespace PetelAssistants.Api.Controllers
             }
         }
 
+        [HttpPost("{id:int}/calculate")]
+        public async Task<IActionResult> Calculate(int id)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (!int.TryParse(session.EntityId, out int entityId))
+                return BadRequest(new { success = false, message = "מזהה רשות לא תקין" });
+
+            int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
+            try
+            {
+                var data = await _service.CalculateAsync(entityId, userId, id);
+                return Ok(new { success = true, message = "החישוב הושלם", data });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
         [HttpPut("{id:int}/lock")]
         public async Task<IActionResult> Lock(int id)
         {

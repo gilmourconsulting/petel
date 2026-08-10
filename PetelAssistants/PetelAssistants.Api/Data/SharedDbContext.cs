@@ -27,6 +27,7 @@ namespace PetelAssistants.Api.Data
         public DbSet<MeitarDataFilterValue>       MeitarDataFilterValues       { get; set; }
         public DbSet<MeitarTopic>                 MeitarTopics                 { get; set; }
         public DbSet<ClassClassification>         ClassClassifications         { get; set; }
+        public DbSet<ClassAssistantBudgetHours>   ClassAssistantBudgetHours    { get; set; }
 
         public SharedDbContext(
             DbContextOptions<SharedDbContext> options,
@@ -149,6 +150,24 @@ namespace PetelAssistants.Api.Data
             {
                 entity.ToTable("class_classifications");
                 entity.HasKey(e => e.Id);
+            });
+
+            modelBuilder.Entity<ClassAssistantBudgetHours>(entity =>
+            {
+                entity.ToTable("class_assistant_budget_hours");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.HebrewYearId, e.SchoolLevel, e.ClassClassificationId })
+                    .IsUnique();
+
+                entity.HasOne(e => e.HebrewYear)
+                    .WithMany()
+                    .HasForeignKey(e => e.HebrewYearId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.ClassClassification)
+                    .WithMany()
+                    .HasForeignKey(e => e.ClassClassificationId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
     }

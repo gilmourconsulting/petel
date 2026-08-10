@@ -41,7 +41,7 @@ cd PetelAssistants/PetelAssistants.BlazorServer && dotnet run
 
 ## Year Management Screens
 
-See [PetelAssistants/docs/year-management-screens.md](../../PetelAssistants/docs/year-management-screens.md) for navigation flow, session keys, API endpoints, and security actions.
+See [PetelAssistants/docs/year-management-screens.md](../../PetelAssistants/docs/year-management-screens.md) for navigation flow (operational `/year/{YearId}` hub vs shared **ניהול שנה** `/year-elements`), session keys, API endpoints, and security actions. Domain rules for budget calculate and shared year rates: [petel-assistants-domain.md](petel-assistants-domain.md).
 
 ## Database — Dual-Schema Multi-Tenancy
 

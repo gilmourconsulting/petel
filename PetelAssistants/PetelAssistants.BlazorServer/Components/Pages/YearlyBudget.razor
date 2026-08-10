@@ -18,6 +18,10 @@
 
     @if (_budget?.CanEdit == true)
     {
+        <SecureButton ActionName="yearly_budget_calculate" ScreenName="@PageName" FunctionName="CalculateBudget"
+                      OnClick="CalculateBudget" CssClass="context-btn" HideIfNoAccess="true">
+            חשב תקציב
+        </SecureButton>
         <SecureButton ActionName="yearly_budget_save" ScreenName="@PageName" FunctionName="SaveBudget"
                       OnClick="SaveBudget" CssClass="context-btn" HideIfNoAccess="true">
             שמור
@@ -206,6 +210,63 @@
     </div>
 </div>
 
+@if (_showCalculateResult)
+{
+    <div class="modal-overlay" @onclick="CloseCalculateResult">
+        <div class="modal-content" @onclick:stopPropagation="true" style="max-width: 720px;">
+            <div class="modal-header">
+                <h3>תוצאות חישוב תקציב</h3>
+                <button class="modal-close" @onclick="CloseCalculateResult">✕</button>
+            </div>
+            <div class="modal-body">
+                @if (_calculateResult != null)
+                {
+                    <p>
+                        זכאויות סייעת כיתתית: @_calculateResult.EntitlementCount |
+                        חושבו בהצלחה: @_calculateResult.SuccessCount |
+                        שעות תקציב: @_calculateResult.TotalHours.ToString("N2")
+                    </p>
+
+                    @if (_calculateResult.Failures.Count == 0)
+                    {
+                        <div style="color: var(--text-muted);">כל הזכאויות חושבו בהצלחה.</div>
+                    }
+                    else
+                    {
+                        <h4 style="margin: 16px 0 8px;">כשלונות חישוב (@_calculateResult.Failures.Count)</h4>
+                        <div class="table-responsive">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>מזהה זכאות</th>
+                                        <th>מוסד</th>
+                                        <th>כיתה</th>
+                                        <th>סיבה</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var failure in _calculateResult.Failures)
+                                    {
+                                        <tr>
+                                            <td>@failure.EntitlementId</td>
+                                            <td>@(failure.InstitutionName ?? "—")</td>
+                                            <td>@(failure.ClassName ?? "—")</td>
+                                            <td>@failure.Reason</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" @onclick="CloseCalculateResult">סגור</button>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .monthly-budget-scroll {
         overflow-x: auto;
@@ -285,6 +346,8 @@
     private string _yearName = "";
     private YearlyBudgetDto? _budget;
     private List<YearlyBudgetDetailDto> _editDetails = new();
+    private bool _showCalculateResult;
+    private CalculateYearlyBudgetResultDto? _calculateResult;
 
     private List<(int PeriodYear, int PeriodMonth)> MonthColumns =>
         (_budget?.MonthDetails ?? new List<YearlyBudgetMonthDetailDto>())
@@ -458,6 +521,38 @@
         {
             await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירה: {ex.Message}");
         }
+    }
+
+    private async Task CalculateBudget()
+    {
+        if (_budget == null || !_budget.CanEdit)
+            return;
+
+        try
+        {
+            var response = await ApiService.PostAsync<object, ApiResponse<CalculateYearlyBudgetResultDto>>(
+                $"yearly-budgets/{_budget.Id}/calculate", new { });
+
+            if (response?.Success == true && response.Data != null)
+            {
+                _calculateResult = response.Data;
+                ApplyBudget(response.Data.Budget);
+                _showCalculateResult = true;
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בחישוב");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בחישוב: {ex.Message}");
+        }
+    }
+
+    private void CloseCalculateResult()
+    {
+        _showCalculateResult = false;
     }
 
     private async Task LockBudget()
