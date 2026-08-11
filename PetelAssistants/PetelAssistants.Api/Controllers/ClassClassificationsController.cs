@@ -36,17 +36,19 @@ namespace PetelAssistants.Api.Controllers
             var items = await query
                 .OrderBy(c => c.SortOrder)
                 .ThenBy(c => c.Name)
-                .Select(c => new ClassClassificationDto
-                {
-                    Id = c.Id,
-                    Name = c.Name,
-                    ForeignId = c.ForeignId,
-                    SortOrder = c.SortOrder,
-                    IsActive = c.IsActive
-                })
+                .Select(c => new { c.Id, c.Name, c.ForeignId, c.SortOrder, c.IsActive })
                 .ToListAsync();
 
-            return Ok(new { success = true, data = items });
+            var data = items.Select(c => new ClassClassificationDto
+            {
+                Id = c.Id,
+                Name = $"{c.Id} - {c.Name}",
+                ForeignId = c.ForeignId,
+                SortOrder = c.SortOrder,
+                IsActive = c.IsActive
+            }).ToList();
+
+            return Ok(new { success = true, data });
         }
     }
 }

@@ -65,13 +65,20 @@ namespace PetelAssistants.Api.Controllers
             if (!yearExists)
                 return BadRequest(new { success = false, message = "שנה לא נמצאה" });
 
+            var activeParticipation = await _sharedContext.MinistryParticipationOptions.AsNoTracking()
+                .Where(o => o.IsActive)
+                .Select(o => o.Percentage)
+                .ToListAsync();
+            if (activeParticipation.Count == 0)
+                return BadRequest(new { success = false, message = "לא הוגדרו אחוזי השתתפות משרד" });
+
             var activeClassificationIds = await _sharedContext.ClassClassifications.AsNoTracking()
                 .Where(c => c.IsActive)
                 .Select(c => c.Id)
                 .ToListAsync();
             var activeSet = activeClassificationIds.ToHashSet();
 
-            var normalized = new Dictionary<(string Level, int ClassificationId), decimal>();
+            var normalized = new Dictionary<(string Level, int ClassificationId), (decimal Hours, decimal Participation)>();
             foreach (var line in request.Lines ?? new())
             {
                 if (string.IsNullOrWhiteSpace(line.SchoolLevel) || !AllowedSchoolLevels.Contains(line.SchoolLevel))
@@ -83,11 +90,21 @@ namespace PetelAssistants.Api.Controllers
                 if (line.Hours < 0)
                     return BadRequest(new { success = false, message = "שעות חייבות להיות אי-שליליות" });
 
+                var participation = Math.Round(line.MinistryParticipationPct, 2, MidpointRounding.AwayFromZero);
+                var matchedParticipation = activeParticipation
+                    .Select(p => Math.Round(p, 2, MidpointRounding.AwayFromZero))
+                    .Cast<decimal?>()
+                    .FirstOrDefault(p => p == participation);
+                if (matchedParticipation is null)
+                    return BadRequest(new { success = false, message = $"אחוז השתתפות משרד לא תקין ({participation})" });
+
                 var level = line.SchoolLevel.Equals(SchoolLevels.HighSchool, StringComparison.OrdinalIgnoreCase)
                     ? SchoolLevels.HighSchool
                     : SchoolLevels.Elementary;
 
-                normalized[(level, line.ClassClassificationId)] = Math.Round(line.Hours, 2, MidpointRounding.AwayFromZero);
+                normalized[(level, line.ClassClassificationId)] = (
+                    Math.Round(line.Hours, 2, MidpointRounding.AwayFromZero),
+                    matchedParticipation.Value);
             }
 
             var existing = await _sharedContext.ClassAssistantBudgetHours
@@ -99,11 +116,12 @@ namespace PetelAssistants.Api.Controllers
                 r => r);
 
             var now = DateTime.UtcNow;
-            foreach (var ((level, classificationId), hours) in normalized)
+            foreach (var ((level, classificationId), (hours, participation)) in normalized)
             {
                 if (existingByKey.TryGetValue((level, classificationId), out var row))
                 {
                     row.Hours = hours;
+                    row.MinistryParticipationPct = participation;
                     row.UpdatedAt = now;
                     row.UpdateUser = userId;
                 }
@@ -114,6 +132,7 @@ namespace PetelAssistants.Api.Controllers
                         HebrewYearId = request.HebrewYearId,
                         SchoolLevel = level,
                         ClassClassificationId = classificationId,
+                        MinistryParticipationPct = participation,
                         Hours = hours,
                         UserId = userId,
                         CreatedAt = now,
@@ -131,6 +150,12 @@ namespace PetelAssistants.Api.Controllers
 
         private async Task<List<ClassAssistantBudgetHoursDto>> BuildMatrixAsync(int yearId)
         {
+            var defaultParticipation = await _sharedContext.MinistryParticipationOptions.AsNoTracking()
+                .Where(o => o.IsActive)
+                .OrderByDescending(o => o.Percentage)
+                .Select(o => o.Percentage)
+                .FirstOrDefaultAsync();
+
             var classifications = await _sharedContext.ClassClassifications.AsNoTracking()
                 .Where(c => c.IsActive)
                 .OrderBy(c => c.SortOrder)
@@ -158,7 +183,8 @@ namespace PetelAssistants.Api.Controllers
                         HebrewYearId = yearId,
                         SchoolLevel = level,
                         ClassClassificationId = classification.Id,
-                        ClassClassificationName = classification.Name,
+                        ClassClassificationName = $"{classification.Id} - {classification.Name}",
+                        MinistryParticipationPct = row?.MinistryParticipationPct ?? defaultParticipation,
                         Hours = row?.Hours ?? 0
                     });
                 }

@@ -621,10 +621,12 @@ namespace PetelAssistants.Api.Services
 
             var classifications = classificationIds.Count == 0
                 ? new Dictionary<int, string>()
-                : await _sharedContext.ClassClassifications
+                : (await _sharedContext.ClassClassifications
                     .AsNoTracking()
                     .Where(c => classificationIds.Contains(c.Id))
-                    .ToDictionaryAsync(c => c.Id, c => c.Name);
+                    .Select(c => new { c.Id, c.Name })
+                    .ToListAsync())
+                    .ToDictionary(c => c.Id, c => $"{c.Id} - {c.Name}");
 
             return items.Select(item =>
             {

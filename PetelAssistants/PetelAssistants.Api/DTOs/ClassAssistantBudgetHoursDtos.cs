@@ -9,6 +9,7 @@ namespace PetelAssistants.Api.DTOs
         public string SchoolLevel { get; set; } = string.Empty;
         public int ClassClassificationId { get; set; }
         public string ClassClassificationName { get; set; } = string.Empty;
+        public decimal MinistryParticipationPct { get; set; }
         public decimal Hours { get; set; }
     }
 
@@ -30,6 +31,9 @@ namespace PetelAssistants.Api.DTOs
         [Required]
         [Range(1, int.MaxValue)]
         public int ClassClassificationId { get; set; }
+
+        [Range(0, 100)]
+        public decimal MinistryParticipationPct { get; set; }
 
         [Range(0, double.MaxValue)]
         public decimal Hours { get; set; }

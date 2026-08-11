@@ -44,15 +44,22 @@ else if (_classifications.Count == 0)
 else
 {
     <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 12px;">
-        הגדרת שעות תקציב לסייעת כיתתית לפי רמת בית ספר וסיווג כיתה. ערך כספי לשעה יוגדר בנפרד בעתיד.
+        רשומת תמחור לפי שנה, סיווג כיתה ורמת בית ספר — כולל שעות ואחוז השתתפות משרד.
+        בחישוב התקציב השעות מוכפלות באחוז ההשתתפות של הזכאות. ערך כספי לשעה מוגדר בטאב ערך שעה.
     </p>
     <div class="table-responsive">
         <table class="data-table">
             <thead>
                 <tr>
-                    <th>סיווג כיתה</th>
-                    <th>יסודי — שעות</th>
-                    <th>תיכון — שעות</th>
+                    <th rowspan="2">סיווג כיתה</th>
+                    <th colspan="2" style="text-align: center;">יסודי</th>
+                    <th colspan="2" style="text-align: center;">תיכון</th>
+                </tr>
+                <tr>
+                    <th>שעות</th>
+                    <th>השתתפות %</th>
+                    <th>שעות</th>
+                    <th>השתתפות %</th>
                 </tr>
             </thead>
             <tbody>
@@ -62,13 +69,31 @@ else
                         <td>@row.Name</td>
                         <td>
                             <input type="number" class="form-control" step="0.01" min="0"
-                                   style="width: 120px;"
+                                   style="width: 100px;"
                                    @bind="row.ElementaryHours" @bind:event="onchange" />
                         </td>
                         <td>
+                            <select class="form-control" style="width: 100px;"
+                                    @bind="row.ElementaryParticipation" @bind:event="onchange">
+                                @foreach (var pct in _participationOptions)
+                                {
+                                    <option value="@pct">@pct.ToString("0.##")%</option>
+                                }
+                            </select>
+                        </td>
+                        <td>
                             <input type="number" class="form-control" step="0.01" min="0"
-                                   style="width: 120px;"
+                                   style="width: 100px;"
                                    @bind="row.HighSchoolHours" @bind:event="onchange" />
+                        </td>
+                        <td>
+                            <select class="form-control" style="width: 100px;"
+                                    @bind="row.HighSchoolParticipation" @bind:event="onchange">
+                                @foreach (var pct in _participationOptions)
+                                {
+                                    <option value="@pct">@pct.ToString("0.##")%</option>
+                                }
+                            </select>
                         </td>
                     </tr>
                 }
@@ -81,6 +106,7 @@ else
     [Parameter] public string ScreenName { get; set; } = "year_elements";
 
     private List<YearDto> _years = new();
+    private List<decimal> _participationOptions = new();
     private List<ClassificationHoursRow> _classifications = new();
     private int _selectedYearId;
     private bool _isLoading = true;
@@ -108,13 +134,15 @@ else
                     {
                         SchoolLevel = "elementary",
                         ClassClassificationId = r.Id,
-                        Hours = r.ElementaryHours
+                        Hours = r.ElementaryHours,
+                        MinistryParticipationPct = ResolveParticipation(r.ElementaryParticipation)
                     },
                     new ClassAssistantBudgetHoursLineRequest
                     {
                         SchoolLevel = "high_school",
                         ClassClassificationId = r.Id,
-                        Hours = r.HighSchoolHours
+                        Hours = r.HighSchoolHours,
+                        MinistryParticipationPct = ResolveParticipation(r.HighSchoolParticipation)
                     }
                 }).ToList()
             };
@@ -153,6 +181,15 @@ else
                 .Where(y => y.IsActive)
                 .OrderByDescending(y => y.IsCurrent)
                 .ThenByDescending(y => y.Id)
+                .ToList();
+
+            var ministryResponse = await ApiService.GetAsync<ApiResponse<List<MinistryParticipationOptionDto>>>(
+                "ministry-participation-options");
+            _participationOptions = (ministryResponse?.Data ?? new())
+                .Where(o => o.IsActive)
+                .OrderByDescending(o => o.Percentage)
+                .Select(o => Math.Round(o.Percentage, 2, MidpointRounding.AwayFromZero))
+                .Distinct()
                 .ToList();
 
             if (!keepYear || !_years.Any(y => y.Id == _selectedYearId))
@@ -231,10 +268,25 @@ else
                     Id = g.Key.ClassClassificationId,
                     Name = g.Key.ClassClassificationName,
                     ElementaryHours = elementary?.Hours ?? 0,
-                    HighSchoolHours = highSchool?.Hours ?? 0
+                    ElementaryParticipation = ResolveParticipation(elementary?.MinistryParticipationPct),
+                    HighSchoolHours = highSchool?.Hours ?? 0,
+                    HighSchoolParticipation = ResolveParticipation(highSchool?.MinistryParticipationPct)
                 };
             })
             .ToList();
+    }
+
+    private decimal ResolveParticipation(decimal? value)
+    {
+        var defaultPct = _participationOptions.Contains(100m)
+            ? 100m
+            : (_participationOptions.FirstOrDefault());
+
+        if (value is null || value <= 0)
+            return defaultPct;
+
+        var rounded = Math.Round(value.Value, 2, MidpointRounding.AwayFromZero);
+        return _participationOptions.Contains(rounded) ? rounded : defaultPct;
     }
 
     private sealed class ClassificationHoursRow
@@ -242,6 +294,8 @@ else
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
         public decimal ElementaryHours { get; set; }
+        public decimal ElementaryParticipation { get; set; }
         public decimal HighSchoolHours { get; set; }
+        public decimal HighSchoolParticipation { get; set; }
     }
 }

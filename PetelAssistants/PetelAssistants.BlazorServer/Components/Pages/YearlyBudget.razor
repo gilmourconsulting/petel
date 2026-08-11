@@ -222,9 +222,10 @@
                 @if (_calculateResult != null)
                 {
                     <p>
-                        זכאויות סייעת כיתתית: @_calculateResult.EntitlementCount |
+                        זכאויות שנבדקו: @_calculateResult.EntitlementCount |
                         חושבו בהצלחה: @_calculateResult.SuccessCount |
-                        שעות תקציב: @_calculateResult.TotalHours.ToString("N2")
+                        שעות תקציב: @_calculateResult.TotalHours.ToString("N2") |
+                        סכום: @_calculateResult.TotalAmount.ToString("N2") ₪
                     </p>
 
                     @if (_calculateResult.Failures.Count == 0)

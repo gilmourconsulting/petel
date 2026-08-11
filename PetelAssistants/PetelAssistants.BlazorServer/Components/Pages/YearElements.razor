@@ -21,6 +21,13 @@
                 שמור
             </SecureButton>
         }
+        else if (_activeTab == "hour-value")
+        {
+            <SecureButton ActionName="year_elements_hour_value_save" ScreenName="@PageName" FunctionName="SaveHourValue"
+                          OnClick="() => InvokeHourValueSave()" CssClass="context-btn" HideIfNoAccess="true">
+                שמור
+            </SecureButton>
+        }
 
         <SecureButton ActionName="year_elements_back" ScreenName="@PageName" FunctionName="NavigateBack"
                       OnClick="NavigateBack" CssClass="context-navigation-btn">
@@ -45,6 +52,10 @@
             {
                 <YearElementsClassAssistantHoursTab @ref="_classHoursTab" ScreenName="@PageName" />
             }
+            else if (_activeTab == "hour-value")
+            {
+                <YearElementsHourValueTab @ref="_hourValueTab" ScreenName="@PageName" />
+            }
         </div>
     </div>
 </div>
@@ -57,10 +68,12 @@
 
     private string _activeTab = "class-assistant-hours";
     private YearElementsClassAssistantHoursTab? _classHoursTab;
+    private YearElementsHourValueTab? _hourValueTab;
 
     private static readonly (string Key, string Label)[] _tabs =
     {
-        ("class-assistant-hours", "שעות תקציב סייעת כיתתית")
+        ("class-assistant-hours", "שעות תקציב סייעת כיתתית"),
+        ("hour-value", "ערך שעה")
     };
 
     protected override async Task OnPageInitializedAsync()
@@ -82,12 +95,20 @@
     {
         if (_activeTab == "class-assistant-hours" && _classHoursTab != null)
             await _classHoursTab.RefreshAsync();
+        else if (_activeTab == "hour-value" && _hourValueTab != null)
+            await _hourValueTab.RefreshAsync();
     }
 
     private async Task InvokeClassHoursSave()
     {
         if (_classHoursTab != null)
             await _classHoursTab.SaveAsync();
+    }
+
+    private async Task InvokeHourValueSave()
+    {
+        if (_hourValueTab != null)
+            await _hourValueTab.SaveAsync();
     }
 
     private void NavigateBack() => Navigation.NavigateTo("/maindashboard");

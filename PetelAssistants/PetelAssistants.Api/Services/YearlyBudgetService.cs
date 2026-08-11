@@ -49,8 +49,9 @@ namespace PetelAssistants.Api.Services
         }
 
         /// <summary>
-        /// Calculates class_help yearly hours from entitlements using shared year rate matrix.
-        /// Other assistant types are left unchanged. Failures do not block successful rows.
+        /// Calculates yearly hours for class_help (rate matrix) and personal-level types
+        /// (entitlement hours × participation %), then sets Amount = Hours × shared year hour value.
+        /// Failures on class_help rows do not block successful rows. Missing hour value fails the whole calculate.
         /// </summary>
         public async Task<CalculateYearlyBudgetResultDto> CalculateAsync(int entityId, int? userId, int id)
         {
@@ -65,6 +66,18 @@ namespace PetelAssistants.Api.Services
             if (months.Count == 0)
                 throw new InvalidOperationException("טווח תאריכי השנה אינו תקין");
 
+            var hourValueRow = await _sharedContext.BudgetHourValues.AsNoTracking()
+                .FirstOrDefaultAsync(r => r.HebrewYearId == budget.HebrewYearId);
+            if (hourValueRow == null)
+                throw new InvalidOperationException("לא הוגדר ערך שעה לשנה זו בניהול שנה");
+
+            var hourValue = hourValueRow.HourValue;
+            var failures = new List<CalculateBudgetFailureDto>();
+            var entitlementCount = 0;
+            var successCount = 0;
+            decimal totalHours = 0;
+
+            // ── class_help: rate matrix hours × entitlement participation ──
             var classHelpType = await _sharedContext.AssistantTypes.AsNoTracking()
                 .FirstOrDefaultAsync(t => t.Name == "class_help")
                 ?? throw new InvalidOperationException("סוג סייעת כיתתית לא נמצא");
@@ -74,9 +87,9 @@ namespace PetelAssistants.Api.Services
                 .ToListAsync();
             var rateLookup = rates.ToDictionary(
                 r => (r.SchoolLevel, r.ClassClassificationId),
-                r => r.Hours);
+                r => r);
 
-            var entitlements = await _context.Entitlements
+            var classEntitlements = await _context.Entitlements
                 .AsNoTracking()
                 .Include(e => e.Institution)
                 .Where(e => e.HebrewYearId == budget.HebrewYearId
@@ -85,11 +98,10 @@ namespace PetelAssistants.Api.Services
                             && !e.IsCancelled)
                 .ToListAsync();
 
-            var failures = new List<CalculateBudgetFailureDto>();
-            decimal totalHours = 0;
-            var successCount = 0;
+            entitlementCount += classEntitlements.Count;
+            decimal classHelpHours = 0;
 
-            foreach (var entitlement in entitlements)
+            foreach (var entitlement in classEntitlements)
             {
                 var institutionName = entitlement.Institution?.Name;
                 var className = entitlement.ClassName;
@@ -118,29 +130,137 @@ namespace PetelAssistants.Api.Services
                     ? SchoolLevels.HighSchool
                     : SchoolLevels.Elementary;
 
-                if (!rateLookup.TryGetValue((normalizedLevel, entitlement.ClassClassificationId.Value), out var hours))
+                if (!rateLookup.TryGetValue(
+                        (normalizedLevel, entitlement.ClassClassificationId.Value),
+                        out var rate))
                 {
                     failures.Add(MakeFailure(entitlement, institutionName, className,
                         "לא הוגדרו שעות תקציב לרמת בית ספר ולסיווג כיתה אלה בניהול שנה"));
                     continue;
                 }
 
-                totalHours += hours;
+                var effectiveHours = Round2(rate.Hours * entitlement.MinistryParticipationPct / 100m);
+                classHelpHours += effectiveHours;
                 successCount++;
             }
 
-            totalHours = Round2(totalHours);
+            classHelpHours = Round2(classHelpHours);
+            var calculatedDetails = new Dictionary<int, YearlyBudgetDetail>();
+            calculatedDetails[classHelpType.Id] =
+                await UpsertDetailHoursAsync(entityId, userId, budget.Id, classHelpType.Id, classHelpHours);
+            totalHours += classHelpHours;
 
+            // ── personal types: entitlement Hours × participation, per type ──
+            var personalTypes = await _sharedContext.AssistantTypes.AsNoTracking()
+                .Where(t => t.Level == "personal")
+                .ToListAsync();
+            var personalTypeIds = personalTypes.Select(t => t.Id).ToList();
+
+            if (personalTypeIds.Count > 0)
+            {
+                var personalEntitlements = await _context.Entitlements
+                    .AsNoTracking()
+                    .Where(e => e.HebrewYearId == budget.HebrewYearId
+                                && personalTypeIds.Contains(e.AssistantTypeId)
+                                && e.IsLastVersion
+                                && !e.IsCancelled)
+                    .ToListAsync();
+
+                entitlementCount += personalEntitlements.Count;
+
+                var hoursByType = personalTypeIds.ToDictionary(id => id, _ => 0m);
+                foreach (var entitlement in personalEntitlements)
+                {
+                    var effectiveHours = Round2(entitlement.Hours * entitlement.MinistryParticipationPct / 100m);
+                    hoursByType[entitlement.AssistantTypeId] =
+                        Round2(hoursByType[entitlement.AssistantTypeId] + effectiveHours);
+                    successCount++;
+                }
+
+                foreach (var typeId in personalTypeIds)
+                {
+                    var typeHours = Round2(hoursByType[typeId]);
+                    calculatedDetails[typeId] =
+                        await UpsertDetailHoursAsync(entityId, userId, budget.Id, typeId, typeHours);
+                    totalHours += typeHours;
+                }
+            }
+
+            totalHours = Round2(totalHours);
+            var calculatedTypeIds = calculatedDetails.Keys.ToHashSet();
+
+            // ── amounts + month rebuild for all calculated types ──
+            decimal totalAmount = 0;
+
+            var oldMonths = await _context.YearlyBudgetMonthDetails
+                .Where(m => m.YearlyBudgetId == budget.Id && calculatedTypeIds.Contains(m.AssistantTypeId))
+                .ToListAsync();
+            _context.YearlyBudgetMonthDetails.RemoveRange(oldMonths);
+
+            var now = DateTime.UtcNow;
+            foreach (var detail in calculatedDetails.Values)
+            {
+                detail.Amount = Round2(detail.Hours * hourValue);
+                detail.UpdatedAt = now;
+                detail.UpdateUser = userId;
+                totalAmount += detail.Amount;
+
+                foreach (var (periodYear, periodMonth) in months)
+                {
+                    _context.YearlyBudgetMonthDetails.Add(new YearlyBudgetMonthDetail
+                    {
+                        EntityId = entityId,
+                        YearlyBudgetId = budget.Id,
+                        AssistantTypeId = detail.AssistantTypeId,
+                        PeriodYear = periodYear,
+                        PeriodMonth = periodMonth,
+                        Fte = Round2(detail.Fte / months.Count),
+                        Hours = Round2(detail.Hours / months.Count),
+                        Amount = Round2(detail.Amount / months.Count),
+                        Remarks = detail.Remarks,
+                        UserId = userId,
+                        CreatedAt = now,
+                        UpdatedAt = now,
+                        UpdateUser = userId
+                    });
+                }
+            }
+
+            totalAmount = Round2(totalAmount);
+
+            budget.UpdatedAt = now;
+            budget.UpdateUser = userId;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Calculated budget {BudgetId}: totalHours={TotalHours}, totalAmount={TotalAmount}, success={Success}, failures={Failures}",
+                budget.Id, totalHours, totalAmount, successCount, failures.Count);
+
+            var budgetDto = await MapDtoAsync(budget.Id, year);
+            return new CalculateYearlyBudgetResultDto
+            {
+                Budget = budgetDto,
+                TotalHours = totalHours,
+                TotalAmount = totalAmount,
+                EntitlementCount = entitlementCount,
+                SuccessCount = successCount,
+                Failures = failures
+            };
+        }
+
+        private async Task<YearlyBudgetDetail> UpsertDetailHoursAsync(
+            int entityId, int? userId, int budgetId, int assistantTypeId, decimal hours)
+        {
             var detail = await _context.YearlyBudgetDetails
-                .FirstOrDefaultAsync(d => d.YearlyBudgetId == budget.Id && d.AssistantTypeId == classHelpType.Id);
+                .FirstOrDefaultAsync(d => d.YearlyBudgetId == budgetId && d.AssistantTypeId == assistantTypeId);
 
             if (detail == null)
             {
                 detail = new YearlyBudgetDetail
                 {
                     EntityId = entityId,
-                    YearlyBudgetId = budget.Id,
-                    AssistantTypeId = classHelpType.Id,
+                    YearlyBudgetId = budgetId,
+                    AssistantTypeId = assistantTypeId,
                     Fte = 0,
                     Amount = 0,
                     UserId = userId,
@@ -149,52 +269,10 @@ namespace PetelAssistants.Api.Services
                 _context.YearlyBudgetDetails.Add(detail);
             }
 
-            detail.Hours = totalHours;
+            detail.Hours = hours;
             detail.UpdatedAt = DateTime.UtcNow;
             detail.UpdateUser = userId;
-
-            var oldMonths = await _context.YearlyBudgetMonthDetails
-                .Where(m => m.YearlyBudgetId == budget.Id && m.AssistantTypeId == classHelpType.Id)
-                .ToListAsync();
-            _context.YearlyBudgetMonthDetails.RemoveRange(oldMonths);
-
-            foreach (var (periodYear, periodMonth) in months)
-            {
-                _context.YearlyBudgetMonthDetails.Add(new YearlyBudgetMonthDetail
-                {
-                    EntityId = entityId,
-                    YearlyBudgetId = budget.Id,
-                    AssistantTypeId = classHelpType.Id,
-                    PeriodYear = periodYear,
-                    PeriodMonth = periodMonth,
-                    Fte = Round2(detail.Fte / months.Count),
-                    Hours = Round2(detail.Hours / months.Count),
-                    Amount = Round2(detail.Amount / months.Count),
-                    Remarks = detail.Remarks,
-                    UserId = userId,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow,
-                    UpdateUser = userId
-                });
-            }
-
-            budget.UpdatedAt = DateTime.UtcNow;
-            budget.UpdateUser = userId;
-            await _context.SaveChangesAsync();
-
-            _logger.LogInformation(
-                "Calculated class_help hours for budget {BudgetId}: total={TotalHours}, success={Success}, failures={Failures}",
-                budget.Id, totalHours, successCount, failures.Count);
-
-            var budgetDto = await MapDtoAsync(budget.Id, year);
-            return new CalculateYearlyBudgetResultDto
-            {
-                Budget = budgetDto,
-                TotalHours = totalHours,
-                EntitlementCount = entitlements.Count,
-                SuccessCount = successCount,
-                Failures = failures
-            };
+            return detail;
         }
 
         private static CalculateBudgetFailureDto MakeFailure(

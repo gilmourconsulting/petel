@@ -1,10 +1,12 @@
 -- =============================================================================
 -- PetelAssistants — Seed class assistant budget hours for תשפו (תשפ"ו)
--- Hours by class characterization × school level (elementary / high_school).
+-- One pricing record per year × school_level × classification (with participation %).
 -- Characterization codes match shared_schema.class_classifications.id
 --   (fallback: foreign_id) as seeded from ATH special_needs_characterizations.
 -- Idempotent — upserts; safe to run multiple times.
--- Requires: add-class-assistant-budget-hours.sql, hebrew year תשפו, classifications.
+-- Requires: add-class-assistant-budget-hours.sql,
+--           add-class-assistant-budget-hours-participation.sql,
+--           hebrew year תשפו, classifications.
 -- =============================================================================
 
 DO $$
@@ -33,7 +35,17 @@ BEGIN
         RAISE EXCEPTION 'Hebrew year תשפו / תשפ"ו not found in shared_schema.hebrew_years';
     END IF;
 
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'shared_schema'
+          AND table_name = 'class_assistant_budget_hours'
+          AND column_name = 'ministry_participation_pct'
+    ) THEN
+        RAISE EXCEPTION 'Run add-class-assistant-budget-hours-participation.sql first';
+    END IF;
+
     -- Source matrix: (characterization_code, elementary_hours, high_school_hours)
+    -- Participation default 100% on each pricing record (editable in Year Elements).
     FOR r IN
         SELECT * FROM (VALUES
             (11, 33.5::NUMERIC,  0::NUMERIC),
@@ -71,13 +83,17 @@ BEGIN
         END IF;
 
         INSERT INTO shared_schema.class_assistant_budget_hours
-            (hebrew_year_id, school_level, class_classification_id, hours, created_at, updated_at)
+            (hebrew_year_id, school_level, class_classification_id, ministry_participation_pct,
+             hours, created_at, updated_at)
         VALUES
-            (v_year_id, 'elementary',  v_classification_id, v_elementary,  CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-            (v_year_id, 'high_school', v_classification_id, v_high_school, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            (v_year_id, 'elementary',  v_classification_id, 100,
+             v_elementary,  CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
+            (v_year_id, 'high_school', v_classification_id, 100,
+             v_high_school, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
         ON CONFLICT (hebrew_year_id, school_level, class_classification_id)
         DO UPDATE SET
             hours = EXCLUDED.hours,
+            ministry_participation_pct = EXCLUDED.ministry_participation_pct,
             updated_at = CURRENT_TIMESTAMP;
 
         v_upserted := v_upserted + 2;

@@ -18,6 +18,7 @@ BEGIN
             hebrew_year_id           INTEGER NOT NULL REFERENCES shared_schema.hebrew_years(id) ON DELETE CASCADE,
             school_level             VARCHAR(20) NOT NULL,
             class_classification_id  INTEGER NOT NULL REFERENCES shared_schema.class_classifications(id) ON DELETE RESTRICT,
+            ministry_participation_pct NUMERIC(5,2) NOT NULL,
             hours                    NUMERIC(10,2) NOT NULL DEFAULT 0,
             created_at               TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             user_id                  INTEGER NULL,
@@ -26,6 +27,8 @@ BEGIN
             CONSTRAINT class_assistant_budget_hours_school_level_check
                 CHECK (school_level IN ('elementary', 'high_school')),
             CONSTRAINT class_assistant_budget_hours_nonneg CHECK (hours >= 0),
+            CONSTRAINT class_assistant_budget_hours_participation_check
+                CHECK (ministry_participation_pct >= 0 AND ministry_participation_pct <= 100),
             CONSTRAINT class_assistant_budget_hours_unique
                 UNIQUE (hebrew_year_id, school_level, class_classification_id)
         );

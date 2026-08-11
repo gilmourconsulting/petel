@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace PetelAssistants.Api.Models
 {
-    [Table("class_assistant_budget_hours")]
-    public class ClassAssistantBudgetHours
+    [Table("budget_hour_values")]
+    public class BudgetHourValue
     {
         [Key]
         [Column("id")]
@@ -13,19 +13,8 @@ namespace PetelAssistants.Api.Models
         [Column("hebrew_year_id")]
         public int HebrewYearId { get; set; }
 
-        [Required]
-        [Column("school_level")]
-        [MaxLength(20)]
-        public string SchoolLevel { get; set; } = string.Empty;
-
-        [Column("class_classification_id")]
-        public int ClassClassificationId { get; set; }
-
-        [Column("ministry_participation_pct")]
-        public decimal MinistryParticipationPct { get; set; }
-
-        [Column("hours")]
-        public decimal Hours { get; set; }
+        [Column("hour_value")]
+        public decimal HourValue { get; set; }
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -41,8 +30,5 @@ namespace PetelAssistants.Api.Models
 
         [ForeignKey(nameof(HebrewYearId))]
         public HebrewYear? HebrewYear { get; set; }
-
-        [ForeignKey(nameof(ClassClassificationId))]
-        public ClassClassification? ClassClassification { get; set; }
     }
 }

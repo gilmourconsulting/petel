@@ -80,6 +80,7 @@ namespace PetelAssistants.Api.DTOs
     {
         public YearlyBudgetDto Budget { get; set; } = new();
         public decimal TotalHours { get; set; }
+        public decimal TotalAmount { get; set; }
         public int EntitlementCount { get; set; }
         public int SuccessCount { get; set; }
         public List<CalculateBudgetFailureDto> Failures { get; set; } = new();

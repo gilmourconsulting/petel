@@ -7,6 +7,7 @@ namespace PetelAssistants.BlazorServer.DTOs
         public string SchoolLevel { get; set; } = string.Empty;
         public int ClassClassificationId { get; set; }
         public string ClassClassificationName { get; set; } = string.Empty;
+        public decimal MinistryParticipationPct { get; set; }
         public decimal Hours { get; set; }
     }
 
@@ -20,6 +21,7 @@ namespace PetelAssistants.BlazorServer.DTOs
     {
         public string SchoolLevel { get; set; } = string.Empty;
         public int ClassClassificationId { get; set; }
+        public decimal MinistryParticipationPct { get; set; }
         public decimal Hours { get; set; }
     }
 
@@ -27,6 +29,7 @@ namespace PetelAssistants.BlazorServer.DTOs
     {
         public YearlyBudgetDto Budget { get; set; } = new();
         public decimal TotalHours { get; set; }
+        public decimal TotalAmount { get; set; }
         public int EntitlementCount { get; set; }
         public int SuccessCount { get; set; }
         public List<CalculateBudgetFailureDto> Failures { get; set; } = new();
