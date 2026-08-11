@@ -57,5 +57,22 @@ BEGIN
         (v_entity_id, 'שחרית',                'school', 'high_school', false, true)
     ON CONFLICT (entity_id, name) DO NOTHING;
 
+    -- Special-education kindergartens (סמל מוסד from סייעות מוסדיות חריש.xlsx)
+    INSERT INTO assist_schema.institutions
+        (entity_id, name, symbol, institution_type, school_level, is_special_education, is_active)
+    VALUES
+        (v_entity_id, 'אביב',  '667253', 'kindergarten', NULL, true, true),
+        (v_entity_id, 'אופק',  '629402', 'kindergarten', NULL, true, true),
+        (v_entity_id, 'אמיר',  '652917', 'kindergarten', NULL, true, true),
+        (v_entity_id, 'גיל',   '667212', 'kindergarten', NULL, true, true),
+        (v_entity_id, 'חצב',   '618934', 'kindergarten', NULL, true, true),
+        (v_entity_id, 'יובל',  '652909', 'kindergarten', NULL, true, true),
+        (v_entity_id, 'כרמל',  '667204', 'kindergarten', NULL, true, true),
+        (v_entity_id, 'מתן',   '667261', 'kindergarten', NULL, true, true),
+        (v_entity_id, 'רותם',  '629394', 'kindergarten', NULL, true, true),
+        (v_entity_id, 'רקפת',  '570184', 'kindergarten', NULL, true, true),
+        (v_entity_id, 'שחף',   '652933', 'kindergarten', NULL, true, true)
+    ON CONFLICT (entity_id, name) DO NOTHING;
+
     RAISE NOTICE 'seed-harish-institutions.sql completed for entity_id=%', v_entity_id;
 END $$;

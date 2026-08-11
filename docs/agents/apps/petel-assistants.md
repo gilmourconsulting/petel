@@ -166,6 +166,19 @@ Manual upload from Main Dashboard / Year Management (`SalaryUploadModal` → `Sa
 
 Tables: `salaries`, `salary_upload_processes`, `salary_upload_warnings`, `salary_field_mappings`. View UI: `/salaries`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Salary file upload.
 
+### Institutional entitlements file upload (Excel/CSV)
+
+Manual upload from Year Management (`EntitlementUploadModal` → `EntitlementFileUploadController`). SQL: `PetelAssistants/SQL/add-entitlement-upload.sql`. Callers always pass `yearId` (API is reusable from other screens).
+
+| Endpoint | Purpose |
+|---|---|
+| `GET/PUT api/entitlementfileupload/mapping` | Entity-level column map |
+| `POST api/entitlementfileupload/preview` | Headers + suggested/saved mappings |
+| `POST api/entitlementfileupload/upload` | Multipart file + mapping + `yearId` + `saveMapping` → counts + orphan list |
+| `POST api/entitlementfileupload/cancel-orphans` | Logical cancel (version) for selected orphan entitlement ids |
+
+Tables: `entitlement_field_mappings`, `entitlement_upload_processes`; institutions gain `symbol` (סמל מוסד). Action: `yearmanagement_entitlements_upload`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Institutional entitlements file upload.
+
 ## Meitar MUTAVIM retrieve
 
 Pull ministry MUTAVIM rows for the logged-in authority’s period from PetelMeitar into Assistants. Entry points: context buttons on Main Dashboard and Year Management (`MeitarRetrieveModal` → `MeitarDataController`). SQL: `PetelAssistants/SQL/add-meitar-mutavim-retrieve.sql`.

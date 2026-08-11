@@ -140,8 +140,9 @@ Each local authority maintains its own list of schools and kindergartens as rows
 | Field | Values | Notes |
 |---|---|---|
 | `institution_type` | `school`, `kindergarten` | Required |
-| `school_level` | `elementary` (יסודי), `high_school` (תיכון) | Required for schools; null for kindergartens |
+| `school_level` | `elementary` (יסודי בלבד), `high_school` (חט"ב + עליונה) | Required for schools; null for kindergartens (UI shows גן ילדים בלבד) |
 | `is_special_education` | bool | חינוך מיוחד — applies to any institution |
+| `symbol` | VARCHAR(20) nullable | Israeli educational institution code (סמל מוסד); unique per tenant when set |
 
 CRUD UI remains at `/org-units` (`api/org-units`); storage is `institutions`.
 
@@ -231,6 +232,20 @@ List/read current rows with `is_last_version = true`. History: `GET api/entitlem
 - Dates must be within the Hebrew year bounds.
 - The institution must belong to the logged-in authority (validated at service layer via tenant filter).
 - Allocations (`entitlement_allocations.entitlement_id`) point at a **specific entitlement version**. Read paths that show allocations for the UI resolve sibling version ids via `master_entitlement_id`. Allocation create/update when entitlement dates change is a later iteration.
+
+### Institutional entitlements file upload
+
+Ministry export (Excel/CSV) import for institutional entitlements (`class_help` / `school_help`). UI: Year Management button → `EntitlementUploadModal`. API always requires `yearId`. SQL: `add-entitlement-upload.sql`.
+
+**Matching:** resolve institution by mapped `סמל מוסד` → `institutions.symbol` only (name is not validated). No auto-create.
+
+**Support type:** `אוטומטית` → `class_help` (class name = `{שכבה}{מקבילה}`; `סוג כיתה` → `class_classifications` by id/foreign_id); `תגבור מוסדי` → `school_help`.
+
+**Hours:** Excel annual hours ÷ 12 → weekly `hours` / `hours_unit = weekly`.
+
+**Upsert:** natural key = year + assistant type + institution (+ class name for `class_help`). Exact match → skip; diff (hours / participation / classification) → new historical version (upload may change hours); missing → create v1.
+
+**Orphans:** after upload, return institutional entitlements for the year whose key was not in the file; UI lets the user tick and logically cancel (cancel-via-version).
 
 ## Meitar data integration
 

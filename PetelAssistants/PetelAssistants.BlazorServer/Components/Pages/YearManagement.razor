@@ -16,6 +16,11 @@
         העלאת קובץ שכר
     </SecureButton>
 
+    <SecureButton ActionName="yearmanagement_entitlements_upload" ScreenName="@PageName" FunctionName="ShowEntitlementUploadDialog"
+                  OnClick="ShowEntitlementUploadDialog" CssClass="context-btn" HideIfNoAccess="true">
+        העלאת זכאויות מוסדיות
+    </SecureButton>
+
     <SecureButton ActionName="yearmanagement_salaries_view" ScreenName="@PageName" FunctionName="NavigateToSalaries"
                   OnClick="NavigateToSalaries" CssClass="context-btn" HideIfNoAccess="true">
         נתוני שכר
@@ -33,6 +38,7 @@
 </div>
 
 <SalaryUploadModal @ref="_salaryUploadModal" />
+<EntitlementUploadModal @ref="_entitlementUploadModal" YearId="YearId" YearName="@_yearName" />
 <MeitarRetrieveModal @ref="_meitarRetrieveModal" />
 
 <div class="main-container">
@@ -133,6 +139,7 @@
     private List<EntitlementListItemDto> _entitlements = new();
     private List<PersonListItemDto> _persons = new();
     private SalaryUploadModal? _salaryUploadModal;
+    private EntitlementUploadModal? _entitlementUploadModal;
     private MeitarRetrieveModal? _meitarRetrieveModal;
 
     protected override async Task OnPageInitializedAsync()
@@ -231,5 +238,6 @@
     private void NavigateToMeitarData()    => Navigation.NavigateTo($"/meitar-data?fromYear={YearId}");
     private void NavigateBack()            => Navigation.NavigateTo("/maindashboard");
     private void ShowSalaryUploadDialog() => _salaryUploadModal?.Show();
+    private void ShowEntitlementUploadDialog() => _entitlementUploadModal?.Show(YearId, _yearName);
     private void ShowMeitarRetrieveDialog() => _meitarRetrieveModal?.Show();
 }

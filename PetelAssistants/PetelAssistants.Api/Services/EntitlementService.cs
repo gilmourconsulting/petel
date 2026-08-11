@@ -432,6 +432,49 @@ namespace PetelAssistants.Api.Services
             });
         }
 
+        /// <summary>
+        /// Upload-driven version update — may change hours/classification/participation
+        /// (fields immutable in the manual edit UI).
+        /// </summary>
+        public async Task ApplyUploadVersionAsync(
+            int? userId,
+            int entitlementId,
+            decimal hours,
+            string hoursUnit,
+            decimal ministryParticipationPct,
+            int? classClassificationId)
+        {
+            ValidateHoursUnit(hoursUnit);
+
+            if (hours <= 0)
+                throw new InvalidOperationException("מספר שעות חייב להיות גדול מאפס");
+
+            if (ministryParticipationPct < 0 || ministryParticipationPct > 100)
+                throw new InvalidOperationException("אחוז השתתפות משרד החינוך חייב להיות בין 0 ל-100");
+
+            var entitlement = await _context.Entitlements.FirstOrDefaultAsync(e => e.Id == entitlementId)
+                ?? throw new InvalidOperationException("זכאות לא נמצאה");
+
+            if (!entitlement.IsLastVersion)
+                throw new InvalidOperationException("ניתן לערוך רק את הגרסה האחרונה של הזכאות");
+
+            if (entitlement.IsCancelled)
+                throw new InvalidOperationException("לא ניתן לערוך זכאות שבוטלה");
+
+            if (entitlement.MasterEntitlementId <= 0)
+                entitlement.MasterEntitlementId = entitlement.Id;
+
+            await ValidateClassClassificationAsync(classClassificationId);
+
+            await CreateNewEntitlementVersionAsync(entitlement, userId, newVersion =>
+            {
+                newVersion.Hours = hours;
+                newVersion.HoursUnit = hoursUnit;
+                newVersion.MinistryParticipationPct = ministryParticipationPct;
+                newVersion.ClassClassificationId = classClassificationId;
+            });
+        }
+
         // ─── private helpers ──────────────────────────────────────────────────────
 
         private async Task<Entitlement> CreateNewEntitlementVersionAsync(

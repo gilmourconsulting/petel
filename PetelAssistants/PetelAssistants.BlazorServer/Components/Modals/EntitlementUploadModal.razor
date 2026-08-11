@@ -1,0 +1,640 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using Petel.BlazorCore.Services
+@inject ApiService ApiService
+@inject IJSRuntime JSRuntime
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" style="display: flex;">
+        <div class="modal-content" style="max-width: 900px; width: 92%;">
+            <div class="modal-header">
+                <div>@_modalTitle</div>
+                <button class="modal-close" @onclick="CloseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_currentStep == UploadStep.FileSelection)
+                {
+                    <div>
+                        <p style="margin-bottom: 12px; color: #666; direction: rtl;">
+                            שנה: @(_yearName != "" ? _yearName : YearId.ToString())
+                        </p>
+                        <div class="form-group">
+                            <label for="entitlementFile">בחר קובץ (CSV, XLS, XLSX) *</label>
+                            <div class="file-input-wrapper">
+                                <InputFile id="entitlementFile" OnChange="OnFileSelected" accept=".csv,.xls,.xlsx" style="display: none;" />
+                                <button type="button" class="btn-file-select" @onclick="TriggerFileInput">
+                                    <span>@_fileNameDisplay</span>
+                                </button>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_statusMessage))
+                        {
+                            <div class="upload-status upload-status-@_statusType" style="margin-top: 10px;">
+                                @((MarkupString)_statusMessage.Replace("\n", "<br>"))
+                            </div>
+                        }
+                    </div>
+                }
+                else if (_currentStep == UploadStep.ColumnMapping)
+                {
+                    <div>
+                        <p style="margin-bottom: 10px; color: #666; direction: rtl;">
+                            שנה: @_yearName — התאם את עמודות הקובץ לשדות המערכת.
+                        </p>
+                        <div class="form-group" style="margin-bottom: 12px; direction: rtl;">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" @bind="_saveMapping" />
+                                שמור מיפוי כברירת מחדל לרשות
+                            </label>
+                        </div>
+                        <div style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px;">
+                            <table class="mapping-table" style="width: 100%; border-collapse: collapse;">
+                                <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                                    <tr style="border-bottom: 2px solid #dee2e6;">
+                                        <th style="padding: 12px; text-align: right; font-weight: bold;">עמודה בקובץ</th>
+                                        <th style="padding: 12px; text-align: right; font-weight: bold;">שדה במערכת</th>
+                                    </tr>
+                                </thead>
+                                <tbody style="direction: rtl;">
+                                    @foreach (var header in _fileHeaders)
+                                    {
+                                        <tr style="border-bottom: 1px solid #dee2e6;">
+                                            <td style="padding: 12px; font-weight: bold;">@header</td>
+                                            <td style="padding: 12px;">
+                                                <select class="form-control mapping-select"
+                                                        value="@GetMappingValue(header)"
+                                                        @onchange="e => UpdateMapping(header, e.Value?.ToString())">
+                                                    <option value="">-- לא ממופה --</option>
+                                                    @foreach (var field in _availableFields)
+                                                    {
+                                                        <option value="@field.Key">@field.Value</option>
+                                                    }
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_statusMessage))
+                        {
+                            <div class="upload-status upload-status-@_statusType" style="margin-top: 15px;">
+                                @((MarkupString)_statusMessage.Replace("\n", "<br>"))
+                            </div>
+                        }
+                    </div>
+                }
+                else if (_currentStep == UploadStep.UploadComplete)
+                {
+                    <div class="upload-status upload-status-@_statusType">
+                        @((MarkupString)_statusMessage.Replace("\n", "<br>"))
+                    </div>
+                }
+                else if (_currentStep == UploadStep.OrphanReview)
+                {
+                    <div style="direction: rtl;">
+                        <p style="font-weight: 600; margin-bottom: 10px;">
+                            נמצאו זכאויות מוסדיות במערכת שאינן בקובץ שהועלה.
+                        </p>
+                        <p style="margin-bottom: 12px; color: #666;">
+                            סמן לביטול לוגי (גרסת ביטול). זכאויות שלא יסומנו יישארו פעילות.
+                        </p>
+                        <div style="margin-bottom: 10px;">
+                            <button type="button" class="btn-secondary" @onclick="SelectAllOrphans">סמן הכל</button>
+                            <button type="button" class="btn-secondary" @onclick="ClearOrphanSelection">נקה סימון</button>
+                        </div>
+                        <div style="max-height: 360px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px;">
+                            <table style="width: 100%; border-collapse: collapse;">
+                                <thead style="position: sticky; top: 0; background: #f8f9fa;">
+                                    <tr style="border-bottom: 2px solid #dee2e6;">
+                                        <th style="padding: 10px; width: 40px;"></th>
+                                        <th style="padding: 10px; text-align: right;">מוסד</th>
+                                        <th style="padding: 10px; text-align: right;">סוג</th>
+                                        <th style="padding: 10px; text-align: right;">כיתה</th>
+                                        <th style="padding: 10px; text-align: right;">שעות</th>
+                                        <th style="padding: 10px; text-align: right;">השתתפות</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var orphan in _orphans)
+                                    {
+                                        <tr style="border-bottom: 1px solid #eee;">
+                                            <td style="padding: 8px; text-align: center;">
+                                                <input type="checkbox"
+                                                       checked="@_selectedOrphanIds.Contains(orphan.Id)"
+                                                       @onchange="e => ToggleOrphan(orphan.Id, (bool)(e.Value ?? false))" />
+                                            </td>
+                                            <td style="padding: 8px;">@orphan.InstitutionName</td>
+                                            <td style="padding: 8px;">@orphan.AssistantTypeName</td>
+                                            <td style="padding: 8px;">@(orphan.ClassName ?? "—")</td>
+                                            <td style="padding: 8px;">@orphan.Hours @(orphan.HoursUnit == "monthly" ? "חודשי" : "שבועי")</td>
+                                            <td style="padding: 8px;">@orphan.MinistryParticipationPct%</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_statusMessage))
+                        {
+                            <div class="upload-status upload-status-@_statusType" style="margin-top: 12px;">
+                                @((MarkupString)_statusMessage.Replace("\n", "<br>"))
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                @if (_currentStep == UploadStep.FileSelection)
+                {
+                    <button type="button" class="btn-secondary" @onclick="CloseModal">ביטול</button>
+                    <button type="button" class="btn-primary" @onclick="HandleFileSelection" disabled="@_isProcessing">
+                        @(_isProcessing ? "מעבד..." : "המשך")
+                    </button>
+                }
+                else if (_currentStep == UploadStep.ColumnMapping)
+                {
+                    <button type="button" class="btn-secondary" @onclick="CloseModal">ביטול</button>
+                    <button type="button" class="btn-secondary" @onclick="BackToFileSelection">חזרה</button>
+                    <button type="button" class="btn-primary" @onclick="ExecuteUpload" disabled="@_isProcessing">
+                        @(_isProcessing ? "מעלה..." : "העלה קובץ")
+                    </button>
+                }
+                else if (_currentStep == UploadStep.UploadComplete)
+                {
+                    @if (_orphans.Count > 0)
+                    {
+                        <button type="button" class="btn-secondary" @onclick="CloseAndRefresh">סגור ללא ביטול</button>
+                        <button type="button" class="btn-primary" @onclick="GoToOrphanReview">המשך לביטול יתומים</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn-primary" @onclick="CloseAndRefresh">אישור</button>
+                    }
+                }
+                else if (_currentStep == UploadStep.OrphanReview)
+                {
+                    <button type="button" class="btn-secondary" @onclick="CloseAndRefresh" disabled="@_isProcessing">סגור</button>
+                    <button type="button" class="btn-primary" @onclick="CancelSelectedOrphans" disabled="@(_isProcessing || _selectedOrphanIds.Count == 0)">
+                        @(_isProcessing ? "מבטל..." : $"בטל נבחרים ({_selectedOrphanIds.Count})")
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private enum UploadStep
+    {
+        FileSelection,
+        ColumnMapping,
+        UploadComplete,
+        OrphanReview
+    }
+
+    [Parameter] public int YearId { get; set; }
+    [Parameter] public string YearName { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnUploadComplete { get; set; }
+
+    private bool _isVisible;
+    private UploadStep _currentStep = UploadStep.FileSelection;
+    private string _modalTitle = "העלאת זכאויות מוסדיות";
+    private string _yearName = string.Empty;
+    private string _fileNameDisplay = "לא נבחר קובץ";
+    private string _statusMessage = string.Empty;
+    private string _statusType = "info";
+    private bool _isProcessing;
+    private bool _saveMapping;
+
+    private IBrowserFile? _selectedFile;
+    private byte[]? _fileContent;
+    private string _fileContentType = string.Empty;
+    private string _fileName = string.Empty;
+    private List<string> _fileHeaders = new();
+    private Dictionary<string, string> _availableFields = new();
+    private Dictionary<string, string> _columnMappings = new();
+    private Dictionary<string, string>? _pendingReverseMapping;
+    private List<EntitlementOrphanItem> _orphans = new();
+    private HashSet<int> _selectedOrphanIds = new();
+
+    public void Show(int yearId, string? yearName = null)
+    {
+        YearId = yearId;
+        _yearName = !string.IsNullOrWhiteSpace(yearName) ? yearName! : YearName;
+        _isVisible = true;
+        ResetModal();
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        _isVisible = false;
+        ResetModal();
+        StateHasChanged();
+    }
+
+    private async Task CloseAndRefresh()
+    {
+        _isVisible = false;
+        ResetModal();
+        if (OnUploadComplete.HasDelegate)
+            await OnUploadComplete.InvokeAsync();
+        StateHasChanged();
+    }
+
+    private void ResetModal()
+    {
+        _currentStep = UploadStep.FileSelection;
+        _modalTitle = "העלאת זכאויות מוסדיות";
+        _fileNameDisplay = "לא נבחר קובץ";
+        _statusMessage = string.Empty;
+        _statusType = "info";
+        _isProcessing = false;
+        _saveMapping = false;
+        _selectedFile = null;
+        _fileContent = null;
+        _fileContentType = string.Empty;
+        _fileName = string.Empty;
+        _fileHeaders = new();
+        _availableFields = new();
+        _columnMappings = new();
+        _pendingReverseMapping = null;
+        _orphans = new();
+        _selectedOrphanIds = new();
+    }
+
+    private async Task OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+        _fileName = e.File.Name;
+        _fileNameDisplay = e.File.Name;
+        _fileContentType = string.IsNullOrWhiteSpace(e.File.ContentType)
+            ? "application/octet-stream"
+            : e.File.ContentType;
+        _statusMessage = string.Empty;
+        await Task.CompletedTask;
+    }
+
+    private async Task TriggerFileInput()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("FileUploadHelper.triggerFileInput", "entitlementFile");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error triggering file input: {ex.Message}");
+        }
+    }
+
+    private async Task HandleFileSelection()
+    {
+        if (_selectedFile == null)
+        {
+            _statusMessage = "אנא בחר קובץ";
+            _statusType = "error";
+            StateHasChanged();
+            return;
+        }
+
+        if (YearId <= 0)
+        {
+            _statusMessage = "שנה עברית לא תקינה";
+            _statusType = "error";
+            StateHasChanged();
+            return;
+        }
+
+        _isProcessing = true;
+        _statusMessage = "קורא קובץ...";
+        _statusType = "loading";
+        StateHasChanged();
+
+        try
+        {
+            const long maxFileSize = 10 * 1024 * 1024;
+            using var stream = _selectedFile.OpenReadStream(maxFileSize);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            _fileContent = memoryStream.ToArray();
+
+            using var content = new MultipartFormDataContent();
+            var fileContent = new ByteArrayContent(_fileContent);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(_fileContentType);
+            content.Add(fileContent, "file", _fileName);
+
+            var response = await ApiService.PostMultipartAsync<PreviewResponse>(
+                "entitlementfileupload/preview",
+                content);
+
+            if (response != null && response.Success)
+            {
+                _fileHeaders = response.Headers ?? new List<string>();
+                _availableFields = response.AvailableFields ?? new Dictionary<string, string>();
+
+                if (response.HasSavedMapping && response.SavedMapping != null && response.SavedMapping.Count > 0)
+                    _columnMappings = new Dictionary<string, string>(response.SavedMapping);
+                else if (response.SuggestedMappings != null)
+                    _columnMappings = new Dictionary<string, string>(response.SuggestedMappings);
+
+                _saveMapping = response.HasSavedMapping;
+                _currentStep = UploadStep.ColumnMapping;
+                _modalTitle = "מיפוי עמודות זכאויות";
+                _statusMessage = string.Empty;
+            }
+            else
+            {
+                _statusMessage = $"❌ שגיאה: {response?.Message ?? "לא ניתן לקרוא את הקובץ"}";
+                _statusType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"❌ שגיאה בקריאת הקובץ: {ex.Message}";
+            _statusType = "error";
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void BackToFileSelection()
+    {
+        _currentStep = UploadStep.FileSelection;
+        _modalTitle = "העלאת זכאויות מוסדיות";
+        _statusMessage = string.Empty;
+        StateHasChanged();
+    }
+
+    private async Task ExecuteUpload()
+    {
+        if (_fileContent == null)
+        {
+            _statusMessage = "לא נבחר קובץ";
+            _statusType = "error";
+            StateHasChanged();
+            return;
+        }
+
+        var reverseMapping = BuildReverseMapping();
+        if (reverseMapping == null)
+            return;
+
+        _pendingReverseMapping = reverseMapping;
+        _isProcessing = true;
+        _statusMessage = "מעלה קובץ...";
+        _statusType = "loading";
+        StateHasChanged();
+
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var fileContent = new ByteArrayContent(_fileContent);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(_fileContentType);
+            content.Add(fileContent, "file", _fileName);
+            content.Add(new StringContent(System.Text.Json.JsonSerializer.Serialize(_pendingReverseMapping)), "mappingJson");
+            content.Add(new StringContent(YearId.ToString()), "yearId");
+            content.Add(new StringContent(_saveMapping ? "true" : "false"), "saveMapping");
+
+            var response = await ApiService.PostMultipartAsync<UploadResponse>(
+                "entitlementfileupload/upload",
+                content);
+
+            if (response != null && response.Success)
+            {
+                _orphans = response.Orphans ?? new List<EntitlementOrphanItem>();
+                _selectedOrphanIds = new HashSet<int>();
+
+                var summaryMessage = $"✅ הקובץ עובד בהצלחה!<br><br>" +
+                    $"📅 שנה: {_yearName}<br>" +
+                    $"➕ נוצרו: {response.Created}<br>" +
+                    $"🔄 עודכנו (גרסה חדשה): {response.Versioned}<br>" +
+                    $"⏭️ ללא שינוי: {response.Skipped}<br>";
+
+                if (response.Errors > 0)
+                {
+                    summaryMessage += $"<br>❌ שגיאות: {response.Errors}";
+                    if (response.Details?.ErrorList != null && response.Details.ErrorList.Any())
+                    {
+                        var items = string.Join("", response.Details.ErrorList.Take(50).Select(e =>
+                            $"<div style='padding: 8px; border-bottom: 1px solid #f0f0f0; background: #f8d7da;'>{e}</div>"));
+                        summaryMessage += $"<br><br><div style='font-weight: bold; margin-bottom: 10px;'>רשימת שגיאות:</div>" +
+                            $"<div style='max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; background: white; direction: rtl;'>{items}</div>";
+                    }
+                }
+
+                if (_orphans.Count > 0)
+                    summaryMessage += $"<br><br>⚠️ זכאויות במערכת שאינן בקובץ: {_orphans.Count}";
+
+                _statusMessage = summaryMessage;
+                _statusType = response.Errors > 0 && response.Created + response.Versioned + response.Skipped == 0
+                    ? "error"
+                    : "success";
+                _currentStep = UploadStep.UploadComplete;
+                _modalTitle = "סיכום העלאת זכאויות";
+            }
+            else
+            {
+                _statusMessage = $"❌ שגיאה: {response?.Message ?? "העלאת הקובץ נכשלה"}";
+                _statusType = "error";
+                _currentStep = UploadStep.ColumnMapping;
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"❌ שגיאה בהעלאת הקובץ: {ex.Message}";
+            _statusType = "error";
+            _currentStep = UploadStep.ColumnMapping;
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void GoToOrphanReview()
+    {
+        _currentStep = UploadStep.OrphanReview;
+        _modalTitle = "זכאויות שאינן בקובץ";
+        _statusMessage = string.Empty;
+        StateHasChanged();
+    }
+
+    private void ToggleOrphan(int id, bool selected)
+    {
+        if (selected)
+            _selectedOrphanIds.Add(id);
+        else
+            _selectedOrphanIds.Remove(id);
+    }
+
+    private void SelectAllOrphans()
+    {
+        _selectedOrphanIds = _orphans.Select(o => o.Id).ToHashSet();
+        StateHasChanged();
+    }
+
+    private void ClearOrphanSelection()
+    {
+        _selectedOrphanIds.Clear();
+        StateHasChanged();
+    }
+
+    private async Task CancelSelectedOrphans()
+    {
+        if (_selectedOrphanIds.Count == 0)
+            return;
+
+        _isProcessing = true;
+        _statusMessage = "מבטל זכאויות...";
+        _statusType = "loading";
+        StateHasChanged();
+
+        try
+        {
+            var response = await ApiService.PostAsync<CancelOrphansRequest, CancelOrphansResponse>(
+                "entitlementfileupload/cancel-orphans",
+                new CancelOrphansRequest
+                {
+                    YearId = YearId,
+                    EntitlementIds = _selectedOrphanIds.ToList()
+                });
+
+            if (response?.Success == true)
+            {
+                _statusMessage = $"✅ {response.Message}";
+                _statusType = "success";
+                await Task.Delay(600);
+                await CloseAndRefresh();
+            }
+            else
+            {
+                _statusMessage = $"❌ שגיאה: {response?.Message ?? "ביטול הזכאויות נכשל"}";
+                _statusType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"❌ שגיאה בביטול: {ex.Message}";
+            _statusType = "error";
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private Dictionary<string, string>? BuildReverseMapping()
+    {
+        var reverseMapping = new Dictionary<string, string>();
+        foreach (var kvp in _columnMappings)
+        {
+            if (!string.IsNullOrEmpty(kvp.Value) && kvp.Value != "ignore")
+            {
+                if (reverseMapping.ContainsKey(kvp.Value))
+                {
+                    _statusMessage = "❌ שגיאה: אותו שדה מערכת ממופה ליותר מעמודת קובץ אחת";
+                    _statusType = "error";
+                    StateHasChanged();
+                    return null;
+                }
+                reverseMapping[kvp.Value] = kvp.Key;
+            }
+        }
+
+        string[] required =
+        [
+            "institution_symbol",
+            "support_type",
+            "annual_hours",
+            "participation_pct"
+        ];
+        var labels = new Dictionary<string, string>
+        {
+            ["institution_symbol"] = "סמל מוסד",
+            ["support_type"] = "סוג תומכת חינוך",
+            ["annual_hours"] = "שעות הקצאה שנתיות",
+            ["participation_pct"] = "אחוז השתתפות"
+        };
+
+        foreach (var field in required)
+        {
+            if (!reverseMapping.ContainsKey(field))
+            {
+                _statusMessage = $"❌ שגיאה: יש למפות את השדה {labels[field]}";
+                _statusType = "error";
+                StateHasChanged();
+                return null;
+            }
+        }
+
+        return reverseMapping;
+    }
+
+    private string GetMappingValue(string header) =>
+        _columnMappings.GetValueOrDefault(header, string.Empty);
+
+    private void UpdateMapping(string header, string? systemField)
+    {
+        if (string.IsNullOrEmpty(systemField))
+            _columnMappings.Remove(header);
+        else
+            _columnMappings[header] = systemField;
+    }
+
+    private class PreviewResponse
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public List<string>? Headers { get; set; }
+        public Dictionary<string, string>? SuggestedMappings { get; set; }
+        public Dictionary<string, string>? AvailableFields { get; set; }
+        public Dictionary<string, string>? SavedMapping { get; set; }
+        public bool HasSavedMapping { get; set; }
+    }
+
+    private class UploadResponse
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public int Created { get; set; }
+        public int Versioned { get; set; }
+        public int Skipped { get; set; }
+        public int Errors { get; set; }
+        public List<EntitlementOrphanItem>? Orphans { get; set; }
+        public UploadDetails? Details { get; set; }
+    }
+
+    private class UploadDetails
+    {
+        public List<string>? ErrorList { get; set; }
+    }
+
+    private class EntitlementOrphanItem
+    {
+        public int Id { get; set; }
+        public string InstitutionName { get; set; } = string.Empty;
+        public string AssistantTypeName { get; set; } = string.Empty;
+        public string? ClassName { get; set; }
+        public decimal Hours { get; set; }
+        public string HoursUnit { get; set; } = string.Empty;
+        public decimal MinistryParticipationPct { get; set; }
+    }
+
+    private class CancelOrphansRequest
+    {
+        public int YearId { get; set; }
+        public List<int> EntitlementIds { get; set; } = new();
+    }
+
+    private class CancelOrphansResponse
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public int Cancelled { get; set; }
+    }
+}

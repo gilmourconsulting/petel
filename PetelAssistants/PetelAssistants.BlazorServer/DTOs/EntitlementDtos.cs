@@ -40,6 +40,7 @@ namespace PetelAssistants.BlazorServer.DTOs
     {
         public int Id { get; set; }
         public string Name { get; set; } = string.Empty;
+        public string? Symbol { get; set; }
         public string OrgUnitType { get; set; } = string.Empty;
         public string? OrgUnitTypeDescription { get; set; }
         public string? SchoolLevel { get; set; }
@@ -50,6 +51,7 @@ namespace PetelAssistants.BlazorServer.DTOs
     public class CreateOrgUnitRequest
     {
         public string Name { get; set; } = string.Empty;
+        public string? Symbol { get; set; }
         public string OrgUnitType { get; set; } = string.Empty;
         public string? SchoolLevel { get; set; }
         public bool IsSpecialEducation { get; set; }
@@ -58,6 +60,7 @@ namespace PetelAssistants.BlazorServer.DTOs
     public class UpdateOrgUnitRequest
     {
         public string Name { get; set; } = string.Empty;
+        public string? Symbol { get; set; }
         public string? SchoolLevel { get; set; }
         public bool IsSpecialEducation { get; set; }
     }

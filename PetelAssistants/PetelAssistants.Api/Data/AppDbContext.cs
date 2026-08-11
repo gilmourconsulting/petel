@@ -35,6 +35,8 @@ namespace PetelAssistants.Api.Data
         public DbSet<Salary>                 Salaries               { get; set; }
         public DbSet<SalaryUploadWarning>    SalaryUploadWarnings   { get; set; }
         public DbSet<SalaryFieldMapping>     SalaryFieldMappings    { get; set; }
+        public DbSet<EntitlementFieldMapping>   EntitlementFieldMappings   { get; set; }
+        public DbSet<EntitlementUploadProcess>  EntitlementUploadProcesses { get; set; }
         public DbSet<MeitarRetrieveProcess>  MeitarRetrieveProcesses { get; set; }
         public DbSet<MeitarMutavim>          MeitarMutavim          { get; set; }
         public DbSet<YearlyBudget>             YearlyBudgets            { get; set; }
@@ -201,6 +203,27 @@ namespace PetelAssistants.Api.Data
                 entity.HasKey(e => e.Id);
                 entity.HasIndex(e => new { e.EntityId, e.Name }).IsUnique();
                 entity.HasIndex(e => new { e.EntityId, e.InstitutionType });
+                entity.HasIndex(e => new { e.EntityId, e.Symbol })
+                    .IsUnique()
+                    .HasFilter("symbol IS NOT NULL");
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<EntitlementFieldMapping>(entity =>
+            {
+                entity.ToTable("entitlement_field_mappings");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.EntityId).IsUnique();
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<EntitlementUploadProcess>(entity =>
+            {
+                entity.ToTable("entitlement_upload_processes");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.HebrewYearId });
 
                 entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
             });

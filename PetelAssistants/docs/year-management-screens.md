@@ -102,7 +102,7 @@ Run SQL scripts in order (see below). After running SQL, refresh the security ca
 | Screen | PageName | Page action | Button actions |
 |--------|----------|-------------|----------------|
 | Main dashboard | `maindashboard` | (page access not enforced) | `maindashboard_salary_upload`, `maindashboard_salaries_view` |
-| Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_entitlements`, `yearmanagement_org_units`, `yearmanagement_yearly_budget`, `yearmanagement_salary_upload`, `yearmanagement_salaries_view` |
+| Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_entitlements`, `yearmanagement_org_units`, `yearmanagement_yearly_budget`, `yearmanagement_salary_upload`, `yearmanagement_entitlements_upload`, `yearmanagement_salaries_view` |
 | Salaries view | `salaries` | `salaries_page_action` | `salaries_back`, `salaries_refresh` |
 | Assistants | `assistants` | `assistants_page_action` | `assistants_back`, `assistants_refresh`, `assistants_add`, `assistants_upload`, `assistants_view_details`, `assistants_edit`, `assistants_view_history` |
 | Entitlements | `entitlements` | `entitlements_page_action` | back, refresh, add, edit, deactivate, allocations |

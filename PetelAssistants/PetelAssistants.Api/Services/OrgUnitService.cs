@@ -66,11 +66,21 @@ namespace PetelAssistants.Api.Services
             if (exists)
                 throw new InvalidOperationException("מוסד עם שם זה כבר קיים ברשות");
 
+            var symbol = NormalizeSymbol(request.Symbol);
+            if (symbol != null)
+            {
+                var symbolExists = await _context.Institutions
+                    .AnyAsync(e => e.Symbol == symbol);
+                if (symbolExists)
+                    throw new InvalidOperationException("מוסד עם סמל זה כבר קיים ברשות");
+            }
+
             var now = DateTime.UtcNow;
             var institution = new Institution
             {
                 EntityId = entityId,
                 Name = name,
+                Symbol = symbol,
                 InstitutionType = typeName,
                 SchoolLevel = schoolLevel,
                 IsSpecialEducation = request.IsSpecialEducation,
@@ -107,9 +117,19 @@ namespace PetelAssistants.Api.Services
             if (duplicate)
                 throw new InvalidOperationException("מוסד עם שם זה כבר קיים ברשות");
 
+            var symbol = NormalizeSymbol(request.Symbol);
+            if (symbol != null)
+            {
+                var symbolDuplicate = await _context.Institutions
+                    .AnyAsync(e => e.Symbol == symbol && e.Id != id);
+                if (symbolDuplicate)
+                    throw new InvalidOperationException("מוסד עם סמל זה כבר קיים ברשות");
+            }
+
             var schoolLevel = NormalizeSchoolLevel(institution.InstitutionType, request.SchoolLevel);
 
             institution.Name = name;
+            institution.Symbol = symbol;
             institution.SchoolLevel = schoolLevel;
             institution.IsSpecialEducation = request.IsSpecialEducation;
             institution.UpdateUser = userId;
@@ -135,12 +155,23 @@ namespace PetelAssistants.Api.Services
         {
             Id = e.Id,
             Name = e.Name,
+            Symbol = e.Symbol,
             OrgUnitType = e.InstitutionType,
             OrgUnitTypeDescription = GetTypeDescription(e.InstitutionType),
             SchoolLevel = e.SchoolLevel,
             IsSpecialEducation = e.IsSpecialEducation,
             IsActive = e.IsActive
         };
+
+        private static string? NormalizeSymbol(string? symbol)
+        {
+            if (string.IsNullOrWhiteSpace(symbol))
+                return null;
+            var trimmed = symbol.Trim();
+            if (trimmed.Length > 20)
+                throw new InvalidOperationException("סמל מוסד ארוך מדי");
+            return trimmed;
+        }
 
         private static string GetTypeDescription(string type) => type switch
         {
@@ -168,7 +199,8 @@ namespace PetelAssistants.Api.Services
 
             var level = (schoolLevel ?? string.Empty).Trim().ToLowerInvariant();
             if (!AllowedSchoolLevels.Contains(level))
-                throw new InvalidOperationException("רמת בית ספר חייבת להיות יסודי או תיכון");
+                throw new InvalidOperationException(
+                    $"רמת בית ספר חייבת להיות {SchoolLevels.ElementaryDisplay} או {SchoolLevels.HighSchoolDisplay}");
 
             return level;
         }

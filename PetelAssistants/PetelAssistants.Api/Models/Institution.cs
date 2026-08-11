@@ -14,6 +14,28 @@ namespace PetelAssistants.Api.Models
     {
         public const string Elementary = "elementary";
         public const string HighSchool = "high_school";
+
+        /// <summary>Ministry שלב חינוך phrase for elementary (Excel / UI).</summary>
+        public const string ElementaryDisplay = "יסודי בלבד";
+
+        /// <summary>Ministry שלב חינוך phrase for high school / חט״ב+עליונה (Excel / UI).</summary>
+        public const string HighSchoolDisplay = "חט\"ב + עליונה";
+
+        /// <summary>Ministry שלב חינוך phrase for kindergartens (Excel / UI).</summary>
+        public const string KindergartenDisplay = "גן ילדים בלבד";
+
+        public static string GetDisplayName(string? schoolLevel, string? institutionType = null)
+        {
+            if (string.Equals(institutionType, InstitutionTypes.Kindergarten, StringComparison.OrdinalIgnoreCase))
+                return KindergartenDisplay;
+
+            if (string.Equals(schoolLevel, Elementary, StringComparison.OrdinalIgnoreCase))
+                return ElementaryDisplay;
+            if (string.Equals(schoolLevel, HighSchool, StringComparison.OrdinalIgnoreCase))
+                return HighSchoolDisplay;
+
+            return "—";
+        }
     }
 
     [Table("institutions")]
@@ -31,6 +53,11 @@ namespace PetelAssistants.Api.Models
         [Column("name")]
         [MaxLength(200)]
         public string Name { get; set; } = string.Empty;
+
+        /// <summary>Israeli educational institution code (סמל מוסד).</summary>
+        [Column("symbol")]
+        [MaxLength(20)]
+        public string? Symbol { get; set; }
 
         [Required]
         [Column("institution_type")]

@@ -45,6 +45,7 @@
                         <thead>
                             <tr>
                                 <th>פעולות</th>
+                                <th>סמל מוסד</th>
                                 <th>שם</th>
                                 <th>סוג</th>
                                 <th>רמה</th>
@@ -76,9 +77,10 @@
                                             </SecureButton>
                                         }
                                     </td>
+                                    <td>@(unit.Symbol ?? "—")</td>
                                     <td>@unit.Name</td>
                                     <td>@GetOrgUnitTypeLabel(unit.OrgUnitType)</td>
-                                    <td>@GetSchoolLevelLabel(unit.SchoolLevel)</td>
+                                    <td>@SchoolLevelLabels.GetDisplayName(unit.SchoolLevel, unit.OrgUnitType)</td>
                                     <td>@(unit.IsSpecialEducation ? "כן" : "לא")</td>
                                     <td>
                                         <span class="status-badge @(unit.IsActive ? "status-active" : "status-inactive")">
@@ -122,6 +124,10 @@
                     </div>
                 }
                 <div class="form-group">
+                    <label>סמל מוסד</label>
+                    <input type="text" class="form-control" @bind="_formSymbol" placeholder="סמל מוסד" maxlength="20" />
+                </div>
+                <div class="form-group">
                     <label>שם <span class="required">*</span></label>
                     <input type="text" class="form-control" @bind="_formName" placeholder="שם המוסד" />
                 </div>
@@ -130,8 +136,8 @@
                     <div class="form-group">
                         <label>רמת בית ספר <span class="required">*</span></label>
                         <select class="form-control" @bind="_formSchoolLevel">
-                            <option value="elementary">יסודי</option>
-                            <option value="high_school">תיכון</option>
+                            <option value="elementary">@SchoolLevelLabels.ElementaryDisplay</option>
+                            <option value="high_school">@SchoolLevelLabels.HighSchoolDisplay</option>
                         </select>
                     </div>
                 }
@@ -169,6 +175,7 @@
     private string _formError = string.Empty;
     private OrgUnitDto? _editUnit;
     private string _formName = string.Empty;
+    private string _formSymbol = string.Empty;
     private string _formOrgUnitType = "school";
     private string _formSchoolLevel = "elementary";
     private bool _formIsSpecialEducation;
@@ -217,6 +224,7 @@
     {
         _editUnit = null;
         _formName = string.Empty;
+        _formSymbol = string.Empty;
         _formOrgUnitType = "school";
         _formSchoolLevel = "elementary";
         _formIsSpecialEducation = false;
@@ -228,6 +236,7 @@
     {
         _editUnit = unit;
         _formName = unit.Name;
+        _formSymbol = unit.Symbol ?? string.Empty;
         _formOrgUnitType = unit.OrgUnitType;
         _formSchoolLevel = unit.SchoolLevel ?? "elementary";
         _formIsSpecialEducation = unit.IsSpecialEducation;
@@ -275,6 +284,7 @@
                     new CreateOrgUnitRequest
                     {
                         Name = _formName,
+                        Symbol = string.IsNullOrWhiteSpace(_formSymbol) ? null : _formSymbol.Trim(),
                         OrgUnitType = _formOrgUnitType,
                         SchoolLevel = _formOrgUnitType == "school" ? _formSchoolLevel : null,
                         IsSpecialEducation = _formIsSpecialEducation
@@ -287,6 +297,7 @@
                     new UpdateOrgUnitRequest
                     {
                         Name = _formName,
+                        Symbol = string.IsNullOrWhiteSpace(_formSymbol) ? null : _formSymbol.Trim(),
                         SchoolLevel = _formOrgUnitType == "school" ? _formSchoolLevel : null,
                         IsSpecialEducation = _formIsSpecialEducation
                     });
@@ -338,13 +349,6 @@
         "school" => "בית ספר",
         "kindergarten" => "גן ילדים",
         _ => type
-    };
-
-    private static string GetSchoolLevelLabel(string? level) => level switch
-    {
-        "elementary" => "יסודי",
-        "high_school" => "תיכון",
-        _ => "—"
     };
 
     private void NavigateBack() => Navigation.NavigateTo(YearId > 0 ? $"/year/{YearId}" : "/maindashboard");

@@ -77,6 +77,7 @@ builder.Services.AddSingleton<ActionAuthorizationService>();
 builder.Services.AddScoped<PersonService>();
 builder.Services.AddScoped<PersonsFileProcessor>();
 builder.Services.AddScoped<SalaryFileProcessor>();
+builder.Services.AddScoped<EntitlementFileProcessor>();
 
 builder.Services.AddScoped<OrgUnitService>();
 builder.Services.AddScoped<EntitlementService>();
