@@ -71,6 +71,7 @@ Adapters: [AGENTS.md](../../AGENTS.md) (root), [.cursor/rules/](../../.cursor/ru
 | ATH domain | `apps/petel-ath.md` (+ reports doc if report-related) |
 | Assistants tenancy/security | `apps/petel-assistants.md` |
 | Assistants business rules | `apps/petel-assistants-domain.md` |
+| Assistants personal approvals PDF→Excel | `apps/petel-assistants-domain.md` § Personal approvals PDF → Excel (+ `apps/petel-assistants.md` API/UI) |
 | Blazor UI pattern | `core/blazor-patterns.md` |
 | Azure infra / new app on Azure | `docs/azure-setup.md` (+ app doc resource table) |
 | New repeatable workflow | New file under `playbooks/` |

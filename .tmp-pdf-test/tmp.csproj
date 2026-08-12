@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="PetelAssistants.Api">
+      <HintPath>c:\dev\PetelFullApp\.tmp-build\api-pdf-fix\PetelAssistants.Api.dll</HintPath>
+    </Reference>
+    <Reference Include="Petel.Core">
+      <HintPath>c:\dev\PetelFullApp\.tmp-build\api-pdf-fix\Petel.Core.dll</HintPath>
+    </Reference>
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
+    <PackageReference Include="PdfPig" Version="0.1.10" />
+  </ItemGroup>
+</Project>

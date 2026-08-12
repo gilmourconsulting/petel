@@ -247,6 +247,39 @@ Ministry export (Excel/CSV) import for institutional entitlements (`class_help` 
 
 **Orphans:** after upload, return institutional entitlements for the year whose key was not in the file; UI lets the user tick and logically cancel (cancel-via-version).
 
+### Personal approvals PDF → Excel
+
+Ministry “אישור תומכת חינוך אישית” PDF → Excel extract for review / later personal entitlement import. UI: Entitlements → **חילוץ אישורים מ-PDF**. **No DB writes** in this step.
+
+**Source shape:** one approval per page. Hebrew in these PDFs often has empty ToUnicode CMaps; parser remaps Identity CIDs `U+02A0–U+02BA` → Hebrew (`+0x0330`), clusters letters by mid-Y, then reverses Hebrew tokens (not digit/date tokens) for logical RTL.
+
+**Field extraction (label / line anchored):**
+
+| Excel column | Source on page |
+|---|---|
+| תאריך אישור | Top-most `dd/MM/yyyy` |
+| שם רשות / סמל רשות | Addressee line (`אל` / `מקומית`); reconstruct `מועצה מקומית {שם}` when `מועצה` glyphs are missing; 7–8 digit symbol just below |
+| שם פרטי / שם משפחה | Line starting with `שם` — see name split below |
+| ת.ז. תלמיד | Line with `ת ז` / `ת.ז` + 8–9 digit id (pad to 9) |
+| קוד תומכת חינוך | Integer on the `תלמיד הלומד` / `לתלמיד הלומד` line |
+| מסגרת | Same line: `בגן` → `גן`; `בכיתה` → `כיתה`; else `חינוך מיוחד` when that phrase appears |
+| שם מוסד / סמל מוסד | Line starting with `מוסד`; **סמל = 6 digits at end of line**. If 7 digits are glued (`7672773`), take first 6 and ignore the trailing digit |
+| שעות | `בהיקף של {n}` on the validity line |
+| מתאריך / עד תאריך | Two dates on the `בהיקף` / `מתאריך` / `עד תאריך` line (logical order) |
+| השתתפות הרשות | Municipality % from the numbered terms line (`1` … `להשתתף במימון של {n}%`); written as Excel percentage |
+
+**Student name split** (after logical word order):
+
+| Tokens | שם פרטי | שם משפחה |
+|---|---|---|
+| 2 | first | second |
+| 3 and middle is `בן` | first | `בן` + third |
+| 3+ otherwise | all but last | last |
+
+**Validation / errors:** per-page warnings when ת.ז., hours, or מסגרת are missing; row is still exported. `errorCount` / `errors[]` surface the first warnings to the UI.
+
+**Out of scope (next step):** creating personal entitlements from the Excel (institution match by `symbol`, pupil encrypt, overlap rules).
+
 ## Meitar data integration
 
 Ministry budget data is queried from **PetelMeitar** via `MeitarDataService` (`IMeitarDataService`).

@@ -179,6 +179,25 @@ Manual upload from Year Management (`EntitlementUploadModal` → `EntitlementFil
 
 Tables: `entitlement_field_mappings`, `entitlement_upload_processes`; institutions gain `symbol` (סמל מוסד). Action: `yearmanagement_entitlements_upload`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Institutional entitlements file upload.
 
+### Personal approvals PDF → Excel
+
+Convert Ministry “אישור תומכת חינוך אישית” PDF (one approval per page) to a downloadable Excel workbook. **Transform only — does not create or update entitlements** (personal entitlement import from this Excel is a later step).
+
+| Piece | Location |
+|---|---|
+| UI entry | Entitlements screen (`/year/{YearId}/entitlements`) — button **חילוץ אישורים מ-PDF** |
+| Modal | `PersonalApprovalsPdfModal.razor` |
+| API | `PersonalApprovalsPdfController` → `POST api/personalapprovalspdf/convert` (multipart `file`, max ~20MB, `.pdf` only) |
+| Parser | `PersonalApprovalsPdfParser` (PdfPig + ClosedXML write) |
+| SQL action | `PetelAssistants/SQL/add-personal-approvals-pdf-action.sql` → `entitlements_personal_approvals_pdf` |
+| Package | `PdfPig` 0.1.10 on `PetelAssistants.Api` (not the compromised `UglyToad.PdfPig` id on NuGet) |
+
+**Response:** `{ success, fileName, contentBase64, rowCount, errorCount, errors[] }`. Blazor downloads via `downloadFileFromBase64`.
+
+**Excel columns (order):** תאריך אישור, שם רשות, סמל רשות, שם פרטי, שם משפחה, ת.ז. תלמיד, קוד תומכת חינוך, מסגרת, שם מוסד, סמל מוסד, שעות, מתאריך, עד תאריך, השתתפות הרשות (Excel `%` number format).
+
+Domain/extraction rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Personal approvals PDF → Excel. Screen map: [year-management-screens.md](../../PetelAssistants/docs/year-management-screens.md).
+
 ## Meitar MUTAVIM retrieve
 
 Pull ministry MUTAVIM rows for the logged-in authority’s period from PetelMeitar into Assistants. Entry points: context buttons on Main Dashboard and Year Management (`MeitarRetrieveModal` → `MeitarDataController`). SQL: `PetelAssistants/SQL/add-meitar-mutavim-retrieve.sql`.

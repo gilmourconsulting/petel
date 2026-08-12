@@ -1,0 +1,209 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using Petel.BlazorCore.Services
+@inject ApiService ApiService
+@inject IJSRuntime JSRuntime
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" style="display: flex;">
+        <div class="modal-content" style="max-width: 640px; width: 90%;">
+            <div class="modal-header">
+                <div>חילוץ אישורים מ-PDF</div>
+                <button class="modal-close" @onclick="CloseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_currentStep == Step.FileSelection)
+                {
+                    <div>
+                        <p style="margin-bottom: 12px; color: #666; direction: rtl;">
+                            העלה קובץ PDF של אישורי תומכת חינוך אישית. המערכת תחלץ את הנתונים לקובץ Excel להורדה.
+                        </p>
+                        <div class="form-group">
+                            <label for="personalApprovalsPdfFile">בחר קובץ PDF *</label>
+                            <div class="file-input-wrapper">
+                                <InputFile id="personalApprovalsPdfFile" OnChange="OnFileSelected" accept=".pdf,application/pdf" style="display: none;" />
+                                <button type="button" class="btn-file-select" @onclick="TriggerFileInput">
+                                    <span>@_fileNameDisplay</span>
+                                </button>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_statusMessage))
+                        {
+                            <div class="upload-status upload-status-@_statusType" style="margin-top: 10px;">
+                                @((MarkupString)_statusMessage.Replace("\n", "<br>"))
+                            </div>
+                        }
+                    </div>
+                }
+                else if (_currentStep == Step.Complete)
+                {
+                    <div class="upload-status upload-status-@_statusType">
+                        @((MarkupString)_statusMessage.Replace("\n", "<br>"))
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                @if (_currentStep == Step.FileSelection)
+                {
+                    <button type="button" class="btn-secondary" @onclick="CloseModal">ביטול</button>
+                    <button type="button" class="btn-primary" @onclick="HandleConvert" disabled="@(_isProcessing || _selectedFile == null)">
+                        @(_isProcessing ? "מעבד..." : "חלץ ל-Excel")
+                    </button>
+                }
+                else
+                {
+                    <button type="button" class="btn-primary" @onclick="CloseModal">סגור</button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private enum Step { FileSelection, Complete }
+
+    private bool _isVisible;
+    private Step _currentStep = Step.FileSelection;
+    private string _fileNameDisplay = "לא נבחר קובץ";
+    private string _statusMessage = string.Empty;
+    private string _statusType = "info";
+    private bool _isProcessing;
+    private IBrowserFile? _selectedFile;
+
+    public void Show()
+    {
+        _isVisible = true;
+        ResetModal();
+        StateHasChanged();
+    }
+
+    private void CloseModal()
+    {
+        _isVisible = false;
+        ResetModal();
+        StateHasChanged();
+    }
+
+    private void ResetModal()
+    {
+        _currentStep = Step.FileSelection;
+        _fileNameDisplay = "לא נבחר קובץ";
+        _statusMessage = string.Empty;
+        _statusType = "info";
+        _isProcessing = false;
+        _selectedFile = null;
+    }
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+        _fileNameDisplay = _selectedFile?.Name ?? "לא נבחר קובץ";
+        _statusMessage = string.Empty;
+        StateHasChanged();
+    }
+
+    private async Task TriggerFileInput()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("FileUploadHelper.triggerFileInput", "personalApprovalsPdfFile");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error triggering file input: {ex.Message}");
+        }
+    }
+
+    private async Task HandleConvert()
+    {
+        if (_selectedFile == null)
+        {
+            _statusMessage = "אנא בחר קובץ PDF";
+            _statusType = "error";
+            return;
+        }
+
+        var ext = Path.GetExtension(_selectedFile.Name)?.ToLowerInvariant();
+        if (ext != ".pdf")
+        {
+            _statusMessage = "יש להעלות קובץ PDF בלבד";
+            _statusType = "error";
+            return;
+        }
+
+        _isProcessing = true;
+        _statusMessage = "מחלץ נתונים מה-PDF...";
+        _statusType = "loading";
+        StateHasChanged();
+
+        try
+        {
+            const long maxFileSize = 20 * 1024 * 1024;
+            await using var stream = _selectedFile.OpenReadStream(maxFileSize);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            var bytes = memoryStream.ToArray();
+
+            using var content = new MultipartFormDataContent();
+            var fileContent = new ByteArrayContent(bytes);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/pdf");
+            content.Add(fileContent, "file", _selectedFile.Name);
+
+            var response = await ApiService.PostMultipartAsync<ConvertResponse>(
+                "personalapprovalspdf/convert", content);
+
+            if (response == null || !response.Success || string.IsNullOrEmpty(response.ContentBase64))
+            {
+                _statusMessage = response?.Message ?? "החילוץ נכשל";
+                if (response?.Errors?.Count > 0)
+                    _statusMessage += "\n" + string.Join("\n", response.Errors.Take(10));
+                _statusType = "error";
+                _currentStep = Step.Complete;
+                return;
+            }
+
+            await JSRuntime.InvokeVoidAsync(
+                "downloadFileFromBase64",
+                response.ContentBase64,
+                response.FileName ?? "personal-approvals.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+            _statusMessage = $"החילוץ הושלם. שורות: {response.RowCount}";
+            if (response.ErrorCount > 0)
+            {
+                _statusMessage += $"\nאזהרות בעמודים: {response.ErrorCount}";
+                if (response.Errors?.Count > 0)
+                    _statusMessage += "\n" + string.Join("\n", response.Errors.Take(10));
+                _statusType = "info";
+            }
+            else
+            {
+                _statusType = "success";
+            }
+
+            _currentStep = Step.Complete;
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"שגיאה: {ex.Message}";
+            _statusType = "error";
+            _currentStep = Step.Complete;
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private sealed class ConvertResponse
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public string? FileName { get; set; }
+        public string? ContentBase64 { get; set; }
+        public int RowCount { get; set; }
+        public int ErrorCount { get; set; }
+        public List<string>? Errors { get; set; }
+    }
+}

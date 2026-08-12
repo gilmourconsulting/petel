@@ -18,11 +18,17 @@
                   OnClick="ShowAddAllocationDialog" CssClass="context-btn">
         הוסף הקצאה
     </SecureButton>
+    <SecureButton ActionName="entitlements_personal_approvals_pdf" ScreenName="@PageName" FunctionName="ShowPersonalApprovalsPdfDialog"
+                  OnClick="ShowPersonalApprovalsPdfDialog" CssClass="context-btn">
+        חילוץ אישורים מ-PDF
+    </SecureButton>
     <SecureButton ActionName="entitlements_back" ScreenName="@PageName" FunctionName="NavigateBack"
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
         חזרה לניהול שנה
     </SecureButton>
 </div>
+
+<PersonalApprovalsPdfModal @ref="_personalApprovalsPdfModal" />
 
 <div class="main-container entitlements-main">
     <div class="students-content entitlements-page">
@@ -751,6 +757,7 @@
     private bool _isSaving;
     private string _formError = string.Empty;
     private EntitlementListItemDto? _editItem;
+    private PersonalApprovalsPdfModal? _personalApprovalsPdfModal;
 
     // Filter state
     private string _filterKind = "";
@@ -1624,6 +1631,8 @@
         "partial" => "status-personal",
         _         => "status-inactive"
     };
+
+    private void ShowPersonalApprovalsPdfDialog() => _personalApprovalsPdfModal?.Show();
 
     private void NavigateBack() => Navigation.NavigateTo($"/year/{YearId}");
 }
