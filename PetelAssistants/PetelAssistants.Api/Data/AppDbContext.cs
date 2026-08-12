@@ -36,6 +36,7 @@ namespace PetelAssistants.Api.Data
         public DbSet<SalaryUploadWarning>    SalaryUploadWarnings   { get; set; }
         public DbSet<SalaryFieldMapping>     SalaryFieldMappings    { get; set; }
         public DbSet<EntitlementFieldMapping>   EntitlementFieldMappings   { get; set; }
+        public DbSet<PersonalEntitlementFieldMapping> PersonalEntitlementFieldMappings { get; set; }
         public DbSet<EntitlementUploadProcess>  EntitlementUploadProcesses { get; set; }
         public DbSet<MeitarRetrieveProcess>  MeitarRetrieveProcesses { get; set; }
         public DbSet<MeitarMutavim>          MeitarMutavim          { get; set; }
@@ -213,6 +214,15 @@ namespace PetelAssistants.Api.Data
             modelBuilder.Entity<EntitlementFieldMapping>(entity =>
             {
                 entity.ToTable("entitlement_field_mappings");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.EntityId).IsUnique();
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<PersonalEntitlementFieldMapping>(entity =>
+            {
+                entity.ToTable("personal_entitlement_field_mappings");
                 entity.HasKey(e => e.Id);
                 entity.HasIndex(e => e.EntityId).IsUnique();
 

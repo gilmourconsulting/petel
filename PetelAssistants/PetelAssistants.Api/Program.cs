@@ -78,6 +78,7 @@ builder.Services.AddScoped<PersonService>();
 builder.Services.AddScoped<PersonsFileProcessor>();
 builder.Services.AddScoped<SalaryFileProcessor>();
 builder.Services.AddScoped<EntitlementFileProcessor>();
+builder.Services.AddScoped<PersonalEntitlementFileProcessor>();
 builder.Services.AddScoped<PersonalApprovalsPdfParser>();
 
 builder.Services.AddScoped<OrgUnitService>();

@@ -30,7 +30,7 @@ Side menu
 - **Year Elements hub** (`YearElements.razor`, `/year-elements`): shared admin multi-tab screen for year-scoped configuration (tabs: class assistant budget hours, hour monetary value). Menu item **ניהול שנה**.
 - **Salaries view** (`Salaries.razor`, `/salaries`): read-only salary table with period and text filters (not Hebrew-year scoped; calendar year/month).
 - **Assistants** (`Assistants.razor`, `/year/{YearId}/assistants`): person CRUD for the logged-in authority.
-- **Entitlements** (`Entitlements.razor`, `/year/{YearId}/entitlements`): combined personal + institutional entitlements for the year. Context button **חילוץ אישורים מ-PDF** (`PersonalApprovalsPdfModal`) converts a Ministry personal-approval PDF to Excel (no entitlement DB writes).
+- **Entitlements** (`Entitlements.razor`, `/year/{YearId}/entitlements`): combined personal + institutional entitlements for the year. Context button **העלאת זכאויות אישיות** (`PersonalEntitlementUploadModal`) imports personal (`student_help`) entitlements from PDF or Excel (PDF convert → optional download → upsert + orphan review).
 - **Org units** (`OrgUnits.razor`, `/year/{YearId}/org-units`): manage tenant-owned institutions (schools and kindergartens in `assist_schema.institutions`; also available at `/org-units` from the main menu).
 - **Yearly budget** (`YearlyBudget.razor`, `/year/{YearId}/yearly-budget`): versioned yearly budget by assistant type, with equal monthly split and **חשב תקציב** on open versions.
 
@@ -106,7 +106,7 @@ Run SQL scripts in order (see below). After running SQL, refresh the security ca
 | Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_entitlements`, `yearmanagement_org_units`, `yearmanagement_yearly_budget`, `yearmanagement_salary_upload`, `yearmanagement_entitlements_upload`, `yearmanagement_salaries_view` |
 | Salaries view | `salaries` | `salaries_page_action` | `salaries_back`, `salaries_refresh` |
 | Assistants | `assistants` | `assistants_page_action` | `assistants_back`, `assistants_refresh`, `assistants_add`, `assistants_upload`, `assistants_view_details`, `assistants_edit`, `assistants_view_history` |
-| Entitlements | `entitlements` | `entitlements_page_action` | back, refresh, add, edit, deactivate, allocations, `entitlements_personal_approvals_pdf` |
+| Entitlements | `entitlements` | `entitlements_page_action` | back, refresh, add, edit, deactivate, allocations, `entitlements_personal_upload` |
 | Yearly budget | `yearly_budget` | `yearly_budget_page_action` | `yearly_budget_back`, `yearly_budget_refresh`, `yearly_budget_calculate`, `yearly_budget_save`, `yearly_budget_lock`, `yearly_budget_new_version`, `yearly_budget_delete` |
 | Year Elements | `year_elements` | `year_elements_page_action` | `year_elements_back`, `year_elements_refresh`, `year_elements_class_hours_save`, `year_elements_hour_value_save` |
 | Org units | `org_units` | `org_units_page_action` | back, refresh, add, edit, activate, deactivate |
@@ -136,7 +136,8 @@ After user-management scripts:
 14. `PetelAssistants/SQL/add-class-assistant-budget-hours-participation.sql` — `ministry_participation_pct` field on each year/school_level/classification record
 15. `PetelAssistants/SQL/seed-class-assistant-budget-hours-tashpu.sql` — optional seed for תשפו
 16. `PetelAssistants/SQL/add-budget-hour-value.sql` — shared `budget_hour_values` + `year_elements_hour_value_save`
-17. `PetelAssistants/SQL/add-personal-approvals-pdf-action.sql` — Entitlements PDF→Excel button (`entitlements_personal_approvals_pdf`)
+17. `PetelAssistants/SQL/add-personal-approvals-pdf-action.sql` — PDF convert action (`entitlements_personal_approvals_pdf`)
+18. `PetelAssistants/SQL/add-personal-entitlement-upload.sql` — personal entitlement upload (`entitlements_personal_upload` + mappings table)
 
 ## Files
 
@@ -151,7 +152,7 @@ After user-management scripts:
 | `Salaries.razor` | `/salaries` |
 | `Assistants.razor` | `/year/{YearId:int}/assistants` |
 | `Entitlements.razor` | `/year/{YearId:int}/entitlements` |
-| `PersonalApprovalsPdfModal.razor` | (modal from entitlements — PDF→Excel) |
+| `PersonalEntitlementUploadModal.razor` | (modal from entitlements — personal PDF/Excel upload) |
 | `YearlyBudget.razor` | `/year/{YearId:int}/yearly-budget` |
 | `OrgUnits.razor` | `/org-units`, `/year/{YearId:int}/org-units` |
 | `AssistantTypes.razor` | `/assistant-types` |

@@ -179,24 +179,37 @@ Manual upload from Year Management (`EntitlementUploadModal` → `EntitlementFil
 
 Tables: `entitlement_field_mappings`, `entitlement_upload_processes`; institutions gain `symbol` (סמל מוסד). Action: `yearmanagement_entitlements_upload`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Institutional entitlements file upload.
 
-### Personal approvals PDF → Excel
+### Personal entitlements file upload (PDF / Excel)
 
-Convert Ministry “אישור תומכת חינוך אישית” PDF (one approval per page) to a downloadable Excel workbook. **Transform only — does not create or update entitlements** (personal entitlement import from this Excel is a later step).
+Upload personal (`student_help`) entitlements from the Entitlements screen (`PersonalEntitlementUploadModal` → `PersonalEntitlementUploadController`). PDF is converted via existing `POST api/personalapprovalspdf/convert`, then optionally downloaded, then imported. SQL: `PetelAssistants/SQL/add-personal-entitlement-upload.sql`.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET/PUT api/personalentitlementupload/mapping` | Entity-level personal column map |
+| `POST api/personalentitlementupload/preview` | Headers + suggested/saved mappings |
+| `POST api/personalentitlementupload/upload` | Multipart file + mapping + `yearId` + `saveMapping` → counts + orphan list |
+| `POST api/personalentitlementupload/cancel-orphans` | Logical cancel (version) for selected orphan personal entitlement ids |
+| `POST api/personalapprovalspdf/convert` | PDF → Excel (reuse; no entitlement DB writes) |
+
+Tables: `personal_entitlement_field_mappings`; process audit reuses `entitlement_upload_processes`. Action: `entitlements_personal_upload`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Personal entitlements file upload.
+
+### Personal approvals PDF → Excel (convert)
+
+Convert Ministry “אישור תומכת חינוך אישית” PDF (one approval per page) to Excel. Used by the personal entitlement upload wizard; convert alone does not write entitlements.
 
 | Piece | Location |
 |---|---|
-| UI entry | Entitlements screen (`/year/{YearId}/entitlements`) — button **חילוץ אישורים מ-PDF** |
-| Modal | `PersonalApprovalsPdfModal.razor` |
+| UI entry | Entitlements upload wizard (PDF branch) |
 | API | `PersonalApprovalsPdfController` → `POST api/personalapprovalspdf/convert` (multipart `file`, max ~20MB, `.pdf` only) |
 | Parser | `PersonalApprovalsPdfParser` (PdfPig + ClosedXML write) |
-| SQL action | `PetelAssistants/SQL/add-personal-approvals-pdf-action.sql` → `entitlements_personal_approvals_pdf` |
+| SQL action | `PetelAssistants/SQL/add-personal-approvals-pdf-action.sql` → `entitlements_personal_approvals_pdf` (legacy; UI uses `entitlements_personal_upload`) |
 | Package | `PdfPig` 0.1.10 on `PetelAssistants.Api` (not the compromised `UglyToad.PdfPig` id on NuGet) |
 
-**Response:** `{ success, fileName, contentBase64, rowCount, errorCount, errors[] }`. Blazor downloads via `downloadFileFromBase64`.
+**Response:** `{ success, fileName, contentBase64, rowCount, errorCount, errors[] }`.
 
 **Excel columns (order):** תאריך אישור, שם רשות, סמל רשות, שם פרטי, שם משפחה, ת.ז. תלמיד, קוד תומכת חינוך, מסגרת, שם מוסד, סמל מוסד, שעות, מתאריך, עד תאריך, השתתפות הרשות (Excel `%` number format).
 
-Domain/extraction rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Personal approvals PDF → Excel. Screen map: [year-management-screens.md](../../PetelAssistants/docs/year-management-screens.md).
+Domain/extraction rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Personal entitlements file upload. Screen map: [year-management-screens.md](../../PetelAssistants/docs/year-management-screens.md).
 
 ## Meitar MUTAVIM retrieve
 

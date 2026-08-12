@@ -475,6 +475,76 @@ namespace PetelAssistants.Api.Services
             });
         }
 
+        /// <summary>
+        /// Personal upload-driven version update — may change hours/institution/dates/names/participation
+        /// (fields immutable or restricted in the manual edit UI).
+        /// </summary>
+        public async Task ApplyPersonalUploadVersionAsync(
+            int? userId,
+            int entitlementId,
+            int institutionId,
+            decimal hours,
+            string hoursUnit,
+            decimal ministryParticipationPct,
+            DateOnly startDate,
+            DateOnly endDate,
+            string pupilFirstName,
+            string pupilLastName)
+        {
+            ValidateHoursUnit(hoursUnit);
+
+            if (hours <= 0)
+                throw new InvalidOperationException("מספר שעות חייב להיות גדול מאפס");
+
+            if (ministryParticipationPct < 0 || ministryParticipationPct > 100)
+                throw new InvalidOperationException("אחוז השתתפות משרד החינוך חייב להיות בין 0 ל-100");
+
+            var entitlement = await _context.Entitlements.FirstOrDefaultAsync(e => e.Id == entitlementId)
+                ?? throw new InvalidOperationException("זכאות לא נמצאה");
+
+            if (!entitlement.IsLastVersion)
+                throw new InvalidOperationException("ניתן לערוך רק את הגרסה האחרונה של הזכאות");
+
+            if (entitlement.IsCancelled)
+                throw new InvalidOperationException("לא ניתן לערוך זכאות שבוטלה");
+
+            if (entitlement.MasterEntitlementId <= 0)
+                entitlement.MasterEntitlementId = entitlement.Id;
+
+            var assistantType = await LoadAssistantTypeAsync(entitlement.AssistantTypeId, requireActive: false);
+            if (!IsPersonalLevel(assistantType.Level))
+                throw new InvalidOperationException("גרסת העלאה אישית מותרת רק לזכאות אישית");
+
+            var year = await LoadHebrewYearAsync(entitlement.HebrewYearId, requireActive: false);
+            ValidateDates(startDate, endDate, year);
+
+            await ValidateInstitutionBelongsToTenantAsync(institutionId);
+
+            var firstName = NormalizeRequiredText(pupilFirstName, "שם פרטי תלמיד");
+            var lastName = NormalizeRequiredText(pupilLastName, "שם משפחה תלמיד");
+
+            await ValidateNoOverlapAsync(
+                excludeMasterId: entitlement.MasterEntitlementId,
+                assistantType,
+                startDate,
+                endDate,
+                institutionId,
+                entitlement.ClassName,
+                entitlement.PupilIdNumber);
+
+            await CreateNewEntitlementVersionAsync(entitlement, userId, newVersion =>
+            {
+                newVersion.InstitutionId = institutionId;
+                newVersion.Hours = hours;
+                newVersion.HoursUnit = hoursUnit;
+                newVersion.MinistryParticipationPct = ministryParticipationPct;
+                newVersion.StartDate = startDate;
+                newVersion.EndDate = endDate;
+                newVersion.PupilFirstName = firstName;
+                newVersion.PupilLastName = lastName;
+            });
+        }
+
         // ─── private helpers ──────────────────────────────────────────────────────
 
         private async Task<Entitlement> CreateNewEntitlementVersionAsync(

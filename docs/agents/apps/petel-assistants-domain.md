@@ -247,9 +247,27 @@ Ministry export (Excel/CSV) import for institutional entitlements (`class_help` 
 
 **Orphans:** after upload, return institutional entitlements for the year whose key was not in the file; UI lets the user tick and logically cancel (cancel-via-version).
 
-### Personal approvals PDF → Excel
+### Personal entitlements file upload (PDF / Excel)
 
-Ministry “אישור תומכת חינוך אישית” PDF → Excel extract for review / later personal entitlement import. UI: Entitlements → **חילוץ אישורים מ-PDF**. **No DB writes** in this step.
+Import personal entitlements (`assistant_types.name = student_help`). UI: Entitlements → **העלאת זכאויות אישיות** (`PersonalEntitlementUploadModal`). SQL: `add-personal-entitlement-upload.sql` (+ PDF convert action still in `add-personal-approvals-pdf-action.sql`).
+
+**Input:** PDF (Ministry “אישור תומכת חינוך אישית”) or Excel/CSV. PDF path: `POST api/personalapprovalspdf/convert` → optional Excel download prompt → same import pipeline as Excel. Excel path: preview + column mapping → upload.
+
+**Type:** always `student_help`. Hours are weekly as-is (not annual÷12).
+
+**Participation:** file column is municipality % (`השתתפות הרשות`); store `ministry_participation_pct = 100 − fileValue`.
+
+**Matching:** institution by `סמל מוסד` → `institutions.symbol` only (no auto-create).
+
+**Upsert natural key:** year + `student_help` + pupil ID. Exact match (hours, ministry %, institution, start/end dates, first/last name) → skip; diff → new historical version via `ApplyPersonalUploadVersionAsync` (upload may change hours/institution/dates/names); missing → create v1. Duplicate pupil IDs in the same file → row errors.
+
+**Orphans:** after upload, return year `student_help` last-version non-cancelled entitlements whose pupil ID was not in the file; UI lets the user tick and logically cancel (cancel-via-version).
+
+**API:** `GET/PUT api/personalentitlementupload/mapping`, `POST preview`, `POST upload`, `POST cancel-orphans`. Mapping table: `personal_entitlement_field_mappings`. Process audit reuses `entitlement_upload_processes`. Security action: `entitlements_personal_upload`.
+
+#### PDF → Excel extract (convert step)
+
+Ministry PDF → Excel extract used by the upload wizard (and downloadable for review). **Convert alone writes no entitlements.**
 
 **Source shape:** one approval per page. Hebrew in these PDFs often has empty ToUnicode CMaps; parser remaps Identity CIDs `U+02A0–U+02BA` → Hebrew (`+0x0330`), clusters letters by mid-Y, then reverses Hebrew tokens (not digit/date tokens) for logical RTL.
 
@@ -276,9 +294,7 @@ Ministry “אישור תומכת חינוך אישית” PDF → Excel extract
 | 3 and middle is `בן` | first | `בן` + third |
 | 3+ otherwise | all but last | last |
 
-**Validation / errors:** per-page warnings when ת.ז., hours, or מסגרת are missing; row is still exported. `errorCount` / `errors[]` surface the first warnings to the UI.
-
-**Out of scope (next step):** creating personal entitlements from the Excel (institution match by `symbol`, pupil encrypt, overlap rules).
+**Validation / errors:** per-page warnings when ת.ז., hours, or מסגרת are missing; row is still exported. `errorCount` / `errors[]` surface the first warnings to the UI. Import row failures (missing institution, bad ID, etc.) are listed at end of the entitlement upload step.
 
 ## Meitar data integration
 
