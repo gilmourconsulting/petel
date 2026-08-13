@@ -18,6 +18,13 @@
                   OnClick="ShowAddAllocationDialog" CssClass="context-btn">
         הוסף הקצאה
     </SecureButton>
+    @if (_selectedEntitlement is { IsValid: false, IsCancelled: false })
+    {
+        <SecureButton ActionName="entitlements_resolve_invalid" ScreenName="@PageName" FunctionName="ShowResolveValidityDialog"
+                      OnClick="() => ShowResolveValidityDialog(_selectedEntitlement)" CssClass="context-btn">
+            טיפול בזכאות לא תקינה
+        </SecureButton>
+    }
     <SecureButton ActionName="entitlements_personal_upload" ScreenName="@PageName" FunctionName="ShowPersonalEntitlementUploadDialog"
                   OnClick="ShowPersonalEntitlementUploadDialog" CssClass="context-btn">
         העלאת זכאויות אישיות
@@ -121,6 +128,14 @@
                             <option value="full">מוקצה במלואו</option>
                         </select>
                     </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">תקינות</label>
+                        <select class="form-control" style="min-width: 130px;" @bind="_filterValidity" @bind:event="onchange">
+                            <option value="">הכל</option>
+                            <option value="valid">תקינות</option>
+                            <option value="invalid">לא תקינות</option>
+                        </select>
+                    </div>
                     @if (HasActiveFilters)
                     {
                         <button class="btn btn-secondary" style="align-self: flex-end;" @onclick="ClearFilters">נקה סינון</button>
@@ -191,6 +206,13 @@
                                                               OnClick="() => ShowEditDialog(item)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
                                                     <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
                                                 </SecureButton>
+                                                @if (!item.IsValid)
+                                                {
+                                                    <SecureButton ActionName="entitlements_resolve_invalid" ScreenName="@PageName" FunctionName="ResolveInvalid"
+                                                                  OnClick="() => ShowResolveValidityDialog(item)" CssClass="btn-icon" Title="טיפול בזכאות לא תקינה" HideIfNoAccess="true">
+                                                        <span class="status-badge status-invalid">לא תקינה</span>
+                                                    </SecureButton>
+                                                }
                                             }
                                             @if (item.IsActive && !item.IsCancelled)
                                             {
@@ -205,7 +227,7 @@
                                                 @(isPersonal ? "אישי" : "מוסדי")
                                             </span>
                                         </td>
-                                        <td>@(item.SchoolName ?? "—")</td>
+                                        <td>@(item.SchoolName ?? (string.IsNullOrEmpty(item.SourceInstitutionSymbol) ? "—" : $"סמל {item.SourceInstitutionSymbol}"))</td>
                                         <td>
                                             @if (isPersonal && (!string.IsNullOrEmpty(item.PupilFirstName) || !string.IsNullOrEmpty(item.PupilLastName)))
                                             {
@@ -232,6 +254,10 @@
                                             <span class="status-badge @(item.IsCancelled ? "status-inactive" : item.IsActive ? "status-active" : "status-inactive")">
                                                 @(item.IsCancelled ? "בוטל" : item.IsActive ? "פעיל" : "לא פעיל")
                                             </span>
+                                            @if (!item.IsValid && !item.IsCancelled)
+                                            {
+                                                <span class="status-badge status-invalid" title="@item.InvalidReasonsDisplay">לא תקינה</span>
+                                            }
                                         </td>
                                     </tr>
                                 }
@@ -322,6 +348,7 @@
                                             <th>סיווג כיתה</th>
                                             <th>שם תלמיד</th>
                                             <th>סטטוס</th>
+                                            <th>סיבת אישור</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -355,7 +382,12 @@
                                                     <span class="status-badge @(row.IsCancelled ? "status-inactive" : row.IsActive ? "status-active" : "status-inactive")">
                                                         @(row.IsCancelled ? "בוטל" : row.IsActive ? "פעיל" : "לא פעיל")
                                                     </span>
+                                                    @if (!row.IsValid && !row.IsCancelled)
+                                                    {
+                                                        <span class="status-badge status-invalid" title="@row.InvalidReasonsDisplay">לא תקינה</span>
+                                                    }
                                                 </td>
+                                                <td>@(row.ValidityResolvedReason ?? "—")</td>
                                             </tr>
                                         }
                                     </tbody>
@@ -670,6 +702,85 @@
     </div>
 }
 
+@if (_showResolveDialog && _resolveItem != null)
+{
+    <div class="modal-overlay" @onclick="CloseResolveDialog">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>טיפול בזכאות לא תקינה</h3>
+                <button class="modal-close" @onclick="CloseResolveDialog">✕</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-top: 0;">
+                    סיבות: <strong>@(_resolveItem.InvalidReasonsDisplay ?? "—")</strong>
+                </p>
+
+                @if (HasInvalidReason(_resolveItem, "invalid_pupil_id"))
+                {
+                    <div class="form-group">
+                        <label>תעודת זהות תלמיד</label>
+                        <input class="form-control" @bind="_resolvePupilId" maxlength="9" inputmode="numeric" placeholder="9 ספרות" />
+                    </div>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" @bind="_resolveApprovePupilId" />
+                            אשר בכל זאת (9 ספרות)
+                        </label>
+                    </div>
+                }
+
+                @if (HasInvalidReason(_resolveItem, "invalid_support_code"))
+                {
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" @bind="_resolveApproveSupportCode" />
+                            אשר קוד תומכת חינוך
+                            @if (!string.IsNullOrEmpty(_resolveItem.SourceSupportCode))
+                            {
+                                <span>(קוד בקובץ: @_resolveItem.SourceSupportCode)</span>
+                            }
+                        </label>
+                    </div>
+                }
+
+                @if (HasInvalidReason(_resolveItem, "missing_institution"))
+                {
+                    <div class="form-group">
+                        <label>מוסד <span class="required">*</span></label>
+                        @if (!string.IsNullOrEmpty(_resolveItem.SourceInstitutionSymbol))
+                        {
+                            <small class="form-text text-muted">סמל מהקובץ: @_resolveItem.SourceInstitutionSymbol</small>
+                        }
+                        <select class="form-control" @bind="_resolveInstitutionId">
+                            <option value="0">— בחר מוסד —</option>
+                            @foreach (var unit in _orgUnits.Where(u => u.IsActive))
+                            {
+                                <option value="@unit.Id">@unit.Name</option>
+                            }
+                        </select>
+                    </div>
+                }
+
+                <div class="form-group">
+                    <label>סיבת אישור <span class="required">*</span></label>
+                    <textarea class="form-control" @bind="_resolveReason" rows="3" maxlength="500" placeholder="חובה"></textarea>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_resolveError))
+                {
+                    <div class="error-alert" role="alert">@_resolveError</div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseResolveDialog">ביטול</button>
+                <button class="btn btn-primary" @onclick="SaveResolveValidity" disabled="@_isSavingResolve">
+                    @(_isSavingResolve ? "שומר..." : "שמור")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .entitlements-main {
         height: calc(100vh - 60px - 50px);
@@ -738,6 +849,12 @@
     .person-search-result:hover {
         background-color: #f0f7ff;
     }
+
+    .status-badge.status-invalid {
+        background-color: #fff3cd;
+        color: #856404;
+        margin-right: 4px;
+    }
 </style>
 
 @code {
@@ -768,6 +885,7 @@
     private int _filterAssistantTypeId;
     private string _filterActiveOnly = "true";
     private string _filterAllocation = "";
+    private string _filterValidity = "";
 
     // Sort state
     private string _sortColumn = "SchoolName";
@@ -795,6 +913,16 @@
     private string _dockTab = "allocations";
     private List<EntitlementListItemDto> _entitlementHistory = new();
     private bool _isLoadingHistory;
+
+    private bool _showResolveDialog;
+    private bool _isSavingResolve;
+    private string _resolveError = string.Empty;
+    private EntitlementListItemDto? _resolveItem;
+    private string _resolveReason = string.Empty;
+    private string _resolvePupilId = string.Empty;
+    private bool _resolveApprovePupilId;
+    private bool _resolveApproveSupportCode;
+    private int _resolveInstitutionId;
 
     private bool HasEntitlementHistory => _entitlementHistory.Count > 1;
 
@@ -999,6 +1127,12 @@
         if (_selectedEntitlement == null)
         {
             await JSRuntime.InvokeVoidAsync("alert", "יש לבחור זכאות מהטבלה לפני הוספת הקצאה");
+            return;
+        }
+
+        if (!_selectedEntitlement.IsValid)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "לא ניתן להקצות לזכאות שאינה תקינה");
             return;
         }
 
@@ -1258,6 +1392,8 @@
                 if (_filterSchoolId > 0 && item.InstitutionId != _filterSchoolId) return false;
                 if (_filterAssistantTypeId > 0 && item.AssistantTypeId != _filterAssistantTypeId) return false;
                 if (!string.IsNullOrEmpty(_filterAllocation) && item.AllocationStatus != _filterAllocation) return false;
+                if (_filterValidity == "valid" && !item.IsValid) return false;
+                if (_filterValidity == "invalid" && item.IsValid) return false;
 
                 return true;
             });
@@ -1312,7 +1448,8 @@
         _filterSchoolId > 0 ||
         _filterAssistantTypeId > 0 ||
         _filterActiveOnly == "false" ||
-        !string.IsNullOrEmpty(_filterAllocation);
+        !string.IsNullOrEmpty(_filterAllocation) ||
+        !string.IsNullOrEmpty(_filterValidity);
 
     private void ClearFilters()
     {
@@ -1321,6 +1458,7 @@
         _filterAssistantTypeId = 0;
         _filterActiveOnly = "true";
         _filterAllocation = "";
+        _filterValidity = "";
     }
 
     private void SortTable(string column)
@@ -1593,6 +1731,80 @@
         }
 
         return null;
+    }
+
+    private static bool HasInvalidReason(EntitlementListItemDto item, string code)
+        => !string.IsNullOrEmpty(item.InvalidReasons) &&
+           item.InvalidReasons.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+               .Contains(code, StringComparer.Ordinal);
+
+    private void ShowResolveValidityDialog(EntitlementListItemDto item)
+    {
+        _resolveItem = item;
+        _resolveReason = string.Empty;
+        _resolvePupilId = item.PupilIdNumber ?? string.Empty;
+        _resolveApprovePupilId = false;
+        _resolveApproveSupportCode = false;
+        _resolveInstitutionId = item.InstitutionId ?? 0;
+        _resolveError = string.Empty;
+        _showResolveDialog = true;
+    }
+
+    private void CloseResolveDialog()
+    {
+        _showResolveDialog = false;
+        _resolveItem = null;
+        _resolveError = string.Empty;
+    }
+
+    private async Task SaveResolveValidity()
+    {
+        if (_resolveItem == null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(_resolveReason))
+        {
+            _resolveError = "יש להזין סיבת אישור";
+            return;
+        }
+
+        _isSavingResolve = true;
+        _resolveError = string.Empty;
+        try
+        {
+            var response = await ApiService.PutAsync<ResolveEntitlementValidityRequest, ApiResponse<object>>(
+                $"entitlements/{_resolveItem.Id}/resolve-validity",
+                new ResolveEntitlementValidityRequest
+                {
+                    Reason = _resolveReason.Trim(),
+                    PupilIdNumber = _resolvePupilId,
+                    ApproveInvalidPupilId = _resolveApprovePupilId,
+                    ApproveSupportCode = _resolveApproveSupportCode,
+                    InstitutionId = _resolveInstitutionId > 0 ? _resolveInstitutionId : null
+                });
+
+            if (response?.Success == true)
+            {
+                CloseResolveDialog();
+                await LoadDataAsync();
+            }
+            else
+            {
+                _resolveError = response?.Message ?? "שגיאה בשמירה";
+            }
+        }
+        catch (HttpStatusException ex)
+        {
+            _resolveError = TryReadApiMessage(ex.ResponseContent) ?? ex.Message;
+        }
+        catch (Exception ex)
+        {
+            _resolveError = TryReadApiMessage(ex.Message) ?? $"שגיאה: {ex.Message}";
+        }
+        finally
+        {
+            _isSavingResolve = false;
+        }
     }
 
     private async Task DeactivateItem(EntitlementListItemDto item)

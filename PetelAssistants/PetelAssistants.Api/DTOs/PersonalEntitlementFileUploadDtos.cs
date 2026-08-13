@@ -12,6 +12,8 @@ namespace PetelAssistants.Api.DTOs
         public decimal AuthorityParticipationPct { get; set; }
         public DateOnly? StartDate { get; set; }
         public DateOnly? EndDate { get; set; }
+        public string? SupportCode { get; set; }
+        public bool SupportCodeMapped { get; set; }
         public bool ParseError { get; set; }
         public string? ParseErrorMessage { get; set; }
     }
@@ -35,7 +37,9 @@ namespace PetelAssistants.Api.DTOs
         public int Versioned { get; set; }
         public int Skipped { get; set; }
         public int Errors { get; set; }
+        public int Invalid { get; set; }
         public List<string> ErrorList { get; set; } = new();
+        public List<string> InvalidList { get; set; } = new();
         public List<PersonalEntitlementOrphanDto> Orphans { get; set; } = new();
     }
 

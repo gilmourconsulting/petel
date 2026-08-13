@@ -173,6 +173,9 @@ namespace PetelAssistants.Api.Services
             if (!entitlement.IsLastVersion || entitlement.IsCancelled)
                 throw new InvalidOperationException("ניתן להקצות רק לזכאות פעילה בגרסה האחרונה");
 
+            if (!entitlement.IsValid)
+                throw new InvalidOperationException("לא ניתן להקצות לזכאות שאינה תקינה");
+
             var personExists = await _context.Persons.AsNoTracking()
                 .AnyAsync(p => p.Id == request.PersonId);
             if (!personExists)
@@ -253,7 +256,11 @@ namespace PetelAssistants.Api.Services
             return await MapListAsync(items, allocatedHoursMap);
         }
 
-        public async Task<int> CreateEntitlementAsync(int entityId, int? userId, CreateEntitlementRequest request)
+        public async Task<int> CreateEntitlementAsync(
+            int entityId,
+            int? userId,
+            CreateEntitlementRequest request,
+            EntitlementUploadValidity? uploadValidity = null)
         {
             ValidateHoursUnit(request.HoursUnit);
 
@@ -268,16 +275,35 @@ namespace PetelAssistants.Api.Services
             ValidateDates(startDate, endDate, year);
 
             bool isPersonal = IsPersonalLevel(assistantType.Level);
-            ValidateKindFields(isPersonal, request.InstitutionId, request.PupilIdNumber, request.PupilFirstName, request.PupilLastName);
+            bool allowInvalid = uploadValidity != null;
+            ValidateKindFields(
+                isPersonal,
+                request.InstitutionId,
+                request.PupilIdNumber,
+                request.PupilFirstName,
+                request.PupilLastName,
+                allowInvalid);
 
             var className = NormalizeOptionalText(request.ClassName);
             if (IsClassHelp(assistantType.Name) && string.IsNullOrWhiteSpace(className))
                 throw new InvalidOperationException("שם כיתה נדרש לזכאות מסוג סייעת כיתתית");
 
+            string? pupilIdNumber = null;
             if (isPersonal)
-                ValidatePupilIdNumber(request.PupilIdNumber!);
+            {
+                var (normalized, hardError, isInvalid) = EvaluatePupilId(request.PupilIdNumber);
+                if (hardError != null)
+                    throw new InvalidOperationException(hardError);
+                if (isInvalid && !allowInvalid)
+                    throw new InvalidOperationException("מספר תעודת זהות לא תקין — ספרת ביקורת שגויה");
+                pupilIdNumber = normalized;
+            }
 
-            await ValidateInstitutionBelongsToTenantAsync(request.InstitutionId!.Value);
+            if (request.InstitutionId.HasValue)
+                await ValidateInstitutionBelongsToTenantAsync(request.InstitutionId.Value);
+            else if (!allowInvalid)
+                throw new InvalidOperationException("יש לבחור בית ספר או גן");
+
             await ValidateClassClassificationAsync(request.ClassClassificationId);
 
             if (request.Hours <= 0)
@@ -285,8 +311,6 @@ namespace PetelAssistants.Api.Services
 
             if (request.MinistryParticipationPct < 0 || request.MinistryParticipationPct > 100)
                 throw new InvalidOperationException("אחוז השתתפות משרד החינוך חייב להיות בין 0 ל-100");
-
-            var pupilIdNumber = isPersonal ? NormalizeRequiredText(request.PupilIdNumber, "תעודת זהות תלמיד") : null;
 
             await ValidateNoOverlapAsync(
                 excludeMasterId: null,
@@ -319,6 +343,10 @@ namespace PetelAssistants.Api.Services
                 IsLastVersion            = true,
                 IsCancelled              = false,
                 IsActive                 = true,
+                IsValid                  = uploadValidity?.IsValid ?? true,
+                InvalidReasons           = uploadValidity?.ReasonsCsv,
+                SourceInstitutionSymbol  = uploadValidity?.SourceInstitutionSymbol,
+                SourceSupportCode        = uploadValidity?.SourceSupportCode,
                 UserId                   = userId,
                 UpdateUser               = userId,
                 CreatedAt                = now,
@@ -442,7 +470,9 @@ namespace PetelAssistants.Api.Services
             decimal hours,
             string hoursUnit,
             decimal ministryParticipationPct,
-            int? classClassificationId)
+            int? classClassificationId,
+            int? institutionId = null,
+            EntitlementUploadValidity? uploadValidity = null)
         {
             ValidateHoursUnit(hoursUnit);
 
@@ -464,6 +494,9 @@ namespace PetelAssistants.Api.Services
             if (entitlement.MasterEntitlementId <= 0)
                 entitlement.MasterEntitlementId = entitlement.Id;
 
+            if (institutionId.HasValue)
+                await ValidateInstitutionBelongsToTenantAsync(institutionId.Value);
+
             await ValidateClassClassificationAsync(classClassificationId);
 
             await CreateNewEntitlementVersionAsync(entitlement, userId, newVersion =>
@@ -472,6 +505,11 @@ namespace PetelAssistants.Api.Services
                 newVersion.HoursUnit = hoursUnit;
                 newVersion.MinistryParticipationPct = ministryParticipationPct;
                 newVersion.ClassClassificationId = classClassificationId;
+                if (uploadValidity != null)
+                {
+                    newVersion.InstitutionId = institutionId;
+                    ApplyUploadValidity(newVersion, uploadValidity);
+                }
             });
         }
 
@@ -482,14 +520,15 @@ namespace PetelAssistants.Api.Services
         public async Task ApplyPersonalUploadVersionAsync(
             int? userId,
             int entitlementId,
-            int institutionId,
+            int? institutionId,
             decimal hours,
             string hoursUnit,
             decimal ministryParticipationPct,
             DateOnly startDate,
             DateOnly endDate,
             string pupilFirstName,
-            string pupilLastName)
+            string pupilLastName,
+            EntitlementUploadValidity? uploadValidity = null)
         {
             ValidateHoursUnit(hoursUnit);
 
@@ -518,7 +557,8 @@ namespace PetelAssistants.Api.Services
             var year = await LoadHebrewYearAsync(entitlement.HebrewYearId, requireActive: false);
             ValidateDates(startDate, endDate, year);
 
-            await ValidateInstitutionBelongsToTenantAsync(institutionId);
+            if (institutionId.HasValue)
+                await ValidateInstitutionBelongsToTenantAsync(institutionId.Value);
 
             var firstName = NormalizeRequiredText(pupilFirstName, "שם פרטי תלמיד");
             var lastName = NormalizeRequiredText(pupilLastName, "שם משפחה תלמיד");
@@ -542,6 +582,115 @@ namespace PetelAssistants.Api.Services
                 newVersion.EndDate = endDate;
                 newVersion.PupilFirstName = firstName;
                 newVersion.PupilLastName = lastName;
+                if (uploadValidity != null)
+                    ApplyUploadValidity(newVersion, uploadValidity);
+            });
+        }
+
+        public async Task ResolveValidityAsync(int? userId, int id, ResolveEntitlementValidityRequest request)
+        {
+            var reason = request.Reason?.Trim();
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new InvalidOperationException("יש להזין סיבת אישור");
+
+            var entitlement = await _context.Entitlements.FirstOrDefaultAsync(e => e.Id == id)
+                ?? throw new InvalidOperationException("זכאות לא נמצאה");
+
+            if (!entitlement.IsLastVersion)
+                throw new InvalidOperationException("ניתן לטפל רק בגרסה האחרונה של הזכאות");
+
+            if (entitlement.IsCancelled)
+                throw new InvalidOperationException("לא ניתן לטפל בזכאות שבוטלה");
+
+            if (entitlement.IsValid)
+                throw new InvalidOperationException("הזכאות כבר תקינה");
+
+            if (entitlement.MasterEntitlementId <= 0)
+                entitlement.MasterEntitlementId = entitlement.Id;
+
+            var remaining = EntitlementInvalidReasons.Split(entitlement.InvalidReasons);
+            var assistantType = await LoadAssistantTypeAsync(entitlement.AssistantTypeId, requireActive: false);
+            bool isPersonal = IsPersonalLevel(assistantType.Level);
+
+            string? pupilIdNumber = entitlement.PupilIdNumber;
+            int? institutionId = entitlement.InstitutionId;
+
+            if (remaining.Contains(EntitlementInvalidReasons.InvalidPupilId))
+            {
+                var candidate = !string.IsNullOrWhiteSpace(request.PupilIdNumber)
+                    ? request.PupilIdNumber
+                    : entitlement.PupilIdNumber;
+                var (normalized, hardError, isInvalid) = EvaluatePupilId(candidate);
+                if (hardError != null)
+                    throw new InvalidOperationException(hardError);
+
+                if (!isInvalid)
+                {
+                    pupilIdNumber = normalized;
+                    remaining.Remove(EntitlementInvalidReasons.InvalidPupilId);
+                }
+                else if (request.ApproveInvalidPupilId && normalized?.Length == 9)
+                {
+                    pupilIdNumber = normalized;
+                    remaining.Remove(EntitlementInvalidReasons.InvalidPupilId);
+                }
+                else
+                    throw new InvalidOperationException("תעודת זהות עדיין אינה תקינה — תקנו אותה או אשרו עם 9 ספרות");
+            }
+
+            if (remaining.Contains(EntitlementInvalidReasons.InvalidSupportCode))
+            {
+                if (!request.ApproveSupportCode)
+                    throw new InvalidOperationException("יש לאשר את קוד תומכת החינוך");
+                remaining.Remove(EntitlementInvalidReasons.InvalidSupportCode);
+            }
+
+            if (remaining.Contains(EntitlementInvalidReasons.MissingInstitution))
+            {
+                if (!request.InstitutionId.HasValue || request.InstitutionId.Value <= 0)
+                    throw new InvalidOperationException("יש לבחור מוסד");
+
+                await ValidateInstitutionBelongsToTenantAsync(request.InstitutionId.Value);
+
+                if (!isPersonal)
+                {
+                    var conflict = await _context.Entitlements.AsNoTracking()
+                        .Where(e => e.IsLastVersion
+                                    && !e.IsCancelled
+                                    && e.MasterEntitlementId != entitlement.MasterEntitlementId
+                                    && e.HebrewYearId == entitlement.HebrewYearId
+                                    && e.AssistantTypeId == entitlement.AssistantTypeId
+                                    && e.InstitutionId == request.InstitutionId.Value
+                                    && e.ClassName == entitlement.ClassName)
+                        .AnyAsync();
+                    if (conflict)
+                        throw new InvalidOperationException(
+                            "קיימת כבר זכאות לאותו מוסד וסוג (וכיתה) — יש לבטל אחת מהן לפני הקישור");
+                }
+
+                institutionId = request.InstitutionId.Value;
+                remaining.Remove(EntitlementInvalidReasons.MissingInstitution);
+            }
+
+            await ValidateNoOverlapAsync(
+                excludeMasterId: entitlement.MasterEntitlementId,
+                assistantType,
+                entitlement.StartDate,
+                entitlement.EndDate,
+                institutionId,
+                entitlement.ClassName,
+                pupilIdNumber);
+
+            var now = DateTime.UtcNow;
+            await CreateNewEntitlementVersionAsync(entitlement, userId, newVersion =>
+            {
+                newVersion.PupilIdNumber = pupilIdNumber;
+                newVersion.InstitutionId = institutionId;
+                newVersion.InvalidReasons = EntitlementInvalidReasons.Join(remaining);
+                newVersion.IsValid = remaining.Count == 0;
+                newVersion.ValidityResolvedAt = now;
+                newVersion.ValidityResolvedUser = userId;
+                newVersion.ValidityResolvedReason = reason;
             });
         }
 
@@ -574,6 +723,13 @@ namespace PetelAssistants.Api.Services
                 PupilIdNumber            = existing.PupilIdNumber,
                 PupilFirstName           = existing.PupilFirstName,
                 PupilLastName            = existing.PupilLastName,
+                IsValid                  = existing.IsValid,
+                InvalidReasons           = existing.InvalidReasons,
+                SourceInstitutionSymbol  = existing.SourceInstitutionSymbol,
+                SourceSupportCode        = existing.SourceSupportCode,
+                ValidityResolvedAt       = existing.ValidityResolvedAt,
+                ValidityResolvedUser     = existing.ValidityResolvedUser,
+                ValidityResolvedReason   = existing.ValidityResolvedReason,
                 MasterEntitlementId      = existing.MasterEntitlementId,
                 Version                  = existing.Version + 1,
                 IsLastVersion            = true,
@@ -780,6 +936,13 @@ namespace PetelAssistants.Api.Services
                     PupilLastName            = item.PupilLastName,
                     IsCancelled              = item.IsCancelled,
                     IsActive                 = item.IsActive && !item.IsCancelled,
+                    IsValid                  = item.IsValid,
+                    InvalidReasons           = item.InvalidReasons,
+                    InvalidReasonsDisplay    = EntitlementInvalidReasons.ToHebrewList(item.InvalidReasons),
+                    SourceInstitutionSymbol  = item.SourceInstitutionSymbol,
+                    SourceSupportCode        = item.SourceSupportCode,
+                    ValidityResolvedReason   = item.ValidityResolvedReason,
+                    ValidityResolvedAt       = item.ValidityResolvedAt,
                     AllocatedHours           = allocatedHours,
                     AllocationStatus         = allocationStatus
                 };
@@ -864,9 +1027,10 @@ namespace PetelAssistants.Api.Services
             int? institutionId,
             string? pupilIdNumber,
             string? pupilFirstName,
-            string? pupilLastName)
+            string? pupilLastName,
+            bool allowInvalid = false)
         {
-            if (!institutionId.HasValue)
+            if (!allowInvalid && !institutionId.HasValue)
                 throw new InvalidOperationException("יש לבחור בית ספר או גן");
 
             if (isPersonal)
@@ -880,14 +1044,36 @@ namespace PetelAssistants.Api.Services
             }
         }
 
-        private void ValidatePupilIdNumber(string idNumber)
+        /// <summary>
+        /// Empty after digit-strip is a hard error. Checksum / length failures are invalid (soft)
+        /// when the caller allows import-with-flag.
+        /// </summary>
+        public (string? Normalized, string? HardError, bool IsInvalid) EvaluatePupilId(string? raw)
         {
-            if (string.IsNullOrWhiteSpace(idNumber) || idNumber.Length != 9 || !idNumber.All(char.IsDigit))
-                throw new InvalidOperationException("תעודת זהות חייבת להכיל בדיוק 9 ספרות");
+            var digits = IsraeliIdHelper.DigitsOnly(raw);
+            if (string.IsNullOrEmpty(digits))
+                return (null, "תעודת זהות תלמיד נדרשת", false);
 
-            var raw = _attributeCache.GetAttributeValue("validate_israeli_id_checksum");
-            if (bool.TryParse(raw, out bool doCheck) && doCheck && !IsraeliIdHelper.IsValidIsraeliId(idNumber))
-                throw new InvalidOperationException("מספר תעודת זהות לא תקין — ספרת ביקורת שגויה");
+            var normalized = digits.Length < 9
+                ? digits.PadLeft(9, '0')
+                : digits.Length > 9 ? digits[^9..] : digits;
+
+            if (normalized.Length != 9 || !normalized.All(char.IsDigit))
+                return (normalized, null, true);
+
+            var attr = _attributeCache.GetAttributeValue("validate_israeli_id_checksum");
+            if (bool.TryParse(attr, out bool doCheck) && doCheck && !IsraeliIdHelper.IsValidIsraeliId(normalized))
+                return (normalized, null, true);
+
+            return (normalized, null, false);
+        }
+
+        private static void ApplyUploadValidity(Entitlement target, EntitlementUploadValidity validity)
+        {
+            target.IsValid = validity.IsValid;
+            target.InvalidReasons = validity.ReasonsCsv;
+            target.SourceInstitutionSymbol = validity.SourceInstitutionSymbol;
+            target.SourceSupportCode = validity.SourceSupportCode;
         }
 
         private static bool IsPersonalLevel(string? level)

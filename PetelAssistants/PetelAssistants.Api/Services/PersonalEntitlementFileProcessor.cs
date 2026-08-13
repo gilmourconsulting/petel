@@ -40,6 +40,7 @@ namespace PetelAssistants.Api.Services
             { "authority_participation_pct", "השתתפות הרשות" },
             { "start_date", "מתאריך" },
             { "end_date", "עד תאריך" },
+            { "support_code", "קוד תומכת חינוך" },
             { "ignore", "התעלם" }
         };
 
@@ -82,7 +83,8 @@ namespace PetelAssistants.Api.Services
                 { "hours", ["שעות", "hours"] },
                 { "authority_participation_pct", ["השתתפות הרשות", "השתתפות", "participation"] },
                 { "start_date", ["מתאריך", "תאריך התחלה", "start_date"] },
-                { "end_date", ["עד תאריך", "תאריך סיום", "end_date"] }
+                { "end_date", ["עד תאריך", "תאריך סיום", "end_date"] },
+                { "support_code", ["קוד תומכת חינוך", "קוד תומכת", "support_code"] }
             };
 
             foreach (var header in headers)
@@ -109,6 +111,8 @@ namespace PetelAssistants.Api.Services
                         continue;
                     if (field.Key == "hours" &&
                         (normalized.Contains("משרה") || normalized.Contains("שנתי")))
+                        continue;
+                    if (field.Key == "support_code" && normalized.Contains("סוג"))
                         continue;
 
                     if (!mappings.ContainsKey(header))
@@ -271,11 +275,11 @@ namespace PetelAssistants.Api.Services
                         continue;
                     }
 
-                    var pupilId = NormalizePupilId(row.PupilIdNumber);
-                    if (pupilId.Length != 9 || !pupilId.All(char.IsDigit))
+                    var (pupilId, idHardError, idInvalid) = _entitlementService.EvaluatePupilId(row.PupilIdNumber);
+                    if (idHardError != null || string.IsNullOrEmpty(pupilId))
                     {
                         result.Errors++;
-                        result.ErrorList.Add($"שורה {row.RowNumber}: תעודת זהות חייבת להכיל בדיוק 9 ספרות");
+                        result.ErrorList.Add($"שורה {row.RowNumber}: {idHardError ?? "תעודת זהות תלמיד נדרשת"}");
                         continue;
                     }
 
@@ -294,19 +298,8 @@ namespace PetelAssistants.Api.Services
                     }
 
                     var symbol = NormalizeSymbol(row.InstitutionSymbol);
-                    if (string.IsNullOrEmpty(symbol))
-                    {
-                        result.Errors++;
-                        result.ErrorList.Add($"שורה {row.RowNumber}: סמל מוסד חסר");
-                        continue;
-                    }
-
-                    if (!institutionBySymbol.TryGetValue(symbol, out var institution))
-                    {
-                        result.Errors++;
-                        result.ErrorList.Add($"שורה {row.RowNumber}: לא נמצא מוסד עם סמל {symbol}");
-                        continue;
-                    }
+                    institutionBySymbol.TryGetValue(symbol, out var institution);
+                    int? institutionId = institution?.Id;
 
                     if (row.Hours <= 0)
                     {
@@ -343,6 +336,14 @@ namespace PetelAssistants.Api.Services
                     var startDate = row.StartDate.Value;
                     var endDate = row.EndDate.Value;
 
+                    var validity = BuildPersonalValidity(idInvalid, row, symbol, institutionId);
+                    if (!validity.IsValid)
+                    {
+                        result.Invalid++;
+                        result.InvalidList.Add(
+                            $"שורה {row.RowNumber}: יובאה כלא תקינה — {EntitlementInvalidReasons.ToHebrewList(validity.ReasonsCsv)}");
+                    }
+
                     seenKeys.Add(pupilId);
 
                     if (existingByPupil.TryGetValue(pupilId, out var current))
@@ -351,11 +352,13 @@ namespace PetelAssistants.Api.Services
                             current.Hours == weeklyHours &&
                             current.HoursUnit == HoursUnits.Weekly &&
                             current.MinistryParticipationPct == ministryPct &&
-                            current.InstitutionId == institution.Id &&
+                            current.InstitutionId == institutionId &&
                             current.StartDate == startDate &&
                             current.EndDate == endDate &&
                             string.Equals(current.PupilFirstName, firstName, StringComparison.Ordinal) &&
-                            string.Equals(current.PupilLastName, lastName, StringComparison.Ordinal);
+                            string.Equals(current.PupilLastName, lastName, StringComparison.Ordinal) &&
+                            current.IsValid == validity.IsValid &&
+                            string.Equals(current.InvalidReasons, validity.ReasonsCsv, StringComparison.Ordinal);
 
                         if (exact)
                         {
@@ -366,14 +369,15 @@ namespace PetelAssistants.Api.Services
                         await _entitlementService.ApplyPersonalUploadVersionAsync(
                             userId,
                             current.Id,
-                            institution.Id,
+                            institutionId,
                             weeklyHours,
                             HoursUnits.Weekly,
                             ministryPct,
                             startDate,
                             endDate,
                             firstName,
-                            lastName);
+                            lastName,
+                            validity);
 
                         var refreshed = await _context.Entitlements
                             .FirstAsync(e => e.MasterEntitlementId == current.MasterEntitlementId && e.IsLastVersion);
@@ -394,11 +398,12 @@ namespace PetelAssistants.Api.Services
                             Hours = weeklyHours,
                             HoursUnit = HoursUnits.Weekly,
                             MinistryParticipationPct = ministryPct,
-                            InstitutionId = institution.Id,
+                            InstitutionId = institutionId,
                             PupilIdNumber = pupilId,
                             PupilFirstName = firstName,
                             PupilLastName = lastName
-                        });
+                        },
+                        validity);
 
                     var created = await _context.Entitlements
                         .FirstAsync(e => e.HebrewYearId == yearId
@@ -493,6 +498,34 @@ namespace PetelAssistants.Api.Services
             }
 
             return cancelled;
+        }
+
+        private static EntitlementUploadValidity BuildPersonalValidity(
+            bool idInvalid,
+            PersonalEntitlementFileRow row,
+            string symbol,
+            int? institutionId)
+        {
+            var validity = new EntitlementUploadValidity
+            {
+                SourceInstitutionSymbol = string.IsNullOrEmpty(symbol) ? null : symbol,
+                SourceSupportCode = string.IsNullOrWhiteSpace(row.SupportCode) ? null : row.SupportCode.Trim()
+            };
+
+            if (idInvalid)
+                validity.Reasons.Add(EntitlementInvalidReasons.InvalidPupilId);
+
+            if (row.SupportCodeMapped)
+            {
+                var code = (row.SupportCode ?? string.Empty).Trim();
+                if (code != "1")
+                    validity.Reasons.Add(EntitlementInvalidReasons.InvalidSupportCode);
+            }
+
+            if (!institutionId.HasValue)
+                validity.Reasons.Add(EntitlementInvalidReasons.MissingInstitution);
+
+            return validity;
         }
 
         private static string NormalizeSymbol(string symbol)
@@ -633,6 +666,9 @@ namespace PetelAssistants.Api.Services
             var pctRaw = Get("authority_participation_pct");
             var startRaw = Get("start_date");
             var endRaw = Get("end_date");
+            var supportCodeMapped = mapping.ContainsKey("support_code") &&
+                                    !string.IsNullOrWhiteSpace(mapping["support_code"]);
+            var supportCode = supportCodeMapped ? Get("support_code") : string.Empty;
 
             if (string.IsNullOrWhiteSpace(pupilId) &&
                 string.IsNullOrWhiteSpace(firstName) &&
@@ -647,7 +683,9 @@ namespace PetelAssistants.Api.Services
                 PupilIdNumber = pupilId,
                 PupilFirstName = firstName,
                 PupilLastName = lastName,
-                InstitutionSymbol = symbol
+                InstitutionSymbol = symbol,
+                SupportCode = supportCode,
+                SupportCodeMapped = supportCodeMapped
             };
 
             if (!TryParseDecimal(hoursRaw, out var hours))

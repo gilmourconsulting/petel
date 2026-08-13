@@ -105,8 +105,8 @@ Tenant-owned budget per Hebrew year with versions. Entry: Year Management nav ca
 
 | Type | Hours formula |
 |---|---|
-| `class_help` | Shared rate-matrix hours (`class_assistant_budget_hours` by institution `school_level` + entitlement `class_classification_id`) × entitlement `ministry_participation_pct / 100` |
-| Personal (`assistant_types.level = personal`) | Sum per type of entitlement `hours × ministry_participation_pct / 100` |
+| `class_help` | Shared rate-matrix hours (`class_assistant_budget_hours` by institution `school_level` + entitlement `class_classification_id`) × entitlement `ministry_participation_pct / 100`. Only `is_last_version && !is_cancelled && is_valid` |
+| Personal (`assistant_types.level = personal`) | Sum per type of entitlement `hours × ministry_participation_pct / 100` (`is_last_version && !is_cancelled && is_valid`) |
 
 Requires a row in `shared_schema.budget_hour_values` for the budget year; if missing, calculate fails with a Hebrew error (nothing saved). After hours are written for calculated types, set `amount = hours × hour_value` for those types and re-split their month rows. Unchanged types (e.g. `school_help`) keep existing FTE/hours/amount. Class-help missing school level / classification / rate → per-entitlement failure (does not block successful rows). Response includes summary (`TotalHours`, `TotalAmount`, counts) + class-help failure list.
 
@@ -180,7 +180,7 @@ Additional fields:
 
 **Scope:** Tenant-owned rows in `assist_schema.entitlements`, filtered by `entity_id` and Hebrew year.
 
-**Single combined screen** at `/year/{YearId}/entitlements`. Personal and institutional entitlements are managed in the same table with unified filters (kind, institution, assistant type, active status, allocation status: none / partial / full).
+**Single combined screen** at `/year/{YearId}/entitlements`. Personal and institutional entitlements are managed in the same table with unified filters (kind, institution, assistant type, active status, allocation status: none / partial / full, validity: valid / invalid / all).
 
 **Kind is derived from assistant type level** — there is no stored `entitlement_kind` column. The `level` field on `shared_schema.assistant_types` (values: `personal`, `class`, `school`, `kindergarten`) determines the entitlement type:
 - `personal` → personal entitlement (pupil fields required)
@@ -203,7 +203,7 @@ List/read current rows with `is_last_version = true`. History: `GET api/entitlem
 
 **Editable after create** (any change creates a new version): `start_date`, `end_date`, `class_classification_id`, `ministry_participation_pct`, `pupil_first_name`, `pupil_last_name` (personal), cancel.
 
-**Immutable after create:** `hebrew_year_id`, `assistant_type_id`, `institution_id`, `hours`, `hours_unit`, `pupil_id_number`, `class_name`.
+**Immutable after create (manual edit):** `hebrew_year_id`, `assistant_type_id`, `institution_id`, `hours`, `hours_unit`, `pupil_id_number`, `class_name`. Exception: `PUT api/entitlements/{id}/resolve-validity` may change pupil ID and institution on an **invalid** last version.
 
 **Class classifications:** `shared_schema.class_classifications` (seeded from `petel_schema.special_needs_characterizations` when available). Optional FK `entitlements.class_classification_id`. API: `GET api/class-classifications`.
 
@@ -227,23 +227,25 @@ List/read current rows with `is_last_version = true`. History: `GET api/entitlem
 - `school_help`: same `institution_id`
 
 **Business rules:**
-- `institution_id` is required for all entitlements (both kinds).
+- `institution_id` is required for **manual** create and for valid entitlements. Upload may persist `institution_id = null` when the file סמל is missing or unmatched (`missing_institution`).
 - Pupil fields must be all-set or all-null (enforced by DB CHECK constraint).
 - Dates must be within the Hebrew year bounds.
-- The institution must belong to the logged-in authority (validated at service layer via tenant filter).
-- Allocations (`entitlement_allocations.entitlement_id`) point at a **specific entitlement version**. Read paths that show allocations for the UI resolve sibling version ids via `master_entitlement_id`. Allocation create/update when entitlement dates change is a later iteration.
+- The institution must belong to the logged-in authority when set (validated at service layer via tenant filter).
+- Allocations (`entitlement_allocations.entitlement_id`) point at a **specific entitlement version**. Read paths that show allocations for the UI resolve sibling version ids via `master_entitlement_id`. Allocation create/update when entitlement dates change is a later iteration. **Do not allocate to `is_valid = false` rows.**
+
+**Validity (import-with-flag):** SQL `add-entitlement-validity.sql`. Last-version rows may be `is_valid = false` with `invalid_reasons` (`invalid_pupil_id`, `invalid_support_code`, `missing_institution`). Source snapshot: `source_institution_symbol`, `source_support_code`. Invalid rows appear on the entitlements screen (badge + filter) but are **excluded** from yearly budget calculate, new allocations, and salary allocation matching. Overlap checks still include them. Manual resolve (`entitlements_resolve_invalid` → `PUT …/resolve-validity`) creates a new version and **requires** `validity_resolved_reason` text. Re-upload re-evaluates flags (auto-heal if the institution was added or the ID/code is now valid) and does not require a reason.
 
 ### Institutional entitlements file upload
 
 Ministry export (Excel/CSV) import for institutional entitlements (`class_help` / `school_help`). UI: Year Management button → `EntitlementUploadModal`. API always requires `yearId`. SQL: `add-entitlement-upload.sql`.
 
-**Matching:** resolve institution by mapped `סמל מוסד` → `institutions.symbol` only (name is not validated). No auto-create.
+**Matching:** resolve institution by mapped `סמל מוסד` → `institutions.symbol` only (name is not validated). No auto-create. Unmatched or blank סמל → import as invalid (`missing_institution`, `institution_id` null, store `source_institution_symbol`). Natural key while unmatched: year + type + source symbol + class name. After the user links an institution, if another entitlement already exists for that institution+class, resolve is blocked (no silent merge).
 
 **Support type:** `אוטומטית` → `class_help` (class name = `{שכבה}{מקבילה}`; `סוג כיתה` → `class_classifications` by id/foreign_id); `תגבור מוסדי` → `school_help`.
 
 **Hours:** Excel annual hours ÷ 12 → weekly `hours` / `hours_unit = weekly`.
 
-**Upsert:** natural key = year + assistant type + institution (+ class name for `class_help`). Exact match → skip; diff (hours / participation / classification) → new historical version (upload may change hours); missing → create v1.
+**Upsert:** natural key = year + assistant type + institution (+ class name for `class_help`), or source symbol while unmatched. Exact match → skip; diff (hours / participation / classification / institution / validity) → new historical version (upload may change hours); missing → create v1. Upload summary reports `invalid` separately from `errors`.
 
 **Orphans:** after upload, return institutional entitlements for the year whose key was not in the file; UI lets the user tick and logically cancel (cancel-via-version).
 
@@ -257,9 +259,11 @@ Import personal entitlements (`assistant_types.name = student_help`). UI: Entitl
 
 **Participation:** file column is municipality % (`השתתפות הרשות`); store `ministry_participation_pct = 100 − fileValue`.
 
-**Matching:** institution by `סמל מוסד` → `institutions.symbol` only (no auto-create).
+**Matching:** institution by `סמל מוסד` → `institutions.symbol` only (no auto-create). Unmatched or blank סמל → import as invalid (`missing_institution`).
 
-**Upsert natural key:** year + `student_help` + pupil ID. Exact match (hours, ministry %, institution, start/end dates, first/last name) → skip; diff → new historical version via `ApplyPersonalUploadVersionAsync` (upload may change hours/institution/dates/names); missing → create v1. Duplicate pupil IDs in the same file → row errors.
+**ID / support code:** empty ID after digit-strip → row error. Failed 9-digit / checksum (`validate_israeli_id_checksum`) → import as `invalid_pupil_id`. Mapped `קוד תומכת חינוך` empty or ≠ `1` → import as `invalid_support_code`. If the column is not mapped, skip the support-code check.
+
+**Upsert natural key:** year + `student_help` + pupil ID. Exact match (hours, ministry %, institution, start/end dates, first/last name, validity) → skip; diff → new historical version via `ApplyPersonalUploadVersionAsync` (upload may change hours/institution/dates/names/validity); missing → create v1. Duplicate pupil IDs in the same file → row errors. Upload summary reports `invalid` separately from `errors`.
 
 **Orphans:** after upload, return year `student_help` last-version non-cancelled entitlements whose pupil ID was not in the file; UI lets the user tick and logically cancel (cancel-via-version).
 

@@ -598,6 +598,18 @@
                     $"🔄 עודכנו (גרסה חדשה): {response.Versioned}<br>" +
                     $"⏭️ ללא שינוי: {response.Skipped}<br>";
 
+                if (response.Invalid > 0)
+                {
+                    summaryMessage += $"<br>⚠️ יובאו כלא תקינות: {response.Invalid}";
+                    if (response.Details?.InvalidList != null && response.Details.InvalidList.Any())
+                    {
+                        var invalidItems = string.Join("", response.Details.InvalidList.Take(50).Select(e =>
+                            $"<div style='padding: 8px; border-bottom: 1px solid #f0f0f0; background: #fff3cd;'>{e}</div>"));
+                        summaryMessage += $"<br><br><div style='font-weight: bold; margin-bottom: 10px;'>זכאויות לא תקינות:</div>" +
+                            $"<div style='max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; background: white; direction: rtl;'>{invalidItems}</div>";
+                    }
+                }
+
                 if (response.Errors > 0)
                 {
                     summaryMessage += $"<br>❌ שגיאות: {response.Errors}";
@@ -809,6 +821,7 @@
         public int Versioned { get; set; }
         public int Skipped { get; set; }
         public int Errors { get; set; }
+        public int Invalid { get; set; }
         public List<PersonalOrphanItem>? Orphans { get; set; }
         public UploadDetails? Details { get; set; }
     }
@@ -816,6 +829,7 @@
     private class UploadDetails
     {
         public List<string>? ErrorList { get; set; }
+        public List<string>? InvalidList { get; set; }
     }
 
     private class PersonalOrphanItem

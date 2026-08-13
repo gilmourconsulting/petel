@@ -218,11 +218,13 @@ namespace PetelAssistants.Api.Controllers
                     versioned = result.Versioned,
                     skipped = result.Skipped,
                     errors = result.Errors,
+                    invalid = result.Invalid,
                     yearId = request.YearId,
                     orphans = result.Orphans,
                     details = new
                     {
-                        errorList = result.ErrorList
+                        errorList = result.ErrorList,
+                        invalidList = result.InvalidList
                     }
                 });
             }

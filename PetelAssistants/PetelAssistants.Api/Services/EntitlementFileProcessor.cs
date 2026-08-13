@@ -227,9 +227,9 @@ namespace PetelAssistants.Api.Services
                 .Where(e => e.AssistantTypeId == classHelp.Id || e.AssistantTypeId == schoolHelp.Id)
                 .ToListAsync();
 
-            var existingByKey = existing.ToDictionary(
-                e => BuildNaturalKey(e.AssistantTypeId, e.InstitutionId ?? 0, e.ClassName),
-                e => e);
+            var existingByKey = existing
+                .GroupBy(e => BuildLookupKey(e.AssistantTypeId, e.InstitutionId, e.SourceInstitutionSymbol, e.ClassName))
+                .ToDictionary(g => g.Key, g => g.First());
 
             var now = DateTime.UtcNow;
             var process = new EntitlementUploadProcess
@@ -269,19 +269,8 @@ namespace PetelAssistants.Api.Services
                     }
 
                     var symbol = NormalizeSymbol(row.InstitutionSymbol);
-                    if (string.IsNullOrEmpty(symbol))
-                    {
-                        result.Errors++;
-                        result.ErrorList.Add($"שורה {row.RowNumber}: סמל מוסד חסר");
-                        continue;
-                    }
-
-                    if (!institutionBySymbol.TryGetValue(symbol, out var institution))
-                    {
-                        result.Errors++;
-                        result.ErrorList.Add($"שורה {row.RowNumber}: לא נמצא מוסד עם סמל {symbol}");
-                        continue;
-                    }
+                    institutionBySymbol.TryGetValue(symbol, out var institution);
+                    int? institutionId = institution?.Id;
 
                     var support = row.SupportType.Trim();
                     int assistantTypeId;
@@ -349,16 +338,40 @@ namespace PetelAssistants.Api.Services
                         continue;
                     }
 
-                    var key = BuildNaturalKey(assistantTypeId, institution.Id, className);
-                    seenKeys.Add(key);
+                    var validity = new EntitlementUploadValidity
+                    {
+                        SourceInstitutionSymbol = string.IsNullOrEmpty(symbol) ? null : symbol
+                    };
+                    if (!institutionId.HasValue)
+                        validity.Reasons.Add(EntitlementInvalidReasons.MissingInstitution);
 
-                    if (existingByKey.TryGetValue(key, out var current))
+                    if (!validity.IsValid)
+                    {
+                        result.Invalid++;
+                        result.InvalidList.Add(
+                            $"שורה {row.RowNumber}: יובאה כלא תקינה — {EntitlementInvalidReasons.ToHebrewList(validity.ReasonsCsv)}");
+                    }
+
+                    var key = BuildLookupKey(assistantTypeId, institutionId, symbol, className);
+                    var unmatchedKey = BuildUnmatchedKey(assistantTypeId, symbol, className);
+                    seenKeys.Add(key);
+                    if (institutionId.HasValue)
+                        seenKeys.Add(unmatchedKey);
+
+                    if (!existingByKey.TryGetValue(key, out var current) &&
+                        institutionId.HasValue)
+                        existingByKey.TryGetValue(unmatchedKey, out current);
+
+                    if (current != null)
                     {
                         var exact =
                             current.Hours == weeklyHours &&
                             current.HoursUnit == HoursUnits.Weekly &&
                             current.MinistryParticipationPct == row.ParticipationPct &&
-                            current.ClassClassificationId == classificationId;
+                            current.ClassClassificationId == classificationId &&
+                            current.InstitutionId == institutionId &&
+                            current.IsValid == validity.IsValid &&
+                            string.Equals(current.InvalidReasons, validity.ReasonsCsv, StringComparison.Ordinal);
 
                         if (exact)
                         {
@@ -372,11 +385,13 @@ namespace PetelAssistants.Api.Services
                             weeklyHours,
                             HoursUnits.Weekly,
                             row.ParticipationPct,
-                            classificationId);
+                            classificationId,
+                            institutionId,
+                            validity);
 
-                        // Refresh tracked entity id after versioning (old row is no longer last)
                         var refreshed = await _context.Entitlements
                             .FirstAsync(e => e.MasterEntitlementId == current.MasterEntitlementId && e.IsLastVersion);
+                        existingByKey.Remove(unmatchedKey);
                         existingByKey[key] = refreshed;
                         result.Versioned++;
                         continue;
@@ -394,10 +409,11 @@ namespace PetelAssistants.Api.Services
                             Hours = weeklyHours,
                             HoursUnit = HoursUnits.Weekly,
                             MinistryParticipationPct = row.ParticipationPct,
-                            InstitutionId = institution.Id,
+                            InstitutionId = institutionId,
                             ClassName = className,
                             ClassClassificationId = classificationId
-                        });
+                        },
+                        validity);
 
                     var created = await _context.Entitlements.FirstAsync(e => e.Id == createdId);
                     existingByKey[key] = created;
@@ -427,9 +443,10 @@ namespace PetelAssistants.Api.Services
 
             foreach (var entitlement in orphanCandidates)
             {
-                var key = BuildNaturalKey(
+                var key = BuildLookupKey(
                     entitlement.AssistantTypeId,
-                    entitlement.InstitutionId ?? 0,
+                    entitlement.InstitutionId,
+                    entitlement.SourceInstitutionSymbol,
                     entitlement.ClassName);
                 if (seenKeys.Contains(key))
                     continue;
@@ -505,8 +522,17 @@ namespace PetelAssistants.Api.Services
             return byForeign?.Id;
         }
 
-        private static string BuildNaturalKey(int assistantTypeId, int institutionId, string? className)
-            => $"{assistantTypeId}|{institutionId}|{className ?? string.Empty}";
+        private static string BuildLookupKey(
+            int assistantTypeId,
+            int? institutionId,
+            string? sourceSymbol,
+            string? className)
+            => institutionId.HasValue
+                ? $"{assistantTypeId}|{institutionId.Value}|{className ?? string.Empty}"
+                : BuildUnmatchedKey(assistantTypeId, sourceSymbol, className);
+
+        private static string BuildUnmatchedKey(int assistantTypeId, string? sourceSymbol, string? className)
+            => $"{assistantTypeId}|sym:{sourceSymbol ?? string.Empty}|{className ?? string.Empty}";
 
         private static string NormalizeSymbol(string symbol)
         {

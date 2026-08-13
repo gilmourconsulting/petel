@@ -409,11 +409,12 @@ namespace PetelAssistants.Api.Services
                 .Distinct()
                 .ToList();
 
-            var allocations = await _context.EntitlementAllocations
-                .AsNoTracking()
-                .Where(a => a.IsActive && personIds.Contains(a.PersonId))
-                .Select(a => new { a.Id, a.PersonId, a.StartDate, a.EndDate })
-                .ToListAsync();
+            var allocations = await (
+                from a in _context.EntitlementAllocations.AsNoTracking()
+                join e in _context.Entitlements.AsNoTracking() on a.EntitlementId equals e.Id
+                where a.IsActive && e.IsValid && personIds.Contains(a.PersonId)
+                select new { a.Id, a.PersonId, a.StartDate, a.EndDate }
+            ).ToListAsync();
 
             var allocationsByPerson = allocations
                 .GroupBy(a => a.PersonId)

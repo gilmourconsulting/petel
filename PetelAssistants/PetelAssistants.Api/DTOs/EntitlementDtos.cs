@@ -164,9 +164,25 @@ namespace PetelAssistants.Api.DTOs
         public string? PupilLastName { get; set; }
         public bool IsCancelled { get; set; }
         public bool IsActive { get; set; }
+        public bool IsValid { get; set; } = true;
+        public string? InvalidReasons { get; set; }
+        public string? InvalidReasonsDisplay { get; set; }
+        public string? SourceInstitutionSymbol { get; set; }
+        public string? SourceSupportCode { get; set; }
+        public string? ValidityResolvedReason { get; set; }
+        public DateTime? ValidityResolvedAt { get; set; }
         // Allocation status
         public decimal AllocatedHours { get; set; }
         public string AllocationStatus { get; set; } = "none"; // "none" | "partial" | "full"
+    }
+
+    public class ResolveEntitlementValidityRequest
+    {
+        public string Reason { get; set; } = string.Empty;
+        public string? PupilIdNumber { get; set; }
+        public bool ApproveInvalidPupilId { get; set; }
+        public bool ApproveSupportCode { get; set; }
+        public int? InstitutionId { get; set; }
     }
 
     public class EntitlementDetailDto : EntitlementListItemDto

@@ -174,10 +174,10 @@ Manual upload from Year Management (`EntitlementUploadModal` → `EntitlementFil
 |---|---|
 | `GET/PUT api/entitlementfileupload/mapping` | Entity-level column map |
 | `POST api/entitlementfileupload/preview` | Headers + suggested/saved mappings |
-| `POST api/entitlementfileupload/upload` | Multipart file + mapping + `yearId` + `saveMapping` → counts + orphan list |
+| `POST api/entitlementfileupload/upload` | Multipart file + mapping + `yearId` + `saveMapping` → counts + invalid list + orphan list |
 | `POST api/entitlementfileupload/cancel-orphans` | Logical cancel (version) for selected orphan entitlement ids |
 
-Tables: `entitlement_field_mappings`, `entitlement_upload_processes`; institutions gain `symbol` (סמל מוסד). Action: `yearmanagement_entitlements_upload`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Institutional entitlements file upload.
+Tables: `entitlement_field_mappings`, `entitlement_upload_processes`; institutions gain `symbol` (סמל מוסד). Action: `yearmanagement_entitlements_upload`. Validity columns + `entitlements_resolve_invalid`: `add-entitlement-validity.sql`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Institutional entitlements file upload.
 
 ### Personal entitlements file upload (PDF / Excel)
 
@@ -187,11 +187,11 @@ Upload personal (`student_help`) entitlements from the Entitlements screen (`Per
 |---|---|
 | `GET/PUT api/personalentitlementupload/mapping` | Entity-level personal column map |
 | `POST api/personalentitlementupload/preview` | Headers + suggested/saved mappings |
-| `POST api/personalentitlementupload/upload` | Multipart file + mapping + `yearId` + `saveMapping` → counts + orphan list |
+| `POST api/personalentitlementupload/upload` | Multipart file + mapping + `yearId` + `saveMapping` → counts + invalid list + orphan list |
 | `POST api/personalentitlementupload/cancel-orphans` | Logical cancel (version) for selected orphan personal entitlement ids |
 | `POST api/personalapprovalspdf/convert` | PDF → Excel (reuse; no entitlement DB writes) |
 
-Tables: `personal_entitlement_field_mappings`; process audit reuses `entitlement_upload_processes`. Action: `entitlements_personal_upload`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Personal entitlements file upload.
+Tables: `personal_entitlement_field_mappings`; process audit reuses `entitlement_upload_processes`. Actions: `entitlements_personal_upload`, `entitlements_resolve_invalid`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Personal entitlements file upload.
 
 ### Personal approvals PDF → Excel (convert)
 

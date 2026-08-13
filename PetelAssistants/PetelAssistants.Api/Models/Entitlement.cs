@@ -90,6 +90,31 @@ namespace PetelAssistants.Api.Models
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
 
+        [Column("is_valid")]
+        public bool IsValid { get; set; } = true;
+
+        [Column("invalid_reasons")]
+        [MaxLength(200)]
+        public string? InvalidReasons { get; set; }
+
+        [Column("source_institution_symbol")]
+        [MaxLength(20)]
+        public string? SourceInstitutionSymbol { get; set; }
+
+        [Column("source_support_code")]
+        [MaxLength(10)]
+        public string? SourceSupportCode { get; set; }
+
+        [Column("validity_resolved_at")]
+        public DateTime? ValidityResolvedAt { get; set; }
+
+        [Column("validity_resolved_user")]
+        public int? ValidityResolvedUser { get; set; }
+
+        [Column("validity_resolved_reason")]
+        [MaxLength(500)]
+        public string? ValidityResolvedReason { get; set; }
+
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

@@ -69,6 +69,7 @@ Downstream pages should read year from the route parameter `{YearId}` and/or ses
 | `POST api/entitlements` | Create entitlement |
 | `PUT api/entitlements/{id}` | Update entitlement |
 | `PUT api/entitlements/{id}/deactivate` | Soft-delete entitlement |
+| `PUT api/entitlements/{id}/resolve-validity` | Fix/approve an invalid entitlement (required reason text) |
 | `POST api/personalapprovalspdf/convert` | Personal approvals PDF → Excel (`contentBase64`); no DB writes |
 | `GET api/persons` | List persons for tenant (latest snapshot each) |
 | `GET api/persons/search?term=` | Search by name or national ID |
@@ -138,6 +139,7 @@ After user-management scripts:
 16. `PetelAssistants/SQL/add-budget-hour-value.sql` — shared `budget_hour_values` + `year_elements_hour_value_save`
 17. `PetelAssistants/SQL/add-personal-approvals-pdf-action.sql` — PDF convert action (`entitlements_personal_approvals_pdf`)
 18. `PetelAssistants/SQL/add-personal-entitlement-upload.sql` — personal entitlement upload (`entitlements_personal_upload` + mappings table)
+19. `PetelAssistants/SQL/add-entitlement-validity.sql` — entitlement `is_valid` / source snapshot + `entitlements_resolve_invalid`
 
 ## Files
 

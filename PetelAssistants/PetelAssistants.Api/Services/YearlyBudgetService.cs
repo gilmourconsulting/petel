@@ -95,8 +95,9 @@ namespace PetelAssistants.Api.Services
                 .Where(e => e.HebrewYearId == budget.HebrewYearId
                             && e.AssistantTypeId == classHelpType.Id
                             && e.IsLastVersion
-                            && !e.IsCancelled)
-                .ToListAsync();
+                            && !e.IsCancelled
+                            && e.IsValid)
+            .ToListAsync();
 
             entitlementCount += classEntitlements.Count;
             decimal classHelpHours = 0;
@@ -163,7 +164,8 @@ namespace PetelAssistants.Api.Services
                     .Where(e => e.HebrewYearId == budget.HebrewYearId
                                 && personalTypeIds.Contains(e.AssistantTypeId)
                                 && e.IsLastVersion
-                                && !e.IsCancelled)
+                                && !e.IsCancelled
+                                && e.IsValid)
                     .ToListAsync();
 
                 entitlementCount += personalEntitlements.Count;

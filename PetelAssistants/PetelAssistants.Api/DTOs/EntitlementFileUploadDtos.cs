@@ -34,7 +34,9 @@ namespace PetelAssistants.Api.DTOs
         public int Versioned { get; set; }
         public int Skipped { get; set; }
         public int Errors { get; set; }
+        public int Invalid { get; set; }
         public List<string> ErrorList { get; set; } = new();
+        public List<string> InvalidList { get; set; } = new();
         public List<EntitlementOrphanDto> Orphans { get; set; } = new();
     }
 

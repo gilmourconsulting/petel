@@ -126,6 +126,26 @@ namespace PetelAssistants.Api.Controllers
             }
         }
 
+        [HttpPut("{id:int}/resolve-validity")]
+        public async Task<IActionResult> ResolveValidity(int id, [FromBody] ResolveEntitlementValidityRequest request)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
+            try
+            {
+                await _entitlementService.ResolveValidityAsync(userId, id, request);
+                return Ok(new { success = true, message = "הזכאות עודכנה" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
         [HttpPut("{id:int}/deactivate")]
         public async Task<IActionResult> Deactivate(int id)
         {
