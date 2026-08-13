@@ -12,11 +12,11 @@ Domain context: assistants and entitlements are managed per Jewish school year. 
 
 ```
 /maindashboard
+    ├── בתי ספר וגנים → /org-units     (institutions; tenant-owned, not year-scoped)
     └── click year button or modal
             └── /year/{YearId}          (YearManagement — operational hub)
                     ├── /year/{YearId}/assistants       (סייעות)
                     ├── /year/{YearId}/entitlements     (זכאויות)
-                    ├── /year/{YearId}/org-units        (בתי ספר וגנים)
                     └── /year/{YearId}/yearly-budget    (תקציב שנתי)
 
 Side menu
@@ -25,13 +25,13 @@ Side menu
             └── tab: hour-value
 ```
 
-- **Main dashboard** (`MainDashboard.razor`, `/maindashboard`): shows current/previous year buttons, a "בחר שנה" modal, and context buttons **העלאת קובץ שכר** (`SalaryUploadModal`) and **נתוני שכר** (`/salaries`). Clicking a year navigates to `/year/{yearId}` (does not only store year in session).
-- **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name, navigation cards — **סייעות**, **זכאויות**, **בתי ספר וגנים**, **תקציב שנתי** — and context buttons for salary / Meitar tools.
+- **Main dashboard** (`MainDashboard.razor`, `/maindashboard`): shows current/previous year buttons, a "בחר שנה" modal, and context buttons **בתי ספר וגנים** (`/org-units`), **העלאת קובץ שכר** (`SalaryUploadModal`) and **נתוני שכר** (`/salaries`). Clicking a year navigates to `/year/{yearId}` (does not only store year in session).
+- **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name, navigation cards — **סייעות**, **זכאויות**, **תקציב שנתי** — and context buttons for salary / Meitar tools.
 - **Year Elements hub** (`YearElements.razor`, `/year-elements`): shared admin multi-tab screen for year-scoped configuration (tabs: class assistant budget hours, hour monetary value). Menu item **ניהול שנה**.
 - **Salaries view** (`Salaries.razor`, `/salaries`): read-only salary table with period and text filters (not Hebrew-year scoped; calendar year/month).
 - **Assistants** (`Assistants.razor`, `/year/{YearId}/assistants`): person CRUD for the logged-in authority.
 - **Entitlements** (`Entitlements.razor`, `/year/{YearId}/entitlements`): combined personal + institutional entitlements for the year. Context button **העלאת זכאויות אישיות** (`PersonalEntitlementUploadModal`) imports personal (`student_help`) entitlements from PDF or Excel (PDF convert → optional download → upsert + orphan review).
-- **Org units** (`OrgUnits.razor`, `/year/{YearId}/org-units`): manage tenant-owned institutions (schools and kindergartens in `assist_schema.institutions`; also available at `/org-units` from the main menu).
+- **Org units** (`OrgUnits.razor`, `/org-units`): manage tenant-owned institutions (schools and kindergartens in `assist_schema.institutions`). Opened from the main dashboard (and the main menu); also available at `/year/{YearId}/org-units` for bookmarks.
 - **Yearly budget** (`YearlyBudget.razor`, `/year/{YearId}/yearly-budget`): versioned yearly budget by assistant type, with equal monthly split and **חשב תקציב** on open versions.
 
 **System admin (not year-scoped operational data):**
@@ -103,8 +103,8 @@ Run SQL scripts in order (see below). After running SQL, refresh the security ca
 
 | Screen | PageName | Page action | Button actions |
 |--------|----------|-------------|----------------|
-| Main dashboard | `maindashboard` | (page access not enforced) | `maindashboard_salary_upload`, `maindashboard_salaries_view` |
-| Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_entitlements`, `yearmanagement_org_units`, `yearmanagement_yearly_budget`, `yearmanagement_salary_upload`, `yearmanagement_entitlements_upload`, `yearmanagement_salaries_view` |
+| Main dashboard | `maindashboard` | (page access not enforced) | `maindashboard_org_units`, `maindashboard_salary_upload`, `maindashboard_salaries_view` |
+| Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_entitlements`, `yearmanagement_yearly_budget`, `yearmanagement_salary_upload`, `yearmanagement_entitlements_upload`, `yearmanagement_salaries_view` |
 | Salaries view | `salaries` | `salaries_page_action` | `salaries_back`, `salaries_refresh` |
 | Assistants | `assistants` | `assistants_page_action` | `assistants_back`, `assistants_refresh`, `assistants_add`, `assistants_upload`, `assistants_view_details`, `assistants_edit`, `assistants_view_history` |
 | Entitlements | `entitlements` | `entitlements_page_action` | back, refresh, add, edit, deactivate, allocations, `entitlements_personal_upload` |
@@ -128,7 +128,7 @@ After user-management scripts:
 5. `PetelAssistants/SQL/add-entitlements-foundation.sql` — Hebrew year column fix, assistant types, org hierarchy
 6. `PetelAssistants/SQL/add-entitlements.sql` — entitlements table
 7. `PetelAssistants/SQL/add-entitlements-actions.sql` — security actions + menu items
-8. `PetelAssistants/SQL/add-year-org-units-nav.sql` — year hub card for org units
+8. `PetelAssistants/SQL/add-year-org-units-nav.sql` — legacy year hub card action (`yearmanagement_org_units`; UI entry moved to dashboard)
 9. `PetelAssistants/SQL/add-salary-upload.sql` — salary tables + upload buttons
 10. `PetelAssistants/SQL/add-salaries-view-actions.sql` — salary view screen + nav buttons
 11. `PetelAssistants/SQL/add-yearly-budget.sql` — yearly budget tables
@@ -140,6 +140,7 @@ After user-management scripts:
 17. `PetelAssistants/SQL/add-personal-approvals-pdf-action.sql` — PDF convert action (`entitlements_personal_approvals_pdf`)
 18. `PetelAssistants/SQL/add-personal-entitlement-upload.sql` — personal entitlement upload (`entitlements_personal_upload` + mappings table)
 19. `PetelAssistants/SQL/add-entitlement-validity.sql` — entitlement `is_valid` / source snapshot + `entitlements_resolve_invalid`
+20. `PetelAssistants/SQL/add-maindashboard-org-units.sql` — dashboard button for org units (`maindashboard_org_units`)
 
 ## Files
 

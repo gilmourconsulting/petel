@@ -144,7 +144,7 @@ Each local authority maintains its own list of schools and kindergartens as rows
 | `is_special_education` | bool | חינוך מיוחד — applies to any institution |
 | `symbol` | VARCHAR(20) nullable | Israeli educational institution code (סמל מוסד); unique per tenant when set |
 
-CRUD UI remains at `/org-units` (`api/org-units`); storage is `institutions`.
+CRUD UI remains at `/org-units` (`api/org-units`); storage is `institutions`. Entry: main dashboard context button **בתי ספר וגנים** (`maindashboard_org_units`).
 
 ## System settings hub (הגדרות מערכת)
 

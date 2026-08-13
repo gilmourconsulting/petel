@@ -113,12 +113,6 @@
                     <h2 class="year-nav-card-title">זכאויות</h2>
                 </SecureButton>
 
-                <SecureButton ActionName="yearmanagement_org_units" ScreenName="@PageName" FunctionName="NavigateToOrgUnits"
-                              OnClick="NavigateToOrgUnits" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
-                    <div class="year-nav-card-icon">🏢</div>
-                    <h2 class="year-nav-card-title">בתי ספר וגנים</h2>
-                </SecureButton>
-
                 <SecureButton ActionName="yearmanagement_yearly_budget" ScreenName="@PageName" FunctionName="NavigateToYearlyBudget"
                               OnClick="NavigateToYearlyBudget" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
                     <div class="year-nav-card-icon">💰</div>
@@ -232,7 +226,6 @@
 
     private void NavigateToAssistants()    => Navigation.NavigateTo($"/year/{YearId}/assistants");
     private void NavigateToEntitlements()  => Navigation.NavigateTo($"/year/{YearId}/entitlements");
-    private void NavigateToOrgUnits()      => Navigation.NavigateTo($"/year/{YearId}/org-units");
     private void NavigateToYearlyBudget()  => Navigation.NavigateTo($"/year/{YearId}/yearly-budget");
     private void NavigateToSalaries()      => Navigation.NavigateTo($"/salaries?fromYear={YearId}");
     private void NavigateToMeitarData()    => Navigation.NavigateTo($"/meitar-data?fromYear={YearId}");
