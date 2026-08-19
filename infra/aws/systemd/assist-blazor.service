@@ -1,0 +1,18 @@
+[Unit]
+Description=PetelAssistants Blazor
+After=network.target assist-api.service
+
+[Service]
+WorkingDirectory=/opt/petel/assist-blazor
+ExecStart=/usr/bin/dotnet PetelAssistants.BlazorServer.dll
+Restart=always
+RestartSec=5
+EnvironmentFile=-/etc/petel/assist-blazor.env
+Environment=ASPNETCORE_ENVIRONMENT=Staging
+Environment=PORT=5088
+User=ec2-user
+KillSignal=SIGINT
+SyslogIdentifier=assist-blazor
+
+[Install]
+WantedBy=multi-user.target

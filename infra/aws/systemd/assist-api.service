@@ -1,0 +1,18 @@
+[Unit]
+Description=PetelAssistants API
+After=network.target
+
+[Service]
+WorkingDirectory=/opt/petel/assist-api
+ExecStart=/usr/bin/dotnet PetelAssistants.Api.dll
+Restart=always
+RestartSec=5
+EnvironmentFile=-/etc/petel/assist-api.env
+Environment=ASPNETCORE_URLS=http://127.0.0.1:5238
+Environment=ASPNETCORE_ENVIRONMENT=Staging
+User=ec2-user
+KillSignal=SIGINT
+SyslogIdentifier=assist-api
+
+[Install]
+WantedBy=multi-user.target

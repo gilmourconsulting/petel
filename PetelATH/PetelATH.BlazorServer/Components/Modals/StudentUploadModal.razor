@@ -77,6 +77,76 @@
                         }
                     </div>
                 }
+                else if (_currentStep == UploadStep.ConfirmReview)
+                {
+                    <div style="direction: rtl;">
+                        @if (!string.IsNullOrEmpty(_statusMessage))
+                        {
+                            <div class="upload-status upload-status-@_statusType" style="margin-bottom: 12px;">
+                                @((MarkupString)_statusMessage.Replace("\n", "<br>"))
+                            </div>
+                        }
+                        <p style="font-weight: 600; margin-bottom: 8px;">נמצאו שינויים בתאריכים או ברשות השולחת. יש לאשר או לדחות כל תלמיד.</p>
+                        <p style="margin-bottom: 12px; color: #666;">תלמידים שלא יאושרו יישארו ללא שינוי. תקופות חופפות שאינן מותרות אינן ניתנות לאישור.</p>
+                        <div style="max-height: 380px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px;">
+                            @foreach (var item in _pendingItems)
+                            {
+                                <div style="padding: 12px; border-bottom: 1px solid #eee; background: @(item.IsBlocked ? "#fff3cd" : "white");">
+                                    <div style="white-space: pre-line;">@item.Question</div>
+                                    @if (item.IsBlocked)
+                                    {
+                                        <div style="margin-top: 8px; color: #856404; font-weight: 600;">לא ניתן לאשר</div>
+                                    }
+                                    else if (item.RequiresSameCouncilChoice)
+                                    {
+                                        <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+                                            <label>
+                                                <input type="radio"
+                                                       name="@($"pending-{item.IdNumber}")"
+                                                       checked="@(GetPendingAnswer(item.IdNumber) == KeepBothAnswer)"
+                                                       @onchange="() => SetPendingAnswer(item.IdNumber, KeepBothAnswer)" />
+                                                שתי התקופות לחיוב
+                                            </label>
+                                            <label>
+                                                <input type="radio"
+                                                       name="@($"pending-{item.IdNumber}")"
+                                                       checked="@(GetPendingAnswer(item.IdNumber) == CorrectionAnswer)"
+                                                       @onchange="() => SetPendingAnswer(item.IdNumber, CorrectionAnswer)" />
+                                                תיקון
+                                            </label>
+                                            <label>
+                                                <input type="radio"
+                                                       name="@($"pending-{item.IdNumber}")"
+                                                       checked="@(GetPendingAnswer(item.IdNumber) == NoAnswer)"
+                                                       @onchange="() => SetPendingAnswer(item.IdNumber, NoAnswer)" />
+                                                לא
+                                            </label>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div style="margin-top: 8px; display: flex; gap: 16px;">
+                                            <label>
+                                                <input type="radio"
+                                                       name="@($"pending-{item.IdNumber}")"
+                                                       checked="@(GetPendingAnswer(item.IdNumber) == YesAnswer)"
+                                                       @onchange="() => SetPendingAnswer(item.IdNumber, YesAnswer)" />
+                                                כן
+                                            </label>
+                                            <label>
+                                                <input type="radio"
+                                                       name="@($"pending-{item.IdNumber}")"
+                                                       checked="@(GetPendingAnswer(item.IdNumber) == NoAnswer)"
+                                                       @onchange="() => SetPendingAnswer(item.IdNumber, NoAnswer)" />
+                                                לא
+                                            </label>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
                 else if (_currentStep == UploadStep.UploadComplete)
                 {
                     <!-- Step 3: Upload Complete -->
@@ -101,6 +171,13 @@
                         @(_isProcessing ? "מעלה..." : "העלה קובץ")
                     </button>
                 }
+                else if (_currentStep == UploadStep.ConfirmReview)
+                {
+                    <button type="button" class="btn-secondary" @onclick="CloseAndRefresh" disabled="@_isProcessing">סגור ללא אישור</button>
+                    <button type="button" class="btn-primary" @onclick="SubmitPendingConfirmations" disabled="@(_isProcessing || !HasAcceptedPending())">
+                        @(_isProcessing ? "מאשר..." : "אשר נבחרים")
+                    </button>
+                }
                 else if (_currentStep == UploadStep.UploadComplete)
                 {
                     <button type="button" class="btn-primary" @onclick="CloseAndRefresh">אישור</button>
@@ -115,6 +192,7 @@
     {
         FileSelection,
         ColumnMapping,
+        ConfirmReview,
         UploadComplete
     }
 
@@ -135,6 +213,17 @@
     private List<string> _fileHeaders = new();
     private Dictionary<string, string> _availableFields = new();
     private Dictionary<string, string> _columnMappings = new();
+    private List<PendingItem> _pendingItems = new();
+    private Dictionary<string, string> _pendingAnswers = new();
+    private const string NoAnswer = "no";
+    private const string YesAnswer = "yes";
+    private const string KeepBothAnswer = "keepBoth";
+    private const string CorrectionAnswer = "correction";
+    private int _firstPassCreated;
+    private int _firstPassUpdated;
+    private int _firstPassUnchanged;
+    private int _firstPassErrors;
+    private List<string> _firstPassErrorList = new();
 
     public void Show()
     {
@@ -173,6 +262,13 @@
         _fileHeaders.Clear();
         _availableFields.Clear();
         _columnMappings.Clear();
+        _pendingItems.Clear();
+        _pendingAnswers.Clear();
+        _firstPassCreated = 0;
+        _firstPassUpdated = 0;
+        _firstPassUnchanged = 0;
+        _firstPassErrors = 0;
+        _firstPassErrorList.Clear();
     }
 
     private void OnFileSelected(InputFileChangeEventArgs e)
@@ -384,27 +480,32 @@
 
             if (response != null && response.Success)
             {
-                var summaryMessage = $"✅ הקובץ עובד בהצלחה!<br><br>" +
-                    $"📊 סיכום העלאה:<br>" +
-                    $"➕ נוצרו: {response.Created}<br>" +
-                    $"✏️ עודכנו: {response.Updated}<br>" +
-                    $"➖ ללא שינוי: {response.Unchanged}<br>";
+                _firstPassCreated = response.Created;
+                _firstPassUpdated = response.Updated;
+                _firstPassUnchanged = response.Unchanged;
+                _firstPassErrors = response.Errors;
+                _firstPassErrorList = DistinctErrors(response.Details?.ErrorList ?? new List<string>());
+                _firstPassErrors = _firstPassErrorList.Count;
 
-                if (response.Errors > 0)
-                {
-                    summaryMessage += $"<br>❌ שגיאות: {response.Errors}";
-                    if (response.Details?.ErrorList != null && response.Details.ErrorList.Any())
-                    {
-                        // ✅ Show all errors with scrollable container
-                        var errorItems = string.Join("", response.Details.ErrorList.Select(e => $"<div style='padding: 8px; border-bottom: 1px solid #f0f0f0; background: #fff3cd;'>{e}</div>"));
-                        summaryMessage += $"<br><br><div style='font-weight: bold; margin-bottom: 10px;'>⚠️ רשימת שגיאות:</div>" +
-                            $"<div style='max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; background: white; direction: rtl;'>{errorItems}</div>";
-                    }
-                }
-
+                var summaryMessage = BuildUploadSummary(response, includeErrorList: false);
                 _statusMessage = summaryMessage;
-                _statusType = "success";
-                _currentStep = UploadStep.UploadComplete;
+                _statusType = response.Errors > 0 ? "warning" : "success";
+
+                _pendingItems = response.PendingList ?? new List<PendingItem>();
+                _pendingAnswers = new Dictionary<string, string>();
+                foreach (var p in _pendingItems.Where(x => !x.IsBlocked))
+                    _pendingAnswers.TryAdd(p.IdNumber, NoAnswer);
+
+                if (_pendingItems.Count > 0)
+                {
+                    _currentStep = UploadStep.ConfirmReview;
+                    _modalTitle = "אישור שינויי תאריכים ורשות";
+                }
+                else
+                {
+                    _statusMessage = BuildUploadSummary(response, includeErrorList: true);
+                    _currentStep = UploadStep.UploadComplete;
+                }
             }
             else
             {
@@ -422,6 +523,133 @@
             _isProcessing = false;
             StateHasChanged();
         }
+    }
+
+    private string GetPendingAnswer(string idNumber) =>
+        _pendingAnswers.GetValueOrDefault(idNumber, NoAnswer);
+
+    private void SetPendingAnswer(string idNumber, string answer)
+    {
+        _pendingAnswers[idNumber] = answer;
+    }
+
+    private bool HasAcceptedPending() =>
+        _pendingAnswers.Values.Any(v => v == YesAnswer || v == KeepBothAnswer || v == CorrectionAnswer);
+
+    private async Task SubmitPendingConfirmations()
+    {
+        var accepted = _pendingItems
+            .Where(p => !p.IsBlocked && IsAcceptedAnswer(GetPendingAnswer(p.IdNumber)))
+            .Select(p =>
+            {
+                var answer = GetPendingAnswer(p.IdNumber);
+                if (answer == KeepBothAnswer)
+                    p.SameCouncilApplyMode = "KeepBoth";
+                else if (answer == CorrectionAnswer)
+                    p.SameCouncilApplyMode = "Correction";
+                return p;
+            })
+            .ToList();
+
+        if (accepted.Count == 0)
+        {
+            _currentStep = UploadStep.UploadComplete;
+            _statusMessage = BuildUploadSummary(new UploadResponse
+            {
+                Success = true,
+                Created = _firstPassCreated,
+                Updated = _firstPassUpdated,
+                Unchanged = _firstPassUnchanged,
+                Errors = DistinctErrors(_firstPassErrorList).Count,
+                Details = new UploadDetails { ErrorList = DistinctErrors(_firstPassErrorList) }
+            }, header: "✅ השינויים אושרו", includeErrorList: true);
+            _modalTitle = "העלאת קובץ תלמידים";
+            StateHasChanged();
+            return;
+        }
+
+        _isProcessing = true;
+        _statusType = "loading";
+        StateHasChanged();
+
+        try
+        {
+            var response = await ApiService.PostAsync<object, UploadResponse>(
+                "studentsfileupload/confirm",
+                new { accepted });
+
+            if (response != null && response.Success)
+            {
+                var confirmErrors = response.Details?.ErrorList ?? new List<string>();
+                var errorList = DistinctErrors(_firstPassErrorList.Concat(confirmErrors));
+                var merged = new UploadResponse
+                {
+                    Success = true,
+                    Created = _firstPassCreated,
+                    Updated = _firstPassUpdated + response.Updated,
+                    Unchanged = _firstPassUnchanged,
+                    Errors = errorList.Count,
+                    Details = new UploadDetails
+                    {
+                        ErrorList = errorList
+                    }
+                };
+                _statusMessage = BuildUploadSummary(merged, header: "✅ השינויים אושרו", includeErrorList: true);
+                _statusType = merged.Errors > 0 ? "warning" : "success";
+                _currentStep = UploadStep.UploadComplete;
+                _modalTitle = "העלאת קובץ תלמידים";
+            }
+            else
+            {
+                _statusMessage = $"❌ שגיאה: {response?.Message ?? "אישור השינויים נכשל"}";
+                _statusType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"❌ שגיאה באישור השינויים: {ex.Message}";
+            _statusType = "error";
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private static List<string> DistinctErrors(IEnumerable<string> errors) =>
+        errors
+            .Where(e => !string.IsNullOrWhiteSpace(e))
+            .Distinct()
+            .ToList();
+
+    private static bool IsAcceptedAnswer(string answer) =>
+        answer == YesAnswer || answer == KeepBothAnswer || answer == CorrectionAnswer;
+
+    private static string BuildUploadSummary(
+        UploadResponse response,
+        string header = "✅ הקובץ עובד בהצלחה!",
+        bool includeErrorList = true)
+    {
+        var summaryMessage = $"{header}<br><br>" +
+            $"📊 סיכום:<br>" +
+            $"➕ נוצרו: {response.Created}<br>" +
+            $"✏️ עודכנו: {response.Updated}<br>" +
+            $"➖ ללא שינוי: {response.Unchanged}<br>";
+
+        if (response.Errors > 0)
+        {
+            summaryMessage += $"<br>❌ שגיאות: {response.Errors}";
+            if (includeErrorList && response.Details?.ErrorList != null && response.Details.ErrorList.Any())
+            {
+                var uniqueErrors = DistinctErrors(response.Details.ErrorList);
+                var errorItems = string.Join("", uniqueErrors.Select(e => $"<div style='padding: 8px; border-bottom: 1px solid #f0f0f0; background: #fff3cd;'>{e}</div>"));
+                summaryMessage += $"<br><br><div style='font-weight: bold; margin-bottom: 10px;'>⚠️ רשימת שגיאות:</div>" +
+                    $"<div style='max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; background: white; direction: rtl;'>{errorItems}</div>";
+            }
+        }
+
+        return summaryMessage;
     }
 
     private string GetMappingValue(string header)
@@ -459,7 +687,58 @@
         public int Updated { get; set; }
         public int Unchanged { get; set; }
         public int Errors { get; set; }
+        public int Pending { get; set; }
+        public List<PendingItem>? PendingList { get; set; }
         public UploadDetails? Details { get; set; }
+    }
+
+    private class PendingItem
+    {
+        public string Type { get; set; } = string.Empty;
+        public bool IsBlocked { get; set; }
+        public string Question { get; set; } = string.Empty;
+        public int ExistingStudentId { get; set; }
+        public string IdNumber { get; set; } = string.Empty;
+        public string StudentName { get; set; } = string.Empty;
+        public DateOnly? ExistingStartDate { get; set; }
+        public DateOnly? ExistingEndDate { get; set; }
+        public int? ExistingCouncilId { get; set; }
+        public string? ExistingCouncilName { get; set; }
+        public DateOnly? ProposedStartDate { get; set; }
+        public DateOnly? ProposedEndDate { get; set; }
+        public int? ProposedCouncilId { get; set; }
+        public string? ProposedCouncilName { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public int? Gender { get; set; }
+        public int ClassId { get; set; }
+        public int? DisabilityCategory { get; set; }
+        public string Street { get; set; } = string.Empty;
+        public string HouseNumber { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string PostCode { get; set; } = string.Empty;
+        public List<PendingPeriod> ExistingPeriods { get; set; } = new();
+        public List<PendingPeriod> ProposedPeriods { get; set; } = new();
+        public List<PendingPeriod> SuggestedUpdates { get; set; } = new();
+        public bool RequiresSameCouncilChoice { get; set; }
+        public string? SameCouncilApplyMode { get; set; }
+    }
+
+    private class PendingPeriod
+    {
+        public DateOnly? StartDate { get; set; }
+        public DateOnly? EndDate { get; set; }
+        public int? CouncilId { get; set; }
+        public string? CouncilName { get; set; }
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public int? Gender { get; set; }
+        public int ClassId { get; set; }
+        public int? DisabilityCategory { get; set; }
+        public string Street { get; set; } = string.Empty;
+        public string HouseNumber { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public string PostCode { get; set; } = string.Empty;
     }
 
     private class UploadDetails

@@ -112,7 +112,7 @@ namespace PetelATH.Api.Services
         /// <summary>
         /// Calculate pricing elements for a student
         /// </summary>
-        public async Task<PricingCalculationResult> CalculateStudentPricing(int schoolStudentId)
+        public async Task<PricingCalculationResult> CalculateStudentPricing(int schoolStudentId, bool saveInPlace = false)
         {
             var result = new PricingCalculationResult
             {
@@ -341,6 +341,28 @@ namespace PetelATH.Api.Services
                         _logger.LogInformation("✅ No pricing changes detected for student {StudentId}. " +
                             "Stored cost: {CurrentCost:C}, Calculated cost: {CalculatedCost:C}. Skipping save.",
                             schoolStudentId, student.Cost ?? 0m, proratedCost);
+                    }
+                    else if (saveInPlace || !student.IsLastVersion)
+                    {
+                        _logger.LogInformation("🔄 Pricing changes detected for student {StudentId}. Saving in place (IsLastVersion={IsLastVersion}).",
+                            schoolStudentId, student.IsLastVersion);
+
+                        var tracked = await _context.SchoolStudents.FirstOrDefaultAsync(s => s.Id == schoolStudentId);
+                        if (tracked == null)
+                        {
+                            result.Errors.Add("Failed to load student for in-place pricing save");
+                            result.Success = false;
+                        }
+                        else
+                        {
+                            tracked.Cost = proratedCost;
+                            tracked.EnrollmentMonths = enrollmentMonths;
+                            if (tracked.StatusId != 7 && tracked.StatusId != 9)
+                                tracked.StatusId = result.Errors.Count == 0 ? 2 : 6;
+                            await _context.SaveChangesAsync();
+                            result.NewStudentId = schoolStudentId;
+                            result.InPlaceSave = true;
+                        }
                     }
                     else
                     {
@@ -1106,6 +1128,65 @@ private async Task<CalculatedPricingElement?> CalculatePriceForElement(
         }
 
         /// <summary>
+        /// Recalculate pricing and replace stored elements on the same student row.
+        /// Used for historical split-council periods that must not become last version.
+        /// </summary>
+        public async Task RecalculateAndSaveInPlaceAsync(int studentId)
+        {
+            var result = await CalculateStudentPricing(studentId, saveInPlace: true);
+            if (!result.Success || result.CalculatedElements.Count == 0)
+            {
+                _logger.LogWarning("In-place pricing skipped for student {StudentId}: success={Success}, elements={Count}",
+                    studentId, result.Success, result.CalculatedElements.Count);
+                return;
+            }
+
+            if (result.NoChangeDetected)
+            {
+                await EnsurePricedStatusAsync(studentId, result.Errors.Count == 0 ? 2 : 6);
+                return;
+            }
+
+            await ReplacePricingElements(studentId, result.CalculatedElements);
+        }
+
+        /// <summary>
+        /// Price other billable periods for the same student (include_in_council_summary rows)
+        /// using each row's own dates. Does not version those rows.
+        /// </summary>
+        public async Task PriceRelatedCouncilPeriodsAsync(int schoolStudentId)
+        {
+            var student = await _context.SchoolStudents
+                .AsNoTracking()
+                .FirstOrDefaultAsync(s => s.Id == schoolStudentId);
+
+            if (student == null)
+                return;
+
+            var siblingIds = await _context.SchoolStudents
+                .Where(s => s.MasterStudentId == student.MasterStudentId
+                    && s.SchoolYearId == student.SchoolYearId
+                    && s.IncludeInCouncilSummary
+                    && s.Id != schoolStudentId
+                    && s.StatusId != 7)
+                .Select(s => s.Id)
+                .ToListAsync();
+
+            foreach (var siblingId in siblingIds)
+                await RecalculateAndSaveInPlaceAsync(siblingId);
+        }
+
+        private async Task EnsurePricedStatusAsync(int studentId, int statusId)
+        {
+            var tracked = await _context.SchoolStudents.FirstOrDefaultAsync(s => s.Id == studentId);
+            if (tracked == null || tracked.StatusId == 7 || tracked.StatusId == 9 || tracked.StatusId == statusId)
+                return;
+
+            tracked.StatusId = statusId;
+            await _context.SaveChangesAsync();
+        }
+
+        /// <summary>
         /// Save calculated pricing elements to database
         /// Linked to the NEW student version
         /// ✅ UPDATED: Includes DeterminingFactor and Hours fields
@@ -1144,6 +1225,25 @@ private async Task<CalculatedPricingElement?> CalculatePriceForElement(
                 return false;
             }
         }
+
+        public async Task<bool> ReplacePricingElements(int studentId, List<CalculatedPricingElement> elements)
+        {
+            try
+            {
+                var existing = await _context.SchoolStudentPricingElements
+                    .Where(pe => pe.StudentId == studentId)
+                    .ToListAsync();
+                _context.SchoolStudentPricingElements.RemoveRange(existing);
+                await _context.SaveChangesAsync();
+
+                return await SavePricingElements(studentId, elements);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error replacing pricing elements for student {StudentId}", studentId);
+                return false;
+            }
+        }
     }
 
     // DTO Classes
@@ -1153,6 +1253,7 @@ private async Task<CalculatedPricingElement?> CalculatePriceForElement(
         public int? NewStudentId { get; set; }
         public bool Success { get; set; }
         public bool NoChangeDetected { get; set; }
+        public bool InPlaceSave { get; set; }
         public int EnrollmentMonths { get; set; } = 12;
         public List<CalculatedPricingElement> CalculatedElements { get; set; } = new();
         public List<string> Errors { get; set; } = new();

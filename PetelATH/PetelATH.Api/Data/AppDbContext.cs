@@ -167,12 +167,21 @@ public DbSet<Status> Statuses { get; set; }
                 v => v != null ? _encryptionService.Encrypt(v) : null,
                 v => v != null ? _encryptionService.Decrypt(v) : null
             );
+
+        entity.Property(e => e.IncludeInCouncilSummary)
+            .HasColumnName("include_in_council_summary")
+            .HasDefaultValue(false);
     
         // Navigation properties
         entity.HasOne(s => s.Status)
             .WithMany()
             .HasForeignKey(s => s.StatusId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        entity.HasOne(s => s.CreatedByUser)
+            .WithMany()
+            .HasForeignKey(s => s.CreatedUser)
+            .OnDelete(DeleteBehavior.SetNull);
     });
     
     // ===== USER ENTITY - Encrypt OTP secret and email =====
@@ -756,6 +765,9 @@ modelBuilder.Entity<SpecialNeedsPricingCategory>(entity =>
                 modelBuilder.Entity<SchoolStudent>(entity =>
                 {
                     entity.ToTable("school_students");
+                    entity.Property(e => e.IncludeInCouncilSummary)
+                        .HasColumnName("include_in_council_summary")
+                        .HasDefaultValue(false);
                     
                     // ✅ Configure Status relationship
                     entity.HasOne(s => s.Status)

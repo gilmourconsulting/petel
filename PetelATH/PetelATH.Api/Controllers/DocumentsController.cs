@@ -2277,7 +2277,7 @@ namespace PetelATH.Api.Controllers
 
                 var qualifyingCouncilIds = await _context.SchoolStudents
                     .AsNoTracking()
-                    .Where(s => s.IsLastVersion &&
+                    .Where(s => (s.IsLastVersion || s.IncludeInCouncilSummary) &&
                                 schoolYearIds.Contains(s.SchoolYearId) &&
                                 s.SendingCouncil.HasValue &&
                                 qualifyingStatuses.Contains(s.StatusId ?? 0))
@@ -2360,6 +2360,7 @@ namespace PetelATH.Api.Controllers
                         SendingCouncil    = s.SendingCouncil,
                         Cost              = s.Cost,
                         EnrollmentMonths  = s.EnrollmentMonths,
+                        IncludeInCouncilSummary = false,
                         IsLastVersion     = true,
                         StatusId          = SentStatusId,
                     }).ToList();
@@ -2367,7 +2368,27 @@ namespace PetelATH.Api.Controllers
                     _context.SchoolStudents.AddRange(newVersions);
                     await _context.SaveChangesAsync();
                     studentsUpdated = newVersions.Count;
+                }
 
+                var historicalToMarkSent = await _context.SchoolStudents
+                    .Where(s => s.IncludeInCouncilSummary &&
+                                !s.IsLastVersion &&
+                                schoolYearIds.Contains(s.SchoolYearId) &&
+                                s.SendingCouncil.HasValue &&
+                                qualifyingCouncilIds.Contains(s.SendingCouncil.Value) &&
+                                qualifyingStatuses.Contains(s.StatusId ?? 0))
+                    .ToListAsync();
+
+                if (historicalToMarkSent.Count > 0)
+                {
+                    foreach (var s in historicalToMarkSent)
+                        s.StatusId = SentStatusId;
+                    await _context.SaveChangesAsync();
+                    studentsUpdated += historicalToMarkSent.Count;
+                }
+
+                if (studentsUpdated > 0)
+                {
                     _logger.LogInformation(
                         "Updated {Count} students to StatusId={Status} for entityId={EntityId}, yearId={YearId}",
                         studentsUpdated, SentStatusId, entityId, yearId.Value);

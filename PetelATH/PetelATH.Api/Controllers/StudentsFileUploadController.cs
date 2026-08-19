@@ -134,20 +134,7 @@ public async Task<IActionResult> UploadStudentsFile([FromForm] UploadStudentsFil
         // Don't fail the request if alert creation fails
     }
 
-    return Ok(new
-    {
-        success = true,
-        message = "File processed successfully.",
-        created = result.Created,
-        updated = result.Updated,
-        unchanged = result.Unchanged.Count,
-        errors = result.Errors.Count,
-        details = new
-        {
-            unchangedList = result.Unchanged,
-            errorList = result.Errors
-        }
-    });
+    return Ok(MapUploadResult(result, "File processed successfully."));
 }
 
         /// <summary>
@@ -230,20 +217,46 @@ public async Task<IActionResult> UploadStudentsFile([FromForm] UploadStudentsFil
             // Don't fail the request if alert creation fails
         }
 
-        return Ok(new
+        return Ok(MapUploadResult(result, "File processed successfully via API."));
+        }
+
+        /// <summary>
+        /// Apply accepted date/council confirmations from the first upload pass.
+        /// </summary>
+        [HttpPost("confirm")]
+        public async Task<IActionResult> ConfirmPendingChanges([FromBody] ConfirmStudentsUploadRequest request)
         {
-            success = true,
-            message = "File processed successfully via API.",
-            created = result.Created,
-            updated = result.Updated,
-            unchanged = result.Unchanged.Count,
-            errors = result.Errors.Count,
+            var session = GetCurrentSession();
+            if (session == null)
+            {
+                _logger.LogError("No valid session found");
+                return Unauthorized(new { success = false, message = "לא נמצאה הפעלה פעילה. אנא התחבר מחדש." });
+            }
+
+            var accepted = request?.Accepted ?? new List<StudentUploadPendingItem>();
+            var result = await _fileProcessor.ConfirmPendingAsync(accepted, session.UserId);
+
+            return Ok(MapUploadResult(result, "שינויים אושרו בהצלחה."));
+        }
+
+        private static object MapUploadResult(ProcessingResult result, string message)
+        {
+            return new
+            {
+                success = true,
+                message,
+                created = result.Created,
+                updated = result.Updated,
+                unchanged = result.Unchanged.Count,
+                errors = result.Errors.Count,
+                pending = result.Pending.Count,
+                pendingList = result.Pending,
                 details = new
                 {
                     unchangedList = result.Unchanged,
                     errorList = result.Errors
                 }
-            });
+            };
         }
 
  

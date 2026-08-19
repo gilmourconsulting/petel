@@ -76,7 +76,8 @@ namespace PetelATH.Api.Controllers
                     if (result.NoChangeDetected)
                     {
                         _logger.LogInformation("ℹ️ No changes detected - skipping save for student {StudentId}", schoolStudentId);
-                        
+                        await _pricingService.PriceRelatedCouncilPeriodsAsync(schoolStudentId);
+
                         return Ok(new
                         {
                             success = true,
@@ -94,19 +95,21 @@ namespace PetelATH.Api.Controllers
                         });
                     }
 
-                    // ✅ Changes detected - check if new version was created
+                    // ✅ Changes detected - check if new version was created or saved in place
                     if (!result.NewStudentId.HasValue)
                     {
                         return StatusCode(500, new
                         {
                             success = false,
-                            message = "נכשל ביצירת גרסת תלמיד חדשה"
+                            message = result.InPlaceSave
+                                ? "נכשל בשמירת תמחור על גרסת התלמיד"
+                                : "נכשל ביצירת גרסת תלמיד חדשה"
                         });
                     }
 
-                    var saved = await _pricingService.SavePricingElements(
-                        result.NewStudentId.Value,  // ✅ Use NEW version ID
-                        result.CalculatedElements);
+                    var saved = await _pricingService.ReplacePricingElements(
+                            result.NewStudentId.Value,
+                            result.CalculatedElements);
 
                     if (!saved)
                     {
@@ -116,6 +119,8 @@ namespace PetelATH.Api.Controllers
                             message = "חישוב התמחור הצליח אך השמירה נכשלה"
                         });
                     }
+
+                    await _pricingService.PriceRelatedCouncilPeriodsAsync(schoolStudentId);
                 }
 
                 return Ok(new
@@ -164,7 +169,6 @@ namespace PetelATH.Api.Controllers
 
                 _logger.LogInformation("📊 Fetching pricing elements for student: {StudentId}", schoolStudentId);
 
-                 // ✅ Get student information to retrieve cost and dates
                 var student = await _context.SchoolStudents
                     .AsNoTracking()
                     .FirstOrDefaultAsync(s => s.Id == schoolStudentId);
@@ -174,9 +178,35 @@ namespace PetelATH.Api.Controllers
                     return NotFound(new { success = false, message = "תלמיד לא נמצא" });
                 }
 
-                
-                var pricingElements = await _context.SchoolStudentPricingElements
-                    .Where(pe => pe.StudentId == schoolStudentId)
+                var billableStudents = await _context.SchoolStudents
+                    .AsNoTracking()
+                    .Where(s => s.MasterStudentId == student.MasterStudentId
+                        && s.SchoolYearId == student.SchoolYearId
+                        && (s.IsLastVersion || s.IncludeInCouncilSummary))
+                    .ToListAsync();
+
+                var lastVersion = billableStudents.FirstOrDefault(s => s.IsLastVersion) ?? student;
+                var lastVersionId = lastVersion.Id;
+
+                var billableIds = billableStudents.Select(s => s.Id).Distinct().ToList();
+                if (!billableIds.Contains(schoolStudentId))
+                    billableIds.Add(schoolStudentId);
+
+                var councilIds = billableStudents
+                    .Where(s => s.SendingCouncil.HasValue)
+                    .Select(s => s.SendingCouncil!.Value)
+                    .Distinct()
+                    .ToList();
+
+                var councilNames = councilIds.Count == 0
+                    ? new Dictionary<int, string>()
+                    : await _context.Councils
+                        .AsNoTracking()
+                        .Where(c => councilIds.Contains(c.Id))
+                        .ToDictionaryAsync(c => c.Id, c => c.Name);
+
+                var allElements = await _context.SchoolStudentPricingElements
+                    .Where(pe => billableIds.Contains(pe.StudentId))
                     .Join(
                         _context.SpecialNeedsPricingElements,
                         spe => spe.PricingElementId,
@@ -189,39 +219,83 @@ namespace PetelATH.Api.Controllers
                             PricingElementName = snpe.ElementName,
                             spe.FullPrice,
                             spe.Price,
-                            spe.DeterminingFactor,       
-                            spe.Hours,     
+                            spe.DeterminingFactor,
+                            spe.Hours,
                             SortOrder = snpe.SortOrder
                         })
                     .OrderBy(pe => pe.SortOrder)
                     .ThenBy(pe => pe.PricingElementName)
                     .ToListAsync();
 
-                _logger.LogInformation("✅ Found {Count} pricing elements for student {StudentId}", 
-                    pricingElements.Count, schoolStudentId);
+                var elementsByStudent = allElements
+                    .GroupBy(e => e.StudentId)
+                    .ToDictionary(g => g.Key, g => g.ToList());
 
-                // ✅ Calculate enrollment months (prefer stored value, fallback to calculate)
-                int? enrollmentMonths = student.EnrollmentMonths
-                    ?? (student.StartDate.HasValue && student.EndDate.HasValue
-                        ? CalculateEnrollmentMonthsForDisplay(student.StartDate.Value, student.EndDate.Value)
+                var lastVersionElements = elementsByStudent.TryGetValue(lastVersionId, out var lastEls)
+                    ? lastEls
+                    : allElements.Where(_ => false).ToList();
+
+                int? enrollmentMonths = lastVersion.EnrollmentMonths
+                    ?? (lastVersion.StartDate.HasValue && lastVersion.EndDate.HasValue
+                        ? CalculateEnrollmentMonthsForDisplay(lastVersion.StartDate.Value, lastVersion.EndDate.Value)
                         : (int?)null);
 
-                // ✅ Calculate sum of pricing elements
-                var elementsTotal = pricingElements.Sum(pe => pe.Price);
-                var elementsTotalFull = pricingElements.Sum(pe => pe.FullPrice);
+                var elementsTotal = lastVersionElements.Sum(pe => pe.Price);
+                var elementsTotalFull = lastVersionElements.Sum(pe => pe.FullPrice);
+
+                var periods = billableStudents
+                    .OrderByDescending(s => s.IsLastVersion)
+                    .ThenBy(s => s.StartDate)
+                    .Select(s =>
+                    {
+                        var periodElements = elementsByStudent.TryGetValue(s.Id, out var els)
+                            ? els
+                            : allElements.Where(_ => false).ToList();
+                        int? months = s.EnrollmentMonths
+                            ?? (s.StartDate.HasValue && s.EndDate.HasValue
+                                ? CalculateEnrollmentMonthsForDisplay(s.StartDate.Value, s.EndDate.Value)
+                                : (int?)null);
+                        string? councilName = s.SendingCouncil.HasValue
+                            && councilNames.TryGetValue(s.SendingCouncil.Value, out var name)
+                            ? name
+                            : null;
+                        return new
+                        {
+                            studentId = s.Id,
+                            councilId = s.SendingCouncil,
+                            councilName,
+                            startDate = s.StartDate,
+                            endDate = s.EndDate,
+                            enrollmentMonths = months,
+                            cost = s.Cost ?? 0m,
+                            isLastVersion = s.IsLastVersion,
+                            elementsTotal = periodElements.Sum(pe => pe.Price),
+                            elements = periodElements
+                        };
+                    })
+                    .ToList();
+
+                _logger.LogInformation("✅ Found {Count} pricing elements for last version {StudentId}; {PeriodCount} billable periods",
+                    lastVersionElements.Count, lastVersionId, periods.Count);
 
                 return Ok(new
                 {
                     success = true,
-                    data = pricingElements,
+                    data = lastVersionElements,
                     summary = new
                     {
-                        elementsTotalFull = elementsTotalFull,       // ✅ Sum of full annual prices
-                        elementsTotal = elementsTotal,               // ✅ Sum of prorated prices
-                        studentCost = student.Cost ?? 0,             // ✅ Final cost from student record
-                        enrollmentMonths = enrollmentMonths,         // ✅ Months enrolled
-                        startDate = student.StartDate,
-                        endDate = student.EndDate
+                        elementsTotalFull = elementsTotalFull,
+                        elementsTotal = elementsTotal,
+                        studentCost = lastVersion.Cost ?? 0,
+                        enrollmentMonths = enrollmentMonths,
+                        startDate = lastVersion.StartDate,
+                        endDate = lastVersion.EndDate
+                    },
+                    periods,
+                    totals = new
+                    {
+                        totalCost = periods.Sum(p => p.cost),
+                        elementsTotal = periods.Sum(p => p.elementsTotal)
                     }
                 });
             }
@@ -302,12 +376,16 @@ namespace PetelATH.Api.Controllers
 
                 // Get all students for this school year, excluding those with "no external permit" status
                 var students = await _context.SchoolStudents
-                    .Where(s => s.SchoolYearId == schoolYearId && s.IsLastVersion && s.StatusId != 7)
+                    .Where(s => s.SchoolYearId == schoolYearId
+                        && s.StatusId != 7
+                        && (s.IsLastVersion || s.IncludeInCouncilSummary))
                     .Select(s => s.Id)
                     .ToListAsync();
 
                 var skippedCount = await _context.SchoolStudents
-                    .CountAsync(s => s.SchoolYearId == schoolYearId && s.IsLastVersion && s.StatusId == 7);
+                    .CountAsync(s => s.SchoolYearId == schoolYearId
+                        && (s.IsLastVersion || s.IncludeInCouncilSummary)
+                        && s.StatusId == 7);
 
                 var results = new List<object>();
                 var successCount = 0;
@@ -316,12 +394,12 @@ namespace PetelATH.Api.Controllers
                 foreach (var studentId in students)
                 {
                     var result = await _pricingService.CalculateStudentPricing(studentId);
-                    
+
                     if (result.Success && save && result.NewStudentId.HasValue)
                     {
-                                await _pricingService.SavePricingElements(
-                                    result.NewStudentId.Value,  // ✅ Use NEW version ID
-                                    result.CalculatedElements);
+                        await _pricingService.ReplacePricingElements(
+                            result.NewStudentId.Value,
+                            result.CalculatedElements);
                     }
 
                     results.Add(new
@@ -391,12 +469,16 @@ namespace PetelATH.Api.Controllers
                 foreach (var schoolYearId in request.SchoolYearIds)
                 {
                     var students = await _context.SchoolStudents
-                        .Where(s => s.SchoolYearId == schoolYearId && s.IsLastVersion && s.StatusId != 7)
+                        .Where(s => s.SchoolYearId == schoolYearId
+                            && s.StatusId != 7
+                            && (s.IsLastVersion || s.IncludeInCouncilSummary))
                         .Select(s => s.Id)
                         .ToListAsync();
 
                     var skipped = await _context.SchoolStudents
-                        .CountAsync(s => s.SchoolYearId == schoolYearId && s.IsLastVersion && s.StatusId == 7);
+                        .CountAsync(s => s.SchoolYearId == schoolYearId
+                            && (s.IsLastVersion || s.IncludeInCouncilSummary)
+                            && s.StatusId == 7);
 
                     int successCount = 0, failCount = 0;
 
@@ -406,7 +488,7 @@ namespace PetelATH.Api.Controllers
 
                         if (result.Success && request.Save && result.NewStudentId.HasValue)
                         {
-                            await _pricingService.SavePricingElements(
+                            await _pricingService.ReplacePricingElements(
                                 result.NewStudentId.Value,
                                 result.CalculatedElements);
                         }

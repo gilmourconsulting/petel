@@ -355,38 +355,132 @@ The `StudentsFileProcessor` handles all logic when a student file (CSV/XLS/XLSX)
 
 #### Status Assignment on Upload
 
-When creating a new student record or a new version of an existing student, the `StatusId` is set according to the following rule:
+When creating a new student record or a new version of an existing student, `StatusId` is set by `ResolveUploadStatus`:
 
 | Condition | StatusId | Meaning |
 |---|---|---|
-| `StartDate == EndDate` | `8` | נמחק (deleted) |
-| `StartDate != EndDate` | `1` | Active |
+| `StartDate == EndDate` | `8` | נמחק (deleted) — strongest rule |
+| Completely new student | `1` | Active |
+| New version, previous last version is `2` or `4` | `9` | עודכן לאחר תמחור |
+| New version, file period is not already a billable row (dates+council) | `9` | New extra period after pricing; keep `9` if previous was already `9` |
+| New version, any other previous status | previous `StatusId` | Unchanged |
 
 ```csharp
-// ✅ CORRECT — applied in both CreateNewStudentAsync and UpdateStudentWithNewVersionAsync
-student.StatusId = (student.StartDate.HasValue && student.EndDate.HasValue
-    && student.StartDate == student.EndDate) ? 8 : 1;
+// ✅ CORRECT — shared helper on create and new-version paths
+student.StatusId = ResolveUploadStatus(isNew, previousStatus, student.StartDate, student.EndDate);
 
-// ❌ WRONG — always setting active regardless of dates
+// ❌ WRONG — always setting active regardless of previous status
 student.StatusId = 1;
 ```
 
-This rule applies to **both** the create path (`CreateNewStudentAsync`) and the update/new-version path (`UpdateStudentWithNewVersionAsync`). Do not change one without updating the other.
+#### Last version = latest start date
+
+After every `CreateNewStudentVersionAsync`, `IsLastVersion` is reassigned within `master_student_id` + `school_year_id` to the row with the latest `StartDate` (tie: higher `Version`). Earlier council periods keep `IncludeInCouncilSummary`. Matching an existing student on upload still uses the current last version; after apply, last-version may remain the older row if the file period starts earlier.
+
+#### Copy pricing on new version
+
+`CreateNewStudentVersionAsync` copies `Cost`, `EnrollmentMonths`, and clones `school_student_pricing_elements` **only when** start date, end date, and sending council are unchanged after applying updates. If any of those three differ, `Cost` and `EnrollmentMonths` are null and pricing elements are not copied.
+
+Pricing calculate-and-save still writes new elements onto the new student id (`ReplacePricingElements`).
 
 #### Processing Flow
 
 ```
 UploadStudentsFile / UploadStudentsFileApi
-  └─ ResolveSchoolAndYearAsync  (resolve school + year from IDs or natural keys)
-  └─ StudentsFileValidator.ValidateStudentsFileAsync  (structure + header check)
-  └─ ParseFileAsync  (CSV or XLSX → List<StudentFileRow>)
+  └─ ResolveSchoolAndYearAsync
+  └─ StudentsFileValidator.ValidateStudentsFileAsync
+  └─ ParseFileAsync
   └─ StudentsFileProcessor.ProcessStudentRowsAsync
-       └─ Per row: ValidateRowFormat → ResolveCouncilIdAsync → GetClassIdByName
-            ├─ New student  → CreateNewStudentAsync  (StatusId from date rule above)
-            └─ Existing     → HasDataChanged?
-                 ├─ No  → Unchanged
-                 └─ Yes → UpdateStudentWithNewVersionAsync  (StatusId from date rule above)
-  └─ AlertService.CreateSchoolAlertAsync  (on success)
+       └─ Group rows by IdNumber (multiple rows per student are allowed)
+       └─ Per student: validate all rows; collapse exact duplicate periods (same start/end/council, last row wins)
+            ├─ File periods overlap → one blocked question
+            ├─ New student → auto-create all file periods (no question)
+            └─ Existing
+                 ├─ Every file period already exists as a billable row → Unchanged (extra DB periods such as a prior council stay); other-fields version only if the file row matches last version and identity fields changed
+                 ├─ Same council would have two non-overlapping periods (gap) → pending with KeepBoth vs Correction
+                 └─ Date/council change, or more than one file period → one pending question
+  └─ Return pendingList (one item per student)
+
+POST studentsfileupload/confirm
+  └─ For each accepted student: create a version only for unmatched periods and SuggestedUpdates (do not clone a period that already matches a billable row)
+       ├─ Last version include_in_council_summary = false; every other row in the chosen current set include = true (including same council when KeepBoth)
+       ├─ SplitCouncil / MultiPeriod: keep existing other-council / matching file periods; price every current-set row in place
+       ├─ SameEndCouncilSplit: new version for the file period plus a new version that caps the existing council to (file start − 1 day); do not mutate the old row; price both new rows; include the capped non-last council
+       ├─ Same-council gap: KeepBoth keeps the old period billable; Correction replaces it (old include false)
+       ├─ VerifyDates: in-place pricing on the new version
+       └─ Unmatched file periods (dates+council not already billable) get StatusId 9
+```
+
+The upload modal keeps first-pass `created` / `unchanged` / `updated` / errors and adds confirm `updated` and extra errors on the final summary. Confirm review shows counts only (no error dump). The final list of changes shows each error **once**. Blocked overlaps are counted as a short error (`התקופות חופפות. לא ניתן לקבל.`) rather than duplicating the full question text.
+
+#### Date / sending-council confirmation
+
+The file may list the same student more than once. **Overlapping periods inside the file are never allowed** (including same-end/different-start). Same-end cap applies only when comparing a **single** file period to the database.
+
+If every file period already exists as a billable row (`start`+`end`+council), the student is **Unchanged** (no question) even when the database has additional billable periods (for example a previous council after a split). Leftover duplicate billable rows from an earlier clone are collapsed to one row per period.
+
+The UI shows **one confirmation per student**. **לא** leaves that student unchanged. **כן** applies file periods (and any suggested cap). When the same council would have two **non-overlapping** date periods (including a gap), the user must choose:
+
+- **שתי התקופות לחיוב** (`KeepBoth`) — both periods stay billable; non-last gets `include_in_council_summary`
+- **תיקון** (`Correction`) — file dates replace that council’s old period; old row is history (`include` false)
+
+Overlapping same-council dates cannot be keep-both (VerifyDates / correction). Different-council legal splits stay automatic keep-both.
+
+Question text is a short existing-vs-file period list, for example:
+
+```
+שם פרטי שם משפחה (ת.ז)
+
+קיים במערכת:
+רשות X, dd/MM/yyyy–dd/MM/yyyy
+
+בקובץ:
+רשות Y, dd/MM/yyyy–dd/MM/yyyy
+
+לאשר עדכון?
+```
+
+Same-end later start, different council (file vs DB) shows the resulting periods under לעדכן:
+
+```
+קיים במערכת:
+לכיש, 01/11/2025–31/08/2026
+
+לעדכן:
+לכיש, 01/11/2025–11/02/2026
+תל-אביב-יפו, 12/02/2026–31/08/2026
+
+?
+```
+
+Blocked questions use the same lists plus `התקופות חופפות. לא ניתן לקבל.`
+
+| Type | Condition | On Yes |
+|---|---|---|
+| `ReplaceCouncil` | One file period; council differs, dates same | New version; old version is history only |
+| `SplitCouncil` | One file period; council differs, dates differ, **no overlap** | New version (file dates + new council). Existing period stays billable (`include_in_council_summary` if not last). Unmatched period is StatusId **9** |
+| `SameEndCouncilSplit` | One file period; council differs, **same end**, **later start** | New version for the file period **and** a new version that caps the existing council to (file start − 1 day). Do **not** mutate the old row in place. Last version is the latest `StartDate`. Capped non-last council gets `include_in_council_summary`. Unmatched periods are StatusId **9** |
+| `MultiPeriod` | Two or more **non-overlapping** file periods | New version only for file periods that are not already billable. Last version by latest `StartDate`. Non-last current periods get `include_in_council_summary` (including same council when KeepBoth). Unmatched periods get StatusId **9** |
+| `SplitCouncilBlocked` | File periods overlap, or one file period overlaps existing (except same-end later-start cap) | Shown as blocked; counted as an error; cannot accept |
+| `VerifyDates` | One file period; same council, dates differ | If dates **overlap**: correction (replace). If they do **not** overlap (gap): user chooses KeepBoth vs Correction |
+
+**Overlap** (inclusive `DateOnly`): `newStart <= existingEnd && newEnd >= existingStart`.
+
+Students list stays one row (`is_last_version`). **Council view** lists the student **once** per council (`DISTINCT master_student_id`). Council summary counts and basic-cost calculations use `is_last_version OR include_in_council_summary`, counting `DISTINCT master_student_id` per council.
+
+Last version always has `include_in_council_summary = false`. Every other **current** billable period has the flag true (including a second date range of the same council when the user chose KeepBoth). Never two billable rows with the same `(start, end, council)`.
+
+SQL: `SQL/add-student-include-in-council-summary.sql`. Pricing of flagged non-last rows is **in place** (must not call `CreateNewStudentVersionAsync` — that would steal last version). In-place pricing sets `StatusId` to 2 (or 6 if warnings) so combined council Excel generation includes councils that only have historical periods.
+
+Combined council Excel (`DocumentsController`): qualifying councils and students use `IsLastVersion || IncludeInCouncilSummary` with statuses 2/9. Last-version students are cloned to status 9 (`include_in_council_summary = false`). Historical split rows are marked status 9 **in place**.
+
+```csharp
+// ✅ CORRECT — process by student, queue one confirmation
+foreach (var group in rows.GroupBy(r => r.IdNumber))
+    await ProcessStudentGroupAsync(group.ToList(), ...);
+
+// ❌ WRONG — one prompt per file row (same student asked twice)
+await ProcessSingleStudentAsync(row, ...);
 ```
 
 #### Date Handling in Excel Files
@@ -414,6 +508,46 @@ if (parsedEnd.Date < schoolYearStart || parsedEnd.Date > schoolYearEnd)
 // ❌ WRONG — validating start/end order only, without school-year boundary check
 if (parsedStart > parsedEnd)
   return (false, "...");
+```
+
+### Student Pricing — Periods and Councils
+
+`StudentPricingService.CalculateStudentPricing` prorates each **row** by that row's `StartDate`/`EndDate` (`CalculateEffectiveEnrollmentMonths`). A student with two non-overlapping council periods has two billable rows: last version (current council) and `include_in_council_summary` (previous council). Each row stores its own `school_student_pricing_elements` and `cost`.
+
+**Calculate from student page / students list** (`POST studentpricing/calculate/{id}?save=true`): after saving the requested student, `PriceRelatedCouncilPeriodsAsync` prices sibling `include_in_council_summary` rows **in place** using each row's dates. School bulk (`calculate-school`) already iterates both row types — do not also recurse siblings there.
+
+**GET `studentpricing/{id}`**: `data` + `summary` remain the last version (backward compatible). Also returns `periods` (all `IsLastVersion || IncludeInCouncilSummary` rows: council, dates, months, cost, elements) and `totals.totalCost`.
+
+**Student.razor**: header **עלות** shows סה״כ plus per-council amounts when there is more than one billable period. The pricing tab groups elements by council (date range, months, subtotal) and a grand total. Single-period students keep the original one-table layout.
+
+```csharp
+// ✅ CORRECT — price historical council periods in place (do not version)
+await _pricingService.RecalculateAndSaveInPlaceAsync(historicalStudentId);
+
+// ❌ WRONG — CreateNewStudentVersionAsync on an include_in_council_summary row steals last version
+await _studentService.CreateNewStudentVersionAsync(historicalStudentId, ...);
+```
+
+Excel registry `Students` uses `IsLastVersion || IncludeInCouncilSummary`. `StudentsWithSchool` / `StudentsWithPricingElements` emit **one row per billable period** (the same student can appear twice for the same council with different dates). Council student lists still show the student once.
+
+### Student History Tab
+
+`Student.razor` has a read-only **היסטוריה** tab next to **רכיבי תמחור**. It lists all versions of the current student (`master_student_id`) created by file upload or status-change versioning.
+
+**API**: `GET /api/students/history/{masterStudentId}` — newest version first. Returns `Version`, names, `ClassName`, `CouncilName` (sending council), address, `Cost`, `StatusId`, `Status` (name), start/end dates, `CreatedAt`, `CreatedUserName`, and `IsLastVersion`. The history table shows **סטטוס** per version. The current version is highlighted.
+
+**Student view when status is 9**: if the current (last) version `StatusId == 9`, the details card shows identity/address/ATH fields from the latest version with `StatusId == 4` (highest version among status 4). Displayed status stays **9**. If no status-4 version exists, show the current row.
+
+`school_students.created_at` already exists. `created_user` is added by `SQL/add-student-created-user.sql`. New student versions set both fields in `StudentService`. Existing rows keep their `created_at`; `created_user` is null until a new version is created.
+
+```csharp
+// ✅ CORRECT — history by master_student_id (all versions of this student)
+var response = await ApiService.GetAsync<ApiResponse<List<StudentHistoryDto>>>(
+    $"students/history/{_student.MasterStudentId}");
+
+// ❌ WRONG — loading by current record id (only one row, misses older versions)
+var response = await ApiService.GetAsync<ApiResponse<List<StudentHistoryDto>>>(
+    $"students/history/{_student.Id}");
 ```
 
 ---

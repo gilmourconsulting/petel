@@ -189,6 +189,45 @@ namespace PetelATH.BlazorServer.Services
         }
 
         /// <summary>
+        /// GET that returns default(T) on 404 without treating it as an error.
+        /// </summary>
+        public async Task<T?> GetOrDefaultAsync<T>(string endpoint)
+        {
+            try
+            {
+                var client = await GetAuthorizedClientAsync();
+                var url = $"{_baseUrl}/{endpoint}";
+                var response = await client.GetAsync(url);
+
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    return default;
+
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new HttpStatusException(System.Net.HttpStatusCode.Unauthorized, "Authentication required", errorContent);
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new HttpStatusException(response.StatusCode, $"Request failed with status {response.StatusCode}", errorContent);
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                return JsonSerializer.Deserialize<T>(content, _jsonOptions);
+            }
+            catch (ObjectDisposedException)
+            {
+                return default;
+            }
+            catch (TaskCanceledException)
+            {
+                return default;
+            }
+        }
+
+        /// <summary>
         /// GET request for downloading files (returns raw byte array with headers)
         /// </summary>
         public async Task<FileDownloadResponse?> GetFileAsync(string endpoint)

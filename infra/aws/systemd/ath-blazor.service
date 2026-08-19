@@ -1,0 +1,18 @@
+[Unit]
+Description=PetelATH Blazor
+After=network.target ath-api.service
+
+[Service]
+WorkingDirectory=/opt/petel/ath-blazor
+ExecStart=/usr/bin/dotnet PetelATH.BlazorServer.dll
+Restart=always
+RestartSec=5
+EnvironmentFile=-/etc/petel/ath-blazor.env
+Environment=ASPNETCORE_ENVIRONMENT=Staging
+Environment=PORT=5293
+User=ec2-user
+KillSignal=SIGINT
+SyslogIdentifier=ath-blazor
+
+[Install]
+WantedBy=multi-user.target

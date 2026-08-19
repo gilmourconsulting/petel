@@ -140,7 +140,19 @@
                                         </p>
                                         <p class="detail-field">
                                             <span class="detail-field-label">עלות:</span>
-                                            <span class="detail-field-value">@(_student.Cost?.ToString("N2") + " ₪" ?? "לא זמין")</span>
+                                            <span class="detail-field-value">
+                                                @if (_pricingPeriods.Count > 1)
+                                                {
+                                                    <span>סה״כ @FormatTotalCost() ₪</span>
+                                                    <span style="font-weight: 500; color: #555;">
+                                                        (@FormatCouncilCostSplit())
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    @(_student.Cost?.ToString("N2") + " ₪" ?? "לא זמין")
+                                                }
+                                            </span>
                                         </p>
                                     </div>
                                     </div>
@@ -180,6 +192,10 @@
                         <button class="tab-button @(_activeTab == "pricing" ? "active" : "")"
                             @onclick='() => SwitchTab("pricing")'>
                             רכיבי תמחור
+                        </button>
+                        <button class="tab-button @(_activeTab == "history" ? "active" : "")"
+                            @onclick='() => SwitchTab("history")'>
+                            היסטוריה
                         </button>
                     </div>
 
@@ -263,11 +279,79 @@
                                     {
                                         <div class="loading-spinner">טוען רכיבי תמחור...</div>
                                     }
-                                    else if (_pricingElements == null || _pricingElements.Count == 0)
+                                    else if (!HasAnyPricingElements())
                                     {
                                         <div style="text-align: center; color: #666; padding: 20px;">
                                             אין רכיבי תמחור להצגה. לחץ על "חשב רכיבי תמחור לתלמיד" למעלה.
                                         </div>
+                                    }
+                                    else if (_pricingPeriods.Count > 1)
+                                    {
+                                        <div style="background: #f8f9fa; padding: 10px; border-radius: 10px; margin-bottom: 12px;">
+                                            <span style="font-size: 0.9em; color: #666;">סה"כ לכל הרשויות:</span>
+                                            <span style="font-size: 1.2em; font-weight: 700; color: #048f17;">
+                                                @_pricingTotalCost.ToString("N2") ₪
+                                            </span>
+                                        </div>
+                                        @foreach (var period in _pricingPeriods)
+                                        {
+                                            <div style="margin-bottom: 18px;">
+                                                <div style="font-weight: 600; margin-bottom: 6px; color: #2c3e50;">
+                                                    @(period.CouncilName ?? "ללא רשות")
+                                                    <span style="font-weight: 400; color: #666; font-size: 0.9em;">
+                                                        (@(period.StartDate?.ToString("dd/MM/yyyy") ?? "—") – @(period.EndDate?.ToString("dd/MM/yyyy") ?? "—"))
+                                                    </span>
+                                                </div>
+                                                <div style="background: #f8f9fa; padding: 8px 10px; border-radius: 8px; margin-bottom: 5px;">
+                                                    <span style="font-size: 0.9em; color: #666;">סה"כ רכיבים:</span>
+                                                    <span style="font-size: 1.05em; font-weight: 500; color: #2c3e50;">
+                                                        @period.ElementsTotal.ToString("N2") ₪
+                                                    </span>
+                                                    &nbsp;&nbsp;
+                                                    <span style="font-size: 0.9em; color: #666;">חודשי רישום:</span>
+                                                    <span style="font-size: 1.05em; font-weight: 500; color: #2c3e50;">
+                                                        @(period.EnrollmentMonths ?? 0)
+                                                    </span>
+                                                    &nbsp;&nbsp;
+                                                    <span style="font-size: 0.9em; color: #666;">עלות:</span>
+                                                    <span style="font-size: 1.1em; font-weight: 700; color: #048f17;">
+                                                        @period.Cost.ToString("N2") ₪
+                                                    </span>
+                                                </div>
+                                                @if (period.Elements == null || period.Elements.Count == 0)
+                                                {
+                                                    <div style="text-align: center; color: #666; padding: 10px;">אין רכיבי תמחור לתקופה זו</div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="table-container">
+                                                        <table class="data-table">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>שם רכיב</th>
+                                                                    <th>מחיר מלא</th>
+                                                                    <th>מחיר מחושב</th>
+                                                                    <th>גורם משפיע</th>
+                                                                    <th>שעות</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @foreach (var element in period.Elements)
+                                                                {
+                                                                    <tr>
+                                                                        <td>@element.PricingElementName</td>
+                                                                        <td>@element.FullPrice.ToString("N2") ₪</td>
+                                                                        <td>@element.Price.ToString("N2") ₪</td>
+                                                                        <td>@element.DeterminingFactor</td>
+                                                                        <td>@element.Hours?.ToString("N2")</td>
+                                                                    </tr>
+                                                                }
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
                                     }
                                     else
                                     {
@@ -328,6 +412,80 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- Tab Content - History -->
+                    <div class="tab-content" style="display: @(_activeTab == "history" ? "block" : "none");">
+                        <div class="detail-card @(_historyExpanded ? "expanded" : "collapsed")">
+                            <div class="detail-card-header" @onclick="() => _historyExpanded = !_historyExpanded">
+                                <div class="detail-card-title">היסטוריה</div>
+                                <div class="card-header-actions">
+                                    <button class="collapse-toggle" aria-label="הרחב/כווץ">
+                                        @(_historyExpanded ? "×" : "+")
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="detail-card-content">
+                                @if (_historyExpanded)
+                                {
+                                    @if (_historyLoading)
+                                    {
+                                        <div class="loading-spinner">טוען היסטוריה...</div>
+                                    }
+                                    else if (_history == null || _history.Count == 0)
+                                    {
+                                        <div style="text-align: center; color: #666; padding: 20px;">
+                                            אין היסטוריה להצגה
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <div class="table-container">
+                                            <table class="data-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th>גרסה</th>
+                                                        <th>שם פרטי</th>
+                                                        <th>שם משפחה</th>
+                                                        <th>כיתה</th>
+                                                        <th>רשות שולחת</th>
+                                                        <th>סטטוס</th>
+                                                        <th>תאריך התחלה</th>
+                                                        <th>תאריך סיום</th>
+                                                        <th>תאריך יצירה</th>
+                                                        <th>משתמש</th>
+                                                        <th></th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    @foreach (var version in _history)
+                                                    {
+                                                        <tr style="@(version.IsLastVersion ? "background: #e7f3ff;" : "")">
+                                                            <td>@version.Version</td>
+                                                            <td>@(version.FirstName ?? "לא זמין")</td>
+                                                            <td>@(version.LastName ?? "לא זמין")</td>
+                                                            <td>@(version.ClassName ?? "לא זמין")</td>
+                                                            <td>@(version.CouncilName ?? "לא זמין")</td>
+                                                            <td>@(version.Status ?? "לא זמין")</td>
+                                                            <td>@(version.StartDate?.ToString("dd/MM/yyyy") ?? "לא זמין")</td>
+                                                            <td>@(version.EndDate?.ToString("dd/MM/yyyy") ?? "לא זמין")</td>
+                                                            <td>@(version.CreatedAt?.ToString("dd/MM/yyyy HH:mm") ?? "לא זמין")</td>
+                                                            <td>@(string.IsNullOrWhiteSpace(version.CreatedUserName) ? "לא זמין" : version.CreatedUserName)</td>
+                                                            <td>
+                                                                @if (version.IsLastVersion)
+                                                                {
+                                                                    <span style="background: #28a745; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.85em;">גרסה נוכחית</span>
+                                                                }
+                                                            </td>
+                                                        </tr>
+                                                    }
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </div>
+                    </div>
                 </div>
             }
         </div>
@@ -367,8 +525,12 @@
     private StudentDto? _student;
     private List<PricingElementDto> _pricingElements = new();
     private PricingSummaryDto _pricingSummary = new();
+    private List<PricingPeriodDto> _pricingPeriods = new();
+    private decimal _pricingTotalCost = 0;
+    private List<StudentHistoryDto> _history = new();
     private bool _isLoading = true;
     private bool _pricingLoading = false;
+    private bool _historyLoading = false;
     private string _pageTitle = "פרטי התלמיד";
     private string _yearDisplay = string.Empty;
     private string _activeTab = "documents";
@@ -390,6 +552,7 @@
     private bool _schoolDocsExpanded = false;
     private bool _entityDocsExpanded = false;
     private bool _pricingExpanded = true;
+    private bool _historyExpanded = true;
 
     // No-permit status modal
     private bool _showNoPermitModal = false;
@@ -560,6 +723,8 @@
 
             // Load pricing elements if available
             await LoadPricingElements();
+
+            await LoadStudentHistory();
         }
         catch (Exception ex)
         {
@@ -610,7 +775,6 @@
             {
                 _pricingElements = response.Data;
 
-                // Use summary from API response
                 if (response.Summary != null)
                 {
                     _pricingSummary = new PricingSummaryDto
@@ -620,6 +784,15 @@
                         EnrollmentMonths = response.Summary.EnrollmentMonths ?? 0
                     };
                 }
+
+                _pricingPeriods = response.Periods ?? new();
+                _pricingTotalCost = response.Totals?.TotalCost
+                    ?? (_pricingPeriods.Count > 0 ? _pricingPeriods.Sum(p => p.Cost) : (_student.Cost ?? 0));
+            }
+            else
+            {
+                _pricingPeriods = new();
+                _pricingTotalCost = _student.Cost ?? 0;
             }
         }
         catch (Exception ex)
@@ -631,6 +804,69 @@
         {
             _pricingLoading = false;
         }
+    }
+
+    private async Task LoadStudentHistory()
+    {
+        if (_student == null) return;
+
+        try
+        {
+            _historyLoading = true;
+            var response = await ApiService.GetAsync<ApiResponse<List<StudentHistoryDto>>>(
+                $"students/history/{_student.MasterStudentId}");
+
+            if (response?.Success == true && response.Data != null)
+            {
+                _history = response.Data;
+                ApplyStatus4DisplayIfNeeded();
+            }
+            else
+            {
+                _history = new();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading student history: {ex.Message}");
+            _history = new();
+        }
+        finally
+        {
+            _historyLoading = false;
+        }
+    }
+
+    private void ApplyStatus4DisplayIfNeeded()
+    {
+        if (_student == null || _student.StatusId != 9 || _history == null || _history.Count == 0)
+            return;
+
+        var status4 = _history
+            .Where(v => v.StatusId == 4)
+            .OrderByDescending(v => v.Version)
+            .FirstOrDefault();
+
+        if (status4 == null)
+            return;
+
+        _student.FirstName = status4.FirstName;
+        _student.LastName = status4.LastName;
+        _student.ClassName = status4.ClassName;
+        _student.Street = status4.Street;
+        _student.HouseNumber = status4.HouseNumber;
+        _student.City = status4.City;
+        _student.PostCode = status4.PostCode;
+        _student.SendingCouncil = status4.SendingCouncil;
+        _student.CouncilName = status4.CouncilName;
+        _student.DisabilityCategory = status4.DisabilityCategory;
+        _student.StartDate = status4.StartDate;
+        _student.EndDate = status4.EndDate;
+        _student.Cost = status4.Cost;
+
+        _pageTitle = $"פרטי התלמיד - {_student.FirstName} {_student.LastName}";
+        if (!string.IsNullOrEmpty(_schoolName))
+            _pageTitle = $"{_pageTitle} - {_schoolName}";
     }
 
     private void SwitchTab(string tabName)
@@ -851,6 +1087,44 @@
         };
     }
 
+    private bool HasAnyPricingElements()
+    {
+        if (_pricingElements != null && _pricingElements.Count > 0)
+            return true;
+        return _pricingPeriods.Any(p => p.Elements != null && p.Elements.Count > 0);
+    }
+
+    private string FormatTotalCost() => _pricingTotalCost.ToString("N2");
+
+    private string FormatCouncilCostSplit() =>
+        string.Join(", ", _pricingPeriods.Select(p =>
+            $"{p.CouncilName ?? "ללא רשות"}: {p.Cost.ToString("N2")} ₪"));
+
+    private class StudentHistoryDto
+    {
+        public int Id { get; set; }
+        public int MasterStudentId { get; set; }
+        public int Version { get; set; }
+        public string? FirstName { get; set; }
+        public string? LastName { get; set; }
+        public string? ClassName { get; set; }
+        public int? SendingCouncil { get; set; }
+        public string? CouncilName { get; set; }
+        public string? Street { get; set; }
+        public string? HouseNumber { get; set; }
+        public string? City { get; set; }
+        public string? PostCode { get; set; }
+        public int? DisabilityCategory { get; set; }
+        public decimal? Cost { get; set; }
+        public int? StatusId { get; set; }
+        public string? Status { get; set; }
+        public DateOnly? StartDate { get; set; }
+        public DateOnly? EndDate { get; set; }
+        public bool IsLastVersion { get; set; }
+        public DateTime? CreatedAt { get; set; }
+        public string? CreatedUserName { get; set; }
+    }
+
     // DTOs for pricing
     private class PricingElementDto
     {
@@ -870,6 +1144,28 @@
         public bool Success { get; set; }
         public List<PricingElementDto>? Data { get; set; }
         public PricingSummaryResponse? Summary { get; set; }
+        public List<PricingPeriodDto>? Periods { get; set; }
+        public PricingTotalsDto? Totals { get; set; }
+    }
+
+    private class PricingPeriodDto
+    {
+        public int StudentId { get; set; }
+        public int? CouncilId { get; set; }
+        public string? CouncilName { get; set; }
+        public DateOnly? StartDate { get; set; }
+        public DateOnly? EndDate { get; set; }
+        public int? EnrollmentMonths { get; set; }
+        public decimal Cost { get; set; }
+        public bool IsLastVersion { get; set; }
+        public decimal ElementsTotal { get; set; }
+        public List<PricingElementDto>? Elements { get; set; }
+    }
+
+    private class PricingTotalsDto
+    {
+        public decimal TotalCost { get; set; }
+        public decimal ElementsTotal { get; set; }
     }
 
     private class PricingSummaryResponse

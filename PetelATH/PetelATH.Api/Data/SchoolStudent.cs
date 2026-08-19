@@ -63,6 +63,13 @@ namespace PetelATH.Api.Data
         [Column("is_last_version")]
         public bool IsLastVersion { get; set; }
 
+        /// <summary>
+        /// When true, this non-last version still counts in council summary/calculations
+        /// (non-overlapping mid-year sending-council split).
+        /// </summary>
+        [Column("include_in_council_summary")]
+        public bool IncludeInCouncilSummary { get; set; }
+
         [Column("cost")]
         public decimal? Cost { get; set; }
 
@@ -73,7 +80,16 @@ namespace PetelATH.Api.Data
         [Column("status")]
         public int? StatusId { get; set; }
 
+        [Column("created_at")]
+        public DateTime? CreatedAt { get; set; }
+
+        [Column("created_user")]
+        public int? CreatedUser { get; set; }
+
         // Navigation property for Status
         public virtual Status? Status { get; set; }
+
+        [ForeignKey("CreatedUser")]
+        public virtual User? CreatedByUser { get; set; }
     }
 }

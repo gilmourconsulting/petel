@@ -62,6 +62,7 @@ Adapters: [AGENTS.md](../../AGENTS.md) (root), [.cursor/rules/](../../.cursor/ru
 | New Blazor page | new-blazor-page + app doc |
 | New table/entity | new-entity-and-api + app doc |
 | Azure resources / deploying a new app | [azure-setup.md](../azure-setup.md) + app doc |
+| AWS resources / test or prod on AWS | [aws-setup.md](../aws-setup.md) |
 
 ## Maintenance mapping
 

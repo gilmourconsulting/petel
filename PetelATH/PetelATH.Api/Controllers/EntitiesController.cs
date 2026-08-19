@@ -966,7 +966,7 @@ public async Task<IActionResult> GetOwnerOptions()
                         join pe in _context.SchoolStudentPricingElements.AsNoTracking()
                             on s.Id equals pe.StudentId
                         where schoolYearIds.Contains(s.SchoolYearId) &&
-                              s.IsLastVersion &&
+                              (s.IsLastVersion || s.IncludeInCouncilSummary) &&
                               s.SendingCouncil.HasValue &&
                               basicElementIds.Contains(pe.PricingElementId)
                         select new { CouncilId = s.SendingCouncil!.Value, pe.Price, s.StatusId }
@@ -1080,7 +1080,7 @@ public async Task<IActionResult> GetOwnerOptions()
                 // Step 1: Get all councils that appear in school_students
                 var councilsInStudents = await _context.SchoolStudents
                     .AsNoTracking()
-                    .Where(ss => ss.SendingCouncil.HasValue && ss.IsLastVersion)
+                    .Where(ss => ss.SendingCouncil.HasValue && (ss.IsLastVersion || ss.IncludeInCouncilSummary))
                     .Select(ss => ss.SendingCouncil.Value)
                     .Distinct()
                     .ToListAsync();

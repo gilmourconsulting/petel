@@ -71,7 +71,9 @@ $israeliIpRanges = @(
     "95.86.0.0/16",
     "103.209.0.0/16",
     # Inventory extras preserved from prior live rules (test Blazor)
-    "147.236.0.0/16"
+    "147.236.0.0/16",
+    # Exelera Telecom (AS208905) — Ashkelon / IL; covers 78.138.57.138
+    "78.138.56.0/23"
 )
 
 # Environment configurations - Blazor only (API is locked separately)

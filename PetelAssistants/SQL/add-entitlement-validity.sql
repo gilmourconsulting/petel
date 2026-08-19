@@ -85,5 +85,3 @@ BEGIN
 
     RAISE NOTICE 'entitlements_resolve_invalid security action seeded';
 END $$;
-
-RAISE NOTICE 'add-entitlement-validity.sql completed';

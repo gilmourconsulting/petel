@@ -26,7 +26,8 @@ namespace PetelATH.Api.Services
         /// </summary>
         public async Task<int?> CreateNewStudentVersionAsync(
             int existingStudentId, 
-            Action<SchoolStudent> updates)
+            Action<SchoolStudent> updates,
+            int? createdUserId = null)
         {
             try
             {
@@ -39,13 +40,17 @@ namespace PetelATH.Api.Services
                     return null;
                 }
 
-                // Mark existing record as not last version
+                // Mark existing record as not last version (reassigned after save by latest start_date)
                 existingStudent.IsLastVersion = false;
                 _context.SchoolStudents.Update(existingStudent);
 
                 _logger.LogInformation(
                     "📝 Marking existing student as old version: Id={Id}, MasterStudentId={MasterId}, Version={Version}",
                     existingStudent.Id, existingStudent.MasterStudentId, existingStudent.Version);
+
+                var sourceStart = existingStudent.StartDate;
+                var sourceEnd = existingStudent.EndDate;
+                var sourceCouncil = existingStudent.SendingCouncil;
 
                 // ✅ Create new version - PRESERVING master_student_id
                 var newVersion = new SchoolStudent
@@ -67,15 +72,35 @@ namespace PetelATH.Api.Services
                     City = existingStudent.City,
                     PostCode = existingStudent.PostCode,
                     SendingCouncil = existingStudent.SendingCouncil,
+                    StatusId = existingStudent.StatusId,
                     Cost = existingStudent.Cost,
-                    IsLastVersion = true
+                    EnrollmentMonths = existingStudent.EnrollmentMonths,
+                    IncludeInCouncilSummary = false,
+                    IsLastVersion = true,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedUser = createdUserId
                 };
 
                 // Apply selective updates via callback
                 updates?.Invoke(newVersion);
 
+                bool samePeriodAndCouncil = newVersion.StartDate == sourceStart
+                    && newVersion.EndDate == sourceEnd
+                    && newVersion.SendingCouncil == sourceCouncil;
+
+                if (!samePeriodAndCouncil)
+                {
+                    newVersion.Cost = null;
+                    newVersion.EnrollmentMonths = null;
+                }
+
                 _context.SchoolStudents.Add(newVersion);
                 await _context.SaveChangesAsync();
+
+                if (samePeriodAndCouncil)
+                    await ClonePricingElementsAsync(existingStudent.Id, newVersion.Id);
+
+                await ReassignLastVersionByStartDateAsync(newVersion.MasterStudentId, newVersion.SchoolYearId);
 
                 _logger.LogInformation(
                     "✅ Created new student version: OldId={OldId}, NewId={NewId}, MasterStudentId={MasterId}, Version={Version}",
@@ -98,7 +123,8 @@ namespace PetelATH.Api.Services
         public async Task<int?> CreateNewStudentAsync(
             int schoolYearId,
             string idNumber,
-            Action<SchoolStudent> configure)
+            Action<SchoolStudent> configure,
+            int? createdUserId = null)
         {
             try
             {
@@ -108,7 +134,10 @@ namespace PetelATH.Api.Services
                     IdNumber = idNumber,
                     Version = 0,
                     MasterStudentId = 0, // Temporary - will be updated after save
-                    IsLastVersion = true
+                    IsLastVersion = true,
+                    IncludeInCouncilSummary = false,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedUser = createdUserId
                 };
 
                 // Apply configuration
@@ -133,6 +162,57 @@ namespace PetelATH.Api.Services
                 _logger.LogError(ex, "❌ Error creating new student {IdNumber}", idNumber);
                 return null;
             }
+        }
+
+        /// <summary>
+        /// IsLastVersion is the row with the latest StartDate (tie: higher Version).
+        /// Does not clear IncludeInCouncilSummary on earlier council periods.
+        /// </summary>
+        public async Task ReassignLastVersionByStartDateAsync(int masterStudentId, int schoolYearId)
+        {
+            var versions = await _context.SchoolStudents
+                .Where(s => s.MasterStudentId == masterStudentId && s.SchoolYearId == schoolYearId)
+                .ToListAsync();
+
+            if (versions.Count == 0)
+                return;
+
+            var lastId = versions
+                .OrderByDescending(s => s.StartDate)
+                .ThenByDescending(s => s.Version)
+                .Select(s => s.Id)
+                .First();
+
+            foreach (var version in versions)
+                version.IsLastVersion = version.Id == lastId;
+
+            await _context.SaveChangesAsync();
+        }
+
+        private async Task ClonePricingElementsAsync(int sourceStudentId, int targetStudentId)
+        {
+            var sourceElements = await _context.SchoolStudentPricingElements
+                .AsNoTracking()
+                .Where(pe => pe.StudentId == sourceStudentId)
+                .ToListAsync();
+
+            if (sourceElements.Count == 0)
+                return;
+
+            foreach (var element in sourceElements)
+            {
+                _context.SchoolStudentPricingElements.Add(new SchoolStudentPricingElement
+                {
+                    StudentId = targetStudentId,
+                    PricingElementId = element.PricingElementId,
+                    Price = element.Price,
+                    FullPrice = element.FullPrice,
+                    DeterminingFactor = element.DeterminingFactor,
+                    Hours = element.Hours
+                });
+            }
+
+            await _context.SaveChangesAsync();
         }
 
         /// <summary>

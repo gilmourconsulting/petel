@@ -302,12 +302,15 @@ namespace PetelATH.Api.Controllers
                 // Query students filtered by council and year
                 var students = await _context.SchoolStudents
                     .AsNoTracking()
-                    .Where(s => s.SendingCouncil == councilId && 
+                    .Where(s => s.SendingCouncil == councilId &&
                                schoolYearIds.Contains(s.SchoolYearId) &&
-                               s.IsLastVersion)
+                               (s.IsLastVersion || s.IncludeInCouncilSummary))
                     .Select(s => new
                     {
                         id = s.Id,
+                        masterStudentId = s.MasterStudentId,
+                        version = s.Version,
+                        isLastVersion = s.IsLastVersion,
                         idNumber = s.IdNumber,
                         firstName = s.FirstName,
                         lastName = s.LastName,
@@ -342,6 +345,11 @@ namespace PetelATH.Api.Controllers
                             .FirstOrDefault()
                     })
                     .ToListAsync();
+
+                students = students
+                    .GroupBy(s => s.masterStudentId)
+                    .Select(g => g.OrderByDescending(x => x.isLastVersion).ThenByDescending(x => x.version).First())
+                    .ToList();
 
                 // Get "בסיסית" pricing element IDs for this year
                 var basicElementIds = await _context.SpecialNeedsPricingElements
@@ -433,7 +441,7 @@ namespace PetelATH.Api.Controllers
                 var versions = await _context.SchoolStudents
                     .AsNoTracking()
                     .Where(s => s.MasterStudentId == masterStudentId)
-                    .OrderBy(s => s.Version)
+                    .OrderByDescending(s => s.Version)
                     .Select(s => new
                     {
                         Id = s.Id,
@@ -447,10 +455,27 @@ namespace PetelATH.Api.Controllers
                             .Where(sc => sc.Id == s.ClassId)
                             .Select(sc => sc.Name)
                             .FirstOrDefault(),
+                        SendingCouncil = s.SendingCouncil,
+                        CouncilName = _context.Councils
+                            .Where(c => c.Id == s.SendingCouncil)
+                            .Select(c => c.Name)
+                            .FirstOrDefault(),
+                        Street = s.Street,
+                        HouseNumber = s.HouseNumber,
+                        City = s.City,
+                        PostCode = s.PostCode,
+                        DisabilityCategory = s.DisabilityCategory,
+                        Cost = s.Cost,
+                        StatusId = s.StatusId,
+                        Status = s.Status != null ? s.Status.Name : null,
                         StartDate = s.StartDate,
                         EndDate = s.EndDate,
                         IsLastVersion = s.IsLastVersion,
-                    // CreatedAt = s.CreatedAt
+                        CreatedAt = s.CreatedAt,
+                        CreatedUserName = _context.Users
+                            .Where(u => u.Id == s.CreatedUser)
+                            .Select(u => (u.FirstName + " " + u.LastName).Trim())
+                            .FirstOrDefault(),
                     })
                     .ToListAsync();
         
@@ -543,7 +568,8 @@ namespace PetelATH.Api.Controllers
 
                 var newStudentId = await _studentService.CreateNewStudentVersionAsync(
                     id,
-                    s => s.StatusId = newStatusId);
+                    s => s.StatusId = newStatusId,
+                    int.TryParse(session.UserId, out var uid) ? uid : null);
 
                 if (!newStudentId.HasValue)
                     return StatusCode(500, new { success = false, message = "שגיאה בעדכון סטטוס התלמיד" });
