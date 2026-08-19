@@ -520,6 +520,22 @@ if (parsedStart > parsedEnd)
 
 **Student.razor**: header **עלות** shows סה״כ plus per-council amounts when there is more than one billable period. The pricing tab groups elements by council (date range, months, subtotal) and a grand total. Single-period students keep the original one-table layout.
 
+**Students.razor bulk pricing** (`תמחור לכל לתלמידים`): the prompt filters last-version students by status. Status **10** is נשלח דוח 10.
+
+| Option | StatusIds |
+|---|---|
+| הכל | 1, 2, 4, 9, 10 |
+| לא נשלחו | 1, 2, 9 |
+| לא מחושבים בלבד | 1 |
+
+```csharp
+// ✅ CORRECT — הכל includes 4 and 10 (נשלח דוח 10)
+1 => students.Where(s => s.StatusId is 1 or 2 or 4 or 9 or 10)
+
+// ❌ WRONG — הכל without 4/10 skips priced-sent students
+1 => students.Where(s => s.StatusId == 1 || s.StatusId == 2 || s.StatusId == 9)
+```
+
 ```csharp
 // ✅ CORRECT — price historical council periods in place (do not version)
 await _pricingService.RecalculateAndSaveInPlaceAsync(historicalStudentId);

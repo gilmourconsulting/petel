@@ -906,8 +906,8 @@
 
         var studentsToProcess = option switch
         {
-            1 => _students.Where(s => s.StatusId == 1 || s.StatusId == 2 || s.StatusId == 9).ToList(),
-            2 => _students.Where(s => s.StatusId == 1 || s.StatusId == 2).ToList(),
+            1 => _students.Where(s => s.StatusId == 1 || s.StatusId == 2 || s.StatusId == 4 || s.StatusId == 9 || s.StatusId == 10).ToList(),
+            2 => _students.Where(s => s.StatusId == 1 || s.StatusId == 2 || s.StatusId == 9).ToList(),
             3 => _students.Where(s => s.StatusId == 1).ToList(),
             _ => new List<StudentDto>()
         };
