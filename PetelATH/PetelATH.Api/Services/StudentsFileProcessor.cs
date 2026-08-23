@@ -865,9 +865,11 @@ namespace PetelATH.Api.Services
                     return (false, $"תאריך סיום ({row.EndDate}) חייב להיות בין {schoolYearStart:dd/MM/yyyy} ל-{schoolYearEnd:dd/MM/yyyy}");
             }
 
-            // Validate disability category (integer or empty for none)
-            if (!string.IsNullOrWhiteSpace(row.DisabilityCategory) && !int.TryParse(row.DisabilityCategory, out _))
-                return (false, "קטגוריית נכות לא תקינה");
+            // Validate disability category (required, 1–7)
+            if (string.IsNullOrWhiteSpace(row.DisabilityCategory)
+                || !int.TryParse(row.DisabilityCategory, out var category)
+                || category < 1 || category > 7)
+                return (false, "קטגוריית נכות חייבת להיות בין 1 ל-7");
 
             // ✅ Address fields - only HouseNumber length validation if provided
             if (!string.IsNullOrWhiteSpace(row.HouseNumber) && row.HouseNumber.Trim().Length > 6)

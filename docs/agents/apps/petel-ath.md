@@ -510,6 +510,22 @@ if (parsedStart > parsedEnd)
   return (false, "...");
 ```
 
+#### Disability Category Validation
+
+`disability_category` is required on every uploaded row and must be an integer from **1 to 7** (inclusive). Blank, 0, values above 7, negatives, and non-integers are format errors (`קטגוריית נכות חייבת להיות בין 1 ל-7`). The rest of the file still processes.
+
+```csharp
+// ✅ CORRECT — required category in 1–7
+if (string.IsNullOrWhiteSpace(row.DisabilityCategory)
+    || !int.TryParse(row.DisabilityCategory, out var category)
+    || category < 1 || category > 7)
+    return (false, "קטגוריית נכות חייבת להיות בין 1 ל-7");
+
+// ❌ WRONG — any integer or empty accepted
+if (!string.IsNullOrWhiteSpace(row.DisabilityCategory) && !int.TryParse(row.DisabilityCategory, out _))
+    return (false, "קטגוריית נכות לא תקינה");
+```
+
 ### Student Pricing — Periods and Councils
 
 `StudentPricingService.CalculateStudentPricing` prorates each **row** by that row's `StartDate`/`EndDate` (`CalculateEffectiveEnrollmentMonths`). A student with two non-overlapping council periods has two billable rows: last version (current council) and `include_in_council_summary` (previous council). Each row stores its own `school_student_pricing_elements` and `cost`.
@@ -847,6 +863,7 @@ Load contextual hints from backend attributes on modal open — never hardcode a
 4. ✅ JWT secret key loaded from Azure Key Vault / App Service config
 5. ✅ Email credentials (Gmail App Password) loaded from Azure Key Vault
 6. ✅ `Security.OtpEnabled = true` in `appsettings.test.json` and `appsettings.Production.json`
+7. ✅ After this deploy, run `SQL/deploy-ath-test-and-prod.sql` on the ATH test DB then the ATH production DB (idempotent: `created_user`, `include_in_council_summary`, `council_summary_vw`)
 
 ## Edge security (Israel-only Blazor + private API)
 
