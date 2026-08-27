@@ -105,7 +105,7 @@ Investigation report only — does not feed the salary vs-budget summary. Table 
 
 ## Yearly budget (תקציב שנתי)
 
-Tenant-owned budget per Hebrew year with versions. Entry: Year Management nav card → `/year/{YearId}/yearly-budget`. SQL: `add-yearly-budget.sql`, `add-yearly-budget-actions.sql`, `add-class-assistant-budget-hours.sql` (calculate action + shared rates), `add-budget-hour-value.sql` (shared hour monetary value).
+Tenant-owned budget per Hebrew year with versions. Entry: Year Management nav card → `/year/{YearId}/yearly-budget`. SQL: `add-yearly-budget.sql`, `add-yearly-budget-actions.sql`, `add-yearly-budget-add-types-action.sql` (add-missing-types button), `add-class-assistant-budget-hours.sql` (calculate action + shared rates), `add-budget-hour-value.sql` (shared hour monetary value).
 
 **Tables (`assist_schema`):**
 
@@ -130,7 +130,9 @@ Requires a row in `shared_schema.budget_hour_values` for the budget year; if mis
 
 **API:** `GET api/yearly-budgets?yearId=` (last or empty shell with `CanCreateNewVersion`), `GET api/yearly-budgets/{id}`, `PUT api/yearly-budgets/{id}`, `POST …/calculate`, `PUT …/lock`, `POST api/yearly-budgets/new-version?yearId=` (first v0 or next from locked), `PUT …/delete`.
 
-**Security:** `yearly_budget_page_action`, `yearly_budget_back`, `yearly_budget_refresh`, `yearly_budget_calculate`, `yearly_budget_save`, `yearly_budget_lock`, `yearly_budget_new_version`, `yearly_budget_delete`, `yearmanagement_yearly_budget`.
+**Add missing assistant types (client-side prompt):** `CreateNewVersionFromLockedAsync` copies only the assistant types that existed on the source (locked) version — it does not re-sync against `shared_schema.assistant_types`, so a type created after the source version was locked stays absent from the new version until saved (`SaveAsync` always re-syncs against every active type, inserting missing ones with zero values). On the open budget screen, a **הוסף סוג סייעת** button appears in the context bar only when active assistant types (`GET api/assistant-types`) are missing from the currently displayed detail rows; it opens a picker to add the selected types as zero-value rows to the in-memory table, which then save normally via **שמור**. No dedicated API endpoint — purely a client-side reconciliation aid.
+
+**Security:** `yearly_budget_page_action`, `yearly_budget_back`, `yearly_budget_refresh`, `yearly_budget_calculate`, `yearly_budget_save`, `yearly_budget_lock`, `yearly_budget_new_version`, `yearly_budget_delete`, `yearly_budget_add_types`, `yearmanagement_yearly_budget`.
 
 ## Year Elements hub (ניהול שנה — shared)
 

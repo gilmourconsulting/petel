@@ -30,6 +30,14 @@
                       OnClick="LockBudget" CssClass="context-btn" HideIfNoAccess="true">
             נעילה
         </SecureButton>
+
+        @if (MissingAssistantTypes.Count > 0)
+        {
+            <SecureButton ActionName="yearly_budget_add_types" ScreenName="@PageName" FunctionName="ShowAddAssistantTypesModal"
+                          OnClick="ShowAddAssistantTypesModal" CssClass="context-btn" HideIfNoAccess="true">
+                הוסף סוג סייעת
+            </SecureButton>
+        }
     }
 
     @if (_budget?.CanCreateNewVersion == true)
@@ -268,6 +276,40 @@
     </div>
 }
 
+@if (_showAddTypesModal)
+{
+    <div class="modal-overlay" @onclick="CloseAddTypesModal">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>הוספת סוגי סייעת לתקציב</h3>
+                <button class="modal-close" @onclick="CloseAddTypesModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (MissingAssistantTypes.Count == 0)
+                {
+                    <div style="color: var(--text-muted);">כל סוגי הסייעת הפעילים כבר כלולים בתקציב.</div>
+                }
+                else
+                {
+                    @foreach (var type in MissingAssistantTypes)
+                    {
+                        <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="@("addtype_" + type.Id)"
+                                   checked="@_selectedTypeIdsToAdd.Contains(type.Id)"
+                                   @onchange="e => ToggleTypeSelection(type.Id, (bool)(e.Value ?? false))" />
+                            <label for="@("addtype_" + type.Id)">@type.DisplayName</label>
+                        </div>
+                    }
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseAddTypesModal">ביטול</button>
+                <button class="btn btn-primary" @onclick="ConfirmAddAssistantTypes" disabled="@(_selectedTypeIdsToAdd.Count == 0)">הוסף</button>
+            </div>
+        </div>
+    </div>
+}
+
 <style>
     .monthly-budget-scroll {
         overflow-x: auto;
@@ -349,6 +391,12 @@
     private List<YearlyBudgetDetailDto> _editDetails = new();
     private bool _showCalculateResult;
     private CalculateYearlyBudgetResultDto? _calculateResult;
+    private List<AssistantTypeDto> _assistantTypes = new();
+    private bool _showAddTypesModal;
+    private HashSet<int> _selectedTypeIdsToAdd = new();
+
+    private List<AssistantTypeDto> MissingAssistantTypes =>
+        _assistantTypes.Where(t => !_editDetails.Any(d => d.AssistantTypeId == t.Id)).ToList();
 
     private List<(int PeriodYear, int PeriodMonth)> MonthColumns =>
         (_budget?.MonthDetails ?? new List<YearlyBudgetMonthDetailDto>())
@@ -374,6 +422,7 @@
     protected override async Task OnPageInitializedAsync()
     {
         await LoadYearNameAsync();
+        await LoadAssistantTypesAsync();
         await LoadLastBudgetAsync();
     }
 
@@ -405,6 +454,66 @@
         {
             _yearName = "";
         }
+    }
+
+    private async Task LoadAssistantTypesAsync()
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<AssistantTypeDto>>>("assistant-types");
+            _assistantTypes = response?.Data ?? new();
+        }
+        catch
+        {
+            _assistantTypes = new();
+        }
+    }
+
+    private void ShowAddAssistantTypesModal()
+    {
+        _selectedTypeIdsToAdd = new();
+        _showAddTypesModal = true;
+    }
+
+    private void CloseAddTypesModal()
+    {
+        _showAddTypesModal = false;
+    }
+
+    private void ToggleTypeSelection(int typeId, bool isChecked)
+    {
+        if (isChecked)
+            _selectedTypeIdsToAdd.Add(typeId);
+        else
+            _selectedTypeIdsToAdd.Remove(typeId);
+    }
+
+    private void ConfirmAddAssistantTypes()
+    {
+        foreach (var typeId in _selectedTypeIdsToAdd)
+        {
+            var type = _assistantTypes.FirstOrDefault(t => t.Id == typeId);
+            if (type == null || _editDetails.Any(d => d.AssistantTypeId == typeId))
+                continue;
+
+            _editDetails.Add(new YearlyBudgetDetailDto
+            {
+                AssistantTypeId = type.Id,
+                AssistantTypeName = type.DisplayName,
+                Fte = 0,
+                Hours = 0,
+                Amount = 0,
+                Remarks = null
+            });
+        }
+
+        var sortOrder = _assistantTypes.ToDictionary(t => t.Id, t => t.SortOrder);
+        _editDetails = _editDetails
+            .OrderBy(d => sortOrder.TryGetValue(d.AssistantTypeId, out var order) ? order : int.MaxValue)
+            .ThenBy(d => d.AssistantTypeName)
+            .ToList();
+
+        _showAddTypesModal = false;
     }
 
     private async Task LoadLastBudgetAsync()
