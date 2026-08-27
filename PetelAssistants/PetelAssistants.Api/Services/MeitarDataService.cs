@@ -84,13 +84,15 @@ namespace PetelAssistants.Api.Services
         }
 
         /// <summary>
-        /// Loads active MUTAVIM filter config from meitar_data_filter_values.
-        /// Uses the configured filter_field (e.g. TopicCode per ApiReference) and its values.
+        /// Loads active filter config from meitar_data_filter_values for the given file name, grouped by
+        /// filter_field. Meitar's data/query endpoint now accepts multiple field filters (ANDed together)
+        /// in one request, so every distinct configured field is returned — none are dropped.
         /// </summary>
-        private async Task<(string FilterField, IReadOnlyList<string> FilterValues)> GetMutavimFilterConfigAsync(
+        private async Task<List<MeitarDataQueryFilter>> GetFilterGroupsAsync(
+            string fileName,
             CancellationToken cancellationToken = default)
         {
-            var fileKey = MeitarDataFileNames.Mutavim.ToLowerInvariant();
+            var fileKey = fileName.ToLowerInvariant();
 
             var rows = await _sharedContext.MeitarDataFilterValues
                 .AsNoTracking()
@@ -104,39 +106,29 @@ namespace PetelAssistants.Api.Services
             {
                 var detail = await DescribeFilterConfigAsync(cancellationToken);
                 throw new InvalidOperationException(
-                    $"לא הוגדרו ערכי סינון פעילים עבור {MeitarDataFileNames.Mutavim}. {detail}");
+                    $"לא הוגדרו ערכי סינון פעילים עבור {fileName}. {detail}");
             }
 
-            // Prefer a single filter field; if several are configured, take the first by display_order.
-            var filterField = rows[0].FilterField.Trim();
-            var values = rows
-                .Where(r => string.Equals(r.FilterField.Trim(), filterField, StringComparison.OrdinalIgnoreCase))
-                .Select(r => r.FilterValue)
-                .Where(v => !string.IsNullOrWhiteSpace(v))
+            var groups = rows
+                .GroupBy(r => r.FilterField.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(g => new MeitarDataQueryFilter
+                {
+                    Field = g.Key,
+                    ValueList = g
+                        .Select(r => r.FilterValue)
+                        .Where(v => !string.IsNullOrWhiteSpace(v))
+                        .ToList()
+                })
                 .ToList();
 
-            if (values.Count == 0)
+            var emptyField = groups.FirstOrDefault(g => g.ValueList.Count == 0);
+            if (emptyField != null)
             {
                 throw new InvalidOperationException(
-                    $"ערכי סינון ריקים עבור {MeitarDataFileNames.Mutavim}/{filterField}.");
+                    $"ערכי סינון ריקים עבור {fileName}/{emptyField.Field}.");
             }
 
-            var otherFields = rows
-                .Select(r => r.FilterField.Trim())
-                .Where(f => !string.Equals(f, filterField, StringComparison.OrdinalIgnoreCase))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            if (otherFields.Count > 0)
-            {
-                _logger.LogWarning(
-                    "Multiple filter fields configured for {FileName}; using {FilterField}. Ignored: {Ignored}",
-                    MeitarDataFileNames.Mutavim,
-                    filterField,
-                    string.Join(", ", otherFields));
-            }
-
-            return (filterField, values);
+            return groups;
         }
 
         private async Task<string> DescribeFilterConfigAsync(CancellationToken cancellationToken = default)
@@ -170,14 +162,35 @@ namespace PetelAssistants.Api.Services
             if (!MeitarDataFileNames.IsSupported(request.FileName))
                 throw new InvalidOperationException($"Unknown file name suffix '{request.FileName}'.");
 
-            if (string.IsNullOrWhiteSpace(request.FilterField))
-                throw new InvalidOperationException("filterField is required.");
+            var hasFilters = request.Filters is { Count: > 0 };
+            var hasPeriodList = request.PeriodList is { Count: > 0 };
 
-            if (request.FilterValueList == null || request.FilterValueList.Count == 0)
-                throw new InvalidOperationException("filterValueList is required and must not be empty.");
+            if (!hasFilters && !hasPeriodList)
+                throw new InvalidOperationException("At least one of filters or periodList is required and must not be empty.");
+
+            if (hasFilters)
+            {
+                foreach (var filter in request.Filters!)
+                {
+                    if (string.IsNullOrWhiteSpace(filter.Field))
+                        throw new InvalidOperationException("filters[].field is required.");
+
+                    if (filter.ValueList == null || filter.ValueList.Count == 0)
+                        throw new InvalidOperationException($"filters[].valueList is required and must not be empty for field '{filter.Field}'.");
+                }
+            }
 
             if (string.IsNullOrWhiteSpace(_settings.BaseUrl))
                 throw new InvalidOperationException("MeitarApi:BaseUrl is not configured.");
+
+            _logger.LogInformation(
+                "Meitar data/query request: FileName={FileName}, SymbolList=[{SymbolList}], Filters=[{Filters}], PeriodList=[{PeriodList}]",
+                request.FileName,
+                string.Join(", ", request.SymbolList),
+                hasFilters
+                    ? string.Join("; ", request.Filters!.Select(f => $"{f.Field} IN ({string.Join(", ", f.ValueList)})"))
+                    : string.Empty,
+                hasPeriodList ? string.Join(", ", request.PeriodList!) : string.Empty);
 
             var client = _httpClientFactory.CreateClient(HttpClientName);
             var requestUri = new Uri(client.BaseAddress!, "data/query");
@@ -212,6 +225,11 @@ namespace PetelAssistants.Api.Services
                 return MeitarDataQueryResult.Failed(message);
             }
 
+            _logger.LogInformation(
+                "Meitar data/query response: FileName={FileName}, RowCount={RowCount}",
+                envelope.Data.FileName ?? request.FileName,
+                envelope.Data.RowCount);
+
             if (envelope.Data.RowCount >= MeitarRowCap)
             {
                 _logger.LogWarning(
@@ -231,15 +249,14 @@ namespace PetelAssistants.Api.Services
             if (symbolList.Count == 0)
                 throw new InvalidOperationException("No active local authorities with symbol_code configured.");
 
-            // filter_field comes from config (ApiReference example: TopicCode).
-            var (filterField, filterValues) = await GetMutavimFilterConfigAsync(cancellationToken);
+            // filter_field(s) come from config (ApiReference example: TopicCode).
+            var filters = await GetFilterGroupsAsync(MeitarDataFileNames.Mutavim, cancellationToken);
 
             return await QueryAsync(new MeitarDataQueryRequest
             {
                 SymbolList = symbolList.ToList(),
                 FileName = MeitarDataFileNames.Mutavim,
-                FilterField = filterField,
-                FilterValueList = filterValues.ToList()
+                Filters = filters
             }, cancellationToken);
         }
 
@@ -255,86 +272,135 @@ namespace PetelAssistants.Api.Services
             if (periodMonth < 1 || periodMonth > 12)
                 throw new InvalidOperationException("חודש לא תקין.");
 
-            // Same config-driven filter as QueryMutavimByTopicDescriptionsAsync (e.g. TopicCode).
-            var (filterField, filterValues) = await GetMutavimFilterConfigAsync(cancellationToken);
+            // Topic (or other) filter(s) come from meitar_data_filter_values. Meitar's data/query
+            // endpoint now accepts multiple field filters plus a periodList in one request (ANDed
+            // together server-side), so the provider does all the filtering — no local re-filtering
+            // of the returned rows is needed.
+            var filters = await GetFilterGroupsAsync(MeitarDataFileNames.Mutavim, cancellationToken);
+            var periodList = new List<string> { FormatCalcDateFilterValue(periodYear, periodMonth) };
+
+            _logger.LogInformation(
+                "MUTAVIM retrieve: Period={PeriodYear}/{PeriodMonth}, SymbolCode={SymbolCode}, PeriodList=[{PeriodList}], Filters=[{Filters}]",
+                periodYear, periodMonth, symbolCode, string.Join(", ", periodList),
+                string.Join("; ", filters.Select(f => $"{f.Field} IN ({string.Join(", ", f.ValueList)})")));
 
             var result = await QueryAsync(new MeitarDataQueryRequest
             {
                 SymbolList = new List<string> { symbolCode.Trim() },
                 FileName = MeitarDataFileNames.Mutavim,
-                FilterField = filterField,
-                FilterValueList = filterValues.ToList()
+                Filters = filters,
+                PeriodList = periodList
             }, cancellationToken);
 
             if (!result.Success)
                 return result;
 
-            // Meitar allows one filter field; keep only the selected calendar period.
-            var filtered = result.Rows
-                .Where(row => MatchesPeriod(row, periodYear, periodMonth))
-                .ToList();
+            _logger.LogInformation(
+                "MUTAVIM retrieve: {RowCount} row(s) returned by Meitar for period {PeriodYear}/{PeriodMonth}",
+                result.Rows.Count, periodYear, periodMonth);
 
-            return new MeitarDataQueryResult
-            {
-                Success = true,
-                FileName = result.FileName,
-                RowCount = filtered.Count,
-                Rows = filtered
-            };
+            return result;
         }
 
-        private static bool MatchesPeriod(JsonElement row, int periodYear, int periodMonth)
+        public async Task<MeitarDataQueryResult> QueryMucarimForSymbolAndPeriodAsync(
+            string symbolCode,
+            int periodYear,
+            int periodMonth,
+            CancellationToken cancellationToken = default)
         {
-            if (!TryGetDateOnlyProperty(row, "calcDate", out var calcDate) &&
-                !TryGetDateOnlyProperty(row, "CalcDate", out calcDate))
-                return false;
+            if (string.IsNullOrWhiteSpace(symbolCode))
+                throw new InvalidOperationException("לא הוגדר קוד מוטב (symbol_code) לרשות הנוכחית.");
 
-            return calcDate.Year == periodYear && calcDate.Month == periodMonth;
-        }
+            if (periodMonth < 1 || periodMonth > 12)
+                throw new InvalidOperationException("חודש לא תקין.");
 
-        private static bool TryGetDateOnlyProperty(JsonElement row, string propertyName, out DateOnly value)
-        {
-            value = default;
-            if (row.ValueKind != JsonValueKind.Object)
-                return false;
+            // See QueryMutavimForSymbolAndPeriodAsync — filters + periodList are sent together in one
+            // request; Meitar ANDs them server-side, so no local re-filtering is needed here either.
+            var filters = await GetFilterGroupsAsync(MeitarDataFileNames.Mucarim, cancellationToken);
+            var periodList = new List<string> { FormatCalcDateFilterValue(periodYear, periodMonth) };
 
-            if (!row.TryGetProperty(propertyName, out var prop))
-                return false;
+            _logger.LogInformation(
+                "MUCARIM retrieve: Period={PeriodYear}/{PeriodMonth}, SymbolCode={SymbolCode}, PeriodList=[{PeriodList}], Filters=[{Filters}]",
+                periodYear, periodMonth, symbolCode, string.Join(", ", periodList),
+                string.Join("; ", filters.Select(f => $"{f.Field} IN ({string.Join(", ", f.ValueList)})")));
 
-            if (prop.ValueKind == JsonValueKind.String)
+            var result = await QueryAsync(new MeitarDataQueryRequest
             {
-                var s = prop.GetString();
-                if (string.IsNullOrWhiteSpace(s))
-                    return false;
+                SymbolList = new List<string> { symbolCode.Trim() },
+                FileName = MeitarDataFileNames.Mucarim,
+                Filters = filters,
+                PeriodList = periodList
+            }, cancellationToken);
 
-                if (DateOnly.TryParse(s, System.Globalization.CultureInfo.InvariantCulture,
-                        System.Globalization.DateTimeStyles.None, out value))
-                    return true;
-
-                if (DateTime.TryParse(s, System.Globalization.CultureInfo.InvariantCulture,
-                        System.Globalization.DateTimeStyles.RoundtripKind, out var dt))
-                {
-                    value = DateOnly.FromDateTime(dt);
-                    return true;
-                }
-
-                return false;
+            if (!result.Success)
+            {
+                _logger.LogWarning("MUCARIM retrieve: query failed — {Message}", result.Message);
+                return result;
             }
 
-            if (prop.ValueKind == JsonValueKind.Object &&
-                prop.TryGetProperty("year", out var y) &&
-                prop.TryGetProperty("month", out var m) &&
-                prop.TryGetProperty("day", out var d) &&
-                y.TryGetInt32(out var year) &&
-                m.TryGetInt32(out var month) &&
-                d.TryGetInt32(out var day))
+            _logger.LogInformation(
+                "MUCARIM retrieve: {RowCount} row(s) returned by Meitar for period {PeriodYear}/{PeriodMonth}",
+                result.Rows.Count, periodYear, periodMonth);
+
+            return result;
+        }
+
+        public async Task<MeitarDataQueryResult> QuerySharatimForSymbolAndPeriodAsync(
+            string symbolCode,
+            int periodYear,
+            int periodMonth,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(symbolCode))
+                throw new InvalidOperationException("לא הוגדר קוד מוטב (symbol_code) לרשות הנוכחית.");
+
+            if (periodMonth < 1 || periodMonth > 12)
+                throw new InvalidOperationException("חודש לא תקין.");
+
+            // See QueryMutavimForSymbolAndPeriodAsync — filters (TopicCode=107, seeded in
+            // meitar_data_filter_values) + periodList are sent together in one request; Meitar
+            // ANDs them server-side. effectiveDate == calcDate is enforced by adding an explicit
+            // EffectiveDate filter below (calcDate is always the first of the period month), with
+            // the local check in TryMapSharatimRow kept as a defensive safety net.
+            var filters = await GetFilterGroupsAsync(MeitarDataFileNames.Shratim, cancellationToken);
+            filters.Add(new MeitarDataQueryFilter
             {
-                value = new DateOnly(year, month, day);
-                return true;
+                Field = "EffectiveDate",
+                ValueList = new List<string> { FormatEffectiveDateFilterValue(periodYear, periodMonth) }
+            });
+            var periodList = new List<string> { FormatCalcDateFilterValue(periodYear, periodMonth) };
+
+            _logger.LogInformation(
+                "SHARATIM retrieve: Period={PeriodYear}/{PeriodMonth}, SymbolCode={SymbolCode}, PeriodList=[{PeriodList}], Filters=[{Filters}]",
+                periodYear, periodMonth, symbolCode, string.Join(", ", periodList),
+                string.Join("; ", filters.Select(f => $"{f.Field} IN ({string.Join(", ", f.ValueList)})")));
+
+            var result = await QueryAsync(new MeitarDataQueryRequest
+            {
+                SymbolList = new List<string> { symbolCode.Trim() },
+                FileName = MeitarDataFileNames.Shratim,
+                Filters = filters,
+                PeriodList = periodList
+            }, cancellationToken);
+
+            if (!result.Success)
+            {
+                _logger.LogWarning("SHARATIM retrieve: query failed — {Message}", result.Message);
+                return result;
             }
 
-            return false;
+            _logger.LogInformation(
+                "SHARATIM retrieve: {RowCount} row(s) returned by Meitar for period {PeriodYear}/{PeriodMonth}",
+                result.Rows.Count, periodYear, periodMonth);
+
+            return result;
         }
+
+        private static string FormatCalcDateFilterValue(int periodYear, int periodMonth)
+            => $"{periodMonth:D2}/{periodYear}";
+
+        private static string FormatEffectiveDateFilterValue(int periodYear, int periodMonth)
+            => new DateOnly(periodYear, periodMonth, 1).ToString("yyyy-MM-dd");
 
         public async Task<IReadOnlyDictionary<string, MeitarDataQueryResult>> QueryAllFileTypesAsync(
             string filterField,
@@ -352,6 +418,10 @@ namespace PetelAssistants.Api.Services
                 throw new InvalidOperationException("No active local authorities with symbol_code configured.");
 
             var results = new Dictionary<string, MeitarDataQueryResult>(StringComparer.OrdinalIgnoreCase);
+            var filters = new List<MeitarDataQueryFilter>
+            {
+                new() { Field = filterField, ValueList = filterValues.ToList() }
+            };
 
             foreach (var fileName in MeitarDataFileNames.All)
             {
@@ -359,8 +429,7 @@ namespace PetelAssistants.Api.Services
                 {
                     SymbolList = symbolList.ToList(),
                     FileName = fileName,
-                    FilterField = filterField,
-                    FilterValueList = filterValues.ToList()
+                    Filters = filters
                 }, cancellationToken);
 
                 results[fileName] = result;

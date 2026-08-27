@@ -46,6 +46,27 @@ namespace PetelAssistants.Api.Models
         [Column("update_user")]
         public int? UpdateUser { get; set; }
 
+        [Column("mucarim_row_count")]
+        public int? MucarimRowCount { get; set; }
+
+        [Column("mucarim_total_calculated_sum")]
+        public decimal? MucarimTotalCalculatedSum { get; set; }
+
+        [Column("mucarim_error")]
+        public string? MucarimError { get; set; }
+
+        [Column("sharatim_row_count")]
+        public int? SharatimRowCount { get; set; }
+
+        [Column("sharatim_total_class_count")]
+        public int? SharatimTotalClassCount { get; set; }
+
+        [Column("sharatim_error")]
+        public string? SharatimError { get; set; }
+
         public virtual ICollection<MeitarMutavim> Rows { get; set; } = new List<MeitarMutavim>();
+        public virtual ICollection<MeitarMucarim> MucarimRows { get; set; } = new List<MeitarMucarim>();
+        public virtual ICollection<MeitarSharatim> SharatimRows { get; set; } = new List<MeitarSharatim>();
+        public virtual ICollection<MeitarMonthSummary> Summaries { get; set; } = new List<MeitarMonthSummary>();
     }
 }

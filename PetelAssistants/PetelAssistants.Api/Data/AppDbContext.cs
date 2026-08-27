@@ -35,11 +35,17 @@ namespace PetelAssistants.Api.Data
         public DbSet<Salary>                 Salaries               { get; set; }
         public DbSet<SalaryUploadWarning>    SalaryUploadWarnings   { get; set; }
         public DbSet<SalaryFieldMapping>     SalaryFieldMappings    { get; set; }
+        public DbSet<SalaryDepartmentMapping> SalaryDepartmentMappings { get; set; }
+        public DbSet<SalaryMonthSummary>     SalaryMonthSummaries   { get; set; }
+        public DbSet<SalaryAnomaly>          SalaryAnomalies        { get; set; }
         public DbSet<EntitlementFieldMapping>   EntitlementFieldMappings   { get; set; }
         public DbSet<PersonalEntitlementFieldMapping> PersonalEntitlementFieldMappings { get; set; }
         public DbSet<EntitlementUploadProcess>  EntitlementUploadProcesses { get; set; }
         public DbSet<MeitarRetrieveProcess>  MeitarRetrieveProcesses { get; set; }
         public DbSet<MeitarMutavim>          MeitarMutavim          { get; set; }
+        public DbSet<MeitarMucarim>          MeitarMucarim          { get; set; }
+        public DbSet<MeitarSharatim>         MeitarSharatim         { get; set; }
+        public DbSet<MeitarMonthSummary>     MeitarMonthSummaries   { get; set; }
         public DbSet<YearlyBudget>             YearlyBudgets            { get; set; }
         public DbSet<YearlyBudgetDetail>       YearlyBudgetDetails      { get; set; }
         public DbSet<YearlyBudgetMonthDetail>  YearlyBudgetMonthDetails { get; set; }
@@ -67,6 +73,8 @@ namespace PetelAssistants.Api.Data
             modelBuilder.Ignore<PhoneType>();
             modelBuilder.Ignore<AssistantType>();
             modelBuilder.Ignore<HebrewYear>();
+            modelBuilder.Ignore<Status>();
+            modelBuilder.Ignore<MeitarTopic>();
 
             modelBuilder.Entity<User>(entity =>
             {
@@ -342,6 +350,70 @@ namespace PetelAssistants.Api.Data
                 entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
             });
 
+            modelBuilder.Entity<SalaryDepartmentMapping>(entity =>
+            {
+                entity.ToTable("salary_department_mappings");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.DepartmentId }).IsUnique();
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<SalaryMonthSummary>(entity =>
+            {
+                entity.ToTable("salary_month_summaries");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.ProcessId);
+
+                entity.HasOne(s => s.Process)
+                    .WithMany(p => p.Summaries)
+                    .HasForeignKey(s => s.ProcessId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(s => s.YearlyBudget)
+                    .WithMany()
+                    .HasForeignKey(s => s.YearlyBudgetId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<SalaryAnomaly>(entity =>
+            {
+                entity.ToTable("salary_anomalies");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.ProcessId);
+                entity.HasIndex(e => e.SalaryId);
+
+                entity.Property(e => e.NationalId)
+                    .HasMaxLength(500)
+                    .HasConversion(
+                        v => _encryptionService.EncryptDeterministic(v),
+                        v => _encryptionService.DecryptDeterministic(v));
+
+                entity.HasOne(a => a.Process)
+                    .WithMany(p => p.Anomalies)
+                    .HasForeignKey(a => a.ProcessId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(a => a.Salary)
+                    .WithMany()
+                    .HasForeignKey(a => a.SalaryId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(a => a.MatchedPerson)
+                    .WithMany()
+                    .HasForeignKey(a => a.MatchedPersonId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(a => a.MatchedAllocation)
+                    .WithMany()
+                    .HasForeignKey(a => a.MatchedAllocationId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
             modelBuilder.Entity<MeitarRetrieveProcess>(entity =>
             {
                 entity.ToTable("meitar_retrieve_processes");
@@ -363,6 +435,60 @@ namespace PetelAssistants.Api.Data
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasQueryFilter(m => _tenantContext.EntityId != 0 && m.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<MeitarMucarim>(entity =>
+            {
+                entity.ToTable("meitar_mucarim");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.PeriodYear, e.PeriodMonth });
+
+                entity.HasOne(m => m.Process)
+                    .WithMany(p => p.MucarimRows)
+                    .HasForeignKey(m => m.ProcessId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasQueryFilter(m => _tenantContext.EntityId != 0 && m.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<MeitarSharatim>(entity =>
+            {
+                entity.ToTable("meitar_sharatim");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.PeriodYear, e.PeriodMonth });
+                entity.HasIndex(e => e.InstitutionId);
+                entity.HasIndex(e => e.HebrewYearId);
+
+                entity.HasOne(m => m.Process)
+                    .WithMany(p => p.SharatimRows)
+                    .HasForeignKey(m => m.ProcessId)
+                    .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(m => m.Institution)
+                    .WithMany()
+                    .HasForeignKey(m => m.InstitutionId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasQueryFilter(m => _tenantContext.EntityId != 0 && m.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<MeitarMonthSummary>(entity =>
+            {
+                entity.ToTable("meitar_month_summaries");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.ProcessId);
+
+                entity.HasOne(s => s.Process)
+                    .WithMany(p => p.Summaries)
+                    .HasForeignKey(s => s.ProcessId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(s => s.YearlyBudget)
+                    .WithMany()
+                    .HasForeignKey(s => s.YearlyBudgetId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
             });
 
             modelBuilder.Entity<YearlyBudget>(entity =>

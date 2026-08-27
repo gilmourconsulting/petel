@@ -26,6 +26,18 @@ namespace PetelAssistants.Api.Services
             int periodMonth,
             CancellationToken cancellationToken = default);
 
+        Task<MeitarDataQueryResult> QueryMucarimForSymbolAndPeriodAsync(
+            string symbolCode,
+            int periodYear,
+            int periodMonth,
+            CancellationToken cancellationToken = default);
+
+        Task<MeitarDataQueryResult> QuerySharatimForSymbolAndPeriodAsync(
+            string symbolCode,
+            int periodYear,
+            int periodMonth,
+            CancellationToken cancellationToken = default);
+
         Task<IReadOnlyDictionary<string, MeitarDataQueryResult>> QueryAllFileTypesAsync(
             string filterField,
             IReadOnlyList<string> filterValues,
