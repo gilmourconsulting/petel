@@ -387,13 +387,13 @@ SHARATIM is pulled in the **same** `POST api/meitardata/retrieve` call, right af
 
 **Table (assist_schema):** `meitar_sharatim` — `calc_date`, `effective_date` (both required — rows are only kept when equal), `institution_code`, `institution_name`, `topic_code`, `class_count` (`INTEGER`), `institution_id`, `hebrew_year_id`, plus the standard `process_id` FK / tenant / audit columns. `meitar_retrieve_processes` gained `sharatim_row_count`, `sharatim_total_class_count`, `sharatim_error` (all nullable, same convention as the `mucarim_*` columns).
 
-**Not in month summaries, no view screen yet (deferred):** like MUCARIM, SHARATIM rows are stored but have no month-summary rollup and no list/view API or Blazor screen yet — a follow-up task will add a "classes per school" view once this retrieval is confirmed against real Meitar data.
+**Not in month summaries (deferred):** like MUCARIM, SHARATIM rows have no month-summary rollup — only the list/view screen described below.
 
 SQL migration: `PetelAssistants/SQL/add-meitar-sharatim-retrieve.sql`.
 
 ### Meitar data view screen
 
-**View screen:** `/meitar-data` (`MeitarData.razor`) — read-only tables of stored `meitar_mutavim` and `meitar_mucarim` rows, switched via a MUTAVIM/MUCARIM tab toggle (both datasets are loaded together on each period change; switching tabs is client-side only). Entry points: context buttons on Main Dashboard (`/meitar-data`) and Year Management (`/meitar-data?fromYear={yearId}`). Period filter is calendar year + month (server reload) applied to a date column, not to `period_year`/`period_month`, and is shared by both tabs:
+**View screen:** `/meitar-data` (`MeitarData.razor`) — read-only tables of stored `meitar_mutavim`, `meitar_mucarim` and `meitar_sharatim` rows, switched via a MUTAVIM/MUCARIM/SHARATIM tab toggle (all three datasets are loaded together on each period change; switching tabs is client-side only). Entry points: context buttons on Main Dashboard (`/meitar-data`) and Year Management (`/meitar-data?fromYear={yearId}`). Period filter is calendar year + month (server reload) applied to a date column, not to `period_year`/`period_month`, and is shared by all tabs:
 
 - **From Year Management:** defaults to September of the Gregorian year in which the Hebrew year starts (via `GET years/{id}` → `StartDate`); filters by **calc date** only (date-field selector hidden). Back returns to `/year/{yearId}`.
 - **From Main Dashboard:** a selector chooses the filter column — **calc date (תאריך חישוב)** or **effective date (תאריך תחולה)** (rows with null `effective_date` are excluded when filtering by effective date). Defaults to the previous calendar month. Back returns to `/maindashboard`.
@@ -402,9 +402,11 @@ SQL migration: `PetelAssistants/SQL/add-meitar-sharatim-retrieve.sql`.
 
 **MUCARIM tab:** calc date, effective date, institution code/name, topic code/description, status, unit count, percent, cost, calculated amount, previous calculated amount, calculated difference, unit description. Client-side filter (shared text box): topic code/description or institution code/name. Summary cards: record count, total calculated sum, distinct institutions.
 
-**API:** `GET api/meitardata?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarMutavimListItemDto`. `GET api/meitardata/mucarim?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarMucarimListItemDto`. Month summary vs locked budget: `GET api/meitar-month-summaries?year=&month=` (`/meitar-data/month-summary`, MUTAVIM only).
+**SHARATIM tab:** calc date, effective date, institution code/name, topic code, class count — no calculated-amount columns (this dataset is class counts, not budget). Client-side filter (shared text box): topic code or institution code/name. Summary cards: record count, distinct institutions, total class count.
 
-**Security actions:** `meitardata_page_action`, `meitardata_back`, `meitardata_refresh`, `maindashboard_meitar_view`, `yearmanagement_meitar_view`. SQL: `add-meitar-data-view.sql` (also adds the `effective_date` column). The MUCARIM tab reuses these same actions — no new security actions were added.
+**API:** `GET api/meitardata?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarMutavimListItemDto`. `GET api/meitardata/mucarim?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarMucarimListItemDto`. `GET api/meitardata/sharatim?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarSharatimListItemDto`. Month summary vs locked budget: `GET api/meitar-month-summaries?year=&month=` (`/meitar-data/month-summary`, MUTAVIM only).
+
+**Security actions:** `meitardata_page_action`, `meitardata_back`, `meitardata_refresh`, `maindashboard_meitar_view`, `yearmanagement_meitar_view`. SQL: `add-meitar-data-view.sql` (also adds the `effective_date` column). The MUCARIM and SHARATIM tabs reuse these same actions — no new security actions were added.
 
 ## Related
 

@@ -135,6 +135,47 @@ namespace PetelAssistants.Api.Controllers
             return Ok(new { success = true, data = items });
         }
 
+        [HttpGet("sharatim")]
+        public async Task<IActionResult> GetAllSharatim(
+            [FromQuery] int year,
+            [FromQuery] int month,
+            [FromQuery] string? dateField)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (month < 1 || month > 12)
+                return BadRequest(new { success = false, message = "חודש לא תקין" });
+
+            var byEffectiveDate = string.Equals(dateField, "effective", StringComparison.OrdinalIgnoreCase);
+
+            var query = _context.MeitarSharatim.AsNoTracking();
+
+            query = byEffectiveDate
+                ? query.Where(m => m.EffectiveDate.Year == year && m.EffectiveDate.Month == month)
+                : query.Where(m => m.CalcDate.Year == year && m.CalcDate.Month == month);
+
+            var items = await query
+                .OrderBy(m => m.InstitutionCode)
+                .ThenBy(m => m.TopicCode)
+                .Select(m => new MeitarSharatimListItemDto
+                {
+                    Id = m.Id,
+                    PeriodYear = m.PeriodYear,
+                    PeriodMonth = m.PeriodMonth,
+                    CalcDate = m.CalcDate,
+                    EffectiveDate = m.EffectiveDate,
+                    InstitutionCode = m.InstitutionCode,
+                    InstitutionName = m.InstitutionName,
+                    TopicCode = m.TopicCode,
+                    ClassCount = m.ClassCount
+                })
+                .ToListAsync();
+
+            return Ok(new { success = true, data = items });
+        }
+
         [HttpGet("period-exists")]
         public async Task<IActionResult> PeriodExists([FromQuery] int year, [FromQuery] int month)
         {

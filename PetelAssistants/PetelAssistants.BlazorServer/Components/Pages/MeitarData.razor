@@ -41,6 +41,10 @@
                             @onclick='() => SetTab(DataTab.Mucarim)'>
                         מוכרים (MUCARIM)
                     </button>
+                    <button type="button" class="btn @(_activeTab == DataTab.Sharatim ? "btn-primary" : "btn-secondary")"
+                            @onclick='() => SetTab(DataTab.Sharatim)'>
+                        שרתים (SHARATIM)
+                    </button>
                 </div>
 
                 <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end;">
@@ -181,7 +185,7 @@
                         </div>
                     }
                 }
-                else
+                else if (_activeTab == DataTab.Mucarim)
                 {
                     @if (_mucarimItems.Count > 0)
                     {
@@ -289,6 +293,88 @@
                         </div>
                     }
                 }
+                else
+                {
+                    @if (_sharatimItems.Count > 0)
+                    {
+                        <div class="summary-grid" style="margin-bottom: 16px;">
+                            <div class="summary-card">
+                                <div class="summary-icon">📄</div>
+                                <div class="summary-info">
+                                    <div class="summary-value">@_sharatimItems.Count</div>
+                                    <div class="summary-label">סה"כ רשומות</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-icon">🏫</div>
+                                <div class="summary-info">
+                                    <div class="summary-value">@_sharatimItems.Select(i => i.InstitutionCode).Distinct().Count()</div>
+                                    <div class="summary-label">מוסדות ייחודיים</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-icon">🏷️</div>
+                                <div class="summary-info">
+                                    <div class="summary-value">@_sharatimItems.Sum(i => i.ClassCount)</div>
+                                    <div class="summary-label">סה"כ כיתות</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (_sharatimItems.Count > 0)
+                    {
+                        <div style="margin-bottom: 12px; color: var(--text-muted); font-size: 0.9em;">
+                            מציג @FilteredSharatimItems.Count מתוך @_sharatimItems.Count רשומות
+                            · סה״כ כיתות: @FilteredSharatimItems.Sum(i => i.ClassCount)
+                        </div>
+                    }
+
+                    @if (FilteredSharatimItems.Count == 0)
+                    {
+                        <div class="no-data-message">לא נמצאו נתוני שרתים לתקופה זו</div>
+                    }
+                    else
+                    {
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th @onclick='() => SortSharatimTable("CalcDate")' style="cursor:pointer">
+                                            תאריך חישוב @GetSortArrow("CalcDate", _sharatimSortColumn, _sharatimSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortSharatimTable("EffectiveDate")' style="cursor:pointer">
+                                            תאריך תחולה @GetSortArrow("EffectiveDate", _sharatimSortColumn, _sharatimSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortSharatimTable("InstitutionCode")' style="cursor:pointer">
+                                            סמל מוסד @GetSortArrow("InstitutionCode", _sharatimSortColumn, _sharatimSortAscending)
+                                        </th>
+                                        <th>שם מוסד</th>
+                                        <th @onclick='() => SortSharatimTable("TopicCode")' style="cursor:pointer">
+                                            קוד נושא @GetSortArrow("TopicCode", _sharatimSortColumn, _sharatimSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortSharatimTable("ClassCount")' style="cursor:pointer">
+                                            מספר כיתות @GetSortArrow("ClassCount", _sharatimSortColumn, _sharatimSortAscending)
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in FilteredSharatimItems)
+                                    {
+                                        <tr>
+                                            <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
+                                            <td>@item.EffectiveDate.ToString("dd/MM/yyyy")</td>
+                                            <td>@(item.InstitutionCode ?? "—")</td>
+                                            <td>@(item.InstitutionName ?? "—")</td>
+                                            <td>@(item.TopicCode ?? "—")</td>
+                                            <td>@item.ClassCount</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
             }
         </div>
     </div>
@@ -303,13 +389,15 @@
     private enum DataTab
     {
         Mutavim,
-        Mucarim
+        Mucarim,
+        Sharatim
     }
 
     private DataTab _activeTab = DataTab.Mutavim;
 
     private List<MeitarMutavimListItemDto> _items = new();
     private List<MeitarMucarimListItemDto> _mucarimItems = new();
+    private List<MeitarSharatimListItemDto> _sharatimItems = new();
     private bool _isLoading = true;
     private int? _returnYearId;
 
@@ -323,6 +411,9 @@
 
     private string _mucarimSortColumn = "CalcDate";
     private bool _mucarimSortAscending = true;
+
+    private string _sharatimSortColumn = "CalcDate";
+    private bool _sharatimSortAscending = true;
 
     private static readonly string[] MonthNames =
     {
@@ -444,6 +535,48 @@
         }
     }
 
+    private List<MeitarSharatimListItemDto> FilteredSharatimItems
+    {
+        get
+        {
+            IEnumerable<MeitarSharatimListItemDto> query = _sharatimItems;
+
+            if (!string.IsNullOrWhiteSpace(_filterTopic))
+            {
+                var term = _filterTopic.Trim();
+                query = query.Where(i =>
+                    (!string.IsNullOrEmpty(i.TopicCode) &&
+                     i.TopicCode.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(i.InstitutionCode) &&
+                     i.InstitutionCode.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(i.InstitutionName) &&
+                     i.InstitutionName.Contains(term, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            query = _sharatimSortColumn switch
+            {
+                "CalcDate" => _sharatimSortAscending
+                    ? query.OrderBy(i => i.CalcDate)
+                    : query.OrderByDescending(i => i.CalcDate),
+                "EffectiveDate" => _sharatimSortAscending
+                    ? query.OrderBy(i => i.EffectiveDate)
+                    : query.OrderByDescending(i => i.EffectiveDate),
+                "InstitutionCode" => _sharatimSortAscending
+                    ? query.OrderBy(i => i.InstitutionCode ?? "")
+                    : query.OrderByDescending(i => i.InstitutionCode ?? ""),
+                "TopicCode" => _sharatimSortAscending
+                    ? query.OrderBy(i => i.TopicCode ?? "")
+                    : query.OrderByDescending(i => i.TopicCode ?? ""),
+                "ClassCount" => _sharatimSortAscending
+                    ? query.OrderBy(i => i.ClassCount)
+                    : query.OrderByDescending(i => i.ClassCount),
+                _ => query
+            };
+
+            return query.ToList();
+        }
+    }
+
     protected override async Task OnPageInitializedAsync()
     {
         _returnYearId = FromYear;
@@ -513,6 +646,18 @@
             Console.WriteLine($"Error loading meitar mucarim data: {ex.Message}");
             _mucarimItems = new();
         }
+
+        try
+        {
+            var sharatimResponse = await ApiService.GetAsync<ApiResponse<List<MeitarSharatimListItemDto>>>(
+                $"meitardata/sharatim?year={_filterYear}&month={_filterMonth}&dateField={_dateField}");
+            _sharatimItems = sharatimResponse?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading meitar sharatim data: {ex.Message}");
+            _sharatimItems = new();
+        }
         finally
         {
             _isLoading = false;
@@ -567,6 +712,17 @@
         {
             _mucarimSortColumn = column;
             _mucarimSortAscending = true;
+        }
+    }
+
+    private void SortSharatimTable(string column)
+    {
+        if (_sharatimSortColumn == column)
+            _sharatimSortAscending = !_sharatimSortAscending;
+        else
+        {
+            _sharatimSortColumn = column;
+            _sharatimSortAscending = true;
         }
     }
 
