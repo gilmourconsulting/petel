@@ -30,6 +30,36 @@
         <div class="content-card">
             <h2 class="page-title">רשימת מוסדות</h2>
 
+            @if (!_isLoading && _orgUnits.Count > 0)
+            {
+                <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end;">
+                    <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 220px; max-width: 320px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">חיפוש לפי שם או סמל</label>
+                        <input type="text" class="form-control" @bind="_filterText" @bind:event="oninput" placeholder="חיפוש..." />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">סוג</label>
+                        <select class="form-control" style="min-width: 140px;" @bind="_filterType">
+                            <option value="">הכל</option>
+                            <option value="school">בית ספר</option>
+                            <option value="kindergarten">גן ילדים</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">סטטוס</label>
+                        <select class="form-control" style="min-width: 120px;" @bind="_filterStatus">
+                            <option value="">הכל</option>
+                            <option value="active">פעיל</option>
+                            <option value="inactive">לא פעיל</option>
+                        </select>
+                    </div>
+                    @if (HasActiveFilters)
+                    {
+                        <button type="button" class="btn btn-secondary" style="align-self: flex-end;" @onclick="ClearFilters">נקה סינון</button>
+                    }
+                </div>
+            }
+
             @if (_isLoading)
             {
                 <div class="loading-spinner">טוען נתונים...</div>
@@ -38,6 +68,10 @@
             {
                 <div class="no-data-message">לא נמצאו מוסדות</div>
             }
+            else if (FilteredOrgUnits.Count == 0)
+            {
+                <div class="no-data-message">לא נמצאו מוסדות התואמים לסינון</div>
+            }
             else
             {
                 <div class="table-container">
@@ -45,16 +79,26 @@
                         <thead>
                             <tr>
                                 <th>פעולות</th>
-                                <th>סמל מוסד</th>
-                                <th>שם</th>
-                                <th>סוג</th>
-                                <th>רמה</th>
+                                <th @onclick='() => SortTable(nameof(OrgUnitDto.Symbol))' style="cursor: pointer;">
+                                    סמל מוסד @GetSortArrow(nameof(OrgUnitDto.Symbol))
+                                </th>
+                                <th @onclick='() => SortTable(nameof(OrgUnitDto.Name))' style="cursor: pointer;">
+                                    שם @GetSortArrow(nameof(OrgUnitDto.Name))
+                                </th>
+                                <th @onclick='() => SortTable(nameof(OrgUnitDto.OrgUnitType))' style="cursor: pointer;">
+                                    סוג @GetSortArrow(nameof(OrgUnitDto.OrgUnitType))
+                                </th>
+                                <th @onclick='() => SortTable(nameof(OrgUnitDto.SchoolLevel))' style="cursor: pointer;">
+                                    רמה @GetSortArrow(nameof(OrgUnitDto.SchoolLevel))
+                                </th>
                                 <th>חינוך מיוחד</th>
-                                <th>סטטוס</th>
+                                <th @onclick='() => SortTable(nameof(OrgUnitDto.IsActive))' style="cursor: pointer;">
+                                    סטטוס @GetSortArrow(nameof(OrgUnitDto.IsActive))
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var unit in _orgUnits)
+                            @foreach (var unit in FilteredOrgUnits)
                             {
                                 <tr class="@(unit.IsActive ? "" : "row-inactive")">
                                     <td class="actions-cell">
@@ -170,6 +214,11 @@
     private string _yearName = "";
     private List<OrgUnitDto> _orgUnits = new();
     private bool _isLoading = true;
+    private string _filterText = "";
+    private string _filterType = "";
+    private string _filterStatus = "";
+    private string _sortColumn = nameof(OrgUnitDto.Name);
+    private bool _sortAscending = true;
     private bool _showFormDialog;
     private bool _isSaving;
     private string _formError = string.Empty;
@@ -219,6 +268,70 @@
     }
 
     private async Task RefreshData() => await LoadDataAsync();
+
+    private bool HasActiveFilters =>
+        !string.IsNullOrWhiteSpace(_filterText) ||
+        !string.IsNullOrEmpty(_filterType) ||
+        !string.IsNullOrEmpty(_filterStatus);
+
+    private void ClearFilters()
+    {
+        _filterText = "";
+        _filterType = "";
+        _filterStatus = "";
+    }
+
+    private List<OrgUnitDto> FilteredOrgUnits
+    {
+        get
+        {
+            IEnumerable<OrgUnitDto> query = _orgUnits.Where(u =>
+                (string.IsNullOrWhiteSpace(_filterText) ||
+                 u.Name.Contains(_filterText, StringComparison.OrdinalIgnoreCase) ||
+                 (u.Symbol?.Contains(_filterText, StringComparison.OrdinalIgnoreCase) ?? false)) &&
+                (string.IsNullOrEmpty(_filterType) || u.OrgUnitType == _filterType) &&
+                (string.IsNullOrEmpty(_filterStatus) ||
+                 (_filterStatus == "active") == u.IsActive));
+
+            query = _sortColumn switch
+            {
+                nameof(OrgUnitDto.Symbol) => _sortAscending
+                    ? query.OrderBy(u => u.Symbol)
+                    : query.OrderByDescending(u => u.Symbol),
+                nameof(OrgUnitDto.OrgUnitType) => _sortAscending
+                    ? query.OrderBy(u => u.OrgUnitType)
+                    : query.OrderByDescending(u => u.OrgUnitType),
+                nameof(OrgUnitDto.SchoolLevel) => _sortAscending
+                    ? query.OrderBy(u => SchoolLevelLabels.GetDisplayName(u.SchoolLevel, u.OrgUnitType))
+                    : query.OrderByDescending(u => SchoolLevelLabels.GetDisplayName(u.SchoolLevel, u.OrgUnitType)),
+                nameof(OrgUnitDto.IsActive) => _sortAscending
+                    ? query.OrderBy(u => u.IsActive)
+                    : query.OrderByDescending(u => u.IsActive),
+                _ => _sortAscending
+                    ? query.OrderBy(u => u.Name)
+                    : query.OrderByDescending(u => u.Name)
+            };
+
+            return query.ToList();
+        }
+    }
+
+    private void SortTable(string columnName)
+    {
+        if (_sortColumn == columnName)
+            _sortAscending = !_sortAscending;
+        else
+        {
+            _sortColumn = columnName;
+            _sortAscending = true;
+        }
+    }
+
+    private string GetSortArrow(string columnName)
+    {
+        if (_sortColumn != columnName) return string.Empty;
+        return _sortAscending ? "▲" : "▼";
+    }
 
     private void ShowCreateDialog()
     {
