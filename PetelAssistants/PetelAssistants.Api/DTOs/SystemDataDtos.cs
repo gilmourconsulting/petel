@@ -102,6 +102,7 @@ namespace PetelAssistants.Api.DTOs
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? PositionType { get; set; }
+        public int? AssistantTypeId { get; set; }
         public bool IsActive { get; set; }
     }
 
@@ -111,6 +112,7 @@ namespace PetelAssistants.Api.DTOs
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? PositionType { get; set; }
+        public int? AssistantTypeId { get; set; }
     }
 
     public class UpdateMeitarTopicRequest
@@ -119,6 +121,7 @@ namespace PetelAssistants.Api.DTOs
         public string Name { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? PositionType { get; set; }
+        public int? AssistantTypeId { get; set; }
         public bool IsActive { get; set; } = true;
     }
 }

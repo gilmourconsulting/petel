@@ -245,7 +245,7 @@ curl "http://localhost:5105/api/amounts?beneficiaryCode=10413516&fromMonth=01/20
 
 ## Data query
 
-Pull raw rows from any core data table, filtered by symbol list and a field value list.
+Pull raw rows from any core data table, filtered by symbol list plus any number of field filters and/or a period list.
 
 ```
 POST /api/data/query
@@ -258,8 +258,10 @@ Content-Type: application/json
 {
   "symbolList": ["10413516", "10413517"],
   "fileName": "MUTAVIM",
-  "filterField": "TopicCode",
-  "filterValueList": ["101", "205"]
+  "filters": [
+    { "field": "TopicCode", "valueList": ["101", "205"] }
+  ],
+  "periodList": ["09/2025", "11/2025"]
 }
 ```
 
@@ -267,8 +269,10 @@ Content-Type: application/json
 |---|---|---|
 | `symbolList` | Yes | One or more beneficiary/symbol codes (`BeneficiaryCode IN (...)`) |
 | `fileName` | Yes | CSV type suffix — selects which core table to query (see table below) |
-| `filterField` | Yes | Property name on the entity to filter by (case-insensitive) |
-| `filterValueList` | Yes | Values to match (`filterField IN (...)`) |
+| `filters` | One of `filters`/`periodList` | Zero or more `{ field, valueList }` pairs. Each is applied as `field IN (valueList)` |
+| `periodList` | One of `filters`/`periodList` | List of `MM/yyyy` months to match against `calcDate`. Periods do **not** need to be consecutive — pass exactly the months you want (e.g. `["09/2025", "11/2025"]` skips `10/2025`) |
+
+At least one of `filters` or `periodList` must be supplied with at least one entry. When both — or multiple entries in `filters` — are supplied, they are combined with **AND**: a row must satisfy every filter (and, if present, match one of the listed periods) to be returned. Use [`POST /api/data/periods`](#list-available-periods) to discover which periods actually exist for a symbol/table before building `periodList`.
 
 Results are ordered by `calcDate` descending, capped at **1000 rows**.
 
@@ -319,7 +323,7 @@ Results are ordered by `calcDate` descending, capped at **1000 rows**.
 
 ### Supported filter field types
 
-`filterField` must match a public property on the target entity. Supported types:
+Each `filters[].field` must match a public property on the target entity. Supported types:
 
 - `string`
 - `int`, `long`, `decimal`, `double`, `float`, `bool`
@@ -327,7 +331,7 @@ Results are ordered by `calcDate` descending, capped at **1000 rows**.
 - `DateOnly` (use `MM/yyyy` or ISO date)
 - `DateTime`
 
-All filter values are passed as strings in the JSON body and parsed to the property type.
+All filter values (and `periodList` entries) are passed as strings in the JSON body and parsed to the property type.
 
 ### Examples
 
@@ -335,25 +339,41 @@ All filter values are passed as strings in the JSON body and parsed to the prope
 
 ```powershell
 $body = @{
-  symbolList      = @('10413516')
-  fileName        = 'MUTAVIM'
-  filterField     = 'TopicCode'
-  filterValueList = @('101', '205')
+  symbolList = @('10413516')
+  fileName   = 'MUTAVIM'
+  filters    = @(
+    @{ field = 'TopicCode'; valueList = @('101', '205') }
+  )
+} | ConvertTo-Json -Depth 5
+
+Invoke-RestMethod -Uri 'http://localhost:5105/api/data/query' `
+  -Method Post -ContentType 'application/json' -Body $body
+```
+
+**Filter by a list of calc months (non-consecutive):**
+
+```powershell
+$body = @{
+  symbolList = @('10413516')
+  fileName   = 'MUTAVIM'
+  periodList = @('06/2026', '09/2026')
 } | ConvertTo-Json
 
 Invoke-RestMethod -Uri 'http://localhost:5105/api/data/query' `
   -Method Post -ContentType 'application/json' -Body $body
 ```
 
-**Filter by calc month:**
+**Combine multiple field filters with a period list (all ANDed together):**
 
 ```powershell
 $body = @{
-  symbolList      = @('10413516')
-  fileName        = 'MUTAVIM'
-  filterField     = 'CalcDate'
-  filterValueList = @('06/2026')
-} | ConvertTo-Json
+  symbolList = @('10412476')
+  fileName   = 'MUCARIM'
+  filters    = @(
+    @{ field = 'TopicCode'; valueList = @('1', '2') }
+  )
+  periodList = @('09/2025', '11/2025')
+} | ConvertTo-Json -Depth 5
 
 Invoke-RestMethod -Uri 'http://localhost:5105/api/data/query' `
   -Method Post -ContentType 'application/json' -Body $body
@@ -365,8 +385,59 @@ Invoke-RestMethod -Uri 'http://localhost:5105/api/data/query' `
 |---|---|
 | `symbolList is required and must not be empty.` | Missing or empty `symbolList` |
 | `Unknown file name suffix '...'.` | `fileName` is not a recognised CSV suffix |
+| `At least one of filters or periodList is required and must not be empty.` | Neither `filters` nor `periodList` had any entries |
+| `filters[].field is required.` | An entry in `filters` is missing `field` |
+| `filters[].valueList is required and must not be empty for field '...'.` | An entry in `filters` is missing `valueList` |
 | `Unknown filter field '...' for file type.` | Property does not exist on the target entity |
 | `Invalid value '...' for filter field '...'` | Value cannot be parsed to the field's type |
+
+---
+
+## List available periods
+
+Look up the distinct `calcDate` months that actually exist for a symbol list on a given table — useful for building a `periodList` for the data query endpoint above.
+
+```
+POST /api/data/periods
+Content-Type: application/json
+```
+
+**Body:**
+
+```json
+{
+  "symbolList": ["10413516"],
+  "fileName": "MUTAVIM"
+}
+```
+
+| Field | Required | Description |
+|---|---|---|
+| `symbolList` | Yes | One or more beneficiary/symbol codes (`BeneficiaryCode IN (...)`) |
+| `fileName` | Yes | CSV type suffix — selects which core table to query (see table above) |
+
+**Response `data` shape:**
+
+```json
+{
+  "fileName": "MUTAVIM",
+  "periods": ["06/2026", "03/2026", "01/2026"]
+}
+```
+
+Periods are returned in `MM/yyyy` format, ordered by `calcDate` descending.
+
+**Example:**
+
+```powershell
+$body = @{
+  symbolList = @('10413516')
+  fileName   = 'MUTAVIM'
+} | ConvertTo-Json
+
+Invoke-RestMethod -Uri 'http://localhost:5105/api/data/periods' `
+  -Method Post -ContentType 'application/json' -Body $body
+```
 
 ---
 
@@ -385,6 +456,7 @@ Invoke-RestMethod -Uri 'http://localhost:5105/api/data/query' `
 | `POST` | `/api/import-runs/range` | Import a month range |
 | `GET` | `/api/amounts` | Aggregated mutavim amounts |
 | `POST` | `/api/data/query` | Query core table rows with filters |
+| `POST` | `/api/data/periods` | List distinct available periods for a symbol/table |
 
 ---
 

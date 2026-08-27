@@ -84,6 +84,7 @@ builder.Services.AddScoped<PersonalApprovalsPdfParser>();
 builder.Services.AddScoped<OrgUnitService>();
 builder.Services.AddScoped<EntitlementService>();
 builder.Services.AddScoped<YearlyBudgetService>();
+builder.Services.AddScoped<MonthlyImportComparisonService>();
 
 // ── Meitar data API client ─────────────────────────────────────────────────
 // BaseAddress must end with '/' so relative paths like "data/query" resolve under /api/

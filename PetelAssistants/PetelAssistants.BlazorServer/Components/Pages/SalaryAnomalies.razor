@@ -1,0 +1,256 @@
+@page "/salaries/anomalies"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelAssistants.BlazorServer.Models
+@using PetelAssistants.BlazorServer.DTOs
+@inject ApiService ApiService
+
+<div class="context-buttons-section">
+    <SecureButton ActionName="salary_anomalies_refresh" ScreenName="@PageName" FunctionName="RefreshData"
+                  OnClick="RefreshData" CssClass="context-btn">
+        רענן נתונים
+    </SecureButton>
+    <SecureButton ActionName="salary_anomalies_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                  OnClick="NavigateBack" CssClass="context-navigation-btn">
+        חזרה לנתוני שכר
+    </SecureButton>
+</div>
+
+<div class="main-container">
+    <div class="students-content">
+        <div class="school-title-section">
+            <h1 class="page-title">חריגות שכר</h1>
+        </div>
+        <div class="content-card">
+            @if (_isLoading)
+            {
+                <div class="loading-spinner">טוען נתונים...</div>
+            }
+            else
+            {
+                <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end;">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">שנה</label>
+                        <input type="number" class="form-control" style="width: 100px;"
+                               @bind="_filterYear" @bind:event="onchange" @bind:after="OnPeriodChanged"
+                               min="2000" max="2100" />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">חודש</label>
+                        <select class="form-control" style="min-width: 120px;"
+                                @bind="_filterMonth" @bind:event="onchange" @bind:after="OnPeriodChanged">
+                            @for (int m = 1; m <= 12; m++)
+                            {
+                                <option value="@m">@GetMonthLabel(m)</option>
+                            }
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">סיבה</label>
+                        <select class="form-control" style="min-width: 180px;" @bind="_filterReason">
+                            <option value="">הכל</option>
+                            <option value="unmapped_department">מחלקה לא ממופה</option>
+                            <option value="unmatched_person">לא נמצאה סייעת</option>
+                            <option value="no_allocation_for_period">ללא הקצאה</option>
+                            <option value="type_mismatch">אי-התאמת סוג</option>
+                            <option value="invalid_id_checksum">ספרת ביקורת</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">סטטוס</label>
+                        <select class="form-control" style="min-width: 140px;" @bind="_filterStatusId">
+                            <option value="0">הכל</option>
+                            @foreach (var status in _statuses)
+                            {
+                                <option value="@status.Id">@status.Name</option>
+                            }
+                        </select>
+                    </div>
+                </div>
+
+                @if (FilteredItems.Count == 0)
+                {
+                    <p>אין חריגות לתקופה / סינון זה.</p>
+                }
+                else
+                {
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>ת"ז</th>
+                                    <th>מחלקה</th>
+                                    <th>% משרה</th>
+                                    <th>שכר</th>
+                                    <th>סייעת</th>
+                                    <th>סוג ממופה</th>
+                                    <th>סוג הקצאה</th>
+                                    <th>סיבה</th>
+                                    <th>סטטוס</th>
+                                    <th>הערה</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in FilteredItems)
+                                {
+                                    <tr>
+                                        <td>@item.NationalId</td>
+                                        <td>@item.DepartmentId @(string.IsNullOrEmpty(item.DepartmentName) ? "" : $"({item.DepartmentName})")</td>
+                                        <td>@item.PositionPercentage.ToString("N2")</td>
+                                        <td>@item.TotalSalary.ToString("N2")</td>
+                                        <td>
+                                            @if (item.MatchedPersonId.HasValue)
+                                            {
+                                                <span title="@($"מזהה {item.MatchedPersonId}")">@(item.MatchedPersonName ?? item.MatchedPersonId.ToString())</span>
+                                            }
+                                            else
+                                            {
+                                                <span>—</span>
+                                            }
+                                        </td>
+                                        <td>@(item.MappedAssistantTypeName ?? "—")</td>
+                                        <td>@(item.AllocationAssistantTypeName ?? "—")</td>
+                                        <td>@item.Message</td>
+                                        <td>
+                                            <select class="form-control" style="min-width: 110px;"
+                                                    value="@item.StatusId"
+                                                    @onchange="e => OnStatusChanged(item, e)">
+                                                @foreach (var status in _statuses)
+                                                {
+                                                    <option value="@status.Id">@status.Name</option>
+                                                }
+                                            </select>
+                                        </td>
+                                        <td>
+                                            <input class="form-control" style="min-width: 140px;"
+                                                   value="@item.Notes"
+                                                   @onchange="e => OnNotesChanged(item, e)" />
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override string PageName => "salary_anomalies";
+
+    [SupplyParameterFromQuery(Name = "fromYear")]
+    public int? FromYear { get; set; }
+
+    [SupplyParameterFromQuery(Name = "year")]
+    public int? Year { get; set; }
+
+    [SupplyParameterFromQuery(Name = "month")]
+    public int? Month { get; set; }
+
+    private bool _isLoading = true;
+    private int _filterYear;
+    private int _filterMonth;
+    private string _filterReason = "";
+    private int _filterStatusId;
+    private List<SalaryAnomalyDto> _items = new();
+    private List<StatusDto> _statuses = new();
+
+    private static readonly string[] MonthNames =
+    {
+        "", "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
+        "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"
+    };
+
+    private List<SalaryAnomalyDto> FilteredItems
+    {
+        get
+        {
+            IEnumerable<SalaryAnomalyDto> query = _items;
+            if (!string.IsNullOrEmpty(_filterReason))
+                query = query.Where(i => i.ReasonCode == _filterReason);
+            if (_filterStatusId > 0)
+                query = query.Where(i => i.StatusId == _filterStatusId);
+            return query.ToList();
+        }
+    }
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        if (Year.HasValue && Month.HasValue)
+        {
+            _filterYear = Year.Value;
+            _filterMonth = Month.Value;
+        }
+        else
+        {
+            var previous = DateTime.Today.AddMonths(-1);
+            _filterYear = previous.Year;
+            _filterMonth = previous.Month;
+        }
+
+        var statuses = await ApiService.GetAsync<ApiResponse<List<StatusDto>>>("statuses?object=salary_anomaly");
+        _statuses = statuses?.Data ?? new();
+        await LoadDataAsync();
+    }
+
+    private async Task OnPeriodChanged() => await LoadDataAsync();
+    private async Task RefreshData() => await LoadDataAsync();
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<SalaryAnomalyDto>>>(
+                $"salary-anomalies?year={_filterYear}&month={_filterMonth}");
+            _items = response?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading salary anomalies: {ex.Message}");
+            _items = new();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task OnStatusChanged(SalaryAnomalyDto item, ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var statusId) || statusId == item.StatusId)
+            return;
+        item.StatusId = statusId;
+        await SaveStatusAsync(item);
+    }
+
+    private async Task OnNotesChanged(SalaryAnomalyDto item, ChangeEventArgs e)
+    {
+        item.Notes = e.Value?.ToString();
+        await SaveStatusAsync(item);
+    }
+
+    private async Task SaveStatusAsync(SalaryAnomalyDto item)
+    {
+        await ApiService.PutAsync<UpdateSalaryAnomalyStatusRequest, ApiResponse<object>>(
+            $"salary-anomalies/{item.Id}/status",
+            new UpdateSalaryAnomalyStatusRequest { StatusId = item.StatusId, Notes = item.Notes });
+        var status = _statuses.FirstOrDefault(s => s.Id == item.StatusId);
+        if (status != null)
+        {
+            item.StatusCode = status.Code;
+            item.StatusName = status.Name;
+        }
+    }
+
+    private void NavigateBack()
+    {
+        var qs = FromYear.HasValue ? $"?fromYear={FromYear.Value}" : "";
+        Navigation.NavigateTo($"/salaries{qs}");
+    }
+
+    private static string GetMonthLabel(int month) =>
+        month is >= 1 and <= 12 ? $"{month} - {MonthNames[month]}" : month.ToString();
+}

@@ -48,6 +48,11 @@
                   OnClick="NavigateToMeitarData" CssClass="context-btn" HideIfNoAccess="true">
         נתוני מייתר
     </SecureButton>
+
+    <SecureButton ActionName="maindashboard_salary_dept_map" ScreenName="@PageName" FunctionName="NavigateToDeptMap"
+                  OnClick="NavigateToDeptMap" CssClass="context-btn" HideIfNoAccess="true">
+        מיפוי מחלקות שכר
+    </SecureButton>
 </div>
 
 <SalaryUploadModal @ref="_salaryUploadModal" />
@@ -157,4 +162,6 @@
     private void NavigateToSalaries() => Navigation.NavigateTo("/salaries");
 
     private void NavigateToMeitarData() => Navigation.NavigateTo("/meitar-data");
+
+    private void NavigateToDeptMap() => Navigation.NavigateTo("/salary-department-mappings");
 }

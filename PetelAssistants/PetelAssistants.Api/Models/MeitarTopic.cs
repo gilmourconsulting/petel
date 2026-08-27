@@ -28,6 +28,9 @@ namespace PetelAssistants.Api.Models
         [MaxLength(20)]
         public string? PositionType { get; set; }
 
+        [Column("assistant_type_id")]
+        public int? AssistantTypeId { get; set; }
+
         [Column("is_active")]
         public bool IsActive { get; set; } = true;
     }

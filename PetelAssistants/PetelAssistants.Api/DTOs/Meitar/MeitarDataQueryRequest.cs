@@ -10,10 +10,19 @@ namespace PetelAssistants.Api.DTOs.Meitar
         [JsonPropertyName("fileName")]
         public string FileName { get; set; } = string.Empty;
 
-        [JsonPropertyName("filterField")]
-        public string FilterField { get; set; } = string.Empty;
+        [JsonPropertyName("filters")]
+        public List<MeitarDataQueryFilter>? Filters { get; set; }
 
-        [JsonPropertyName("filterValueList")]
-        public List<string> FilterValueList { get; set; } = new();
+        [JsonPropertyName("periodList")]
+        public List<string>? PeriodList { get; set; }
+    }
+
+    public class MeitarDataQueryFilter
+    {
+        [JsonPropertyName("field")]
+        public string Field { get; set; } = string.Empty;
+
+        [JsonPropertyName("valueList")]
+        public List<string> ValueList { get; set; } = new();
     }
 }

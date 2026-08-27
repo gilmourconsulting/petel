@@ -52,5 +52,7 @@ namespace PetelAssistants.Api.Models
 
         public virtual ICollection<Salary> Salaries { get; set; } = new List<Salary>();
         public virtual ICollection<SalaryUploadWarning> Warnings { get; set; } = new List<SalaryUploadWarning>();
+        public virtual ICollection<SalaryMonthSummary> Summaries { get; set; } = new List<SalaryMonthSummary>();
+        public virtual ICollection<SalaryAnomaly> Anomalies { get; set; } = new List<SalaryAnomaly>();
     }
 }

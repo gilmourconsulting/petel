@@ -15,6 +15,7 @@ else
                     <th>שם</th>
                     <th>תיאור</th>
                     <th>סוג משרה</th>
+                    <th>סוג סייעת</th>
                     <th>סטטוס</th>
                 </tr>
             </thead>
@@ -32,6 +33,7 @@ else
                         <td>@item.Name</td>
                         <td>@(item.Description ?? "—")</td>
                         <td>@FormatPositionType(item.PositionType)</td>
+                        <td>@AssistantTypeName(item.AssistantTypeId)</td>
                         <td>@(item.IsActive ? "פעיל" : "לא פעיל")</td>
                     </tr>
                 }
@@ -69,6 +71,16 @@ else
                         <option value="monthly">חודשי</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label>סוג סייעת</label>
+                    <select class="form-control" @bind="_formAssistantTypeId">
+                        <option value="0">—</option>
+                        @foreach (var type in _assistantTypes)
+                        {
+                            <option value="@type.Id">@type.DisplayName</option>
+                        }
+                    </select>
+                </div>
                 @if (_editItem != null)
                 {
                     <div class="form-group">
@@ -94,6 +106,7 @@ else
     [Parameter] public string ScreenName { get; set; } = "system_data";
 
     private List<MeitarTopicDto> _items = new();
+    private List<AssistantTypeDto> _assistantTypes = new();
     private bool _isLoading = true;
     private bool _showFormDialog;
     private bool _isSaving;
@@ -103,6 +116,7 @@ else
     private string _formName = string.Empty;
     private string? _formDescription;
     private string _formPositionType = string.Empty;
+    private int _formAssistantTypeId;
     private bool _formIsActive = true;
 
     protected override async Task OnInitializedAsync() => await LoadDataAsync();
@@ -116,6 +130,7 @@ else
         _formName = string.Empty;
         _formDescription = null;
         _formPositionType = string.Empty;
+        _formAssistantTypeId = 0;
         _formError = string.Empty;
         _showFormDialog = true;
         StateHasChanged();
@@ -128,11 +143,21 @@ else
         _ => "—"
     };
 
+    private string AssistantTypeName(int? id)
+    {
+        if (!id.HasValue) return "—";
+        var type = _assistantTypes.FirstOrDefault(t => t.Id == id.Value);
+        return type?.DisplayName ?? id.Value.ToString();
+    }
+
     private async Task LoadDataAsync()
     {
         _isLoading = true;
-        var response = await ApiService.GetAsync<ApiResponse<List<MeitarTopicDto>>>("meitar-topics?includeInactive=true");
-        _items = response?.Data ?? new();
+        var topicsTask = ApiService.GetAsync<ApiResponse<List<MeitarTopicDto>>>("meitar-topics?includeInactive=true");
+        var typesTask = ApiService.GetAsync<ApiResponse<List<AssistantTypeDto>>>("assistant-types?includeInactive=true");
+        await Task.WhenAll(topicsTask, typesTask);
+        _items = topicsTask.Result?.Data ?? new();
+        _assistantTypes = typesTask.Result?.Data ?? new();
         _isLoading = false;
         StateHasChanged();
     }
@@ -144,6 +169,7 @@ else
         _formName = item.Name;
         _formDescription = item.Description;
         _formPositionType = item.PositionType ?? string.Empty;
+        _formAssistantTypeId = item.AssistantTypeId ?? 0;
         _formIsActive = item.IsActive;
         _formError = string.Empty;
         _showFormDialog = true;
@@ -158,6 +184,7 @@ else
         try
         {
             var positionType = string.IsNullOrWhiteSpace(_formPositionType) ? null : _formPositionType;
+            int? assistantTypeId = _formAssistantTypeId > 0 ? _formAssistantTypeId : null;
             ApiResponse<object>? response;
 
             if (_editItem == null)
@@ -169,7 +196,8 @@ else
                         Code = _formCode,
                         Name = _formName,
                         Description = _formDescription,
-                        PositionType = positionType
+                        PositionType = positionType,
+                        AssistantTypeId = assistantTypeId
                     });
             }
             else
@@ -182,6 +210,7 @@ else
                         Name = _formName,
                         Description = _formDescription,
                         PositionType = positionType,
+                        AssistantTypeId = assistantTypeId,
                         IsActive = _formIsActive
                     });
             }

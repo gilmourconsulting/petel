@@ -35,6 +35,26 @@
                   OnClick="NavigateToMeitarData" CssClass="context-btn" HideIfNoAccess="true">
         נתוני מייתר
     </SecureButton>
+
+    <SecureButton ActionName="yearmanagement_salary_dept_map" ScreenName="@PageName" FunctionName="NavigateToDeptMap"
+                  OnClick="NavigateToDeptMap" CssClass="context-btn" HideIfNoAccess="true">
+        מיפוי מחלקות שכר
+    </SecureButton>
+
+    <SecureButton ActionName="yearmanagement_salary_month_summary" ScreenName="@PageName" FunctionName="NavigateToSalarySummary"
+                  OnClick="NavigateToSalarySummary" CssClass="context-btn" HideIfNoAccess="true">
+        סיכום שכר מול תקציב
+    </SecureButton>
+
+    <SecureButton ActionName="yearmanagement_salary_anomalies" ScreenName="@PageName" FunctionName="NavigateToSalaryAnomalies"
+                  OnClick="NavigateToSalaryAnomalies" CssClass="context-btn" HideIfNoAccess="true">
+        חריגות שכר
+    </SecureButton>
+
+    <SecureButton ActionName="yearmanagement_meitar_month_summary" ScreenName="@PageName" FunctionName="NavigateToMeitarSummary"
+                  OnClick="NavigateToMeitarSummary" CssClass="context-btn" HideIfNoAccess="true">
+        סיכום מייתר מול תקציב
+    </SecureButton>
 </div>
 
 <SalaryUploadModal @ref="_salaryUploadModal" />
@@ -229,6 +249,10 @@
     private void NavigateToYearlyBudget()  => Navigation.NavigateTo($"/year/{YearId}/yearly-budget");
     private void NavigateToSalaries()      => Navigation.NavigateTo($"/salaries?fromYear={YearId}");
     private void NavigateToMeitarData()    => Navigation.NavigateTo($"/meitar-data?fromYear={YearId}");
+    private void NavigateToDeptMap()       => Navigation.NavigateTo($"/salary-department-mappings?fromYear={YearId}");
+    private void NavigateToSalarySummary() => Navigation.NavigateTo($"/salaries/month-summary?fromYear={YearId}");
+    private void NavigateToSalaryAnomalies() => Navigation.NavigateTo($"/salaries/anomalies?fromYear={YearId}");
+    private void NavigateToMeitarSummary() => Navigation.NavigateTo($"/meitar-data/month-summary?fromYear={YearId}");
     private void NavigateBack()            => Navigation.NavigateTo("/maindashboard");
     private void ShowSalaryUploadDialog() => _salaryUploadModal?.Show();
     private void ShowEntitlementUploadDialog() => _entitlementUploadModal?.Show(YearId, _yearName);

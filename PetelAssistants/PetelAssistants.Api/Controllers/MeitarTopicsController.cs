@@ -44,6 +44,7 @@ namespace PetelAssistants.Api.Controllers
                     Name = t.Name,
                     Description = t.Description,
                     PositionType = t.PositionType,
+                    AssistantTypeId = t.AssistantTypeId,
                     IsActive = t.IsActive
                 })
                 .ToListAsync();
@@ -64,6 +65,10 @@ namespace PetelAssistants.Api.Controllers
             if (!PositionTypeHelper.TryNormalize(request.PositionType, out var positionType, out var positionError))
                 return BadRequest(new { success = false, message = positionError });
 
+            if (request.AssistantTypeId.HasValue &&
+                !await _sharedContext.AssistantTypes.AnyAsync(t => t.Id == request.AssistantTypeId.Value))
+                return BadRequest(new { success = false, message = "סוג סייעת לא תקין" });
+
             var code = request.Code.Trim();
             if (await _sharedContext.MeitarTopics.AnyAsync(t => t.Code == code))
                 return BadRequest(new { success = false, message = "נושא עם קוד זה כבר קיים" });
@@ -74,6 +79,7 @@ namespace PetelAssistants.Api.Controllers
                 Name = request.Name.Trim(),
                 Description = request.Description?.Trim(),
                 PositionType = positionType,
+                AssistantTypeId = request.AssistantTypeId,
                 IsActive = true
             };
 
@@ -96,6 +102,10 @@ namespace PetelAssistants.Api.Controllers
             if (!PositionTypeHelper.TryNormalize(request.PositionType, out var positionType, out var positionError))
                 return BadRequest(new { success = false, message = positionError });
 
+            if (request.AssistantTypeId.HasValue &&
+                !await _sharedContext.AssistantTypes.AnyAsync(t => t.Id == request.AssistantTypeId.Value))
+                return BadRequest(new { success = false, message = "סוג סייעת לא תקין" });
+
             var entity = await _sharedContext.MeitarTopics.FindAsync(id);
             if (entity == null)
                 return NotFound(new { success = false, message = "נושא מיתר לא נמצא" });
@@ -108,6 +118,7 @@ namespace PetelAssistants.Api.Controllers
             entity.Name = request.Name.Trim();
             entity.Description = request.Description?.Trim();
             entity.PositionType = positionType;
+            entity.AssistantTypeId = request.AssistantTypeId;
             entity.IsActive = request.IsActive;
 
             await _sharedContext.SaveChangesAsync();

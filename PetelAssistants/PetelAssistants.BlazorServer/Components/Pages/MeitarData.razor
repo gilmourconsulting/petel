@@ -10,6 +10,10 @@
                   OnClick="RefreshData" CssClass="context-btn">
         רענן נתונים
     </SecureButton>
+    <SecureButton ActionName="meitardata_month_summary" ScreenName="@PageName" FunctionName="NavigateToMonthSummary"
+                  OnClick="NavigateToMonthSummary" CssClass="context-btn" HideIfNoAccess="true">
+        סיכום מול תקציב
+    </SecureButton>
     <SecureButton ActionName="meitardata_back" ScreenName="@PageName" FunctionName="NavigateBack"
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
         @(_returnYearId.HasValue ? "חזרה לניהול שנה" : "חזרה לדף הבית")
@@ -28,32 +32,16 @@
             }
             else
             {
-                @if (_items.Count > 0)
-                {
-                    <div class="summary-grid" style="margin-bottom: 16px;">
-                        <div class="summary-card">
-                            <div class="summary-icon">📄</div>
-                            <div class="summary-info">
-                                <div class="summary-value">@_items.Count</div>
-                                <div class="summary-label">סה"כ רשומות</div>
-                            </div>
-                        </div>
-                        <div class="summary-card">
-                            <div class="summary-icon">💰</div>
-                            <div class="summary-info">
-                                <div class="summary-value">@_items.Sum(i => i.CalculatedAmount).ToString("N0")</div>
-                                <div class="summary-label">סה"כ סכום מחושב (₪)</div>
-                            </div>
-                        </div>
-                        <div class="summary-card">
-                            <div class="summary-icon">🏷️</div>
-                            <div class="summary-info">
-                                <div class="summary-value">@_items.Select(i => i.TopicCode).Distinct().Count()</div>
-                                <div class="summary-label">נושאים ייחודיים</div>
-                            </div>
-                        </div>
-                    </div>
-                }
+                <div class="tabs-bar" style="display: flex; gap: 8px; margin-bottom: 16px;">
+                    <button type="button" class="btn @(_activeTab == DataTab.Mutavim ? "btn-primary" : "btn-secondary")"
+                            @onclick='() => SetTab(DataTab.Mutavim)'>
+                        מוטבים (MUTAVIM)
+                    </button>
+                    <button type="button" class="btn @(_activeTab == DataTab.Mucarim ? "btn-primary" : "btn-secondary")"
+                            @onclick='() => SetTab(DataTab.Mucarim)'>
+                        מוכרים (MUCARIM)
+                    </button>
+                </div>
 
                 <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end;">
                     <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -95,73 +83,211 @@
                     }
                 </div>
 
-                @if (_items.Count > 0)
+                @if (_activeTab == DataTab.Mutavim)
                 {
-                    <div style="margin-bottom: 12px; color: var(--text-muted); font-size: 0.9em;">
-                        מציג @FilteredItems.Count מתוך @_items.Count רשומות
-                        · סה״כ סכום מחושב: @FilteredItems.Sum(i => i.CalculatedAmount).ToString("N2")
-                    </div>
-                }
+                    @if (_items.Count > 0)
+                    {
+                        <div class="summary-grid" style="margin-bottom: 16px;">
+                            <div class="summary-card">
+                                <div class="summary-icon">📄</div>
+                                <div class="summary-info">
+                                    <div class="summary-value">@_items.Count</div>
+                                    <div class="summary-label">סה"כ רשומות</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-icon">💰</div>
+                                <div class="summary-info">
+                                    <div class="summary-value">@_items.Sum(i => i.CalculatedAmount).ToString("N0")</div>
+                                    <div class="summary-label">סה"כ סכום מחושב (₪)</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-icon">🏷️</div>
+                                <div class="summary-info">
+                                    <div class="summary-value">@_items.Select(i => i.TopicCode).Distinct().Count()</div>
+                                    <div class="summary-label">נושאים ייחודיים</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
 
-                @if (FilteredItems.Count == 0)
-                {
-                    <div class="no-data-message">לא נמצאו נתוני מייתר לתקופה זו</div>
+                    @if (_items.Count > 0)
+                    {
+                        <div style="margin-bottom: 12px; color: var(--text-muted); font-size: 0.9em;">
+                            מציג @FilteredItems.Count מתוך @_items.Count רשומות
+                            · סה״כ סכום מחושב: @FilteredItems.Sum(i => i.CalculatedAmount).ToString("N2")
+                        </div>
+                    }
+
+                    @if (FilteredItems.Count == 0)
+                    {
+                        <div class="no-data-message">לא נמצאו נתוני מייתר לתקופה זו</div>
+                    }
+                    else
+                    {
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th @onclick='() => SortTable("CalcDate")' style="cursor:pointer">
+                                            תאריך חישוב @GetSortArrow("CalcDate", _sortColumn, _sortAscending)
+                                        </th>
+                                        <th @onclick='() => SortTable("EffectiveDate")' style="cursor:pointer">
+                                            תאריך תחולה @GetSortArrow("EffectiveDate", _sortColumn, _sortAscending)
+                                        </th>
+                                        <th @onclick='() => SortTable("TopicCode")' style="cursor:pointer">
+                                            קוד נושא @GetSortArrow("TopicCode", _sortColumn, _sortAscending)
+                                        </th>
+                                        <th>תיאור נושא</th>
+                                        <th @onclick='() => SortTable("UnitCount")' style="cursor:pointer">
+                                            מספר יחידות @GetSortArrow("UnitCount", _sortColumn, _sortAscending)
+                                        </th>
+                                        <th @onclick='() => SortTable("Cost")' style="cursor:pointer">
+                                            עלות @GetSortArrow("Cost", _sortColumn, _sortAscending)
+                                        </th>
+                                        <th @onclick='() => SortTable("ParticipationPercent")' style="cursor:pointer">
+                                            אחוז השתתפות @GetSortArrow("ParticipationPercent", _sortColumn, _sortAscending)
+                                        </th>
+                                        <th @onclick='() => SortTable("CalculatedAmount")' style="cursor:pointer">
+                                            סכום מחושב @GetSortArrow("CalculatedAmount", _sortColumn, _sortAscending)
+                                        </th>
+                                        <th @onclick='() => SortTable("PreviousCalculatedAmount")' style="cursor:pointer">
+                                            סכום קודם @GetSortArrow("PreviousCalculatedAmount", _sortColumn, _sortAscending)
+                                        </th>
+                                        <th @onclick='() => SortTable("CalculatedDifference")' style="cursor:pointer">
+                                            הפרש @GetSortArrow("CalculatedDifference", _sortColumn, _sortAscending)
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in FilteredItems)
+                                    {
+                                        <tr>
+                                            <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
+                                            <td>@(item.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                            <td>@(item.TopicCode ?? "—")</td>
+                                            <td>@(item.TopicDescription ?? "—")</td>
+                                            <td>@(item.UnitCount?.ToString("0.##") ?? "—")</td>
+                                            <td>@(item.Cost?.ToString("N2") ?? "—")</td>
+                                            <td>@(item.ParticipationPercent is not null ? $"{item.ParticipationPercent:0.##}%" : "—")</td>
+                                            <td>@item.CalculatedAmount.ToString("N2")</td>
+                                            <td>@(item.PreviousCalculatedAmount?.ToString("N2") ?? "—")</td>
+                                            <td>@(item.CalculatedDifference?.ToString("N2") ?? "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 }
                 else
                 {
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th @onclick='() => SortTable("CalcDate")' style="cursor:pointer">
-                                        תאריך חישוב @GetSortArrow("CalcDate")
-                                    </th>
-                                    <th @onclick='() => SortTable("EffectiveDate")' style="cursor:pointer">
-                                        תאריך תחולה @GetSortArrow("EffectiveDate")
-                                    </th>
-                                    <th @onclick='() => SortTable("TopicCode")' style="cursor:pointer">
-                                        קוד נושא @GetSortArrow("TopicCode")
-                                    </th>
-                                    <th>תיאור נושא</th>
-                                    <th @onclick='() => SortTable("UnitCount")' style="cursor:pointer">
-                                        מספר יחידות @GetSortArrow("UnitCount")
-                                    </th>
-                                    <th @onclick='() => SortTable("Cost")' style="cursor:pointer">
-                                        עלות @GetSortArrow("Cost")
-                                    </th>
-                                    <th @onclick='() => SortTable("ParticipationPercent")' style="cursor:pointer">
-                                        אחוז השתתפות @GetSortArrow("ParticipationPercent")
-                                    </th>
-                                    <th @onclick='() => SortTable("CalculatedAmount")' style="cursor:pointer">
-                                        סכום מחושב @GetSortArrow("CalculatedAmount")
-                                    </th>
-                                    <th @onclick='() => SortTable("PreviousCalculatedAmount")' style="cursor:pointer">
-                                        סכום קודם @GetSortArrow("PreviousCalculatedAmount")
-                                    </th>
-                                    <th @onclick='() => SortTable("CalculatedDifference")' style="cursor:pointer">
-                                        הפרש @GetSortArrow("CalculatedDifference")
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in FilteredItems)
-                                {
+                    @if (_mucarimItems.Count > 0)
+                    {
+                        <div class="summary-grid" style="margin-bottom: 16px;">
+                            <div class="summary-card">
+                                <div class="summary-icon">📄</div>
+                                <div class="summary-info">
+                                    <div class="summary-value">@_mucarimItems.Count</div>
+                                    <div class="summary-label">סה"כ רשומות</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-icon">💰</div>
+                                <div class="summary-info">
+                                    <div class="summary-value">@_mucarimItems.Sum(i => i.CalculatedAmount).ToString("N0")</div>
+                                    <div class="summary-label">סה"כ סכום מחושב (₪)</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-icon">🏫</div>
+                                <div class="summary-info">
+                                    <div class="summary-value">@_mucarimItems.Select(i => i.InstitutionCode).Distinct().Count()</div>
+                                    <div class="summary-label">מוסדות ייחודיים</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (_mucarimItems.Count > 0)
+                    {
+                        <div style="margin-bottom: 12px; color: var(--text-muted); font-size: 0.9em;">
+                            מציג @FilteredMucarimItems.Count מתוך @_mucarimItems.Count רשומות
+                            · סה״כ סכום מחושב: @FilteredMucarimItems.Sum(i => i.CalculatedAmount).ToString("N2")
+                        </div>
+                    }
+
+                    @if (FilteredMucarimItems.Count == 0)
+                    {
+                        <div class="no-data-message">לא נמצאו נתוני מוכרים לתקופה זו</div>
+                    }
+                    else
+                    {
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
-                                        <td>@(item.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
-                                        <td>@(item.TopicCode ?? "—")</td>
-                                        <td>@(item.TopicDescription ?? "—")</td>
-                                        <td>@(item.UnitCount?.ToString("0.##") ?? "—")</td>
-                                        <td>@(item.Cost?.ToString("N2") ?? "—")</td>
-                                        <td>@(item.ParticipationPercent is not null ? $"{item.ParticipationPercent:0.##}%" : "—")</td>
-                                        <td>@item.CalculatedAmount.ToString("N2")</td>
-                                        <td>@(item.PreviousCalculatedAmount?.ToString("N2") ?? "—")</td>
-                                        <td>@(item.CalculatedDifference?.ToString("N2") ?? "—")</td>
+                                        <th @onclick='() => SortMucarimTable("CalcDate")' style="cursor:pointer">
+                                            תאריך חישוב @GetSortArrow("CalcDate", _mucarimSortColumn, _mucarimSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortMucarimTable("EffectiveDate")' style="cursor:pointer">
+                                            תאריך תחולה @GetSortArrow("EffectiveDate", _mucarimSortColumn, _mucarimSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortMucarimTable("InstitutionCode")' style="cursor:pointer">
+                                            סמל מוסד @GetSortArrow("InstitutionCode", _mucarimSortColumn, _mucarimSortAscending)
+                                        </th>
+                                        <th>שם מוסד</th>
+                                        <th @onclick='() => SortMucarimTable("TopicCode")' style="cursor:pointer">
+                                            קוד נושא @GetSortArrow("TopicCode", _mucarimSortColumn, _mucarimSortAscending)
+                                        </th>
+                                        <th>נושא</th>
+                                        <th>סטטוס</th>
+                                        <th @onclick='() => SortMucarimTable("UnitCount")' style="cursor:pointer">
+                                            מספר יחידות @GetSortArrow("UnitCount", _mucarimSortColumn, _mucarimSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortMucarimTable("Percent")' style="cursor:pointer">
+                                            אחוז @GetSortArrow("Percent", _mucarimSortColumn, _mucarimSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortMucarimTable("Cost")' style="cursor:pointer">
+                                            עלות @GetSortArrow("Cost", _mucarimSortColumn, _mucarimSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortMucarimTable("CalculatedAmount")' style="cursor:pointer">
+                                            סכום מחושב @GetSortArrow("CalculatedAmount", _mucarimSortColumn, _mucarimSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortMucarimTable("PreviousCalculatedAmount")' style="cursor:pointer">
+                                            סכום קודם @GetSortArrow("PreviousCalculatedAmount", _mucarimSortColumn, _mucarimSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortMucarimTable("CalculatedDifference")' style="cursor:pointer">
+                                            הפרש @GetSortArrow("CalculatedDifference", _mucarimSortColumn, _mucarimSortAscending)
+                                        </th>
+                                        <th>תאור יחידה</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in FilteredMucarimItems)
+                                    {
+                                        <tr>
+                                            <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
+                                            <td>@(item.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                            <td>@(item.InstitutionCode ?? "—")</td>
+                                            <td>@(item.InstitutionName ?? "—")</td>
+                                            <td>@(item.TopicCode ?? "—")</td>
+                                            <td>@(item.TopicDescription ?? "—")</td>
+                                            <td>@(item.Status ?? "—")</td>
+                                            <td>@(item.UnitCount?.ToString("0.##") ?? "—")</td>
+                                            <td>@(item.Percent is not null ? $"{item.Percent:0.##}%" : "—")</td>
+                                            <td>@(item.Cost?.ToString("N2") ?? "—")</td>
+                                            <td>@item.CalculatedAmount.ToString("N2")</td>
+                                            <td>@(item.PreviousCalculatedAmount?.ToString("N2") ?? "—")</td>
+                                            <td>@(item.CalculatedDifference?.ToString("N2") ?? "—")</td>
+                                            <td>@(item.UnitDescription ?? "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 }
             }
         </div>
@@ -174,7 +300,16 @@
     [SupplyParameterFromQuery(Name = "fromYear")]
     public int? FromYear { get; set; }
 
+    private enum DataTab
+    {
+        Mutavim,
+        Mucarim
+    }
+
+    private DataTab _activeTab = DataTab.Mutavim;
+
     private List<MeitarMutavimListItemDto> _items = new();
+    private List<MeitarMucarimListItemDto> _mucarimItems = new();
     private bool _isLoading = true;
     private int? _returnYearId;
 
@@ -185,6 +320,9 @@
 
     private string _sortColumn = "CalcDate";
     private bool _sortAscending = true;
+
+    private string _mucarimSortColumn = "CalcDate";
+    private bool _mucarimSortAscending = true;
 
     private static readonly string[] MonthNames =
     {
@@ -238,6 +376,65 @@
                     ? query.OrderBy(i => i.PreviousCalculatedAmount ?? 0)
                     : query.OrderByDescending(i => i.PreviousCalculatedAmount ?? 0),
                 "CalculatedDifference" => _sortAscending
+                    ? query.OrderBy(i => i.CalculatedDifference ?? 0)
+                    : query.OrderByDescending(i => i.CalculatedDifference ?? 0),
+                _ => query
+            };
+
+            return query.ToList();
+        }
+    }
+
+    private List<MeitarMucarimListItemDto> FilteredMucarimItems
+    {
+        get
+        {
+            IEnumerable<MeitarMucarimListItemDto> query = _mucarimItems;
+
+            if (!string.IsNullOrWhiteSpace(_filterTopic))
+            {
+                var term = _filterTopic.Trim();
+                query = query.Where(i =>
+                    (!string.IsNullOrEmpty(i.TopicCode) &&
+                     i.TopicCode.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(i.TopicDescription) &&
+                     i.TopicDescription.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(i.InstitutionCode) &&
+                     i.InstitutionCode.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(i.InstitutionName) &&
+                     i.InstitutionName.Contains(term, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            query = _mucarimSortColumn switch
+            {
+                "CalcDate" => _mucarimSortAscending
+                    ? query.OrderBy(i => i.CalcDate)
+                    : query.OrderByDescending(i => i.CalcDate),
+                "EffectiveDate" => _mucarimSortAscending
+                    ? query.OrderBy(i => i.EffectiveDate ?? DateOnly.MinValue)
+                    : query.OrderByDescending(i => i.EffectiveDate ?? DateOnly.MinValue),
+                "InstitutionCode" => _mucarimSortAscending
+                    ? query.OrderBy(i => i.InstitutionCode ?? "")
+                    : query.OrderByDescending(i => i.InstitutionCode ?? ""),
+                "TopicCode" => _mucarimSortAscending
+                    ? query.OrderBy(i => i.TopicCode ?? "")
+                    : query.OrderByDescending(i => i.TopicCode ?? ""),
+                "UnitCount" => _mucarimSortAscending
+                    ? query.OrderBy(i => i.UnitCount ?? 0)
+                    : query.OrderByDescending(i => i.UnitCount ?? 0),
+                "Percent" => _mucarimSortAscending
+                    ? query.OrderBy(i => i.Percent ?? 0)
+                    : query.OrderByDescending(i => i.Percent ?? 0),
+                "Cost" => _mucarimSortAscending
+                    ? query.OrderBy(i => i.Cost ?? 0)
+                    : query.OrderByDescending(i => i.Cost ?? 0),
+                "CalculatedAmount" => _mucarimSortAscending
+                    ? query.OrderBy(i => i.CalculatedAmount)
+                    : query.OrderByDescending(i => i.CalculatedAmount),
+                "PreviousCalculatedAmount" => _mucarimSortAscending
+                    ? query.OrderBy(i => i.PreviousCalculatedAmount ?? 0)
+                    : query.OrderByDescending(i => i.PreviousCalculatedAmount ?? 0),
+                "CalculatedDifference" => _mucarimSortAscending
                     ? query.OrderBy(i => i.CalculatedDifference ?? 0)
                     : query.OrderByDescending(i => i.CalculatedDifference ?? 0),
                 _ => query
@@ -304,10 +501,28 @@
             Console.WriteLine($"Error loading meitar data: {ex.Message}");
             _items = new();
         }
+
+        try
+        {
+            var mucarimResponse = await ApiService.GetAsync<ApiResponse<List<MeitarMucarimListItemDto>>>(
+                $"meitardata/mucarim?year={_filterYear}&month={_filterMonth}&dateField={_dateField}");
+            _mucarimItems = mucarimResponse?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading meitar mucarim data: {ex.Message}");
+            _mucarimItems = new();
+        }
         finally
         {
             _isLoading = false;
         }
+    }
+
+    private void SetTab(DataTab tab)
+    {
+        if (_activeTab == tab) return;
+        _activeTab = tab;
     }
 
     private async Task RefreshData() => await LoadDataAsync();
@@ -325,6 +540,14 @@
             Navigation.NavigateTo("/maindashboard");
     }
 
+    private void NavigateToMonthSummary()
+    {
+        var qs = $"year={_filterYear}&month={_filterMonth}";
+        if (_returnYearId.HasValue)
+            qs += $"&fromYear={_returnYearId.Value}";
+        Navigation.NavigateTo($"/meitar-data/month-summary?{qs}");
+    }
+
     private void SortTable(string column)
     {
         if (_sortColumn == column)
@@ -336,10 +559,21 @@
         }
     }
 
-    private string GetSortArrow(string column)
+    private void SortMucarimTable(string column)
     {
-        if (_sortColumn != column) return "";
-        return _sortAscending ? "▲" : "▼";
+        if (_mucarimSortColumn == column)
+            _mucarimSortAscending = !_mucarimSortAscending;
+        else
+        {
+            _mucarimSortColumn = column;
+            _mucarimSortAscending = true;
+        }
+    }
+
+    private static string GetSortArrow(string column, string currentSortColumn, bool ascending)
+    {
+        if (currentSortColumn != column) return "";
+        return ascending ? "▲" : "▼";
     }
 
     private static string GetMonthLabel(int month) =>

@@ -162,9 +162,15 @@ Manual upload from Main Dashboard / Year Management (`SalaryUploadModal` → `Sa
 | `POST api/salaryfileupload/preview` | Headers + suggested/saved mappings |
 | `POST api/salaryfileupload/upload` | Multipart file + mapping + period + replace/save flags |
 | `GET api/salaries?year=&month=` | List salary rows for period (view screen) |
-| `POST api/salaries/recheck?year=&month=` | Re-match salary rows to persons + allocations (view screen recheck) |
+| `POST api/salaries/recheck?year=&month=` | Re-match salary rows to persons + allocations; rebuilds summary + anomalies |
+| `GET/POST/PUT api/salary-department-mappings` | Tenant payroll department → assistant type |
+| `GET api/salary-department-mappings/unmapped` | Distinct file departments not in the map |
+| `GET api/salary-month-summaries?year=&month=` | Latest process summary vs locked budget (all payments) |
+| `GET api/salary-anomalies?year=&month=` | Anomaly details for latest process |
+| `PUT api/salary-anomalies/{id}/status` | Update anomaly status + notes |
+| `GET api/statuses?object=` | Shared statuses lookup |
 
-Tables: `salaries`, `salary_upload_processes`, `salary_upload_warnings`, `salary_field_mappings`. View UI: `/salaries`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Salary file upload.
+Tables: `salaries`, `salary_upload_processes`, `salary_upload_warnings`, `salary_field_mappings`, `salary_department_mappings`, `salary_month_summaries`, `salary_anomalies`. View UI: `/salaries`, `/salaries/month-summary`, `/salaries/anomalies`, `/salary-department-mappings`. SQL: `add-salary-upload.sql`, `add-monthly-ops.sql`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Salary file upload.
 
 ### Institutional entitlements file upload (Excel/CSV)
 
@@ -218,9 +224,10 @@ Pull ministry MUTAVIM rows for the logged-in authority’s period from PetelMeit
 | Endpoint | Purpose |
 |---|---|
 | `GET api/meitardata/period-exists` | Whether MUTAVIM rows exist for year/month |
-| `POST api/meitardata/retrieve` | Query Meitar + persist (`replaceExisting` for override) |
+| `POST api/meitardata/retrieve` | Query Meitar + persist (`replaceExisting` for override); builds month summary |
+| `GET api/meitar-month-summaries?year=&month=` | Latest process summary vs locked budget |
 
-Tables: `meitar_retrieve_processes`, `meitar_mutavim`. Actions: `maindashboard_meitar_retrieve`, `yearmanagement_meitar_retrieve`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Meitar data integration.
+Tables: `meitar_retrieve_processes`, `meitar_mutavim`, `meitar_month_summaries`. `meitar_topics.assistant_type_id` is the shared topic→type map. Actions: `maindashboard_meitar_retrieve`, `yearmanagement_meitar_retrieve`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Meitar data integration.
 
 ---
 
@@ -249,7 +256,8 @@ Tables: `meitar_retrieve_processes`, `meitar_mutavim`. Actions: `maindashboard_m
 - `entity_types` — authority, etc.
 - `assistant_types` — type codes for educational support staff (`position_type`, `position_hours`)
 - `hebrew_years`, `ministry_participation_options`, `meitar_data_filter_values`
-- `meitar_topics` — Meitar topic lookup (future use; managed on `/system-data`)
+- `meitar_topics` — Meitar topic lookup + optional `assistant_type_id` for month summary (managed on `/system-data`)
+- `statuses` — shared status lookup (`object` + `code`; salary anomalies seeded as `new` / `settled` / `note`)
 - `cities` — city/settlement lookup
 - `system_attributes` — global key-value config
 
@@ -259,6 +267,8 @@ Admin UI for shared lookups: `/system-data` (הגדרות מערכת). SQL: `Pet
 - `users`, `roles`, `user_roles`, `permissions`
 - `institutions` — schools and kindergartens owned by the authority
 - `persons` — assistants, pupils (each row is owned by exactly one authority)
+- `salaries`, `salary_department_mappings`, `salary_month_summaries`, `salary_anomalies`
+- `meitar_mutavim`, `meitar_month_summaries`
 - `assignments`, `placements`, `attendance`
 - Any table that stores data entered by a specific authority
 

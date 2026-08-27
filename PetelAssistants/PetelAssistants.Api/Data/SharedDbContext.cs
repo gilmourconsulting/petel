@@ -29,6 +29,7 @@ namespace PetelAssistants.Api.Data
         public DbSet<ClassClassification>         ClassClassifications         { get; set; }
         public DbSet<ClassAssistantBudgetHours>   ClassAssistantBudgetHours    { get; set; }
         public DbSet<BudgetHourValue>             BudgetHourValues             { get; set; }
+        public DbSet<Status>                      Statuses                     { get; set; }
 
         public SharedDbContext(
             DbContextOptions<SharedDbContext> options,
@@ -181,6 +182,13 @@ namespace PetelAssistants.Api.Data
                     .WithMany()
                     .HasForeignKey(e => e.HebrewYearId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Status>(entity =>
+            {
+                entity.ToTable("statuses");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.Object, e.Code }).IsUnique();
             });
         }
     }

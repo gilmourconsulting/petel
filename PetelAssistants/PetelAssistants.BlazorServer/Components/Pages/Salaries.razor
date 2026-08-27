@@ -14,6 +14,18 @@
                   OnClick="RecheckData" CssClass="context-btn" Disabled="_isRechecking">
         @(_isRechecking ? "בודק..." : "בדיקת התאמות מחדש")
     </SecureButton>
+    <SecureButton ActionName="salaries_month_summary" ScreenName="@PageName" FunctionName="NavigateToMonthSummary"
+                  OnClick="NavigateToMonthSummary" CssClass="context-btn" HideIfNoAccess="true">
+        סיכום מול תקציב
+    </SecureButton>
+    <SecureButton ActionName="salaries_anomalies" ScreenName="@PageName" FunctionName="NavigateToAnomalies"
+                  OnClick="NavigateToAnomalies" CssClass="context-btn" HideIfNoAccess="true">
+        חריגות שכר
+    </SecureButton>
+    <SecureButton ActionName="salaries_dept_map" ScreenName="@PageName" FunctionName="NavigateToDeptMap"
+                  OnClick="NavigateToDeptMap" CssClass="context-btn" HideIfNoAccess="true">
+        מיפוי מחלקות
+    </SecureButton>
     <SecureButton ActionName="salaries_back" ScreenName="@PageName" FunctionName="NavigateBack"
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
         @(_returnYearId.HasValue ? "חזרה לניהול שנה" : "חזרה לדף הבית")
@@ -512,6 +524,25 @@
             Navigation.NavigateTo($"/year/{_returnYearId.Value}");
         else
             Navigation.NavigateTo("/maindashboard");
+    }
+
+    private string PeriodQuery
+    {
+        get
+        {
+            var qs = $"year={_filterYear}&month={_filterMonth}";
+            if (_returnYearId.HasValue)
+                qs += $"&fromYear={_returnYearId.Value}";
+            return qs;
+        }
+    }
+
+    private void NavigateToMonthSummary() => Navigation.NavigateTo($"/salaries/month-summary?{PeriodQuery}");
+    private void NavigateToAnomalies() => Navigation.NavigateTo($"/salaries/anomalies?{PeriodQuery}");
+    private void NavigateToDeptMap()
+    {
+        var qs = _returnYearId.HasValue ? $"?fromYear={_returnYearId.Value}" : "";
+        Navigation.NavigateTo($"/salary-department-mappings{qs}");
     }
 
     private void SortTable(string column)

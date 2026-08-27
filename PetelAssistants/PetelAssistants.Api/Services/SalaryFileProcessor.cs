@@ -12,11 +12,16 @@ namespace PetelAssistants.Api.Services
     public class SalaryFileProcessor
     {
         private readonly AssistDbContext _context;
+        private readonly MonthlyImportComparisonService _comparisonService;
         private readonly ILogger<SalaryFileProcessor> _logger;
 
-        public SalaryFileProcessor(AssistDbContext context, ILogger<SalaryFileProcessor> logger)
+        public SalaryFileProcessor(
+            AssistDbContext context,
+            MonthlyImportComparisonService comparisonService,
+            ILogger<SalaryFileProcessor> logger)
         {
             _context = context;
+            _comparisonService = comparisonService;
             _logger = logger;
         }
 
@@ -342,6 +347,7 @@ namespace PetelAssistants.Api.Services
             await _context.SaveChangesAsync();
 
             await MatchPersonsAndAllocationsForProcessAsync(process.Id, userId);
+            await _comparisonService.RebuildSalaryProcessAsync(process.Id, userId);
 
             result.TotalSalarySum = sum;
             return result;
@@ -380,6 +386,10 @@ namespace PetelAssistants.Api.Services
 
             var (allocationsAdded, allocationsRemoved) =
                 await MatchSalariesToAllocationsAsync(salaries, userId);
+
+            var processId = salaries.Select(s => s.ProcessId).DefaultIfEmpty().Max();
+            if (processId > 0)
+                await _comparisonService.RebuildSalaryProcessAsync(processId, userId);
 
             return new SalaryRecheckResult
             {
