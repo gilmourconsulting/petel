@@ -224,7 +224,9 @@ Pull ministry MUTAVIM rows for the logged-in authority’s period from PetelMeit
 | Endpoint | Purpose |
 |---|---|
 | `GET api/meitardata/period-exists` | Whether MUTAVIM rows exist for year/month |
-| `POST api/meitardata/retrieve` | Query Meitar + persist (`replaceExisting` for override); builds month summary |
+| `POST api/meitardata/retrieve` | Query Meitar + persist for a single period (`replaceExisting` for override); builds month summary |
+| `GET api/meitardata/period-exists-range` | Same check across a `from`–`to` period range (max 24 months) |
+| `POST api/meitardata/retrieve-range` | Same as `retrieve`, looped per period across a `from`–`to` range (max 24 months); one modal (`MeitarRetrieveModal`) drives both single- and multi-period retrieve using `YYYY/MM` inputs |
 | `GET api/meitar-month-summaries?year=&month=` | Latest process summary vs locked budget |
 
 Tables: `meitar_retrieve_processes`, `meitar_mutavim`, `meitar_month_summaries`. `meitar_topics.assistant_type_id` is the shared topic→type map. Actions: `maindashboard_meitar_retrieve`, `yearmanagement_meitar_retrieve`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Meitar data integration.

@@ -59,7 +59,7 @@
 
 <SalaryUploadModal @ref="_salaryUploadModal" />
 <EntitlementUploadModal @ref="_entitlementUploadModal" YearId="YearId" YearName="@_yearName" />
-<MeitarRetrieveModal @ref="_meitarRetrieveModal" />
+<MeitarRetrieveModal @ref="_meitarRetrieveModal" YearId="YearId" />
 
 <div class="main-container">
     <div class="students-content">
@@ -256,5 +256,9 @@
     private void NavigateBack()            => Navigation.NavigateTo("/maindashboard");
     private void ShowSalaryUploadDialog() => _salaryUploadModal?.Show();
     private void ShowEntitlementUploadDialog() => _entitlementUploadModal?.Show(YearId, _yearName);
-    private void ShowMeitarRetrieveDialog() => _meitarRetrieveModal?.Show();
+    private async Task ShowMeitarRetrieveDialog()
+    {
+        if (_meitarRetrieveModal != null)
+            await _meitarRetrieveModal.Show(YearId);
+    }
 }

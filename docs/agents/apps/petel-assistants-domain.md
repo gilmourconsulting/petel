@@ -342,10 +342,14 @@ Manual retrieve from Main Dashboard / Year Management context buttons (`MeitarRe
 | Endpoint | Purpose |
 |---|---|
 | `GET api/meitardata/period-exists?year=&month=` | Whether MUTAVIM rows already exist for the current entity + period |
-| `POST api/meitardata/retrieve` | Pull MUTAVIM (required) + MUCARIM (best-effort) for the authority’s `symbol_code` and period; body: `{ periodYear, periodMonth, replaceExisting }` |
+| `POST api/meitardata/retrieve` | Pull MUTAVIM (required) + MUCARIM (best-effort) for the authority’s `symbol_code` and a single period; body: `{ periodYear, periodMonth, replaceExisting }` |
+| `GET api/meitardata/period-exists-range?fromYear=&fromMonth=&toYear=&toMonth=` | Per-period existence + row counts for every period in the range (max 24 months) |
+| `POST api/meitardata/retrieve-range` | Same as `retrieve`, looped once per period in `{ fromYear, fromMonth, toYear, toMonth, replaceExisting }` (max 24 months); continue-on-error across periods — one failed/skipped period does not abort the rest |
 | `GET api/meitardata/mucarim?year=&month=&dateField=calc|effective` | Tenant-scoped list of stored `MeitarMucarimListItemDto` |
 
-**Period:** calendar `period_year` + `period_month` (1–12). UI defaults to the previous calendar month.
+**Period:** calendar `period_year` + `period_month` (1–12) — for the range endpoints, an inclusive sequence of such periods, capped at 24. `MeitarDataController.RetrieveOnePeriodAsync` holds the single-period logic (MUTAVIM + MUCARIM + SHARATIM, one `meitar_retrieve_processes` row per period); both `retrieve` and `retrieve-range` call it — `retrieve` once, `retrieve-range` once per period in the range. If a period in a range already has data and `replaceExisting` is `false`, that period is skipped (not deleted, not duplicated) rather than failing the batch.
+
+**Range UI bounds (`MeitarRetrieveModal`, format `YYYY/MM`):** from Main Dashboard (no year context) the allowed range is a fixed floor of **2024/09** through the previous calendar month; from Year Management (`/year/{YearId}`) the allowed range is clamped to that school year's own `StartDate`–`EndDate` (via `GET years/{id}`). Existing-data confirmation is a single uniform prompt (period count + total existing rows) — no per-period picker.
 
 **Scope:** session entity only — never queries other authorities’ symbols. Requires `entities.symbol_code` on the logged-in authority.
 

@@ -170,44 +170,237 @@ namespace PetelAssistants.Api.Controllers
             if (request.PeriodMonth < 1 || request.PeriodMonth > 12)
                 return BadRequest(new { success = false, message = "חודש לא תקין" });
 
-            try
-            {
-                var symbolCode = await _meitarDataService.GetSymbolCodeForEntityAsync(entityId);
-                if (string.IsNullOrWhiteSpace(symbolCode))
-                    return BadRequest(new { success = false, message = "לא הוגדר קוד מוטב (symbol_code) לרשות הנוכחית." });
+            var symbolCode = await _meitarDataService.GetSymbolCodeForEntityAsync(entityId);
+            if (string.IsNullOrWhiteSpace(symbolCode))
+                return BadRequest(new { success = false, message = "לא הוגדר קוד מוטב (symbol_code) לרשות הנוכחית." });
 
-                var (exists, existingCount, _) = await GetPeriodStatsAsync(request.PeriodYear, request.PeriodMonth);
-                if (exists && !request.ReplaceExisting)
+            var result = await RetrieveOnePeriodAsync(
+                entityId, userId, symbolCode, request.PeriodYear, request.PeriodMonth, request.ReplaceExisting);
+
+            if (result.Skipped)
+            {
+                return Conflict(new
                 {
-                    return Conflict(new
-                    {
-                        success = false,
-                        periodExists = true,
-                        rowCount = existingCount,
-                        message = "קיימים נתוני מייתר לתקופה זו. יש לאשר החלפה."
-                    });
+                    success = false,
+                    periodExists = true,
+                    rowCount = result.ExistingRowCount,
+                    message = "קיימים נתוני מייתר לתקופה זו. יש לאשר החלפה."
+                });
+            }
+
+            if (!result.Success)
+            {
+                if (result.IsBadRequest)
+                    return BadRequest(new { success = false, message = result.ErrorMessage });
+
+                return StatusCode(500, new { success = false, message = result.ErrorMessage });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                processId = result.ProcessId,
+                rowCount = result.RowCount,
+                skipped = result.SkippedRows,
+                totalCalculated = result.TotalCalculated,
+                mucarim = new
+                {
+                    rowCount = result.MucarimRowCount,
+                    skipped = result.MucarimSkipped,
+                    totalCalculated = result.MucarimTotalCalculated,
+                    error = result.MucarimError
+                },
+                sharatim = new
+                {
+                    rowCount = result.SharatimRowCount,
+                    skipped = result.SharatimSkipped,
+                    totalClassCount = result.SharatimTotalClassCount,
+                    error = result.SharatimError
+                },
+                message = result.Message
+            });
+        }
+
+        [HttpGet("period-exists-range")]
+        public async Task<IActionResult> PeriodExistsRange(
+            [FromQuery] int fromYear, [FromQuery] int fromMonth,
+            [FromQuery] int toYear, [FromQuery] int toMonth)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (!TryBuildPeriodRange(fromYear, fromMonth, toYear, toMonth, out var periods, out var rangeError))
+                return BadRequest(new { success = false, message = rangeError });
+
+            var periodResults = new List<object>();
+            var anyExists = false;
+            var totalExistingRows = 0;
+
+            foreach (var (year, month) in periods)
+            {
+                var (exists, rowCount, totalCalculated) = await GetPeriodStatsAsync(year, month);
+                if (exists)
+                {
+                    anyExists = true;
+                    totalExistingRows += rowCount;
                 }
 
-                var queryResult = await _meitarDataService.QueryMutavimForSymbolAndPeriodAsync(
-                    symbolCode,
-                    request.PeriodYear,
-                    request.PeriodMonth);
+                periodResults.Add(new { year, month, exists, rowCount, totalCalculated });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                periods = periodResults,
+                anyExists,
+                totalExistingRows,
+                periodCount = periods.Count
+            });
+        }
+
+        [HttpPost("retrieve-range")]
+        public async Task<IActionResult> RetrieveRange([FromBody] MeitarRetrieveRangeRequest request)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (!int.TryParse(session.EntityId, out int entityId))
+                return BadRequest(new { success = false, message = "מזהה רשות לא תקין" });
+
+            int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
+            if (!TryBuildPeriodRange(request.FromYear, request.FromMonth, request.ToYear, request.ToMonth, out var periods, out var rangeError))
+                return BadRequest(new { success = false, message = rangeError });
+
+            var symbolCode = await _meitarDataService.GetSymbolCodeForEntityAsync(entityId);
+            if (string.IsNullOrWhiteSpace(symbolCode))
+                return BadRequest(new { success = false, message = "לא הוגדר קוד מוטב (symbol_code) לרשות הנוכחית." });
+
+            var periodResults = new List<object>();
+            var succeededCount = 0;
+            var failedCount = 0;
+            var skippedCount = 0;
+
+            foreach (var (year, month) in periods)
+            {
+                var result = await RetrieveOnePeriodAsync(entityId, userId, symbolCode, year, month, request.ReplaceExisting);
+
+                if (result.Skipped)
+                {
+                    skippedCount++;
+                    periodResults.Add(new
+                    {
+                        year,
+                        month,
+                        success = false,
+                        skipped = true,
+                        message = $"קיימים כבר {result.ExistingRowCount} שורות לתקופה זו — דולג."
+                    });
+                    continue;
+                }
+
+                if (!result.Success)
+                {
+                    failedCount++;
+                    periodResults.Add(new { year, month, success = false, skipped = false, message = result.ErrorMessage });
+                    continue;
+                }
+
+                succeededCount++;
+                periodResults.Add(new
+                {
+                    year,
+                    month,
+                    success = true,
+                    skipped = false,
+                    rowCount = result.RowCount,
+                    mucarimRowCount = result.MucarimRowCount,
+                    sharatimRowCount = result.SharatimRowCount,
+                    message = result.Message
+                });
+            }
+
+            var message = $"טווח {periods.Count} תקופות: הושלמו {succeededCount}, נכשלו {failedCount}, דולגו {skippedCount}.";
+
+            return Ok(new
+            {
+                success = failedCount == 0,
+                periodCount = periods.Count,
+                succeededCount,
+                failedCount,
+                skippedCount,
+                periods = periodResults,
+                message
+            });
+        }
+
+        private static bool TryBuildPeriodRange(
+            int fromYear, int fromMonth, int toYear, int toMonth,
+            out List<(int Year, int Month)> periods, out string? error)
+        {
+            const int maxPeriods = 24;
+            periods = new List<(int, int)>();
+            error = null;
+
+            if (fromMonth < 1 || fromMonth > 12 || toMonth < 1 || toMonth > 12)
+            {
+                error = "חודש לא תקין";
+                return false;
+            }
+
+            var fromKey = fromYear * 12 + (fromMonth - 1);
+            var toKey = toYear * 12 + (toMonth - 1);
+
+            if (fromKey > toKey)
+            {
+                error = "תקופת ההתחלה חייבת להיות לפני או שווה לתקופת הסיום";
+                return false;
+            }
+
+            var count = toKey - fromKey + 1;
+            if (count > maxPeriods)
+            {
+                error = $"טווח התקופות ארוך מדי (מקסימום {maxPeriods} חודשים)";
+                return false;
+            }
+
+            for (var key = fromKey; key <= toKey; key++)
+            {
+                var year = key / 12;
+                var month = key % 12 + 1;
+                periods.Add((year, month));
+            }
+
+            return true;
+        }
+
+        private async Task<PeriodRetrieveResult> RetrieveOnePeriodAsync(
+            int entityId, int? userId, string symbolCode, int year, int month, bool replaceExisting)
+        {
+            var (exists, existingCount, _) = await GetPeriodStatsAsync(year, month);
+            if (exists && !replaceExisting)
+            {
+                return PeriodRetrieveResult.Skip(existingCount);
+            }
+
+            try
+            {
+                var queryResult = await _meitarDataService.QueryMutavimForSymbolAndPeriodAsync(symbolCode, year, month);
 
                 if (!queryResult.Success)
                 {
-                    return BadRequest(new
-                    {
-                        success = false,
-                        message = queryResult.Message ?? "שליפת נתוני מייתר נכשלה."
-                    });
+                    return PeriodRetrieveResult.Failure(
+                        queryResult.Message ?? "שליפת נתוני מייתר נכשלה.", isBadRequest: true);
                 }
 
                 var now = DateTime.UtcNow;
                 var process = new MeitarRetrieveProcess
                 {
                     EntityId = entityId,
-                    PeriodYear = request.PeriodYear,
-                    PeriodMonth = request.PeriodMonth,
+                    PeriodYear = year,
+                    PeriodMonth = month,
                     Source = "meitar",
                     CreatedAt = now,
                     UserId = userId,
@@ -217,10 +410,10 @@ namespace PetelAssistants.Api.Controllers
                 _context.MeitarRetrieveProcesses.Add(process);
                 await _context.SaveChangesAsync();
 
-                if (request.ReplaceExisting && exists)
+                if (replaceExisting && exists)
                 {
                     var oldRows = await _context.MeitarMutavim
-                        .Where(m => m.PeriodYear == request.PeriodYear && m.PeriodMonth == request.PeriodMonth)
+                        .Where(m => m.PeriodYear == year && m.PeriodMonth == month)
                         .ToListAsync();
                     if (oldRows.Count > 0)
                     {
@@ -245,8 +438,8 @@ namespace PetelAssistants.Api.Controllers
                     _context.MeitarMutavim.Add(new MeitarMutavim
                     {
                         EntityId = entityId,
-                        PeriodYear = request.PeriodYear,
-                        PeriodMonth = request.PeriodMonth,
+                        PeriodYear = year,
+                        PeriodMonth = month,
                         BeneficiaryCode = mapped.BeneficiaryCode,
                         CalcDate = mapped.CalcDate,
                         EffectiveDate = mapped.EffectiveDate,
@@ -278,10 +471,10 @@ namespace PetelAssistants.Api.Controllers
 
                 try
                 {
-                    if (request.ReplaceExisting && exists)
+                    if (replaceExisting && exists)
                     {
                         var oldMucarimRows = await _context.MeitarMucarim
-                            .Where(m => m.PeriodYear == request.PeriodYear && m.PeriodMonth == request.PeriodMonth)
+                            .Where(m => m.PeriodYear == year && m.PeriodMonth == month)
                             .ToListAsync();
                         if (oldMucarimRows.Count > 0)
                         {
@@ -290,10 +483,7 @@ namespace PetelAssistants.Api.Controllers
                         }
                     }
 
-                    var mucarimResult = await _meitarDataService.QueryMucarimForSymbolAndPeriodAsync(
-                        symbolCode,
-                        request.PeriodYear,
-                        request.PeriodMonth);
+                    var mucarimResult = await _meitarDataService.QueryMucarimForSymbolAndPeriodAsync(symbolCode, year, month);
 
                     _logger.LogInformation(
                         "MUCARIM retrieve for process {ProcessId}: Success={Success}, RowCount={RowCount}, Message={Message}",
@@ -317,8 +507,8 @@ namespace PetelAssistants.Api.Controllers
                             _context.MeitarMucarim.Add(new MeitarMucarim
                             {
                                 EntityId = entityId,
-                                PeriodYear = request.PeriodYear,
-                                PeriodMonth = request.PeriodMonth,
+                                PeriodYear = year,
+                                PeriodMonth = month,
                                 BeneficiaryCode = mappedMucarim.BeneficiaryCode,
                                 CalcDate = mappedMucarim.CalcDate,
                                 EffectiveDate = mappedMucarim.EffectiveDate,
@@ -372,10 +562,10 @@ namespace PetelAssistants.Api.Controllers
 
                 try
                 {
-                    if (request.ReplaceExisting && exists)
+                    if (replaceExisting && exists)
                     {
                         var oldSharatimRows = await _context.MeitarSharatim
-                            .Where(m => m.PeriodYear == request.PeriodYear && m.PeriodMonth == request.PeriodMonth)
+                            .Where(m => m.PeriodYear == year && m.PeriodMonth == month)
                             .ToListAsync();
                         if (oldSharatimRows.Count > 0)
                         {
@@ -384,10 +574,7 @@ namespace PetelAssistants.Api.Controllers
                         }
                     }
 
-                    var sharatimResult = await _meitarDataService.QuerySharatimForSymbolAndPeriodAsync(
-                        symbolCode,
-                        request.PeriodYear,
-                        request.PeriodMonth);
+                    var sharatimResult = await _meitarDataService.QuerySharatimForSymbolAndPeriodAsync(symbolCode, year, month);
 
                     _logger.LogInformation(
                         "SHARATIM retrieve for process {ProcessId}: Success={Success}, RowCount={RowCount}, Message={Message}",
@@ -437,8 +624,8 @@ namespace PetelAssistants.Api.Controllers
                             _context.MeitarSharatim.Add(new MeitarSharatim
                             {
                                 EntityId = entityId,
-                                PeriodYear = request.PeriodYear,
-                                PeriodMonth = request.PeriodMonth,
+                                PeriodYear = year,
+                                PeriodMonth = month,
                                 CalcDate = mappedSharatim.CalcDate,
                                 EffectiveDate = mappedSharatim.EffectiveDate,
                                 InstitutionCode = mappedSharatim.InstitutionCode,
@@ -495,40 +682,79 @@ namespace PetelAssistants.Api.Controllers
                         ? $"\nשרתים: נשלפו {sharatimInserted} שורות ({sharatimSkipped} דולגו)."
                         : $"\nשרתים: נשלפו {sharatimInserted} שורות בהצלחה.";
 
-                return Ok(new
-                {
-                    success = true,
-                    processId = process.Id,
-                    rowCount = inserted,
-                    skipped,
-                    totalCalculated = sum,
-                    mucarim = new
-                    {
-                        rowCount = mucarimInserted,
-                        skipped = mucarimSkipped,
-                        totalCalculated = mucarimSum,
-                        error = mucarimError
-                    },
-                    sharatim = new
-                    {
-                        rowCount = sharatimInserted,
-                        skipped = sharatimSkipped,
-                        totalClassCount = sharatimSum,
-                        error = sharatimError
-                    },
-                    message
-                });
+                return PeriodRetrieveResult.SuccessResult(
+                    process.Id, inserted, skipped, sum,
+                    mucarimInserted, mucarimSkipped, mucarimSum, mucarimError,
+                    sharatimInserted, sharatimSkipped, sharatimSum, sharatimError,
+                    message);
             }
             catch (InvalidOperationException ex)
             {
-                _logger.LogWarning(ex, "Meitar retrieve validation/business failure");
-                return BadRequest(new { success = false, message = ex.Message });
+                _logger.LogWarning(ex, "Meitar retrieve validation/business failure for period {Year}/{Month}", year, month);
+                return PeriodRetrieveResult.Failure(ex.Message, isBadRequest: true);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Meitar retrieve failed");
-                return StatusCode(500, new { success = false, message = "שגיאה בשליפת נתוני מייתר" });
+                _logger.LogError(ex, "Meitar retrieve failed for period {Year}/{Month}", year, month);
+                return PeriodRetrieveResult.Failure("שגיאה בשליפת נתוני מייתר", isBadRequest: false);
             }
+        }
+
+        private sealed class PeriodRetrieveResult
+        {
+            public bool Success { get; private init; }
+            public bool Skipped { get; private init; }
+            public bool IsBadRequest { get; private init; }
+            public int ExistingRowCount { get; private init; }
+            public int? ProcessId { get; private init; }
+            public int RowCount { get; private init; }
+            public int SkippedRows { get; private init; }
+            public decimal TotalCalculated { get; private init; }
+            public int MucarimRowCount { get; private init; }
+            public int MucarimSkipped { get; private init; }
+            public decimal MucarimTotalCalculated { get; private init; }
+            public string? MucarimError { get; private init; }
+            public int SharatimRowCount { get; private init; }
+            public int SharatimSkipped { get; private init; }
+            public int SharatimTotalClassCount { get; private init; }
+            public string? SharatimError { get; private init; }
+            public string? ErrorMessage { get; private init; }
+            public string Message { get; private init; } = string.Empty;
+
+            public static PeriodRetrieveResult Skip(int existingRowCount) => new()
+            {
+                Skipped = true,
+                ExistingRowCount = existingRowCount
+            };
+
+            public static PeriodRetrieveResult Failure(string message, bool isBadRequest) => new()
+            {
+                Success = false,
+                IsBadRequest = isBadRequest,
+                ErrorMessage = message
+            };
+
+            public static PeriodRetrieveResult SuccessResult(
+                int processId, int rowCount, int skippedRows, decimal totalCalculated,
+                int mucarimRowCount, int mucarimSkipped, decimal mucarimTotalCalculated, string? mucarimError,
+                int sharatimRowCount, int sharatimSkipped, int sharatimTotalClassCount, string? sharatimError,
+                string message) => new()
+            {
+                Success = true,
+                ProcessId = processId,
+                RowCount = rowCount,
+                SkippedRows = skippedRows,
+                TotalCalculated = totalCalculated,
+                MucarimRowCount = mucarimRowCount,
+                MucarimSkipped = mucarimSkipped,
+                MucarimTotalCalculated = mucarimTotalCalculated,
+                MucarimError = mucarimError,
+                SharatimRowCount = sharatimRowCount,
+                SharatimSkipped = sharatimSkipped,
+                SharatimTotalClassCount = sharatimTotalClassCount,
+                SharatimError = sharatimError,
+                Message = message
+            };
         }
 
         private async Task<(bool Exists, int RowCount, decimal TotalCalculated)> GetPeriodStatsAsync(int year, int month)

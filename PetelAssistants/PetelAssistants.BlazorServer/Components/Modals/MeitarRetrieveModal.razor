@@ -1,10 +1,11 @@
-@using Petel.BlazorCore.Services
+@using System.Text.RegularExpressions
+@using PetelAssistants.BlazorServer.Models
 @inject ApiService ApiService
 
 @if (_isVisible)
 {
     <div class="modal-overlay" style="display: flex;">
-        <div class="modal-content" style="max-width: 480px; width: 90%;">
+        <div class="modal-content" style="max-width: 520px; width: 90%;">
             <div class="modal-header">
                 <div>@_modalTitle</div>
                 <button class="modal-close" @onclick="CloseModal">&times;</button>
@@ -14,19 +15,19 @@
                 {
                     <div>
                         <div class="form-group" style="display: flex; gap: 16px; flex-wrap: wrap;">
-                            <div style="flex: 1; min-width: 120px;">
-                                <label for="meitarPeriodMonth">חודש *</label>
-                                <select id="meitarPeriodMonth" class="form-control" @bind="_periodMonth">
-                                    @for (var m = 1; m <= 12; m++)
-                                    {
-                                        <option value="@m">@m</option>
-                                    }
-                                </select>
+                            <div style="flex: 1; min-width: 140px;">
+                                <label for="meitarFromPeriod">מתקופה (YYYY/MM) *</label>
+                                <input id="meitarFromPeriod" type="text" class="form-control" placeholder="2024/09"
+                                       @bind="_fromPeriodText" @bind:event="oninput" />
                             </div>
-                            <div style="flex: 1; min-width: 120px;">
-                                <label for="meitarPeriodYear">שנה *</label>
-                                <input id="meitarPeriodYear" type="number" class="form-control" @bind="_periodYear" min="2000" max="2100" />
+                            <div style="flex: 1; min-width: 140px;">
+                                <label for="meitarToPeriod">עד תקופה (YYYY/MM) *</label>
+                                <input id="meitarToPeriod" type="text" class="form-control" placeholder="2024/09"
+                                       @bind="_toPeriodText" @bind:event="oninput" />
                             </div>
+                        </div>
+                        <div style="font-size: 0.82em; color: var(--text-muted); margin-top: 6px;">
+                            טווח מותר: @FormatPeriod(_minYear, _minMonth) עד @FormatPeriod(_maxYear, _maxMonth) (עד 24 חודשים בכל שליפה)
                         </div>
                         @if (!string.IsNullOrEmpty(_statusMessage))
                         {
@@ -39,10 +40,11 @@
                 else if (_currentStep == RetrieveStep.ConfirmReplace)
                 {
                     <div class="upload-status upload-status-warning" style="direction: rtl;">
-                        <p style="font-weight: bold; margin-bottom: 10px;">קיימים נתוני מייתר לתקופה @_periodMonth/@_periodYear</p>
-                        <p>שורות קיימות: @_existingRowCount</p>
-                        <p>סכום מחושב קיים: @_existingTotalCalculated.ToString("N2")</p>
-                        <p style="margin-top: 12px;">להמשיך? הנתונים הקיימים יימחקו ויוחלפו בנתונים החדשים.</p>
+                        <p style="font-weight: bold; margin-bottom: 10px;">
+                            קיימים נתוני מייתר עבור @_existingPeriodCount מתוך @_periodCount תקופות בטווח @FormatPeriod(_fromYear, _fromMonth)–@FormatPeriod(_toYear, _toMonth)
+                        </p>
+                        <p>סה"כ שורות קיימות: @_existingRowCount</p>
+                        <p style="margin-top: 12px;">להמשיך? הנתונים הקיימים לתקופות אלו יימחקו ויוחלפו בנתונים החדשים.</p>
                     </div>
                 }
                 else if (_currentStep == RetrieveStep.Complete)
@@ -50,6 +52,34 @@
                     <div class="upload-status upload-status-@_statusType">
                         @((MarkupString)_statusMessage.Replace("\n", "<br>"))
                     </div>
+                    @if (_periodResults.Count > 0)
+                    {
+                        <div class="table-container" style="margin-top: 12px; max-height: 260px; overflow-y: auto;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>תקופה</th>
+                                        <th>מוטבים</th>
+                                        <th>מוכרים</th>
+                                        <th>שרתים</th>
+                                        <th>סטטוס</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var period in _periodResults)
+                                    {
+                                        <tr>
+                                            <td>@FormatPeriod(period.Year, period.Month)</td>
+                                            <td>@(period.Success ? period.RowCount.ToString() : "—")</td>
+                                            <td>@(period.Success ? period.MucarimRowCount.ToString() : "—")</td>
+                                            <td>@(period.Success ? period.SharatimRowCount.ToString() : "—")</td>
+                                            <td>@(period.Skipped ? "דולג" : period.Success ? "הושלם" : "נכשל")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
                 }
             </div>
             <div class="modal-footer">
@@ -84,6 +114,10 @@
         Complete
     }
 
+    private static readonly (int Year, int Month) FloorPeriod = (2024, 9);
+
+    [Parameter] public int? YearId { get; set; }
+
     private bool _isVisible;
     private RetrieveStep _currentStep = RetrieveStep.PeriodSelection;
     private string _modalTitle = "שליפת נתוני מייתר";
@@ -91,22 +125,28 @@
     private string _statusType = "info";
     private bool _isProcessing;
 
-    private int _periodMonth;
-    private int _periodYear;
-    private int _existingRowCount;
-    private decimal _existingTotalCalculated;
+    private string _fromPeriodText = string.Empty;
+    private string _toPeriodText = string.Empty;
+    private int _fromYear, _fromMonth, _toYear, _toMonth;
+    private int _minYear, _minMonth, _maxYear, _maxMonth;
 
-    public void Show()
+    private int _periodCount;
+    private int _existingPeriodCount;
+    private int _existingRowCount;
+
+    private List<PeriodRangeResultDto> _periodResults = new();
+
+    public async Task Show(int? yearId = null)
     {
+        YearId = yearId;
         _isVisible = true;
-        ResetModal();
+        await ResetModalAsync();
         StateHasChanged();
     }
 
     private void CloseModal()
     {
         _isVisible = false;
-        ResetModal();
         StateHasChanged();
     }
 
@@ -118,44 +158,145 @@
         StateHasChanged();
     }
 
-    private void ResetModal()
+    private async Task ResetModalAsync()
     {
+        await ResolveBoundsAsync();
+
         var previous = DateTime.Today.AddMonths(-1);
-        _periodMonth = previous.Month;
-        _periodYear = previous.Year;
+        var (defaultYear, defaultMonth) = ClampPeriod(previous.Year, previous.Month);
+        _fromYear = defaultYear;
+        _fromMonth = defaultMonth;
+        _toYear = defaultYear;
+        _toMonth = defaultMonth;
+        _fromPeriodText = FormatPeriod(_fromYear, _fromMonth);
+        _toPeriodText = FormatPeriod(_toYear, _toMonth);
+
         _currentStep = RetrieveStep.PeriodSelection;
         _modalTitle = "שליפת נתוני מייתר";
         _statusMessage = string.Empty;
         _statusType = "info";
         _isProcessing = false;
+        _periodCount = 0;
+        _existingPeriodCount = 0;
         _existingRowCount = 0;
-        _existingTotalCalculated = 0;
+        _periodResults = new();
+    }
+
+    /// <summary>
+    /// From Year Management: bounded by the school year's own start/end period.
+    /// From Main Dashboard (no year context): bounded by a fixed floor (2024/09) through the previous calendar month.
+    /// </summary>
+    private async Task ResolveBoundsAsync()
+    {
+        if (YearId.HasValue)
+        {
+            try
+            {
+                var year = await ApiService.GetAsync<YearDto>($"years/{YearId.Value}");
+                if (year?.StartDate is not null && year.EndDate is not null)
+                {
+                    (_minYear, _minMonth) = (year.StartDate.Value.Year, year.StartDate.Value.Month);
+                    (_maxYear, _maxMonth) = (year.EndDate.Value.Year, year.EndDate.Value.Month);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading year {YearId.Value} bounds: {ex.Message}");
+            }
+        }
+
+        var previous = DateTime.Today.AddMonths(-1);
+        (_minYear, _minMonth) = FloorPeriod;
+        (_maxYear, _maxMonth) = (previous.Year, previous.Month);
+    }
+
+    private (int Year, int Month) ClampPeriod(int year, int month)
+    {
+        var key = PeriodKey(year, month);
+        var minKey = PeriodKey(_minYear, _minMonth);
+        var maxKey = PeriodKey(_maxYear, _maxMonth);
+
+        if (key < minKey) return (_minYear, _minMonth);
+        if (key > maxKey) return (_maxYear, _maxMonth);
+        return (year, month);
+    }
+
+    private static int PeriodKey(int year, int month) => year * 12 + (month - 1);
+
+    private static string FormatPeriod(int year, int month) => $"{year:D4}/{month:D2}";
+
+    private static bool TryParsePeriod(string? text, out int year, out int month)
+    {
+        year = 0;
+        month = 0;
+        if (string.IsNullOrWhiteSpace(text))
+            return false;
+
+        var match = Regex.Match(text.Trim(), @"^(\d{4})/(\d{1,2})$");
+        if (!match.Success)
+            return false;
+
+        year = int.Parse(match.Groups[1].Value);
+        month = int.Parse(match.Groups[2].Value);
+        return month is >= 1 and <= 12;
     }
 
     private async Task HandleRetrieve()
     {
-        if (_periodMonth < 1 || _periodMonth > 12)
+        if (!TryParsePeriod(_fromPeriodText, out _fromYear, out _fromMonth) ||
+            !TryParsePeriod(_toPeriodText, out _toYear, out _toMonth))
         {
-            _statusMessage = "חודש לא תקין";
+            _statusMessage = "יש להזין תקופות בפורמט YYYY/MM";
+            _statusType = "error";
+            StateHasChanged();
+            return;
+        }
+
+        var fromKey = PeriodKey(_fromYear, _fromMonth);
+        var toKey = PeriodKey(_toYear, _toMonth);
+        var minKey = PeriodKey(_minYear, _minMonth);
+        var maxKey = PeriodKey(_maxYear, _maxMonth);
+
+        if (fromKey > toKey)
+        {
+            _statusMessage = "תקופת ההתחלה חייבת להיות לפני או שווה לתקופת הסיום";
+            _statusType = "error";
+            StateHasChanged();
+            return;
+        }
+
+        if (fromKey < minKey || toKey > maxKey)
+        {
+            _statusMessage = $"הטווח חייב להיות בין {FormatPeriod(_minYear, _minMonth)} ל-{FormatPeriod(_maxYear, _maxMonth)}";
+            _statusType = "error";
+            StateHasChanged();
+            return;
+        }
+
+        if (toKey - fromKey + 1 > 24)
+        {
+            _statusMessage = "טווח התקופות ארוך מדי (מקסימום 24 חודשים)";
             _statusType = "error";
             StateHasChanged();
             return;
         }
 
         _isProcessing = true;
-        _statusMessage = "בודק תקופה...";
+        _statusMessage = "בודק תקופות...";
         _statusType = "loading";
         StateHasChanged();
 
         try
         {
-            var period = await ApiService.GetAsync<PeriodExistsResponse>(
-                $"meitardata/period-exists?year={_periodYear}&month={_periodMonth}");
+            var existsResponse = await ApiService.GetAsync<PeriodExistsRangeResponse>(
+                $"meitardata/period-exists-range?fromYear={_fromYear}&fromMonth={_fromMonth}&toYear={_toYear}&toMonth={_toMonth}");
 
-            if (period?.Success == true && period.Exists)
+            if (existsResponse?.Success == true && existsResponse.AnyExists)
             {
-                _existingRowCount = period.RowCount;
-                _existingTotalCalculated = period.TotalCalculated;
+                _periodCount = existsResponse.PeriodCount;
+                _existingPeriodCount = existsResponse.Periods.Count(p => p.Exists);
+                _existingRowCount = existsResponse.TotalExistingRows;
                 _currentStep = RetrieveStep.ConfirmReplace;
                 _modalTitle = "אישור החלפת נתונים";
                 _statusMessage = string.Empty;
@@ -168,7 +309,7 @@
         }
         catch (Exception ex)
         {
-            _statusMessage = $"❌ שגיאה בבדיקת תקופה: {ex.Message}";
+            _statusMessage = $"❌ שגיאה בבדיקת תקופות: {ex.Message}";
             _statusType = "error";
         }
         finally
@@ -187,30 +328,32 @@
 
         try
         {
-            var response = await ApiService.PostAsync<object, RetrieveResponse>(
-                "meitardata/retrieve",
+            var response = await ApiService.PostAsync<object, RetrieveRangeResponse>(
+                "meitardata/retrieve-range",
                 new
                 {
-                    periodYear = _periodYear,
-                    periodMonth = _periodMonth,
+                    fromYear = _fromYear,
+                    fromMonth = _fromMonth,
+                    toYear = _toYear,
+                    toMonth = _toMonth,
                     replaceExisting
                 });
 
+            _periodResults = response?.Periods ?? new();
+            _currentStep = RetrieveStep.Complete;
+
             if (response?.Success == true)
             {
-                _currentStep = RetrieveStep.Complete;
                 _modalTitle = "שליפה הושלמה";
                 _statusType = "success";
-                _statusMessage = response.Message
-                    ?? $"נשלפו {response.RowCount} שורות. סכום: {response.TotalCalculated:N2}";
             }
             else
             {
-                _currentStep = RetrieveStep.Complete;
-                _modalTitle = "שגיאה";
-                _statusType = "error";
-                _statusMessage = response?.Message ?? "שליפת נתוני מייתר נכשלה.";
+                _modalTitle = response == null ? "שגיאה" : "שליפה הושלמה עם שגיאות";
+                _statusType = response == null ? "error" : "warning";
             }
+
+            _statusMessage = response?.Message ?? "שליפת נתוני מייתר נכשלה.";
         }
         catch (Exception ex)
         {
@@ -226,19 +369,44 @@
         }
     }
 
-    private class PeriodExistsResponse
+    private class PeriodExistsRangeResponse
     {
         public bool Success { get; set; }
+        public List<PeriodExistsItemDto> Periods { get; set; } = new();
+        public bool AnyExists { get; set; }
+        public int TotalExistingRows { get; set; }
+        public int PeriodCount { get; set; }
+    }
+
+    private class PeriodExistsItemDto
+    {
+        public int Year { get; set; }
+        public int Month { get; set; }
         public bool Exists { get; set; }
         public int RowCount { get; set; }
         public decimal TotalCalculated { get; set; }
     }
 
-    private class RetrieveResponse
+    private class RetrieveRangeResponse
     {
         public bool Success { get; set; }
+        public int PeriodCount { get; set; }
+        public int SucceededCount { get; set; }
+        public int FailedCount { get; set; }
+        public int SkippedCount { get; set; }
+        public List<PeriodRangeResultDto> Periods { get; set; } = new();
         public string? Message { get; set; }
+    }
+
+    private class PeriodRangeResultDto
+    {
+        public int Year { get; set; }
+        public int Month { get; set; }
+        public bool Success { get; set; }
+        public bool Skipped { get; set; }
         public int RowCount { get; set; }
-        public decimal TotalCalculated { get; set; }
+        public int MucarimRowCount { get; set; }
+        public int SharatimRowCount { get; set; }
+        public string? Message { get; set; }
     }
 }

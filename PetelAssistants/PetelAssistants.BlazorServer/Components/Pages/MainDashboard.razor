@@ -155,7 +155,11 @@
     private void CloseYearModal() => _showYearModal = false;
 
     private void ShowSalaryUploadDialog() => _salaryUploadModal?.Show();
-    private void ShowMeitarRetrieveDialog() => _meitarRetrieveModal?.Show();
+    private async Task ShowMeitarRetrieveDialog()
+    {
+        if (_meitarRetrieveModal != null)
+            await _meitarRetrieveModal.Show();
+    }
 
     private void NavigateToOrgUnits() => Navigation.NavigateTo("/org-units");
 
