@@ -17,7 +17,9 @@ Domain context: assistants and entitlements are managed per Jewish school year. 
             └── /year/{YearId}          (YearManagement — operational hub)
                     ├── /year/{YearId}/assistants       (סייעות)
                     ├── /year/{YearId}/entitlements     (זכאויות)
-                    └── /year/{YearId}/yearly-budget    (תקציב שנתי)
+                    ├── /year/{YearId}/yearly-budget    (תקציב שנתי)
+                    ├── /salaries                       (שכר)
+                    └── /meitar-data                    (מייתר)
 
 Side menu
     └── ניהול שנה → /year-elements     (Year Elements — shared year rates hub)
@@ -26,7 +28,7 @@ Side menu
 ```
 
 - **Main dashboard** (`MainDashboard.razor`, `/maindashboard`): shows current/previous year buttons, a "בחר שנה" modal, and context buttons **בתי ספר וגנים** (`/org-units`), **העלאת קובץ שכר** (`SalaryUploadModal`) and **נתוני שכר** (`/salaries`). Clicking a year navigates to `/year/{yearId}` (does not only store year in session).
-- **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name, navigation cards — **סייעות**, **זכאויות**, **תקציב שנתי** — and context buttons for salary / Meitar tools.
+- **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name, navigation cards — **סייעות**, **זכאויות**, **תקציב שנתי**, **שכר**, **מייתר** — and context buttons for salary / Meitar operational tools (upload, retrieve, department map, summaries).
 - **Year Elements hub** (`YearElements.razor`, `/year-elements`): shared admin multi-tab screen for year-scoped configuration (tabs: class assistant budget hours, hour monetary value). Menu item **ניהול שנה**.
 - **Salaries view** (`Salaries.razor`, `/salaries`): read-only salary table with period and text filters (not Hebrew-year scoped; calendar year/month). Context buttons to month summary, anomalies, and department mapping.
 - **Salary month summary** (`SalaryMonthSummary.razor`, `/salaries/month-summary`): debug comparison of all salary payments vs last locked budget.
