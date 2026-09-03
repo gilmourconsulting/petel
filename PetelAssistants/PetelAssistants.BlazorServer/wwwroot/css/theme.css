@@ -231,9 +231,11 @@
     justify-content: start !important; /* Align to start instead of stretching */
 }
 
-.summary-icon {
-    font-size: 1.8em !important; /* Further reduced */
-    margin-left: 8px !important;
+.summary-card-wide {
+    width: auto !important;
+    max-width: none !important;
+    min-width: 190px !important;
+    grid-column: 1 / -1;
 }
 
 .summary-value {

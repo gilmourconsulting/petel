@@ -23,4 +23,12 @@ namespace PetelAssistants.Api.DTOs
         public int AllocationsAdded { get; set; }
         public int AllocationsRemoved { get; set; }
     }
+
+    public class SalaryMonthTotalDto
+    {
+        public int PeriodYear { get; set; }
+        public int PeriodMonth { get; set; }
+        public decimal TotalSalary { get; set; }
+        public int RowCount { get; set; }
+    }
 }

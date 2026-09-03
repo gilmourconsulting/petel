@@ -135,6 +135,7 @@ namespace PetelAssistants.BlazorServer.DTOs
         public int? InstitutionId { get; set; }
         public string? SchoolName { get; set; }
         public string? OrgUnitType { get; set; }
+        public string? SchoolLevel { get; set; }
         public string? ClassName { get; set; }
         public int? ClassClassificationId { get; set; }
         public string? ClassClassificationName { get; set; }

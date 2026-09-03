@@ -26,7 +26,7 @@
 
 <div class="main-container assistants-main">
     <div class="students-content assistants-page">
-        <div class="school-title-section">
+        <div class="page-title-section">
             <h1 class="page-title">סייעות @(_yearName != "" ? $"- {_yearName}" : "")</h1>
             <p class="text-muted" style="margin-top: 8px;">ניהול פרטי אנשים ברמת הרשות. שיוך לשנה יתווסף בשלב הזכאויות.</p>
         </div>
@@ -36,14 +36,12 @@
                 <!-- Summary dashboard -->
                 <div class="summary-grid" style="margin-bottom: 16px; flex-shrink: 0;">
                     <div class="summary-card">
-                        <div class="summary-icon">👥</div>
                         <div class="summary-info">
                             <div class="summary-value">@_persons.Count</div>
                             <div class="summary-label">סה"כ סייעות</div>
                         </div>
                     </div>
                     <div class="summary-card">
-                        <div class="summary-icon">📊</div>
                         <div class="summary-info">
                             <div class="summary-value">@AllocatedPercent.ToString("0.#")%</div>
                             <div class="summary-label">אחוז מוקצות</div>
@@ -176,7 +174,7 @@
         overflow: hidden;
     }
 
-    .assistants-page .school-title-section {
+    .assistants-page .page-title-section {
         flex-shrink: 0;
     }
 

@@ -34,7 +34,7 @@
 
 <div class="main-container">
     <div class="students-content">
-        <div class="school-title-section">
+        <div class="page-title-section">
             <h1 class="page-title">נתוני שכר</h1>
         </div>
         <div class="content-card">
@@ -48,21 +48,18 @@
                 {
                     <div class="summary-grid" style="margin-bottom: 16px;">
                         <div class="summary-card">
-                            <div class="summary-icon">📄</div>
                             <div class="summary-info">
                                 <div class="summary-value">@_items.Count</div>
                                 <div class="summary-label">סה"כ רשומות שכר</div>
                             </div>
                         </div>
                         <div class="summary-card">
-                            <div class="summary-icon">💰</div>
                             <div class="summary-info">
                                 <div class="summary-value">@_items.Sum(i => i.TotalSalary).ToString("N0")</div>
                                 <div class="summary-label">סה"כ שכר (₪)</div>
                             </div>
                         </div>
                         <div class="summary-card">
-                            <div class="summary-icon">👥</div>
                             <div class="summary-info">
                                 <div class="summary-value">@_items.Select(i => i.NationalId).Distinct().Count()</div>
                                 <div class="summary-label">ת"ז ייחודיות</div>
@@ -70,7 +67,6 @@
                         </div>
                         <div class="summary-card summary-card-clickable" @onclick="ShowUnmatched"
                              title="הצג רק רשומות שלא נמצאה עבורן התאמה לאדם">
-                            <div class="summary-icon">❓</div>
                             <div class="summary-info">
                                 <div class="summary-value">@UnmatchedItems.Count()</div>
                                 <div class="summary-label">לא קיימים בטבלת האנשים</div>
@@ -79,7 +75,6 @@
                         </div>
                         <div class="summary-card summary-card-clickable" @onclick="ShowNoAllocation"
                              title="הצג רק רשומות מאומתות ללא שיבוץ פעיל בתקופה">
-                            <div class="summary-icon">📌</div>
                             <div class="summary-info">
                                 <div class="summary-value">@NoAllocationItems.Count()</div>
                                 <div class="summary-label">מאומתים ללא שיבוץ לתקופה</div>
@@ -87,7 +82,6 @@
                             </div>
                         </div>
                         <div class="summary-card">
-                            <div class="summary-icon">⚠️</div>
                             <div class="summary-info">
                                 <div class="summary-value">@_items.Count(i => i.HasIdWarning)</div>
                                 <div class="summary-label">אזהרות ת"ז</div>
@@ -96,23 +90,34 @@
                     </div>
                 }
 
-                <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end;">
-                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-size: 0.82em; font-weight: 600;">שנה</label>
-                        <input type="number" class="form-control" style="width: 100px;"
-                               @bind="_filterYear" @bind:event="onchange" @bind:after="OnPeriodChanged"
-                               min="2000" max="2100" />
+                <div class="filter-bar" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+                    @if (!_returnYearId.HasValue && _years.Count > 0)
+                    {
+                        <div style="display: flex; flex-direction: column; gap: 4px; align-self: flex-start;">
+                            <label style="font-size: 0.82em; font-weight: 600;">שנת לימודים</label>
+                            <select class="form-control" style="min-width: 180px;"
+                                    @bind="_selectedYearId" @bind:event="onchange" @bind:after="OnSchoolYearChanged">
+                                @foreach (var year in _years)
+                                {
+                                    <option value="@year.Id">@year.YearName</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    <div class="salary-month-buttons">
+                        @foreach (var period in _schoolMonths)
+                        {
+                            var year = period.Year;
+                            var month = period.Month;
+                            <button type="button"
+                                    class="salary-month-btn @(_filterYear == year && _filterMonth == month ? "active" : null)"
+                                    @onclick="() => SelectMonth(year, month)">
+                                <span class="month-name">@GetMonthName(month)</span>
+                                <span class="month-total">₪ @GetMonthTotal(year, month).ToString("N0")</span>
+                            </button>
+                        }
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-size: 0.82em; font-weight: 600;">חודש</label>
-                        <select class="form-control" style="min-width: 120px;"
-                                @bind="_filterMonth" @bind:event="onchange" @bind:after="OnPeriodChanged">
-                            @for (int m = 1; m <= 12; m++)
-                            {
-                                <option value="@m">@GetMonthLabel(m)</option>
-                            }
-                        </select>
-                    </div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
                     <div style="display: flex; flex-direction: column; gap: 4px;">
                         <label style="font-size: 0.82em; font-weight: 600;">ת"ז</label>
                         <input type="text" class="form-control" style="min-width: 140px;"
@@ -156,6 +161,7 @@
                     {
                         <button class="btn btn-secondary" style="align-self: flex-end;" @onclick="ClearClientFilters">נקה סינון</button>
                     }
+                    </div>
                 </div>
 
                 @if (_items.Count > 0)
@@ -307,6 +313,10 @@
     private List<SalaryListItemDto> _items = new();
     private bool _isLoading = true;
     private int? _returnYearId;
+    private int _selectedYearId;
+    private List<YearDto> _years = new();
+    private List<(int Year, int Month)> _schoolMonths = new();
+    private Dictionary<(int Year, int Month), decimal> _monthTotals = new();
 
     private bool _isRechecking;
     private bool _showRecheckSummary;
@@ -408,20 +418,133 @@
     protected override async Task OnPageInitializedAsync()
     {
         _returnYearId = FromYear;
+        await LoadSchoolYearAsync();
+        RebuildMonths();
+        PickDefaultMonth();
+        await LoadMonthTotalsAsync();
+        await LoadDataAsync();
+    }
+
+    private async Task LoadSchoolYearAsync()
+    {
+        try
+        {
+            if (_returnYearId.HasValue)
+            {
+                var year = await ApiService.GetAsync<YearDto>($"years/{_returnYearId.Value}");
+                if (year != null)
+                {
+                    _years = new List<YearDto> { year };
+                    _selectedYearId = year.Id;
+                }
+            }
+            else
+            {
+                var context = await ApiService.GetAsync<YearContextDto>("years/context");
+                _years = context?.AllYears ?? new();
+                _selectedYearId = context?.CurrentYear?.Id ?? _years.FirstOrDefault()?.Id ?? 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading school year: {ex.Message}");
+            _years = new();
+        }
+    }
+
+    private YearDto? SelectedYear => _years.FirstOrDefault(y => y.Id == _selectedYearId);
+
+    private void RebuildMonths()
+    {
+        _schoolMonths = new();
+        var year = SelectedYear;
+        if (year?.StartDate is null || year.EndDate is null)
+            return;
+
+        var start = new DateOnly(year.StartDate.Value.Year, year.StartDate.Value.Month, 1);
+        var end = new DateOnly(year.EndDate.Value.Year, year.EndDate.Value.Month, 1);
+        if (end < start)
+            return;
+
+        for (var cursor = start; cursor <= end; cursor = cursor.AddMonths(1))
+            _schoolMonths.Add((cursor.Year, cursor.Month));
+    }
+
+    private void PickDefaultMonth()
+    {
+        if (_schoolMonths.Count == 0)
+            return;
+
         var previous = DateTime.Today.AddMonths(-1);
-        _filterYear = previous.Year;
-        _filterMonth = previous.Month;
+        foreach (var month in _schoolMonths)
+        {
+            if (month.Year == previous.Year && month.Month == previous.Month)
+            {
+                _filterYear = month.Year;
+                _filterMonth = month.Month;
+                return;
+            }
+        }
+
+        var todayKey = DateTime.Today.Year * 12 + DateTime.Today.Month;
+        var last = _schoolMonths[^1];
+        if (last.Year * 12 + last.Month < todayKey)
+        {
+            _filterYear = last.Year;
+            _filterMonth = last.Month;
+        }
+        else
+        {
+            _filterYear = _schoolMonths[0].Year;
+            _filterMonth = _schoolMonths[0].Month;
+        }
+    }
+
+    private async Task OnSchoolYearChanged()
+    {
+        RebuildMonths();
+        PickDefaultMonth();
+        await LoadMonthTotalsAsync();
         await LoadDataAsync();
     }
 
-    private async Task OnPeriodChanged()
+    private async Task SelectMonth(int year, int month)
     {
-        await LoadDataAsync();
+        if (_filterYear == year && _filterMonth == month)
+            return;
+        _filterYear = year;
+        _filterMonth = month;
+        await LoadDataAsync(showSpinner: false);
     }
 
-    private async Task LoadDataAsync()
+    private async Task LoadMonthTotalsAsync()
     {
-        _isLoading = true;
+        _monthTotals = new();
+        if (_schoolMonths.Count == 0)
+            return;
+
+        try
+        {
+            var from = _schoolMonths[0];
+            var to = _schoolMonths[^1];
+            var response = await ApiService.GetAsync<ApiResponse<List<SalaryMonthTotalDto>>>(
+                $"salaries/month-totals?fromYear={from.Year}&fromMonth={from.Month}&toYear={to.Year}&toMonth={to.Month}");
+            foreach (var row in response?.Data ?? new())
+                _monthTotals[(row.PeriodYear, row.PeriodMonth)] = row.TotalSalary;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading salary month totals: {ex.Message}");
+        }
+    }
+
+    private decimal GetMonthTotal(int year, int month) =>
+        _monthTotals.TryGetValue((year, month), out var total) ? total : 0;
+
+    private async Task LoadDataAsync(bool showSpinner = true)
+    {
+        if (showSpinner)
+            _isLoading = true;
         try
         {
             var response = await ApiService.GetAsync<ApiResponse<List<SalaryListItemDto>>>(
@@ -435,11 +558,16 @@
         }
         finally
         {
-            _isLoading = false;
+            if (showSpinner)
+                _isLoading = false;
         }
     }
 
-    private async Task RefreshData() => await LoadDataAsync();
+    private async Task RefreshData()
+    {
+        await LoadMonthTotalsAsync();
+        await LoadDataAsync();
+    }
 
     /// <summary>
     /// Re-runs matching on the server for the period — person matching for unmatched rows and
@@ -562,6 +690,6 @@
         return _sortAscending ? "▲" : "▼";
     }
 
-    private static string GetMonthLabel(int month) =>
-        month is >= 1 and <= 12 ? $"{month} - {MonthNames[month]}" : month.ToString();
+    private static string GetMonthName(int month) =>
+        month is >= 1 and <= 12 ? MonthNames[month] : month.ToString();
 }

@@ -6,11 +6,6 @@
 @inject ApiService ApiService
 
 <div class="context-buttons-section">
-    <SecureButton ActionName="yearmanagement_back" ScreenName="@PageName" FunctionName="NavigateBack"
-                  OnClick="NavigateBack" CssClass="context-navigation-btn">
-        חזרה לדף הבית
-    </SecureButton>
-
     <SecureButton ActionName="yearmanagement_salary_upload" ScreenName="@PageName" FunctionName="ShowSalaryUploadDialog"
                   OnClick="ShowSalaryUploadDialog" CssClass="context-btn" HideIfNoAccess="true">
         העלאת קובץ שכר
@@ -23,7 +18,7 @@
 
     <SecureButton ActionName="yearmanagement_meitar_retrieve" ScreenName="@PageName" FunctionName="ShowMeitarRetrieveDialog"
                   OnClick="ShowMeitarRetrieveDialog" CssClass="context-btn" HideIfNoAccess="true">
-        שליפת נתוני מייתר
+        שליפת נתוני מיתר
     </SecureButton>
 
     <SecureButton ActionName="yearmanagement_salary_dept_map" ScreenName="@PageName" FunctionName="NavigateToDeptMap"
@@ -43,7 +38,12 @@
 
     <SecureButton ActionName="yearmanagement_meitar_month_summary" ScreenName="@PageName" FunctionName="NavigateToMeitarSummary"
                   OnClick="NavigateToMeitarSummary" CssClass="context-btn" HideIfNoAccess="true">
-        סיכום מייתר מול תקציב
+        סיכום מיתר מול תקציב
+    </SecureButton>
+
+    <SecureButton ActionName="yearmanagement_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                  OnClick="NavigateBack" CssClass="context-navigation-btn">
+        חזרה לדף הבית
     </SecureButton>
 </div>
 
@@ -59,87 +59,66 @@
         }
         else
         {
-            <div class="school-title-section">
+            <div class="page-title-section">
                 <h1 class="page-title">@_yearName</h1>
             </div>
 
-            <!-- Summary dashboard -->
-            <div style="max-width: 900px; margin: 20px auto 0;">
+            <!-- Summary dashboard — also the navigation to each subject -->
+            <div style="max-width: 1100px; margin: 20px auto 0;">
                 <div class="summary-grid" style="margin-bottom: 0;">
-                    <div class="summary-card">
-                        <div class="summary-icon">📋</div>
+                    <SecureButton ActionName="yearmanagement_assistants" ScreenName="@PageName" FunctionName="NavigateToAssistants"
+                                  OnClick="NavigateToAssistants" CssClass="summary-card summary-card-clickable year-hub-card" HideIfNoAccess="true">
                         <div class="summary-info">
-                            <div class="summary-value">@ActiveEntitlements.Count</div>
-                            <div class="summary-label">סה"כ זכאויות</div>
+                            <div class="summary-label">סייעות</div>
+                            <div class="summary-value">@_summary.AssistantCount</div>
                         </div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="summary-icon">📊</div>
+                    </SecureButton>
+
+                    <SecureButton ActionName="yearmanagement_entitlements" ScreenName="@PageName" FunctionName="NavigateToEntitlements"
+                                  OnClick="NavigateToEntitlements" CssClass="summary-card summary-card-clickable year-hub-card" HideIfNoAccess="true">
                         <div class="summary-info">
-                            <div class="summary-value">@EntitlementAllocatedPercent.ToString("0.#")%</div>
-                            <div class="summary-label">אחוז מוקצה (שעות)</div>
-                            <div class="summary-extra">@ActiveEntitlements.Count(i => i.AllocationStatus == "full") מלא · @ActiveEntitlements.Count(i => i.AllocationStatus == "partial") חלקי · @ActiveEntitlements.Count(i => i.AllocationStatus == "none") ללא</div>
+                            <div class="summary-label">זכאויות</div>
+                            <div class="summary-value">@_summary.EntitlementCount</div>
+                            <div class="summary-extra">@_summary.EntitlementAllocatedPercent.ToString("0.#")% מוקצה</div>
                         </div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="summary-icon">👥</div>
+                    </SecureButton>
+
+                    <SecureButton ActionName="yearmanagement_yearly_budget" ScreenName="@PageName" FunctionName="NavigateToYearlyBudget"
+                                  OnClick="NavigateToYearlyBudget" CssClass="summary-card summary-card-clickable year-hub-card" HideIfNoAccess="true">
                         <div class="summary-info">
-                            <div class="summary-value">@_persons.Count</div>
-                            <div class="summary-label">סה"כ סייעות</div>
-                        </div>
-                    </div>
-                    <div class="summary-card">
-                        <div class="summary-icon">📊</div>
-                        <div class="summary-info">
-                            <div class="summary-value">@PersonsAllocatedPercent.ToString("0.#")%</div>
-                            <div class="summary-label">אחוז מוקצות</div>
-                            <div class="summary-extra">@_persons.Count(p => p.HasAllocation) מתוך @_persons.Count</div>
-                        </div>
-                    </div>
-                    @foreach (var type in TypeSummaries)
-                    {
-                        <div class="summary-card">
-                            <div class="summary-icon">🏷️</div>
-                            <div class="summary-info">
-                                <div class="summary-value">@type.Count</div>
-                                <div class="summary-label">@type.TypeName</div>
-                                <div class="summary-extra">@type.AllocatedPercent.ToString("0.#")% מוקצה</div>
+                            <div class="summary-label">תקציב (₪)</div>
+                            <div class="summary-value">@(_summary.Budget != null ? _summary.Budget.TotalAmount.ToString("N0") : "—")</div>
+                            <div class="summary-extra">
+                                @if (_summary.Budget != null)
+                                {
+                                    <text>@_summary.Budget.TotalHours.ToString("N0") שעות · גרסה @_summary.Budget.Version</text>
+                                }
+                                else
+                                {
+                                    <text>אין תקציב</text>
+                                }
                             </div>
                         </div>
-                    }
+                    </SecureButton>
+
+                    <SecureButton ActionName="yearmanagement_salaries_view" ScreenName="@PageName" FunctionName="NavigateToSalaries"
+                                  OnClick="NavigateToSalaries" CssClass="summary-card summary-card-clickable year-hub-card" HideIfNoAccess="true">
+                        <div class="summary-info">
+                            <div class="summary-label">שכר מתחילת השנה (₪)</div>
+                            <div class="summary-value">@_summary.SalaryYtdTotal.ToString("N0")</div>
+                            <div class="summary-extra">@LastSalaryMonthLabel</div>
+                        </div>
+                    </SecureButton>
+
+                    <SecureButton ActionName="yearmanagement_meitar_view" ScreenName="@PageName" FunctionName="NavigateToMeitarData"
+                                  OnClick="NavigateToMeitarData" CssClass="summary-card summary-card-clickable year-hub-card" HideIfNoAccess="true">
+                        <div class="summary-info">
+                            <div class="summary-label">מיתר</div>
+                            <div class="summary-value">@_summary.MeitarMonthCount</div>
+                            <div class="summary-extra">חודשים מיובאים</div>
+                        </div>
+                    </SecureButton>
                 </div>
-            </div>
-
-            <div class="row-two-columns" style="max-width: 900px; margin: 30px auto;">
-                <SecureButton ActionName="yearmanagement_assistants" ScreenName="@PageName" FunctionName="NavigateToAssistants"
-                              OnClick="NavigateToAssistants" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
-                    <div class="year-nav-card-icon">👩‍🏫</div>
-                    <h2 class="year-nav-card-title">סייעות</h2>
-                </SecureButton>
-
-                <SecureButton ActionName="yearmanagement_entitlements" ScreenName="@PageName" FunctionName="NavigateToEntitlements"
-                              OnClick="NavigateToEntitlements" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
-                    <div class="year-nav-card-icon">📋</div>
-                    <h2 class="year-nav-card-title">זכאויות</h2>
-                </SecureButton>
-
-                <SecureButton ActionName="yearmanagement_yearly_budget" ScreenName="@PageName" FunctionName="NavigateToYearlyBudget"
-                              OnClick="NavigateToYearlyBudget" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
-                    <div class="year-nav-card-icon">💰</div>
-                    <h2 class="year-nav-card-title">תקציב שנתי</h2>
-                </SecureButton>
-
-                <SecureButton ActionName="yearmanagement_salaries_view" ScreenName="@PageName" FunctionName="NavigateToSalaries"
-                              OnClick="NavigateToSalaries" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
-                    <div class="year-nav-card-icon">💵</div>
-                    <h2 class="year-nav-card-title">שכר</h2>
-                </SecureButton>
-
-                <SecureButton ActionName="yearmanagement_meitar_view" ScreenName="@PageName" FunctionName="NavigateToMeitarData"
-                              OnClick="NavigateToMeitarData" CssClass="content-card half-card year-nav-card" HideIfNoAccess="true">
-                    <div class="year-nav-card-icon">📡</div>
-                    <h2 class="year-nav-card-title">מייתר</h2>
-                </SecureButton>
             </div>
         }
     </div>
@@ -152,11 +131,15 @@
 
     private string _yearName  = "";
     private bool   _isLoading = true;
-    private List<EntitlementListItemDto> _entitlements = new();
-    private List<PersonListItemDto> _persons = new();
+    private YearHubSummaryDto _summary = new();
     private SalaryUploadModal? _salaryUploadModal;
     private EntitlementUploadModal? _entitlementUploadModal;
     private MeitarRetrieveModal? _meitarRetrieveModal;
+
+    private string LastSalaryMonthLabel =>
+        _summary.LastSalaryPeriodYear.HasValue && _summary.LastSalaryPeriodMonth.HasValue
+            ? $"חודש אחרון: {GetMonthLabel(_summary.LastSalaryPeriodMonth.Value)} {_summary.LastSalaryPeriodYear}"
+            : "לא הועלה שכר";
 
     protected override async Task OnPageInitializedAsync()
     {
@@ -178,46 +161,33 @@
     {
         try
         {
-            var entitlementsResponse = await ApiService.GetAsync<ApiResponse<List<EntitlementListItemDto>>>(
-                $"entitlements?yearId={YearId}");
-            _entitlements = entitlementsResponse?.Data ?? new();
-
-            var personsResponse = await ApiService.GetAsync<ApiResponse<List<PersonListItemDto>>>(
-                $"persons?yearId={YearId}");
-            _persons = personsResponse?.Data ?? new();
+            var response = await ApiService.GetAsync<ApiResponse<YearHubSummaryDto>>(
+                $"years/{YearId}/hub-summary");
+            _summary = response?.Data ?? new();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading summary data: {ex.Message}");
-            _entitlements = new();
-            _persons = new();
+            _summary = new();
         }
     }
 
-    // ─── Summary dashboard ────────────────────────────────────────────────────
-
-    private List<EntitlementListItemDto> ActiveEntitlements => _entitlements.Where(i => i.IsActive).ToList();
-
-    private decimal EntitlementAllocatedPercent => ComputeAllocatedPercent(ActiveEntitlements);
-
-    private decimal PersonsAllocatedPercent => _persons.Count == 0
-        ? 0
-        : Math.Round((decimal)_persons.Count(p => p.HasAllocation) / _persons.Count * 100, 1);
-
-    private IEnumerable<(string TypeName, int Count, decimal AllocatedPercent)> TypeSummaries =>
-        ActiveEntitlements
-            .GroupBy(i => i.AssistantTypeName)
-            .Select(g => (TypeName: g.Key, Count: g.Count(), AllocatedPercent: ComputeAllocatedPercent(g.ToList())))
-            .OrderByDescending(t => t.Count)
-            .ThenBy(t => t.TypeName);
-
-    private static decimal ComputeAllocatedPercent(List<EntitlementListItemDto> items)
+    private static string GetMonthLabel(int month) => month switch
     {
-        var totalHours = items.Sum(i => i.Hours);
-        if (totalHours <= 0) return 0;
-        var allocatedHours = items.Sum(i => Math.Min(i.AllocatedHours, i.Hours));
-        return Math.Round(allocatedHours / totalHours * 100, 1);
-    }
+        1 => "ינואר",
+        2 => "פברואר",
+        3 => "מרץ",
+        4 => "אפריל",
+        5 => "מאי",
+        6 => "יוני",
+        7 => "יולי",
+        8 => "אוגוסט",
+        9 => "ספטמבר",
+        10 => "אוקטובר",
+        11 => "נובמבר",
+        12 => "דצמבר",
+        _ => month.ToString()
+    };
 
     private async Task LoadYearAsync()
     {

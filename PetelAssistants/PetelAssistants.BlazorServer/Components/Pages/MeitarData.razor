@@ -22,8 +22,8 @@
 
 <div class="main-container">
     <div class="students-content">
-        <div class="school-title-section">
-            <h1 class="page-title">נתוני מייתר</h1>
+        <div class="page-title-section">
+            <h1 class="page-title">נתוני מיתר</h1>
         </div>
         <div class="content-card">
             @if (_isLoading)
@@ -93,21 +93,18 @@
                     {
                         <div class="summary-grid" style="margin-bottom: 16px;">
                             <div class="summary-card">
-                                <div class="summary-icon">📄</div>
                                 <div class="summary-info">
                                     <div class="summary-value">@_items.Count</div>
                                     <div class="summary-label">סה"כ רשומות</div>
                                 </div>
                             </div>
                             <div class="summary-card">
-                                <div class="summary-icon">💰</div>
                                 <div class="summary-info">
                                     <div class="summary-value">@_items.Sum(i => i.CalculatedAmount).ToString("N0")</div>
                                     <div class="summary-label">סה"כ סכום מחושב (₪)</div>
                                 </div>
                             </div>
                             <div class="summary-card">
-                                <div class="summary-icon">🏷️</div>
                                 <div class="summary-info">
                                     <div class="summary-value">@_items.Select(i => i.TopicCode).Distinct().Count()</div>
                                     <div class="summary-label">נושאים ייחודיים</div>
@@ -126,7 +123,7 @@
 
                     @if (FilteredItems.Count == 0)
                     {
-                        <div class="no-data-message">לא נמצאו נתוני מייתר לתקופה זו</div>
+                        <div class="no-data-message">לא נמצאו נתוני מיתר לתקופה זו</div>
                     }
                     else
                     {
@@ -191,21 +188,18 @@
                     {
                         <div class="summary-grid" style="margin-bottom: 16px;">
                             <div class="summary-card">
-                                <div class="summary-icon">📄</div>
                                 <div class="summary-info">
                                     <div class="summary-value">@_mucarimItems.Count</div>
                                     <div class="summary-label">סה"כ רשומות</div>
                                 </div>
                             </div>
                             <div class="summary-card">
-                                <div class="summary-icon">💰</div>
                                 <div class="summary-info">
                                     <div class="summary-value">@_mucarimItems.Sum(i => i.CalculatedAmount).ToString("N0")</div>
                                     <div class="summary-label">סה"כ סכום מחושב (₪)</div>
                                 </div>
                             </div>
                             <div class="summary-card">
-                                <div class="summary-icon">🏫</div>
                                 <div class="summary-info">
                                     <div class="summary-value">@_mucarimItems.Select(i => i.InstitutionCode).Distinct().Count()</div>
                                     <div class="summary-label">מוסדות ייחודיים</div>
@@ -299,21 +293,18 @@
                     {
                         <div class="summary-grid" style="margin-bottom: 16px;">
                             <div class="summary-card">
-                                <div class="summary-icon">📄</div>
                                 <div class="summary-info">
                                     <div class="summary-value">@_sharatimItems.Count</div>
                                     <div class="summary-label">סה"כ רשומות</div>
                                 </div>
                             </div>
                             <div class="summary-card">
-                                <div class="summary-icon">🏫</div>
                                 <div class="summary-info">
                                     <div class="summary-value">@_sharatimItems.Select(i => i.InstitutionCode).Distinct().Count()</div>
                                     <div class="summary-label">מוסדות ייחודיים</div>
                                 </div>
                             </div>
                             <div class="summary-card">
-                                <div class="summary-icon">🏷️</div>
                                 <div class="summary-info">
                                     <div class="summary-value">@_sharatimItems.Sum(i => i.ClassCount)</div>
                                     <div class="summary-label">סה"כ כיתות</div>

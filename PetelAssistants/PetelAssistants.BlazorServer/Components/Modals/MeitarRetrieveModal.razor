@@ -41,7 +41,7 @@
                 {
                     <div class="upload-status upload-status-warning" style="direction: rtl;">
                         <p style="font-weight: bold; margin-bottom: 10px;">
-                            קיימים נתוני מייתר עבור @_existingPeriodCount מתוך @_periodCount תקופות בטווח @FormatPeriod(_fromYear, _fromMonth)–@FormatPeriod(_toYear, _toMonth)
+                            קיימים נתוני מיתר עבור @_existingPeriodCount מתוך @_periodCount תקופות בטווח @FormatPeriod(_fromYear, _fromMonth)–@FormatPeriod(_toYear, _toMonth)
                         </p>
                         <p>סה"כ שורות קיימות: @_existingRowCount</p>
                         <p style="margin-top: 12px;">להמשיך? הנתונים הקיימים לתקופות אלו יימחקו ויוחלפו בנתונים החדשים.</p>
@@ -120,7 +120,7 @@
 
     private bool _isVisible;
     private RetrieveStep _currentStep = RetrieveStep.PeriodSelection;
-    private string _modalTitle = "שליפת נתוני מייתר";
+    private string _modalTitle = "שליפת נתוני מיתר";
     private string _statusMessage = string.Empty;
     private string _statusType = "info";
     private bool _isProcessing;
@@ -153,7 +153,7 @@
     private void BackToPeriod()
     {
         _currentStep = RetrieveStep.PeriodSelection;
-        _modalTitle = "שליפת נתוני מייתר";
+        _modalTitle = "שליפת נתוני מיתר";
         _statusMessage = string.Empty;
         StateHasChanged();
     }
@@ -172,7 +172,7 @@
         _toPeriodText = FormatPeriod(_toYear, _toMonth);
 
         _currentStep = RetrieveStep.PeriodSelection;
-        _modalTitle = "שליפת נתוני מייתר";
+        _modalTitle = "שליפת נתוני מיתר";
         _statusMessage = string.Empty;
         _statusType = "info";
         _isProcessing = false;
@@ -322,7 +322,7 @@
     private async Task ExecuteRetrieve(bool replaceExisting)
     {
         _isProcessing = true;
-        _statusMessage = "שולף נתונים ממייתר...";
+        _statusMessage = "שולף נתונים ממיתר...";
         _statusType = "loading";
         StateHasChanged();
 
@@ -353,7 +353,7 @@
                 _statusType = response == null ? "error" : "warning";
             }
 
-            _statusMessage = response?.Message ?? "שליפת נתוני מייתר נכשלה.";
+            _statusMessage = response?.Message ?? "שליפת נתוני מיתר נכשלה.";
         }
         catch (Exception ex)
         {

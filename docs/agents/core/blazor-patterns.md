@@ -181,6 +181,8 @@ Every authenticated page follows this structure:
 }
 ```
 
+**Assistants UI:** page title wrapper is `page-title-section` (not `school-title-section`). Summary cards (`summary-card`) have no icons or emoji — value, label, and optional extra line only.
+
 ## SecurePageBase
 
 `SecurePageBase` is the abstract base class for all authenticated pages in `PetelATH.BlazorServer/Components/Pages/SecurePageBase.cs`.

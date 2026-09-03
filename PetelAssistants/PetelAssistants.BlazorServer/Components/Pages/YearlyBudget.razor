@@ -6,11 +6,6 @@
 @inject ApiService ApiService
 
 <div class="context-buttons-section">
-    <SecureButton ActionName="yearly_budget_back" ScreenName="@PageName" FunctionName="NavigateBack"
-                  OnClick="NavigateBack" CssClass="context-navigation-btn">
-        חזרה לניהול שנה
-    </SecureButton>
-
     <SecureButton ActionName="yearly_budget_refresh" ScreenName="@PageName" FunctionName="RefreshData"
                   OnClick="RefreshData" CssClass="context-btn">
         רענן
@@ -55,11 +50,16 @@
             מחיקה
         </SecureButton>
     }
+
+    <SecureButton ActionName="yearly_budget_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                  OnClick="NavigateBack" CssClass="context-navigation-btn">
+        חזרה לניהול שנה
+    </SecureButton>
 </div>
 
 <div class="main-container">
     <div class="students-content">
-        <div class="school-title-section">
+        <div class="page-title-section">
             <h1 class="page-title">תקציב שנתי@(!string.IsNullOrEmpty(_yearName) ? $" — {_yearName}" : "")</h1>
         </div>
 
@@ -102,8 +102,8 @@
                 </div>
 
                 <h2 style="font-size: 1.15em; margin-bottom: 12px;">פירוט שנתי</h2>
-                <div class="table-responsive">
-                    <table class="data-table">
+                <div class="yearly-budget-year-scroll">
+                    <table class="data-table yearly-budget-year-table">
                         <thead>
                             <tr>
                                 <th>סוג סייעת</th>
@@ -122,18 +122,18 @@
                                     {
                                         <td>
                                             <input type="number" class="form-control" step="0.01" min="0"
-                                                   @bind="detail.Fte" @bind:event="onchange" style="width: 100px;" />
+                                                   @bind="detail.Fte" @bind:event="onchange" />
                                         </td>
                                         <td>
                                             <input type="number" class="form-control" step="0.01" min="0"
-                                                   @bind="detail.Hours" @bind:event="onchange" style="width: 100px;" />
+                                                   @bind="detail.Hours" @bind:event="onchange" />
                                         </td>
                                         <td>
                                             <input type="number" class="form-control" step="0.01" min="0"
-                                                   @bind="detail.Amount" @bind:event="onchange" style="width: 120px;" />
+                                                   @bind="detail.Amount" @bind:event="onchange" />
                                         </td>
                                         <td>
-                                            <input type="text" class="form-control"
+                                            <input type="text" class="form-control remarks-input"
                                                    @bind="detail.Remarks" @bind:event="onchange" />
                                         </td>
                                     }

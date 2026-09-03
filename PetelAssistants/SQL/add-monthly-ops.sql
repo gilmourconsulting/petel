@@ -283,17 +283,17 @@ BEGIN
         ('salary_anomalies_back',                'חזרה מחריגות שכר',                 'salary_anomalies',        'כפתור חזרה מחריגות שכר',                       v_button_type_id),
         ('salary_anomalies_refresh',             'רענון חריגות שכר',                 'salary_anomalies',        'כפתור רענון חריגות שכר',                       v_button_type_id),
         ('salary_anomalies_status',              'עדכון סטטוס חריגת שכר',            'salary_anomalies',        'שינוי סטטוס / הערה לחריגת שכר',                v_button_type_id),
-        ('meitar_month_summary_page_action',     'גישה לסיכום מייתר מול תקציב',       'meitar_month_summary',    'גישה לדף סיכום מייתר מול תקציב',               v_page_action_type_id),
-        ('meitar_month_summary_back',            'חזרה מסיכום מייתר מול תקציב',       'meitar_month_summary',    'כפתור חזרה מסיכום מייתר מול תקציב',            v_button_type_id),
-        ('meitar_month_summary_refresh',         'רענון סיכום מייתר מול תקציב',       'meitar_month_summary',    'כפתור רענון סיכום מייתר מול תקציב',            v_button_type_id),
+        ('meitar_month_summary_page_action',     'גישה לסיכום מיתר מול תקציב',       'meitar_month_summary',    'גישה לדף סיכום מיתר מול תקציב',               v_page_action_type_id),
+        ('meitar_month_summary_back',            'חזרה מסיכום מיתר מול תקציב',       'meitar_month_summary',    'כפתור חזרה מסיכום מיתר מול תקציב',            v_button_type_id),
+        ('meitar_month_summary_refresh',         'רענון סיכום מיתר מול תקציב',       'meitar_month_summary',    'כפתור רענון סיכום מיתר מול תקציב',            v_button_type_id),
         ('salaries_month_summary',               'סיכום שכר מול תקציב',              'salaries',                'מעבר לסיכום שכר מול תקציב ממסך נתוני שכר',    v_button_type_id),
         ('salaries_anomalies',                   'חריגות שכר',                       'salaries',                'מעבר לחריגות שכר ממסך נתוני שכר',              v_button_type_id),
         ('salaries_dept_map',                    'מיפוי מחלקות שכר',                 'salaries',                'מעבר למיפוי מחלקות שכר ממסך נתוני שכר',        v_button_type_id),
-        ('meitardata_month_summary',             'סיכום מייתר מול תקציב',             'meitardata',              'מעבר לסיכום מייתר מול תקציב ממסך נתוני מייתר', v_button_type_id),
+        ('meitardata_month_summary',             'סיכום מיתר מול תקציב',             'meitardata',              'מעבר לסיכום מיתר מול תקציב ממסך נתוני מיתר', v_button_type_id),
         ('yearmanagement_salary_dept_map',       'מיפוי מחלקות שכר',                 'yearmanagement',          'מעבר למיפוי מחלקות שכר מניהול שנה',           v_button_type_id),
         ('yearmanagement_salary_month_summary',  'סיכום שכר מול תקציב',              'yearmanagement',          'מעבר לסיכום שכר מול תקציב מניהול שנה',         v_button_type_id),
         ('yearmanagement_salary_anomalies',      'חריגות שכר',                       'yearmanagement',          'מעבר לחריגות שכר מניהול שנה',                  v_button_type_id),
-        ('yearmanagement_meitar_month_summary',  'סיכום מייתר מול תקציב',             'yearmanagement',          'מעבר לסיכום מייתר מול תקציב מניהול שנה',       v_button_type_id),
+        ('yearmanagement_meitar_month_summary',  'סיכום מיתר מול תקציב',             'yearmanagement',          'מעבר לסיכום מיתר מול תקציב מניהול שנה',       v_button_type_id),
         ('maindashboard_salary_dept_map',        'מיפוי מחלקות שכר',                 'maindashboard',           'מעבר למיפוי מחלקות שכר מדף הבית',              v_button_type_id)
     ON CONFLICT (name) DO NOTHING;
 

@@ -77,6 +77,41 @@ namespace PetelAssistants.Api.Controllers
             return Ok(new { success = true, data = items });
         }
 
+        [HttpGet("month-totals")]
+        public async Task<IActionResult> GetMonthTotals(
+            [FromQuery] int fromYear, [FromQuery] int fromMonth,
+            [FromQuery] int toYear, [FromQuery] int toMonth)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (fromMonth < 1 || fromMonth > 12 || toMonth < 1 || toMonth > 12)
+                return BadRequest(new { success = false, message = "חודש לא תקין" });
+
+            var fromKey = fromYear * 12 + (fromMonth - 1);
+            var toKey = toYear * 12 + (toMonth - 1);
+            if (fromKey > toKey)
+                return BadRequest(new { success = false, message = "תקופת ההתחלה חייבת להיות לפני או שווה לתקופת הסיום" });
+            if (toKey - fromKey + 1 > 24)
+                return BadRequest(new { success = false, message = "טווח התקופות ארוך מדי (מקסימום 24 חודשים)" });
+
+            var grouped = await _context.Salaries.AsNoTracking()
+                .Where(s => (s.PeriodYear > fromYear || (s.PeriodYear == fromYear && s.PeriodMonth >= fromMonth))
+                         && (s.PeriodYear < toYear || (s.PeriodYear == toYear && s.PeriodMonth <= toMonth)))
+                .GroupBy(s => new { s.PeriodYear, s.PeriodMonth })
+                .Select(g => new SalaryMonthTotalDto
+                {
+                    PeriodYear = g.Key.PeriodYear,
+                    PeriodMonth = g.Key.PeriodMonth,
+                    TotalSalary = g.Sum(s => s.TotalSalary),
+                    RowCount = g.Count()
+                })
+                .ToListAsync();
+
+            return Ok(new { success = true, data = grouped });
+        }
+
         /// <summary>
         /// Re-runs matching for the period: person matching for rows still unmatched (picks up
         /// person records created after upload), then allocation matching for all matched rows —

@@ -882,11 +882,11 @@ namespace PetelAssistants.Api.Services
                 .ToDictionaryAsync(at => at.Id, at => at);
 
             var schools = institutionIds.Count == 0
-                ? new Dictionary<int, (string Name, string TypeName)>()
+                ? new Dictionary<int, (string Name, string TypeName, string? SchoolLevel)>()
                 : await _context.Institutions
                     .AsNoTracking()
                     .Where(e => institutionIds.Contains(e.Id))
-                    .ToDictionaryAsync(e => e.Id, e => (Name: e.Name, TypeName: e.InstitutionType));
+                    .ToDictionaryAsync(e => e.Id, e => (Name: e.Name, TypeName: e.InstitutionType, SchoolLevel: e.SchoolLevel));
 
             var classifications = classificationIds.Count == 0
                 ? new Dictionary<int, string>()
@@ -928,6 +928,7 @@ namespace PetelAssistants.Api.Services
                     InstitutionId            = item.InstitutionId,
                     SchoolName               = item.InstitutionId.HasValue ? school.Name : null,
                     OrgUnitType              = item.InstitutionId.HasValue ? school.TypeName : null,
+                    SchoolLevel              = item.InstitutionId.HasValue ? school.SchoolLevel : null,
                     ClassName                = item.ClassName,
                     ClassClassificationId    = item.ClassClassificationId,
                     ClassClassificationName  = classificationName,

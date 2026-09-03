@@ -19,7 +19,7 @@ Domain context: assistants and entitlements are managed per Jewish school year. 
                     ├── /year/{YearId}/entitlements     (זכאויות)
                     ├── /year/{YearId}/yearly-budget    (תקציב שנתי)
                     ├── /salaries                       (שכר)
-                    └── /meitar-data                    (מייתר)
+                    └── /meitar-data                    (מיתר)
 
 Side menu
     └── ניהול שנה → /year-elements     (Year Elements — shared year rates hub)
@@ -28,15 +28,15 @@ Side menu
 ```
 
 - **Main dashboard** (`MainDashboard.razor`, `/maindashboard`): shows current/previous year buttons, a "בחר שנה" modal, and context buttons **בתי ספר וגנים** (`/org-units`), **העלאת קובץ שכר** (`SalaryUploadModal`) and **נתוני שכר** (`/salaries`). Clicking a year navigates to `/year/{yearId}` (does not only store year in session).
-- **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name, navigation cards — **סייעות**, **זכאויות**, **תקציב שנתי**, **שכר**, **מייתר** — and context buttons for salary / Meitar operational tools (upload, retrieve, department map, summaries).
+- **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name and five clickable summary cards (same security actions as the former nav cards) — **סייעות** (person count), **זכאויות** (count + allocated %), **תקציב** (last version hours/amount/version), **שכר** (YTD total + last uploaded month), **מיתר** (distinct imported months). Context buttons remain for salary / Meitar operational tools (upload, retrieve, department map, summaries). Data: `GET api/years/{id}/hub-summary`.
 - **Year Elements hub** (`YearElements.razor`, `/year-elements`): shared admin multi-tab screen for year-scoped configuration (tabs: class assistant budget hours, hour monetary value). Menu item **ניהול שנה**.
-- **Salaries view** (`Salaries.razor`, `/salaries`): read-only salary table with period and text filters (not Hebrew-year scoped; calendar year/month). Context buttons to month summary, anomalies, and department mapping.
+- **Salaries view** (`Salaries.razor`, `/salaries`): read-only salary table. Period is a row of school-year month buttons (year `StartDate`–`EndDate`, typically Sept–Aug) showing totals per month (`GET api/salaries/month-totals`). From the year hub (`?fromYear=`), months are that year. From the main dashboard, a Hebrew-year dropdown appears above the buttons. Text filters remain (national ID, department, match, allocation, ID warning). Context buttons to month summary, anomalies, and department mapping.
 - **Salary month summary** (`SalaryMonthSummary.razor`, `/salaries/month-summary`): debug comparison of all salary payments vs last locked budget.
 - **Salary anomalies** (`SalaryAnomalies.razor`, `/salaries/anomalies`): debug investigation list with status/notes.
 - **Salary department mappings** (`SalaryDepartmentMappings.razor`, `/salary-department-mappings`): tenant payroll department → assistant type.
 - **Meitar month summary** (`MeitarMonthSummary.razor`, `/meitar-data/month-summary`): debug Meitar income vs last locked budget.
 - **Assistants** (`Assistants.razor`, `/year/{YearId}/assistants`): person CRUD for the logged-in authority.
-- **Entitlements** (`Entitlements.razor`, `/year/{YearId}/entitlements`): combined personal + institutional entitlements for the year. Context button **העלאת זכאויות אישיות** (`PersonalEntitlementUploadModal`) imports personal (`student_help`) entitlements from PDF or Excel (PDF convert → optional download → upsert + orphan review).
+- **Entitlements** (`Entitlements.razor`, `/year/{YearId}/entitlements`): combined personal + institutional entitlements for the year. Summary: total + allocated %, plus one wide card with all assistant-type counts and allocated %. Table includes **סוג מוסד** (גן / יסודי / תיכון); class name, pupil name, ID, and class classification appear on the **פרטי זכאות** dock tab (default). The dock is height-resizable. Context button **העלאת זכאויות אישיות** (`PersonalEntitlementUploadModal`) imports personal (`student_help`) entitlements from PDF or Excel (PDF convert → optional download → upsert + orphan review).
 - **Org units** (`OrgUnits.razor`, `/org-units`): manage tenant-owned institutions (schools and kindergartens in `assist_schema.institutions`). Opened from the main dashboard (and the main menu); also available at `/year/{YearId}/org-units` for bookmarks.
 - **Yearly budget** (`YearlyBudget.razor`, `/year/{YearId}/yearly-budget`): versioned yearly budget by assistant type, with equal monthly split and **חשב תקציב** on open versions.
 
@@ -63,6 +63,7 @@ Downstream pages should read year from the route parameter `{YearId}` and/or ses
 |----------|---------|
 | `GET api/years/context` | Dashboard: current year, previous year, all years |
 | `GET api/years/{id}` | Single year lookup (name + dates + flags) |
+| `GET api/years/{id}/hub-summary` | Year hub cards: assistant count, entitlement count + allocated %, last budget totals/version, salary YTD + last uploaded month, Meitar imported-month count |
 | `GET api/years/admin` | System admin: all Hebrew years |
 | `PUT api/years/{id}` | System admin: update year dates and flags |
 | `GET api/assistant-types` | Active assistant types (optional `includeInactive`) |
@@ -91,6 +92,7 @@ Downstream pages should read year from the route parameter `{YearId}` and/or ses
 | `POST api/salaryfileupload/preview` | Preview salary file headers + mappings |
 | `POST api/salaryfileupload/upload` | Import salaries for period (optional replace) |
 | `GET api/salaries?year=&month=` | List salary rows for view screen |
+| `GET api/salaries/month-totals?fromYear=&fromMonth=&toYear=&toMonth=` | Grouped salary sums per calendar period (max 24 months) |
 | `GET/POST/PUT api/salary-department-mappings` | Tenant salary department → assistant type |
 | `GET api/salary-month-summaries?year=&month=` | Salary vs locked budget summary (latest process) |
 | `GET api/salary-anomalies?year=&month=` | Salary anomaly details |

@@ -100,8 +100,8 @@ BEGIN
 
     INSERT INTO shared_schema.actions (name, display_name, reference, description, action_type_id)
     VALUES
-        ('maindashboard_meitar_retrieve',  'שליפת נתוני מייתר', 'maindashboard',  'כפתור שליפת נתוני מייתר מדף הבית', v_button_type_id),
-        ('yearmanagement_meitar_retrieve', 'שליפת נתוני מייתר', 'yearmanagement', 'כפתור שליפת נתוני מייתר ממסך ניהול שנה', v_button_type_id)
+        ('maindashboard_meitar_retrieve',  'שליפת נתוני מיתר', 'maindashboard',  'כפתור שליפת נתוני מיתר מדף הבית', v_button_type_id),
+        ('yearmanagement_meitar_retrieve', 'שליפת נתוני מיתר', 'yearmanagement', 'כפתור שליפת נתוני מיתר ממסך ניהול שנה', v_button_type_id)
     ON CONFLICT (name) DO NOTHING;
 
     FOREACH v_action_name IN ARRAY ARRAY['maindashboard_meitar_retrieve', 'yearmanagement_meitar_retrieve']

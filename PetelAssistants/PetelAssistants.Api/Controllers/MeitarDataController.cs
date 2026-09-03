@@ -225,7 +225,7 @@ namespace PetelAssistants.Api.Controllers
                     success = false,
                     periodExists = true,
                     rowCount = result.ExistingRowCount,
-                    message = "קיימים נתוני מייתר לתקופה זו. יש לאשר החלפה."
+                    message = "קיימים נתוני מיתר לתקופה זו. יש לאשר החלפה."
                 });
             }
 
@@ -433,7 +433,7 @@ namespace PetelAssistants.Api.Controllers
                 if (!queryResult.Success)
                 {
                     return PeriodRetrieveResult.Failure(
-                        queryResult.Message ?? "שליפת נתוני מייתר נכשלה.", isBadRequest: true);
+                        queryResult.Message ?? "שליפת נתוני מיתר נכשלה.", isBadRequest: true);
                 }
 
                 var now = DateTime.UtcNow;
@@ -737,7 +737,7 @@ namespace PetelAssistants.Api.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Meitar retrieve failed for period {Year}/{Month}", year, month);
-                return PeriodRetrieveResult.Failure("שגיאה בשליפת נתוני מייתר", isBadRequest: false);
+                return PeriodRetrieveResult.Failure("שגיאה בשליפת נתוני מיתר", isBadRequest: false);
             }
         }
 

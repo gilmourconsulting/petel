@@ -42,7 +42,7 @@
 
 <div class="main-container entitlements-main">
     <div class="students-content entitlements-page">
-        <div class="school-title-section">
+        <div class="page-title-section">
             <h1 class="page-title">זכאויות @(_yearName != "" ? $"- {_yearName}" : "")</h1>
         </div>
         <div class="content-card entitlements-list-panel">
@@ -55,31 +55,40 @@
                 <!-- Summary dashboard -->
                 <div class="summary-grid" style="margin-bottom: 16px; flex-shrink: 0;">
                     <div class="summary-card">
-                        <div class="summary-icon">📋</div>
                         <div class="summary-info">
                             <div class="summary-value">@ActiveItems.Count</div>
                             <div class="summary-label">סה"כ זכאויות</div>
                         </div>
                     </div>
                     <div class="summary-card">
-                        <div class="summary-icon">📊</div>
                         <div class="summary-info">
                             <div class="summary-value">@AllocatedPercent.ToString("0.#")%</div>
                             <div class="summary-label">אחוז מוקצה (שעות)</div>
                             <div class="summary-extra">@ActiveItems.Count(i => i.AllocationStatus == "full") מלא · @ActiveItems.Count(i => i.AllocationStatus == "partial") חלקי · @ActiveItems.Count(i => i.AllocationStatus == "none") ללא</div>
                         </div>
                     </div>
-                    @foreach (var type in TypeSummaries)
-                    {
-                        <div class="summary-card">
-                            <div class="summary-icon">🏷️</div>
-                            <div class="summary-info">
-                                <div class="summary-value">@type.Count</div>
-                                <div class="summary-label">@type.TypeName</div>
-                                <div class="summary-extra">@type.AllocatedPercent.ToString("0.#")% מוקצה</div>
-                            </div>
+                    <div class="summary-card summary-card-wide">
+                        <div class="summary-info" style="width: 100%;">
+                            <div class="summary-label" style="margin-bottom: 8px;">לפי סוג סייעת</div>
+                            @if (!TypeSummaries.Any())
+                            {
+                                <div class="summary-extra">אין זכאויות פעילות</div>
+                            }
+                            else
+                            {
+                                <div class="summary-types">
+                                    @foreach (var type in TypeSummaries)
+                                    {
+                                        <div class="summary-type-col">
+                                            <div class="summary-label">@type.TypeName</div>
+                                            <div class="summary-value">@type.Count</div>
+                                            <div class="summary-extra">@type.AllocatedPercent.ToString("0.#")% מוקצה</div>
+                                        </div>
+                                    }
+                                </div>
+                            }
                         </div>
-                    }
+                    </div>
                 </div>
 
                 <!-- Filter bar -->
@@ -156,20 +165,11 @@
                                     <th @onclick='() => SortTable("Kind")' style="cursor: pointer;">
                                         סוג @GetSortArrow("Kind")
                                     </th>
+                                    <th @onclick='() => SortTable("InstitutionType")' style="cursor: pointer;">
+                                        סוג מוסד @GetSortArrow("InstitutionType")
+                                    </th>
                                     <th @onclick='() => SortTable("SchoolName")' style="cursor: pointer;">
                                         מוסד @GetSortArrow("SchoolName")
-                                    </th>
-                                    <th @onclick='() => SortTable("PupilName")' style="cursor: pointer;">
-                                        שם תלמיד @GetSortArrow("PupilName")
-                                    </th>
-                                    <th @onclick='() => SortTable("PupilIdNumber")' style="cursor: pointer;">
-                                        ת"ז @GetSortArrow("PupilIdNumber")
-                                    </th>
-                                    <th @onclick='() => SortTable("ClassName")' style="cursor: pointer;">
-                                        כיתה @GetSortArrow("ClassName")
-                                    </th>
-                                    <th @onclick='() => SortTable("ClassClassificationName")' style="cursor: pointer;">
-                                        סיווג כיתה @GetSortArrow("ClassClassificationName")
                                     </th>
                                     <th @onclick='() => SortTable("AssistantTypeName")' style="cursor: pointer;">
                                         סוג סייעת @GetSortArrow("AssistantTypeName")
@@ -178,13 +178,13 @@
                                         שעות @GetSortArrow("Hours")
                                     </th>
                                     <th @onclick='() => SortTable("MinistryParticipationPct")' style="cursor: pointer;">
-                                        השתתפות משרד (%) @GetSortArrow("MinistryParticipationPct")
-                                    </th>
-                                    <th @onclick='() => SortTable("StartDate")' style="cursor: pointer;">
-                                        תאריכים @GetSortArrow("StartDate")
+                                        השתתפות משרד @GetSortArrow("MinistryParticipationPct")
                                     </th>
                                     <th @onclick='() => SortTable("AllocationStatus")' style="cursor: pointer;">
                                         הקצאה @GetSortArrow("AllocationStatus")
+                                    </th>
+                                    <th @onclick='() => SortTable("StartDate")' style="cursor: pointer;">
+                                        תאריכים @GetSortArrow("StartDate")
                                     </th>
                                     <th @onclick='() => SortTable("Status")' style="cursor: pointer;">
                                         סטטוס @GetSortArrow("Status")
@@ -227,29 +227,28 @@
                                                 @(isPersonal ? "אישי" : "מוסדי")
                                             </span>
                                         </td>
+                                        <td>@GetInstitutionTypeLabel(item)</td>
                                         <td>@(item.SchoolName ?? (string.IsNullOrEmpty(item.SourceInstitutionSymbol) ? "—" : $"סמל {item.SourceInstitutionSymbol}"))</td>
-                                        <td>
-                                            @if (isPersonal && (!string.IsNullOrEmpty(item.PupilFirstName) || !string.IsNullOrEmpty(item.PupilLastName)))
-                                            {
-                                                @($"{item.PupilFirstName} {item.PupilLastName}".Trim())
-                                            }
-                                            else
-                                            {
-                                                <span>—</span>
-                                            }
-                                        </td>
-                                        <td>@(isPersonal ? (item.PupilIdNumber ?? "—") : "—")</td>
-                                        <td>@(item.ClassName ?? "—")</td>
-                                        <td>@(item.ClassClassificationName ?? "—")</td>
                                         <td>@item.AssistantTypeName</td>
                                         <td>@item.Hours @GetHoursUnitLabel(item.HoursUnit)</td>
                                         <td>@item.MinistryParticipationPct.ToString("0.##")%</td>
-                                        <td>@item.StartDate.ToString("dd/MM/yyyy") – @item.EndDate.ToString("dd/MM/yyyy")</td>
-                                        <td>
-                                            <span class="status-badge @GetAllocationStatusCss(item.AllocationStatus)">
-                                                @GetAllocationStatusLabel(item.AllocationStatus)
-                                            </span>
+                                        <td class="alloc-cell">
+                                            @if (item.AllocationStatus == "none")
+                                            {
+                                                <span class="alloc-indicator alloc-none" title="לא מוקצה" aria-label="לא מוקצה"></span>
+                                            }
+                                            else
+                                            {
+                                                <span class="alloc-indicator @(item.AllocationStatus == "full" ? "alloc-full" : "alloc-partial")"
+                                                      title="@GetAllocationStatusLabel(item.AllocationStatus)"
+                                                      aria-label="@GetAllocationStatusLabel(item.AllocationStatus)">
+                                                    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                                                        <path fill="currentColor" d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/>
+                                                    </svg>
+                                                </span>
+                                            }
                                         </td>
+                                        <td>@item.StartDate.ToString("dd/MM/yyyy") – @item.EndDate.ToString("dd/MM/yyyy")</td>
                                         <td>
                                             <span class="status-badge @(item.IsCancelled ? "status-inactive" : item.IsActive ? "status-active" : "status-inactive")">
                                                 @(item.IsCancelled ? "בוטל" : item.IsActive ? "פעיל" : "לא פעיל")
@@ -270,25 +269,40 @@
 
         @if (_selectedEntitlement != null)
         {
-            <div class="entitlements-allocations-dock">
+            <div class="entitlements-allocations-dock" style="height: @(_dockHeightPx)px;">
+                <div class="dock-resize-handle"
+                     @ref="_dockHandleRef"
+                     title="גרור לשינוי גודל"
+                     @onpointerdown="StartDockResize"
+                     @onpointerdown:preventDefault="true"
+                     @onpointermove="OnDockResizeMove"
+                     @onpointerup="EndDockResize"
+                     @onpointercancel="EndDockResize"></div>
                 <div class="content-card allocations-panel-docked">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <h3 style="margin: 0; font-size: 1.1em;">
-                            @(_dockTab == "history" && HasEntitlementHistory ? "היסטוריית זכאות:" : "הקצאות לזכאות:")
-                            <span style="font-weight: 400;">
-                                @_selectedEntitlement.AssistantTypeName
-                                @(_selectedEntitlement.SchoolName != null ? $" — {_selectedEntitlement.SchoolName}" : "")
-                                (@_selectedEntitlement.Hours @GetHoursUnitLabel(_selectedEntitlement.HoursUnit))
-                            </span>
-                        </h3>
-                        <div style="display: flex; gap: 8px; align-items: center;">
+                    <div class="tabs-header dock-tabs-header">
+                        <div class="dock-tabs">
+                            <button type="button"
+                                    class="tab-button @(_dockTab == "details" ? "active" : "")"
+                                    @onclick='() => _dockTab = "details"'>
+                                פרטי זכאות
+                            </button>
+                            <button type="button"
+                                    class="tab-button @(_dockTab == "allocations" ? "active" : "")"
+                                    @onclick='() => _dockTab = "allocations"'>
+                                הקצאות
+                            </button>
+                        </div>
+                        <div class="dock-tab-actions">
                             @if (_dockTab == "allocations" && _isLoadingAllocations)
                             {
                                 <span style="font-size: 0.85em; color: #6c757d;">טוען...</span>
                             }
-                            @if (_dockTab == "history" && _isLoadingHistory)
+                            @if (_dockTab == "details" && !_selectedEntitlement.IsCancelled)
                             {
-                                <span style="font-size: 0.85em; color: #6c757d;">טוען...</span>
+                                <SecureButton ActionName="entitlements_edit" ScreenName="@PageName" FunctionName="EditItem"
+                                              OnClick="() => ShowEditDialog(_selectedEntitlement!)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
+                                    <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                                </SecureButton>
                             }
                             @if (_dockTab == "allocations")
                             {
@@ -298,23 +312,7 @@
                         </div>
                     </div>
 
-                    @if (HasEntitlementHistory)
-                    {
-                        <div class="tabs-header" style="margin-bottom: 12px; padding: 0;">
-                            <button type="button"
-                                    class="tab-button @(_dockTab == "allocations" ? "active" : "")"
-                                    @onclick='() => _dockTab = "allocations"'>
-                                הקצאות
-                            </button>
-                            <button type="button"
-                                    class="tab-button @(_dockTab == "history" ? "active" : "")"
-                                    @onclick='() => _dockTab = "history"'>
-                                היסטוריה
-                            </button>
-                        </div>
-                    }
-
-                    @if (_dockTab == "allocations" || !HasEntitlementHistory)
+                    @if (_dockTab == "allocations")
                     {
                         <AllocationsPanel ViewMode="AllocationsViewMode.ByEntitlement"
                                           Allocations="_allocations"
@@ -327,73 +325,61 @@
                     }
                     else
                     {
-                        @if (_isLoadingHistory)
-                        {
-                            <div class="loading-spinner">טוען היסטוריה...</div>
-                        }
-                        else if (_entitlementHistory.Count == 0)
-                        {
-                            <div class="no-data-message" style="padding: 12px 0;">אין היסטוריה</div>
-                        }
-                        else
-                        {
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>גרסה</th>
-                                            <th>תאריכים</th>
-                                            <th>שעות</th>
-                                            <th>השתתפות משרד (%)</th>
-                                            <th>סיווג כיתה</th>
-                                            <th>שם תלמיד</th>
-                                            <th>סטטוס</th>
-                                            <th>סיבת אישור</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var row in _entitlementHistory.OrderByDescending(h => h.Version))
-                                        {
-                                            bool isPersonal = IsPersonalLevel(row.AssistantTypeLevel);
-                                            bool isCurrent = row.Id == _selectedEntitlement.Id;
-                                            <tr class="@(isCurrent ? "row-selected" : row.IsActive ? "" : "row-inactive")">
-                                                <td>
-                                                    @row.Version
-                                                    @if (isCurrent)
-                                                    {
-                                                        <span class="status-badge status-personal" style="margin-right: 6px;">נוכחית</span>
-                                                    }
-                                                </td>
-                                                <td>@row.StartDate.ToString("dd/MM/yyyy") – @row.EndDate.ToString("dd/MM/yyyy")</td>
-                                                <td>@row.Hours @GetHoursUnitLabel(row.HoursUnit)</td>
-                                                <td>@row.MinistryParticipationPct.ToString("0.##")%</td>
-                                                <td>@(row.ClassClassificationName ?? "—")</td>
-                                                <td>
-                                                    @if (isPersonal && (!string.IsNullOrEmpty(row.PupilFirstName) || !string.IsNullOrEmpty(row.PupilLastName)))
-                                                    {
-                                                        @($"{row.PupilFirstName} {row.PupilLastName}".Trim())
-                                                    }
-                                                    else
-                                                    {
-                                                        <span>—</span>
-                                                    }
-                                                </td>
-                                                <td>
-                                                    <span class="status-badge @(row.IsCancelled ? "status-inactive" : row.IsActive ? "status-active" : "status-inactive")">
-                                                        @(row.IsCancelled ? "בוטל" : row.IsActive ? "פעיל" : "לא פעיל")
-                                                    </span>
-                                                    @if (!row.IsValid && !row.IsCancelled)
-                                                    {
-                                                        <span class="status-badge status-invalid" title="@row.InvalidReasonsDisplay">לא תקינה</span>
-                                                    }
-                                                </td>
-                                                <td>@(row.ValidityResolvedReason ?? "—")</td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
+                        var selectedIsPersonal = IsPersonalLevel(_selectedEntitlement.AssistantTypeLevel);
+                        var selectedType = _assistantTypes.FirstOrDefault(t => t.Id == _selectedEntitlement.AssistantTypeId);
+                        <div class="entitlement-details-grid">
+                            <div class="entitlement-detail">
+                                <span class="entitlement-detail-label">סוג סייעת</span>
+                                <span class="entitlement-detail-value">@(selectedType?.DisplayName ?? _selectedEntitlement.AssistantTypeName)</span>
                             </div>
-                        }
+                            @if (selectedIsPersonal)
+                            {
+                                <div class="entitlement-detail">
+                                    <span class="entitlement-detail-label">שם פרטי תלמיד</span>
+                                    <span class="entitlement-detail-value">@(_selectedEntitlement.PupilFirstName ?? "—")</span>
+                                </div>
+                                <div class="entitlement-detail">
+                                    <span class="entitlement-detail-label">שם משפחה תלמיד</span>
+                                    <span class="entitlement-detail-value">@(_selectedEntitlement.PupilLastName ?? "—")</span>
+                                </div>
+                                <div class="entitlement-detail">
+                                    <span class="entitlement-detail-label">תעודת זהות תלמיד</span>
+                                    <span class="entitlement-detail-value">@(_selectedEntitlement.PupilIdNumber ?? "—")</span>
+                                </div>
+                            }
+                            <div class="entitlement-detail">
+                                <span class="entitlement-detail-label">מוסד (בית ספר / גן)</span>
+                                <span class="entitlement-detail-value">@(_selectedEntitlement.SchoolName ?? (string.IsNullOrEmpty(_selectedEntitlement.SourceInstitutionSymbol) ? "—" : $"סמל {_selectedEntitlement.SourceInstitutionSymbol}"))</span>
+                            </div>
+                            <div class="entitlement-detail">
+                                <span class="entitlement-detail-label">כיתה</span>
+                                <span class="entitlement-detail-value">@(_selectedEntitlement.ClassName ?? "—")</span>
+                            </div>
+                            <div class="entitlement-detail">
+                                <span class="entitlement-detail-label">סיווג כיתה</span>
+                                <span class="entitlement-detail-value">@(_selectedEntitlement.ClassClassificationName ?? "—")</span>
+                            </div>
+                            <div class="entitlement-detail">
+                                <span class="entitlement-detail-label">שעות</span>
+                                <span class="entitlement-detail-value">@_selectedEntitlement.Hours</span>
+                            </div>
+                            <div class="entitlement-detail">
+                                <span class="entitlement-detail-label">יחידת שעות</span>
+                                <span class="entitlement-detail-value">@GetHoursUnitLabel(_selectedEntitlement.HoursUnit)</span>
+                            </div>
+                            <div class="entitlement-detail">
+                                <span class="entitlement-detail-label">השתתפות משרד (%)</span>
+                                <span class="entitlement-detail-value">@_selectedEntitlement.MinistryParticipationPct.ToString("0.##")%</span>
+                            </div>
+                            <div class="entitlement-detail">
+                                <span class="entitlement-detail-label">תאריך התחלה</span>
+                                <span class="entitlement-detail-value">@_selectedEntitlement.StartDate.ToString("dd/MM/yyyy")</span>
+                            </div>
+                            <div class="entitlement-detail">
+                                <span class="entitlement-detail-label">תאריך סיום</span>
+                                <span class="entitlement-detail-value">@_selectedEntitlement.EndDate.ToString("dd/MM/yyyy")</span>
+                            </div>
+                        </div>
                     }
                 </div>
             </div>
@@ -796,7 +782,7 @@
         overflow: hidden;
     }
 
-    .entitlements-page .school-title-section {
+    .entitlements-page .page-title-section {
         flex-shrink: 0;
     }
 
@@ -817,23 +803,73 @@
 
     .entitlements-page .entitlements-allocations-dock {
         flex: 0 0 auto;
-        max-height: 30%;
-        min-height: 0;
-        overflow: auto;
-        margin-top: 8px;
+        height: 280px;
+        max-height: 70%;
+        min-height: 140px;
+        overflow: hidden;
+        margin-top: 0;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    .dock-resize-handle {
+        flex-shrink: 0;
+        height: 8px;
+        cursor: ns-resize;
+        background: transparent;
+        position: relative;
+        z-index: 2;
+    }
+
+    .dock-resize-handle::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 36px;
+        height: 3px;
+        border-radius: 2px;
+        background: #c5cdd6;
+    }
+
+    .dock-resize-handle:hover::after,
+    .dock-resize-handle:active::after {
+        background: #8a96a3;
     }
 
     .entitlements-page .entitlements-allocations-dock > .content-card,
     .entitlements-page .allocations-panel-docked {
         margin-top: 0;
         margin-bottom: 0;
-        height: 100%;
+        flex: 1;
+        min-height: 0;
         display: flex;
         flex-direction: column;
         overflow: hidden;
     }
 
-    .entitlements-page .allocations-panel-docked .tabs-header {
+    .entitlements-page .allocations-panel-docked .tabs-header,
+    .entitlements-page .dock-tabs-header {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 12px;
+        padding: 0;
+    }
+
+    .dock-tabs {
+        display: flex;
+        gap: 0;
+    }
+
+    .dock-tab-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
         flex-shrink: 0;
     }
 
@@ -841,6 +877,67 @@
         flex: 1;
         min-height: 0;
         overflow: auto;
+    }
+
+    .entitlements-page .allocations-panel-docked .entitlement-details-grid {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+    }
+
+    .entitlement-details-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 10px 16px;
+        overflow: auto;
+        min-height: 0;
+        padding-bottom: 4px;
+    }
+
+    .entitlement-detail {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+    }
+
+    .entitlement-detail-label {
+        font-size: 0.78em;
+        font-weight: 600;
+        color: #6c757d;
+    }
+
+    .entitlement-detail-value {
+        font-size: 0.95em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .alloc-cell {
+        text-align: center;
+    }
+
+    .alloc-indicator {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        vertical-align: middle;
+    }
+
+    .alloc-none {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--color-danger);
+    }
+
+    .alloc-full {
+        color: var(--color-success);
+    }
+
+    .alloc-partial {
+        color: #d4a017;
     }
 
     .row-selected {
@@ -906,13 +1003,19 @@
     private DateTime? _formStartDate;
     private DateTime? _formEndDate;
 
-    // Allocation / history dock state
+    // Allocation dock state
     private EntitlementListItemDto? _selectedEntitlement;
     private List<EntitlementAllocationDto> _allocations = new();
     private bool _isLoadingAllocations;
-    private string _dockTab = "allocations";
-    private List<EntitlementListItemDto> _entitlementHistory = new();
-    private bool _isLoadingHistory;
+    private string _dockTab = "details";
+    private const int DockMinHeightPx = 140;
+    private const int DockDefaultHeightPx = 280;
+    private int _dockHeightPx = DockDefaultHeightPx;
+    private int _dockMaxHeightPx = 700;
+    private bool _isDockResizing;
+    private double _dockResizeStartY;
+    private int _dockResizeStartHeight;
+    private ElementReference _dockHandleRef;
 
     private bool _showResolveDialog;
     private bool _isSavingResolve;
@@ -923,8 +1026,6 @@
     private bool _resolveApprovePupilId;
     private bool _resolveApproveSupportCode;
     private int _resolveInstitutionId;
-
-    private bool HasEntitlementHistory => _entitlementHistory.Count > 1;
 
     // Add allocation modal state
     private bool _showAllocationDialog;
@@ -1028,16 +1129,12 @@
                 {
                     _selectedEntitlement = updated;
                     await LoadAllocationsAsync(_selectedEntitlement.Id);
-                    await LoadEntitlementHistoryAsync(_selectedEntitlement.MasterEntitlementId);
-                    if (!HasEntitlementHistory)
-                        _dockTab = "allocations";
                 }
                 else
                 {
                     _selectedEntitlement = null;
                     _allocations = new();
-                    _entitlementHistory = new();
-                    _dockTab = "allocations";
+                    _dockTab = "details";
                 }
             }
         }
@@ -1070,25 +1167,6 @@
         }
     }
 
-    private async Task LoadEntitlementHistoryAsync(int masterEntitlementId)
-    {
-        _isLoadingHistory = true;
-        try
-        {
-            var response = await ApiService.GetAsync<ApiResponse<List<EntitlementListItemDto>>>(
-                $"entitlements/history/{masterEntitlementId}");
-            _entitlementHistory = response?.Data ?? new();
-        }
-        catch
-        {
-            _entitlementHistory = new();
-        }
-        finally
-        {
-            _isLoadingHistory = false;
-        }
-    }
-
     private async Task RefreshData() => await LoadDataAsync();
 
     // ─── Entitlement row selection ─────────────────────────────────────────────
@@ -1099,26 +1177,51 @@
         {
             _selectedEntitlement = null;
             _allocations = new();
-            _entitlementHistory = new();
-            _dockTab = "allocations";
+            _dockTab = "details";
             return;
         }
 
         _selectedEntitlement = item;
         _allocations = new();
-        _entitlementHistory = new();
-        _dockTab = "allocations";
+        _dockTab = "details";
         await LoadAllocationsAsync(item.Id);
-        await LoadEntitlementHistoryAsync(item.MasterEntitlementId);
     }
 
     private void ClearSelectedEntitlement()
     {
         _selectedEntitlement = null;
         _allocations = new();
-        _entitlementHistory = new();
-        _dockTab = "allocations";
+        _dockTab = "details";
     }
+
+    private async Task StartDockResize(PointerEventArgs e)
+    {
+        _isDockResizing = true;
+        _dockResizeStartY = e.ClientY;
+        _dockResizeStartHeight = _dockHeightPx;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("LayoutHelpers.capturePointer", _dockHandleRef, e.PointerId);
+            var pageHeight = await JSRuntime.InvokeAsync<double>("LayoutHelpers.getClientHeight", ".entitlements-page");
+            if (pageHeight > 0)
+                _dockMaxHeightPx = Math.Max(DockMinHeightPx, (int)(pageHeight * 0.7));
+        }
+        catch
+        {
+            _dockMaxHeightPx = 700;
+        }
+    }
+
+    private void OnDockResizeMove(PointerEventArgs e)
+    {
+        if (!_isDockResizing)
+            return;
+
+        var delta = (int)(_dockResizeStartY - e.ClientY);
+        _dockHeightPx = Math.Clamp(_dockResizeStartHeight + delta, DockMinHeightPx, _dockMaxHeightPx);
+    }
+
+    private void EndDockResize() => _isDockResizing = false;
 
     // ─── Allocation modal ─────────────────────────────────────────────────────
 
@@ -1403,21 +1506,12 @@
                 "Kind" => _sortAscending
                     ? query.OrderBy(i => IsPersonalLevel(i.AssistantTypeLevel) ? 0 : 1)
                     : query.OrderByDescending(i => IsPersonalLevel(i.AssistantTypeLevel) ? 0 : 1),
+                "InstitutionType" => _sortAscending
+                    ? query.OrderBy(i => GetInstitutionTypeLabel(i))
+                    : query.OrderByDescending(i => GetInstitutionTypeLabel(i)),
                 "SchoolName" => _sortAscending
                     ? query.OrderBy(i => i.SchoolName ?? "")
                     : query.OrderByDescending(i => i.SchoolName ?? ""),
-                "PupilName" => _sortAscending
-                    ? query.OrderBy(i => i.PupilLastName ?? "").ThenBy(i => i.PupilFirstName ?? "")
-                    : query.OrderByDescending(i => i.PupilLastName ?? "").ThenByDescending(i => i.PupilFirstName ?? ""),
-                "PupilIdNumber" => _sortAscending
-                    ? query.OrderBy(i => i.PupilIdNumber ?? "")
-                    : query.OrderByDescending(i => i.PupilIdNumber ?? ""),
-                "ClassName" => _sortAscending
-                    ? query.OrderBy(i => i.ClassName ?? "")
-                    : query.OrderByDescending(i => i.ClassName ?? ""),
-                "ClassClassificationName" => _sortAscending
-                    ? query.OrderBy(i => i.ClassClassificationName ?? "")
-                    : query.OrderByDescending(i => i.ClassClassificationName ?? ""),
                 "AssistantTypeName" => _sortAscending
                     ? query.OrderBy(i => i.AssistantTypeName)
                     : query.OrderByDescending(i => i.AssistantTypeName),
@@ -1826,6 +1920,23 @@
 
     private static string GetHoursUnitLabel(string unit) => unit == "monthly" ? "חודשי" : "שבועי";
 
+    private string GetInstitutionTypeLabel(EntitlementListItemDto item)
+    {
+        var schoolLevel = item.SchoolLevel;
+        var orgType = item.OrgUnitType;
+        if ((string.IsNullOrEmpty(schoolLevel) || string.IsNullOrEmpty(orgType)) && item.InstitutionId.HasValue)
+        {
+            var unit = _orgUnits.FirstOrDefault(u => u.Id == item.InstitutionId.Value);
+            if (unit != null)
+            {
+                schoolLevel ??= unit.SchoolLevel;
+                orgType ??= unit.OrgUnitType;
+            }
+        }
+
+        return SchoolLevelLabels.GetShortDisplayName(schoolLevel, orgType);
+    }
+
     private static string GetOrgUnitTypeLabel(string type) => type switch
     {
         "school"       => "בית ספר",
@@ -1838,13 +1949,6 @@
         "full"    => "מוקצה במלואו",
         "partial" => "מוקצה חלקית",
         _         => "לא מוקצה"
-    };
-
-    private static string GetAllocationStatusCss(string status) => status switch
-    {
-        "full"    => "status-active",
-        "partial" => "status-personal",
-        _         => "status-inactive"
     };
 
     private void ShowPersonalEntitlementUploadDialog() =>

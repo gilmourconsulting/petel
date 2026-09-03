@@ -45,11 +45,11 @@ BEGIN
 
     INSERT INTO shared_schema.actions (name, display_name, reference, description, action_type_id)
     VALUES
-        ('meitardata_page_action',        'גישה למסך נתוני מייתר',   'meitardata',     'גישה לדף צפייה בנתוני מייתר',               v_page_action_type_id),
-        ('meitardata_back',               'חזרה ממסך נתוני מייתר',   'meitardata',     'כפתור חזרה ממסך נתוני מייתר',              v_button_type_id),
-        ('meitardata_refresh',            'רענון נתוני מייתר',       'meitardata',     'כפתור רענון רשימת נתוני מייתר',            v_button_type_id),
-        ('maindashboard_meitar_view',     'צפייה בנתוני מייתר',      'maindashboard',  'כפתור מעבר לצפייה בנתוני מייתר מדף הבית',  v_button_type_id),
-        ('yearmanagement_meitar_view',    'צפייה בנתוני מייתר',      'yearmanagement', 'כפתור מעבר לצפייה בנתוני מייתר מניהול שנה', v_button_type_id)
+        ('meitardata_page_action',        'גישה למסך נתוני מיתר',   'meitardata',     'גישה לדף צפייה בנתוני מיתר',               v_page_action_type_id),
+        ('meitardata_back',               'חזרה ממסך נתוני מיתר',   'meitardata',     'כפתור חזרה ממסך נתוני מיתר',              v_button_type_id),
+        ('meitardata_refresh',            'רענון נתוני מיתר',       'meitardata',     'כפתור רענון רשימת נתוני מיתר',            v_button_type_id),
+        ('maindashboard_meitar_view',     'צפייה בנתוני מיתר',      'maindashboard',  'כפתור מעבר לצפייה בנתוני מיתר מדף הבית',  v_button_type_id),
+        ('yearmanagement_meitar_view',    'צפייה בנתוני מיתר',      'yearmanagement', 'כפתור מעבר לצפייה בנתוני מיתר מניהול שנה', v_button_type_id)
     ON CONFLICT (name) DO NOTHING;
 
     FOREACH v_action_name IN ARRAY ARRAY[

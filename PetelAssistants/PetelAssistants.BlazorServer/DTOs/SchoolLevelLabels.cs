@@ -25,5 +25,17 @@ namespace PetelAssistants.BlazorServer.DTOs
 
             return "—";
         }
+
+        /// <summary>Short table labels: גן / יסודי / תיכון.</summary>
+        public static string GetShortDisplayName(string? schoolLevel, string? orgUnitType = null)
+        {
+            if (string.Equals(orgUnitType, KindergartenType, StringComparison.OrdinalIgnoreCase))
+                return "גן";
+            if (string.Equals(schoolLevel, Elementary, StringComparison.OrdinalIgnoreCase))
+                return "יסודי";
+            if (string.Equals(schoolLevel, HighSchool, StringComparison.OrdinalIgnoreCase))
+                return "תיכון";
+            return "—";
+        }
     }
 }

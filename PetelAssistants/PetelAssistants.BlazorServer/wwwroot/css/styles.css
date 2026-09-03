@@ -408,9 +408,72 @@ html, body {
     cursor: pointer;
 }
 
+button.summary-card {
+    font-family: inherit;
+    border: none;
+    text-align: right;
+    color: inherit;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+}
+
+.year-hub-card.summary-card {
+    min-height: 140px !important;
+    align-items: flex-start;
+    padding: 12px 14px !important;
+}
+
+.year-hub-card .summary-info {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.year-hub-card .summary-label {
+    font-size: var(--font-size-medium) !important;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
 .summary-card-clickable:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.summary-card-wide {
+    width: auto;
+    max-width: none;
+    min-width: 190px;
+    align-items: flex-start;
+    grid-column: 1 / -1;
+}
+
+.summary-types {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    direction: rtl;
+}
+
+.summary-type-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 72px;
+    text-align: center;
+}
+
+.summary-type-col .summary-label {
+    font-size: 0.75em;
+}
+
+.summary-type-col .summary-value {
+    font-size: 1.2em;
+}
+
+.summary-type-col .summary-extra {
+    font-size: 0.72em;
 }
 
 .summary-info {
@@ -532,16 +595,16 @@ html, body {
 }
 
 /* ── Page Title ─────────────────────────────────── */
-.school-title-section {
-    padding: 10px 0 5px;
+.page-title-section {
+    padding: 4px 0 2px;
     text-align: center;
 }
 
 .page-title {
-    font-size: var(--font-size-xl);
+    font-size: calc(var(--font-size-xl) * 0.8);
     font-weight: 600;
     color: var(--text-primary);
-    margin: 0 0 10px;
+    margin: 0 0 4px;
     text-align: center;
 }
 
@@ -558,35 +621,80 @@ html, body {
     min-width: 280px;
 }
 
-/* ── Year-management hub cards ──────────────────── */
-.year-nav-card {
+/* ── Salary month picker ────────────────────────── */
+.salary-month-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    direction: rtl;
+    margin-bottom: 12px;
+}
+
+.salary-month-btn {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 40px 20px;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    text-align: center;
-    border: none;
-    width: 100%;
+    flex: 1 1 12ch;
+    min-width: 12ch;
+    max-width: calc((100% - 88px) / 12);
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: #fff;
+    cursor: pointer;
     font-family: inherit;
+    font-size: var(--font-size-medium);
+    font-weight: 600;
+    color: inherit;
 }
 
-.year-nav-card:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--box-shadow-strong);
+.salary-month-btn.active {
+    background: var(--button-primary-color);
+    color: var(--button-text-color);
+    border-color: var(--button-primary-color);
 }
 
-.year-nav-card-icon {
-    font-size: 48px;
-    margin-bottom: 16px;
+.salary-month-btn .month-name {
+    font-size: inherit;
+    font-weight: 600;
 }
 
-.year-nav-card-title {
-    font-size: var(--font-size-xl);
-    font-weight: 700;
-    color: var(--text-primary);
-    margin: 0;
+.salary-month-btn .month-total {
+    font-size: 0.85em;
+    font-weight: 500;
+    margin-top: 4px;
+}
+
+/* ── Yearly budget compact year table ───────────── */
+.yearly-budget-year-scroll {
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+.yearly-budget-year-table {
+    width: max-content !important;
+    min-width: 0 !important;
+    border-collapse: collapse;
+}
+
+.yearly-budget-year-table th,
+.yearly-budget-year-table td {
+    padding: 4px 6px !important;
+    white-space: nowrap;
+}
+
+.yearly-budget-year-table .form-control {
+    width: 80px;
+    padding: 2px 4px;
+    display: inline-block;
+}
+
+.yearly-budget-year-table .remarks-input {
+    width: 140px;
 }
 
 /* ── Role pick-list / drag-and-drop ─────────────── */

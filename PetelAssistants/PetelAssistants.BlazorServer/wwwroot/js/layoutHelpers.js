@@ -138,5 +138,15 @@ window.LayoutHelpers = {
         });
 
         console.log('✅ Layout helpers initialized');
+    },
+
+    capturePointer: function(el, pointerId) {
+        if (el && typeof el.setPointerCapture === "function")
+            el.setPointerCapture(pointerId);
+    },
+
+    getClientHeight: function(selector) {
+        const el = document.querySelector(selector);
+        return el ? el.clientHeight : (window.innerHeight || 0);
     }
 };
