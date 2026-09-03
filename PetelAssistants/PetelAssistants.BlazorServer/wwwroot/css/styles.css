@@ -669,6 +669,18 @@ button.summary-card {
     margin-top: 4px;
 }
 
+.salary-anomaly-bell {
+    color: #dc3545;
+    border-color: transparent;
+    background: transparent;
+}
+
+.salary-anomaly-bell:hover {
+    color: #a71d2a;
+    background: #fdecea;
+    border-color: transparent;
+}
+
 /* ── Yearly budget compact year table ───────────── */
 .yearly-budget-year-scroll {
     overflow-x: auto;

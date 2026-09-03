@@ -22,10 +22,6 @@
                   OnClick="NavigateToAnomalies" CssClass="context-btn" HideIfNoAccess="true">
         חריגות שכר
     </SecureButton>
-    <SecureButton ActionName="salaries_dept_map" ScreenName="@PageName" FunctionName="NavigateToDeptMap"
-                  OnClick="NavigateToDeptMap" CssClass="context-btn" HideIfNoAccess="true">
-        מיפוי מחלקות
-    </SecureButton>
     <SecureButton ActionName="salaries_back" ScreenName="@PageName" FunctionName="NavigateBack"
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
         @(_returnYearId.HasValue ? "חזרה לניהול שנה" : "חזרה לדף הבית")
@@ -182,6 +178,7 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
+                                    <th>חריגה</th>
                                     <th @onclick='() => SortTable("NationalId")' style="cursor:pointer">
                                         ת"ז @GetSortArrow("NationalId")
                                     </th>
@@ -205,6 +202,19 @@
                                 @foreach (var item in FilteredItems)
                                 {
                                     <tr class="@(item.HasIdWarning ? "row-inactive" : "")">
+                                        <td>
+                                            @if (_anomaliesBySalaryId.TryGetValue(item.Id, out var anomaly))
+                                            {
+                                                <button type="button" class="btn-icon salary-anomaly-bell"
+                                                        title="הצג חריגת שכר"
+                                                        @onclick="() => ShowAnomaly(anomaly)">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                                                         viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                        <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm6-6V11a6 6 0 1 0-12 0v5l-1.7 1.7A1 1 0 0 0 5 20h14a1 1 0 0 0 .7-1.7L18 16z"/>
+                                                    </svg>
+                                                </button>
+                                            }
+                                        </td>
                                         <td>@item.NationalId</td>
                                         <td>@(item.MatchedPersonName ?? "—")</td>
                                         <td>@item.DepartmentId</td>
@@ -304,6 +314,42 @@
     </div>
 }
 
+@if (_showAnomalyModal && _selectedAnomaly != null)
+{
+    <div class="modal-overlay" @onclick="CloseAnomalyModal">
+        <div class="modal-content" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>חריגת שכר</h3>
+                <button class="modal-close" @onclick="CloseAnomalyModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group"><label>ת"ז</label><div>@_selectedAnomaly.NationalId</div></div>
+                <div class="form-group">
+                    <label>מחלקה</label>
+                    <div>
+                        @_selectedAnomaly.DepartmentId
+                        @if (!string.IsNullOrEmpty(_selectedAnomaly.DepartmentName))
+                        {
+                            <span> (@_selectedAnomaly.DepartmentName)</span>
+                        }
+                    </div>
+                </div>
+                <div class="form-group"><label>% משרה</label><div>@_selectedAnomaly.PositionPercentage.ToString("N2")</div></div>
+                <div class="form-group"><label>שכר</label><div>@_selectedAnomaly.TotalSalary.ToString("N2")</div></div>
+                <div class="form-group"><label>סייעת</label><div>@(_selectedAnomaly.MatchedPersonName ?? "—")</div></div>
+                <div class="form-group"><label>סוג ממופה</label><div>@(_selectedAnomaly.MappedAssistantTypeName ?? "—")</div></div>
+                <div class="form-group"><label>סוג הקצאה</label><div>@(_selectedAnomaly.AllocationAssistantTypeName ?? "—")</div></div>
+                <div class="form-group"><label>סיבה</label><div>@_selectedAnomaly.Message</div></div>
+                <div class="form-group"><label>סטטוס</label><div>@(_selectedAnomaly.StatusName ?? "—")</div></div>
+                <div class="form-group"><label>הערה</label><div>@(string.IsNullOrWhiteSpace(_selectedAnomaly.Notes) ? "—" : _selectedAnomaly.Notes)</div></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseAnomalyModal">סגור</button>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     protected override string PageName => "salaries";
 
@@ -324,6 +370,10 @@
     private List<SalaryListItemDto> _recheckNewlyMatched = new();
     private List<SalaryListItemDto> _recheckAllocationsAdded = new();
     private List<SalaryListItemDto> _recheckAllocationsRemoved = new();
+
+    private Dictionary<int, SalaryAnomalyDto> _anomaliesBySalaryId = new();
+    private bool _showAnomalyModal;
+    private SalaryAnomalyDto? _selectedAnomaly;
 
     private int _filterYear;
     private int _filterMonth;
@@ -547,14 +597,23 @@
             _isLoading = true;
         try
         {
-            var response = await ApiService.GetAsync<ApiResponse<List<SalaryListItemDto>>>(
+            var salariesTask = ApiService.GetAsync<ApiResponse<List<SalaryListItemDto>>>(
                 $"salaries?year={_filterYear}&month={_filterMonth}");
-            _items = response?.Data ?? new();
+            var anomaliesTask = ApiService.GetAsync<ApiResponse<List<SalaryAnomalyDto>>>(
+                $"salary-anomalies?year={_filterYear}&month={_filterMonth}");
+            await Task.WhenAll(salariesTask, anomaliesTask);
+
+            _items = salariesTask.Result?.Data ?? new();
+            _anomaliesBySalaryId = (anomaliesTask.Result?.Data ?? new())
+                .Where(a => a.SalaryId.HasValue)
+                .GroupBy(a => a.SalaryId!.Value)
+                .ToDictionary(g => g.Key, g => g.First());
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading salaries: {ex.Message}");
             _items = new();
+            _anomaliesBySalaryId = new();
         }
         finally
         {
@@ -625,6 +684,18 @@
 
     private void CloseRecheckSummary() => _showRecheckSummary = false;
 
+    private void ShowAnomaly(SalaryAnomalyDto anomaly)
+    {
+        _selectedAnomaly = anomaly;
+        _showAnomalyModal = true;
+    }
+
+    private void CloseAnomalyModal()
+    {
+        _showAnomalyModal = false;
+        _selectedAnomaly = null;
+    }
+
     private void ClearClientFilters()
     {
         _filterNationalId = "";
@@ -667,11 +738,6 @@
 
     private void NavigateToMonthSummary() => Navigation.NavigateTo($"/salaries/month-summary?{PeriodQuery}");
     private void NavigateToAnomalies() => Navigation.NavigateTo($"/salaries/anomalies?{PeriodQuery}");
-    private void NavigateToDeptMap()
-    {
-        var qs = _returnYearId.HasValue ? $"?fromYear={_returnYearId.Value}" : "";
-        Navigation.NavigateTo($"/salary-department-mappings{qs}");
-    }
 
     private void SortTable(string column)
     {

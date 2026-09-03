@@ -16,7 +16,7 @@
     </SecureButton>
     <SecureButton ActionName="salary_dept_map_back" ScreenName="@PageName" FunctionName="NavigateBack"
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
-        @(_returnYearId.HasValue ? "חזרה לניהול שנה" : "חזרה")
+        @(_returnYearId.HasValue ? "חזרה לניהול שנה" : "חזרה לדף הבית")
     </SecureButton>
 </div>
 
@@ -277,6 +277,6 @@
         if (_returnYearId.HasValue)
             Navigation.NavigateTo($"/year/{_returnYearId.Value}");
         else
-            Navigation.NavigateTo("/salaries");
+            Navigation.NavigateTo("/maindashboard");
     }
 }

@@ -65,6 +65,11 @@ namespace PetelAssistants.Api.DTOs
         public List<MonthSummaryLineDto> Lines { get; set; } = new();
     }
 
+    public class YearMonthSummariesResponse
+    {
+        public List<MonthSummaryLineDto> Lines { get; set; } = new();
+    }
+
     public class SalaryAnomalyDto
     {
         public int Id { get; set; }

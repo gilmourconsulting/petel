@@ -27,10 +27,10 @@ Side menu
             └── tab: hour-value
 ```
 
-- **Main dashboard** (`MainDashboard.razor`, `/maindashboard`): shows current/previous year buttons, a "בחר שנה" modal, and context buttons **בתי ספר וגנים** (`/org-units`), **העלאת קובץ שכר** (`SalaryUploadModal`) and **נתוני שכר** (`/salaries`). Clicking a year navigates to `/year/{yearId}` (does not only store year in session).
+- **Main dashboard** (`MainDashboard.razor`, `/maindashboard`): shows current/previous year buttons, a "בחר שנה" modal, and context buttons **בתי ספר וגנים** (`/org-units`), **העלאת קובץ שכר** (`SalaryUploadModal`), **נתוני שכר** (`/salaries`), and **מיפוי מחלקות שכר** (`/salary-department-mappings`). Clicking a year navigates to `/year/{yearId}` (does not only store year in session).
 - **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name and five clickable summary cards (same security actions as the former nav cards) — **סייעות** (person count), **זכאויות** (count + allocated %), **תקציב** (last version hours/amount/version), **שכר** (YTD total + last uploaded month), **מיתר** (distinct imported months). Context buttons remain for salary / Meitar operational tools (upload, retrieve, department map, summaries). Data: `GET api/years/{id}/hub-summary`.
 - **Year Elements hub** (`YearElements.razor`, `/year-elements`): shared admin multi-tab screen for year-scoped configuration (tabs: class assistant budget hours, hour monetary value). Menu item **ניהול שנה**.
-- **Salaries view** (`Salaries.razor`, `/salaries`): read-only salary table. Period is a row of school-year month buttons (year `StartDate`–`EndDate`, typically Sept–Aug) showing totals per month (`GET api/salaries/month-totals`). From the year hub (`?fromYear=`), months are that year. From the main dashboard, a Hebrew-year dropdown appears above the buttons. Text filters remain (national ID, department, match, allocation, ID warning). Context buttons to month summary, anomalies, and department mapping.
+- **Salaries view** (`Salaries.razor`, `/salaries`): read-only salary table. Period is a row of school-year month buttons (year `StartDate`–`EndDate`, typically Sept–Aug) showing totals per month (`GET api/salaries/month-totals`). From the year hub (`?fromYear=`), months are that year. From the main dashboard, a Hebrew-year dropdown appears above the buttons. Text filters remain (national ID, department, match, allocation, ID warning). A red bell on a row means that salary id has a `salary_anomalies` record for the latest process; click opens a read-only anomaly modal (`GET api/salary-anomalies?year=&month=`). Context buttons to month summary and anomalies. Department mapping lives on the main dashboard (and the year hub), not this screen.
 - **Salary month summary** (`SalaryMonthSummary.razor`, `/salaries/month-summary`): debug comparison of all salary payments vs last locked budget.
 - **Salary anomalies** (`SalaryAnomalies.razor`, `/salaries/anomalies`): debug investigation list with status/notes.
 - **Salary department mappings** (`SalaryDepartmentMappings.razor`, `/salary-department-mappings`): tenant payroll department → assistant type.
@@ -38,7 +38,7 @@ Side menu
 - **Assistants** (`Assistants.razor`, `/year/{YearId}/assistants`): person CRUD for the logged-in authority.
 - **Entitlements** (`Entitlements.razor`, `/year/{YearId}/entitlements`): combined personal + institutional entitlements for the year. Summary: total + allocated %, plus one wide card with all assistant-type counts and allocated %. Table includes **סוג מוסד** (גן / יסודי / תיכון); class name, pupil name, ID, and class classification appear on the **פרטי זכאות** dock tab (default). The dock is height-resizable. Context button **העלאת זכאויות אישיות** (`PersonalEntitlementUploadModal`) imports personal (`student_help`) entitlements from PDF or Excel (PDF convert → optional download → upsert + orphan review).
 - **Org units** (`OrgUnits.razor`, `/org-units`): manage tenant-owned institutions (schools and kindergartens in `assist_schema.institutions`). Opened from the main dashboard (and the main menu); also available at `/year/{YearId}/org-units` for bookmarks.
-- **Yearly budget** (`YearlyBudget.razor`, `/year/{YearId}/yearly-budget`): versioned yearly budget by assistant type, with equal monthly split and **חשב תקציב** on open versions.
+- **Yearly budget** (`YearlyBudget.razor`, `/year/{YearId}/yearly-budget`): versioned yearly budget by assistant type, with equal monthly split and **חשב תקציב** on open versions. Tabs: **תקציב** (year + month lines) and **סיכום מול תקציב** (salary actuals from `GET api/salary-month-summaries/for-year?yearId=` vs the selected budget version; year totals plus per-month buttons).
 
 **System admin (not year-scoped operational data):**
 
@@ -95,6 +95,7 @@ Downstream pages should read year from the route parameter `{YearId}` and/or ses
 | `GET api/salaries/month-totals?fromYear=&fromMonth=&toYear=&toMonth=` | Grouped salary sums per calendar period (max 24 months) |
 | `GET/POST/PUT api/salary-department-mappings` | Tenant salary department → assistant type |
 | `GET api/salary-month-summaries?year=&month=` | Salary vs locked budget summary (latest process) |
+| `GET api/salary-month-summaries/for-year?yearId=` | Latest-process salary summary lines for every month in a Hebrew year |
 | `GET api/salary-anomalies?year=&month=` | Salary anomaly details |
 | `PUT api/salary-anomalies/{id}/status` | Update anomaly status + notes |
 | `GET api/statuses?object=` | Shared statuses |
@@ -120,7 +121,7 @@ Run SQL scripts in order (see below). After running SQL, refresh the security ca
 |--------|----------|-------------|----------------|
 | Main dashboard | `maindashboard` | (page access not enforced) | `maindashboard_org_units`, `maindashboard_salary_upload`, `maindashboard_salaries_view`, `maindashboard_salary_dept_map` |
 | Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_entitlements`, `yearmanagement_yearly_budget`, `yearmanagement_salary_upload`, `yearmanagement_entitlements_upload`, `yearmanagement_salaries_view`, `yearmanagement_salary_dept_map`, `yearmanagement_salary_month_summary`, `yearmanagement_salary_anomalies`, `yearmanagement_meitar_month_summary` |
-| Salaries view | `salaries` | `salaries_page_action` | `salaries_back`, `salaries_refresh`, `salaries_month_summary`, `salaries_anomalies`, `salaries_dept_map` |
+| Salaries view | `salaries` | `salaries_page_action` | `salaries_back`, `salaries_refresh`, `salaries_month_summary`, `salaries_anomalies` |
 | Salary month summary | `salary_month_summary` | `salary_month_summary_page_action` | `salary_month_summary_back`, `salary_month_summary_refresh` |
 | Salary anomalies | `salary_anomalies` | `salary_anomalies_page_action` | `salary_anomalies_back`, `salary_anomalies_refresh`, `salary_anomalies_status` |
 | Salary department map | `salary_dept_map` | `salary_dept_map_page_action` | `salary_dept_map_back`, `salary_dept_map_refresh`, `salary_dept_map_save` |

@@ -166,6 +166,7 @@ Manual upload from Main Dashboard / Year Management (`SalaryUploadModal` → `Sa
 | `GET/POST/PUT api/salary-department-mappings` | Tenant payroll department → assistant type |
 | `GET api/salary-department-mappings/unmapped` | Distinct file departments not in the map |
 | `GET api/salary-month-summaries?year=&month=` | Latest process summary vs locked budget (all payments) |
+| `GET api/salary-month-summaries/for-year?yearId=` | Latest-process summary lines for every month in a Hebrew year |
 | `GET api/salary-anomalies?year=&month=` | Anomaly details for latest process |
 | `PUT api/salary-anomalies/{id}/status` | Update anomaly status + notes |
 | `GET api/statuses?object=` | Shared statuses lookup |
