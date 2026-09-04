@@ -53,9 +53,9 @@ namespace PetelAssistants.BlazorServer.DTOs
         public decimal? BudgetHours { get; set; }
         public decimal? BudgetAmount { get; set; }
         public bool HasBudget { get; set; }
-        public decimal AmountVariance { get; set; }
-        public decimal FteVariance { get; set; }
-        public decimal HoursVariance { get; set; }
+        public decimal AmountVariance => Amount - (BudgetAmount ?? 0);
+        public decimal FteVariance => Fte - (BudgetFte ?? 0);
+        public decimal HoursVariance => Hours - (BudgetHours ?? 0);
     }
 
     public class MonthSummaryResponse

@@ -1,0 +1,163 @@
+@page "/gregorian/{Year:int}/entitlements"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelAssistants.BlazorServer.Models
+@using PetelAssistants.BlazorServer.DTOs
+@inject ApiService ApiService
+
+<div class="context-buttons-section">
+    <SecureButton ActionName="gregorian_entitlements" ScreenName="@PageName" FunctionName="RefreshData"
+                  OnClick="RefreshData" CssClass="context-btn">
+        רענן נתונים
+    </SecureButton>
+    <SecureButton ActionName="gregorian_entitlements" ScreenName="@PageName" FunctionName="NavigateBack"
+                  OnClick="NavigateBack" CssClass="context-navigation-btn">
+        חזרה לניהול שנה לועזית
+    </SecureButton>
+</div>
+
+<div class="main-container">
+    <div class="students-content">
+        <div class="page-title-section">
+            <h1 class="page-title">זכאויות — @Year</h1>
+            <p class="text-muted" style="margin-top: 8px;">זכאויות שתאריכיהן חופפים לינואר–דצמבר @Year. עריכה מתבצעת במסך שנת הלימודים.</p>
+        </div>
+        <div class="content-card">
+            @if (_isLoading)
+            {
+                <div class="loading-spinner">טוען נתונים...</div>
+            }
+            else
+            {
+                <div class="summary-grid" style="margin-bottom: 16px;">
+                    <div class="summary-card">
+                        <div class="summary-info">
+                            <div class="summary-value">@_items.Count</div>
+                            <div class="summary-label">סה"כ זכאויות</div>
+                        </div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-info">
+                            <div class="summary-value">@AllocatedPercent.ToString("0.#")%</div>
+                            <div class="summary-label">אחוז מוקצה (שעות)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filter-bar" style="margin-bottom: 16px;">
+                    <input type="text" class="form-control" @bind="_filterText" @bind:event="oninput"
+                           placeholder="סנן לפי מוסד, סוג סייעת או שנת לימודים..." />
+                </div>
+
+                @if (FilteredItems.Count == 0)
+                {
+                    <div class="no-data-message">לא נמצאו זכאויות החופפות לשנה זו</div>
+                }
+                else
+                {
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>שנת לימודים</th>
+                                    <th>מוסד</th>
+                                    <th>סוג סייעת</th>
+                                    <th>שעות</th>
+                                    <th>הקצאה</th>
+                                    <th>תאריכים</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in FilteredItems)
+                                {
+                                    <tr>
+                                        <td>
+                                            <EntityFocusLink Screen="@EntityFocus.EntitlementsScreen"
+                                                             YearId="@item.HebrewYearId" Id="@item.Id">
+                                                @(string.IsNullOrEmpty(item.HebrewYearName) ? item.HebrewYearId.ToString() : item.HebrewYearName)
+                                            </EntityFocusLink>
+                                        </td>
+                                        <td>@(item.SchoolName ?? "—")</td>
+                                        <td>@item.AssistantTypeName</td>
+                                        <td>@item.Hours.ToString("N1")</td>
+                                        <td>@AllocationLabel(item.AllocationStatus)</td>
+                                        <td>@item.StartDate.ToString("dd/MM/yyyy") – @item.EndDate.ToString("dd/MM/yyyy")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Year { get; set; }
+
+    protected override string PageName => "gregorian";
+
+    private bool _isLoading = true;
+    private string _filterText = "";
+    private List<EntitlementListItemDto> _items = new();
+
+    private decimal AllocatedPercent
+    {
+        get
+        {
+            var total = _items.Where(i => i.IsActive).Sum(i => i.Hours);
+            if (total <= 0) return 0;
+            var allocated = _items.Where(i => i.IsActive).Sum(i => Math.Min(i.AllocatedHours, i.Hours));
+            return Math.Round(allocated / total * 100, 1);
+        }
+    }
+
+    private List<EntitlementListItemDto> FilteredItems
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(_filterText))
+                return _items;
+            var term = _filterText.Trim();
+            return _items.Where(i =>
+                (!string.IsNullOrEmpty(i.HebrewYearName) && i.HebrewYearName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(i.SchoolName) && i.SchoolName.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                i.AssistantTypeName.Contains(term, StringComparison.OrdinalIgnoreCase)
+            ).ToList();
+        }
+    }
+
+    protected override async Task OnPageInitializedAsync() => await LoadAsync();
+
+    private async Task RefreshData() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<EntitlementListItemDto>>>(
+                $"gregorian-years/{Year}/entitlements");
+            _items = response?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading gregorian entitlements: {ex.Message}");
+            _items = new();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private static string AllocationLabel(string status) => status switch
+    {
+        "full" => "מלא",
+        "partial" => "חלקי",
+        _ => "ללא"
+    };
+
+    private void NavigateBack() => Navigation.NavigateTo($"/gregorian/{Year}");
+}

@@ -11,6 +11,16 @@
         רענן
     </SecureButton>
 
+    @if (_budget != null && _budget.Id > 0)
+    {
+        <SecureButton ActionName="yearly_budget_recalculate_summaries" ScreenName="@PageName"
+                      FunctionName="RecalculateSummaries" OnClick="RecalculateSummaries"
+                      CssClass="context-btn" HideIfNoAccess="true"
+                      Title="חשב מחדש את סיכומי השכר והמיתר לפי המיפויים העדכניים">
+            חשב סיכומים מחדש
+        </SecureButton>
+    }
+
     @if (_budget?.CanEdit == true)
     {
         <SecureButton ActionName="yearly_budget_calculate" ScreenName="@PageName" FunctionName="CalculateBudget"
@@ -268,37 +278,46 @@
                             <div class="summary-grid" style="margin-bottom: 16px;">
                                 <div class="summary-card">
                                     <div class="summary-info">
-                                        <div class="summary-value">@ComparisonRows.Sum(r => r.ActualAmount).ToString("N0")</div>
-                                        <div class="summary-label">סה"כ שכר בפועל (₪)</div>
-                                    </div>
-                                </div>
-                                <div class="summary-card">
-                                    <div class="summary-info">
-                                        <div class="summary-value">@ComparisonRows.Sum(r => r.BudgetAmount ?? 0).ToString("N0")</div>
+                                        <div class="summary-value">@ComparisonRows.Sum(r => r.BudgetAmount).ToString("N0")</div>
                                         <div class="summary-label">תקציב (₪)</div>
                                     </div>
                                 </div>
                                 <div class="summary-card">
                                     <div class="summary-info">
-                                        <div class="summary-value">@ComparisonRows.Sum(r => r.AmountVariance).ToString("N0")</div>
-                                        <div class="summary-label">הפרש סכום (₪)</div>
+                                        <div class="summary-value">@ComparisonRows.Sum(r => r.SalaryAmount).ToString("N0")</div>
+                                        <div class="summary-label">סה"כ שכר בפועל (₪)</div>
+                                    </div>
+                                </div>
+                                <div class="summary-card">
+                                    <div class="summary-info">
+                                        <div class="summary-value">@ComparisonRows.Sum(r => r.MeitarAmount).ToString("N0")</div>
+                                        <div class="summary-label">הכנסת מיתר (₪)</div>
+                                    </div>
+                                </div>
+                                <div class="summary-card">
+                                    <div class="summary-info">
+                                        <div class="summary-value">@ComparisonRows.Sum(r => r.SalaryAmountVariance).ToString("N0")</div>
+                                        <div class="summary-label">הפרש שכר (₪)</div>
                                     </div>
                                 </div>
                             </div>
+
+                            <BudgetTrendChart Comparisons="_budget?.Comparisons ?? new List<YearlyBudgetComparisonDto>()"
+                                              Months="ComparisonMonths"
+                                              MonthSelected="OnTrendMonthSelected" />
 
                             <div class="table-container">
                                 <table class="data-table">
                                     <thead>
                                         <tr>
                                             <th>סוג סייעת</th>
-                                            <th>רשומות שכר</th>
-                                            <th>משרות בפועל</th>
-                                            <th>שעות בפועל</th>
-                                            <th>סכום בפועל</th>
-                                            <th>משרות תקציב</th>
-                                            <th>שעות תקציב</th>
                                             <th>סכום תקציב</th>
-                                            <th>הפרש סכום</th>
+                                            <th>סכום שכר</th>
+                                            <th>הכנסת מיתר</th>
+                                            <th>הפרש שכר</th>
+                                            <th>משרות תקציב</th>
+                                            <th>משרות שכר</th>
+                                            <th>הפרש משרות</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -306,14 +325,13 @@
                                         {
                                             <tr>
                                                 <td>@row.AssistantTypeName</td>
-                                                <td>@row.RowCount</td>
-                                                <td>@row.ActualFte.ToString("N2")</td>
-                                                <td>@row.ActualHours.ToString("N2")</td>
-                                                <td>@row.ActualAmount.ToString("N2")</td>
-                                                <td>@(row.HasBudget ? row.BudgetFte?.ToString("N2") : "—")</td>
-                                                <td>@(row.HasBudget ? row.BudgetHours?.ToString("N2") : "—")</td>
-                                                <td>@(row.HasBudget ? row.BudgetAmount?.ToString("N2") : "—")</td>
-                                                <td>@(row.HasBudget ? row.AmountVariance.ToString("N2") : "—")</td>
+                                                <td>@row.BudgetAmount.ToString("N2")</td>
+                                                <td>@row.SalaryAmount.ToString("N2")</td>
+                                                <td>@row.MeitarAmount.ToString("N2")</td>
+                                                <td>@row.SalaryAmountVariance.ToString("N2")</td>
+                                                <td>@row.BudgetFte.ToString("N2")</td>
+                                                <td>@row.SalaryFte.ToString("N2")</td>
+                                                <td>@row.SalaryFteVariance.ToString("N2")</td>
                                             </tr>
                                         }
                                     </tbody>
@@ -506,7 +524,6 @@
     private bool _showAddTypesModal;
     private HashSet<int> _selectedTypeIdsToAdd = new();
     private string _activeTab = "budget";
-    private List<MonthSummaryLineDto> _actualLines = new();
     private int _compareMonthYear;
     private int _compareMonth;
 
@@ -556,88 +573,52 @@
         }
     }
 
-    private decimal YearActualTotal => _actualLines.Sum(l => l.Amount);
+    private IEnumerable<YearlyBudgetComparisonDto> ComparisonSource =>
+        (_budget?.Comparisons ?? new List<YearlyBudgetComparisonDto>())
+            .Where(l => _compareMonthYear == 0
+                || (l.PeriodYear == _compareMonthYear && l.PeriodMonth == _compareMonth));
+
+    private decimal YearActualTotal =>
+        (_budget?.Comparisons ?? new List<YearlyBudgetComparisonDto>()).Sum(l => l.SalaryAmount);
 
     private decimal GetActualMonthTotal(int year, int month) =>
-        _actualLines.Where(l => l.PeriodYear == year && l.PeriodMonth == month).Sum(l => l.Amount);
+        (_budget?.Comparisons ?? new List<YearlyBudgetComparisonDto>())
+            .Where(l => l.PeriodYear == year && l.PeriodMonth == month)
+            .Sum(l => l.SalaryAmount);
 
     private List<ComparisonRow> ComparisonRows
     {
         get
         {
-            var actualQuery = _compareMonthYear == 0
-                ? _actualLines
-                : _actualLines.Where(l => l.PeriodYear == _compareMonthYear && l.PeriodMonth == _compareMonth);
-
             const int unmappedKey = -1;
-            var actualByType = actualQuery
+            return ComparisonSource
                 .GroupBy(l => l.AssistantTypeId ?? unmappedKey)
-                .ToDictionary(
-                    g => g.Key,
-                    g => new
-                    {
-                        Name = g.Select(x => x.AssistantTypeName).FirstOrDefault(n => !string.IsNullOrEmpty(n)) ?? "לא ממופה",
-                        RowCount = g.Sum(x => x.RowCount),
-                        Fte = g.Sum(x => x.Fte),
-                        Hours = g.Sum(x => x.Hours),
-                        Amount = g.Sum(x => x.Amount)
-                    });
-
-            var budgetItems = new Dictionary<int, (string Name, decimal Fte, decimal Hours, decimal Amount)>();
-            if (_compareMonthYear == 0)
-            {
-                foreach (var d in _editDetails)
-                    budgetItems[d.AssistantTypeId] = (d.AssistantTypeName, d.Fte, d.Hours, d.Amount);
-            }
-            else if (_budget != null)
-            {
-                foreach (var m in _budget.MonthDetails.Where(x => x.PeriodYear == _compareMonthYear && x.PeriodMonth == _compareMonth))
-                    budgetItems[m.AssistantTypeId] = (m.AssistantTypeName, m.Fte, m.Hours, m.Amount);
-            }
-
-            var typeIds = actualByType.Keys
-                .Concat(budgetItems.Keys)
-                .Distinct()
-                .OrderBy(id => id == unmappedKey)
-                .ThenBy(id => id)
-                .ToList();
-
-            var rows = new List<ComparisonRow>();
-            foreach (var typeId in typeIds)
-            {
-                actualByType.TryGetValue(typeId, out var actual);
-                (string Name, decimal Fte, decimal Hours, decimal Amount) budget = ("", 0, 0, 0);
-                var hasBudget = typeId != unmappedKey && budgetItems.TryGetValue(typeId, out budget);
-                rows.Add(new ComparisonRow
+                .OrderBy(g => g.Key == unmappedKey)
+                .ThenBy(g => g.Key)
+                .Select(g => new ComparisonRow
                 {
-                    AssistantTypeName = actual?.Name ?? (hasBudget ? budget.Name : "לא ממופה"),
-                    RowCount = actual?.RowCount ?? 0,
-                    ActualFte = actual?.Fte ?? 0,
-                    ActualHours = actual?.Hours ?? 0,
-                    ActualAmount = actual?.Amount ?? 0,
-                    HasBudget = hasBudget,
-                    BudgetFte = hasBudget ? budget.Fte : null,
-                    BudgetHours = hasBudget ? budget.Hours : null,
-                    BudgetAmount = hasBudget ? budget.Amount : null
-                });
-            }
-
-            return rows;
+                    AssistantTypeName = g.Select(x => x.AssistantTypeName).FirstOrDefault(n => !string.IsNullOrEmpty(n))
+                        ?? "לא ממופה",
+                    BudgetAmount = g.Sum(x => x.BudgetAmount),
+                    SalaryAmount = g.Sum(x => x.SalaryAmount),
+                    MeitarAmount = g.Sum(x => x.MeitarAmount),
+                    BudgetFte = g.Sum(x => x.BudgetFte),
+                    SalaryFte = g.Sum(x => x.SalaryFte)
+                })
+                .ToList();
         }
     }
 
     private sealed class ComparisonRow
     {
         public string AssistantTypeName { get; set; } = string.Empty;
-        public int RowCount { get; set; }
-        public decimal ActualFte { get; set; }
-        public decimal ActualHours { get; set; }
-        public decimal ActualAmount { get; set; }
-        public bool HasBudget { get; set; }
-        public decimal? BudgetFte { get; set; }
-        public decimal? BudgetHours { get; set; }
-        public decimal? BudgetAmount { get; set; }
-        public decimal AmountVariance => ActualAmount - (BudgetAmount ?? 0);
+        public decimal BudgetAmount { get; set; }
+        public decimal SalaryAmount { get; set; }
+        public decimal MeitarAmount { get; set; }
+        public decimal BudgetFte { get; set; }
+        public decimal SalaryFte { get; set; }
+        public decimal SalaryAmountVariance => SalaryAmount - BudgetAmount;
+        public decimal SalaryFteVariance => SalaryFte - BudgetFte;
     }
 
     protected override async Task OnPageInitializedAsync()
@@ -645,7 +626,6 @@
         await LoadYearNameAsync();
         await LoadAssistantTypesAsync();
         await LoadLastBudgetAsync();
-        await LoadActualsAsync();
     }
 
     protected override async Task OnParametersSetAsync()
@@ -654,7 +634,6 @@
         {
             await LoadYearNameAsync();
             await LoadLastBudgetAsync();
-            await LoadActualsAsync();
         }
     }
 
@@ -664,7 +643,6 @@
             await LoadBudgetByIdAsync(_budget.Id);
         else
             await LoadLastBudgetAsync();
-        await LoadActualsAsync();
     }
 
     private async Task LoadYearNameAsync()
@@ -708,19 +686,9 @@
         _compareMonth = month;
     }
 
-    private async Task LoadActualsAsync()
+    private void OnTrendMonthSelected((int PeriodYear, int PeriodMonth) period)
     {
-        try
-        {
-            var response = await ApiService.GetAsync<ApiResponse<YearMonthSummariesResponse>>(
-                $"salary-month-summaries/for-year?yearId={YearId}");
-            _actualLines = response?.Data?.Lines ?? new();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error loading salary vs budget: {ex.Message}");
-            _actualLines = new();
-        }
+        SelectCompareMonth(period.PeriodYear, period.PeriodMonth);
     }
 
     private void ShowAddAssistantTypesModal()
@@ -884,6 +852,39 @@
         catch (Exception ex)
         {
             await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירה: {ex.Message}");
+        }
+    }
+
+    private async Task RecalculateSummaries()
+    {
+        if (_budget == null || _budget.Id <= 0)
+            return;
+
+        _isLoading = true;
+        _error = "";
+        try
+        {
+            var response = await ApiService.PostAsync<object, ApiResponse<YearlyBudgetDto>>(
+                $"yearly-budgets/{_budget.Id}/recalculate-summaries", new { });
+
+            if (response?.Success == true && response.Data != null)
+            {
+                ApplyBudget(response.Data);
+                _activeTab = "vs-budget";
+                await JSRuntime.InvokeVoidAsync("alert", "סיכומי השכר והמיתר חושבו מחדש");
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בחישוב הסיכומים");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בחישוב הסיכומים: {ex.Message}");
+        }
+        finally
+        {
+            _isLoading = false;
         }
     }
 

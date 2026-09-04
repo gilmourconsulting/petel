@@ -120,6 +120,9 @@
     [SupplyParameterFromQuery(Name = "fromYear")]
     public int? FromYear { get; set; }
 
+    [SupplyParameterFromQuery(Name = "fromGregorianYear")]
+    public int? FromGregorianYear { get; set; }
+
     [SupplyParameterFromQuery(Name = "year")]
     public int? Year { get; set; }
 
@@ -143,6 +146,12 @@
         {
             _filterYear = Year.Value;
             _filterMonth = Month.Value;
+        }
+        else if (FromGregorianYear.HasValue)
+        {
+            var previous = DateTime.Today.AddMonths(-1);
+            _filterYear = FromGregorianYear.Value;
+            _filterMonth = previous.Year == FromGregorianYear.Value ? previous.Month : 1;
         }
         else
         {
@@ -178,8 +187,13 @@
 
     private void NavigateBack()
     {
-        var qs = FromYear.HasValue ? $"?fromYear={FromYear.Value}" : "";
-        Navigation.NavigateTo($"/meitar-data{qs}");
+        if (FromGregorianYear.HasValue)
+            Navigation.NavigateTo($"/meitar-data?fromGregorianYear={FromGregorianYear.Value}");
+        else
+        {
+            var qs = FromYear.HasValue ? $"?fromYear={FromYear.Value}" : "";
+            Navigation.NavigateTo($"/meitar-data{qs}");
+        }
     }
 
     private static string GetMonthLabel(int month) =>

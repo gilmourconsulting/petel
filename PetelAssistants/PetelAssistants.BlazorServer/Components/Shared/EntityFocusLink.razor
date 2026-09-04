@@ -1,0 +1,31 @@
+@if (CanLink)
+{
+    <a href="@Href" class="entity-focus-link" @onclick:stopPropagation="true">@LinkBody</a>
+}
+else
+{
+    @LinkBody
+}
+
+@code {
+    [Parameter] public string Screen { get; set; } = string.Empty;
+    [Parameter] public int YearId { get; set; }
+    [Parameter] public int? Id { get; set; }
+    [Parameter] public string Fallback { get; set; } = "—";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private bool CanLink =>
+        Id is > 0 && YearId > 0 && !string.IsNullOrWhiteSpace(Screen);
+
+    private string Href => EntityFocus.ToYearScreen(Screen, YearId, Id!.Value);
+
+    private RenderFragment LinkBody => builder =>
+    {
+        if (ChildContent != null)
+            ChildContent(builder);
+        else if (Id.HasValue)
+            builder.AddContent(0, Id.Value);
+        else
+            builder.AddContent(0, Fallback);
+    };
+}

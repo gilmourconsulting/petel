@@ -123,6 +123,7 @@ namespace PetelAssistants.BlazorServer.DTOs
         public int MasterEntitlementId { get; set; }
         public int Version { get; set; }
         public int HebrewYearId { get; set; }
+        public string HebrewYearName { get; set; } = string.Empty;
         public int AssistantTypeId { get; set; }
         public string AssistantTypeName { get; set; } = string.Empty;
         public string? AssistantTypeLevel { get; set; }

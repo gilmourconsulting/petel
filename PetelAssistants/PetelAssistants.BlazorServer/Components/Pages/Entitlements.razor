@@ -196,7 +196,8 @@
                                 {
                                     bool isPersonal = IsPersonalLevel(item.AssistantTypeLevel);
                                     bool isSelected = _selectedEntitlement?.Id == item.Id;
-                                    <tr class="@(item.IsActive ? "" : "row-inactive") @(isSelected ? "row-selected" : "")"
+                                    <tr id="@EntityFocus.RowElementId(item.Id)"
+                                        class="@(item.IsActive ? "" : "row-inactive") @(isSelected ? "row-selected" : "")"
                                         style="cursor: pointer;"
                                         @onclick="() => SelectEntitlement(item)">
                                         <td @onclick:stopPropagation="true">
@@ -315,7 +316,9 @@
                     @if (_dockTab == "allocations")
                     {
                         <AllocationsPanel ViewMode="AllocationsViewMode.ByEntitlement"
+                                          YearId="YearId"
                                           Allocations="_allocations"
+                                          FocusedAllocationId="AllocationFocusId"
                                           IsLoading="_isLoadingAllocations"
                                           ShowAddButton="true"
                                           ShowChrome="false"
@@ -960,6 +963,12 @@
     [SupplyParameterFromQuery(Name = "personId")]
     public int? FromPersonId { get; set; }
 
+    [SupplyParameterFromQuery(Name = EntityFocus.QueryParam)]
+    public int? FocusId { get; set; }
+
+    [SupplyParameterFromQuery(Name = EntityFocus.AllocationQueryParam)]
+    public int? AllocationFocusId { get; set; }
+
     protected override string PageName => "entitlements";
 
     private string _yearName = "";
@@ -1016,6 +1025,9 @@
     private double _dockResizeStartY;
     private int _dockResizeStartHeight;
     private ElementReference _dockHandleRef;
+    private int? _appliedFocusId;
+    private int? _appliedAllocationFocusId;
+    private bool _pendingAllocationFocusScroll;
 
     private bool _showResolveDialog;
     private bool _isSavingResolve;
@@ -1057,6 +1069,7 @@
         await LoadLookupsAsync();
         await LoadDataAsync();
         await LoadDefaultPersonAsync();
+        await ApplyFocusIfNeededAsync();
     }
 
     private async Task LoadDefaultPersonAsync()
@@ -1090,7 +1103,37 @@
         {
             await LoadLookupsAsync();
             await LoadDataAsync();
+            await ApplyFocusIfNeededAsync();
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_pendingAllocationFocusScroll || !AllocationFocusId.HasValue)
+            return;
+
+        _pendingAllocationFocusScroll = false;
+        await EntityFocus.ScrollToRowAsync(JSRuntime, AllocationFocusId.Value);
+    }
+
+    private async Task ApplyFocusIfNeededAsync()
+    {
+        if (!FocusId.HasValue ||
+            (FocusId == _appliedFocusId && AllocationFocusId == _appliedAllocationFocusId))
+            return;
+
+        var item = _items.FirstOrDefault(i => i.Id == FocusId.Value);
+        _appliedFocusId = FocusId;
+        _appliedAllocationFocusId = AllocationFocusId;
+        if (item == null)
+            return;
+
+        _selectedEntitlement = item;
+        _allocations = new();
+        _dockTab = AllocationFocusId.HasValue ? "allocations" : "details";
+        await LoadAllocationsAsync(item.Id);
+        if (AllocationFocusId.HasValue)
+            _pendingAllocationFocusScroll = true;
     }
 
     private async Task LoadLookupsAsync()

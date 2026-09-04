@@ -1,0 +1,362 @@
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+<div class="trend-chart">
+    <div class="trend-chart-toolbar">
+        <div class="trend-seg" role="group" aria-label="השוואה">
+            <button type="button"
+                    class="trend-seg-btn @(_pair == PairBudgetIncome ? "active" : null)"
+                    disabled="@FteBlocksMeitar"
+                    @onclick="() => SetPair(PairBudgetIncome)">
+                תקציב מול הכנסה
+            </button>
+            <button type="button"
+                    class="trend-seg-btn @(_pair == PairBudgetExpense ? "active" : null)"
+                    @onclick="() => SetPair(PairBudgetExpense)">
+                תקציב מול הוצאות
+            </button>
+            <button type="button"
+                    class="trend-seg-btn @(_pair == PairIncomeExpense ? "active" : null)"
+                    disabled="@FteBlocksMeitar"
+                    @onclick="() => SetPair(PairIncomeExpense)">
+                הכנסה מול הוצאות
+            </button>
+        </div>
+
+        <div class="trend-seg" role="group" aria-label="יחידה">
+            <button type="button"
+                    class="trend-seg-btn @(_unit == UnitMoney ? "active" : null)"
+                    @onclick="() => SetUnit(UnitMoney)">
+                כסף
+            </button>
+            <button type="button"
+                    class="trend-seg-btn @(_unit == UnitFte ? "active" : null)"
+                    @onclick="() => SetUnit(UnitFte)">
+                משרות
+            </button>
+        </div>
+
+        <div class="trend-seg" role="group" aria-label="סדרה">
+            <button type="button"
+                    class="trend-seg-btn @(_seriesMode == ModeCumulative ? "active" : null)"
+                    @onclick="() => _seriesMode = ModeCumulative">
+                מצטבר
+            </button>
+            <button type="button"
+                    class="trend-seg-btn @(_seriesMode == ModeMonthly ? "active" : null)"
+                    @onclick="() => _seriesMode = ModeMonthly">
+                חודשי
+            </button>
+        </div>
+
+        <select class="form-control trend-chart-type"
+                value="@_typeFilter"
+                @onchange="OnTypeChanged"
+                aria-label="סוג סייעת">
+            <option value="@TypeAll">הכל</option>
+            @foreach (var type in TypeOptions)
+            {
+                <option value="@type.Key">@type.Name</option>
+            }
+        </select>
+    </div>
+
+    @if (FteBlocksMeitar)
+    {
+        <p class="trend-chart-note">הכנסת מיתר אינה נמדדת במשרות.</p>
+    }
+
+    <div class="trend-chart-canvas-wrap">
+        <canvas id="@_canvasId"></canvas>
+    </div>
+</div>
+
+@code {
+    private const string PairBudgetIncome = "budget-income";
+    private const string PairBudgetExpense = "budget-expense";
+    private const string PairIncomeExpense = "income-expense";
+    private const string UnitMoney = "money";
+    private const string UnitFte = "fte";
+    private const string ModeCumulative = "cumulative";
+    private const string ModeMonthly = "monthly";
+    private const string TypeAll = "all";
+    private const string TypeUnmapped = "unmapped";
+    private const string ColorBudget = "#007bff";
+    private const string ColorSalary = "#e67e22";
+    private const string ColorMeitar = "#28a745";
+
+    [Parameter] public List<YearlyBudgetComparisonDto> Comparisons { get; set; } = new();
+    [Parameter] public List<(int PeriodYear, int PeriodMonth)> Months { get; set; } = new();
+    [Parameter] public EventCallback<(int PeriodYear, int PeriodMonth)> MonthSelected { get; set; }
+
+    private readonly string _canvasId = $"budget-trend-{Guid.NewGuid():N}";
+    private DotNetObjectReference<BudgetTrendChart>? _dotNetRef;
+    private string _pair = PairBudgetExpense;
+    private string _unit = UnitMoney;
+    private string _seriesMode = ModeCumulative;
+    private string _typeFilter = TypeAll;
+
+    private bool FteBlocksMeitar => _unit == UnitFte;
+    private bool PairUsesMeitar => _pair is PairBudgetIncome or PairIncomeExpense;
+
+    private IEnumerable<YearlyBudgetComparisonDto> FilteredComparisons
+    {
+        get
+        {
+            if (_typeFilter == TypeAll)
+                return Comparisons;
+            if (_typeFilter == TypeUnmapped)
+                return Comparisons.Where(c => c.AssistantTypeId is null);
+            if (int.TryParse(_typeFilter, out var typeId))
+                return Comparisons.Where(c => c.AssistantTypeId == typeId);
+            return Comparisons;
+        }
+    }
+
+    private List<(string Key, string Name)> TypeOptions =>
+        Comparisons
+            .GroupBy(c => c.AssistantTypeId)
+            .OrderBy(g => g.Key is null)
+            .ThenBy(g => g.Select(x => x.AssistantTypeName).FirstOrDefault(n => !string.IsNullOrEmpty(n)) ?? "")
+            .Select(g => (
+                Key: g.Key is null ? TypeUnmapped : g.Key.Value.ToString(),
+                Name: g.Select(x => x.AssistantTypeName).FirstOrDefault(n => !string.IsNullOrEmpty(n))
+                    ?? "לא ממופה"))
+            .ToList();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            _dotNetRef = DotNetObjectReference.Create(this);
+
+        await RenderChartAsync();
+    }
+
+    [JSInvokable]
+    public async Task OnChartMonthClicked(int periodYear, int periodMonth)
+    {
+        if (MonthSelected.HasDelegate)
+            await MonthSelected.InvokeAsync((periodYear, periodMonth));
+    }
+
+    private void SetPair(string pair)
+    {
+        if (FteBlocksMeitar && pair != PairBudgetExpense)
+            return;
+        _pair = pair;
+    }
+
+    private void SetUnit(string unit)
+    {
+        _unit = unit;
+        if (unit == UnitFte && PairUsesMeitar)
+            _pair = PairBudgetExpense;
+    }
+
+    private void OnTypeChanged(ChangeEventArgs e)
+    {
+        _typeFilter = e.Value?.ToString() ?? TypeAll;
+    }
+
+    private async Task RenderChartAsync()
+    {
+        if (_dotNetRef is null || Months.Count == 0)
+            return;
+
+        try
+        {
+            await JSRuntime.InvokeVoidAsync(
+                "BlazorHelpers.budgetTrendChart.update",
+                _canvasId,
+                BuildPayload(),
+                _dotNetRef);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (JSException)
+        {
+        }
+    }
+
+    private ChartPayload BuildPayload()
+    {
+        var includeYear = Months.Select(m => m.PeriodYear).Distinct().Count() > 1;
+        var byMonth = FilteredComparisons
+            .GroupBy(c => (c.PeriodYear, c.PeriodMonth))
+            .ToDictionary(
+                g => g.Key,
+                g => new MonthAgg(
+                    g.Sum(x => x.BudgetAmount),
+                    g.Sum(x => x.BudgetFte),
+                    g.Sum(x => x.SalaryAmount),
+                    g.Sum(x => x.SalaryFte),
+                    g.Sum(x => x.SalaryRowCount),
+                    g.Sum(x => x.MeitarAmount),
+                    g.Sum(x => x.MeitarRowCount)));
+
+        var isMoney = _unit == UnitMoney;
+        var (left, right) = ResolveSeries();
+
+        return new ChartPayload
+        {
+            Labels = Months.Select(m => FormatLabel(m.PeriodMonth, m.PeriodYear, includeYear)).ToList(),
+            Months = Months.Select(m => new ChartMonth
+            {
+                PeriodYear = m.PeriodYear,
+                PeriodMonth = m.PeriodMonth
+            }).ToList(),
+            IsMoney = isMoney,
+            Series = new List<ChartSeries>
+            {
+                BuildSeries(left, byMonth, isMoney),
+                BuildSeries(right, byMonth, isMoney)
+            }
+        };
+    }
+
+    private (SeriesDef Left, SeriesDef Right) ResolveSeries() => _pair switch
+    {
+        PairBudgetIncome => (
+            new SeriesDef("תקציב", ColorBudget, SourceKind.Budget, CutoffKind.None),
+            new SeriesDef("הכנסה", ColorMeitar, SourceKind.Meitar, CutoffKind.Meitar)),
+        PairIncomeExpense => (
+            new SeriesDef("הכנסה", ColorMeitar, SourceKind.Meitar, CutoffKind.Meitar),
+            new SeriesDef("הוצאות", ColorSalary, SourceKind.Salary, CutoffKind.Salary)),
+        _ => (
+            new SeriesDef("תקציב", ColorBudget, SourceKind.Budget, CutoffKind.None),
+            new SeriesDef("הוצאות", ColorSalary, SourceKind.Salary, CutoffKind.Salary))
+    };
+
+    private ChartSeries BuildSeries(SeriesDef def, Dictionary<(int PeriodYear, int PeriodMonth), MonthAgg> byMonth, bool isMoney)
+    {
+        var monthly = new decimal[Months.Count];
+        var hasImport = new bool[Months.Count];
+        for (var i = 0; i < Months.Count; i++)
+        {
+            byMonth.TryGetValue(Months[i], out var agg);
+            agg ??= MonthAgg.Empty;
+            monthly[i] = def.Source switch
+            {
+                SourceKind.Salary => isMoney ? agg.SalaryAmount : agg.SalaryFte,
+                SourceKind.Meitar => agg.MeitarAmount,
+                _ => isMoney ? agg.BudgetAmount : agg.BudgetFte
+            };
+            hasImport[i] = def.Cutoff switch
+            {
+                CutoffKind.Salary => agg.SalaryRowCount > 0,
+                CutoffKind.Meitar => agg.MeitarRowCount > 0,
+                _ => true
+            };
+        }
+
+        var lastIndex = Months.Count - 1;
+        if (def.Cutoff != CutoffKind.None)
+        {
+            lastIndex = -1;
+            for (var i = 0; i < Months.Count; i++)
+            {
+                if (hasImport[i])
+                    lastIndex = i;
+            }
+        }
+
+        var values = new List<double?>(Months.Count);
+        decimal running = 0;
+        for (var i = 0; i < Months.Count; i++)
+        {
+            if (i > lastIndex)
+            {
+                values.Add(null);
+                continue;
+            }
+
+            running += monthly[i];
+            var value = _seriesMode == ModeCumulative ? running : monthly[i];
+            values.Add((double)value);
+        }
+
+        return new ChartSeries
+        {
+            Label = def.Label,
+            Color = def.Color,
+            Values = values
+        };
+    }
+
+    private static string FormatLabel(int month, int year, bool includeYear)
+    {
+        var name = month switch
+        {
+            1 => "ינואר",
+            2 => "פברואר",
+            3 => "מרץ",
+            4 => "אפריל",
+            5 => "מאי",
+            6 => "יוני",
+            7 => "יולי",
+            8 => "אוגוסט",
+            9 => "ספטמבר",
+            10 => "אוקטובר",
+            11 => "נובמבר",
+            12 => "דצמבר",
+            _ => month.ToString()
+        };
+        return includeYear ? $"{name} {year}" : name;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("BlazorHelpers.budgetTrendChart.dispose", _canvasId);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (JSException)
+        {
+        }
+
+        _dotNetRef?.Dispose();
+        _dotNetRef = null;
+    }
+
+    private readonly record struct SeriesDef(string Label, string Color, SourceKind Source, CutoffKind Cutoff);
+
+    private enum SourceKind { Budget, Salary, Meitar }
+    private enum CutoffKind { None, Salary, Meitar }
+
+    private sealed record MonthAgg(
+        decimal BudgetAmount,
+        decimal BudgetFte,
+        decimal SalaryAmount,
+        decimal SalaryFte,
+        int SalaryRowCount,
+        decimal MeitarAmount,
+        int MeitarRowCount)
+    {
+        public static MonthAgg Empty { get; } = new(0, 0, 0, 0, 0, 0, 0);
+    }
+
+    private sealed class ChartPayload
+    {
+        public List<string> Labels { get; set; } = new();
+        public List<ChartMonth> Months { get; set; } = new();
+        public bool IsMoney { get; set; }
+        public List<ChartSeries> Series { get; set; } = new();
+    }
+
+    private sealed class ChartMonth
+    {
+        public int PeriodYear { get; set; }
+        public int PeriodMonth { get; set; }
+    }
+
+    private sealed class ChartSeries
+    {
+        public string Label { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+        public List<double?> Values { get; set; } = new();
+    }
+}

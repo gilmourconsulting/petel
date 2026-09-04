@@ -2,28 +2,11 @@
 @layout MainLayout
 @inherits SecurePageBase
 @using PetelAssistants.BlazorServer.Models
+@using PetelAssistants.BlazorServer.DTOs
 @inject ApiService ApiService
 
 <!-- Context Buttons -->
 <div class="context-buttons-section">
-    @if (_previousYear != null)
-    {
-        <button class="context-btn" @onclick="() => NavigateToYear(_previousYear)">
-            @_previousYear.YearName
-        </button>
-    }
-
-    @if (_currentYear != null)
-    {
-        <button class="context-btn active" @onclick="() => NavigateToYear(_currentYear)">
-            @_currentYear.YearName
-        </button>
-    }
-
-    <button class="context-navigation-btn" @onclick="OpenYearModal">
-        בחר שנה
-    </button>
-
     <SecureButton ActionName="maindashboard_org_units" ScreenName="@PageName" FunctionName="NavigateToOrgUnits"
                   OnClick="NavigateToOrgUnits" CssClass="context-navigation-btn" HideIfNoAccess="true">
         בתי ספר וגנים
@@ -67,21 +50,97 @@
         }
         else
         {
-            <div class="content-card" style="max-width: 600px; margin: 20px auto; text-align: center;">
-                <h2 style="color: var(--text-primary); margin-bottom: 10px;">ברוכים הבאים</h2>
-                <p style="color: var(--text-muted);">לחצו על שנה לתחילת העבודה</p>
+            <div class="content-card dashboard-year-picker-card">
+                <h2 class="dashboard-welcome-title">ברוכים הבאים</h2>
+                <p class="dashboard-welcome-subtitle">לחצו על שנה לתחילת העבודה</p>
+
+                <div class="dashboard-year-picker">
+                    <div class="dashboard-year-column">
+                        <h3 class="dashboard-year-column-title">שנה לועזית</h3>
+                        <div class="dashboard-year-column-buttons">
+                            @if (_gregorianPrevious != null)
+                            {
+                                <button class="context-btn" @onclick="() => NavigateToGregorian(_gregorianPrevious.Year)">
+                                    @_gregorianPrevious.Year
+                                </button>
+                            }
+                            @if (_gregorianCurrent != null)
+                            {
+                                <button class="context-btn active" @onclick="() => NavigateToGregorian(_gregorianCurrent.Year)">
+                                    @_gregorianCurrent.Year
+                                </button>
+                            }
+                            <button class="context-navigation-btn" @onclick="OpenGregorianYearModal">
+                                בחר שנה
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-year-column">
+                        <h3 class="dashboard-year-column-title">שנת לימודים</h3>
+                        <div class="dashboard-year-column-buttons">
+                            @if (_previousYear != null)
+                            {
+                                <button class="context-btn" @onclick="() => NavigateToYear(_previousYear)">
+                                    @_previousYear.YearName
+                                </button>
+                            }
+                            @if (_currentYear != null)
+                            {
+                                <button class="context-btn active" @onclick="() => NavigateToYear(_currentYear)">
+                                    @_currentYear.YearName
+                                </button>
+                            }
+                            <button class="context-navigation-btn" @onclick="OpenYearModal">
+                                בחר שנה
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         }
     </div>
 </div>
 
-<!-- Year Selection Modal -->
+@if (_showGregorianYearModal)
+{
+    <div class="modal-overlay" @onclick="CloseGregorianYearModal">
+        <div class="modal-content" style="max-width: 400px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h2>בחר שנה לועזית</h2>
+                <button class="modal-close" @onclick="CloseGregorianYearModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_allGregorianYears.Count == 0)
+                {
+                    <p style="color: var(--text-muted); text-align: center;">אין שנים זמינות</p>
+                }
+                else
+                {
+                    <div style="display: flex; flex-direction: column; gap: 10px;">
+                        @foreach (var year in _allGregorianYears)
+                        {
+                            <button class="context-btn"
+                                    @onclick="() => NavigateToGregorian(year.Year)"
+                                    style="text-align: center; font-size: 16px;">
+                                @year.Year
+                                @if (year.IsCurrent)  { <span style="font-size: 11px; margin-right: 8px; opacity: 0.7;">(שנה נוכחית)</span> }
+                                @if (year.IsPrevious) { <span style="font-size: 11px; margin-right: 8px; opacity: 0.7;">(שנה קודמת)</span> }
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
 @if (_showYearModal)
 {
     <div class="modal-overlay" @onclick="CloseYearModal">
         <div class="modal-content" style="max-width: 400px;" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h2>בחר שנה</h2>
+                <h2>בחר שנת לימודים</h2>
                 <button class="modal-close" @onclick="CloseYearModal">&times;</button>
             </div>
             <div class="modal-body">
@@ -120,8 +179,13 @@
     private YearDto?      _previousYear = null;
     private List<YearDto> _allYears     = new();
 
+    private GregorianYearDto?      _gregorianCurrent  = null;
+    private GregorianYearDto?      _gregorianPrevious = null;
+    private List<GregorianYearDto> _allGregorianYears = new();
+
     private bool _isLoading     = true;
     private bool _showYearModal = false;
+    private bool _showGregorianYearModal = false;
     private SalaryUploadModal? _salaryUploadModal;
     private MeitarRetrieveModal? _meitarRetrieveModal;
 
@@ -135,12 +199,24 @@
     {
         try
         {
-            var context = await ApiService.GetAsync<YearContextDto>("years/context");
+            var schoolTask = ApiService.GetAsync<YearContextDto>("years/context");
+            var gregorianTask = ApiService.GetAsync<GregorianYearContextDto>("gregorian-years/context");
+            await Task.WhenAll(schoolTask, gregorianTask);
+
+            var context = schoolTask.Result;
             if (context != null)
             {
                 _currentYear  = context.CurrentYear;
                 _previousYear = context.PreviousYear;
                 _allYears     = context.AllYears;
+            }
+
+            var gregorian = gregorianTask.Result;
+            if (gregorian != null)
+            {
+                _gregorianCurrent  = gregorian.CurrentYear;
+                _gregorianPrevious = gregorian.PreviousYear;
+                _allGregorianYears = gregorian.AllYears;
             }
         }
         catch (Exception ex)
@@ -150,9 +226,12 @@
     }
 
     private void NavigateToYear(YearDto year) => Navigation.NavigateTo($"/year/{year.Id}");
+    private void NavigateToGregorian(int year) => Navigation.NavigateTo($"/gregorian/{year}");
 
     private void OpenYearModal()  => _showYearModal = true;
     private void CloseYearModal() => _showYearModal = false;
+    private void OpenGregorianYearModal()  => _showGregorianYearModal = true;
+    private void CloseGregorianYearModal() => _showGregorianYearModal = false;
 
     private void ShowSalaryUploadDialog() => _salaryUploadModal?.Show();
     private async Task ShowMeitarRetrieveDialog()
@@ -162,10 +241,7 @@
     }
 
     private void NavigateToOrgUnits() => Navigation.NavigateTo("/org-units");
-
     private void NavigateToSalaries() => Navigation.NavigateTo("/salaries");
-
     private void NavigateToMeitarData() => Navigation.NavigateTo("/meitar-data");
-
     private void NavigateToDeptMap() => Navigation.NavigateTo("/salary-department-mappings");
 }

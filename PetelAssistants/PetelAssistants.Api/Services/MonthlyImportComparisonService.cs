@@ -36,6 +36,7 @@ namespace PetelAssistants.Api.Services
 
             await RebuildSalarySummariesAsync(process, userId);
             await RebuildSalaryAnomaliesAsync(process, userId);
+            await RebuildComparisonsForPeriodAsync(process.PeriodYear, process.PeriodMonth, userId);
         }
 
         public async Task RebuildMeitarProcessAsync(int processId, int? userId)
@@ -48,6 +49,209 @@ namespace PetelAssistants.Api.Services
             }
 
             await RebuildMeitarSummariesAsync(process, userId);
+            await RebuildComparisonsForPeriodAsync(process.PeriodYear, process.PeriodMonth, userId);
+        }
+
+        /// <summary>
+        /// Force-rebuilds salary and Meitar month summaries for every month in the budget's
+        /// Hebrew year (latest process per month, current mappings), then rebuilds
+        /// <c>yearly_budget_comparisons</c> for every non-deleted version of that year.
+        /// </summary>
+        public async Task RecalculateYearSummariesAsync(int yearlyBudgetId, int? userId)
+        {
+            var budget = await _context.YearlyBudgets.FirstOrDefaultAsync(b => b.Id == yearlyBudgetId);
+            if (budget == null || budget.Status == YearlyBudgetStatuses.Deleted)
+                throw new InvalidOperationException("תקציב לא נמצא");
+
+            var year = await _shared.HebrewYears.AsNoTracking()
+                .FirstOrDefaultAsync(y => y.Id == budget.HebrewYearId)
+                ?? throw new InvalidOperationException("שנה לא נמצאה");
+
+            var months = YearlyBudgetService.GetMonthsInYear(year);
+            foreach (var (periodYear, periodMonth) in months)
+                await EnsurePeriodSummariesAsync(periodYear, periodMonth, userId, force: true);
+
+            var budgetIds = await _context.YearlyBudgets
+                .Where(b => b.HebrewYearId == budget.HebrewYearId && b.Status != YearlyBudgetStatuses.Deleted)
+                .Select(b => b.Id)
+                .ToListAsync();
+
+            foreach (var budgetId in budgetIds)
+                await RebuildBudgetComparisonsAsync(budgetId, userId);
+        }
+
+        public async Task RebuildBudgetComparisonsAsync(int yearlyBudgetId, int? userId)
+        {
+            var budget = await _context.YearlyBudgets.FirstOrDefaultAsync(b => b.Id == yearlyBudgetId);
+            if (budget == null || budget.Status == YearlyBudgetStatuses.Deleted)
+            {
+                _logger.LogWarning("Yearly budget {BudgetId} not found or deleted for comparison rebuild", yearlyBudgetId);
+                return;
+            }
+
+            var year = await _shared.HebrewYears.AsNoTracking()
+                .FirstOrDefaultAsync(y => y.Id == budget.HebrewYearId);
+            if (year == null)
+                return;
+
+            var months = YearlyBudgetService.GetMonthsInYear(year);
+            if (months.Count == 0)
+                return;
+
+            foreach (var (periodYear, periodMonth) in months)
+                await EnsurePeriodSummariesAsync(periodYear, periodMonth, userId);
+
+            var monthDetails = await _context.YearlyBudgetMonthDetails.AsNoTracking()
+                .Where(m => m.YearlyBudgetId == yearlyBudgetId)
+                .ToListAsync();
+
+            var from = months[0];
+            var to = months[^1];
+
+            var salaryProcesses = await _context.SalaryUploadProcesses.AsNoTracking()
+                .Where(p => (p.PeriodYear > from.Year || (p.PeriodYear == from.Year && p.PeriodMonth >= from.Month))
+                         && (p.PeriodYear < to.Year || (p.PeriodYear == to.Year && p.PeriodMonth <= to.Month)))
+                .Select(p => new { p.Id, p.PeriodYear, p.PeriodMonth })
+                .ToListAsync();
+            var latestSalaryByPeriod = salaryProcesses
+                .GroupBy(p => new { p.PeriodYear, p.PeriodMonth })
+                .ToDictionary(g => (g.Key.PeriodYear, g.Key.PeriodMonth), g => g.OrderByDescending(p => p.Id).First().Id);
+
+            var meitarProcesses = await _context.MeitarRetrieveProcesses.AsNoTracking()
+                .Where(p => (p.PeriodYear > from.Year || (p.PeriodYear == from.Year && p.PeriodMonth >= from.Month))
+                         && (p.PeriodYear < to.Year || (p.PeriodYear == to.Year && p.PeriodMonth <= to.Month)))
+                .Select(p => new { p.Id, p.PeriodYear, p.PeriodMonth })
+                .ToListAsync();
+            var latestMeitarByPeriod = meitarProcesses
+                .GroupBy(p => new { p.PeriodYear, p.PeriodMonth })
+                .ToDictionary(g => (g.Key.PeriodYear, g.Key.PeriodMonth), g => g.OrderByDescending(p => p.Id).First().Id);
+
+            var salaryProcessIds = latestSalaryByPeriod.Values.ToList();
+            var salarySummaries = salaryProcessIds.Count == 0
+                ? new List<SalaryMonthSummary>()
+                : await _context.SalaryMonthSummaries.AsNoTracking()
+                    .Where(s => salaryProcessIds.Contains(s.ProcessId))
+                    .ToListAsync();
+
+            var meitarProcessIds = latestMeitarByPeriod.Values.ToList();
+            var meitarSummaries = meitarProcessIds.Count == 0
+                ? new List<MeitarMonthSummary>()
+                : await _context.MeitarMonthSummaries.AsNoTracking()
+                    .Where(s => meitarProcessIds.Contains(s.ProcessId))
+                    .ToListAsync();
+
+            var existing = await _context.YearlyBudgetComparisons
+                .Where(c => c.YearlyBudgetId == yearlyBudgetId)
+                .ToListAsync();
+            if (existing.Count > 0)
+                _context.YearlyBudgetComparisons.RemoveRange(existing);
+
+            const int unmappedKey = -1;
+            var now = DateTime.UtcNow;
+            foreach (var (periodYear, periodMonth) in months)
+            {
+                var budgetByType = monthDetails
+                    .Where(m => m.PeriodYear == periodYear && m.PeriodMonth == periodMonth)
+                    .ToDictionary(m => m.AssistantTypeId, m => m);
+
+                latestSalaryByPeriod.TryGetValue((periodYear, periodMonth), out var salaryProcessId);
+                var salaryByType = salarySummaries
+                    .Where(s => s.ProcessId == salaryProcessId)
+                    .ToDictionary(s => s.AssistantTypeId ?? unmappedKey, s => s);
+
+                latestMeitarByPeriod.TryGetValue((periodYear, periodMonth), out var meitarProcessId);
+                var meitarByType = meitarSummaries
+                    .Where(s => s.ProcessId == meitarProcessId)
+                    .ToDictionary(s => s.AssistantTypeId ?? unmappedKey, s => s);
+
+                var typeKeys = budgetByType.Keys
+                    .Concat(salaryByType.Keys)
+                    .Concat(meitarByType.Keys)
+                    .Distinct()
+                    .ToList();
+
+                foreach (var typeKey in typeKeys)
+                {
+                    budgetByType.TryGetValue(typeKey, out var budgetLine);
+                    salaryByType.TryGetValue(typeKey, out var salaryLine);
+                    meitarByType.TryGetValue(typeKey, out var meitarLine);
+                    var typeId = typeKey == unmappedKey ? (int?)null : typeKey;
+
+                    _context.YearlyBudgetComparisons.Add(new YearlyBudgetComparison
+                    {
+                        EntityId = budget.EntityId,
+                        YearlyBudgetId = yearlyBudgetId,
+                        PeriodYear = periodYear,
+                        PeriodMonth = periodMonth,
+                        AssistantTypeId = typeId,
+                        BudgetFte = budgetLine?.Fte ?? 0,
+                        BudgetHours = budgetLine?.Hours ?? 0,
+                        BudgetAmount = budgetLine?.Amount ?? 0,
+                        SalaryRowCount = salaryLine?.RowCount ?? 0,
+                        SalaryFte = salaryLine?.Fte ?? 0,
+                        SalaryHours = salaryLine?.Hours ?? 0,
+                        SalaryAmount = salaryLine?.Amount ?? 0,
+                        SalaryProcessId = salaryLine != null ? salaryProcessId : null,
+                        MeitarRowCount = meitarLine?.RowCount ?? 0,
+                        MeitarHours = meitarLine?.Hours ?? 0,
+                        MeitarAmount = meitarLine?.Amount ?? 0,
+                        MeitarProcessId = meitarLine != null ? meitarProcessId : null,
+                        CreatedAt = now,
+                        UserId = userId,
+                        UpdatedAt = now,
+                        UpdateUser = userId
+                    });
+                }
+            }
+
+            await _context.SaveChangesAsync();
+        }
+
+        private async Task RebuildComparisonsForPeriodAsync(int periodYear, int periodMonth, int? userId)
+        {
+            var years = await _shared.HebrewYears.AsNoTracking()
+                .Where(y => y.StartDate != null && y.EndDate != null)
+                .ToListAsync();
+
+            var coveringYearIds = years
+                .Where(y => YearlyBudgetService.GetMonthsInYear(y).Any(m => m.Year == periodYear && m.Month == periodMonth))
+                .Select(y => y.Id)
+                .ToList();
+            if (coveringYearIds.Count == 0)
+                return;
+
+            var budgetIds = await _context.YearlyBudgets
+                .Where(b => coveringYearIds.Contains(b.HebrewYearId) && b.Status != YearlyBudgetStatuses.Deleted)
+                .Select(b => b.Id)
+                .ToListAsync();
+
+            foreach (var budgetId in budgetIds)
+                await RebuildBudgetComparisonsAsync(budgetId, userId);
+        }
+
+        private async Task EnsurePeriodSummariesAsync(int periodYear, int periodMonth, int? userId, bool force = false)
+        {
+            var salaryProcess = await _context.SalaryUploadProcesses
+                .Where(p => p.PeriodYear == periodYear && p.PeriodMonth == periodMonth)
+                .OrderByDescending(p => p.Id)
+                .FirstOrDefaultAsync();
+            if (salaryProcess != null)
+            {
+                var hasSalary = !force && await _context.SalaryMonthSummaries.AnyAsync(s => s.ProcessId == salaryProcess.Id);
+                if (!hasSalary)
+                    await RebuildSalarySummariesAsync(salaryProcess, userId);
+            }
+
+            var meitarProcess = await _context.MeitarRetrieveProcesses
+                .Where(p => p.PeriodYear == periodYear && p.PeriodMonth == periodMonth)
+                .OrderByDescending(p => p.Id)
+                .FirstOrDefaultAsync();
+            if (meitarProcess != null)
+            {
+                var hasMeitar = !force && await _context.MeitarMonthSummaries.AnyAsync(s => s.ProcessId == meitarProcess.Id);
+                if (!hasMeitar)
+                    await RebuildMeitarSummariesAsync(meitarProcess, userId);
+            }
         }
 
         private async Task RebuildSalarySummariesAsync(SalaryUploadProcess process, int? userId)

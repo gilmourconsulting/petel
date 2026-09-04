@@ -18,6 +18,28 @@ namespace PetelAssistants.Api.DTOs
         public List<YearlyBudgetVersionItemDto> Versions { get; set; } = new();
         public List<YearlyBudgetDetailDto> Details { get; set; } = new();
         public List<YearlyBudgetMonthDetailDto> MonthDetails { get; set; } = new();
+        public List<YearlyBudgetComparisonDto> Comparisons { get; set; } = new();
+    }
+
+    public class YearlyBudgetComparisonDto
+    {
+        public int Id { get; set; }
+        public int PeriodYear { get; set; }
+        public int PeriodMonth { get; set; }
+        public int? AssistantTypeId { get; set; }
+        public string AssistantTypeName { get; set; } = string.Empty;
+        public decimal BudgetAmount { get; set; }
+        public decimal BudgetFte { get; set; }
+        public decimal BudgetHours { get; set; }
+        public decimal SalaryAmount { get; set; }
+        public decimal SalaryFte { get; set; }
+        public decimal SalaryHours { get; set; }
+        public int SalaryRowCount { get; set; }
+        public decimal MeitarAmount { get; set; }
+        public decimal MeitarHours { get; set; }
+        public int MeitarRowCount { get; set; }
+        public decimal SalaryAmountVariance => SalaryAmount - BudgetAmount;
+        public decimal SalaryFteVariance => SalaryFte - BudgetFte;
     }
 
     public class YearlyBudgetVersionItemDto

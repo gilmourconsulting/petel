@@ -270,7 +270,7 @@ Admin UI for shared lookups: `/system-data` (הגדרות מערכת). SQL: `Pet
 - `users`, `roles`, `user_roles`, `permissions`
 - `institutions` — schools and kindergartens owned by the authority
 - `persons` — assistants, pupils (each row is owned by exactly one authority)
-- `salaries`, `salary_department_mappings`, `salary_month_summaries`, `salary_anomalies`
+- `salaries`, `salary_department_mappings`, `salary_month_summaries`, `salary_anomalies`, `yearly_budget_comparisons`
 - `meitar_mutavim`, `meitar_month_summaries`
 - `assignments`, `placements`, `attendance`
 - Any table that stores data entered by a specific authority

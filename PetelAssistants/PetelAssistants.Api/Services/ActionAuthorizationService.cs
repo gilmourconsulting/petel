@@ -311,10 +311,12 @@ namespace PetelAssistants.Api.Services
                         return false;
                     }
 
-                    // Step 3b — found in DB: add to cache
+                    // Step 3b — found in DB: add to cache and reload role grants
+                    // so actions inserted after process start (e.g. SQL seed) are usable.
                     _logger.LogInformation("Action '{DbName}' (ID: {Id}) — found in DB, adding to cache", dbActionName, action.Id);
                     lock (_cacheLock)
                         _actionsCache[cacheKey] = action;
+                    await LoadRoleActionsAsync();
                 }
 
                 // Step 4 — role check

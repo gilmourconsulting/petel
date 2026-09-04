@@ -12,7 +12,7 @@
     </SecureButton>
     <SecureButton ActionName="assistants_add" ScreenName="@PageName" FunctionName="ShowCreateDialog"
                   OnClick="ShowCreateDialog" CssClass="context-btn">
-        הוסף סעיית
+        הוסף סייעת
     </SecureButton>
     <SecureButton ActionName="assistants_upload" ScreenName="@PageName" FunctionName="ShowUploadDialog"
                   OnClick="ShowUploadDialog" CssClass="context-btn">
@@ -91,6 +91,9 @@
                         <thead>
                             <tr>
                                 <th>פעולות</th>
+                                <th @onclick="() => SortTable(nameof(PersonListItemDto.Id))" style="cursor: pointer;">
+                                    מזהה @GetSortArrow(nameof(PersonListItemDto.Id))
+                                </th>
                                 <th @onclick="() => SortTable(nameof(PersonListItemDto.IdNumber))" style="cursor: pointer;">
                                     מספר זהות @GetSortArrow(nameof(PersonListItemDto.IdNumber))
                                 </th>
@@ -108,7 +111,8 @@
                             @foreach (var person in FilteredPersons)
                             {
                                 bool isSelected = _selectedPerson?.Id == person.Id;
-                                <tr class="@(isSelected ? "row-selected" : "")"
+                                <tr id="@EntityFocus.RowElementId(person.Id)"
+                                    class="@(isSelected ? "row-selected" : "")"
                                     style="cursor: pointer;"
                                     @onclick="() => SelectPerson(person)">
                                     <td @onclick:stopPropagation="true">
@@ -125,6 +129,7 @@
                                             <img src="/images/stats_icon.png" alt="היסטוריה" class="action-icon-natural">
                                         </SecureButton>
                                     </td>
+                                    <td>@person.Id</td>
                                     <td>@person.IdNumber</td>
                                     <td>@person.FullName</td>
                                     <td>@(person.PhoneSummary ?? "—")</td>
@@ -140,20 +145,100 @@
 
         @if (_selectedPerson != null)
         {
-            <div class="assistants-allocations-dock">
-                <AllocationsPanel ViewMode="AllocationsViewMode.ByPerson"
-                                  HeaderPrefix="הקצאות לסייעת:"
-                                  Allocations="_allocations"
-                                  IsLoading="_isLoadingAllocations"
-                                  ShowAddButton="true"
-                                  EmptyMessage="אין הקצאות לסייעת זו"
-                                  SecurityScreenName="entitlements"
-                                  CssClass="allocations-panel-docked"
-                                  OnClose="ClearSelectedPerson"
-                                  OnAddAllocation="NavigateToEntitlements"
-                                  OnDeactivateAllocation="DeactivateAllocation">
-                    <HeaderTitle>@_selectedPerson.FullName (@_selectedPerson.IdNumber)</HeaderTitle>
-                </AllocationsPanel>
+            <div class="assistants-allocations-dock" style="height: @(_dockHeightPx)px;">
+                <div class="dock-resize-handle"
+                     @ref="_dockHandleRef"
+                     title="גרור לשינוי גודל"
+                     @onpointerdown="StartDockResize"
+                     @onpointerdown:preventDefault="true"
+                     @onpointermove="OnDockResizeMove"
+                     @onpointerup="EndDockResize"
+                     @onpointercancel="EndDockResize"></div>
+                <div class="content-card allocations-panel-docked">
+                    <div class="tabs-header dock-tabs-header">
+                        <div class="dock-tabs">
+                            <button type="button"
+                                    class="tab-button @(_dockTab == "allocations" ? "active" : "")"
+                                    @onclick='() => SetDockTab("allocations")'>
+                                הקצאות
+                            </button>
+                            <button type="button"
+                                    class="tab-button @(_dockTab == "salaries" ? "active" : "")"
+                                    @onclick='() => SetDockTab("salaries")'>
+                                היסטוריית שכר
+                            </button>
+                        </div>
+                        <div class="dock-tab-actions">
+                            @if (_dockTab == "allocations" && _isLoadingAllocations)
+                            {
+                                <span style="font-size: 0.85em; color: #6c757d;">טוען...</span>
+                            }
+                            @if (_dockTab == "salaries" && _isLoadingSalaries)
+                            {
+                                <span style="font-size: 0.85em; color: #6c757d;">טוען...</span>
+                            }
+                            @if (_dockTab == "allocations")
+                            {
+                                <button class="btn btn-primary btn-sm" @onclick="NavigateToEntitlements">+ הוסף הקצאה</button>
+                            }
+                            <button class="btn btn-secondary btn-sm" @onclick="ClearSelectedPerson" title="סגור">✕</button>
+                        </div>
+                    </div>
+
+                    <div class="dock-panel-title">
+                        @_selectedPerson.FullName (@_selectedPerson.IdNumber)
+                    </div>
+
+                    @if (_dockTab == "allocations")
+                    {
+                        <AllocationsPanel ViewMode="AllocationsViewMode.ByPerson"
+                                          YearId="YearId"
+                                          Allocations="_allocations"
+                                          IsLoading="_isLoadingAllocations"
+                                          ShowAddButton="false"
+                                          ShowViewButton="true"
+                                          ShowChrome="false"
+                                          EmptyMessage="אין הקצאות לסייעת זו"
+                                          SecurityScreenName="entitlements"
+                                          OnViewAllocation="ViewAllocation"
+                                          OnDeactivateAllocation="DeactivateAllocation" />
+                    }
+                    else
+                    {
+                        @if (_salaries.Count == 0 && !_isLoadingSalaries)
+                        {
+                            <div class="no-data-message" style="padding: 12px 0;">אין רשומות שכר לשנה זו</div>
+                        }
+                        else
+                        {
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>תקופה</th>
+                                            <th>מחלקה</th>
+                                            <th>אחוז משרה</th>
+                                            <th>שכר כולל</th>
+                                            <th>אזהרת ת"ז</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var salary in YearSalaries)
+                                        {
+                                            <tr class="@(salary.HasIdWarning ? "row-inactive" : "")">
+                                                <td>@salary.PeriodMonth.ToString("00")/@salary.PeriodYear</td>
+                                                <td>@(salary.DepartmentName ?? salary.DepartmentId)</td>
+                                                <td>@salary.PositionPercentage.ToString("0.##")%</td>
+                                                <td>@salary.TotalSalary.ToString("N2")</td>
+                                                <td>@(salary.HasIdWarning ? "כן" : "לא")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    }
+                </div>
             </div>
         }
     </div>
@@ -195,20 +280,82 @@
 
     .assistants-page .assistants-allocations-dock {
         flex: 0 0 auto;
-        max-height: 30%;
-        min-height: 0;
-        overflow: auto;
-        margin-top: 8px;
+        height: 280px;
+        max-height: 70%;
+        min-height: 140px;
+        overflow: hidden;
+        margin-top: 0;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+
+    .assistants-page .dock-resize-handle {
+        flex-shrink: 0;
+        height: 8px;
+        cursor: ns-resize;
+        background: transparent;
+        position: relative;
+        z-index: 2;
+    }
+
+    .assistants-page .dock-resize-handle::after {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 36px;
+        height: 3px;
+        border-radius: 2px;
+        background: #c5cdd6;
+    }
+
+    .assistants-page .dock-resize-handle:hover::after,
+    .assistants-page .dock-resize-handle:active::after {
+        background: #8a96a3;
     }
 
     .assistants-page .assistants-allocations-dock > .content-card,
     .assistants-page .allocations-panel-docked {
         margin-top: 0;
         margin-bottom: 0;
-        height: 100%;
+        flex: 1;
+        min-height: 0;
         display: flex;
         flex-direction: column;
         overflow: hidden;
+    }
+
+    .assistants-page .allocations-panel-docked .tabs-header,
+    .assistants-page .dock-tabs-header {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 12px 0;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .dock-tabs {
+        display: flex;
+        gap: 4px;
+    }
+
+    .dock-tab-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .dock-panel-title {
+        flex-shrink: 0;
+        padding: 8px 12px;
+        font-size: 0.95em;
+        font-weight: 600;
+        color: #495057;
+        border-bottom: 1px solid #eee;
     }
 
     .assistants-page .allocations-panel-docked .table-container {
@@ -227,7 +374,7 @@
     <div class="modal-overlay" @onclick="ClosePersonDialog">
         <div class="modal-content modal-large" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h3>@(_isEditMode ? "עריכת פרטי סעיית" : "הוספת סעיית חדש")</h3>
+                <h3>@(_isEditMode ? "עריכת פרטי סייעת" : "הוספת סייעת חדש")</h3>
                 <button class="modal-close" @onclick="ClosePersonDialog">&times;</button>
             </div>
             <div class="modal-body">
@@ -374,6 +521,9 @@
 @code {
     [Parameter] public int YearId { get; set; }
 
+    [SupplyParameterFromQuery(Name = EntityFocus.QueryParam)]
+    public int? FocusId { get; set; }
+
     protected override string PageName => "assistants";
 
     private string _yearName = "";
@@ -413,34 +563,107 @@
 
     private PersonListItemDto? _selectedPerson;
     private List<EntitlementAllocationDto> _allocations = new();
+    private List<SalaryListItemDto> _salaries = new();
+    private List<(int Year, int Month)> _schoolMonths = new();
     private bool _isLoadingAllocations;
+    private bool _isLoadingSalaries;
+    private string _dockTab = "allocations";
+    private const int DockMinHeightPx = 140;
+    private const int DockDefaultHeightPx = 280;
+    private int _dockHeightPx = DockDefaultHeightPx;
+    private int _dockMaxHeightPx = 700;
+    private bool _isDockResizing;
+    private double _dockResizeStartY;
+    private int _dockResizeStartHeight;
+    private ElementReference _dockHandleRef;
+    private YearDto? _year;
     private PersonUploadModal? _uploadModal;
     private AssistantDetailsModal? _detailsModal;
+    private int? _appliedFocusId;
+    private bool _pendingFocusScroll;
 
     protected override async Task OnPageInitializedAsync()
     {
         await LoadYearName();
+        RebuildSchoolMonths();
         await LoadPhoneTypes();
         await LoadPersons();
+        await ApplyFocusIfNeededAsync();
     }
 
     protected override async Task OnParametersSetAsync()
     {
         await LoadYearName();
+        RebuildSchoolMonths();
+        if (!_isLoading)
+            await ApplyFocusIfNeededAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_pendingFocusScroll || !FocusId.HasValue)
+            return;
+
+        _pendingFocusScroll = false;
+        await EntityFocus.ScrollToRowAsync(JSRuntime, FocusId.Value);
+    }
+
+    private async Task ApplyFocusIfNeededAsync()
+    {
+        if (!FocusId.HasValue || FocusId == _appliedFocusId)
+            return;
+
+        if (HasActiveFilters)
+        {
+            _searchTerm = "";
+            _filterAllocation = "";
+            await LoadPersons();
+        }
+
+        var person = _persons.FirstOrDefault(p => p.Id == FocusId.Value);
+        _appliedFocusId = FocusId;
+        if (person == null)
+            return;
+
+        _selectedPerson = person;
+        _allocations = new();
+        await LoadAllocationsAsync(person.Id);
+        _pendingFocusScroll = true;
     }
 
     private async Task LoadYearName()
     {
         try
         {
-            var year = await ApiService.GetAsync<YearDto>($"years/{YearId}");
-            _yearName = year?.YearName ?? "";
+            _year = await ApiService.GetAsync<YearDto>($"years/{YearId}");
+            _yearName = _year?.YearName ?? "";
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading year name: {ex.Message}");
         }
     }
+
+    private void RebuildSchoolMonths()
+    {
+        _schoolMonths = new();
+        if (_year?.StartDate is null || _year.EndDate is null)
+            return;
+
+        var start = new DateOnly(_year.StartDate.Value.Year, _year.StartDate.Value.Month, 1);
+        var end = new DateOnly(_year.EndDate.Value.Year, _year.EndDate.Value.Month, 1);
+        if (end < start)
+            return;
+
+        for (var cursor = start; cursor <= end; cursor = cursor.AddMonths(1))
+            _schoolMonths.Add((cursor.Year, cursor.Month));
+    }
+
+    private HashSet<(int Year, int Month)> SchoolMonthSet =>
+        _schoolMonths.ToHashSet();
+
+    private List<SalaryListItemDto> YearSalaries =>
+        _salaries.Where(s => SchoolMonthSet.Contains((s.PeriodYear, s.PeriodMonth))).ToList();
 
     private async Task LoadPhoneTypes()
     {
@@ -526,7 +749,11 @@
     {
         await LoadPersons();
         if (_selectedPerson != null)
+        {
             await LoadAllocationsAsync(_selectedPerson.Id);
+            if (_dockTab == "salaries")
+                await LoadSalariesAsync(_selectedPerson.Id);
+        }
     }
 
     private async Task SelectPerson(PersonListItemDto person)
@@ -535,11 +762,15 @@
         {
             _selectedPerson = null;
             _allocations = new();
+            _salaries = new();
+            _dockTab = "allocations";
             return;
         }
 
         _selectedPerson = person;
         _allocations = new();
+        _salaries = new();
+        _dockTab = "allocations";
         await LoadAllocationsAsync(person.Id);
     }
 
@@ -547,6 +778,18 @@
     {
         _selectedPerson = null;
         _allocations = new();
+        _salaries = new();
+        _dockTab = "allocations";
+    }
+
+    private async Task SetDockTab(string tab)
+    {
+        if (_dockTab == tab)
+            return;
+
+        _dockTab = tab;
+        if (tab == "salaries" && _selectedPerson != null && _salaries.Count == 0)
+            await LoadSalariesAsync(_selectedPerson.Id);
     }
 
     private async Task LoadAllocationsAsync(int personId)
@@ -568,7 +811,58 @@
         }
     }
 
+    private async Task LoadSalariesAsync(int personId)
+    {
+        _isLoadingSalaries = true;
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<SalaryListItemDto>>>(
+                $"persons/{personId}/salaries");
+            _salaries = response?.Data ?? new();
+        }
+        catch
+        {
+            _salaries = new();
+        }
+        finally
+        {
+            _isLoadingSalaries = false;
+        }
+    }
+
     private void NavigateToEntitlements() => Navigation.NavigateTo($"/year/{YearId}/entitlements?personId={_selectedPerson!.Id}");
+
+    private void ViewAllocation(EntitlementAllocationDto alloc) =>
+        Navigation.NavigateTo(EntityFocus.ToEntitlementsWithAllocation(YearId, alloc.EntitlementId, alloc.Id));
+
+    private async Task StartDockResize(PointerEventArgs e)
+    {
+        _isDockResizing = true;
+        _dockResizeStartY = e.ClientY;
+        _dockResizeStartHeight = _dockHeightPx;
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("LayoutHelpers.capturePointer", _dockHandleRef, e.PointerId);
+            var pageHeight = await JSRuntime.InvokeAsync<double>("LayoutHelpers.getClientHeight", ".assistants-page");
+            if (pageHeight > 0)
+                _dockMaxHeightPx = Math.Max(DockMinHeightPx, (int)(pageHeight * 0.7));
+        }
+        catch
+        {
+            _dockMaxHeightPx = 700;
+        }
+    }
+
+    private void OnDockResizeMove(PointerEventArgs e)
+    {
+        if (!_isDockResizing)
+            return;
+
+        var delta = (int)(_dockResizeStartY - e.ClientY);
+        _dockHeightPx = Math.Clamp(_dockResizeStartHeight + delta, DockMinHeightPx, _dockMaxHeightPx);
+    }
+
+    private void EndDockResize() => _isDockResizing = false;
 
     private async Task DeactivateAllocation(EntitlementAllocationDto alloc)
     {
@@ -604,6 +898,9 @@
     {
         _persons = _sortColumn switch
         {
+            nameof(PersonListItemDto.Id) => _sortAscending
+                ? _persons.OrderBy(p => p.Id).ToList()
+                : _persons.OrderByDescending(p => p.Id).ToList(),
             nameof(PersonListItemDto.IdNumber) => _sortAscending
                 ? _persons.OrderBy(p => p.IdNumber).ToList()
                 : _persons.OrderByDescending(p => p.IdNumber).ToList(),
@@ -653,7 +950,7 @@
             var response = await ApiService.GetAsync<ApiResponse<PersonSnapshotDto>>($"persons/{personId}");
             if (response?.Data == null)
             {
-                await JSRuntime.InvokeVoidAsync("alert", "לא נמצא סעיית");
+                await JSRuntime.InvokeVoidAsync("alert", "לא נמצא סייעת");
                 return;
             }
 
@@ -760,7 +1057,7 @@
 
                 if (response?.Success == true)
                 {
-                    await JSRuntime.InvokeVoidAsync("alert", "פרטי הסעיית עודכנו בהצלחה");
+                    await JSRuntime.InvokeVoidAsync("alert", "פרטי הסייעת עודכנו בהצלחה");
                     ClosePersonDialog();
                     await LoadPersons();
                 }
@@ -790,7 +1087,7 @@
 
                 if (response?.Success == true)
                 {
-                    await JSRuntime.InvokeVoidAsync("alert", "סעיית נוצר בהצלחה");
+                    await JSRuntime.InvokeVoidAsync("alert", "סייעת נוצר בהצלחה");
                     ClosePersonDialog();
                     await LoadPersons();
                 }

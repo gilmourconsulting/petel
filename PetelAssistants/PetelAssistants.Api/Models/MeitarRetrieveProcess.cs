@@ -68,5 +68,6 @@ namespace PetelAssistants.Api.Models
         public virtual ICollection<MeitarMucarim> MucarimRows { get; set; } = new List<MeitarMucarim>();
         public virtual ICollection<MeitarSharatim> SharatimRows { get; set; } = new List<MeitarSharatim>();
         public virtual ICollection<MeitarMonthSummary> Summaries { get; set; } = new List<MeitarMonthSummary>();
+        public virtual ICollection<YearlyBudgetComparison> BudgetComparisons { get; set; } = new List<YearlyBudgetComparison>();
     }
 }

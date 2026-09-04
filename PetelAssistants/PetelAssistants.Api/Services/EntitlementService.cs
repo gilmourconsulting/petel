@@ -41,6 +41,21 @@ namespace PetelAssistants.Api.Services
             return await MapListAsync(items, allocatedHoursMap);
         }
 
+        /// <summary>
+        /// Last-version entitlements whose date range overlaps [from, to] (inclusive).
+        /// </summary>
+        public async Task<List<EntitlementListItemDto>> ListEntitlementsOverlappingAsync(DateOnly from, DateOnly to)
+        {
+            var items = await _context.Entitlements
+                .AsNoTracking()
+                .Where(e => e.IsLastVersion && e.StartDate <= to && e.EndDate >= from)
+                .OrderByDescending(e => e.Id)
+                .ToListAsync();
+
+            var allocatedHoursMap = await BuildAllocatedHoursByMasterAsync(items);
+            return await MapListAsync(items, allocatedHoursMap);
+        }
+
         public async Task<List<EntitlementAllocationDto>> ListAllocationsAsync(int entitlementId)
         {
             var entitlement = await _context.Entitlements.AsNoTracking()
@@ -897,6 +912,12 @@ namespace PetelAssistants.Api.Services
                     .ToListAsync())
                     .ToDictionary(c => c.Id, c => $"{c.Id} - {c.Name}");
 
+            var hebrewYearIds = items.Select(i => i.HebrewYearId).Distinct().ToList();
+            var hebrewYearNames = await _sharedContext.HebrewYears
+                .AsNoTracking()
+                .Where(y => hebrewYearIds.Contains(y.Id))
+                .ToDictionaryAsync(y => y.Id, y => y.YearName);
+
             return items.Select(item =>
             {
                 schools.TryGetValue(item.InstitutionId ?? 0, out var school);
@@ -916,6 +937,8 @@ namespace PetelAssistants.Api.Services
                     MasterEntitlementId      = item.MasterEntitlementId,
                     Version                  = item.Version,
                     HebrewYearId             = item.HebrewYearId,
+                    HebrewYearName           = hebrewYearNames.TryGetValue(item.HebrewYearId, out var yearName)
+                                                ? yearName : string.Empty,
                     AssistantTypeId          = item.AssistantTypeId,
                     AssistantTypeName        = atype?.DisplayName ?? string.Empty,
                     AssistantTypeLevel       = atype?.Level,

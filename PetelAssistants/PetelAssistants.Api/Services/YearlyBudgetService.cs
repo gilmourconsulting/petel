@@ -9,15 +9,18 @@ namespace PetelAssistants.Api.Services
     {
         private readonly AssistDbContext _context;
         private readonly SharedDbContext _sharedContext;
+        private readonly MonthlyImportComparisonService _comparisonService;
         private readonly ILogger<YearlyBudgetService> _logger;
 
         public YearlyBudgetService(
             AssistDbContext context,
             SharedDbContext sharedContext,
+            MonthlyImportComparisonService comparisonService,
             ILogger<YearlyBudgetService> logger)
         {
             _context = context;
             _sharedContext = sharedContext;
+            _comparisonService = comparisonService;
             _logger = logger;
         }
 
@@ -233,6 +236,7 @@ namespace PetelAssistants.Api.Services
             budget.UpdatedAt = now;
             budget.UpdateUser = userId;
             await _context.SaveChangesAsync();
+            await _comparisonService.RebuildBudgetComparisonsAsync(budget.Id, userId);
 
             _logger.LogInformation(
                 "Calculated budget {BudgetId}: totalHours={TotalHours}, totalAmount={TotalAmount}, success={Success}, failures={Failures}",
@@ -382,8 +386,23 @@ namespace PetelAssistants.Api.Services
             budget.UpdateUser = userId;
 
             await _context.SaveChangesAsync();
+            await _comparisonService.RebuildBudgetComparisonsAsync(budget.Id, userId);
             _logger.LogInformation("Saved yearly budget {BudgetId} version {Version}", budget.Id, budget.Version);
             return await MapDtoAsync(budget.Id, year);
+        }
+
+        public async Task<YearlyBudgetDto> RecalculateSummariesAsync(int? userId, int id)
+        {
+            var budget = await _context.YearlyBudgets.AsNoTracking()
+                .FirstOrDefaultAsync(b => b.Id == id)
+                ?? throw new InvalidOperationException("תקציב לא נמצא");
+
+            if (budget.Status == YearlyBudgetStatuses.Deleted)
+                throw new InvalidOperationException("לא ניתן לחשב סיכומים לגרסה מחוקה");
+
+            var year = await LoadHebrewYearAsync(budget.HebrewYearId, requireActive: false);
+            await _comparisonService.RecalculateYearSummariesAsync(id, userId);
+            return await MapDtoAsync(id, year);
         }
 
         public async Task<YearlyBudgetDto> LockAsync(int? userId, int id)
@@ -514,6 +533,7 @@ namespace PetelAssistants.Api.Services
             }
 
             await _context.SaveChangesAsync();
+            await _comparisonService.RebuildBudgetComparisonsAsync(next.Id, userId);
             _logger.LogInformation(
                 "Created yearly budget version {Version} from {SourceId} as {NewId}",
                 next.Version, source.Id, next.Id);
@@ -652,6 +672,7 @@ namespace PetelAssistants.Api.Services
             }
 
             await _context.SaveChangesAsync();
+            await _comparisonService.RebuildBudgetComparisonsAsync(budget.Id, userId);
             _logger.LogInformation(
                 "Created yearly budget {BudgetId} v{Version} for year {YearId}",
                 budget.Id, budget.Version, year.Id);
@@ -688,8 +709,20 @@ namespace PetelAssistants.Api.Services
                 .ThenBy(m => m.AssistantTypeId)
                 .ToListAsync();
 
+            var comparisons = await _context.YearlyBudgetComparisons.AsNoTracking()
+                .Where(c => c.YearlyBudgetId == budgetId)
+                .ToListAsync();
+            if (comparisons.Count == 0 && budget.Status != YearlyBudgetStatuses.Deleted)
+            {
+                await _comparisonService.RebuildBudgetComparisonsAsync(budgetId, null);
+                comparisons = await _context.YearlyBudgetComparisons.AsNoTracking()
+                    .Where(c => c.YearlyBudgetId == budgetId)
+                    .ToListAsync();
+            }
+
             var typeIds = details.Select(d => d.AssistantTypeId)
                 .Concat(monthDetails.Select(m => m.AssistantTypeId))
+                .Concat(comparisons.Where(c => c.AssistantTypeId.HasValue).Select(c => c.AssistantTypeId!.Value))
                 .Distinct()
                 .ToList();
 
@@ -744,7 +777,35 @@ namespace PetelAssistants.Api.Services
                     Hours = m.Hours,
                     Amount = m.Amount,
                     Remarks = m.Remarks
-                }).ToList()
+                }).ToList(),
+                Comparisons = comparisons
+                    .OrderBy(c => c.PeriodYear)
+                    .ThenBy(c => c.PeriodMonth)
+                    .ThenBy(c => c.AssistantTypeId == null)
+                    .ThenBy(c => c.AssistantTypeId.HasValue
+                        ? typeOrder.IndexOf(c.AssistantTypeId.Value)
+                        : int.MaxValue)
+                    .Select(c => new YearlyBudgetComparisonDto
+                    {
+                        Id = c.Id,
+                        PeriodYear = c.PeriodYear,
+                        PeriodMonth = c.PeriodMonth,
+                        AssistantTypeId = c.AssistantTypeId,
+                        AssistantTypeName = c.AssistantTypeId.HasValue
+                            ? typeNames.GetValueOrDefault(c.AssistantTypeId.Value, c.AssistantTypeId.Value.ToString())
+                            : "לא ממופה",
+                        BudgetAmount = c.BudgetAmount,
+                        BudgetFte = c.BudgetFte,
+                        BudgetHours = c.BudgetHours,
+                        SalaryAmount = c.SalaryAmount,
+                        SalaryFte = c.SalaryFte,
+                        SalaryHours = c.SalaryHours,
+                        SalaryRowCount = c.SalaryRowCount,
+                        MeitarAmount = c.MeitarAmount,
+                        MeitarHours = c.MeitarHours,
+                        MeitarRowCount = c.MeitarRowCount
+                    })
+                    .ToList()
             };
         }
 
@@ -765,7 +826,8 @@ namespace PetelAssistants.Api.Services
                 CanDelete = false,
                 Versions = new List<YearlyBudgetVersionItemDto>(),
                 Details = new List<YearlyBudgetDetailDto>(),
-                MonthDetails = new List<YearlyBudgetMonthDetailDto>()
+                MonthDetails = new List<YearlyBudgetMonthDetailDto>(),
+                Comparisons = new List<YearlyBudgetComparisonDto>()
             };
         }
 
@@ -808,6 +870,49 @@ namespace PetelAssistants.Api.Services
                 months.Add((cursor.Year, cursor.Month));
 
             return months;
+        }
+
+        internal static List<(int Year, int Month)> GetCalendarMonths(int calendarYear)
+        {
+            var months = new List<(int, int)>(12);
+            for (var month = 1; month <= 12; month++)
+                months.Add((calendarYear, month));
+            return months;
+        }
+
+        internal static DateOnly CalendarYearStart(int calendarYear) => new(calendarYear, 1, 1);
+
+        internal static DateOnly CalendarYearEnd(int calendarYear) => new(calendarYear, 12, 31);
+
+        internal static bool YearCoversMonth(HebrewYear year, int periodYear, int periodMonth)
+        {
+            if (year.StartDate is null || year.EndDate is null)
+                return false;
+
+            var monthStart = new DateOnly(periodYear, periodMonth, 1);
+            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+            return year.StartDate.Value <= monthEnd && year.EndDate.Value >= monthStart;
+        }
+
+        internal static HebrewYear? FindYearForMonth(IEnumerable<HebrewYear> years, int periodYear, int periodMonth)
+        {
+            var mid = new DateOnly(periodYear, periodMonth, 15);
+            return years.FirstOrDefault(y =>
+                       y.StartDate is not null && y.EndDate is not null
+                       && y.StartDate.Value <= mid && y.EndDate.Value >= mid)
+                   ?? years.FirstOrDefault(y => YearCoversMonth(y, periodYear, periodMonth));
+        }
+
+        internal static List<HebrewYear> GetHebrewYearsCoveringCalendarYear(
+            IEnumerable<HebrewYear> years, int calendarYear)
+        {
+            var start = CalendarYearStart(calendarYear);
+            var end = CalendarYearEnd(calendarYear);
+            return years
+                .Where(y => y.StartDate is not null && y.EndDate is not null
+                            && y.StartDate.Value <= end && y.EndDate.Value >= start)
+                .OrderBy(y => y.StartDate)
+                .ToList();
         }
 
         private static decimal Round2(decimal value) => Math.Round(value, 2, MidpointRounding.AwayFromZero);

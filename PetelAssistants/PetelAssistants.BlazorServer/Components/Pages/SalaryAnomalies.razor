@@ -78,6 +78,7 @@
                         <table class="data-table">
                             <thead>
                                 <tr>
+                                    <th>מזהה</th>
                                     <th>ת"ז</th>
                                     <th>מחלקה</th>
                                     <th>% משרה</th>
@@ -94,20 +95,16 @@
                                 @foreach (var item in FilteredItems)
                                 {
                                     <tr>
+                                        <td>
+                                            <EntityFocusLink Screen="@EntityFocus.AssistantsScreen"
+                                                             YearId="@AssistantsYearId"
+                                                             Id="@item.MatchedPersonId" />
+                                        </td>
                                         <td>@item.NationalId</td>
                                         <td>@item.DepartmentId @(string.IsNullOrEmpty(item.DepartmentName) ? "" : $"({item.DepartmentName})")</td>
                                         <td>@item.PositionPercentage.ToString("N2")</td>
                                         <td>@item.TotalSalary.ToString("N2")</td>
-                                        <td>
-                                            @if (item.MatchedPersonId.HasValue)
-                                            {
-                                                <span title="@($"מזהה {item.MatchedPersonId}")">@(item.MatchedPersonName ?? item.MatchedPersonId.ToString())</span>
-                                            }
-                                            else
-                                            {
-                                                <span>—</span>
-                                            }
-                                        </td>
+                                        <td>@(item.MatchedPersonName ?? "—")</td>
                                         <td>@(item.MappedAssistantTypeName ?? "—")</td>
                                         <td>@(item.AllocationAssistantTypeName ?? "—")</td>
                                         <td>@item.Message</td>
@@ -143,6 +140,12 @@
     [SupplyParameterFromQuery(Name = "fromYear")]
     public int? FromYear { get; set; }
 
+    [SupplyParameterFromQuery(Name = "fromGregorianYear")]
+    public int? FromGregorianYear { get; set; }
+
+    [SupplyParameterFromQuery(Name = "yearId")]
+    public int? HebrewYearId { get; set; }
+
     [SupplyParameterFromQuery(Name = "year")]
     public int? Year { get; set; }
 
@@ -156,6 +159,8 @@
     private int _filterStatusId;
     private List<SalaryAnomalyDto> _items = new();
     private List<StatusDto> _statuses = new();
+
+    private int AssistantsYearId => HebrewYearId ?? FromYear ?? 0;
 
     private static readonly string[] MonthNames =
     {
@@ -182,6 +187,12 @@
         {
             _filterYear = Year.Value;
             _filterMonth = Month.Value;
+        }
+        else if (FromGregorianYear.HasValue)
+        {
+            var previous = DateTime.Today.AddMonths(-1);
+            _filterYear = FromGregorianYear.Value;
+            _filterMonth = previous.Year == FromGregorianYear.Value ? previous.Month : 1;
         }
         else
         {
@@ -247,8 +258,13 @@
 
     private void NavigateBack()
     {
-        var qs = FromYear.HasValue ? $"?fromYear={FromYear.Value}" : "";
-        Navigation.NavigateTo($"/salaries{qs}");
+        if (FromGregorianYear.HasValue)
+            Navigation.NavigateTo($"/salaries?fromGregorianYear={FromGregorianYear.Value}");
+        else
+        {
+            var qs = FromYear.HasValue ? $"?fromYear={FromYear.Value}" : "";
+            Navigation.NavigateTo($"/salaries{qs}");
+        }
     }
 
     private static string GetMonthLabel(int month) =>

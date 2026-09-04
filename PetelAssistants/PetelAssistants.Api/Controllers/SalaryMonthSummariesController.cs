@@ -92,7 +92,29 @@ namespace PetelAssistants.Api.Controllers
             if (months.Count == 0)
                 return Ok(new { success = true, data = new YearMonthSummariesResponse() });
 
-            int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+            return await GetForMonthRangeAsync(months);
+        }
+
+        [HttpGet("for-gregorian-year")]
+        public async Task<IActionResult> GetForGregorianYear([FromQuery] int year)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (year < 2000 || year > 2100)
+                return BadRequest(new { success = false, message = "שנה לא תקינה" });
+
+            var months = YearlyBudgetService.GetCalendarMonths(year);
+            return await GetForMonthRangeAsync(months);
+        }
+
+        private async Task<IActionResult> GetForMonthRangeAsync(List<(int Year, int Month)> months)
+        {
+            if (months.Count == 0)
+                return Ok(new { success = true, data = new YearMonthSummariesResponse() });
+
+            int? userId = int.TryParse(GetCurrentSession()?.UserId, out int uid) ? uid : null;
 
             var from = months[0];
             var to = months[^1];

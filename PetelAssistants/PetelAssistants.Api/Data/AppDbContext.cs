@@ -49,6 +49,7 @@ namespace PetelAssistants.Api.Data
         public DbSet<YearlyBudget>             YearlyBudgets            { get; set; }
         public DbSet<YearlyBudgetDetail>       YearlyBudgetDetails      { get; set; }
         public DbSet<YearlyBudgetMonthDetail>  YearlyBudgetMonthDetails { get; set; }
+        public DbSet<YearlyBudgetComparison>   YearlyBudgetComparisons  { get; set; }
 
         public AssistDbContext(
             DbContextOptions<AssistDbContext> options,
@@ -527,6 +528,31 @@ namespace PetelAssistants.Api.Data
                     .WithMany(b => b.MonthDetails)
                     .HasForeignKey(m => m.YearlyBudgetId)
                     .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<YearlyBudgetComparison>(entity =>
+            {
+                entity.ToTable("yearly_budget_comparisons");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.YearlyBudgetId);
+                entity.HasIndex(e => new { e.YearlyBudgetId, e.PeriodYear, e.PeriodMonth });
+
+                entity.HasOne(c => c.YearlyBudget)
+                    .WithMany(b => b.Comparisons)
+                    .HasForeignKey(c => c.YearlyBudgetId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(c => c.SalaryProcess)
+                    .WithMany(p => p.BudgetComparisons)
+                    .HasForeignKey(c => c.SalaryProcessId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(c => c.MeitarProcess)
+                    .WithMany(p => p.BudgetComparisons)
+                    .HasForeignKey(c => c.MeitarProcessId)
+                    .OnDelete(DeleteBehavior.SetNull);
 
                 entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
             });

@@ -289,6 +289,110 @@ html, body {
     align-items: flex-start;
 }
 
+.dashboard-year-picker-card {
+    max-width: 900px;
+    margin: 20px auto;
+    text-align: center;
+    width: 100%;
+}
+
+.dashboard-welcome-title {
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+.dashboard-welcome-subtitle {
+    color: var(--text-muted);
+    margin-bottom: 24px;
+}
+
+.dashboard-year-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    direction: ltr;
+    width: 100%;
+}
+
+.dashboard-year-column {
+    direction: rtl;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.dashboard-year-column-title {
+    color: var(--text-primary);
+    font-size: 1.1em;
+    margin: 0 0 4px;
+}
+
+.dashboard-year-column-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+}
+
+@media (max-width: 700px) {
+    .dashboard-year-picker {
+        grid-template-columns: 1fr;
+    }
+}
+
+.dashboard-year-picker-card {
+    max-width: 900px;
+    margin: 20px auto;
+    text-align: center;
+    width: 100%;
+}
+
+.dashboard-welcome-title {
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+.dashboard-welcome-subtitle {
+    color: var(--text-muted);
+    margin-bottom: 24px;
+}
+
+.dashboard-year-picker {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    direction: ltr;
+    width: 100%;
+}
+
+.dashboard-year-column {
+    direction: rtl;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+}
+
+.dashboard-year-column-title {
+    color: var(--text-primary);
+    font-size: 1.1em;
+    margin: 0 0 4px;
+}
+
+.dashboard-year-column-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+}
+
+@media (max-width: 700px) {
+    .dashboard-year-picker {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* ── System Footer ─────────────────────────────────── */
 .system-footer {
     position: fixed;

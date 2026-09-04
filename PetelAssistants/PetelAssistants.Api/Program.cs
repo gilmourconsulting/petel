@@ -84,6 +84,7 @@ builder.Services.AddScoped<PersonalApprovalsPdfParser>();
 builder.Services.AddScoped<OrgUnitService>();
 builder.Services.AddScoped<EntitlementService>();
 builder.Services.AddScoped<YearlyBudgetService>();
+builder.Services.AddScoped<GregorianYearService>();
 builder.Services.AddScoped<MonthlyImportComparisonService>();
 
 // ── Meitar data API client ─────────────────────────────────────────────────

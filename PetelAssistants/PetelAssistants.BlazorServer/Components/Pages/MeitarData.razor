@@ -6,6 +6,20 @@
 @inject ApiService ApiService
 
 <div class="context-buttons-section">
+    @if (_returnYearId.HasValue)
+    {
+        <SecureButton ActionName="yearmanagement_meitar_retrieve" ScreenName="@PageName" FunctionName="ShowMeitarRetrieveDialog"
+                      OnClick="ShowMeitarRetrieveDialog" CssClass="context-btn" HideIfNoAccess="true">
+            שליפת נתוני מיתר
+        </SecureButton>
+    }
+    else
+    {
+        <SecureButton ActionName="maindashboard_meitar_retrieve" ScreenName="@PageName" FunctionName="ShowMeitarRetrieveDialog"
+                      OnClick="ShowMeitarRetrieveDialog" CssClass="context-btn" HideIfNoAccess="true">
+            שליפת נתוני מיתר
+        </SecureButton>
+    }
     <SecureButton ActionName="meitardata_refresh" ScreenName="@PageName" FunctionName="RefreshData"
                   OnClick="RefreshData" CssClass="context-btn">
         רענן נתונים
@@ -16,9 +30,11 @@
     </SecureButton>
     <SecureButton ActionName="meitardata_back" ScreenName="@PageName" FunctionName="NavigateBack"
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
-        @(_returnYearId.HasValue ? "חזרה לניהול שנה" : "חזרה לדף הבית")
+        @(_returnYearId.HasValue ? "חזרה לניהול שנה" : _returnGregorianYear.HasValue ? "חזרה לניהול שנה לועזית" : "חזרה לדף הבית")
     </SecureButton>
 </div>
+
+<MeitarRetrieveModal @ref="_meitarRetrieveModal" YearId="_selectedYearId" />
 
 <div class="main-container">
     <div class="students-content">
@@ -47,24 +63,34 @@
                     </button>
                 </div>
 
-                <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end;">
-                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-size: 0.82em; font-weight: 600;">שנה</label>
-                        <input type="number" class="form-control" style="width: 100px;"
-                               @bind="_filterYear" @bind:event="onchange" @bind:after="OnPeriodChanged"
-                               min="2000" max="2100" />
+                <div class="filter-bar" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+                    @if (!_returnYearId.HasValue && !_returnGregorianYear.HasValue && _years.Count > 0)
+                    {
+                        <div style="display: flex; flex-direction: column; gap: 4px; align-self: flex-start;">
+                            <label style="font-size: 0.82em; font-weight: 600;">שנת לימודים</label>
+                            <select class="form-control" style="min-width: 180px;"
+                                    @bind="_selectedYearId" @bind:event="onchange" @bind:after="OnSchoolYearChanged">
+                                @foreach (var year in _years)
+                                {
+                                    <option value="@year.Id">@year.YearName</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    <div class="salary-month-buttons">
+                        @foreach (var period in _schoolMonths)
+                        {
+                            var year = period.Year;
+                            var month = period.Month;
+                            <button type="button"
+                                    class="salary-month-btn @(_filterYear == year && _filterMonth == month ? "active" : null)"
+                                    @onclick="() => SelectMonth(year, month)">
+                                <span class="month-name">@GetMonthName(month)</span>
+                            </button>
+                        }
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-size: 0.82em; font-weight: 600;">חודש</label>
-                        <select class="form-control" style="min-width: 120px;"
-                                @bind="_filterMonth" @bind:event="onchange" @bind:after="OnPeriodChanged">
-                            @for (int m = 1; m <= 12; m++)
-                            {
-                                <option value="@m">@GetMonthLabel(m)</option>
-                            }
-                        </select>
-                    </div>
-                    @if (!_returnYearId.HasValue)
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;">
+                    @if (!_returnYearId.HasValue && !_returnGregorianYear.HasValue)
                     {
                         <div style="display: flex; flex-direction: column; gap: 4px;">
                             <label style="font-size: 0.82em; font-weight: 600;">סינון לפי</label>
@@ -85,6 +111,7 @@
                     {
                         <button class="btn btn-secondary" style="align-self: flex-end;" @onclick="ClearClientFilters">נקה סינון</button>
                     }
+                    </div>
                 </div>
 
                 @if (_activeTab == DataTab.Mutavim)
@@ -377,6 +404,9 @@
     [SupplyParameterFromQuery(Name = "fromYear")]
     public int? FromYear { get; set; }
 
+    [SupplyParameterFromQuery(Name = "fromGregorianYear")]
+    public int? FromGregorianYear { get; set; }
+
     private enum DataTab
     {
         Mutavim,
@@ -391,6 +421,11 @@
     private List<MeitarSharatimListItemDto> _sharatimItems = new();
     private bool _isLoading = true;
     private int? _returnYearId;
+    private int? _returnGregorianYear;
+    private int _selectedYearId;
+    private List<YearDto> _years = new();
+    private List<(int Year, int Month)> _schoolMonths = new();
+    private MeitarRetrieveModal? _meitarRetrieveModal;
 
     private int _filterYear;
     private int _filterMonth;
@@ -571,39 +606,115 @@
     protected override async Task OnPageInitializedAsync()
     {
         _returnYearId = FromYear;
-        await SetDefaultPeriodAsync();
+        _returnGregorianYear = FromGregorianYear;
+        await LoadSchoolYearAsync();
+        RebuildMonths();
+        PickDefaultMonth();
+        if (_returnYearId.HasValue || _returnGregorianYear.HasValue)
+            _dateField = "calc";
         await LoadDataAsync();
     }
 
-    /// <summary>
-    /// From Year Management: default to September of the Gregorian year in which
-    /// the Hebrew year starts, filtered by calc date.
-    /// From Main Dashboard: default to the previous calendar month.
-    /// </summary>
-    private async Task SetDefaultPeriodAsync()
+    private async Task LoadSchoolYearAsync()
     {
-        if (_returnYearId.HasValue)
+        if (_returnGregorianYear.HasValue)
+            return;
+
+        try
         {
-            _dateField = "calc";
-            try
+            if (_returnYearId.HasValue)
             {
                 var year = await ApiService.GetAsync<YearDto>($"years/{_returnYearId.Value}");
-                if (year?.StartDate is not null)
+                if (year != null)
                 {
-                    _filterYear = year.StartDate.Value.Year;
-                    _filterMonth = 9;
-                    return;
+                    _years = new List<YearDto> { year };
+                    _selectedYearId = year.Id;
                 }
             }
-            catch (Exception ex)
+            else
             {
-                Console.WriteLine($"Error loading year {_returnYearId.Value}: {ex.Message}");
+                var context = await ApiService.GetAsync<YearContextDto>("years/context");
+                _years = context?.AllYears ?? new();
+                _selectedYearId = context?.CurrentYear?.Id ?? _years.FirstOrDefault()?.Id ?? 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading school year: {ex.Message}");
+            _years = new();
+        }
+    }
+
+    private YearDto? SelectedYear => _years.FirstOrDefault(y => y.Id == _selectedYearId);
+
+    private void RebuildMonths()
+    {
+        _schoolMonths = new();
+        if (_returnGregorianYear.HasValue)
+        {
+            var y = _returnGregorianYear.Value;
+            for (var m = 1; m <= 12; m++)
+                _schoolMonths.Add((y, m));
+            return;
+        }
+
+        var year = SelectedYear;
+        if (year?.StartDate is null || year.EndDate is null)
+            return;
+
+        var start = new DateOnly(year.StartDate.Value.Year, year.StartDate.Value.Month, 1);
+        var end = new DateOnly(year.EndDate.Value.Year, year.EndDate.Value.Month, 1);
+        if (end < start)
+            return;
+
+        for (var cursor = start; cursor <= end; cursor = cursor.AddMonths(1))
+            _schoolMonths.Add((cursor.Year, cursor.Month));
+    }
+
+    private void PickDefaultMonth()
+    {
+        if (_schoolMonths.Count == 0)
+            return;
+
+        var previous = DateTime.Today.AddMonths(-1);
+        foreach (var month in _schoolMonths)
+        {
+            if (month.Year == previous.Year && month.Month == previous.Month)
+            {
+                _filterYear = month.Year;
+                _filterMonth = month.Month;
+                return;
             }
         }
 
-        var previous = DateTime.Today.AddMonths(-1);
-        _filterYear = previous.Year;
-        _filterMonth = previous.Month;
+        var todayKey = DateTime.Today.Year * 12 + DateTime.Today.Month;
+        var last = _schoolMonths[^1];
+        if (last.Year * 12 + last.Month < todayKey)
+        {
+            _filterYear = last.Year;
+            _filterMonth = last.Month;
+        }
+        else
+        {
+            _filterYear = _schoolMonths[0].Year;
+            _filterMonth = _schoolMonths[0].Month;
+        }
+    }
+
+    private async Task OnSchoolYearChanged()
+    {
+        RebuildMonths();
+        PickDefaultMonth();
+        await LoadDataAsync();
+    }
+
+    private async Task SelectMonth(int year, int month)
+    {
+        if (_filterYear == year && _filterMonth == month)
+            return;
+        _filterYear = year;
+        _filterMonth = month;
+        await LoadDataAsync(showSpinner: false);
     }
 
     private async Task OnPeriodChanged()
@@ -611,9 +722,10 @@
         await LoadDataAsync();
     }
 
-    private async Task LoadDataAsync()
+    private async Task LoadDataAsync(bool showSpinner = true)
     {
-        _isLoading = true;
+        if (showSpinner)
+            _isLoading = true;
         try
         {
             var response = await ApiService.GetAsync<ApiResponse<List<MeitarMutavimListItemDto>>>(
@@ -651,8 +763,15 @@
         }
         finally
         {
-            _isLoading = false;
+            if (showSpinner)
+                _isLoading = false;
         }
+    }
+
+    private async Task ShowMeitarRetrieveDialog()
+    {
+        if (_meitarRetrieveModal != null)
+            await _meitarRetrieveModal.Show(_selectedYearId > 0 ? _selectedYearId : _returnYearId);
     }
 
     private void SetTab(DataTab tab)
@@ -670,7 +789,9 @@
 
     private void NavigateBack()
     {
-        if (_returnYearId.HasValue)
+        if (_returnGregorianYear.HasValue)
+            Navigation.NavigateTo($"/gregorian/{_returnGregorianYear.Value}");
+        else if (_returnYearId.HasValue)
             Navigation.NavigateTo($"/year/{_returnYearId.Value}");
         else
             Navigation.NavigateTo("/maindashboard");
@@ -678,8 +799,10 @@
 
     private void NavigateToMonthSummary()
     {
-        var qs = $"year={_filterYear}&month={_filterMonth}";
-        if (_returnYearId.HasValue)
+        var qs = $"year={_filterYear}&month={_filterMonth}&yearId={_selectedYearId}";
+        if (_returnGregorianYear.HasValue)
+            qs += $"&fromGregorianYear={_returnGregorianYear.Value}";
+        else if (_returnYearId.HasValue)
             qs += $"&fromYear={_returnYearId.Value}";
         Navigation.NavigateTo($"/meitar-data/month-summary?{qs}");
     }
@@ -723,6 +846,6 @@
         return ascending ? "▲" : "▼";
     }
 
-    private static string GetMonthLabel(int month) =>
-        month is >= 1 and <= 12 ? $"{month} - {MonthNames[month]}" : month.ToString();
+    private static string GetMonthName(int month) =>
+        month is >= 1 and <= 12 ? MonthNames[month] : month.ToString();
 }

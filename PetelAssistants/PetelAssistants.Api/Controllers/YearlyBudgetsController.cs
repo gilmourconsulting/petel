@@ -109,6 +109,26 @@ namespace PetelAssistants.Api.Controllers
             }
         }
 
+        [HttpPost("{id:int}/recalculate-summaries")]
+        public async Task<IActionResult> RecalculateSummaries(int id)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
+            try
+            {
+                var data = await _service.RecalculateSummariesAsync(userId, id);
+                return Ok(new { success = true, message = "סיכומי השכר והמיתר חושבו מחדש", data });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
         [HttpPut("{id:int}/lock")]
         public async Task<IActionResult> Lock(int id)
         {

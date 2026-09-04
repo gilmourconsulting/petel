@@ -85,11 +85,11 @@ Payroll `department_id` values vary per authority. Tenant map `assist_schema.sal
 
 ### Monthly import summaries vs locked budget
 
-After salary upload / recheck and after Meitar retrieve, `MonthlyImportComparisonService` persists per-**process** summary lines comparable to `yearly_budget_month_details` (grain: `assistant_type_id`).
+After salary upload / recheck, after Meitar retrieve, and on demand from the budget screen (**חשב סיכומים מחדש**), `MonthlyImportComparisonService` persists per-**process** summary lines comparable to `yearly_budget_month_details` (grain: `assistant_type_id`).
 
 **Budget version:** last **locked** yearly budget (`status = locked`, highest `version`) for the Hebrew year whose month range covers the import calendar month. If none locked, summaries are still stored with `has_budget = false` and null budget snapshot columns.
 
-**Salary summaries** (`salary_month_summaries`): **include every imported payment row** — anomalies never exclude, reduce, or move money. Unmapped (or inactive) departments roll into a null `assistant_type_id` bucket that still holds those amounts. Type-mismatch rows stay under the **mapped department type**. `amount` = sum of `total_salary`; `fte` = sum of `position_percentage` / 100; `hours` = fte × `assistant_types.position_hours` when set. Process `row_count` / `total_salary_sum` must match the sum of summary `row_count` / `amount`. Debug UI: `/salaries/month-summary`.
+**Salary summaries** (`salary_month_summaries`): **include every imported payment row** — anomalies never exclude, reduce, or move money. Unmapped (or inactive) departments roll into a null `assistant_type_id` bucket that still holds those amounts. Type-mismatch rows stay under the **mapped department type**. `amount` = sum of `total_salary`; `fte` = sum of `position_percentage` / 100; `hours` = fte × `assistant_types.position_hours` when set. Process `row_count` / `total_salary_sum` must match the sum of summary `row_count` / `amount`. Debug UI: `/salaries/month-summary`. These latest-process lines also feed `yearly_budget_comparisons` (budget-screen vs-budget tab).
 
 **Meitar summaries** (`meitar_month_summaries`): map `topic_code` → `meitar_topics.assistant_type_id` (shared, cross-system). Unmapped topics → null-type bucket. `amount` = sum of `calculated_amount`; `hours` = sum of `unit_count`; `fte` = 0. Debug UI: `/meitar-data/month-summary`.
 
@@ -103,9 +103,15 @@ Investigation report only — does not feed the salary vs-budget summary. Table 
 
 **Validation:** Entitlement start/end dates must fall within the Hebrew year's date range. Defaults on create come from the year's dates.
 
+## Gregorian / municipal fiscal year
+
+Israeli municipal books follow the **Gregorian calendar year** (January–December). Education data (entitlements, allocations, yearly budget versions) remains keyed to the Hebrew school year (typically September–August). One fiscal year therefore spans **two** school-year budgets.
+
+The calendar-year hub (`/gregorian/{Year}`) is a **composed read-only view**, not a second budget entity. For each month of year Y it uses the last non-deleted `yearly_budgets` row of the Hebrew year covering that month, then sums that version’s `yearly_budget_month_details` and `yearly_budget_comparisons` where `period_year = Y`. Salary and Meitar facts are already stored as calendar `period_year` + `period_month`. Operational create/edit/calculate/lock stays on the school-year screens.
+
 ## Yearly budget (תקציב שנתי)
 
-Tenant-owned budget per Hebrew year with versions. Entry: Year Management nav card → `/year/{YearId}/yearly-budget`. Tabs: **תקציב** (year + month lines) and **סיכום מול תקציב** (salary month-summary actuals for the Hebrew year vs the selected budget version; year totals and per-month drill-down). SQL: `add-yearly-budget.sql`, `add-yearly-budget-actions.sql`, `add-yearly-budget-add-types-action.sql` (add-missing-types button), `add-class-assistant-budget-hours.sql` (calculate action + shared rates), `add-budget-hour-value.sql` (shared hour monetary value).
+Tenant-owned budget per Hebrew year with versions. Entry: Year Management nav card → `/year/{YearId}/yearly-budget`. Tabs: **תקציב** (year + month lines) and **סיכום מול תקציב** (version-linked comparison of that budget vs latest salary files and Meitar MUTAVIM income; year totals and per-month drill-down). SQL: `add-yearly-budget.sql`, `add-yearly-budget-actions.sql`, `add-yearly-budget-add-types-action.sql` (add-missing-types button), `add-class-assistant-budget-hours.sql` (calculate action + shared rates), `add-budget-hour-value.sql` (shared hour monetary value), `add-yearly-budget-comparisons.sql` (per-version comparison table), `add-yearly-budget-recalculate-summaries-action.sql` (rebuild salary/Meitar summaries).
 
 **Tables (`assist_schema`):**
 
@@ -114,6 +120,7 @@ Tenant-owned budget per Hebrew year with versions. Entry: Year Management nav ca
 | `yearly_budgets` | Version header: `master_yearly_budget_id`, `version`, `is_last_version`, `status` (`open` / `locked` / `deleted`) |
 | `yearly_budget_details` | Year-level lines per `assistant_type_id` for a specific version |
 | `yearly_budget_month_details` | Monthly lines for that version (`period_year` + `period_month`) |
+| `yearly_budget_comparisons` | Per-version month × assistant-type comparison: budget snapshot + latest salary actuals + Meitar MUTAVIM income |
 
 **Lifecycle:** No auto-create on open — if there are no versions, the screen shows empty state with **גרסה חדשה** (creates version **0**). Open versions edit and save in place. Lock makes the version read-only. When the last non-deleted version is Locked, **גרסה חדשה** copies it to the next Open version. Soft-delete sets `status = deleted` and promotes the previous non-deleted version to `is_last_version` when needed.
 
@@ -128,11 +135,15 @@ Tenant-owned budget per Hebrew year with versions. Entry: Year Management nav ca
 
 Requires a row in `shared_schema.budget_hour_values` for the budget year; if missing, calculate fails with a Hebrew error (nothing saved). After hours are written for calculated types, set `amount = hours × hour_value` for those types and re-split their month rows. Unchanged types (e.g. `school_help`) keep existing FTE/hours/amount. Class-help missing school level / classification / rate → per-entitlement failure (does not block successful rows). Response includes summary (`TotalHours`, `TotalAmount`, counts) + class-help failure list.
 
-**API:** `GET api/yearly-budgets?yearId=` (last or empty shell with `CanCreateNewVersion`), `GET api/yearly-budgets/{id}`, `PUT api/yearly-budgets/{id}`, `POST …/calculate`, `PUT …/lock`, `POST api/yearly-budgets/new-version?yearId=` (first v0 or next from locked), `PUT …/delete`. Summary-vs-budget tab: `GET api/salary-month-summaries/for-year?yearId=`.
+**Version comparisons:** Creating or saving a budget version (new version, in-place save, calculate) rebuilds `yearly_budget_comparisons` for that version from all existing salary files and Meitar MUTAVIM retrieves in the Hebrew year (latest process per month). Salary/Meitar import or recheck also rebuilds comparisons for every non-deleted version whose year covers that month. Opening a version with no comparison rows backfills them. Grain: `assistant_type_id` (null = unmapped). UI columns: budget amount first, then salary amount, Meitar income, salary variance, then budget/salary FTE. The vs-budget tab also charts monthly or cumulative series (budget vs Meitar income, budget vs salary expense, income vs expense) with a כסף / משרות toggle. **Meitar has no FTE** (`meitar_month_summaries.fte` is always 0; comparison rows have no Meitar FTE), so משרות mode only enables budget vs salary. Debug pages `/salaries/month-summary` and `/meitar-data/month-summary` still use process-level snapshots vs last locked budget.
+
+**Recalculate summaries (חשב סיכומים מחדש):** Context button on any existing (non-deleted) version — not gated on `CanEdit`. `POST api/yearly-budgets/{id}/recalculate-summaries` force-rebuilds `salary_month_summaries` and `meitar_month_summaries` for every Gregorian month in the budget’s Hebrew year (latest process per month, current department / Meitar-topic mappings), then rebuilds `yearly_budget_comparisons` for every non-deleted version of that year. Use after mapping changes without re-uploading salary or re-retrieving Meitar. SQL: `add-yearly-budget-recalculate-summaries-action.sql`.
+
+**API:** `GET api/yearly-budgets?yearId=` (last or empty shell with `CanCreateNewVersion`), `GET api/yearly-budgets/{id}`, `PUT api/yearly-budgets/{id}`, `POST …/calculate`, `POST …/recalculate-summaries`, `PUT …/lock`, `POST api/yearly-budgets/new-version?yearId=` (first v0 or next from locked), `PUT …/delete`. Comparison rows are returned on the budget DTO (`Comparisons`).
 
 **Add missing assistant types (client-side prompt):** `CreateNewVersionFromLockedAsync` copies only the assistant types that existed on the source (locked) version — it does not re-sync against `shared_schema.assistant_types`, so a type created after the source version was locked stays absent from the new version until saved (`SaveAsync` always re-syncs against every active type, inserting missing ones with zero values). On the open budget screen, a **הוסף סוג סייעת** button appears in the context bar only when active assistant types (`GET api/assistant-types`) are missing from the currently displayed detail rows; it opens a picker to add the selected types as zero-value rows to the in-memory table, which then save normally via **שמור**. No dedicated API endpoint — purely a client-side reconciliation aid.
 
-**Security:** `yearly_budget_page_action`, `yearly_budget_back`, `yearly_budget_refresh`, `yearly_budget_calculate`, `yearly_budget_save`, `yearly_budget_lock`, `yearly_budget_new_version`, `yearly_budget_delete`, `yearly_budget_add_types`, `yearmanagement_yearly_budget`.
+**Security:** `yearly_budget_page_action`, `yearly_budget_back`, `yearly_budget_refresh`, `yearly_budget_calculate`, `yearly_budget_recalculate_summaries`, `yearly_budget_save`, `yearly_budget_lock`, `yearly_budget_new_version`, `yearly_budget_delete`, `yearly_budget_add_types`, `yearmanagement_yearly_budget`.
 
 ## Year Elements hub (ניהול שנה — shared)
 

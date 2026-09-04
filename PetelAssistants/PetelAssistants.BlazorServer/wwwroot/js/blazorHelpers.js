@@ -35,6 +35,21 @@ window.BlazorHelpers = {
     },
 
     /**
+     * Scroll a table row (or any element) into view by ID.
+     * Used by EntityFocusLink landing pages (?focusId=).
+     */
+    scrollIntoView: function (elementId) {
+        try {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
+        } catch (error) {
+            console.error('Error scrolling into view:', error);
+        }
+    },
+
+    /**
      * Show a loading overlay message
      * @param {string} elementId - The ID for the loading overlay
      * @param {string} title - The title text
@@ -264,6 +279,119 @@ window.downloadFileFromBase64 = function (base64, fileName, mimeType) {
         console.error('Error downloading file:', error);
     }
 };
+
+window.BlazorHelpers.budgetTrendChart = {
+    _charts: {},
+
+    update: function (canvasId, payload, dotNetRef) {
+        this.dispose(canvasId);
+        const canvas = document.getElementById(canvasId);
+        if (!canvas || typeof Chart === 'undefined' || !payload || !payload.labels) {
+            return;
+        }
+
+        const isMoney = !!payload.isMoney;
+        const chart = new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: payload.labels,
+                datasets: (payload.series || []).map(function (s) {
+                    return {
+                        label: s.label,
+                        data: s.values,
+                        borderColor: s.color,
+                        backgroundColor: s.color,
+                        spanGaps: false,
+                        tension: 0,
+                        pointRadius: 3,
+                        pointHoverRadius: 5,
+                        borderWidth: 2,
+                        fill: false
+                    };
+                })
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                locale: 'he-IL',
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        rtl: true,
+                        textDirection: 'rtl',
+                        align: 'end'
+                    },
+                    tooltip: {
+                        rtl: true,
+                        textDirection: 'rtl',
+                        callbacks: {
+                            label: function (ctx) {
+                                const value = ctx.parsed.y;
+                                if (value == null) {
+                                    return ctx.dataset.label + ': —';
+                                }
+                                return ctx.dataset.label + ': ' + formatTrendValue(value, isMoney);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { maxRotation: 45, minRotation: 0, autoSkip: true }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function (value) {
+                                return formatTrendValue(value, isMoney);
+                            }
+                        }
+                    }
+                },
+                onClick: function (evt, elements, chartInstance) {
+                    let index;
+                    if (elements && elements.length) {
+                        index = elements[0].index;
+                    } else {
+                        const points = chartInstance.getElementsAtEventForMode(
+                            evt, 'index', { intersect: false }, true);
+                        if (points.length) {
+                            index = points[0].index;
+                        }
+                    }
+                    if (index == null || !payload.months || !payload.months[index] || !dotNetRef) {
+                        return;
+                    }
+                    const month = payload.months[index];
+                    dotNetRef.invokeMethodAsync(
+                        'OnChartMonthClicked', month.periodYear, month.periodMonth);
+                }
+            }
+        });
+
+        this._charts[canvasId] = chart;
+    },
+
+    dispose: function (canvasId) {
+        const existing = this._charts[canvasId];
+        if (existing) {
+            existing.destroy();
+            delete this._charts[canvasId];
+        }
+    }
+};
+
+function formatTrendValue(value, isMoney) {
+    const numeric = Number(value);
+    if (!isFinite(numeric)) {
+        return '';
+    }
+    if (isMoney) {
+        return '₪ ' + Math.round(numeric).toLocaleString('he-IL');
+    }
+    return numeric.toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 // Legacy aliases for backward compatibility
 window.FileUploadHelper = {

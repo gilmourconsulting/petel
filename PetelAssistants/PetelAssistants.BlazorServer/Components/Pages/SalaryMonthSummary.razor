@@ -28,22 +28,32 @@
             }
             else
             {
-                <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end;">
-                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-size: 0.82em; font-weight: 600;">שנה</label>
-                        <input type="number" class="form-control" style="width: 100px;"
-                               @bind="_filterYear" @bind:event="onchange" @bind:after="OnPeriodChanged"
-                               min="2000" max="2100" />
-                    </div>
-                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-size: 0.82em; font-weight: 600;">חודש</label>
-                        <select class="form-control" style="min-width: 120px;"
-                                @bind="_filterMonth" @bind:event="onchange" @bind:after="OnPeriodChanged">
-                            @for (int m = 1; m <= 12; m++)
-                            {
-                                <option value="@m">@GetMonthLabel(m)</option>
-                            }
-                        </select>
+                <div class="filter-bar" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+                    @if (!_returnYearId.HasValue && !_returnGregorianYear.HasValue && _years.Count > 0)
+                    {
+                        <div style="display: flex; flex-direction: column; gap: 4px; align-self: flex-start;">
+                            <label style="font-size: 0.82em; font-weight: 600;">שנת לימודים</label>
+                            <select class="form-control" style="min-width: 180px;"
+                                    @bind="_selectedYearId" @bind:event="onchange" @bind:after="OnSchoolYearChanged">
+                                @foreach (var year in _years)
+                                {
+                                    <option value="@year.Id">@year.YearName</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    <div class="salary-month-buttons">
+                        @foreach (var period in _schoolMonths)
+                        {
+                            var year = period.Year;
+                            var month = period.Month;
+                            <button type="button"
+                                    class="salary-month-btn @(_filterYear == year && _filterMonth == month ? "active" : null)"
+                                    @onclick="() => SelectMonth(year, month)">
+                                <span class="month-name">@GetMonthName(month)</span>
+                                <span class="month-total">₪ @GetMonthVariance(year, month).ToString("N0")</span>
+                            </button>
+                        }
                     </div>
                 </div>
 
@@ -75,6 +85,12 @@
                             <div class="summary-info">
                                 <div class="summary-value">@_summary.Lines.Sum(l => l.BudgetAmount ?? 0).ToString("N0")</div>
                                 <div class="summary-label">תקציב נעול (₪)</div>
+                            </div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-info">
+                                <div class="summary-value">@SelectedVariance.ToString("N0")</div>
+                                <div class="summary-label">הפרש סכום (₪)</div>
                             </div>
                         </div>
                     </div>
@@ -124,13 +140,25 @@
     [SupplyParameterFromQuery(Name = "fromYear")]
     public int? FromYear { get; set; }
 
+    [SupplyParameterFromQuery(Name = "fromGregorianYear")]
+    public int? FromGregorianYear { get; set; }
+
     [SupplyParameterFromQuery(Name = "year")]
     public int? Year { get; set; }
 
     [SupplyParameterFromQuery(Name = "month")]
     public int? Month { get; set; }
 
+    [SupplyParameterFromQuery(Name = "yearId")]
+    public int? YearId { get; set; }
+
     private bool _isLoading = true;
+    private int? _returnYearId;
+    private int? _returnGregorianYear;
+    private int _selectedYearId;
+    private List<YearDto> _years = new();
+    private List<(int Year, int Month)> _schoolMonths = new();
+    private List<MonthSummaryLineDto> _yearLines = new();
     private int _filterYear;
     private int _filterMonth;
     private MonthSummaryResponse _summary = new();
@@ -141,37 +169,163 @@
         "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר"
     };
 
+    private decimal SelectedVariance =>
+        _summary.Lines.Sum(l => l.Amount - (l.BudgetAmount ?? 0));
+
     protected override async Task OnPageInitializedAsync()
     {
-        if (Year.HasValue && Month.HasValue)
+        _returnYearId = FromYear;
+        _returnGregorianYear = FromGregorianYear;
+        await LoadSchoolYearAsync();
+        RebuildMonths();
+        ApplyInitialMonth();
+        await LoadYearSummariesAsync();
+    }
+
+    private async Task LoadSchoolYearAsync()
+    {
+        if (_returnGregorianYear.HasValue)
+            return;
+
+        try
+        {
+            if (_returnYearId.HasValue)
+            {
+                var year = await ApiService.GetAsync<YearDto>($"years/{_returnYearId.Value}");
+                if (year != null)
+                {
+                    _years = new List<YearDto> { year };
+                    _selectedYearId = year.Id;
+                }
+            }
+            else
+            {
+                var context = await ApiService.GetAsync<YearContextDto>("years/context");
+                _years = context?.AllYears ?? new();
+                if (YearId.HasValue && _years.Any(y => y.Id == YearId.Value))
+                    _selectedYearId = YearId.Value;
+                else
+                    _selectedYearId = context?.CurrentYear?.Id ?? _years.FirstOrDefault()?.Id ?? 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading school year: {ex.Message}");
+            _years = new();
+        }
+    }
+
+    private YearDto? SelectedYear => _years.FirstOrDefault(y => y.Id == _selectedYearId);
+
+    private void RebuildMonths()
+    {
+        _schoolMonths = new();
+        if (_returnGregorianYear.HasValue)
+        {
+            var y = _returnGregorianYear.Value;
+            for (var m = 1; m <= 12; m++)
+                _schoolMonths.Add((y, m));
+            return;
+        }
+
+        var year = SelectedYear;
+        if (year?.StartDate is null || year.EndDate is null)
+            return;
+
+        var start = new DateOnly(year.StartDate.Value.Year, year.StartDate.Value.Month, 1);
+        var end = new DateOnly(year.EndDate.Value.Year, year.EndDate.Value.Month, 1);
+        if (end < start)
+            return;
+
+        for (var cursor = start; cursor <= end; cursor = cursor.AddMonths(1))
+            _schoolMonths.Add((cursor.Year, cursor.Month));
+    }
+
+    private void ApplyInitialMonth()
+    {
+        if (Year.HasValue && Month.HasValue &&
+            _schoolMonths.Any(m => m.Year == Year.Value && m.Month == Month.Value))
         {
             _filterYear = Year.Value;
             _filterMonth = Month.Value;
+            return;
+        }
+
+        PickDefaultMonth();
+    }
+
+    private void PickDefaultMonth()
+    {
+        if (_schoolMonths.Count == 0)
+            return;
+
+        var previous = DateTime.Today.AddMonths(-1);
+        foreach (var month in _schoolMonths)
+        {
+            if (month.Year == previous.Year && month.Month == previous.Month)
+            {
+                _filterYear = month.Year;
+                _filterMonth = month.Month;
+                return;
+            }
+        }
+
+        var todayKey = DateTime.Today.Year * 12 + DateTime.Today.Month;
+        var last = _schoolMonths[^1];
+        if (last.Year * 12 + last.Month < todayKey)
+        {
+            _filterYear = last.Year;
+            _filterMonth = last.Month;
         }
         else
         {
-            var previous = DateTime.Today.AddMonths(-1);
-            _filterYear = previous.Year;
-            _filterMonth = previous.Month;
+            _filterYear = _schoolMonths[0].Year;
+            _filterMonth = _schoolMonths[0].Month;
         }
-        await LoadDataAsync();
     }
 
-    private async Task OnPeriodChanged() => await LoadDataAsync();
-    private async Task RefreshData() => await LoadDataAsync();
+    private async Task OnSchoolYearChanged()
+    {
+        RebuildMonths();
+        PickDefaultMonth();
+        await LoadYearSummariesAsync();
+    }
 
-    private async Task LoadDataAsync()
+    private void SelectMonth(int year, int month)
+    {
+        if (_filterYear == year && _filterMonth == month)
+            return;
+        _filterYear = year;
+        _filterMonth = month;
+        ApplySelectedMonth();
+    }
+
+    private async Task RefreshData() => await LoadYearSummariesAsync();
+
+    private async Task LoadYearSummariesAsync()
     {
         _isLoading = true;
         try
         {
-            var response = await ApiService.GetAsync<ApiResponse<MonthSummaryResponse>>(
-                $"salary-month-summaries?year={_filterYear}&month={_filterMonth}");
-            _summary = response?.Data ?? new();
+            _yearLines = new();
+            if (_returnGregorianYear.HasValue)
+            {
+                var response = await ApiService.GetAsync<ApiResponse<YearMonthSummariesResponse>>(
+                    $"salary-month-summaries/for-gregorian-year?year={_returnGregorianYear.Value}");
+                _yearLines = response?.Data?.Lines ?? new();
+            }
+            else if (_selectedYearId > 0)
+            {
+                var response = await ApiService.GetAsync<ApiResponse<YearMonthSummariesResponse>>(
+                    $"salary-month-summaries/for-year?yearId={_selectedYearId}");
+                _yearLines = response?.Data?.Lines ?? new();
+            }
+            ApplySelectedMonth();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading salary month summary: {ex.Message}");
+            _yearLines = new();
             _summary = new();
         }
         finally
@@ -180,12 +334,35 @@
         }
     }
 
-    private void NavigateBack()
+    private void ApplySelectedMonth()
     {
-        var qs = FromYear.HasValue ? $"?fromYear={FromYear.Value}" : "";
-        Navigation.NavigateTo($"/salaries{qs}");
+        var lines = _yearLines
+            .Where(l => l.PeriodYear == _filterYear && l.PeriodMonth == _filterMonth)
+            .ToList();
+        _summary = new MonthSummaryResponse
+        {
+            ProcessId = lines.FirstOrDefault()?.ProcessId,
+            HasBudget = lines.Any(l => l.HasBudget),
+            Lines = lines
+        };
     }
 
-    private static string GetMonthLabel(int month) =>
-        month is >= 1 and <= 12 ? $"{month} - {MonthNames[month]}" : month.ToString();
+    private decimal GetMonthVariance(int year, int month) =>
+        _yearLines
+            .Where(l => l.PeriodYear == year && l.PeriodMonth == month)
+            .Sum(l => l.Amount - (l.BudgetAmount ?? 0));
+
+    private void NavigateBack()
+    {
+        if (FromGregorianYear.HasValue)
+            Navigation.NavigateTo($"/salaries?fromGregorianYear={FromGregorianYear.Value}");
+        else
+        {
+            var qs = FromYear.HasValue ? $"?fromYear={FromYear.Value}" : "";
+            Navigation.NavigateTo($"/salaries{qs}");
+        }
+    }
+
+    private static string GetMonthName(int month) =>
+        month is >= 1 and <= 12 ? MonthNames[month] : month.ToString();
 }

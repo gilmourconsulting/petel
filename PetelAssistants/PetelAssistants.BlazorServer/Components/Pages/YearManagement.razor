@@ -6,19 +6,9 @@
 @inject ApiService ApiService
 
 <div class="context-buttons-section">
-    <SecureButton ActionName="yearmanagement_salary_upload" ScreenName="@PageName" FunctionName="ShowSalaryUploadDialog"
-                  OnClick="ShowSalaryUploadDialog" CssClass="context-btn" HideIfNoAccess="true">
-        העלאת קובץ שכר
-    </SecureButton>
-
     <SecureButton ActionName="yearmanagement_entitlements_upload" ScreenName="@PageName" FunctionName="ShowEntitlementUploadDialog"
                   OnClick="ShowEntitlementUploadDialog" CssClass="context-btn" HideIfNoAccess="true">
         העלאת זכאויות מוסדיות
-    </SecureButton>
-
-    <SecureButton ActionName="yearmanagement_meitar_retrieve" ScreenName="@PageName" FunctionName="ShowMeitarRetrieveDialog"
-                  OnClick="ShowMeitarRetrieveDialog" CssClass="context-btn" HideIfNoAccess="true">
-        שליפת נתוני מיתר
     </SecureButton>
 
     <SecureButton ActionName="yearmanagement_salary_dept_map" ScreenName="@PageName" FunctionName="NavigateToDeptMap"
@@ -47,9 +37,7 @@
     </SecureButton>
 </div>
 
-<SalaryUploadModal @ref="_salaryUploadModal" />
 <EntitlementUploadModal @ref="_entitlementUploadModal" YearId="YearId" YearName="@_yearName" />
-<MeitarRetrieveModal @ref="_meitarRetrieveModal" YearId="YearId" />
 
 <div class="main-container">
     <div class="students-content">
@@ -132,9 +120,7 @@
     private string _yearName  = "";
     private bool   _isLoading = true;
     private YearHubSummaryDto _summary = new();
-    private SalaryUploadModal? _salaryUploadModal;
     private EntitlementUploadModal? _entitlementUploadModal;
-    private MeitarRetrieveModal? _meitarRetrieveModal;
 
     private string LastSalaryMonthLabel =>
         _summary.LastSalaryPeriodYear.HasValue && _summary.LastSalaryPeriodMonth.HasValue
@@ -226,11 +212,5 @@
     private void NavigateToSalaryAnomalies() => Navigation.NavigateTo($"/salaries/anomalies?fromYear={YearId}");
     private void NavigateToMeitarSummary() => Navigation.NavigateTo($"/meitar-data/month-summary?fromYear={YearId}");
     private void NavigateBack()            => Navigation.NavigateTo("/maindashboard");
-    private void ShowSalaryUploadDialog() => _salaryUploadModal?.Show();
     private void ShowEntitlementUploadDialog() => _entitlementUploadModal?.Show(YearId, _yearName);
-    private async Task ShowMeitarRetrieveDialog()
-    {
-        if (_meitarRetrieveModal != null)
-            await _meitarRetrieveModal.Show(YearId);
-    }
 }

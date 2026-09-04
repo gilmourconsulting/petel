@@ -1,0 +1,46 @@
+-- =============================================================================
+-- PetelAssistants — Yearly budget "recalculate summaries" button security action
+-- Idempotent — safe to run multiple times.
+-- Run after add-yearly-budget-actions.sql
+-- =============================================================================
+
+DO $$
+DECLARE
+    v_button_type_id INTEGER;
+    v_action_id      INTEGER;
+    v_role_rec       RECORD;
+BEGIN
+    SELECT id INTO v_button_type_id
+    FROM shared_schema.action_types
+    WHERE lower(name) IN ('button', 'onclick_button')
+    LIMIT 1;
+
+    IF v_button_type_id IS NULL THEN
+        RAISE EXCEPTION 'action_types row "button" not found';
+    END IF;
+
+    INSERT INTO shared_schema.actions (name, display_name, reference, description, action_type_id)
+    VALUES
+        ('yearly_budget_recalculate_summaries', 'חישוב מחדש של סיכומי שכר ומיתר', 'yearly_budget', 'כפתור חישוב מחדש של סיכומי שכר ומיתר לשנת התקציב', v_button_type_id)
+    ON CONFLICT (name) DO NOTHING;
+
+    SELECT id INTO v_action_id
+    FROM shared_schema.actions
+    WHERE name = 'yearly_budget_recalculate_summaries';
+
+    IF v_action_id IS NOT NULL THEN
+        FOR v_role_rec IN
+            SELECT id AS role_id, entity_id
+            FROM assist_schema.roles
+        LOOP
+            INSERT INTO assist_schema.roles_actions (entity_id, role_id, action_id)
+            SELECT v_role_rec.entity_id, v_role_rec.role_id, v_action_id
+            WHERE NOT EXISTS (
+                SELECT 1 FROM assist_schema.roles_actions
+                WHERE role_id = v_role_rec.role_id AND action_id = v_action_id
+            );
+        END LOOP;
+    END IF;
+
+    RAISE NOTICE 'Yearly budget recalculate-summaries security action seeded';
+END $$;

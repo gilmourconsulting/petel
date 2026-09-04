@@ -1,0 +1,188 @@
+@page "/gregorian/{Year:int}"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelAssistants.BlazorServer.Models
+@using PetelAssistants.BlazorServer.DTOs
+@inject ApiService ApiService
+
+<div class="context-buttons-section">
+    <SecureButton ActionName="gregorian_salary_month_summary" ScreenName="@PageName" FunctionName="NavigateToSalarySummary"
+                  OnClick="NavigateToSalarySummary" CssClass="context-btn" HideIfNoAccess="true">
+        סיכום שכר מול תקציב
+    </SecureButton>
+
+    <SecureButton ActionName="gregorian_salary_anomalies" ScreenName="@PageName" FunctionName="NavigateToSalaryAnomalies"
+                  OnClick="NavigateToSalaryAnomalies" CssClass="context-btn" HideIfNoAccess="true">
+        חריגות שכר
+    </SecureButton>
+
+    <SecureButton ActionName="gregorian_meitar_month_summary" ScreenName="@PageName" FunctionName="NavigateToMeitarSummary"
+                  OnClick="NavigateToMeitarSummary" CssClass="context-btn" HideIfNoAccess="true">
+        סיכום מיתר מול תקציב
+    </SecureButton>
+
+    <SecureButton ActionName="gregorian_back" ScreenName="@PageName" FunctionName="NavigateBack"
+                  OnClick="NavigateBack" CssClass="context-navigation-btn">
+        חזרה לדף הבית
+    </SecureButton>
+</div>
+
+<div class="main-container">
+    <div class="students-content">
+        @if (_isLoading)
+        {
+            <div class="loading-spinner">טוען...</div>
+        }
+        else
+        {
+            <div class="page-title-section">
+                <h1 class="page-title">שנת @_year</h1>
+            </div>
+
+            <div style="max-width: 1100px; margin: 20px auto 0;">
+                @if (_summary.Sources.Count > 0)
+                {
+                    <p style="color: var(--text-muted); margin-bottom: 8px;">
+                        מחושב מחלקי תקציבי שנות הלימודים:
+                        @string.Join(" · ", _summary.Sources.Select(SourceLabel))
+                    </p>
+                }
+
+                <p style="color: var(--text-muted); margin-bottom: 16px;">
+                    נטל הרשות @_summary.NetMunicipal.ToString("N0") ₪
+                    · הפרש שכר מול תקציב @_summary.Variance.ToString("N0") ₪
+                    · הכנסת מיתר @_summary.MeitarYtdTotal.ToString("N0") ₪
+                </p>
+
+                <div class="summary-grid" style="margin-bottom: 0;">
+                    <SecureButton ActionName="gregorian_assistants" ScreenName="@PageName" FunctionName="NavigateToAssistants"
+                                  OnClick="NavigateToAssistants" CssClass="summary-card summary-card-clickable year-hub-card" HideIfNoAccess="true">
+                        <div class="summary-info">
+                            <div class="summary-label">סייעות</div>
+                            <div class="summary-value">@_summary.AssistantCount</div>
+                            <div class="summary-extra">עם הקצאה בשנה זו</div>
+                        </div>
+                    </SecureButton>
+
+                    <SecureButton ActionName="gregorian_entitlements" ScreenName="@PageName" FunctionName="NavigateToEntitlements"
+                                  OnClick="NavigateToEntitlements" CssClass="summary-card summary-card-clickable year-hub-card" HideIfNoAccess="true">
+                        <div class="summary-info">
+                            <div class="summary-label">זכאויות</div>
+                            <div class="summary-value">@_summary.EntitlementCount</div>
+                            <div class="summary-extra">@_summary.EntitlementAllocatedPercent.ToString("0.#")% מוקצה</div>
+                        </div>
+                    </SecureButton>
+
+                    <SecureButton ActionName="gregorian_budget" ScreenName="@PageName" FunctionName="NavigateToBudget"
+                                  OnClick="NavigateToBudget" CssClass="summary-card summary-card-clickable year-hub-card" HideIfNoAccess="true">
+                        <div class="summary-info">
+                            <div class="summary-label">תקציב (₪)</div>
+                            <div class="summary-value">@_summary.BudgetTotal.ToString("N0")</div>
+                            <div class="summary-extra">@_summary.BudgetHours.ToString("N0") שעות · ינואר–דצמבר</div>
+                        </div>
+                    </SecureButton>
+
+                    <SecureButton ActionName="gregorian_salaries_view" ScreenName="@PageName" FunctionName="NavigateToSalaries"
+                                  OnClick="NavigateToSalaries" CssClass="summary-card summary-card-clickable year-hub-card" HideIfNoAccess="true">
+                        <div class="summary-info">
+                            <div class="summary-label">שכר מתחילת השנה (₪)</div>
+                            <div class="summary-value">@_summary.SalaryYtdTotal.ToString("N0")</div>
+                            <div class="summary-extra">@LastSalaryMonthLabel</div>
+                        </div>
+                    </SecureButton>
+
+                    <SecureButton ActionName="gregorian_meitar_view" ScreenName="@PageName" FunctionName="NavigateToMeitarData"
+                                  OnClick="NavigateToMeitarData" CssClass="summary-card summary-card-clickable year-hub-card" HideIfNoAccess="true">
+                        <div class="summary-info">
+                            <div class="summary-label">מיתר</div>
+                            <div class="summary-value">@_summary.MeitarMonthCount</div>
+                            <div class="summary-extra">@_summary.MeitarYtdTotal.ToString("N0") ₪ · @_summary.MeitarMonthCount חודשים</div>
+                        </div>
+                    </SecureButton>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int Year { get; set; }
+
+    protected override string PageName => "gregorian";
+
+    private int _year;
+    private bool _isLoading = true;
+    private GregorianHubSummaryDto _summary = new();
+
+    private string LastSalaryMonthLabel =>
+        _summary.LastSalaryPeriodYear.HasValue && _summary.LastSalaryPeriodMonth.HasValue
+            ? $"חודש אחרון: {GetMonthLabel(_summary.LastSalaryPeriodMonth.Value)} {_summary.LastSalaryPeriodYear}"
+            : "לא הועלה שכר";
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        _year = Year;
+        await LoadSummaryAsync();
+        _isLoading = false;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!_isLoading && _year != Year)
+        {
+            _year = Year;
+            await LoadSummaryAsync();
+        }
+    }
+
+    private async Task LoadSummaryAsync()
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<GregorianHubSummaryDto>>(
+                $"gregorian-years/{_year}/hub-summary");
+            _summary = response?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading gregorian summary: {ex.Message}");
+            _summary = new();
+        }
+    }
+
+    private static string SourceLabel(GregorianBudgetSourceDto source)
+    {
+        var months = $"{GetMonthLabel(source.FromMonth)}–{GetMonthLabel(source.ToMonth)}";
+        var flag = !source.HasBudget ? " (אין תקציב)"
+            : source.IsLocked ? ""
+            : " (טרם ננעל)";
+        return $"{source.HebrewYearName} ({months}){flag}";
+    }
+
+    private static string GetMonthLabel(int month) => month switch
+    {
+        1 => "ינואר",
+        2 => "פברואר",
+        3 => "מרץ",
+        4 => "אפריל",
+        5 => "מאי",
+        6 => "יוני",
+        7 => "יולי",
+        8 => "אוגוסט",
+        9 => "ספטמבר",
+        10 => "אוקטובר",
+        11 => "נובמבר",
+        12 => "דצמבר",
+        _ => month.ToString()
+    };
+
+    private void NavigateToAssistants()    => Navigation.NavigateTo($"/gregorian/{_year}/assistants");
+    private void NavigateToEntitlements()  => Navigation.NavigateTo($"/gregorian/{_year}/entitlements");
+    private void NavigateToBudget()        => Navigation.NavigateTo($"/gregorian/{_year}/budget");
+    private void NavigateToSalaries()      => Navigation.NavigateTo($"/salaries?fromGregorianYear={_year}");
+    private void NavigateToMeitarData()    => Navigation.NavigateTo($"/meitar-data?fromGregorianYear={_year}");
+    private void NavigateToSalarySummary() => Navigation.NavigateTo($"/salaries/month-summary?fromGregorianYear={_year}");
+    private void NavigateToSalaryAnomalies() => Navigation.NavigateTo($"/salaries/anomalies?fromGregorianYear={_year}");
+    private void NavigateToMeitarSummary() => Navigation.NavigateTo($"/meitar-data/month-summary?fromGregorianYear={_year}");
+    private void NavigateBack()            => Navigation.NavigateTo("/maindashboard");
+}

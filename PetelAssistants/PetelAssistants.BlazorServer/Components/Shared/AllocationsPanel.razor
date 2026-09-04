@@ -38,6 +38,10 @@
                 <thead>
                     <tr>
                         <th>פעולות</th>
+                        @if (ViewMode == AllocationsViewMode.ByEntitlement)
+                        {
+                            <th>מזהה</th>
+                        }
                         <th>@(ViewMode == AllocationsViewMode.ByEntitlement ? "שם הסייעת" : "זכאות")</th>
                         <th>שעות</th>
                         <th>תאריכים</th>
@@ -47,8 +51,17 @@
                 <tbody>
                     @foreach (var alloc in Allocations)
                     {
-                        <tr class="@(alloc.IsActive ? "" : "row-inactive")">
+                        <tr id="@EntityFocus.RowElementId(alloc.Id)"
+                            class="@GetAllocationRowClass(alloc)">
                             <td>
+                                @if (ShowViewButton)
+                                {
+                                    <button type="button" class="btn-icon" title="צפייה בהקצאה בזכאויות"
+                                            @onclick="() => OnViewAllocation.InvokeAsync(alloc)"
+                                            @onclick:stopPropagation="true">
+                                        <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural" />
+                                    </button>
+                                }
                                 @if (alloc.IsActive)
                                 {
                                     <SecureButton ActionName="entitlements_deactivate_allocation" ScreenName="@SecurityScreenName"
@@ -59,6 +72,14 @@
                                     </SecureButton>
                                 }
                             </td>
+                            @if (ViewMode == AllocationsViewMode.ByEntitlement)
+                            {
+                                <td>
+                                    <EntityFocusLink Screen="@EntityFocus.AssistantsScreen"
+                                                     YearId="@YearId"
+                                                     Id="@alloc.PersonId" />
+                                </td>
+                            }
                             <td>
                                 @if (ViewMode == AllocationsViewMode.ByEntitlement)
                                 {
@@ -87,6 +108,7 @@
 
 @code {
     [Parameter] public AllocationsViewMode ViewMode { get; set; } = AllocationsViewMode.ByEntitlement;
+    [Parameter] public int YearId { get; set; }
     [Parameter] public string HeaderPrefix { get; set; } = "הקצאות לזכאות:";
     [Parameter] public RenderFragment? HeaderTitle { get; set; }
     [Parameter] public List<EntitlementAllocationDto> Allocations { get; set; } = new();
@@ -98,9 +120,22 @@
     [Parameter] public string CssClass { get; set; } = "";
     /// <summary>When false, renders only the body (no card/header) so the parent can own chrome/tabs.</summary>
     [Parameter] public bool ShowChrome { get; set; } = true;
+    [Parameter] public bool ShowViewButton { get; set; }
+    [Parameter] public int? FocusedAllocationId { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
     [Parameter] public EventCallback OnAddAllocation { get; set; }
+    [Parameter] public EventCallback<EntitlementAllocationDto> OnViewAllocation { get; set; }
     [Parameter] public EventCallback<EntitlementAllocationDto> OnDeactivateAllocation { get; set; }
+
+    private string GetAllocationRowClass(EntitlementAllocationDto alloc)
+    {
+        var classes = new List<string>();
+        if (!alloc.IsActive)
+            classes.Add("row-inactive");
+        if (FocusedAllocationId == alloc.Id)
+            classes.Add("row-selected");
+        return string.Join(" ", classes);
+    }
 
     private static string GetHoursUnitLabel(string unit) => unit == "monthly" ? "חודשי" : "שבועי";
 }

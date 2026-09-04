@@ -273,6 +273,21 @@ Navigation.NavigateTo("/login", forceLoad: true);  // full reload
 
 Do **not** use JavaScript `window.location` or `history.pushState` for navigation.
 
+### Entity focus links (Assistants)
+
+Use `EntityFocusLink` for table IDs that should open a year-scoped list and land on that row. First consumer: assistant (`persons.id`) → `/year/{YearId}/assistants?focusId={id}`. Entitlement allocations from the assistants dock use `EntityFocus.ToEntitlementsWithAllocation(yearId, entitlementId, allocationId)`.
+
+```razor
+<EntityFocusLink Screen="@EntityFocus.AssistantsScreen"
+                 YearId="@yearId"
+                 Id="@item.MatchedPersonId" />
+```
+
+- URL helper: `EntityFocus.ToYearScreen(screen, yearId, id)` — reuse with `EntityFocus.EntitlementsScreen` (or any year hub screen) later.
+- Allocation deep link: `EntityFocus.ToEntitlementsWithAllocation(yearId, entitlementId, allocationId)` → `?focusId=&allocationFocusId=`.
+- Target page: `[SupplyParameterFromQuery(Name = EntityFocus.QueryParam)]`, put `id="@EntityFocus.RowElementId(item.Id)"` on the row, select it, then `EntityFocus.ScrollToRowAsync`.
+- Unmatched / missing year: the component renders `—` (or `ChildContent`) without a link.
+
 ## SecureButton Component
 
 `SecureButton` verifies the user has permission before executing a callback.

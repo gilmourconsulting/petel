@@ -787,6 +787,16 @@
     border-bottom: none;
 }
 
+a.entity-focus-link {
+    color: var(--text-accent);
+    text-decoration: underline;
+    font-weight: 600;
+}
+
+a.entity-focus-link:hover {
+    color: var(--button-primary-hover);
+}
+
 /* Table action buttons container */
 .table-actions {
     display: flex;
@@ -1068,3 +1078,69 @@
 .gap-3 { gap: var(--spacing-md); }
 .gap-4 { gap: var(--spacing-lg); }
 .gap-5 { gap: var(--spacing-xl); }
+
+/* ============================================
+   BUDGET TREND CHART
+   ============================================ */
+
+.trend-chart {
+    margin: 8px 0 20px;
+}
+
+.trend-chart-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.trend-seg {
+    display: flex;
+    flex-wrap: wrap;
+    border: 1px solid var(--border-color, #dee2e6);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.trend-seg-btn {
+    padding: 8px 14px;
+    border: none;
+    background: #fff;
+    cursor: pointer;
+    font-family: var(--primary-font, inherit);
+    font-weight: 600;
+    color: #666;
+    border-inline-end: 1px solid var(--border-color, #dee2e6);
+}
+
+.trend-seg-btn:last-child {
+    border-inline-end: none;
+}
+
+.trend-seg-btn.active {
+    background: #007bff;
+    color: #fff;
+}
+
+.trend-seg-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.trend-chart-note {
+    color: var(--text-muted);
+    font-size: 0.9em;
+    margin: 0 0 8px;
+}
+
+.trend-chart-canvas-wrap {
+    position: relative;
+    height: 280px;
+    width: 100%;
+}
+
+.trend-chart-type {
+    min-width: 160px;
+    width: auto;
+}

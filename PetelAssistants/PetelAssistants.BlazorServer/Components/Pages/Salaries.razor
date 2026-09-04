@@ -6,6 +6,20 @@
 @inject ApiService ApiService
 
 <div class="context-buttons-section">
+    @if (_returnYearId.HasValue)
+    {
+        <SecureButton ActionName="yearmanagement_salary_upload" ScreenName="@PageName" FunctionName="ShowSalaryUploadDialog"
+                      OnClick="ShowSalaryUploadDialog" CssClass="context-btn" HideIfNoAccess="true">
+            העלאת קובץ שכר
+        </SecureButton>
+    }
+    else
+    {
+        <SecureButton ActionName="maindashboard_salary_upload" ScreenName="@PageName" FunctionName="ShowSalaryUploadDialog"
+                      OnClick="ShowSalaryUploadDialog" CssClass="context-btn" HideIfNoAccess="true">
+            העלאת קובץ שכר
+        </SecureButton>
+    }
     <SecureButton ActionName="salaries_refresh" ScreenName="@PageName" FunctionName="RefreshData"
                   OnClick="RefreshData" CssClass="context-btn">
         רענן נתונים
@@ -24,9 +38,11 @@
     </SecureButton>
     <SecureButton ActionName="salaries_back" ScreenName="@PageName" FunctionName="NavigateBack"
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
-        @(_returnYearId.HasValue ? "חזרה לניהול שנה" : "חזרה לדף הבית")
+        @(_returnYearId.HasValue ? "חזרה לניהול שנה" : _returnGregorianYear.HasValue ? "חזרה לניהול שנה לועזית" : "חזרה לדף הבית")
     </SecureButton>
 </div>
+
+<SalaryUploadModal @ref="_salaryUploadModal" OnUploadComplete="RefreshData" />
 
 <div class="main-container">
     <div class="students-content">
@@ -87,7 +103,7 @@
                 }
 
                 <div class="filter-bar" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
-                    @if (!_returnYearId.HasValue && _years.Count > 0)
+                    @if (!_returnYearId.HasValue && !_returnGregorianYear.HasValue && _years.Count > 0)
                     {
                         <div style="display: flex; flex-direction: column; gap: 4px; align-self: flex-start;">
                             <label style="font-size: 0.82em; font-weight: 600;">שנת לימודים</label>
@@ -153,6 +169,10 @@
                             <option value="no">ללא אזהרה</option>
                         </select>
                     </div>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.82em; font-weight: 600; align-self: flex-end; padding-bottom: 6px;">
+                        <input type="checkbox" @bind="_filterAnomaliesOnly" />
+                        חריגות בלבד
+                    </label>
                     @if (HasActiveClientFilters)
                     {
                         <button class="btn btn-secondary" style="align-self: flex-end;" @onclick="ClearClientFilters">נקה סינון</button>
@@ -179,11 +199,12 @@
                             <thead>
                                 <tr>
                                     <th>חריגה</th>
+                                    <th>מזהה</th>
                                     <th @onclick='() => SortTable("NationalId")' style="cursor:pointer">
                                         ת"ז @GetSortArrow("NationalId")
                                     </th>
                                     <th @onclick='() => SortTable("MatchedPersonName")' style="cursor:pointer">
-                                        שם מאומת @GetSortArrow("MatchedPersonName")
+                                        שם @GetSortArrow("MatchedPersonName")
                                     </th>
                                     <th @onclick='() => SortTable("DepartmentId")' style="cursor:pointer">
                                         מחלקה @GetSortArrow("DepartmentId")
@@ -195,13 +216,12 @@
                                     <th @onclick='() => SortTable("TotalSalary")' style="cursor:pointer">
                                         שכר כולל @GetSortArrow("TotalSalary")
                                     </th>
-                                    <th>אזהרת ת"ז</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach (var item in FilteredItems)
                                 {
-                                    <tr class="@(item.HasIdWarning ? "row-inactive" : "")">
+                                    <tr>
                                         <td>
                                             @if (_anomaliesBySalaryId.TryGetValue(item.Id, out var anomaly))
                                             {
@@ -215,22 +235,17 @@
                                                 </button>
                                             }
                                         </td>
-                                        <td>@item.NationalId</td>
+                                        <td>
+                                            <EntityFocusLink Screen="@EntityFocus.AssistantsScreen"
+                                                             YearId="@_selectedYearId"
+                                                             Id="@item.MatchedPersonId" />
+                                        </td>
+                                        <td style="@(item.HasIdWarning ? "color: var(--color-danger); font-weight: 600;" : null)">@item.NationalId</td>
                                         <td>@(item.MatchedPersonName ?? "—")</td>
                                         <td>@item.DepartmentId</td>
                                         <td>@(item.DepartmentName ?? "—")</td>
                                         <td>@item.PositionPercentage.ToString("0.##")%</td>
                                         <td>@item.TotalSalary.ToString("N2")</td>
-                                        <td>
-                                            @if (item.HasIdWarning)
-                                            {
-                                                <span class="status-badge status-inactive">אזהרה</span>
-                                            }
-                                            else
-                                            {
-                                                <span>—</span>
-                                            }
-                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -323,6 +338,13 @@
                 <button class="modal-close" @onclick="CloseAnomalyModal">&times;</button>
             </div>
             <div class="modal-body">
+                <div class="form-group"><label>מזהה סייעת</label>
+                    <div>
+                        <EntityFocusLink Screen="@EntityFocus.AssistantsScreen"
+                                         YearId="@_selectedYearId"
+                                         Id="@_selectedAnomaly.MatchedPersonId" />
+                    </div>
+                </div>
                 <div class="form-group"><label>ת"ז</label><div>@_selectedAnomaly.NationalId</div></div>
                 <div class="form-group">
                     <label>מחלקה</label>
@@ -356,9 +378,13 @@
     [SupplyParameterFromQuery(Name = "fromYear")]
     public int? FromYear { get; set; }
 
+    [SupplyParameterFromQuery(Name = "fromGregorianYear")]
+    public int? FromGregorianYear { get; set; }
+
     private List<SalaryListItemDto> _items = new();
     private bool _isLoading = true;
     private int? _returnYearId;
+    private int? _returnGregorianYear;
     private int _selectedYearId;
     private List<YearDto> _years = new();
     private List<(int Year, int Month)> _schoolMonths = new();
@@ -374,6 +400,7 @@
     private Dictionary<int, SalaryAnomalyDto> _anomaliesBySalaryId = new();
     private bool _showAnomalyModal;
     private SalaryAnomalyDto? _selectedAnomaly;
+    private SalaryUploadModal? _salaryUploadModal;
 
     private int _filterYear;
     private int _filterMonth;
@@ -382,6 +409,7 @@
     private string _filterMatched = "";
     private string _filterIdWarning = "";
     private string _filterAllocation = "";
+    private bool _filterAnomaliesOnly;
 
     private string _sortColumn = "NationalId";
     private bool _sortAscending = true;
@@ -397,7 +425,8 @@
         !string.IsNullOrWhiteSpace(_filterDepartment) ||
         !string.IsNullOrEmpty(_filterMatched) ||
         !string.IsNullOrEmpty(_filterIdWarning) ||
-        !string.IsNullOrEmpty(_filterAllocation);
+        !string.IsNullOrEmpty(_filterAllocation) ||
+        _filterAnomaliesOnly;
 
     private IEnumerable<SalaryListItemDto> UnmatchedItems =>
         _items.Where(i => !i.MatchedPersonId.HasValue);
@@ -441,6 +470,9 @@
             else if (_filterAllocation == "no")
                 query = query.Where(i => i.MatchedPersonId.HasValue && !i.HasAllocationForPeriod);
 
+            if (_filterAnomaliesOnly)
+                query = query.Where(i => _anomaliesBySalaryId.ContainsKey(i.Id));
+
             query = _sortColumn switch
             {
                 "NationalId" => _sortAscending
@@ -468,6 +500,7 @@
     protected override async Task OnPageInitializedAsync()
     {
         _returnYearId = FromYear;
+        _returnGregorianYear = FromGregorianYear;
         await LoadSchoolYearAsync();
         RebuildMonths();
         PickDefaultMonth();
@@ -477,6 +510,9 @@
 
     private async Task LoadSchoolYearAsync()
     {
+        if (_returnGregorianYear.HasValue)
+            return;
+
         try
         {
             if (_returnYearId.HasValue)
@@ -507,6 +543,14 @@
     private void RebuildMonths()
     {
         _schoolMonths = new();
+        if (_returnGregorianYear.HasValue)
+        {
+            var y = _returnGregorianYear.Value;
+            for (var m = 1; m <= 12; m++)
+                _schoolMonths.Add((y, m));
+            return;
+        }
+
         var year = SelectedYear;
         if (year?.StartDate is null || year.EndDate is null)
             return;
@@ -703,6 +747,7 @@
         _filterMatched = "";
         _filterIdWarning = "";
         _filterAllocation = "";
+        _filterAnomaliesOnly = false;
     }
 
     private void ShowUnmatched()
@@ -719,7 +764,9 @@
 
     private void NavigateBack()
     {
-        if (_returnYearId.HasValue)
+        if (_returnGregorianYear.HasValue)
+            Navigation.NavigateTo($"/gregorian/{_returnGregorianYear.Value}");
+        else if (_returnYearId.HasValue)
             Navigation.NavigateTo($"/year/{_returnYearId.Value}");
         else
             Navigation.NavigateTo("/maindashboard");
@@ -729,8 +776,10 @@
     {
         get
         {
-            var qs = $"year={_filterYear}&month={_filterMonth}";
-            if (_returnYearId.HasValue)
+            var qs = $"year={_filterYear}&month={_filterMonth}&yearId={_selectedYearId}";
+            if (_returnGregorianYear.HasValue)
+                qs += $"&fromGregorianYear={_returnGregorianYear.Value}";
+            else if (_returnYearId.HasValue)
                 qs += $"&fromYear={_returnYearId.Value}";
             return qs;
         }
@@ -738,6 +787,8 @@
 
     private void NavigateToMonthSummary() => Navigation.NavigateTo($"/salaries/month-summary?{PeriodQuery}");
     private void NavigateToAnomalies() => Navigation.NavigateTo($"/salaries/anomalies?{PeriodQuery}");
+
+    private void ShowSalaryUploadDialog() => _salaryUploadModal?.Show();
 
     private void SortTable(string column)
     {
