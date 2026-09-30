@@ -1,0 +1,442 @@
+@page "/openschoolyear"
+@layout MainLayout
+@inherits SecurePageBase
+@using PetelATH.BlazorServer.DTOs
+@using System.Text.Json
+@inject ApiService ApiService
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="main-container">
+    <div class="context-buttons-section">
+        <SecureButton ActionName="openschoolyear_confirm"
+                      ScreenName="@PageName"
+                      FunctionName="confirm"
+                      OnClick="ConfirmAsync"
+                      CssClass="context-btn"
+                      Title="יצירת שנת הלימודים לבתי הספר המסומנים"
+                      Disabled="@(!_canConfirm || _isSaving)">
+            פתח שנה
+        </SecureButton>
+        <button class="context-navigation-btn" @onclick="BackToSchoolList" title="חזרה לרשימת בתי הספר">
+            חזרה לרשימה
+        </button>
+    </div>
+
+    <div class="students-content">
+        <div class="content-header">
+            <div class="page-title-container">
+                <div class="page-title">פתיחת שנת לימודים</div>
+                <div class="text-branded" style="text-align: center;">@_yearDisplay</div>
+                <div class="left-spacer"></div>
+            </div>
+        </div>
+
+        <div class="content-card">
+            @if (_isLoading)
+            {
+                <p style="padding: 16px;">טוען...</p>
+            }
+            else if (_preview == null)
+            {
+                <p style="padding: 16px;">@_loadError</p>
+            }
+            else
+            {
+                @if (!string.IsNullOrWhiteSpace(_preview.Message))
+                {
+                    <div style="margin: 12px 16px; padding: 10px 14px; border-radius: 6px; background: #fff3cd; border: 1px solid #ffecb5; color: #664d03;">
+                        @_preview.Message
+                    </div>
+                }
+
+                <p style="padding: 8px 16px 0; margin: 0;">
+                    סמנו את בתי הספר שייפתחו בשנה החדשה. אפשר להרחיב כיתות, להסיר כיתות קיימות ולהוסיף חדשות. תלמידים לא מועתקים.
+                </p>
+
+                <div style="padding: 15px 20px;">
+                    <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">שם בית ספר</label>
+                    <input type="text" @bind="_filterName" @bind:event="oninput"
+                           placeholder="סנן לפי שם..."
+                           style="width: 280px; max-width: 100%; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px; font-size: 0.9em;" />
+                </div>
+
+                @if (FilteredSchools.Count == 0)
+                {
+                    <div class="empty-state">לא נמצאו בתי ספר</div>
+                }
+                else
+                {
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>
+                                        <input type="checkbox"
+                                               checked="@AllSelectableChecked"
+                                               disabled="@(!SelectableSchools.Any())"
+                                               @onchange="ToggleAll" />
+                                    </th>
+                                    <th>בית ספר</th>
+                                    <th>סמל</th>
+                                    <th>כיתות</th>
+                                    <th>סטטוס</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var school in FilteredSchools)
+                                {
+                                    <tr>
+                                        <td>
+                                            <input type="checkbox"
+                                                   checked="@school.Selected"
+                                                   disabled="@school.AlreadyOpened"
+                                                   @onchange="e => OnSchoolChecked(school, e)" />
+                                        </td>
+                                        <td>@school.Name</td>
+                                        <td>@(string.IsNullOrWhiteSpace(school.Symbol) ? "-" : school.Symbol)</td>
+                                        <td>@school.Classes.Count</td>
+                                        <td>@(school.AlreadyOpened ? "כבר נפתח" : "")</td>
+                                        <td>
+                                            <button class="btn-icon" @onclick="() => school.Expanded = !school.Expanded"
+                                                    title="@(school.Expanded ? "הסתר כיתות" : "הצג כיתות")">
+                                                @(school.Expanded ? "הסתר כיתות" : "הצג כיתות")
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    @if (school.Expanded)
+                                    {
+                                        <tr>
+                                            <td colspan="6">
+                                                @if (school.Classes.Count == 0)
+                                                {
+                                                    <div class="empty-state">אין כיתות</div>
+                                                }
+                                                else
+                                                {
+                                                    <table class="data-table">
+                                                        <thead>
+                                                            <tr>
+                                                                <th>פעולות</th>
+                                                                <th>שכבה</th>
+                                                                <th>מספר כיתה</th>
+                                                                <th>שעת סיום</th>
+                                                                <th>אפיון</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            @foreach (var cls in school.Classes)
+                                                            {
+                                                                <tr>
+                                                                    <td>
+                                                                        <button class="btn-icon" @onclick="() => school.Classes.Remove(cls)" title="הסרה">
+                                                                            <img src="/images/delete_icon.png" alt="הסרה" class="action-icon-natural" />
+                                                                        </button>
+                                                                    </td>
+                                                                    <td>@cls.Level</td>
+                                                                    <td>@cls.ClassNumber</td>
+                                                                    <td>@(cls.EndHour?.ToString("HH:mm") ?? "-")</td>
+                                                                    <td>@(cls.CharacterizationName ?? "-")</td>
+                                                                </tr>
+                                                            }
+                                                        </tbody>
+                                                    </table>
+                                                }
+
+                                                @if (!school.AlreadyOpened)
+                                                {
+                                                    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; padding: 12px 0;">
+                                                        <div>
+                                                            <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">שכבה</label>
+                                                            <input maxlength="3" @bind="school.NewLevel"
+                                                                   style="width: 80px; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px;" />
+                                                        </div>
+                                                        <div>
+                                                            <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">מספר כיתה</label>
+                                                            <input maxlength="3" @bind="school.NewClassNumber"
+                                                                   style="width: 90px; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px;" />
+                                                        </div>
+                                                        <div>
+                                                            <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">שעת סיום</label>
+                                                            <input type="number" min="0" max="23" @bind="school.NewHour"
+                                                                   style="width: 70px; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px;" />
+                                                            <span>:</span>
+                                                            <input type="number" min="0" max="59" @bind="school.NewMinute"
+                                                                   style="width: 70px; padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px;" />
+                                                        </div>
+                                                        <div>
+                                                            <label style="display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.88em;">אפיון</label>
+                                                            <select @bind="school.NewCharacterizationId"
+                                                                    style="padding: 7px 10px; border: 1px solid #dee2e6; border-radius: 6px;">
+                                                                <option value="0">ללא</option>
+                                                                @foreach (var characterization in _characterizations)
+                                                                {
+                                                                    <option value="@characterization.Id">@($"{characterization.Name} [{characterization.Id}]")</option>
+                                                                }
+                                                            </select>
+                                                        </div>
+                                                        <button class="btn-primary" @onclick="() => AddClass(school)">הוסף כיתה</button>
+                                                    </div>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    protected override string PageName => "openschoolyear";
+
+    private OpenSchoolYearPreviewDto? _preview;
+    private List<CharacterizationDto> _characterizations = new();
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string _filterName = string.Empty;
+    private string _loadError = "שגיאה בטעינת הנתונים";
+
+    private string _yearDisplay => _preview == null
+        ? string.Empty
+        : string.IsNullOrWhiteSpace(_preview.PreviousYearName)
+            ? _preview.TargetYearName
+            : $"מ-{_preview.PreviousYearName} אל {_preview.TargetYearName}";
+
+    private List<OpenSchoolYearSchoolDto> FilteredSchools =>
+        (_preview?.Schools ?? new List<OpenSchoolYearSchoolDto>())
+        .Where(s => string.IsNullOrWhiteSpace(_filterName)
+            || s.Name.Contains(_filterName, StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    private IEnumerable<OpenSchoolYearSchoolDto> SelectableSchools =>
+        FilteredSchools.Where(s => !s.AlreadyOpened);
+
+    private bool AllSelectableChecked =>
+        SelectableSchools.Any() && SelectableSchools.All(s => s.Selected);
+
+    private bool _canConfirm =>
+        _preview?.AttributeTypesReady == true
+        && _preview.PreviousYearId.HasValue
+        && (_preview.Schools?.Any(s => s.Selected && !s.AlreadyOpened) == true);
+
+    protected override async Task OnPageInitializedAsync()
+    {
+        await Task.WhenAll(LoadPreviewAsync(), LoadCharacterizationsAsync());
+    }
+
+    private async Task LoadPreviewAsync()
+    {
+        try
+        {
+            _preview = await ApiService.GetAsync<OpenSchoolYearPreviewDto>("openschoolyear/preview");
+            if (_preview?.Schools != null)
+            {
+                foreach (var school in _preview.Schools)
+                    school.Selected = !school.AlreadyOpened;
+            }
+        }
+        catch (HttpStatusException ex)
+        {
+            _preview = null;
+            _loadError = ReadErrorMessage(ex, "שגיאה בטעינת בתי הספר");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading open-school-year preview: {ex.Message}");
+            _preview = null;
+            _loadError = "שגיאה בטעינת בתי הספר";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadCharacterizationsAsync()
+    {
+        try
+        {
+            var response = await ApiService.GetAsync<SystemAttributesResponse<CharacterizationDto>>(
+                "systemAttributes/characterizations");
+            if (response?.Success == true && response.Data != null)
+                _characterizations = response.Data;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading characterizations: {ex.Message}");
+        }
+    }
+
+    private void OnSchoolChecked(OpenSchoolYearSchoolDto school, ChangeEventArgs e)
+    {
+        if (school.AlreadyOpened)
+            return;
+        school.Selected = e.Value is bool value && value;
+    }
+
+    private void ToggleAll(ChangeEventArgs e)
+    {
+        var check = e.Value is bool value && value;
+        foreach (var school in SelectableSchools)
+            school.Selected = check;
+    }
+
+    private async Task AddClass(OpenSchoolYearSchoolDto school)
+    {
+        var level = Normalize(school.NewLevel);
+        var classNumber = Normalize(school.NewClassNumber);
+        if (string.IsNullOrWhiteSpace(level) || string.IsNullOrWhiteSpace(classNumber))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "נא למלא שכבה ומספר כיתה");
+            return;
+        }
+
+        if (level.Length > 3 || classNumber.Length > 3 || $"{level} {classNumber}".Length > 6)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "שכבה ומספר כיתה מוגבלים ל-3 תווים");
+            return;
+        }
+
+        if (school.Classes.Any(c => c.Level == level && c.ClassNumber == classNumber))
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"כיתה {level} {classNumber} כבר קיימת");
+            return;
+        }
+
+        var hour = Math.Clamp(school.NewHour, 0, 23);
+        var minute = Math.Clamp(school.NewMinute, 0, 59);
+        int? characterizationId = school.NewCharacterizationId == 0 ? null : school.NewCharacterizationId;
+        var characterization = _characterizations.FirstOrDefault(c => c.Id == characterizationId);
+
+        school.Classes.Add(new OpenSchoolYearClassDto
+        {
+            Level = level,
+            ClassNumber = classNumber,
+            EndHour = new TimeOnly(hour, minute),
+            CharacterizationId = characterizationId,
+            CharacterizationName = characterization == null ? null : $"{characterization.Name} [{characterization.Id}]"
+        });
+
+        school.Classes = school.Classes
+            .OrderBy(c => c.Level)
+            .ThenBy(c => c.ClassNumber)
+            .ToList();
+
+        school.NewLevel = string.Empty;
+        school.NewClassNumber = string.Empty;
+        school.NewHour = 13;
+        school.NewMinute = 0;
+        school.NewCharacterizationId = 0;
+    }
+
+    private async Task ConfirmAsync()
+    {
+        if (_preview == null || !_canConfirm || _isSaving)
+            return;
+
+        var selected = _preview.Schools.Where(s => s.Selected && !s.AlreadyOpened).ToList();
+        if (selected.Count == 0)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "יש לבחור לפחות בית ספר אחד");
+            return;
+        }
+
+        var confirmed = await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            $"לפתוח את {_preview.TargetYearName} עבור {selected.Count} בתי ספר? תלמידים לא יועתקו.");
+        if (!confirmed)
+            return;
+
+        _isSaving = true;
+        try
+        {
+            var request = new OpenSchoolYearRequest
+            {
+                Schools = selected.Select(s => new OpenSchoolYearSchoolRequest
+                {
+                    SchoolEntityId = s.SchoolEntityId,
+                    Classes = s.Classes.Select(c => new OpenSchoolYearClassRequest
+                    {
+                        Level = c.Level,
+                        ClassNumber = c.ClassNumber,
+                        EndHour = c.EndHour,
+                        CharacterizationId = c.CharacterizationId
+                    }).ToList()
+                }).ToList()
+            };
+
+            var result = await ApiService.PostAsync<OpenSchoolYearRequest, OpenSchoolYearResultDto>(
+                "openschoolyear", request);
+
+            if (result?.Success != true)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", result?.Message ?? "שגיאה בפתיחת שנת הלימודים");
+                return;
+            }
+
+            var lines = new List<string> { result.Message };
+            if (result.SkippedAttributes.Count > 0)
+            {
+                lines.Add("מאפיינים שלא הועתקו:");
+                foreach (var skipped in result.SkippedAttributes.Take(15))
+                    lines.Add($"{skipped.SchoolName} — {skipped.AttributeName}: {skipped.Reason}");
+                if (result.SkippedAttributes.Count > 15)
+                    lines.Add($"ועוד {result.SkippedAttributes.Count - 15}");
+            }
+
+            await JSRuntime.InvokeVoidAsync("alert", string.Join("\n", lines));
+            Navigation.NavigateTo("/schoollist");
+        }
+        catch (HttpStatusException ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", ReadErrorMessage(ex, "שגיאה בפתיחת שנת הלימודים"));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error opening school year: {ex.Message}");
+            await JSRuntime.InvokeVoidAsync("alert", "שגיאה בפתיחת שנת הלימודים");
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void BackToSchoolList()
+    {
+        Navigation.NavigateTo("/schoollist");
+    }
+
+    private static string Normalize(string value)
+    {
+        return (value ?? string.Empty).Trim().Replace("\"", "״").Replace("'", "׳");
+    }
+
+    private static string ReadErrorMessage(HttpStatusException ex, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(ex.ResponseContent))
+            return fallback;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(ex.ResponseContent);
+            if (doc.RootElement.TryGetProperty("message", out var message))
+            {
+                var text = message.GetString();
+                if (!string.IsNullOrWhiteSpace(text))
+                    return text;
+            }
+        }
+        catch (JsonException)
+        {
+        }
+
+        return fallback;
+    }
+}

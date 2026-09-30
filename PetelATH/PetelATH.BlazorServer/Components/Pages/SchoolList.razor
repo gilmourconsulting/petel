@@ -20,6 +20,12 @@
                       OnClick="NavigateToCouncilsList" CssClass="context-btn" Title="צפייה ברשימת הרשויות המשלחות">
             סיכום רשויות משלחות
         </SecureButton>
+        <SecureButton ActionName="schoollist_openSchoolYear" ScreenName="@PageName" FunctionName="openSchoolYear"
+                      OnClick="NavigateToOpenSchoolYear" CssClass="context-btn"
+                      Title="פתיחת שנת לימודים לבתי הספר מהשנה הקודמת"
+                      HideIfNoAccess="true">
+            פתיחת שנת לימודים
+        </SecureButton>
         <SecureButton ActionName="schoollist_generateCouncilExcels" ScreenName="@PageName" FunctionName="GenerateCouncilExcels"
                       OnClick="GenerateCouncilExcels" CssClass="context-btn" Title="יצירת דוח 10 לכל רשות משלחת">
             יצירת דוח 10
@@ -826,6 +832,11 @@
     private void NavigateToCouncilsList()
     {
         Navigation.NavigateTo("/councilsummary");
+    }
+
+    private void NavigateToOpenSchoolYear()
+    {
+        Navigation.NavigateTo("/openschoolyear");
     }
 
     private async Task GenerateCouncilExcels()

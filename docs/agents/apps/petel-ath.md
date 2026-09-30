@@ -219,6 +219,29 @@ if (attr != null)
     _sessionsRemark = $"מספר מפגשים נדרש: {attr.Value}";
 ```
 
+### Open a school year for a network
+
+`OpenSchoolYear.razor` (`/openschoolyear`) opens the session's selected Hebrew year for schools that existed in the previous Hebrew year (`hebrew_years.id` immediately below). The button **פתיחת שנת לימודים** is on the school list.
+
+The page lists those schools with checkboxes (checked by default). A school that already has a `school_years` row for the target year is shown disabled. Expanding a school shows its classes; classes can be removed from the draft or added (level, class number, end hour, characterization). Nothing is written until confirm.
+
+Year definitions (`school_attributes_types`) must already exist on the target year. If they do not, confirm is blocked — run **העתק הגדרות מהשנה הקודמת** on School Year Config first.
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` | `/api/openschoolyear/preview` | Target year, previous year, schools, classes, `attributeTypesReady`, `alreadyOpened` |
+| `POST` | `/api/openschoolyear` | Create the checked schools in one transaction |
+
+For each checked school the API creates:
+- `school_years` (same school entity, dates shifted one year, `status = 1`)
+- `schools` version 1 copied from the previous year's last version
+- `school_classes` from the submitted class list only
+- last-version `school_attributes`, with type ids matched by name and list option ids remapped by option text
+
+**Not copied:** students, tracks, additional study programs, sign-language translators, documents. A list attribute whose option does not exist on the target year is saved empty and returned in `skippedAttributes`.
+
+Actions: `openschoolyear` (page), `schoollist_openSchoolYear` (school-list button), `openschoolyear_confirm` (confirm). SQL `SQL/add-open-school-year-action.sql` grants them to role 1. Other roles are granted on the Roles screen.
+
 ### Council Entity Structure
 
 The `petel_schema.councils` table is the master list of Israeli local authorities. It now includes three additional fields:
