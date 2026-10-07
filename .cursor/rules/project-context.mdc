@@ -20,6 +20,8 @@ Full routing: [AGENTS.md](../../AGENTS.md) and [docs/agents/INDEX.md](../../docs
 
 **Audit fields:** ATH uses `created_user`/`CreatedUser`; Assistants uses `user_id`/`UserId` for creator — see [docs/agents/reference/audit-fields.md](../../docs/agents/reference/audit-fields.md).
 
+**Branches:** Unless the user says otherwise, ATH and Assistants changes go on separate branches from `main`. Do not mix `PetelATH/**` and `PetelAssistants/**` on one branch.
+
 ## Scoped docs (read before editing)
 
 | Path | Doc |

@@ -29,6 +29,8 @@ Both apps share platform libraries but implement **separate** domain code (DbCon
 
 **Audit fields:** Column names differ by app — see [docs/agents/reference/audit-fields.md](docs/agents/reference/audit-fields.md).
 
+**Branches:** Unless the user says otherwise, ATH and Assistants changes go on separate branches from `main`. Do not mix `PetelATH/**` and `PetelAssistants/**` on one branch. See [.cursor/rules/separate-app-branches.mdc](.cursor/rules/separate-app-branches.mdc).
+
 ## Task shortcuts
 
 | Task | Read |

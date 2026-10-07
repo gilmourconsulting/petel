@@ -1,0 +1,19 @@
+---
+description: Keep ATH and Assistants changes on separate branches unless the user says to combine them
+alwaysApply: true
+---
+
+# Separate branches for ATH and Assistants
+
+Unless the user explicitly says to combine them, ATH and Assistants changes go on different branches, each started from `main`.
+
+- An ATH branch may change `PetelATH/**` and ATH docs (`docs/agents/apps/petel-ath.md`, `docs/agents/apps/petel-ath-reports-excel.md`).
+- An Assistants branch may change `PetelAssistants/**` and Assistants docs (`docs/agents/apps/petel-assistants.md`, `docs/agents/apps/petel-assistants-domain.md`).
+- Do not add the other app's files to the current branch. If a task needs both apps, stop and split it into two branches.
+- `shared/` and cross-app infra (`infra/`, `docs/aws-setup.md`, `docs/azure-setup.md`) stay on the branch of the app task that needs them. A shared change both apps must take together waits until the user says to combine it.
+
+Examples:
+
+- School-year wizard → branch from `main`, touch only `PetelATH/**`.
+- Salary month summary → branch from `main`, touch only `PetelAssistants/**`.
+- User says "do both on this branch" → one branch is allowed.
