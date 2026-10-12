@@ -18,6 +18,9 @@ namespace PetelATH.Api.Data
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+        [Column("is_active")]
+        public bool IsActive { get; set; } = true;
+
         // Navigation properties
         public virtual ICollection<Entity> Entities { get; set; } = new List<Entity>();
     }

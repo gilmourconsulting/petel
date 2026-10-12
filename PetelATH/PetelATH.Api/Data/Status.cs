@@ -27,6 +27,9 @@ namespace PetelATH.Api.Data
         [Column("sort_order")]
         public int? SortOrder { get; set; }
 
+        [Column("is_active")]
+        public bool IsActive { get; set; } = true;
+
         // Navigation property
         public virtual ICollection<SchoolStudent> Students { get; set; } = new List<SchoolStudent>();
     }

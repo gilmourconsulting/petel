@@ -19,6 +19,9 @@ namespace PetelATH.Api.Data
         [MaxLength(100)]
         public string Name { get; set; } = string.Empty;
 
+        [Column("is_active")]
+        public bool IsActive { get; set; } = true;
+
        /* [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

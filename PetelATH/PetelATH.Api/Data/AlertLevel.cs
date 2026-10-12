@@ -23,5 +23,8 @@ namespace PetelATH.Api.Data
 
         [Column("user_id")]
         public int UserId { get; set; }
+
+        [Column("is_active")]
+        public bool IsActive { get; set; } = true;
     }
 }

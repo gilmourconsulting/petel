@@ -242,6 +242,14 @@ For each checked school the API creates:
 
 Actions: `openschoolyear` (page), `schoollist_openSchoolYear` (school-list button), `openschoolyear_confirm` (confirm). SQL `SQL/add-open-school-year-action.sql` grants them to role 1. Other roles are granted on the Roles screen.
 
+### Settings lookup tables (`/settings`)
+
+`Settings.razor` is the admin hub for configuration lookups that are **not** system attributes and **not** school-year related. Each tab lists one table with add/edit and **logical delete** (`is_active = false` — the row stays so existing FKs do not fail; drop-down consumers should filter `is_active`).
+
+Tabs: statuses, entity types, council types, districts, transaction account/types/detail types, alert types/statuses/levels, document status types, special-needs characterizations.
+
+API: `LookupsController` (`GET/POST/PUT/DELETE api/lookups/{table}`). Schema: `SQL/add-is-active-to-lookups.sql`. Actions: `SQL/add-settings-config-actions.sql`. Password/OTP for a user stay on **Users** — this screen does not host self-service account settings.
+
 ### Council Entity Structure
 
 The `petel_schema.councils` table is the master list of Israeli local authorities. It now includes three additional fields:
