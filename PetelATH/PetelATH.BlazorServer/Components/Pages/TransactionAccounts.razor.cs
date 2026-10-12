@@ -511,6 +511,56 @@ namespace PetelATH.BlazorServer.Components.Pages
         }
 
         /// <summary>
+        /// Bulk-create "external students fees" accounts for every council related to the
+        /// current owner (councils whose students study at a school owned by this owner).
+        /// Existing accounts are skipped.
+        /// </summary>
+        private async Task BulkCreateCouncilAccounts()
+        {
+            var executed = await ExecuteSecureActionAsync(
+                actionName: "accounts_bulkCreateCouncilAccounts",
+                functionName: "BulkCreateCouncilAccounts",
+                action: async () =>
+                {
+                    var confirmed = await JSRuntime.InvokeAsync<bool>(
+                        "confirm",
+                        "האם ליצור חשבונות אגרות תלמידי חוץ עבור כל המועצות הקשורות לבעלות? חשבונות קיימים לא ישוכפלו.");
+
+                    if (!confirmed)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        var response = await ApiService.PostAsync<object, BulkCreateCouncilAccountsResponse>(
+                            "transactionaccounts/bulk-create-council-accounts",
+                            new { });
+
+                        if (response?.Success == true)
+                        {
+                            var data = response.Data;
+                            var summary = data != null
+                                ? $"נוצרו {data.AccountsCreated} חשבונות חדשים. דולגו {data.AccountsSkipped} חשבונות קיימים. ({data.CouncilsFound} מועצות נבדקו)"
+                                : response.Message;
+                            await JSRuntime.InvokeVoidAsync("alert", summary);
+                            await LoadData(); // Refresh the list
+                        }
+                        else
+                        {
+                            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה: {response?.Message}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error bulk creating council accounts: {ex.Message}");
+                        await JSRuntime.InvokeVoidAsync("alert", $"שגיאה ביצירת חשבונות למועצות: {ex.Message}");
+                    }
+                }
+            );
+        }
+
+        /// <summary>
         /// View account details
         /// <summary>
         /// Navigate to account transactions view
