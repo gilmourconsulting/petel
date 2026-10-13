@@ -269,4 +269,37 @@ namespace PetelATH.BlazorServer.DTOs
         public List<EntityDto> Data { get; set; } = new();
         public string? Message { get; set; }
     }
+
+    /// <summary>
+    /// Response for the bulk-create-council-accounts API call.
+    /// </summary>
+    public class BulkCreateCouncilAccountsResponse
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("success")]
+        public bool Success { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("message")]
+        public string Message { get; set; } = string.Empty;
+
+        [System.Text.Json.Serialization.JsonPropertyName("data")]
+        public BulkCreateCouncilAccountsData? Data { get; set; }
+    }
+
+    public class BulkCreateCouncilAccountsData
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("ownersProcessed")]
+        public int OwnersProcessed { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("councilsFound")]
+        public int CouncilsFound { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("mirrorsCreated")]
+        public int MirrorsCreated { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("accountsCreated")]
+        public int AccountsCreated { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("accountsSkipped")]
+        public int AccountsSkipped { get; set; }
+    }
 }

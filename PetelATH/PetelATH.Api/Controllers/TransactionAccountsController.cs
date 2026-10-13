@@ -463,6 +463,250 @@ namespace PetelATH.Api.Controllers
             }
         }
 
+        /// <summary>
+        /// Bulk-create "external students fees" accounts for every council related to an owner.
+        /// A council is related to an owner when a student of that council (sending_council)
+        /// studies at a school owned by the owner. Missing council entity mirrors (type 2) are
+        /// created automatically, and accounts that already exist are skipped.
+        /// </summary>
+        [HttpPost("bulk-create-council-accounts")]
+        public async Task<IActionResult> BulkCreateCouncilAccounts([FromBody] BulkCreateCouncilAccountsRequest? request)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                if (!int.TryParse(session.EntityId, out int sessionEntityId))
+                {
+                    return BadRequest(new { success = false, message = "ישות לא תקינה" });
+                }
+
+                int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+                bool isAdmin = session.UserId == "1";
+
+                request ??= new BulkCreateCouncilAccountsRequest();
+
+                // Resolve target owners based on request + permissions
+                List<int> targetOwnerIds;
+                if (request.AllOwners)
+                {
+                    if (!isAdmin)
+                    {
+                        return StatusCode(403, new { success = false, message = "אין הרשאה לבצע פעולה עבור כל הבעלויות" });
+                    }
+
+                    // All entities that own at least one other entity (actual owners)
+                    targetOwnerIds = await _context.Entities
+                        .AsNoTracking()
+                        .Where(e => e.OwnerId != null)
+                        .Select(e => e.OwnerId!.Value)
+                        .Distinct()
+                        .ToListAsync();
+                }
+                else if (request.OwnerEntityId.HasValue && request.OwnerEntityId.Value != sessionEntityId)
+                {
+                    if (!isAdmin)
+                    {
+                        return StatusCode(403, new { success = false, message = "אין הרשאה לבצע פעולה עבור בעלות אחרת" });
+                    }
+
+                    targetOwnerIds = new List<int> { request.OwnerEntityId.Value };
+                }
+                else
+                {
+                    targetOwnerIds = new List<int> { sessionEntityId };
+                }
+
+                // Resolve the external-students-fees account type once
+                var accountType = await _context.TransactionAccountTypes
+                    .FirstOrDefaultAsync(t => t.Name == "external_students_fees" && t.IsActive);
+
+                if (accountType == null)
+                {
+                    return BadRequest(new { success = false, message = "סוג חשבון 'אגרות תלמידי חוץ' לא נמצא או אינו פעיל" });
+                }
+
+                int totalCouncilsFound = 0;
+                int totalMirrorsCreated = 0;
+                int totalAccountsCreated = 0;
+                int totalAccountsSkipped = 0;
+                var perOwner = new List<object>();
+
+                foreach (var ownerId in targetOwnerIds)
+                {
+                    // Build the ownership scope: the owner itself plus every entity it owns
+                    // (its sub-networks). This lets a top-level owner-network (EntityTypeId 6)
+                    // reach schools that are owned by its child networks, not just schools it
+                    // owns directly. Mirrors OpenSchoolYearController / SchoolController scoping.
+                    var ownerScope = await _context.Entities
+                        .AsNoTracking()
+                        .Where(e => e.Id == ownerId || e.OwnerId == ownerId)
+                        .Select(e => e.Id)
+                        .ToListAsync();
+
+                    // Distinct councils whose last-version students study at a school within scope
+                    var councilIds = await (
+                        from ss in _context.SchoolStudents.AsNoTracking()
+                        join sy in _context.SchoolYears.AsNoTracking() on ss.SchoolYearId equals sy.Id
+                        join schoolEntity in _context.Entities.AsNoTracking() on sy.SchoolId equals schoolEntity.Id
+                        where ss.SendingCouncil != null
+                            && ss.IsLastVersion
+                            && schoolEntity.OwnerId != null
+                            && ownerScope.Contains(schoolEntity.OwnerId.Value)
+                        select ss.SendingCouncil!.Value
+                    ).Distinct().ToListAsync();
+
+                    totalCouncilsFound += councilIds.Count;
+
+                    if (councilIds.Count == 0)
+                    {
+                        perOwner.Add(new
+                        {
+                            ownerEntityId = ownerId,
+                            councilsFound = 0,
+                            mirrorsCreated = 0,
+                            accountsCreated = 0,
+                            accountsSkipped = 0
+                        });
+                        continue;
+                    }
+
+                    // Council names (for account/entity naming)
+                    var councilNames = await _context.Councils
+                        .AsNoTracking()
+                        .Where(c => councilIds.Contains(c.Id))
+                        .ToDictionaryAsync(c => c.Id, c => c.Name);
+
+                    // Existing type-2 mirrors for these councils (tracked so new ones get ids).
+                    // EntityTypeId == 2 filter is mandatory: school entities also carry CouncilId.
+                    var mirrorByCouncil = (await _context.Entities
+                        .Where(e => e.EntityTypeId == 2 && e.CouncilId != null && councilIds.Contains(e.CouncilId.Value))
+                        .ToListAsync())
+                        .GroupBy(e => e.CouncilId!.Value)
+                        .ToDictionary(g => g.Key, g => g.First());
+
+                    // Create any missing council entity mirrors
+                    int ownerMirrorsCreated = 0;
+                    foreach (var cid in councilIds)
+                    {
+                        if (!mirrorByCouncil.ContainsKey(cid))
+                        {
+                            councilNames.TryGetValue(cid, out var cname);
+                            var mirror = new Entity
+                            {
+                                Name = cname ?? $"מועצה {cid}",
+                                EntityTypeId = 2, // Council entity type
+                                CouncilId = cid,
+                                IsActive = true
+                            };
+                            _context.Entities.Add(mirror);
+                            mirrorByCouncil[cid] = mirror;
+                            ownerMirrorsCreated++;
+                        }
+                    }
+
+                    if (ownerMirrorsCreated > 0)
+                    {
+                        // Persist mirrors so they have ids before linking accounts
+                        await _context.SaveChangesAsync();
+                    }
+
+                    totalMirrorsCreated += ownerMirrorsCreated;
+
+                    // Existing accounts for this owner + type (skip these)
+                    var mirrorIds = mirrorByCouncil.Values.Select(m => m.Id).ToList();
+                    var existingRelatedIds = (await _context.TransactionAccounts
+                        .AsNoTracking()
+                        .Where(ta => ta.OwnerEntityId == ownerId
+                            && ta.AccountTypeId == accountType.Id
+                            && mirrorIds.Contains(ta.RelatedEntityId))
+                        .Select(ta => ta.RelatedEntityId)
+                        .ToListAsync())
+                        .ToHashSet();
+
+                    int ownerAccountsCreated = 0;
+                    int ownerAccountsSkipped = 0;
+                    var newAccounts = new List<TransactionAccount>();
+
+                    foreach (var cid in councilIds)
+                    {
+                        var mirror = mirrorByCouncil[cid];
+
+                        if (existingRelatedIds.Contains(mirror.Id))
+                        {
+                            ownerAccountsSkipped++;
+                            continue;
+                        }
+
+                        councilNames.TryGetValue(cid, out var cname);
+                        newAccounts.Add(new TransactionAccount
+                        {
+                            OwnerEntityId = ownerId,
+                            RelatedEntityId = mirror.Id,
+                            AccountTypeId = accountType.Id,
+                            AccountName = cname ?? mirror.Name,
+                            Description = accountType.Description,
+                            Balance = 0.00m,
+                            IsActive = true,
+                            CreatedAt = DateTime.UtcNow,
+                            CreatedUser = userId,
+                            UpdatedAt = DateTime.UtcNow,
+                            UpdateUser = userId
+                        });
+                        existingRelatedIds.Add(mirror.Id); // guard against duplicates
+                        ownerAccountsCreated++;
+                    }
+
+                    if (newAccounts.Count > 0)
+                    {
+                        _context.TransactionAccounts.AddRange(newAccounts);
+                        await _context.SaveChangesAsync();
+                    }
+
+                    totalAccountsCreated += ownerAccountsCreated;
+                    totalAccountsSkipped += ownerAccountsSkipped;
+
+                    perOwner.Add(new
+                    {
+                        ownerEntityId = ownerId,
+                        councilsFound = councilIds.Count,
+                        mirrorsCreated = ownerMirrorsCreated,
+                        accountsCreated = ownerAccountsCreated,
+                        accountsSkipped = ownerAccountsSkipped
+                    });
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"נוצרו {totalAccountsCreated} חשבונות חדשים, {totalAccountsSkipped} חשבונות קיימים דולגו",
+                    data = new
+                    {
+                        ownersProcessed = targetOwnerIds.Count,
+                        councilsFound = totalCouncilsFound,
+                        mirrorsCreated = totalMirrorsCreated,
+                        accountsCreated = totalAccountsCreated,
+                        accountsSkipped = totalAccountsSkipped,
+                        perOwner
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error bulk creating council accounts");
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה ביצירת חשבונות למועצות",
+                    error = ex.Message
+                });
+            }
+        }
+
         #endregion
 
         #region PUT Endpoints
@@ -585,6 +829,23 @@ namespace PetelATH.Api.Controllers
     public class CreateCouncilEntityRequest
     {
         public int CouncilId { get; set; }
+    }
+
+    /// <summary>
+    /// Request for bulk-creating council accounts for an owner.
+    /// </summary>
+    public class BulkCreateCouncilAccountsRequest
+    {
+        /// <summary>
+        /// Optional owner entity id to run for. When null, the current session owner is used.
+        /// Targeting a different owner requires admin.
+        /// </summary>
+        public int? OwnerEntityId { get; set; }
+
+        /// <summary>
+        /// When true, runs for every owner in the system (admin only).
+        /// </summary>
+        public bool AllOwners { get; set; }
     }
 
     #endregion

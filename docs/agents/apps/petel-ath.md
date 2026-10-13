@@ -333,6 +333,17 @@ var councilEntityMap = (await context.Entities
 
 Council entities are created in `TransactionAccountsController.CreateCouncilEntity` with `EntityTypeId = 2, CouncilId = request.CouncilId`.
 
+### Bulk Create Council Accounts
+
+`POST api/transactionaccounts/bulk-create-council-accounts` (`TransactionAccountsController.BulkCreateCouncilAccounts`) creates `external_students_fees` transaction accounts for every council related to an owner. A council is "related to an owner" when a last-version student of that council (`school_students.sending_council`) studies at a school whose school-entity is within the owner's scope (`school_years.school_id → entities`).
+
+- Owner scope follows the ownership hierarchy: the owner entity itself plus every entity it owns (`entities.owner == ownerEntityId`). This lets a top-level owner-network (`EntityTypeId = 6`, רשת בעלויות) reach schools owned by its child networks, not just schools it owns directly — the same scoping used by `OpenSchoolYearController` / `SchoolController`. The created accounts are always owned by the acting owner entity (`owner_entity_id`).
+
+- Request `BulkCreateCouncilAccountsRequest { int? OwnerEntityId; bool AllOwners }`. No body / null `OwnerEntityId` → current session owner. Targeting another owner, or `AllOwners = true`, requires admin (`session.UserId == "1"`).
+- Missing council entity mirrors (`EntityTypeId = 2`) are created automatically, same as `CreateCouncilEntity`. The mirror lookup **must** filter `EntityTypeId == 2` (school entities also carry `CouncilId`).
+- Accounts already present for `(owner_entity_id, related_entity_id, account_type_id)` are skipped (never duplicated). Inserts are batched with `AddRange` + a single `SaveChangesAsync` per owner.
+- UI: "צור חשבונות למועצות" `SecureButton` on `TransactionAccounts.razor` (action `accounts_bulkCreateCouncilAccounts`, seeded by `SQL/add-bulk-council-accounts-action.sql`).
+
 ### Document Links — Council Entity Pattern
 
 When generating a per-council document (e.g. `CouncilExcelGenerationService`), the document must be linked to both:

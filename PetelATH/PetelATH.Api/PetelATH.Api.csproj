@@ -4,6 +4,10 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <!-- API-only project: no static assets served (frontend/Blazor deployed separately).
+         Disabling static web assets stops MSBuild from registering a 'wwwroot' content root,
+         which otherwise makes the dev host throw DirectoryNotFoundException when wwwroot is absent. -->
+    <StaticWebAssetsEnabled>false</StaticWebAssetsEnabled>
   </PropertyGroup>
 
   <ItemGroup>
