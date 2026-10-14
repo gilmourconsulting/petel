@@ -503,6 +503,8 @@ modelBuilder.Entity<SpecialNeedsPricingCategory>(entity =>
             modelBuilder.Entity<SchoolAttributeType>(entity =>
             {
                 entity.ToTable("school_attributes_types");
+                // Table id is integer NOT NULL with no sequence/identity default
+                entity.Property(e => e.Id).ValueGeneratedNever();
             });
 
             modelBuilder.Entity<SchoolAttribute>(entity =>

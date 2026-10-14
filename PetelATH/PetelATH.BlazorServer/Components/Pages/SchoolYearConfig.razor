@@ -35,13 +35,25 @@
             {
                 <div class="year-selection-section">
                     <label for="yearSelect" class="form-label">בחר שנת לימודים:</label>
-                    <select id="yearSelect" @onchange="HandleYearChange" class="form-select">
-                        <option value="">-- בחר שנה --</option>
-                        @foreach (var year in _years)
+                    <div class="year-selection-row">
+                        <select id="yearSelect" @onchange="HandleYearChange" class="form-select">
+                            <option value="">-- בחר שנה --</option>
+                            @foreach (var year in _years)
+                            {
+                                <option value="@year.Id">@year.YearName</option>
+                            }
+                        </select>
+                        @if (_canCopyFromPrevious)
                         {
-                            <option value="@year.Id">@year.YearName</option>
+                            <SecureButton ActionName="schoolyearconfig_copyFromPreviousYear"
+                                          ScreenName="@PageName"
+                                          FunctionName="CopyFromPreviousYear"
+                                          OnClick="CopyFromPreviousYear"
+                                          CssClass="context-btn">
+                                העתק הגדרות מהשנה הקודמת
+                            </SecureButton>
                         }
-                    </select>
+                    </div>
                 </div>
 
                 @if (_selectedYearId > 0)
@@ -616,6 +628,8 @@
     private int _selectedYearId = 0;
     private SchoolYearDto? _selectedYear;
     private string _activeTab = "documents";
+    private bool _canCopyFromPrevious;
+    private string? _previousYearName;
     
     private bool _loading = true;
     private bool _loadingTabData = false;
@@ -674,6 +688,7 @@
             _selectedYearId = yearId;
             _selectedYear = _years.FirstOrDefault(y => y.Id == yearId);
             _activeTab = "documents";
+            await LoadCopyStatus();
             await LoadTabData(_activeTab);
         }
         else
@@ -692,6 +707,8 @@
         _pricingElements.Clear();
         _tracks.Clear();
         _studyPrograms.Clear();
+        _canCopyFromPrevious = false;
+        _previousYearName = null;
     }
 
     private async Task SwitchTab(string tabName)
@@ -1009,11 +1026,77 @@
         }
     }
 
+    private async Task LoadCopyStatus()
+    {
+        _canCopyFromPrevious = false;
+        _previousYearName = null;
+
+        if (_selectedYearId <= 0)
+            return;
+
+        try
+        {
+            var status = await ApiService.GetAsync<CopyStatusDto>($"schoolyearconfig/{_selectedYearId}/copy-status");
+            if (status != null)
+            {
+                _canCopyFromPrevious = status.CanCopy;
+                _previousYearName = status.PreviousYearName;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading copy status: {ex.Message}");
+        }
+    }
+
+    private async Task CopyFromPreviousYear()
+    {
+        if (_selectedYearId <= 0 || !_canCopyFromPrevious)
+            return;
+
+        var targetName = _selectedYear?.YearName ?? string.Empty;
+        var sourceName = _previousYearName ?? "השנה הקודמת";
+        var confirmed = await JSRuntime.InvokeAsync<bool>(
+            "confirm",
+            $"האם להעתיק את כל ההגדרות משנת {sourceName} לשנת {targetName}?");
+
+        if (!confirmed)
+            return;
+
+        try
+        {
+            var result = await ApiService.PostAsync<object?, CopyYearResponse>(
+                $"schoolyearconfig/{_selectedYearId}/copy-from-previous", null);
+
+            if (result?.Success == true)
+            {
+                _message = result.Message ?? "ההגדרות הועתקו בהצלחה";
+                _messageType = "success";
+                _canCopyFromPrevious = false;
+                await LoadTabData(_activeTab);
+            }
+            else
+            {
+                _message = result?.Message ?? "שגיאה בהעתקת הגדרות";
+                _messageType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error copying year definitions: {ex.Message}");
+            _message = "שגיאה בהעתקת הגדרות";
+            _messageType = "error";
+        }
+
+        StateHasChanged();
+    }
+
     private async Task RefreshData()
     {
         await LoadYears();
         if (_selectedYearId > 0)
         {
+            await LoadCopyStatus();
             await LoadTabData(_activeTab);
         }
     }
@@ -1030,6 +1113,33 @@
         
         [System.Text.Json.Serialization.JsonPropertyName("hebrewYear")]
         public string YearName { get; set; } = string.Empty;
+    }
+
+    private class CopyStatusDto
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("canCopy")]
+        public bool CanCopy { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("previousYearId")]
+        public int? PreviousYearId { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("previousYearName")]
+        public string? PreviousYearName { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("hasDefinitions")]
+        public bool HasDefinitions { get; set; }
+    }
+
+    private class CopyYearResponse
+    {
+        [System.Text.Json.Serialization.JsonPropertyName("success")]
+        public bool Success { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("message")]
+        public string? Message { get; set; }
+
+        [System.Text.Json.Serialization.JsonPropertyName("previousYearName")]
+        public string? PreviousYearName { get; set; }
     }
 
     private class DocumentTypeDto
@@ -1206,6 +1316,13 @@
     .year-selection-section {
         padding: 20px;
         margin-bottom: 20px;
+    }
+
+    .year-selection-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
     }
 
     .form-select {

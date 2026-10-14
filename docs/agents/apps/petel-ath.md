@@ -219,6 +219,45 @@ if (attr != null)
     _sessionsRemark = $"מספר מפגשים נדרש: {attr.Value}";
 ```
 
+### Copy school year definitions
+
+`SchoolYearConfig.razor` can copy all year-level definitions from the previous Hebrew year (`hebrew_years.id` immediately below the selected year).
+
+The button **העתק הגדרות מהשנה הקודמת** appears next to the year selector only when:
+- a previous Hebrew year exists, and
+- the selected year has **no** rows in any of the five tabs (document types, pricing elements, tracks, study-program pricing, school attribute types)
+
+`school_year_attributes` does not hide the button (it is not a tab). Existing attribute names on the target year are skipped (`uk_year_attribute`).
+
+| Method | Route | Purpose |
+|---|---|---|
+| `GET` | `/api/schoolyearconfig/{yearId}/copy-status` | `{ canCopy, previousYearId, previousYearName, hasDefinitions }` |
+| `POST` | `/api/schoolyearconfig/{yearId}/copy-from-previous` | Clone definitions; 400 if the year already has tab data |
+
+Copied (new IDs, FKs remapped):
+- `document_types` (including `Level`, `ObjectElementCheck`, `ObjectElementValue`)
+- `special_needs_pricing_elements` + categories + steps
+- `tracks` + `tracks_levels` + `tracks_pricing`
+- `additional_study_programs_pricing`
+- `school_attributes_types` + `school_attribute_types_values` (`id` is assigned in code — the table has no sequence)
+- `school_year_attributes`
+
+**Not copied:** per-school `school_attributes`, school track assignments, documents/files, students, `school_years` rows.
+
+The copy never overwrites an already-configured year. After a successful copy, `SchoolAttributeCache` is refreshed so the attributes tab sees the new types.
+
+Action: `schoolyearconfig_copyFromPreviousYear` — SQL `SQL/add-schoolyearconfig-copy-action.sql`. Grant via the Roles screen.
+
+```csharp
+// ✅ CORRECT — copy only when the target year is empty
+var status = await ApiService.GetAsync<CopyStatusDto>($"schoolyearconfig/{yearId}/copy-status");
+if (status?.CanCopy == true)
+    await ApiService.PostAsync<object?, CopyYearResponse>($"schoolyearconfig/{yearId}/copy-from-previous", null);
+
+// ❌ WRONG — importing JSON / calling export+import to clone a year
+await ApiService.GetAsync<byte[]>("schoolyearconfig/export?yearId=...");
+```
+
 ### Open a school year for a network
 
 `OpenSchoolYear.razor` (`/openschoolyear`) opens the session's selected Hebrew year for schools that existed in the previous Hebrew year (`hebrew_years.id` immediately below). The button **פתיחת שנת לימודים** is on the school list.

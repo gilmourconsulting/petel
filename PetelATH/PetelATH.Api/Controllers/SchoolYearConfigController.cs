@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PetelATH.Api.Data;
 using PetelATH.Api.Models;
+using PetelATH.Api.Services;
 using PetelATH.Api.Session;
 
 namespace PetelATH.Api.Controllers
@@ -12,14 +13,17 @@ namespace PetelATH.Api.Controllers
     public class SchoolYearConfigController : BaseController
     {
         private readonly AppDbContext _context;
+        private readonly SchoolAttributeCache _attributeCache;
 
         public SchoolYearConfigController(
             AppDbContext context,
+            SchoolAttributeCache attributeCache,
             UserSessionService userSessionService,
             ILogger<SchoolYearConfigController> logger)
             : base(userSessionService, logger)
         {
             _context = context;
+            _attributeCache = attributeCache;
         }
 
         /// <summary>
@@ -1121,6 +1125,130 @@ namespace PetelATH.Api.Controllers
 
     
 
+        /// <summary>
+        /// Whether the selected Hebrew year can receive a copy from the previous year.
+        /// Button shows only when the year has no tab definitions and a previous year exists.
+        /// </summary>
+        [HttpGet("{yearId}/copy-status")]
+        public async Task<IActionResult> GetCopyStatus(int yearId)
+        {
+            try
+            {
+                var session = GetCurrentSession();
+                if (session == null)
+                {
+                    return Unauthorized(new { success = false, message = "נדרש אימות" });
+                }
+
+                var previous = await GetPreviousYearAsync(yearId);
+                var hasDefinitions = await YearHasTabDefinitionsAsync(yearId);
+
+                return Ok(new
+                {
+                    canCopy = previous != null && !hasDefinitions,
+                    previousYearId = previous?.Id,
+                    previousYearName = previous?.HebrewYearText,
+                    hasDefinitions
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading copy status for year {YearId}", yearId);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בבדיקת אפשרות העתקה",
+                    error = ex.Message
+                });
+            }
+        }
+
+        /// <summary>
+        /// Copy all School Year Config definitions (and related nested rows) from the previous Hebrew year.
+        /// Does not overwrite an already-configured year.
+        /// </summary>
+        [HttpPost("{yearId}/copy-from-previous")]
+        public async Task<IActionResult> CopyFromPreviousYear(int yearId)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+            {
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+            }
+
+            try
+            {
+                var targetYear = await _context.HebrewYears
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(y => y.Id == yearId);
+
+                if (targetYear == null)
+                {
+                    return NotFound(new { success = false, message = "שנת לימודים לא נמצאה" });
+                }
+
+                var previous = await GetPreviousYearAsync(yearId);
+                if (previous == null)
+                {
+                    return BadRequest(new { success = false, message = "לא נמצאה שנה קודמת להעתקה" });
+                }
+
+                if (await YearHasTabDefinitionsAsync(yearId))
+                {
+                    return BadRequest(new { success = false, message = "לא ניתן להעתיק — לשנה זו כבר קיימות הגדרות" });
+                }
+
+                int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+                CopyYearImportResult imported;
+
+                await using var transaction = await _context.Database.BeginTransactionAsync();
+                try
+                {
+                    imported = await CopyYearDefinitionsAsync(previous.Id, yearId, userId);
+                    await transaction.CommitAsync();
+                }
+                catch (Exception ex)
+                {
+                    await transaction.RollbackAsync();
+                    _logger.LogError(ex, "Transaction failed while copying year {SourceYearId} to {TargetYearId}", previous.Id, yearId);
+                    return StatusCode(500, new
+                    {
+                        success = false,
+                        message = "שגיאה בהעתקת הגדרות — השינויים בוטלו",
+                        error = ex.Message
+                    });
+                }
+
+                try
+                {
+                    _attributeCache.Refresh();
+                    await _attributeCache.LoadAsync(_context);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Copied year config for {YearId} but failed to reload school attribute cache", yearId);
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = $"ההגדרות הועתקו בהצלחה משנת {previous.HebrewYearText}",
+                    previousYearName = previous.HebrewYearText,
+                    imported
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error copying year configuration to year {YearId}", yearId);
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "שגיאה בהעתקת הגדרות",
+                    error = ex.Message
+                });
+            }
+        }
+
         // ==================== Export/Import Methods ====================
 
         /// <summary>
@@ -1889,6 +2017,295 @@ namespace PetelATH.Api.Controllers
                     error = ex.Message
                 });
             }
+        }
+
+        private async Task<HebrewYear?> GetPreviousYearAsync(int yearId)
+        {
+            return await _context.HebrewYears
+                .AsNoTracking()
+                .Where(y => y.Id < yearId)
+                .OrderByDescending(y => y.Id)
+                .FirstOrDefaultAsync();
+        }
+
+        private async Task<bool> YearHasTabDefinitionsAsync(int yearId)
+        {
+            if (await _context.DocumentTypes.AnyAsync(d => d.YearId == yearId))
+                return true;
+            if (await _context.SpecialNeedsPricingElements.AnyAsync(e => e.YearId == yearId))
+                return true;
+            if (await _context.Tracks.AnyAsync(t => t.YearId == yearId))
+                return true;
+            if (await _context.AdditionalStudyProgramsPricing.AnyAsync(p => p.YearId == yearId))
+                return true;
+            if (await _context.SchoolAttributeTypes.AnyAsync(t => t.YearId == yearId))
+                return true;
+
+            return false;
+        }
+
+        private async Task<CopyYearImportResult> CopyYearDefinitionsAsync(int sourceYearId, int targetYearId, int? userId)
+        {
+            var imported = new CopyYearImportResult();
+            var now = DateTime.UtcNow;
+
+            var sourceDocumentTypes = await _context.DocumentTypes
+                .AsNoTracking()
+                .Where(dt => dt.YearId == sourceYearId)
+                .ToListAsync();
+
+            foreach (var source in sourceDocumentTypes)
+            {
+                _context.DocumentTypes.Add(new DocumentType
+                {
+                    Name = source.Name,
+                    Level = source.Level,
+                    YearId = targetYearId,
+                    ObjectElementCheck = source.ObjectElementCheck,
+                    ObjectElementValue = source.ObjectElementValue,
+                    CreatedAt = now,
+                    UserId = userId
+                });
+                imported.DocumentTypes++;
+            }
+
+            var sourceElements = await _context.SpecialNeedsPricingElements
+                .AsNoTracking()
+                .Where(e => e.YearId == sourceYearId)
+                .OrderBy(e => e.SortOrder)
+                .ThenBy(e => e.ElementName)
+                .ToListAsync();
+
+            var sourceElementIds = sourceElements.Select(e => e.Id).ToList();
+            var sourceCategories = sourceElementIds.Count == 0
+                ? new List<SpecialNeedsPricingCategory>()
+                : await _context.SpecialNeedsPricingCategories
+                    .AsNoTracking()
+                    .Where(c => sourceElementIds.Contains(c.PricingElement))
+                    .ToListAsync();
+            var sourceSteps = sourceElementIds.Count == 0
+                ? new List<SpecialNeedsPricingStep>()
+                : await _context.SpecialNeedsPricingSteps
+                    .AsNoTracking()
+                    .Where(s => sourceElementIds.Contains(s.PricingElement))
+                    .ToListAsync();
+
+            foreach (var sourceElement in sourceElements)
+            {
+                var newElement = new SpecialNeedsPricingElement
+                {
+                    YearId = targetYearId,
+                    ElementName = sourceElement.ElementName,
+                    Title = sourceElement.Title,
+                    Description = sourceElement.Description,
+                    SortOrder = sourceElement.SortOrder,
+                    CalculationLevel = sourceElement.CalculationLevel,
+                    AttributeToCheck = sourceElement.AttributeToCheck,
+                    UserId = userId,
+                    CreatedAt = now
+                };
+
+                _context.SpecialNeedsPricingElements.Add(newElement);
+                await _context.SaveChangesAsync();
+                imported.PricingElements++;
+
+                foreach (var sourceCategory in sourceCategories.Where(c => c.PricingElement == sourceElement.Id))
+                {
+                    _context.SpecialNeedsPricingCategories.Add(new SpecialNeedsPricingCategory
+                    {
+                        PricingElement = newElement.Id,
+                        Category = sourceCategory.Category,
+                        IsLowestLevel = sourceCategory.IsLowestLevel,
+                        Price = sourceCategory.Price,
+                        UserId = userId
+                    });
+                    imported.PricingCategories++;
+
+                    foreach (var sourceStep in sourceSteps.Where(s =>
+                        s.PricingElement == sourceElement.Id && s.Category == sourceCategory.Category))
+                    {
+                        _context.SpecialNeedsPricingSteps.Add(new SpecialNeedsPricingStep
+                        {
+                            PricingElement = newElement.Id,
+                            Category = sourceCategory.Category,
+                            ObjectCheck = sourceStep.ObjectCheck,
+                            ObjectElementCheck = sourceStep.ObjectElementCheck,
+                            ObjectElementValue = sourceStep.ObjectElementValue,
+                            Price = sourceStep.Price,
+                            UserId = userId
+                        });
+                        imported.PricingSteps++;
+                    }
+                }
+            }
+
+            var sourcePrograms = await _context.AdditionalStudyProgramsPricing
+                .AsNoTracking()
+                .Where(p => p.YearId == sourceYearId)
+                .ToListAsync();
+
+            foreach (var source in sourcePrograms)
+            {
+                _context.AdditionalStudyProgramsPricing.Add(new AdditionalStudyProgramsPricing
+                {
+                    YearId = targetYearId,
+                    Students = source.Students,
+                    Price = source.Price,
+                    UserId = userId,
+                    CreatedAt = now
+                });
+                imported.StudyPrograms++;
+            }
+
+            var sourceTracks = await _context.Tracks
+                .AsNoTracking()
+                .Where(t => t.YearId == sourceYearId)
+                .OrderBy(t => t.TrackName)
+                .ToListAsync();
+
+            var sourceTrackIds = sourceTracks.Select(t => t.Id).ToList();
+            var sourceLevels = sourceTrackIds.Count == 0
+                ? new List<TrackLevel>()
+                : await _context.TrackLevels
+                    .AsNoTracking()
+                    .Where(l => sourceTrackIds.Contains(l.SchoolTrackId))
+                    .ToListAsync();
+            var sourceLevelIds = sourceLevels.Select(l => l.Id).ToList();
+            var sourceTrackPricing = sourceLevelIds.Count == 0
+                ? new List<TrackPricing>()
+                : await _context.TracksPricing
+                    .AsNoTracking()
+                    .Where(p => p.LevelId.HasValue && sourceLevelIds.Contains(p.LevelId.Value))
+                    .ToListAsync();
+
+            foreach (var sourceTrack in sourceTracks)
+            {
+                var newTrack = new Track
+                {
+                    YearId = targetYearId,
+                    TrackName = sourceTrack.TrackName,
+                    ExternalCode = sourceTrack.ExternalCode,
+                    AvailableForClasses = sourceTrack.AvailableForClasses,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                };
+
+                _context.Tracks.Add(newTrack);
+                await _context.SaveChangesAsync();
+                imported.Tracks++;
+
+                foreach (var sourceLevel in sourceLevels.Where(l => l.SchoolTrackId == sourceTrack.Id))
+                {
+                    var newLevel = new TrackLevel
+                    {
+                        SchoolTrackId = newTrack.Id,
+                        LevelName = sourceLevel.LevelName,
+                        MinHours = sourceLevel.MinHours,
+                        MaxHours = sourceLevel.MaxHours,
+                        AvailableForClasses = sourceLevel.AvailableForClasses
+                    };
+
+                    _context.TrackLevels.Add(newLevel);
+                    await _context.SaveChangesAsync();
+                    imported.TrackLevels++;
+
+                    foreach (var sourcePrice in sourceTrackPricing.Where(p => p.LevelId == sourceLevel.Id))
+                    {
+                        _context.TracksPricing.Add(new TrackPricing
+                        {
+                            SchoolTrackId = newTrack.Id,
+                            LevelId = newLevel.Id,
+                            Category = sourcePrice.Category,
+                            Price = sourcePrice.Price
+                        });
+                        imported.TrackPricing++;
+                    }
+                }
+            }
+
+            var sourceAttributeTypes = await _context.SchoolAttributeTypes
+                .AsNoTracking()
+                .Where(t => t.YearId == sourceYearId)
+                .OrderBy(t => t.SortOrder)
+                .ToListAsync();
+
+            var sourceTypeIds = sourceAttributeTypes.Select(t => t.Id).ToList();
+            var sourceTypeValues = sourceTypeIds.Count == 0
+                ? new List<SchoolAttributeTypeValue>()
+                : await _context.SchoolAttributeTypeValues
+                    .AsNoTracking()
+                    .Where(v => sourceTypeIds.Contains(v.SchoolAttributeTypeId))
+                    .ToListAsync();
+
+            var nextTypeId = await _context.SchoolAttributeTypes
+                .Select(t => (int?)t.Id)
+                .MaxAsync() ?? 0;
+
+            foreach (var sourceType in sourceAttributeTypes)
+            {
+                nextTypeId++;
+                var newType = new SchoolAttributeType
+                {
+                    Id = nextTypeId,
+                    YearId = targetYearId,
+                    Name = sourceType.Name,
+                    HebrewName = sourceType.HebrewName,
+                    AttributeValueType = sourceType.AttributeValueType,
+                    SortOrder = sourceType.SortOrder,
+                    CreatedAt = now
+                };
+
+                _context.SchoolAttributeTypes.Add(newType);
+                await _context.SaveChangesAsync();
+                imported.SchoolAttributeTypes++;
+
+                foreach (var sourceValue in sourceTypeValues.Where(v => v.SchoolAttributeTypeId == sourceType.Id))
+                {
+                    _context.SchoolAttributeTypeValues.Add(new SchoolAttributeTypeValue
+                    {
+                        SchoolAttributeTypeId = newType.Id,
+                        Value = sourceValue.Value,
+                        IsValid = sourceValue.IsValid,
+                        SortOrder = sourceValue.SortOrder,
+                        CreatedAt = now
+                    });
+                    imported.SchoolAttributeTypeValues++;
+                }
+            }
+
+            var existingYearAttributeNames = await _context.SchoolYearAttributes
+                .Where(a => a.YearId == targetYearId)
+                .Select(a => a.Name)
+                .ToListAsync();
+
+            var existingNames = existingYearAttributeNames.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var sourceYearAttributes = await _context.SchoolYearAttributes
+                .AsNoTracking()
+                .Where(a => a.YearId == sourceYearId)
+                .ToListAsync();
+
+            foreach (var source in sourceYearAttributes)
+            {
+                if (existingNames.Contains(source.Name))
+                    continue;
+
+                _context.SchoolYearAttributes.Add(new SchoolYearAttribute
+                {
+                    YearId = targetYearId,
+                    Name = source.Name,
+                    Description = source.Description,
+                    Value = source.Value,
+                    CreatedAt = now,
+                    CreatedUser = userId,
+                    UpdatedAt = now,
+                    UpdateUser = userId
+                });
+                imported.SchoolYearAttributes++;
+            }
+
+            await _context.SaveChangesAsync();
+            return imported;
         }
     }
 

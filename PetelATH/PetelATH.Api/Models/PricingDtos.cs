@@ -176,6 +176,21 @@ namespace PetelATH.Api.Models
         public int TrackPricing { get; set; }
     }
 
+    public class CopyYearImportResult
+    {
+        public int PricingElements { get; set; }
+        public int PricingCategories { get; set; }
+        public int PricingSteps { get; set; }
+        public int DocumentTypes { get; set; }
+        public int StudyPrograms { get; set; }
+        public int Tracks { get; set; }
+        public int TrackLevels { get; set; }
+        public int TrackPricing { get; set; }
+        public int SchoolAttributeTypes { get; set; }
+        public int SchoolAttributeTypeValues { get; set; }
+        public int SchoolYearAttributes { get; set; }
+    }
+
    /* public class AddTrackPricingRequest
     {
         public int SchoolTrackId { get; set; }
