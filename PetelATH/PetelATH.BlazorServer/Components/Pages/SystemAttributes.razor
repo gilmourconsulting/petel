@@ -128,7 +128,7 @@
                     <input type="text" id="attributeName" 
                            class="form-control" 
                            @bind="_editingAttribute.Name" 
-                           disabled="@_isEditMode"
+                           maxlength="50"
                            placeholder="לדוגמה: Security_SessionTimeout" />
                 </div>
 
@@ -137,12 +137,13 @@
                     <input type="text" id="attributeValue" 
                            class="form-control" 
                            @bind="_editingAttribute.Value"
-                           placeholder="@(_isEditMode && _editingAttribute.ValueType == "sensitive" ? "השאר ריק אם אין צורך לשנות" : "ערך המאפיין")" />
+                           maxlength="100"
+                           placeholder="@(_isEditMode && _editingOriginalValueType == "sensitive" ? "השאר ריק אם אין צורך לשנות" : "ערך המאפיין")" />
                 </div>
 
                 <div class="form-group">
                     <label for="attributeValueType">סוג ערך:</label>
-                    <select id="attributeValueType" class="form-control" @bind="_editingAttribute.ValueType" disabled="@_isEditMode">
+                    <select id="attributeValueType" class="form-control" @bind="_editingAttribute.ValueType">
                         <option value="string">string</option>
                         <option value="integer">integer</option>
                         <option value="decimal">decimal</option>
@@ -156,7 +157,6 @@
                     <input type="text" id="attributeDescription" 
                            class="form-control" 
                            @bind="_editingAttribute.Description"
-                           disabled="@_isEditMode"
                            placeholder="תיאור המאפיין (עד 50 תווים)" 
                            maxlength="50" />
                 </div>
@@ -166,7 +166,6 @@
                     <input type="number" id="attributeForeignId" 
                            class="form-control" 
                            @bind="_editingAttribute.ForeignId"
-                           disabled="@_isEditMode"
                            placeholder="מזהה חיצוני (אופציונלי)" />
                 </div>
 
@@ -197,6 +196,7 @@
     private bool _showModal;
     private string _modalTitle = "";
     private bool _isEditMode;
+    private string? _editingOriginalValueType;
     private bool _isSaving;
     private string? _modalError;
     private SystemAttributeDto _editingAttribute = new();
@@ -296,6 +296,7 @@
     private void ShowAddAttributeModal()
     {
         _isEditMode = false;
+        _editingOriginalValueType = null;
         _modalTitle = "הוסף מאפיין חדש";
         _editingAttribute = new SystemAttributeDto { ValueType = "string" };
         _modalError = null;
@@ -305,6 +306,7 @@
     private void EditAttribute(SystemAttributeDto attribute)
     {
         _isEditMode = true;
+        _editingOriginalValueType = attribute.ValueType;
         _modalTitle = "ערוך מאפיין";
         _editingAttribute = new SystemAttributeDto
         {
@@ -330,8 +332,11 @@
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_editingAttribute.Value) && 
-            (!_isEditMode || _editingAttribute.ValueType != "sensitive"))
+        var allowBlankSensitiveValue = _isEditMode
+            && string.Equals(_editingOriginalValueType, "sensitive", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(_editingAttribute.ValueType, "sensitive", StringComparison.OrdinalIgnoreCase);
+
+        if (string.IsNullOrWhiteSpace(_editingAttribute.Value) && !allowBlankSensitiveValue)
         {
             _modalError = "ערך המאפיין הוא שדה חובה";
             return;
@@ -344,15 +349,14 @@
         {
             if (_isEditMode)
             {
-                // Update existing attribute - only send value
-                if (string.IsNullOrWhiteSpace(_editingAttribute.Value))
+                var updateRequest = new
                 {
-                    await JSRuntime.InvokeVoidAsync("alert", "לא בוצעו שינויים");
-                    CloseModal();
-                    return;
-                }
-
-                var updateRequest = new { value = _editingAttribute.Value };
+                    name = _editingAttribute.Name,
+                    value = _editingAttribute.Value,
+                    valueType = _editingAttribute.ValueType,
+                    description = string.IsNullOrWhiteSpace(_editingAttribute.Description) ? null : _editingAttribute.Description,
+                    foreignId = _editingAttribute.ForeignId
+                };
                 var response = await ApiService.PutAsync<object, ApiResponse>(
                     $"systemattributes/{_editingAttribute.Id}", 
                     updateRequest);

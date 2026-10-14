@@ -51,12 +51,9 @@ Successfully created the SystemAttributes Blazor page based on the original `sys
 
 ### 4. **Edit Attribute Modal**
 - ✅ Same form layout as add modal
-- ✅ Name field disabled (cannot change attribute name)
-- ✅ Value Type disabled (cannot change type)
-- ✅ Description disabled (cannot change description)
-- ✅ Foreign ID disabled (cannot change foreign ID)
-- ✅ **Only Value field is editable** in edit mode
-- ✅ PUT to `/api/systemattributes/{id}` with only `{ value }` payload
+- ✅ Name, Value, Value Type, Description, and Foreign ID are all editable
+- ✅ PUT to `/api/systemattributes/{id}` with `{ name, value, valueType, description, foreignId }`
+- ✅ Blank value on a sensitive attribute keeps the stored secret; other fields still save
 
 ### 5. **Delete Attribute**
 - ✅ Confirmation dialog with attribute name
@@ -106,7 +103,7 @@ Successfully created the SystemAttributes Blazor page based on the original `sys
 |----------|--------|---------|
 | `/api/systemattributes` | GET | Load all attributes from cache |
 | `/api/systemattributes` | POST | Create new attribute |
-| `/api/systemattributes/{id}` | PUT | Update attribute value |
+| `/api/systemattributes/{id}` | PUT | Update name, value, value type, description, and foreign ID |
 | `/api/systemattributes/{id}` | DELETE | Delete attribute |
 | `/api/systemattributes/reload` | POST | Reload cache from database |
 
@@ -140,7 +137,7 @@ Successfully created the SystemAttributes Blazor page based on the original `sys
 ### Modal State Management
 - `_showModal` - Controls modal visibility
 - `_modalTitle` - Dynamic title based on add/edit mode
-- `_isEditMode` - Determines which fields are editable
+- `_isEditMode` - Distinguishes create from update, and allows a blank value only for sensitive attributes
 - `_isSaving` - Disables buttons during save operation
 - `_modalError` - Displays validation or API errors
 
@@ -161,9 +158,9 @@ Uses existing CSS from `system-attributes.css`:
 - [ ] Click "טען מחדש מהמסד נתונים" - confirmation, reload, success
 - [ ] Add new attribute - all value types
 - [ ] Add attribute with description and foreign ID
-- [ ] Edit attribute value (non-sensitive)
-- [ ] Edit sensitive attribute value
-- [ ] Try to edit without changing value - "לא בוצעו שינויים"
+- [ ] Edit attribute name, value, value type, description, and foreign ID
+- [ ] Edit sensitive attribute and leave value blank — stored secret is kept
+- [ ] Edit sensitive attribute and enter a new value — value is replaced
 - [ ] Delete attribute - confirmation dialog
 - [ ] Verify sensitive values show as ********
 - [ ] Verify date formatting (dd/MM/yyyy HH:mm)
@@ -172,9 +169,9 @@ Uses existing CSS from `system-attributes.css`:
 
 ## Notes
 
-1. **Edit Mode Restrictions**: Per original implementation, only the Value field is editable when editing an attribute. Name, ValueType, Description, and ForeignId are disabled.
+1. **Edit Mode**: Name, Value, ValueType, Description, and ForeignId are editable. Id and UpdatedAt stay read-only in the table.
 
-2. **Sensitive Values**: Edit modal for sensitive attributes shows empty input with placeholder text, allowing admin to leave blank if no change needed.
+2. **Sensitive Values**: Edit modal for sensitive attributes shows empty input with placeholder text. Leaving the value blank keeps the stored secret while other fields still save.
 
 3. **Foreign ID**: Supports linking attributes to external entities (e.g., Hebrew year IDs for "Previous Year", "Current Year", "Next Year" attributes).
 

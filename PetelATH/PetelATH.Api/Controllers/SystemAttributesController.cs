@@ -562,7 +562,7 @@ namespace PetelATH.Api.Controllers
         }
 
         /// <summary>
-        /// Update a system attribute value - REQUIRES AUTHENTICATION
+        /// Update a system attribute - REQUIRES AUTHENTICATION
         /// Admin operation to modify system configuration
         /// </summary>
         [HttpPut("{id}")]
@@ -572,12 +572,12 @@ namespace PetelATH.Api.Controllers
             {
                 // TODO: Add authorization check for system admin role
 
-                if (string.IsNullOrWhiteSpace(request.Value))
+                if (string.IsNullOrWhiteSpace(request.Name))
                 {
                     return BadRequest(new
                     {
                         success = false,
-                        message = "ערך ההגדרה לא יכול להיות ריק"
+                        message = "שם ההגדרה הוא שדה חובה"
                     });
                 }
 
@@ -593,18 +593,50 @@ namespace PetelATH.Api.Controllers
                     });
                 }
 
-                // Validate data type
-                if (!ValidateDataType(request.Value, attribute.ValueType))
+                var duplicateName = await _context.SystemAttributes
+                    .AnyAsync(a => a.Id != id && a.Name == request.Name);
+
+                if (duplicateName)
                 {
                     return BadRequest(new
                     {
                         success = false,
-                        message = $"ערך לא תקין עבור סוג {attribute.ValueType}"
+                        message = $"הגדרה בשם '{request.Name}' כבר קיימת"
                     });
                 }
 
-                // Update attribute
-                attribute.Value = request.Value;
+                var valueType = string.IsNullOrWhiteSpace(request.ValueType)
+                    ? attribute.ValueType
+                    : request.ValueType;
+
+                var keepExistingSensitiveValue = string.IsNullOrWhiteSpace(request.Value)
+                    && string.Equals(attribute.ValueType, "sensitive", StringComparison.OrdinalIgnoreCase);
+
+                if (string.IsNullOrWhiteSpace(request.Value) && !keepExistingSensitiveValue)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = "ערך ההגדרה לא יכול להיות ריק"
+                    });
+                }
+
+                var value = keepExistingSensitiveValue ? attribute.Value : request.Value;
+
+                if (!ValidateDataType(value, valueType))
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = $"ערך לא תקין עבור סוג {valueType}"
+                    });
+                }
+
+                attribute.Name = request.Name;
+                attribute.Value = value;
+                attribute.ValueType = valueType;
+                attribute.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description;
+                attribute.ForeignId = request.ForeignId;
                 attribute.UpdatedAt = DateTime.UtcNow;
                 // attribute.UpdateUser = session.UserId; // TODO: Add when auth is ready
 
@@ -716,6 +748,7 @@ namespace PetelATH.Api.Controllers
             return dataType?.ToLower() switch
             {
                 "integer" => int.TryParse(value, out _),
+                "decimal" => decimal.TryParse(value, out _),
                 "boolean" => bool.TryParse(value, out _) ||
                              value == "true" || value == "false",
                 "string" => true,
@@ -742,6 +775,10 @@ namespace PetelATH.Api.Controllers
     /// </summary>
     public class UpdateSystemAttributeRequest
     {
+        public string Name { get; set; } = string.Empty;
         public string Value { get; set; } = string.Empty;
+        public string? ValueType { get; set; }
+        public string? Description { get; set; }
+        public int? ForeignId { get; set; }
     }
 }
