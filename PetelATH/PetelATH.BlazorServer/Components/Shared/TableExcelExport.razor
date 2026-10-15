@@ -1,0 +1,83 @@
+@using System.Text.Json.Serialization
+@using System.Text.RegularExpressions
+@inject ExcelExportService ExcelExportService
+@inject IJSRuntime JSRuntime
+
+<div class="table-excel-export" @ref="_host">
+    <div class="table-excel-toolbar">
+        <button type="button" class="btn-icon" @onclick="Export" @onclick:stopPropagation="true" title="ייצא לאקסל">
+            <img src="/images/download_icon.png" alt="ייצא" class="action-icon-natural" />
+        </button>
+    </div>
+    @ChildContent
+</div>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private ElementReference _host;
+
+    private async Task Export()
+    {
+        try
+        {
+            var data = await JSRuntime.InvokeAsync<TableExportPayload>("tableExcelExport.extract", _host);
+            if (data?.Headers == null || data.Headers.Length == 0)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "אין נתונים לייצוא");
+                return;
+            }
+
+            var title = SanitizeFileName(data.Title);
+            var bytes = ExcelExportService.Export(
+                data.Headers,
+                data.Rows ?? [],
+                SanitizeSheetName(string.IsNullOrWhiteSpace(data.SheetName) ? title : data.SheetName));
+
+            var fileName = $"{title}_{DateTime.Now:yyyyMMdd}.xlsx";
+            var base64 = Convert.ToBase64String(bytes);
+            await JSRuntime.InvokeVoidAsync(
+                "downloadFileFromBase64",
+                base64,
+                fileName,
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בייצוא לאקסל: {ex.Message}");
+        }
+    }
+
+    private static string SanitizeFileName(string? title)
+    {
+        var cleaned = string.IsNullOrWhiteSpace(title) ? "נתונים" : title.Trim();
+        var invalid = Path.GetInvalidFileNameChars();
+        cleaned = new string(cleaned.Select(ch => invalid.Contains(ch) ? ' ' : ch).ToArray());
+        cleaned = Regex.Replace(cleaned, @"\s+", " ").Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? "נתונים" : cleaned;
+    }
+
+    private static string SanitizeSheetName(string? name)
+    {
+        var cleaned = Regex.Replace(name ?? "", @"[\\/?*\[\]:]", " ");
+        cleaned = Regex.Replace(cleaned, @"\s+", " ").Trim().Trim('\'');
+        if (string.IsNullOrWhiteSpace(cleaned)) cleaned = "נתונים";
+        if (cleaned.Length > 31) cleaned = cleaned[..31].Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? "נתונים" : cleaned;
+    }
+
+    private sealed class TableExportPayload
+    {
+        [JsonPropertyName("headers")]
+        public string[] Headers { get; set; } = [];
+
+        [JsonPropertyName("rows")]
+        public string[][] Rows { get; set; } = [];
+
+        [JsonPropertyName("title")]
+        public string Title { get; set; } = "";
+
+        [JsonPropertyName("sheetName")]
+        public string SheetName { get; set; } = "";
+    }
+}

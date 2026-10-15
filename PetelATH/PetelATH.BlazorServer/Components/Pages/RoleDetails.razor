@@ -84,6 +84,7 @@
                         </div>
                     </div>
                     <div class="detail-card-content">
+                        <TableExcelExport>
                         <div class="table-container">
                             @if (_roleData.Users == null || _roleData.Users.Count == 0)
                             {
@@ -128,6 +129,7 @@
                                 </table>
                             }
                         </div>
+                        </TableExcelExport>
                     </div>
                 </div>
 
@@ -149,6 +151,7 @@
                                    placeholder="חיפוש פעולה לפי שם, הפניה או סוג..."
                                    style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px; direction: rtl; font-size: 14px;">
                         </div>
+                        <TableExcelExport>
                         <div class="table-container">
                             @if (_filteredActions == null || _filteredActions.Count == 0)
                             {
@@ -184,6 +187,7 @@
                                 </table>
                             }
                         </div>
+                        </TableExcelExport>
                     </div>
                 </div>
             }

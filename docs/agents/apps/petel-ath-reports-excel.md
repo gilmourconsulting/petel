@@ -2,6 +2,10 @@
 
 > Load only for ATH report/Excel/document work. Shared Blazor export: docs/agents/core/blazor-patterns.md
 
+### On-screen data table download
+
+Every ATH `data-table` is wrapped in `TableExcelExport`. The download is the rows on screen, without the actions column and without links. See [blazor-patterns.md](../core/blazor-patterns.md) § Generic Client-Side Excel Export. Do not add a second per-page Excel button for those tables.
+
 ### Excel Import/Export Pattern
 
 **Standard Implementation**: All Excel operations use EPPlus library with consistent error handling and validation.

@@ -599,75 +599,33 @@ Do **not** use emoji (🔍, ✏️, 🗑️) as icon replacements.
 
 ## Generic Client-Side Excel Export
 
-Use `ExcelExportService` (registered as `Scoped` in `Program.cs`) to export any filtered table to `.xlsx` entirely in the Blazor process — no extra API call, no server-side EPPlus dependency.
-
-### Registration (Program.cs)
-
-```csharp
-builder.Services.AddScoped<ExcelExportService>();
-```
-
-### Required package (`.csproj`)
-
-```xml
-<PackageReference Include="EPPlus" Version="7.0.0" />
-```
-
-### Injection and usage in a Razor page
+ATH `data-table` tables download through `TableExcelExport` (`Components/Shared/TableExcelExport.razor`). Wrap the scrolling container (or the table, when it has no container). Do not add a second download button on the page.
 
 ```razor
-@inject ExcelExportService ExcelExportService
-
-@code {
-    private async Task ExportToExcel()
-    {
-        var headers = new[]
-        {
-            "עמודה א", "עמודה ב", "עמודה ג"
-        };
-
-        // Always export FilteredItems — reflects current active filters
-        var rows = FilteredItems.Select(s => new[]
-        {
-            s.FieldA ?? "",
-            s.FieldB?.ToString() ?? "",
-            FormatDate(s.SomeDate)
-        });
-
-        var bytes = ExcelExportService.Export(headers, rows, "שם גיליון");
-
-        // File name: concatenate all meaningful page title parts
-        var fileName = $"{_pageTitle}_{_yearDisplay}_{DateTime.Now:yyyyMMdd}.xlsx";
-        var base64 = Convert.ToBase64String(bytes);
-
-        await JSRuntime.InvokeVoidAsync("downloadFileFromBase64", base64, fileName,
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-    }
-}
+<TableExcelExport>
+    <div class="table-container">
+        <table class="data-table">
+            ...
+        </table>
+    </div>
+</TableExcelExport>
 ```
 
-The `Export` signature:
+The button reads the rows currently on screen, so filters and sort are included. `tableExcelExport.extract` in `wwwroot/js/blazorHelpers.js` drops:
+
+- the actions column (`פעולות`, `actions-column`, or an empty header)
+- columns whose cells are only buttons, icons, or checkboxes
+
+Anchor text is kept as plain text. The URL is not written and the cell is not an Excel hyperlink. The file name is the nearest card or page title plus `yyyyMMdd`.
+
+`TableExcelExport` calls `ExcelExportService` (scoped in `Program.cs`; EPPlus in the Blazor project). No extra API endpoint.
+
 ```csharp
 public byte[] Export(string[] headers, IEnumerable<string[]> rows, string sheetName = "נתונים")
 ```
+
 - Headers → bold white text on blue (`#2196F3`) background, RTL, auto-fit columns.
-- Rows → each element is a pre-formatted `string` (use `?.ToString() ?? ""`, `FormatDate()`, etc.).
-
-### Download button (table header actions area)
-
-```razor
-<button class="btn-icon" @onclick="ExportToExcel" title="ייצא לאקסל">
-    <img src="/images/download_icon.png" alt="ייצא" class="action-icon-natural" />
-</button>
-```
-
-### Rules
-
-- ✅ Always pass `FilteredItems` (not `_items`) so the export reflects active filters.
-- ✅ File name must concatenate all visible page title parts (`_pageTitle`, `_yearDisplay`, date).
-- ✅ All values converted to `string` before passing — `ExcelExportService` is format-agnostic.
-- ❌ Do not create a separate API export endpoint just for Excel — use this pattern.
-- ❌ Do not hardcode the file name with a static entity name; use the page-title fields.
+- Rows → pre-formatted strings taken from the rendered cells.
 
 ## Anti-Patterns to Avoid
 

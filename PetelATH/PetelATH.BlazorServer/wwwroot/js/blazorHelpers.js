@@ -265,6 +265,145 @@ window.downloadFileFromBase64 = function (base64, fileName, mimeType) {
     }
 };
 
+/**
+ * Read a rendered data table for Excel export.
+ * Drops action columns, buttons, icons, and checkboxes.
+ * Anchor text is kept; the URL is not.
+ */
+window.tableExcelExport = {
+    extract: function (host) {
+        if (!host) return null;
+
+        const table = findOwnTable(host);
+        if (!table || !table.tHead || !table.tHead.rows.length) return null;
+
+        const headerEntries = columnEntries(table.tHead.rows[0]);
+        const bodyRows = [];
+        for (const tbody of table.tBodies) {
+            for (const row of tbody.rows) {
+                if (row.querySelector('table')) continue;
+                if (row.cells.length === 1 && row.cells[0].colSpan > 1) continue;
+                bodyRows.push(row);
+            }
+        }
+
+        const included = [];
+        for (let col = 0; col < headerEntries.length; col++) {
+            const entry = headerEntries[col];
+            if (!entry || !entry.isFirst) continue;
+            if (entry.cell.classList.contains('actions-column')) continue;
+
+            const headerText = stripSortMarks(cellText(entry.cell));
+            if (!headerText || headerText === 'פעולות') continue;
+
+            const onlyControls = bodyRows.length > 0 && bodyRows.every(row => {
+                const bodyEntry = columnEntries(row)[col];
+                return bodyEntry && isControlOnly(bodyEntry.cell);
+            });
+            if (onlyControls) continue;
+
+            included.push({ col: col, header: headerText });
+        }
+
+        if (!included.length) return null;
+
+        const rows = bodyRows.map(row => {
+            const entries = columnEntries(row);
+            return included.map(item => {
+                const entry = entries[item.col];
+                if (!entry || !entry.isFirst) return '';
+                return cellText(entry.cell);
+            });
+        });
+
+        const title = nearestTitle(host);
+        return {
+            headers: included.map(item => item.header),
+            rows: rows,
+            title: title,
+            sheetName: toSheetName(title)
+        };
+    }
+};
+
+function findOwnTable(host) {
+    const tables = host.querySelectorAll('table.data-table');
+    for (const table of tables) {
+        const ancestor = table.parentElement ? table.parentElement.closest('table') : null;
+        if (ancestor && host.contains(ancestor)) continue;
+        return table;
+    }
+    return null;
+}
+
+function columnEntries(row) {
+    const entries = [];
+    let col = 0;
+    for (const cell of row.cells) {
+        const span = cell.colSpan || 1;
+        for (let offset = 0; offset < span; offset++) {
+            entries[col] = { cell: cell, isFirst: offset === 0 };
+            col++;
+        }
+    }
+    return entries;
+}
+
+function cellText(cell) {
+    const parts = [];
+    const walk = node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+            parts.push(node.textContent || '');
+            return;
+        }
+        if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+        const tag = node.tagName;
+        if (tag === 'TABLE' || tag === 'BUTTON' || tag === 'INPUT' || tag === 'IMG' || tag === 'SVG' || tag === 'SELECT') {
+            if (tag === 'SELECT') {
+                const option = node.selectedIndex >= 0 ? node.options[node.selectedIndex] : null;
+                parts.push(option ? option.text : '');
+            }
+            return;
+        }
+
+        for (const child of node.childNodes) walk(child);
+    };
+
+    walk(cell);
+    return parts.join('').replace(/\s+/g, ' ').trim();
+}
+
+function isControlOnly(cell) {
+    if (!cell.querySelector('button, input, img, svg')) return false;
+    return cellText(cell) === '';
+}
+
+function stripSortMarks(value) {
+    return (value || '').replace(/[▲▼↑↓]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function nearestTitle(host) {
+    let node = host.parentElement;
+    while (node) {
+        const title = node.querySelector(':scope > .detail-card-header .detail-card-title, :scope > .detail-card-header h2, :scope > .detail-card-header strong, :scope > .page-title, :scope > h1.page-title');
+        const text = title ? stripSortMarks(title.textContent) : '';
+        if (text) return text;
+        node = node.parentElement;
+    }
+
+    const page = document.querySelector('.page-title');
+    const pageText = page ? stripSortMarks(page.textContent) : '';
+    return pageText || 'נתונים';
+}
+
+function toSheetName(title) {
+    let name = (title || '').replace(/[\\/?*[\]:]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (!name) name = 'נתונים';
+    if (name.length > 31) name = name.slice(0, 31).trim();
+    return name || 'נתונים';
+}
+
 // Legacy aliases for backward compatibility
 window.FileUploadHelper = {
     triggerFileInput: function(elementId) {

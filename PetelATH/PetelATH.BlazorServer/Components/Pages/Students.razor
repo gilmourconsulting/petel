@@ -7,8 +7,6 @@
 @using PetelATH.BlazorServer.Components.Modals
 @inject ApiService ApiService
 @inject SessionStateService SessionStateService
-@inject ExcelExportService ExcelExportService
-
 <div class="main-container">
     <!-- Context buttons -->
     <div class="context-buttons-section">
@@ -183,9 +181,6 @@
                 <div class="detail-card-header">
                     <h2 class="detail-card-title">רשימת תלמידים</h2>
                     <div class="card-header-actions">
-                        <button class="btn-icon" @onclick="ExportStudents" title="ייצא לאקסל">
-                            <img src="/images/download_icon.png" alt="ייצא" class="action-icon-natural" />
-                        </button>
                         <SecureButton
                             ActionName="students_refreshData"
                             ScreenName="@PageName"
@@ -208,6 +203,7 @@
                     }
                     else
                     {
+                        <TableExcelExport>
                         <div class="table-container">
                             <table class="data-table">
                                 <thead>
@@ -319,6 +315,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        </TableExcelExport>
                     }
                 </div>
             </div>
@@ -822,48 +819,6 @@
     private async Task RefreshData()
     {
         await LoadData();
-    }
-
-    private async Task ExportStudents()
-    {
-        try
-        {
-            var headers = new[]
-            {
-                "ת.ז", "שם פרטי", "שם משפחה", "מגדר", "כיתה",
-                "קטגוריית נכות", "סטטוס", "תאריך התחלה", "תאריך סיום", "רחוב", "מספר בית", "עיר", "מיקוד", "רשות שולחת"
-            };
-
-            var rows = FilteredStudents.Select(s => new[]
-            {
-                s.IdNumber ?? "",
-                s.FirstName ?? "",
-                s.LastName ?? "",
-                GetGenderDisplay(s.Gender),
-                s.ClassName ?? "",
-                s.DisabilityCategory?.ToString() ?? "",
-                s.Status ?? "",
-                FormatDate(s.StartDate),
-                FormatDate(s.EndDate),
-                s.Street ?? "",
-                s.HouseNumber ?? "",
-                s.City ?? "",
-                s.PostCode ?? "",
-                s.CouncilName ?? ""
-            });
-
-            var bytes = ExcelExportService.Export(headers, rows, "תלמידים");
-            var yearName = _yearDisplay.Replace("שנת לימודים: ", "").Trim();
-            var fileName = $"{_pageTitle}_{yearName}_{DateTime.Now:yyyyMMdd}.xlsx";
-            var base64 = Convert.ToBase64String(bytes);
-
-            await JSRuntime.InvokeVoidAsync("downloadFileFromBase64", base64, fileName,
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-        }
-        catch (Exception ex)
-        {
-            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בייצוא לאקסל: {ex.Message}");
-        }
     }
 
     private async Task ViewStudent(int studentId)

@@ -711,6 +711,16 @@
    TABLES - UNIFIED SYSTEM
    ============================================ */
 
+.table-excel-export {
+    width: 100%;
+}
+
+.table-excel-toolbar {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 6px;
+}
+
 .table-container {
     overflow-x: auto;
     overflow-y: visible;
