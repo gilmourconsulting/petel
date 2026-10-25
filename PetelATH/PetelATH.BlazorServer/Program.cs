@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
 using Petel.BlazorCore.Extensions;
 using PetelATH.BlazorServer.Components;
@@ -44,6 +45,11 @@ builder.Services.AddScoped<ActionSecurityService>();
 builder.Services.AddScoped<ExcelExportService>();
 
 // Configure Blazor Server options
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+});
+
 builder.Services.AddServerSideBlazor()
     .AddCircuitOptions(options =>
     {
@@ -56,6 +62,8 @@ builder.Services.AddServerSideBlazor()
     });
 
 var app = builder.Build();
+
+app.UseForwardedHeaders();
 
 var cspImgSrcAllowlist = builder.Configuration
     .GetSection("Security:Csp:ImgSrc")

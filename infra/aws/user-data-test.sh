@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euxo pipefail
 dnf update -y
-dnf install -y nginx tar gzip libicu
+dnf install -y nginx tar gzip libicu certbot
 
 # Swap so four .NET processes fit on t3.medium
 if [ ! -f /swapfile ]; then
@@ -17,7 +17,7 @@ curl -sSL https://dot.net/v1/dotnet-install.sh -o /tmp/dotnet-install.sh
 bash /tmp/dotnet-install.sh --channel 9.0 --runtime aspnetcore --install-dir /usr/share/dotnet
 ln -sfn /usr/share/dotnet/dotnet /usr/bin/dotnet
 
-mkdir -p /opt/petel/ath-api /opt/petel/ath-blazor /opt/petel/assist-api /opt/petel/assist-blazor /etc/petel
+mkdir -p /opt/petel/ath-api /opt/petel/ath-blazor /opt/petel/assist-api /opt/petel/assist-blazor /etc/petel /var/www/acme/.well-known/acme-challenge
 chown -R ec2-user:ec2-user /opt/petel
 
 cat >/usr/share/nginx/html/index.html <<'HTML'
