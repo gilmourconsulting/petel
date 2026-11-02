@@ -11,7 +11,7 @@ DECLARE
 BEGIN
     SELECT id INTO v_button_type_id
     FROM shared_schema.action_types
-    WHERE name = 'button'
+    WHERE lower(name) IN ('button', 'onclick_button')
     LIMIT 1;
 
     IF v_button_type_id IS NULL THEN

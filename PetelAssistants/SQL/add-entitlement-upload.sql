@@ -126,4 +126,4 @@ BEGIN
     RAISE NOTICE 'Entitlement upload security action seeded';
 END $$;
 
-RAISE NOTICE 'add-entitlement-upload.sql completed';
+DO $$ BEGIN RAISE NOTICE 'add-entitlement-upload.sql completed'; END $$;

@@ -81,4 +81,4 @@ BEGIN
     RAISE NOTICE 'Personal entitlement upload security action seeded';
 END $$;
 
-RAISE NOTICE 'add-personal-entitlement-upload.sql completed';
+DO $$ BEGIN RAISE NOTICE 'add-personal-entitlement-upload.sql completed'; END $$;

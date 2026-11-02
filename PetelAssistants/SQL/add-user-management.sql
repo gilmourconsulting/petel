@@ -268,7 +268,7 @@ BEGIN
             name        VARCHAR(100) NOT NULL,
             description VARCHAR(300) NULL,
             created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            created_user INTEGER NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL,
+            user_id     INTEGER NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL,
             updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             update_user INTEGER NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL,
             CONSTRAINT uk_roles_entity_name UNIQUE (entity_id, name)
@@ -317,11 +317,14 @@ BEGIN
         SELECT FROM pg_tables WHERE schemaname = 'assist_schema' AND tablename = 'roles_actions'
     ) THEN
         CREATE TABLE assist_schema.roles_actions (
-            id          SERIAL PRIMARY KEY,
-            entity_id   INTEGER NOT NULL REFERENCES shared_schema.entities(id)  ON DELETE RESTRICT,
-            role_id     INTEGER NOT NULL REFERENCES assist_schema.roles(id)     ON DELETE CASCADE,
-            action_id   INTEGER NOT NULL REFERENCES shared_schema.actions(id)   ON DELETE CASCADE,
-            created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            id           SERIAL PRIMARY KEY,
+            entity_id    INTEGER NOT NULL REFERENCES shared_schema.entities(id)  ON DELETE RESTRICT,
+            role_id      INTEGER NOT NULL REFERENCES assist_schema.roles(id)     ON DELETE CASCADE,
+            action_id    INTEGER NOT NULL REFERENCES shared_schema.actions(id)   ON DELETE CASCADE,
+            created_at   TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            action_level INTEGER NOT NULL DEFAULT 0,
+            updated_at   TIMESTAMP NULL,
+            update_user  INTEGER NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL,
             CONSTRAINT uk_roles_actions_role_action UNIQUE (role_id, action_id)
         );
 
@@ -334,6 +337,12 @@ BEGIN
         RAISE NOTICE 'Table roles_actions already exists';
     END IF;
 END $$;
+
+-- Ensure roles_actions audit/level columns exist on DBs created before they were added.
+ALTER TABLE assist_schema.roles_actions
+    ADD COLUMN IF NOT EXISTS action_level INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS updated_at   TIMESTAMP NULL,
+    ADD COLUMN IF NOT EXISTS update_user  INTEGER NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL;
 
 -- ─── action_audit_logs ────────────────────────────────────────────────────────
 DO $$

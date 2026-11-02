@@ -45,12 +45,20 @@ BEGIN
         VALUES
             ('local_authority', 'רשות מקומית'),
             ('school',          'בית ספר'),
-            ('org_unit',        'יחידה ארגונית')
+            ('org_unit',        'יחידה ארגונית'),
+            ('admin',           'מערכת פטל — ניהול')
         ON CONFLICT DO NOTHING;
 
         RAISE NOTICE 'Table entity_types created and seeded';
     END IF;
 END $$;
+
+-- Ensure admin entity type exists on DBs that were bootstrapped before it was added.
+INSERT INTO shared_schema.entity_types (name, description)
+SELECT 'admin', 'מערכת פטל — ניהול'
+WHERE NOT EXISTS (
+    SELECT 1 FROM shared_schema.entity_types WHERE name = 'admin'
+);
 
 -- ─── entities (tenant registry + org units) ───────────────────────────────────
 DO $$
@@ -130,7 +138,7 @@ BEGIN
 
             -- Audit fields (required on all assist_schema tables)
             created_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            created_user  INTEGER   NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL,
+            user_id       INTEGER   NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL,
             updated_at    TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             update_user   INTEGER   NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL,
 
@@ -139,8 +147,8 @@ BEGIN
         );
 
         CREATE INDEX idx_users_entity_id ON assist_schema.users(entity_id);
-        CREATE INDEX idx_users_created_user ON assist_schema.users(created_user);
-        CREATE INDEX idx_users_update_user  ON assist_schema.users(update_user);
+        CREATE INDEX idx_users_user_id     ON assist_schema.users(user_id);
+        CREATE INDEX idx_users_update_user ON assist_schema.users(update_user);
 
         RAISE NOTICE 'Table users created';
     END IF;

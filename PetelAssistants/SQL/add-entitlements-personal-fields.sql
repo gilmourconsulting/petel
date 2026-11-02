@@ -127,4 +127,4 @@ BEGIN
     END IF;
 END $$;
 
-RAISE NOTICE 'add-entitlements-personal-fields.sql completed';
+DO $$ BEGIN RAISE NOTICE 'add-entitlements-personal-fields.sql completed'; END $$;

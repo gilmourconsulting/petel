@@ -91,4 +91,4 @@ BEGIN
     END IF;
 END $$;
 
-RAISE NOTICE 'add-institutions.sql completed';
+DO $$ BEGIN RAISE NOTICE 'add-institutions.sql completed'; END $$;

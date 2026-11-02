@@ -103,4 +103,4 @@ BEGIN
     RAISE NOTICE 'Entitlement allocation security actions seeded';
 END $$;
 
-RAISE NOTICE 'add-entitlement-allocations.sql completed';
+DO $$ BEGIN RAISE NOTICE 'add-entitlement-allocations.sql completed'; END $$;

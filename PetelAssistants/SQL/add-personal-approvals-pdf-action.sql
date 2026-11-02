@@ -50,4 +50,4 @@ BEGIN
     RAISE NOTICE 'Personal approvals PDF security action seeded';
 END $$;
 
-RAISE NOTICE 'add-personal-approvals-pdf-action.sql completed';
+DO $$ BEGIN RAISE NOTICE 'add-personal-approvals-pdf-action.sql completed'; END $$;
