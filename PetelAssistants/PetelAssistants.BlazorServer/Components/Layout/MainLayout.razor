@@ -182,10 +182,12 @@
             var attributes = await ApiService.GetAsync<List<SystemAttributeDto>>("systemattributes");
             if (attributes != null)
             {
-                var debugAttr = attributes.FirstOrDefault(a => a.Id == 9999 || a.Name == "Show debug button");
+                var debugAttr = attributes.FirstOrDefault(a =>
+                    string.Equals(a.Name, "Show debug button", StringComparison.OrdinalIgnoreCase));
                 if (debugAttr != null)
                 {
-                    _showDebugButton = debugAttr.Value?.ToLower() == "true" || debugAttr.Value == "1";
+                    var value = debugAttr.Value?.Trim() ?? string.Empty;
+                    _showDebugButton = value.Equals("true", StringComparison.OrdinalIgnoreCase) || value == "1";
                 }
             }
         }

@@ -25,6 +25,7 @@ Key system attributes:
 | Name | id | Type | Purpose |
 |---|---|---|---|
 | `validate_israeli_id_checksum` | 20 | bool | System-wide toggle: when `true`, all Israeli national ID entries (entitlements, persons, and any future features) are validated against the Luhn-like checksum algorithm. Read via `IAttributeCache`. |
+| `Show debug button` | — | bool | When `true` / `1`, MainLayout shows the session Debug button. Seed: `PetelAssistants/SQL/add-show-debug-button-attribute.sql`. |
 | `Security_PasswordPolicy` | — | string | Regex for password validation. |
 | `Security_OtpEnabled` | — | bool | Whether email OTP is required at login. |
 | `Security_SessionTimeoutMinutes` | — | integer | Idle session timeout in minutes. |

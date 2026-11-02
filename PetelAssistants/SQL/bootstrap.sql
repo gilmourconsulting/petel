@@ -89,7 +89,8 @@ BEGIN
         VALUES
             ('Security_PasswordPolicy',        '^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,20}$', 'string', 'מדיניות סיסמה (ביטוי רגולרי)'),
             ('Security_OtpEnabled',            'false',  'bool',    'האם OTP דוא"ל מופעל'),
-            ('Security_SessionTimeoutMinutes', '30',     'integer', 'זמן תפוגת סשן (דקות)')
+            ('Security_SessionTimeoutMinutes', '30',     'integer', 'זמן תפוגת סשן (דקות)'),
+            ('Show debug button',              'false',  'bool',    'האם להציג את כפתור Debug Session בסרגל העליון')
         ON CONFLICT (name) DO NOTHING;
 
         RAISE NOTICE 'Table system_attributes created and seeded';
