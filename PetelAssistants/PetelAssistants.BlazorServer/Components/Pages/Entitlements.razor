@@ -29,6 +29,10 @@
                   OnClick="ShowPersonalEntitlementUploadDialog" CssClass="context-btn">
         העלאת זכאויות אישיות
     </SecureButton>
+    <SecureButton ActionName="entitlements_second_help" ScreenName="@PageName" FunctionName="ShowSecondHelpEntitlementsDialog"
+                  OnClick="ShowSecondHelpEntitlementsDialog" CssClass="context-btn">
+        זכאויות לסייעת שניה
+    </SecureButton>
     <SecureButton ActionName="entitlements_back" ScreenName="@PageName" FunctionName="NavigateBack"
                   OnClick="NavigateBack" CssClass="context-navigation-btn">
         חזרה לניהול שנה
@@ -39,6 +43,11 @@
                                 YearId="YearId"
                                 YearName="@_yearName"
                                 OnUploadComplete="RefreshData" />
+
+<SecondHelpEntitlementsModal @ref="_secondHelpEntitlementsModal"
+                             YearId="YearId"
+                             YearName="@_yearName"
+                             OnApplied="RefreshData" />
 
 <div class="main-container entitlements-main">
     <div class="students-content entitlements-page">
@@ -984,6 +993,7 @@
     private string _formError = string.Empty;
     private EntitlementListItemDto? _editItem;
     private PersonalEntitlementUploadModal? _personalEntitlementUploadModal;
+    private SecondHelpEntitlementsModal? _secondHelpEntitlementsModal;
 
     // Filter state
     private string _filterKind = "";
@@ -1996,6 +2006,12 @@
 
     private void ShowPersonalEntitlementUploadDialog() =>
         _personalEntitlementUploadModal?.Show(YearId, _yearName);
+
+    private async Task ShowSecondHelpEntitlementsDialog()
+    {
+        if (_secondHelpEntitlementsModal != null)
+            await _secondHelpEntitlementsModal.Show(YearId, _yearName);
+    }
 
     private void NavigateBack() => Navigation.NavigateTo($"/year/{YearId}");
 }

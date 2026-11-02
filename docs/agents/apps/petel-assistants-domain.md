@@ -256,6 +256,9 @@ List/read current rows with `is_last_version = true`. History: `GET api/entitlem
 - Personal (`assistant_types.level = personal`): same `pupil_id_number`
 - `class_help`: same `institution_id` + same `class_name`
 - `school_help`: same `institution_id`
+- `second_help` (סייעת שנייה): same `institution_id` (one active entitlement per kindergarten)
+
+**Second-help pick-list (סייעת שנייה):** Context button on Entitlements (`entitlements_second_help`) opens `SecondHelpEntitlementsModal` — dual-pane drag/click list of active kindergartens (left = without entitlement, right = with). OK diffs vs initial load: unchanged → no-op; left→right → create `second_help` entitlement (year dates, hours from type `position_hours`, unit from `position_type` or weekly, ministry participation 100%); right→left → cancel-via-version. Cancels that still have an active allocation show a confirm warning before apply. APIs: `GET api/entitlements/second-help-status?yearId=`, `POST api/entitlements/second-help-apply`. SQL action: `add-second-help-entitlements-action.sql`. Budget calculate for `second_help` is deferred.
 
 **Business rules:**
 - `institution_id` is required for **manual** create and for valid entitlements. Upload may persist `institution_id = null` when the file סמל is missing or unmatched (`missing_institution`).

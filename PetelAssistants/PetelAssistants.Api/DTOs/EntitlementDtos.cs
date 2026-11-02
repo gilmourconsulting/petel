@@ -221,4 +221,29 @@ namespace PetelAssistants.Api.DTOs
         public string? PupilFirstName { get; set; }
         public string? PupilLastName { get; set; }
     }
+
+    public class SecondHelpKindergartenStatusDto
+    {
+        public int InstitutionId { get; set; }
+        public string InstitutionName { get; set; } = string.Empty;
+        public string? Symbol { get; set; }
+        public bool HasEntitlement { get; set; }
+        public int? EntitlementId { get; set; }
+        public bool HasActiveAllocation { get; set; }
+    }
+
+    public class ApplySecondHelpEntitlementsRequest
+    {
+        public int YearId { get; set; }
+        public List<int> AddInstitutionIds { get; set; } = new();
+        public List<int> CancelEntitlementIds { get; set; } = new();
+    }
+
+    public class ApplySecondHelpEntitlementsResultDto
+    {
+        public int AddedCount { get; set; }
+        public int CancelledCount { get; set; }
+        public int SkippedCount { get; set; }
+        public List<string> Errors { get; set; } = new();
+    }
 }

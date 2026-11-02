@@ -66,6 +66,58 @@ namespace PetelAssistants.Api.Controllers
             }
         }
 
+        [HttpGet("second-help-status")]
+        public async Task<IActionResult> GetSecondHelpStatus([FromQuery] int yearId)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (!int.TryParse(session.EntityId, out int entityId))
+                return BadRequest(new { success = false, message = "מזהה רשות לא תקין" });
+
+            if (yearId <= 0)
+                return BadRequest(new { success = false, message = "שנה לא תקינה" });
+
+            try
+            {
+                var items = await _entitlementService.GetSecondHelpStatusAsync(entityId, yearId);
+                return Ok(new { success = true, data = items });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
+        [HttpPost("second-help-apply")]
+        public async Task<IActionResult> ApplySecondHelp([FromBody] ApplySecondHelpEntitlementsRequest request)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (!int.TryParse(session.EntityId, out int entityId))
+                return BadRequest(new { success = false, message = "מזהה רשות לא תקין" });
+
+            int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
+
+            try
+            {
+                var result = await _entitlementService.ApplySecondHelpAsync(entityId, userId, request);
+                return Ok(new
+                {
+                    success = true,
+                    message = $"נוספו {result.AddedCount}, בוטלו {result.CancelledCount}",
+                    data = result
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { success = false, message = ex.Message });
+            }
+        }
+
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {

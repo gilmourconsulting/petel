@@ -476,6 +476,195 @@ namespace PetelAssistants.Api.Services
         }
 
         /// <summary>
+        /// Active kindergartens for the tenant with second_help entitlement status for the year.
+        /// </summary>
+        public async Task<List<SecondHelpKindergartenStatusDto>> GetSecondHelpStatusAsync(int entityId, int yearId)
+        {
+            _ = await LoadHebrewYearAsync(yearId, requireActive: false);
+            var type = await LoadSecondHelpTypeAsync();
+
+            var kindergartens = await _context.Institutions
+                .AsNoTracking()
+                .Where(i => i.IsActive
+                            && i.InstitutionType == InstitutionTypes.Kindergarten)
+                .OrderBy(i => i.Name)
+                .ToListAsync();
+
+            var entitlements = await _context.Entitlements
+                .AsNoTracking()
+                .Where(e => e.HebrewYearId == yearId
+                            && e.AssistantTypeId == type.Id
+                            && e.IsLastVersion
+                            && !e.IsCancelled
+                            && e.InstitutionId != null)
+                .ToListAsync();
+
+            var byInstitution = entitlements
+                .GroupBy(e => e.InstitutionId!.Value)
+                .ToDictionary(g => g.Key, g => g.OrderByDescending(e => e.Id).First());
+
+            var masterIds = entitlements.Select(e => e.MasterEntitlementId).Distinct().ToList();
+            var versionRows = masterIds.Count == 0
+                ? new List<(int Id, int MasterEntitlementId)>()
+                : (await _context.Entitlements
+                    .AsNoTracking()
+                    .Where(e => masterIds.Contains(e.MasterEntitlementId))
+                    .Select(e => new { e.Id, e.MasterEntitlementId })
+                    .ToListAsync())
+                  .Select(e => (e.Id, e.MasterEntitlementId))
+                  .ToList();
+
+            var versionIds = versionRows.Select(v => v.Id).ToList();
+            var mastersWithAllocation = new HashSet<int>();
+            if (versionIds.Count > 0)
+            {
+                var allocatedVersionIds = await _context.EntitlementAllocations
+                    .AsNoTracking()
+                    .Where(a => a.IsActive && versionIds.Contains(a.EntitlementId))
+                    .Select(a => a.EntitlementId)
+                    .Distinct()
+                    .ToListAsync();
+
+                var versionToMaster = versionRows.ToDictionary(v => v.Id, v => v.MasterEntitlementId);
+                foreach (var vid in allocatedVersionIds)
+                {
+                    if (versionToMaster.TryGetValue(vid, out var masterId))
+                        mastersWithAllocation.Add(masterId);
+                }
+            }
+
+            return kindergartens.Select(k =>
+            {
+                byInstitution.TryGetValue(k.Id, out var entitlement);
+                return new SecondHelpKindergartenStatusDto
+                {
+                    InstitutionId = k.Id,
+                    InstitutionName = k.Name,
+                    Symbol = k.Symbol,
+                    HasEntitlement = entitlement != null,
+                    EntitlementId = entitlement?.Id,
+                    HasActiveAllocation = entitlement != null
+                                          && mastersWithAllocation.Contains(entitlement.MasterEntitlementId)
+                };
+            }).ToList();
+        }
+
+        /// <summary>
+        /// Creates second_help entitlements for added kindergartens and cancels removed ones.
+        /// </summary>
+        public async Task<ApplySecondHelpEntitlementsResultDto> ApplySecondHelpAsync(
+            int entityId,
+            int? userId,
+            ApplySecondHelpEntitlementsRequest request)
+        {
+            if (request.YearId <= 0)
+                throw new InvalidOperationException("שנה לא תקינה");
+
+            var year = await LoadHebrewYearAsync(request.YearId);
+            var type = await LoadSecondHelpTypeAsync();
+
+            if (type.PositionHours is null or <= 0)
+                throw new InvalidOperationException(
+                    "לא הוגדרו שעות משרה לסוג סייעת שנייה — עדכן את סוג הסייעת בהגדרות מערכת");
+
+            var hoursUnit = string.Equals(type.PositionType, HoursUnits.Monthly, StringComparison.OrdinalIgnoreCase)
+                ? HoursUnits.Monthly
+                : HoursUnits.Weekly;
+
+            var result = new ApplySecondHelpEntitlementsResultDto();
+            var addIds = (request.AddInstitutionIds ?? new List<int>()).Distinct().ToList();
+            var cancelIds = (request.CancelEntitlementIds ?? new List<int>()).Distinct().ToList();
+
+            var existing = await _context.Entitlements
+                .AsNoTracking()
+                .Where(e => e.HebrewYearId == request.YearId
+                            && e.AssistantTypeId == type.Id
+                            && e.IsLastVersion
+                            && !e.IsCancelled
+                            && e.InstitutionId != null)
+                .ToListAsync();
+            var entitledInstitutionIds = existing
+                .Select(e => e.InstitutionId!.Value)
+                .ToHashSet();
+            var entitlementById = existing.ToDictionary(e => e.Id);
+
+            foreach (var institutionId in addIds)
+            {
+                if (entitledInstitutionIds.Contains(institutionId))
+                {
+                    result.SkippedCount++;
+                    continue;
+                }
+
+                try
+                {
+                    var institution = await _context.Institutions
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(i => i.Id == institutionId && i.IsActive)
+                        ?? throw new InvalidOperationException("גן לא נמצא או אינו פעיל");
+
+                    if (!string.Equals(institution.InstitutionType, InstitutionTypes.Kindergarten,
+                            StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidOperationException("ניתן להוסיף זכאות סייעת שנייה לגני ילדים בלבד");
+
+                    await CreateEntitlementAsync(entityId, userId, new CreateEntitlementRequest
+                    {
+                        HebrewYearId = request.YearId,
+                        AssistantTypeId = type.Id,
+                        StartDate = year.StartDate,
+                        EndDate = year.EndDate,
+                        Hours = type.PositionHours.Value,
+                        HoursUnit = hoursUnit,
+                        MinistryParticipationPct = 100m,
+                        InstitutionId = institutionId
+                    });
+
+                    entitledInstitutionIds.Add(institutionId);
+                    result.AddedCount++;
+                }
+                catch (Exception ex)
+                {
+                    result.Errors.Add($"הוספה ({institutionId}): {ex.Message}");
+                }
+            }
+
+            foreach (var entitlementId in cancelIds)
+            {
+                if (!entitlementById.TryGetValue(entitlementId, out var entitlement)
+                    || entitlement.AssistantTypeId != type.Id
+                    || entitlement.HebrewYearId != request.YearId)
+                {
+                    result.SkippedCount++;
+                    continue;
+                }
+
+                try
+                {
+                    await DeactivateEntitlementAsync(userId, entitlementId);
+                    result.CancelledCount++;
+                }
+                catch (Exception ex)
+                {
+                    result.Errors.Add($"ביטול ({entitlementId}): {ex.Message}");
+                }
+            }
+
+            return result;
+        }
+
+        private async Task<AssistantType> LoadSecondHelpTypeAsync()
+        {
+            var type = await _sharedContext.AssistantTypes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(t => t.Name == "second_help" && t.IsActive);
+
+            if (type == null)
+                throw new InvalidOperationException("סוג סייעת שנייה לא נמצא או אינו פעיל");
+
+            return type;
+        }
+
+        /// <summary>
         /// Upload-driven version update — may change hours/classification/participation
         /// (fields immutable in the manual edit UI).
         /// </summary>
@@ -832,6 +1021,19 @@ namespace PetelAssistants.Api.Services
                 if (conflict)
                     throw new InvalidOperationException(
                         "קיימת כבר זכאות סייעת מוסדית פעילה לאותו מוסד בטווח תאריכים חופף");
+                return;
+            }
+
+            if (IsSecondHelp(assistantType.Name))
+            {
+                var conflict = candidates.Any(e =>
+                    e.InstitutionId == institutionId &&
+                    typeNames.TryGetValue(e.AssistantTypeId, out var name) &&
+                    IsSecondHelp(name));
+
+                if (conflict)
+                    throw new InvalidOperationException(
+                        "קיימת כבר זכאות סייעת שנייה פעילה לאותו גן בטווח תאריכים חופף");
             }
         }
 
@@ -1108,6 +1310,9 @@ namespace PetelAssistants.Api.Services
 
         private static bool IsSchoolHelp(string? typeName)
             => string.Equals(typeName, "school_help", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsSecondHelp(string? typeName)
+            => string.Equals(typeName, "second_help", StringComparison.OrdinalIgnoreCase);
 
         private static string? NormalizeOptionalText(string? value)
             => string.IsNullOrWhiteSpace(value) ? null : value.Trim();

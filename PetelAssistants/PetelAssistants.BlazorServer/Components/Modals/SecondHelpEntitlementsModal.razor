@@ -1,0 +1,409 @@
+@using Microsoft.JSInterop
+@using Petel.BlazorCore.Services
+@using PetelAssistants.BlazorServer.DTOs
+@using PetelAssistants.BlazorServer.Models
+@inject ApiService ApiService
+@inject IJSRuntime JSRuntime
+@implements IAsyncDisposable
+
+@if (_isVisible)
+{
+    <div id="second-help-modal" class="modal-overlay" style="display: flex;" @onclick="CloseModal">
+        <div class="modal-content" style="min-width: 800px; max-width: 90%;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>זכאויות לסייעת שניה @(_yearName != "" ? $"- {_yearName}" : "")</h3>
+                <button class="modal-close" @onclick="CloseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_isLoading)
+                {
+                    <p style="text-align: center; color: #6c757d;">טוען...</p>
+                }
+                else if (!string.IsNullOrEmpty(_loadError))
+                {
+                    <div class="error-message">@_loadError</div>
+                }
+                else if (_showAllocationWarning)
+                {
+                    <div style="direction: rtl;">
+                        <p style="margin-bottom: 12px;">
+                            לגנים הבאים יש הקצאת סייעת פעילה. ביטול הזכאות לא יסיר את ההקצאה.
+                            האם להמשיך?
+                        </p>
+                        <ul style="margin: 0 0 16px 0; padding-right: 20px;">
+                            @foreach (var name in _allocationWarningNames)
+                            {
+                                <li>@name</li>
+                            }
+                        </ul>
+                        @if (!string.IsNullOrEmpty(_applyError))
+                        {
+                            <div class="error-message" style="margin-bottom: 12px;">@_applyError</div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div style="display: flex; gap: 20px; direction: rtl;">
+                        <div style="flex: 1;">
+                            <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">
+                                ללא זכאות (@_withoutFiltered.Count)
+                            </h4>
+                            <input type="text"
+                                   @bind="_withoutSearch"
+                                   @bind:event="oninput"
+                                   @onkeyup="FilterLists"
+                                   placeholder="חיפוש גן..."
+                                   style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #dee2e6; border-radius: 4px; direction: rtl;">
+                            <div id="second-help-without-zone" data-pane="available"
+                                 style="border: 2px dashed #dee2e6; border-radius: 8px; min-height: 400px; max-height: 400px; overflow-y: auto; padding: 10px; background-color: #f8f9fa;">
+                                @if (_withoutFiltered.Count == 0)
+                                {
+                                    <p style="text-align: center; color: #6c757d; padding: 20px;">אין גנים</p>
+                                }
+                                else
+                                {
+                                    @foreach (var item in _withoutFiltered)
+                                    {
+                                        <div class="action-item" data-item-id="@item.InstitutionId"
+                                             @onclick="() => MoveToEntitled(item)">
+                                            <div class="action-item-header">@(item.Symbol ?? "ללא סמל")</div>
+                                            <div class="action-item-name">@item.InstitutionName</div>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                            <small style="display: block; margin-top: 5px; color: #6c757d;">לחץ או גרור גן כדי להוסיף זכאות</small>
+                        </div>
+                        <div style="flex: 1;">
+                            <h4 style="margin-bottom: 10px; font-size: 16px; font-weight: 600;">
+                                עם זכאות (@_withFiltered.Count)
+                            </h4>
+                            <input type="text"
+                                   @bind="_withSearch"
+                                   @bind:event="oninput"
+                                   @onkeyup="FilterLists"
+                                   placeholder="חיפוש גן..."
+                                   style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #dee2e6; border-radius: 4px; direction: rtl;">
+                            <div id="second-help-with-zone" data-pane="selected"
+                                 style="border: 2px solid #28a745; border-radius: 8px; min-height: 400px; max-height: 400px; overflow-y: auto; padding: 10px; background-color: #f8f9fa;">
+                                @if (_withFiltered.Count == 0)
+                                {
+                                    <p style="text-align: center; color: #6c757d; padding: 20px;">אין גנים</p>
+                                }
+                                else
+                                {
+                                    @foreach (var item in _withFiltered)
+                                    {
+                                        <div class="action-item" data-item-id="@item.InstitutionId"
+                                             @onclick="() => MoveToWithout(item)">
+                                            <div class="action-item-header">@(item.Symbol ?? "ללא סמל")</div>
+                                            <div class="action-item-name">@item.InstitutionName</div>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                            <small style="display: block; margin-top: 5px; color: #6c757d;">לחץ או גרור גן כדי להסיר זכאות</small>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_applyError))
+                    {
+                        <div class="error-message" style="margin-top: 12px;">@_applyError</div>
+                    }
+                }
+            </div>
+            <div class="modal-footer">
+                @if (_showAllocationWarning)
+                {
+                    <button type="button" class="btn-secondary" @onclick="BackFromWarning" disabled="@_isSaving">חזרה</button>
+                    <button type="button" class="btn-primary" @onclick="ConfirmApplyAsync" disabled="@_isSaving">
+                        @(_isSaving ? "שומר..." : "המשך ושמור")
+                    </button>
+                }
+                else
+                {
+                    <button type="button" class="btn-secondary" @onclick="CloseModal" disabled="@_isSaving">ביטול</button>
+                    <button type="button" class="btn-primary" @onclick="OnOkClickedAsync"
+                            disabled="@(_isLoading || _isSaving || !string.IsNullOrEmpty(_loadError) || !HasChanges)">
+                        @(_isSaving ? "שומר..." : "אישור")
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int YearId { get; set; }
+    [Parameter] public string YearName { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnApplied { get; set; }
+
+    private bool _isVisible;
+    private bool _isLoading;
+    private bool _isSaving;
+    private bool _showAllocationWarning;
+    private string _yearName = string.Empty;
+    private string _loadError = string.Empty;
+    private string _applyError = string.Empty;
+    private string _withoutSearch = string.Empty;
+    private string _withSearch = string.Empty;
+
+    private List<SecondHelpKindergartenStatusDto> _all = new();
+    private HashSet<int> _initialEntitledIds = new();
+    private HashSet<int> _currentEntitledIds = new();
+    private Dictionary<int, SecondHelpKindergartenStatusDto> _byId = new();
+
+    private List<SecondHelpKindergartenStatusDto> _withoutFiltered = new();
+    private List<SecondHelpKindergartenStatusDto> _withFiltered = new();
+    private List<string> _allocationWarningNames = new();
+
+    private List<int> _pendingAddIds = new();
+    private List<int> _pendingCancelEntitlementIds = new();
+
+    private DotNetObjectReference<SecondHelpEntitlementsModal>? _dotNetRef;
+
+    private bool HasChanges =>
+        !_currentEntitledIds.SetEquals(_initialEntitledIds);
+
+    public async Task Show(int yearId, string yearName)
+    {
+        YearId = yearId;
+        _yearName = yearName;
+        _isVisible = true;
+        _showAllocationWarning = false;
+        _applyError = string.Empty;
+        _loadError = string.Empty;
+        _withoutSearch = string.Empty;
+        _withSearch = string.Empty;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _loadError = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<SecondHelpKindergartenStatusDto>>>(
+                $"entitlements/second-help-status?yearId={YearId}");
+
+            if (response?.Success != true || response.Data == null)
+            {
+                _loadError = response?.Message ?? "שגיאה בטעינת גנים";
+                _all = new();
+            }
+            else
+            {
+                _all = response.Data;
+                _byId = _all.ToDictionary(x => x.InstitutionId);
+                _initialEntitledIds = _all.Where(x => x.HasEntitlement).Select(x => x.InstitutionId).ToHashSet();
+                _currentEntitledIds = new HashSet<int>(_initialEntitledIds);
+                FilterLists();
+            }
+        }
+        catch (Exception ex)
+        {
+            _loadError = ex.Message;
+            _all = new();
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+            if (string.IsNullOrEmpty(_loadError))
+                await InitDragDropAsync();
+        }
+    }
+
+    private void FilterLists()
+    {
+        var without = _all.Where(x => !_currentEntitledIds.Contains(x.InstitutionId));
+        var with = _all.Where(x => _currentEntitledIds.Contains(x.InstitutionId));
+
+        if (!string.IsNullOrWhiteSpace(_withoutSearch))
+        {
+            var q = _withoutSearch.Trim();
+            without = without.Where(x =>
+                x.InstitutionName.Contains(q, StringComparison.OrdinalIgnoreCase)
+                || (x.Symbol?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        if (!string.IsNullOrWhiteSpace(_withSearch))
+        {
+            var q = _withSearch.Trim();
+            with = with.Where(x =>
+                x.InstitutionName.Contains(q, StringComparison.OrdinalIgnoreCase)
+                || (x.Symbol?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+
+        _withoutFiltered = without.OrderBy(x => x.InstitutionName).ToList();
+        _withFiltered = with.OrderBy(x => x.InstitutionName).ToList();
+        _ = RefreshDragDropAsync();
+    }
+
+    private void MoveToEntitled(SecondHelpKindergartenStatusDto item)
+    {
+        if (_currentEntitledIds.Add(item.InstitutionId))
+            FilterLists();
+    }
+
+    private void MoveToWithout(SecondHelpKindergartenStatusDto item)
+    {
+        if (_currentEntitledIds.Remove(item.InstitutionId))
+            FilterLists();
+    }
+
+    [JSInvokable]
+    public Task OnPickListDrop(int itemId, string targetPane)
+    {
+        if (!_byId.TryGetValue(itemId, out var item))
+            return Task.CompletedTask;
+
+        if (targetPane == "selected")
+            MoveToEntitled(item);
+        else if (targetPane == "available")
+            MoveToWithout(item);
+
+        return Task.CompletedTask;
+    }
+
+    private async Task OnOkClickedAsync()
+    {
+        _applyError = string.Empty;
+        BuildPendingDiff();
+
+        if (_pendingAddIds.Count == 0 && _pendingCancelEntitlementIds.Count == 0)
+        {
+            await CloseModal();
+            return;
+        }
+
+        _allocationWarningNames = _pendingCancelEntitlementIds
+            .Select(id => _all.FirstOrDefault(x => x.EntitlementId == id))
+            .Where(x => x is { HasActiveAllocation: true })
+            .Select(x => x!.InstitutionName)
+            .OrderBy(n => n)
+            .ToList();
+
+        if (_allocationWarningNames.Count > 0)
+        {
+            _showAllocationWarning = true;
+            await DisposeDragDropAsync();
+            StateHasChanged();
+            return;
+        }
+
+        await ConfirmApplyAsync();
+    }
+
+    private void BuildPendingDiff()
+    {
+        _pendingAddIds = _currentEntitledIds.Except(_initialEntitledIds).ToList();
+        _pendingCancelEntitlementIds = _initialEntitledIds
+            .Except(_currentEntitledIds)
+            .Select(institutionId => _byId.TryGetValue(institutionId, out var row) ? row.EntitlementId : null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+    }
+
+    private void BackFromWarning()
+    {
+        _showAllocationWarning = false;
+        _applyError = string.Empty;
+        StateHasChanged();
+        _ = InitDragDropAsync();
+    }
+
+    private async Task ConfirmApplyAsync()
+    {
+        _isSaving = true;
+        _applyError = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var request = new ApplySecondHelpEntitlementsRequest
+            {
+                YearId = YearId,
+                AddInstitutionIds = _pendingAddIds,
+                CancelEntitlementIds = _pendingCancelEntitlementIds
+            };
+
+            var response = await ApiService.PostAsync<ApplySecondHelpEntitlementsRequest, ApiResponse<ApplySecondHelpEntitlementsResultDto>>(
+                "entitlements/second-help-apply", request);
+
+            if (response?.Success != true)
+            {
+                _applyError = response?.Message ?? "שגיאה בשמירה";
+                return;
+            }
+
+            if (response.Data?.Errors?.Count > 0)
+            {
+                _applyError = string.Join("\n", response.Data.Errors);
+                // still close if some succeeded? Keep modal open on partial errors.
+                if (response.Data.AddedCount == 0 && response.Data.CancelledCount == 0)
+                    return;
+            }
+
+            await OnApplied.InvokeAsync();
+            await CloseModal();
+        }
+        catch (Exception ex)
+        {
+            _applyError = ex.Message;
+        }
+        finally
+        {
+            _isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CloseModal()
+    {
+        await DisposeDragDropAsync();
+        _isVisible = false;
+        _showAllocationWarning = false;
+        _applyError = string.Empty;
+        _loadError = string.Empty;
+        StateHasChanged();
+    }
+
+    private async Task InitDragDropAsync()
+    {
+        _dotNetRef?.Dispose();
+        _dotNetRef = DotNetObjectReference.Create(this);
+        await Task.Yield();
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("dragDropPickList.init", new
+            {
+                modalId = "second-help-modal",
+                availableZoneId = "second-help-without-zone",
+                selectedZoneId = "second-help-with-zone",
+                dotNetRef = _dotNetRef
+            });
+        }
+        catch { }
+    }
+
+    private async Task RefreshDragDropAsync()
+    {
+        StateHasChanged();
+        await Task.Yield();
+        try { await JSRuntime.InvokeVoidAsync("dragDropPickList.refresh", "second-help-modal"); } catch { }
+    }
+
+    private async Task DisposeDragDropAsync()
+    {
+        try { await JSRuntime.InvokeVoidAsync("dragDropPickList.dispose", "second-help-modal"); } catch { }
+        _dotNetRef?.Dispose();
+        _dotNetRef = null;
+    }
+
+    public async ValueTask DisposeAsync() => await DisposeDragDropAsync();
+}
