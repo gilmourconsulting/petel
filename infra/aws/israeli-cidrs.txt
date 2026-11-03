@@ -43,3 +43,5 @@
 95.86.0.0/16
 103.209.0.0/16
 147.236.0.0/16
+# Cisco OpenDNS / Umbrella egress in Tel Aviv (AS16509, CIE-IL). Not an Israeli ISP block.
+151.186.184.0/24
