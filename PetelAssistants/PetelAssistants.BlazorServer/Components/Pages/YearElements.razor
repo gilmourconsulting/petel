@@ -28,6 +28,13 @@
                 שמור
             </SecureButton>
         }
+        else if (_activeTab == "study-days")
+        {
+            <SecureButton ActionName="year_elements_study_days_save" ScreenName="@PageName" FunctionName="SaveStudyDays"
+                          OnClick="() => InvokeStudyDaysSave()" CssClass="context-btn" HideIfNoAccess="true">
+                שמור
+            </SecureButton>
+        }
 
         <SecureButton ActionName="year_elements_back" ScreenName="@PageName" FunctionName="NavigateBack"
                       OnClick="NavigateBack" CssClass="context-navigation-btn">
@@ -56,6 +63,10 @@
             {
                 <YearElementsHourValueTab @ref="_hourValueTab" ScreenName="@PageName" />
             }
+            else if (_activeTab == "study-days")
+            {
+                <YearElementsStudyDaysTab @ref="_studyDaysTab" ScreenName="@PageName" />
+            }
         </div>
     </div>
 </div>
@@ -69,11 +80,13 @@
     private string _activeTab = "class-assistant-hours";
     private YearElementsClassAssistantHoursTab? _classHoursTab;
     private YearElementsHourValueTab? _hourValueTab;
+    private YearElementsStudyDaysTab? _studyDaysTab;
 
     private static readonly (string Key, string Label)[] _tabs =
     {
         ("class-assistant-hours", "שעות תקציב סייעת כיתתית"),
-        ("hour-value", "ערך שעה")
+        ("hour-value", "ערך שעה"),
+        ("study-days", "ימי לימוד בחודש")
     };
 
     protected override async Task OnPageInitializedAsync()
@@ -97,6 +110,8 @@
             await _classHoursTab.RefreshAsync();
         else if (_activeTab == "hour-value" && _hourValueTab != null)
             await _hourValueTab.RefreshAsync();
+        else if (_activeTab == "study-days" && _studyDaysTab != null)
+            await _studyDaysTab.RefreshAsync();
     }
 
     private async Task InvokeClassHoursSave()
@@ -109,6 +124,12 @@
     {
         if (_hourValueTab != null)
             await _hourValueTab.SaveAsync();
+    }
+
+    private async Task InvokeStudyDaysSave()
+    {
+        if (_studyDaysTab != null)
+            await _studyDaysTab.SaveAsync();
     }
 
     private void NavigateBack() => Navigation.NavigateTo("/maindashboard");

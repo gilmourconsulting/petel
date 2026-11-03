@@ -29,7 +29,7 @@ BEGIN
             update_user     INTEGER      NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL,
             CONSTRAINT entitlement_allocations_hours_check   CHECK (hours > 0),
             CONSTRAINT entitlement_allocations_dates_check   CHECK (start_date <= end_date),
-            CONSTRAINT entitlement_allocations_unit_check    CHECK (hours_unit IN ('weekly', 'monthly'))
+            CONSTRAINT entitlement_allocations_unit_check    CHECK (hours_unit IN ('weekly', 'monthly', 'daily'))
         );
 
         CREATE INDEX idx_entitlement_allocations_entity_id

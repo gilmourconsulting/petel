@@ -28,7 +28,7 @@ BEGIN
             updated_at                 TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             update_user                INTEGER NULL REFERENCES assist_schema.users(id) ON DELETE SET NULL,
             CONSTRAINT entitlements_date_check CHECK (end_date >= start_date),
-            CONSTRAINT entitlements_hours_unit_check CHECK (hours_unit IN ('weekly', 'monthly')),
+            CONSTRAINT entitlements_hours_unit_check CHECK (hours_unit IN ('weekly', 'monthly', 'daily')),
             CONSTRAINT entitlements_kind_check CHECK (entitlement_kind IN ('institutional', 'personal')),
             CONSTRAINT entitlements_ministry_pct_check CHECK (
                 ministry_participation_pct >= 0 AND ministry_participation_pct <= 100

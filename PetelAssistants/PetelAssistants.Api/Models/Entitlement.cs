@@ -8,6 +8,7 @@ namespace PetelAssistants.Api.Models
     {
         public const string Weekly  = "weekly";
         public const string Monthly = "monthly";
+        public const string Daily   = "daily";
     }
 
     [Table("entitlements")]

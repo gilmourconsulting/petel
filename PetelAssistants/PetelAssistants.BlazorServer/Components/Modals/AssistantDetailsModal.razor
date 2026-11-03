@@ -237,5 +237,10 @@
             : $"{phone.PhoneTypeDisplayName}: {number}";
     }
 
-    private static string GetHoursUnitLabel(string unit) => unit == "monthly" ? "חודשי" : "שבועי";
+    private static string GetHoursUnitLabel(string unit) => unit switch
+    {
+        "monthly" => "חודשי",
+        "daily" => "יומי",
+        _ => "שבועי"
+    };
 }

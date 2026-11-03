@@ -1,0 +1,254 @@
+@using System.Globalization
+@using PetelAssistants.BlazorServer.DTOs
+@using PetelAssistants.BlazorServer.Models
+@inject ApiService ApiService
+@inject IJSRuntime JSRuntime
+
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 20px;">
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+        <label style="font-size: 0.82em; font-weight: 600;">שנת לימודים</label>
+        <select class="form-control" style="min-width: 200px;"
+                value="@_selectedYearId"
+                @onchange="OnYearChanged"
+                disabled="@_isLoading">
+            @if (_years.Count == 0)
+            {
+                <option value="0">אין שנים</option>
+            }
+            else
+            {
+                @foreach (var year in _years)
+                {
+                    <option value="@year.Id">@year.YearName@(year.IsCurrent ? " (נוכחית)" : "")</option>
+                }
+            }
+        </select>
+    </div>
+</div>
+
+@if (_isLoading)
+{
+    <div class="loading-spinner">טוען...</div>
+}
+else if (!string.IsNullOrEmpty(_error))
+{
+    <div class="error-message">@_error</div>
+}
+else if (_selectedYearId <= 0)
+{
+    <div style="color: var(--text-muted);">בחר שנת לימודים להגדרת ימי לימוד בחודש.</div>
+}
+else if (_items.Count == 0)
+{
+    <div style="color: var(--text-muted);">לתאריכי השנה חסרים ערכים — לא ניתן לבנות רשימת חודשים.</div>
+}
+else
+{
+    <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 12px;">
+        חודשי שנת הלימודים (בדרך כלל ספטמבר–אוגוסט) נוצרים אוטומטית. ניתן לערוך רק את מספר ימי הלימוד; שדה ריק = עדיין לא הוגדר.
+    </p>
+    <div class="table-container" style="width: fit-content; max-width: 100%;">
+        <table class="data-table" style="width: auto; table-layout: auto;">
+            <thead>
+                <tr>
+                    <th style="white-space: nowrap; width: 1%; padding-inline: 10px;">חודש</th>
+                    <th style="white-space: nowrap; width: 1%; padding-inline: 10px;">ימי לימוד</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _items)
+                {
+                    <tr>
+                        <td style="white-space: nowrap; width: 1%; padding-inline: 10px;">@GetMonthLabel(item.PeriodMonth) @item.PeriodYear</td>
+                        <td style="white-space: nowrap; width: 1%; padding-inline: 10px;">
+                            <input type="number" class="form-control" style="width: 4.5rem; min-width: 0;"
+                                   step="0.5" min="0" max="31"
+                                   value="@FormatStudyDays(item.StudyDays)"
+                                   @onchange="e => OnStudyDaysChanged(item, e)" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public string ScreenName { get; set; } = "year_elements";
+
+    private List<YearDto> _years = new();
+    private List<HebrewYearMonthStudyDaysDto> _items = new();
+    private int _selectedYearId;
+    private bool _isLoading = true;
+    private bool _isSaving;
+    private string _error = string.Empty;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    public async Task RefreshAsync() => await LoadAsync(keepYear: true);
+
+    public async Task SaveAsync()
+    {
+        if (_selectedYearId <= 0 || _isSaving || _items.Count == 0)
+            return;
+
+        foreach (var item in _items)
+        {
+            if (item.StudyDays is < 0 or > 31)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "ימי לימוד בחודש חייבים להיות בין 0 ל-31");
+                return;
+            }
+        }
+
+        _isSaving = true;
+        try
+        {
+            var request = new UpsertHebrewYearMonthStudyDaysRequest
+            {
+                HebrewYearId = _selectedYearId,
+                Items = _items.Select(i => new HebrewYearMonthStudyDaysItemRequest
+                {
+                    PeriodYear = i.PeriodYear,
+                    PeriodMonth = i.PeriodMonth,
+                    StudyDays = i.StudyDays
+                }).ToList()
+            };
+
+            var response = await ApiService.PutAsync<UpsertHebrewYearMonthStudyDaysRequest, ApiResponse<object>>(
+                "hebrew-year-month-study-days", request);
+
+            if (response?.Success == true)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "ימי הלימוד בחודש נשמרו בהצלחה");
+                await LoadMonthsAsync();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בשמירה");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירה: {ex.Message}");
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task LoadAsync(bool keepYear = false)
+    {
+        _isLoading = true;
+        _error = string.Empty;
+        try
+        {
+            var yearsResponse = await ApiService.GetAsync<ApiResponse<List<YearDto>>>("Years/admin");
+            _years = (yearsResponse?.Data ?? new())
+                .Where(y => y.IsActive)
+                .OrderByDescending(y => y.IsCurrent)
+                .ThenByDescending(y => y.Id)
+                .ToList();
+
+            if (!keepYear || !_years.Any(y => y.Id == _selectedYearId))
+            {
+                _selectedYearId = _years.FirstOrDefault(y => y.IsCurrent)?.Id
+                    ?? _years.FirstOrDefault()?.Id
+                    ?? 0;
+            }
+
+            if (_selectedYearId > 0)
+                await LoadMonthsAsync();
+            else
+                _items = new();
+        }
+        catch (Exception ex)
+        {
+            _error = $"שגיאה בטעינה: {ex.Message}";
+            _items = new();
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnYearChanged(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var yearId))
+            return;
+
+        _selectedYearId = yearId;
+        _isLoading = true;
+        _error = string.Empty;
+        try
+        {
+            await LoadMonthsAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"שגיאה בטעינה: {ex.Message}";
+            _items = new();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadMonthsAsync()
+    {
+        var response = await ApiService.GetAsync<ApiResponse<List<HebrewYearMonthStudyDaysDto>>>(
+            $"hebrew-year-month-study-days?yearId={_selectedYearId}");
+
+        if (response?.Success != true)
+        {
+            _error = response?.Message ?? "שגיאה בטעינת ימי לימוד";
+            _items = new();
+            return;
+        }
+
+        _items = response.Data ?? new();
+    }
+
+    private static string FormatStudyDays(decimal? value) =>
+        value.HasValue ? value.Value.ToString(CultureInfo.InvariantCulture) : string.Empty;
+
+    private static void OnStudyDaysChanged(HebrewYearMonthStudyDaysDto item, ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString()?.Trim();
+        if (string.IsNullOrEmpty(raw))
+        {
+            item.StudyDays = null;
+            return;
+        }
+
+        if (decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
+            || decimal.TryParse(raw, NumberStyles.Number, CultureInfo.CurrentCulture, out parsed))
+        {
+            item.StudyDays = parsed;
+            return;
+        }
+
+        item.StudyDays = null;
+    }
+
+    private static string GetMonthLabel(int month) => month switch
+    {
+        1 => "ינואר",
+        2 => "פברואר",
+        3 => "מרץ",
+        4 => "אפריל",
+        5 => "מאי",
+        6 => "יוני",
+        7 => "יולי",
+        8 => "אוגוסט",
+        9 => "ספטמבר",
+        10 => "אוקטובר",
+        11 => "נובמבר",
+        12 => "דצמבר",
+        _ => month.ToString()
+    };
+}

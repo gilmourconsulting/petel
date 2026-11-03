@@ -29,6 +29,7 @@ namespace PetelAssistants.Api.Data
         public DbSet<PersonAddress>  PersonAddresses { get; set; }
         public DbSet<PersonPhone>     PersonPhones   { get; set; }
         public DbSet<Institution>            Institutions           { get; set; }
+        public DbSet<InstitutionYearSettings> InstitutionYearSettings { get; set; }
         public DbSet<Entitlement>            Entitlements           { get; set; }
         public DbSet<EntitlementAllocation>  EntitlementAllocations { get; set; }
         public DbSet<SalaryUploadProcess>    SalaryUploadProcesses  { get; set; }
@@ -216,6 +217,21 @@ namespace PetelAssistants.Api.Data
                 entity.HasIndex(e => new { e.EntityId, e.Symbol })
                     .IsUnique()
                     .HasFilter("symbol IS NOT NULL");
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<InstitutionYearSettings>(entity =>
+            {
+                entity.ToTable("institution_year_settings");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.InstitutionId, e.HebrewYearId }).IsUnique();
+                entity.HasIndex(e => new { e.EntityId, e.HebrewYearId });
+
+                entity.HasOne(e => e.Institution)
+                    .WithMany()
+                    .HasForeignKey(e => e.InstitutionId)
+                    .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
             });

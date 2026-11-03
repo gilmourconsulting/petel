@@ -29,6 +29,7 @@ namespace PetelAssistants.Api.Data
         public DbSet<ClassClassification>         ClassClassifications         { get; set; }
         public DbSet<ClassAssistantBudgetHours>   ClassAssistantBudgetHours    { get; set; }
         public DbSet<BudgetHourValue>             BudgetHourValues             { get; set; }
+        public DbSet<HebrewYearMonthStudyDays>    HebrewYearMonthStudyDays     { get; set; }
         public DbSet<Status>                      Statuses                     { get; set; }
 
         public SharedDbContext(
@@ -177,6 +178,18 @@ namespace PetelAssistants.Api.Data
                 entity.ToTable("budget_hour_values");
                 entity.HasKey(e => e.Id);
                 entity.HasIndex(e => e.HebrewYearId).IsUnique();
+
+                entity.HasOne(e => e.HebrewYear)
+                    .WithMany()
+                    .HasForeignKey(e => e.HebrewYearId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<HebrewYearMonthStudyDays>(entity =>
+            {
+                entity.ToTable("hebrew_year_month_study_days");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.HebrewYearId, e.PeriodYear, e.PeriodMonth }).IsUnique();
 
                 entity.HasOne(e => e.HebrewYear)
                     .WithMany()

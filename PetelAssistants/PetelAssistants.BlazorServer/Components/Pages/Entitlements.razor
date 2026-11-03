@@ -524,6 +524,7 @@
                             <select class="form-control" @bind="_formHoursUnit">
                                 <option value="weekly">שבועי</option>
                                 <option value="monthly">חודשי</option>
+                                <option value="daily">יומי</option>
                             </select>
                         }
                     </div>
@@ -666,6 +667,7 @@
                             <select class="form-control" @bind="_allocHoursUnit">
                                 <option value="weekly">שבועי</option>
                                 <option value="monthly">חודשי</option>
+                                <option value="daily">יומי</option>
                             </select>
                         </div>
                     </div>
@@ -1971,7 +1973,12 @@
     private static bool IsPersonalLevel(string? level)
         => string.Equals(level, "personal", StringComparison.OrdinalIgnoreCase);
 
-    private static string GetHoursUnitLabel(string unit) => unit == "monthly" ? "חודשי" : "שבועי";
+    private static string GetHoursUnitLabel(string unit) => unit switch
+    {
+        "monthly" => "חודשי",
+        "daily" => "יומי",
+        _ => "שבועי"
+    };
 
     private string GetInstitutionTypeLabel(EntitlementListItemDto item)
     {

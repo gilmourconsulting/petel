@@ -569,7 +569,9 @@ namespace PetelAssistants.Api.Services
 
             var hoursUnit = string.Equals(type.PositionType, HoursUnits.Monthly, StringComparison.OrdinalIgnoreCase)
                 ? HoursUnits.Monthly
-                : HoursUnits.Weekly;
+                : string.Equals(type.PositionType, HoursUnits.Daily, StringComparison.OrdinalIgnoreCase)
+                    ? HoursUnits.Daily
+                    : HoursUnits.Weekly;
 
             var result = new ApplySecondHelpEntitlementsResultDto();
             var addIds = (request.AddInstitutionIds ?? new List<int>()).Distinct().ToList();
@@ -1226,8 +1228,8 @@ namespace PetelAssistants.Api.Services
 
         private static void ValidateHoursUnit(string hoursUnit)
         {
-            if (hoursUnit != HoursUnits.Weekly && hoursUnit != HoursUnits.Monthly)
-                throw new InvalidOperationException("יחידת שעות חייבת להיות שבועית או חודשית");
+            if (hoursUnit != HoursUnits.Weekly && hoursUnit != HoursUnits.Monthly && hoursUnit != HoursUnits.Daily)
+                throw new InvalidOperationException("יחידת שעות חייבת להיות שבועית, חודשית או יומית");
         }
 
         private static void ValidateDates(DateOnly startDate, DateOnly endDate, HebrewYear year)

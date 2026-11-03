@@ -153,7 +153,7 @@
                                             <td style="padding: 8px;">@(orphan.PupilIdNumber ?? "—")</td>
                                             <td style="padding: 8px;">@($"{orphan.PupilFirstName} {orphan.PupilLastName}".Trim())</td>
                                             <td style="padding: 8px;">@orphan.InstitutionName</td>
-                                            <td style="padding: 8px;">@orphan.Hours @(orphan.HoursUnit == "monthly" ? "חודשי" : "שבועי")</td>
+                                            <td style="padding: 8px;">@orphan.Hours @(orphan.HoursUnit switch { "monthly" => "חודשי", "daily" => "יומי", _ => "שבועי" })</td>
                                             <td style="padding: 8px;">@orphan.MinistryParticipationPct%</td>
                                         </tr>
                                     }

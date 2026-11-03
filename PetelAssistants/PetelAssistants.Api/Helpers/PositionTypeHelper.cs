@@ -4,6 +4,7 @@ namespace PetelAssistants.Api.Helpers
     {
         public const string Weekly = "weekly";
         public const string Monthly = "monthly";
+        public const string Daily = "daily";
 
         public static bool TryNormalize(string? value, out string? normalized, out string? error)
         {
@@ -14,13 +15,13 @@ namespace PetelAssistants.Api.Helpers
                 return true;
 
             var n = value.Trim().ToLowerInvariant();
-            if (n is Weekly or Monthly)
+            if (n is Weekly or Monthly or Daily)
             {
                 normalized = n;
                 return true;
             }
 
-            error = "סוג משרה חייב להיות weekly או monthly";
+            error = "סוג משרה חייב להיות weekly, monthly או daily";
             return false;
         }
 
@@ -28,6 +29,7 @@ namespace PetelAssistants.Api.Helpers
         {
             Weekly => "שבועי",
             Monthly => "חודשי",
+            Daily => "יומי",
             _ => "—"
         };
     }

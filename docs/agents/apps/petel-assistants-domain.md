@@ -149,18 +149,19 @@ Requires a row in `shared_schema.budget_hour_values` for the budget year; if mis
 
 **Guideline:** Year-dependent shared pricing/rates (equal across all entities) belong under the side-menu **ניהול שנה** hub at `/year-elements` (`PageName`: `year_elements`), with **tabs per year element**. Do **not** put these rates in System Data or in per-entity tables. This is distinct from the **operational** year hub at `/year/{YearId}` (assistants, entitlements, tenant budget).
 
-SQL: `PetelAssistants/SQL/add-class-assistant-budget-hours.sql`, `add-budget-hour-value.sql`. Menu: `year_elements` → `#year-elements`.
+SQL: `PetelAssistants/SQL/add-class-assistant-budget-hours.sql`, `add-budget-hour-value.sql`, `add-hebrew-year-month-study-days.sql`. Menu: `year_elements` → `#year-elements`.
 
 | Tab | Purpose |
 |---|---|
 | שעות תקציב סייעת כיתתית | `shared_schema.class_assistant_budget_hours` — one record per `(hebrew_year_id, school_level, class_classification_id)` with fields `hours` and `ministry_participation_pct` |
 | ערך שעה | `shared_schema.budget_hour_values` — one monetary hour rate per `hebrew_year_id` |
+| ימי לימוד בחודש | `shared_schema.hebrew_year_month_study_days` — `study_days` per `(hebrew_year_id, period_year, period_month)`. UI auto-lists Gregorian months of the school year (typically Sep Y–Aug Y+1 from `hebrew_years` dates); only days are editable; missing DB rows show empty (null), not zero. Input for later MoE-style monthly hour calcs (e.g. topic 502); not yet consumed by budget calculate. |
 
 Future tabs (other assistant-type rate matrices, etc.) are added here as year elements.
 
-**API:** `GET/PUT api/class-assistant-budget-hours`, `GET/PUT api/budget-hour-values?yearId=` (upsert one value for a year).
+**API:** `GET/PUT api/class-assistant-budget-hours`, `GET/PUT api/budget-hour-values?yearId=` (upsert one value for a year), `GET/PUT api/hebrew-year-month-study-days?yearId=` (list/upsert months for a year).
 
-**Security:** `year_elements_page_action`, `year_elements_back`, `year_elements_refresh`, `year_elements_class_hours_save`, `year_elements_hour_value_save`.
+**Security:** `year_elements_page_action`, `year_elements_back`, `year_elements_refresh`, `year_elements_class_hours_save`, `year_elements_hour_value_save`, `year_elements_study_days_save`.
 
 SQL alter for participation field: `add-class-assistant-budget-hours-participation.sql`. Seed for תשפו: `seed-class-assistant-budget-hours-tashpu.sql`.
 
@@ -176,6 +177,20 @@ Each local authority maintains its own list of schools and kindergartens as rows
 | `symbol` | VARCHAR(20) nullable | Israeli educational institution code (סמל מוסד); unique per tenant when set |
 
 CRUD UI remains at `/org-units` (`api/org-units`); storage is `institutions`. Entry: main dashboard context button **בתי ספר וגנים** (`maindashboard_org_units`).
+
+### Institution year settings (per institution × Hebrew year)
+
+Tenant table `assist_schema.institution_year_settings` stores school-calendar inputs used later for MoE topic **502** (medical companion) daily-hour averages:
+
+| Column | Meaning |
+|---|---|
+| `school_days_per_week` | ימי לימוד בשבוע (e.g. 5 or 6) |
+| `weekly_hours` | שעות שבועיות במוסד |
+| `has_extended_school_day` | משתתף ביוח״א / יום לימודים ארוך |
+
+Unique `(entity_id, institution_id, hebrew_year_id)`. UI: `/year/{YearId}/institution-year-settings` (Year Management hub card). API: `GET/PUT api/institution-year-settings?yearId=`. SQL: `add-institution-year-settings.sql`. Security: `institution_year_settings_page_action`, `institution_year_settings_back`, `institution_year_settings_refresh`, `institution_year_settings_save`, `yearmanagement_institution_year_settings`.
+
+**Later (not wired yet):** יוח״א weekly hours (beyond the flag) for the 502 addition; monthly hours = dailyAvg × study days from `hebrew_year_month_study_days`.
 
 ## System settings hub (הגדרות מערכת)
 
@@ -202,7 +217,7 @@ Additional fields:
 | Column | Values | UI label |
 |---|---|---|
 | `level` | code from `shared_schema.assistant_levels` | רמה (Hebrew `display_name`) |
-| `position_type` | `weekly` / `monthly` (nullable) | סוג משרה (שבועי / חודשי) |
+| `position_type` | `weekly` / `monthly` / `daily` (nullable) | סוג משרה (שבועי / חודשי / יומי) |
 | `position_hours` | `NUMERIC(8,2)` nullable | שעות משרה |
 
 **Assistant levels lookup:** `shared_schema.assistant_levels` (`code`, `display_name`, `sort_order`, `is_active`). Seeded: `personal`/אישי, `class`/כיתתי, `school`/בית ספרי, `kindergarten`/גן. `assistant_types.level` stores the English code (entitlement logic still uses `personal`). SQL: `add-assistant-levels.sql`. API: `GET api/assistant-levels`.
@@ -235,6 +250,17 @@ List/read current rows with `is_last_version = true`. History: `GET api/entitlem
 **Editable after create** (any change creates a new version): `start_date`, `end_date`, `class_classification_id`, `ministry_participation_pct`, `pupil_first_name`, `pupil_last_name` (personal), cancel.
 
 **Immutable after create (manual edit):** `hebrew_year_id`, `assistant_type_id`, `institution_id`, `hours`, `hours_unit`, `pupil_id_number`, `class_name`. Exception: `PUT api/entitlements/{id}/resolve-validity` may change pupil ID and institution on an **invalid** last version.
+
+**Hours unit (`hours_unit`):** `weekly` | `monthly` | `daily` (Hebrew: שבועי / חודשי / יומי). Same values on `entitlement_allocations.hours_unit` and on `assistant_types` / `meitar_topics` `position_type`. SQL CHECK: `add-daily-hours-unit.sql`. Hours are stored and compared in the declared unit as-is; budget calculate does **not** yet convert between units.
+
+**MoE topic intent (calc deferred):**
+
+| Topic | Model | Unit / participation | Drivers |
+|---|---|---|---|
+| **502** סייעת רפואית | Daily average × study days in month × hour cost × 75% | Prefer `hours_unit = daily`, 75% | `institution_year_settings` + `hebrew_year_month_study_days` (+ future יוח״א weekly hours) |
+| **690** סייעת לילד חולה בבית | Hours × hour cost × 100% | Prefer `weekly` (or file quantity as-is), 100% | Entitlement `hours` only — no school days / יוח״א |
+
+Map Meitar topic codes to assistant types in System Data (`meitar_topics.assistant_type_id`).
 
 **Class classifications:** `shared_schema.class_classifications` (seeded from `petel_schema.special_needs_characterizations` when available). Optional FK `entitlements.class_classification_id`. API: `GET api/class-classifications`.
 
