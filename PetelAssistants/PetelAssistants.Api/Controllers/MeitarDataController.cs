@@ -627,12 +627,21 @@ namespace PetelAssistants.Api.Controllers
                     }
                     else
                     {
-                        var institutionBySymbol = await _context.Institutions
+                        var yearRoster = await _context.InstitutionYearSettings
+                            .AsNoTracking()
+                            .Where(s => s.Symbol != null && s.Symbol != string.Empty)
+                            .Select(s => new { s.InstitutionId, s.Symbol, s.HebrewYearId })
+                            .ToListAsync();
+                        var rosterByYearSymbol = yearRoster
+                            .GroupBy(s => (s.HebrewYearId, Symbol: NormalizeSymbol(s.Symbol!)))
+                            .ToDictionary(g => g.Key, g => g.First().InstitutionId);
+
+                        // Fallback: master institutions when no year roster match
+                        var masterBySymbol = (await _context.Institutions
                             .AsNoTracking()
                             .Where(i => i.Symbol != null && i.Symbol != string.Empty)
                             .Select(i => new { i.Id, i.Symbol })
-                            .ToListAsync();
-                        var institutionIdBySymbol = institutionBySymbol
+                            .ToListAsync())
                             .GroupBy(i => NormalizeSymbol(i.Symbol!), StringComparer.OrdinalIgnoreCase)
                             .ToDictionary(g => g.Key, g => g.First().Id, StringComparer.OrdinalIgnoreCase);
 
@@ -649,17 +658,25 @@ namespace PetelAssistants.Api.Controllers
                                 continue;
                             }
 
-                            int? institutionId = null;
-                            if (!string.IsNullOrWhiteSpace(mappedSharatim.InstitutionCode) &&
-                                institutionIdBySymbol.TryGetValue(NormalizeSymbol(mappedSharatim.InstitutionCode), out var matchedInstitutionId))
-                            {
-                                institutionId = matchedInstitutionId;
-                            }
-
                             var hebrewYearId = hebrewYears
                                 .FirstOrDefault(y => y.StartDate!.Value <= mappedSharatim.EffectiveDate &&
                                                       mappedSharatim.EffectiveDate <= y.EndDate!.Value)
                                 ?.Id;
+
+                            int? institutionId = null;
+                            if (!string.IsNullOrWhiteSpace(mappedSharatim.InstitutionCode))
+                            {
+                                var normalized = NormalizeSymbol(mappedSharatim.InstitutionCode);
+                                if (hebrewYearId.HasValue &&
+                                    rosterByYearSymbol.TryGetValue((hebrewYearId.Value, normalized), out var yearMatchedId))
+                                {
+                                    institutionId = yearMatchedId;
+                                }
+                                else if (masterBySymbol.TryGetValue(normalized, out var masterMatchedId))
+                                {
+                                    institutionId = masterMatchedId;
+                                }
+                            }
 
                             sharatimSum += mappedSharatim.ClassCount;
                             _context.MeitarSharatim.Add(new MeitarSharatim

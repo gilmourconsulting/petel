@@ -213,9 +213,9 @@ namespace PetelAssistants.Api.Services
                 .FirstOrDefaultAsync(t => t.Name == TypeStudentHelp && t.IsActive)
                 ?? throw new InvalidOperationException("סוג סייעת student_help לא נמצא במערכת");
 
-            var institutions = await _context.Institutions.AsNoTracking()
-                .Where(i => i.IsActive && i.Symbol != null && i.Symbol != string.Empty)
-                .Select(i => new { i.Id, i.Symbol, i.Name })
+            var institutions = await _context.InstitutionYearSettings.AsNoTracking()
+                .Where(s => s.HebrewYearId == yearId && s.Symbol != null && s.Symbol != string.Empty)
+                .Select(s => new { Id = s.InstitutionId, s.Symbol, s.Name })
                 .ToListAsync();
 
             var institutionBySymbol = institutions

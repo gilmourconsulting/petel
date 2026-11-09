@@ -61,8 +61,17 @@ namespace PetelAssistants.BlazorServer.DTOs
     {
         public string Name { get; set; } = string.Empty;
         public string? Symbol { get; set; }
+        public string? OrgUnitType { get; set; }
         public string? SchoolLevel { get; set; }
         public bool IsSpecialEducation { get; set; }
+    }
+
+    public class OrgUnitCopyStatusDto
+    {
+        public bool CanCopy { get; set; }
+        public int? PreviousYearId { get; set; }
+        public string? PreviousYearName { get; set; }
+        public bool HasRoster { get; set; }
     }
 
     public class MinistryParticipationOptionDto

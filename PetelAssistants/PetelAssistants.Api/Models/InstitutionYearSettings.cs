@@ -4,6 +4,10 @@ using PetelAssistants.Api.Tenancy;
 
 namespace PetelAssistants.Api.Models
 {
+    /// <summary>
+    /// Year roster + calendar settings for one institution in one Hebrew year.
+    /// Presence of a row means the institution is in that year's roster.
+    /// </summary>
     [Table("institution_year_settings")]
     public class InstitutionYearSettings : IEntityScoped
     {
@@ -22,6 +26,27 @@ namespace PetelAssistants.Api.Models
         [Required]
         [Column("hebrew_year_id")]
         public int HebrewYearId { get; set; }
+
+        [Required]
+        [Column("name")]
+        [MaxLength(200)]
+        public string Name { get; set; } = string.Empty;
+
+        [Column("symbol")]
+        [MaxLength(20)]
+        public string? Symbol { get; set; }
+
+        [Required]
+        [Column("institution_type")]
+        [MaxLength(20)]
+        public string InstitutionType { get; set; } = string.Empty;
+
+        [Column("school_level")]
+        [MaxLength(20)]
+        public string? SchoolLevel { get; set; }
+
+        [Column("is_special_education")]
+        public bool IsSpecialEducation { get; set; }
 
         [Column("school_days_per_week")]
         public decimal SchoolDaysPerWeek { get; set; }

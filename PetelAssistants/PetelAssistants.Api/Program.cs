@@ -82,6 +82,7 @@ builder.Services.AddScoped<PersonalEntitlementFileProcessor>();
 builder.Services.AddScoped<PersonalApprovalsPdfParser>();
 
 builder.Services.AddScoped<OrgUnitService>();
+builder.Services.AddScoped<InstitutionRosterFileProcessor>();
 builder.Services.AddScoped<EntitlementService>();
 builder.Services.AddScoped<YearlyBudgetService>();
 builder.Services.AddScoped<GregorianYearService>();

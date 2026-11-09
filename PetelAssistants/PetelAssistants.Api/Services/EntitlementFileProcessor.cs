@@ -211,12 +211,22 @@ namespace PetelAssistants.Api.Services
                 .FirstOrDefaultAsync(t => t.Name == TypeSchoolHelp && t.IsActive)
                 ?? throw new InvalidOperationException("סוג סייעת תגבור מוסדית לא נמצא");
 
-            var institutions = await _context.Institutions.AsNoTracking()
-                .Where(i => i.IsActive && i.Symbol != null && i.Symbol != "")
+            var yearInstitutions = await _context.InstitutionYearSettings.AsNoTracking()
+                .Where(s => s.HebrewYearId == yearId && s.Symbol != null && s.Symbol != "")
                 .ToListAsync();
-            var institutionBySymbol = institutions
+            var institutionBySymbol = yearInstitutions
                 .GroupBy(i => NormalizeSymbol(i.Symbol!), StringComparer.Ordinal)
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+                .ToDictionary(
+                    g => g.Key,
+                    g => new Institution
+                    {
+                        Id = g.First().InstitutionId,
+                        Name = g.First().Name,
+                        Symbol = g.First().Symbol,
+                        InstitutionType = g.First().InstitutionType,
+                        SchoolLevel = g.First().SchoolLevel
+                    },
+                    StringComparer.Ordinal);
 
             var classifications = await _sharedContext.ClassClassifications.AsNoTracking()
                 .Where(c => c.IsActive)

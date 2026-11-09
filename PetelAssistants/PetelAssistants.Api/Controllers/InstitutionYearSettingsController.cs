@@ -41,30 +41,22 @@ namespace PetelAssistants.Api.Controllers
             if (!yearExists)
                 return BadRequest(new { success = false, message = "שנה לא נמצאה" });
 
-            var institutions = await _context.Institutions.AsNoTracking()
-                .Where(i => i.IsActive)
-                .OrderBy(i => i.Name)
+            var roster = await _context.InstitutionYearSettings.AsNoTracking()
+                .Where(s => s.HebrewYearId == yearId)
+                .OrderBy(s => s.Name)
                 .ToListAsync();
 
-            var settings = await _context.InstitutionYearSettings.AsNoTracking()
-                .Where(s => s.HebrewYearId == yearId)
-                .ToDictionaryAsync(s => s.InstitutionId);
-
-            var items = institutions.Select(inst =>
+            var items = roster.Select(row => new InstitutionYearSettingsDto
             {
-                settings.TryGetValue(inst.Id, out var row);
-                return new InstitutionYearSettingsDto
-                {
-                    Id = row?.Id ?? 0,
-                    InstitutionId = inst.Id,
-                    InstitutionName = inst.Name,
-                    InstitutionSymbol = inst.Symbol,
-                    InstitutionType = inst.InstitutionType,
-                    HebrewYearId = yearId,
-                    SchoolDaysPerWeek = row?.SchoolDaysPerWeek ?? 0,
-                    WeeklyHours = row?.WeeklyHours ?? 0,
-                    HasExtendedSchoolDay = row?.HasExtendedSchoolDay ?? false
-                };
+                Id = row.Id,
+                InstitutionId = row.InstitutionId,
+                InstitutionName = row.Name,
+                InstitutionSymbol = row.Symbol,
+                InstitutionType = row.InstitutionType,
+                HebrewYearId = yearId,
+                SchoolDaysPerWeek = row.SchoolDaysPerWeek,
+                WeeklyHours = row.WeeklyHours,
+                HasExtendedSchoolDay = row.HasExtendedSchoolDay
             }).ToList();
 
             return Ok(new { success = true, data = items });
@@ -91,16 +83,14 @@ namespace PetelAssistants.Api.Controllers
             int? userId = int.TryParse(session.UserId, out int uid) ? uid : null;
             var items = request.Items ?? new List<InstitutionYearSettingsItemRequest>();
 
-            var activeInstitutionIds = await _context.Institutions.AsNoTracking()
-                .Where(i => i.IsActive)
-                .Select(i => i.Id)
-                .ToListAsync();
-            var activeSet = activeInstitutionIds.ToHashSet();
+            var existing = await _context.InstitutionYearSettings
+                .Where(s => s.HebrewYearId == request.YearId)
+                .ToDictionaryAsync(s => s.InstitutionId);
 
             foreach (var item in items)
             {
-                if (!activeSet.Contains(item.InstitutionId))
-                    return BadRequest(new { success = false, message = $"מוסד לא תקין: {item.InstitutionId}" });
+                if (!existing.ContainsKey(item.InstitutionId))
+                    return BadRequest(new { success = false, message = $"מוסד לא נמצא ברשימת השנה: {item.InstitutionId}" });
 
                 if (item.SchoolDaysPerWeek < 0 || item.SchoolDaysPerWeek > 7)
                     return BadRequest(new { success = false, message = "ימי לימוד בשבוע חייבים להיות בין 0 ל-7" });
@@ -108,10 +98,6 @@ namespace PetelAssistants.Api.Controllers
                 if (item.WeeklyHours < 0)
                     return BadRequest(new { success = false, message = "שעות שבועיות חייבות להיות אי-שליליות" });
             }
-
-            var existing = await _context.InstitutionYearSettings
-                .Where(s => s.HebrewYearId == request.YearId)
-                .ToDictionaryAsync(s => s.InstitutionId);
 
             var now = DateTime.UtcNow;
             var seen = new HashSet<int>();
@@ -121,33 +107,14 @@ namespace PetelAssistants.Api.Controllers
                 if (!seen.Add(item.InstitutionId))
                     continue;
 
-                var days = Math.Round(item.SchoolDaysPerWeek, 2, MidpointRounding.AwayFromZero);
-                var hours = Math.Round(item.WeeklyHours, 2, MidpointRounding.AwayFromZero);
+                if (!existing.TryGetValue(item.InstitutionId, out var row))
+                    continue;
 
-                if (existing.TryGetValue(item.InstitutionId, out var row))
-                {
-                    row.SchoolDaysPerWeek = days;
-                    row.WeeklyHours = hours;
-                    row.HasExtendedSchoolDay = item.HasExtendedSchoolDay;
-                    row.UpdatedAt = now;
-                    row.UpdateUser = userId;
-                }
-                else
-                {
-                    _context.InstitutionYearSettings.Add(new InstitutionYearSettings
-                    {
-                        EntityId = entityId,
-                        InstitutionId = item.InstitutionId,
-                        HebrewYearId = request.YearId,
-                        SchoolDaysPerWeek = days,
-                        WeeklyHours = hours,
-                        HasExtendedSchoolDay = item.HasExtendedSchoolDay,
-                        CreatedAt = now,
-                        UserId = userId,
-                        UpdatedAt = now,
-                        UpdateUser = userId
-                    });
-                }
+                row.SchoolDaysPerWeek = Math.Round(item.SchoolDaysPerWeek, 2, MidpointRounding.AwayFromZero);
+                row.WeeklyHours = Math.Round(item.WeeklyHours, 2, MidpointRounding.AwayFromZero);
+                row.HasExtendedSchoolDay = item.HasExtendedSchoolDay;
+                row.UpdatedAt = now;
+                row.UpdateUser = userId;
             }
 
             await _context.SaveChangesAsync();

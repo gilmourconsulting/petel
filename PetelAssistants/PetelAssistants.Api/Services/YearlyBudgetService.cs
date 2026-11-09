@@ -94,7 +94,6 @@ namespace PetelAssistants.Api.Services
 
             var classEntitlements = await _context.Entitlements
                 .AsNoTracking()
-                .Include(e => e.Institution)
                 .Where(e => e.HebrewYearId == budget.HebrewYearId
                             && e.AssistantTypeId == classHelpType.Id
                             && e.IsLastVersion
@@ -102,15 +101,28 @@ namespace PetelAssistants.Api.Services
                             && e.IsValid)
             .ToListAsync();
 
+            var classInstitutionIds = classEntitlements
+                .Where(e => e.InstitutionId.HasValue)
+                .Select(e => e.InstitutionId!.Value)
+                .Distinct()
+                .ToList();
+            var yearRosterByInstitution = classInstitutionIds.Count == 0
+                ? new Dictionary<int, InstitutionYearSettings>()
+                : await _context.InstitutionYearSettings.AsNoTracking()
+                    .Where(s => s.HebrewYearId == budget.HebrewYearId
+                                && classInstitutionIds.Contains(s.InstitutionId))
+                    .ToDictionaryAsync(s => s.InstitutionId);
+
             entitlementCount += classEntitlements.Count;
             decimal classHelpHours = 0;
 
             foreach (var entitlement in classEntitlements)
             {
-                var institutionName = entitlement.Institution?.Name;
+                yearRosterByInstitution.TryGetValue(entitlement.InstitutionId ?? 0, out var yearInst);
+                var institutionName = yearInst?.Name;
                 var className = entitlement.ClassName;
 
-                if (entitlement.Institution == null || string.IsNullOrWhiteSpace(entitlement.Institution.SchoolLevel))
+                if (yearInst == null || string.IsNullOrWhiteSpace(yearInst.SchoolLevel))
                 {
                     failures.Add(MakeFailure(entitlement, institutionName, className, "חסרה רמת בית ספר במוסד"));
                     continue;
@@ -122,7 +134,7 @@ namespace PetelAssistants.Api.Services
                     continue;
                 }
 
-                var schoolLevel = entitlement.Institution.SchoolLevel;
+                var schoolLevel = yearInst.SchoolLevel;
                 if (!string.Equals(schoolLevel, SchoolLevels.Elementary, StringComparison.OrdinalIgnoreCase)
                     && !string.Equals(schoolLevel, SchoolLevels.HighSchool, StringComparison.OrdinalIgnoreCase))
                 {

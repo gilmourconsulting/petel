@@ -227,6 +227,10 @@ namespace PetelAssistants.Api.Data
                 entity.HasKey(e => e.Id);
                 entity.HasIndex(e => new { e.EntityId, e.InstitutionId, e.HebrewYearId }).IsUnique();
                 entity.HasIndex(e => new { e.EntityId, e.HebrewYearId });
+                entity.HasIndex(e => new { e.EntityId, e.HebrewYearId, e.Name }).IsUnique();
+                entity.HasIndex(e => new { e.EntityId, e.HebrewYearId, e.Symbol })
+                    .IsUnique()
+                    .HasFilter("symbol IS NOT NULL");
 
                 entity.HasOne(e => e.Institution)
                     .WithMany()

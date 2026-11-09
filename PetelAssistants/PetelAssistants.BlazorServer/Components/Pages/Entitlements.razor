@@ -1156,7 +1156,7 @@
         var typesResponse = await ApiService.GetAsync<ApiResponse<List<AssistantTypeDto>>>("assistant-types");
         _assistantTypes = typesResponse?.Data ?? new();
 
-        var orgResponse = await ApiService.GetAsync<ApiResponse<List<OrgUnitDto>>>("org-units");
+        var orgResponse = await ApiService.GetAsync<ApiResponse<List<OrgUnitDto>>>($"org-units?yearId={YearId}");
         _orgUnits = orgResponse?.Data ?? new();
 
         var ministryResponse = await ApiService.GetAsync<ApiResponse<List<MinistryParticipationOptionDto>>>("ministry-participation-options");

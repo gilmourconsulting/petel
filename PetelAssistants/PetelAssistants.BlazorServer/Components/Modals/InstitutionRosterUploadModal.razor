@@ -1,0 +1,375 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using Petel.BlazorCore.Services
+@inject ApiService ApiService
+@inject IJSRuntime JSRuntime
+
+@if (_isVisible)
+{
+    <div class="modal-overlay" style="display: flex;">
+        <div class="modal-content" style="max-width: 800px; width: 90%;">
+            <div class="modal-header">
+                <div id="uploadModalTitle">@_modalTitle</div>
+                <button class="modal-close" @onclick="CloseModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_currentStep == UploadStep.FileSelection)
+                {
+                    <div>
+                        <p style="margin-bottom: 12px; color: #666;">
+                            העלאה ראשונית לרשימת מוסדות לשנת @_yearName. מותרת רק כאשר הרשימה ריקה.
+                        </p>
+                        <div class="form-group">
+                            <label for="institutionRosterFile">בחר קובץ (CSV, XLS, XLSX) *</label>
+                            <div class="file-input-wrapper">
+                                <InputFile id="institutionRosterFile" OnChange="OnFileSelected" accept=".csv,.xls,.xlsx" style="display: none;" />
+                                <button type="button" class="btn-file-select" @onclick="TriggerFileInput">
+                                    <span>@_fileNameDisplay</span>
+                                </button>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_statusMessage))
+                        {
+                            <div class="upload-status upload-status-@_statusType" style="margin-top: 10px;">
+                                @((MarkupString)_statusMessage.Replace("\n", "<br>"))
+                            </div>
+                        }
+                    </div>
+                }
+                else if (_currentStep == UploadStep.ColumnMapping)
+                {
+                    <div>
+                        <p style="margin-bottom: 15px; color: #666; direction: rtl;">
+                            התאם את העמודות בקובץ לשדות המערכת. חובה: שם מוסד וסוג מוסד.
+                        </p>
+                        <div style="max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px;">
+                            <table class="mapping-table" style="width: 100%; border-collapse: collapse;">
+                                <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 1;">
+                                    <tr style="border-bottom: 2px solid #dee2e6;">
+                                        <th style="padding: 12px; text-align: right; font-weight: bold;">עמודה בקובץ</th>
+                                        <th style="padding: 12px; text-align: right; font-weight: bold;">שדה במערכת</th>
+                                    </tr>
+                                </thead>
+                                <tbody style="direction: rtl;">
+                                    @foreach (var header in _fileHeaders)
+                                    {
+                                        <tr style="border-bottom: 1px solid #dee2e6;">
+                                            <td style="padding: 12px; font-weight: bold;">@header</td>
+                                            <td style="padding: 12px;">
+                                                <select class="form-control mapping-select"
+                                                        value="@GetMappingValue(header)"
+                                                        @onchange="e => UpdateMapping(header, e.Value?.ToString())">
+                                                    <option value="">-- לא ממופה --</option>
+                                                    @foreach (var field in _availableFields)
+                                                    {
+                                                        <option value="@field.Key">@field.Value</option>
+                                                    }
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_statusMessage))
+                        {
+                            <div class="upload-status upload-status-@_statusType" style="margin-top: 15px;">
+                                @((MarkupString)_statusMessage.Replace("\n", "<br>"))
+                            </div>
+                        }
+                    </div>
+                }
+                else if (_currentStep == UploadStep.UploadComplete)
+                {
+                    <div class="upload-status upload-status-@_statusType">
+                        @((MarkupString)_statusMessage.Replace("\n", "<br>"))
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                @if (_currentStep == UploadStep.FileSelection)
+                {
+                    <button type="button" class="btn-secondary" @onclick="CloseModal">ביטול</button>
+                    <button type="button" class="btn-primary" @onclick="HandleFileSelection" disabled="@_isProcessing">
+                        @(_isProcessing ? "מעבד..." : "המשך")
+                    </button>
+                }
+                else if (_currentStep == UploadStep.ColumnMapping)
+                {
+                    <button type="button" class="btn-secondary" @onclick="CloseModal">ביטול</button>
+                    <button type="button" class="btn-secondary" @onclick="BackToFileSelection">חזרה</button>
+                    <button type="button" class="btn-primary" @onclick="HandleFileUpload" disabled="@_isProcessing">
+                        @(_isProcessing ? "מעלה..." : "העלה קובץ")
+                    </button>
+                }
+                else
+                {
+                    <button type="button" class="btn-primary" @onclick="CloseAndNotify">סגור</button>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public EventCallback OnUploadCompleted { get; set; }
+
+    private enum UploadStep { FileSelection, ColumnMapping, UploadComplete }
+
+    private bool _isVisible;
+    private int _yearId;
+    private string _yearName = "";
+    private string _modalTitle = "העלאת מוסדות מקובץ";
+    private UploadStep _currentStep = UploadStep.FileSelection;
+    private bool _isProcessing;
+    private string _statusMessage = string.Empty;
+    private string _statusType = "info";
+    private string _fileNameDisplay = "בחר קובץ...";
+    private string _fileName = string.Empty;
+    private string _fileContentType = "application/octet-stream";
+    private byte[]? _fileContent;
+    private IBrowserFile? _selectedFile;
+    private List<string> _fileHeaders = new();
+    private Dictionary<string, string> _availableFields = new();
+    private Dictionary<string, string> _columnMappings = new();
+    private bool _uploadSucceeded;
+
+    public void Show(int yearId, string yearName)
+    {
+        _yearId = yearId;
+        _yearName = yearName;
+        Reset();
+        _isVisible = true;
+        StateHasChanged();
+    }
+
+    private void Reset()
+    {
+        _currentStep = UploadStep.FileSelection;
+        _modalTitle = "העלאת מוסדות מקובץ";
+        _isProcessing = false;
+        _statusMessage = string.Empty;
+        _statusType = "info";
+        _fileNameDisplay = "בחר קובץ...";
+        _fileName = string.Empty;
+        _fileContent = null;
+        _selectedFile = null;
+        _fileHeaders = new();
+        _availableFields = new();
+        _columnMappings = new();
+        _uploadSucceeded = false;
+    }
+
+    private async Task TriggerFileInput() =>
+        await JSRuntime.InvokeVoidAsync("FileUploadHelper.triggerFileInput", "institutionRosterFile");
+
+    private void OnFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+        _fileName = e.File.Name;
+        _fileNameDisplay = e.File.Name;
+        _fileContentType = string.IsNullOrWhiteSpace(e.File.ContentType)
+            ? "application/octet-stream"
+            : e.File.ContentType;
+        _statusMessage = string.Empty;
+    }
+
+    private string GetMappingValue(string header) =>
+        _columnMappings.TryGetValue(header, out var v) ? v : string.Empty;
+
+    private void UpdateMapping(string header, string? field)
+    {
+        if (string.IsNullOrWhiteSpace(field))
+            _columnMappings.Remove(header);
+        else
+            _columnMappings[header] = field;
+    }
+
+    private async Task HandleFileSelection()
+    {
+        if (_selectedFile == null)
+        {
+            _statusMessage = "אנא בחר קובץ";
+            _statusType = "error";
+            return;
+        }
+
+        _isProcessing = true;
+        _statusMessage = "קורא קובץ...";
+        _statusType = "loading";
+        StateHasChanged();
+
+        try
+        {
+            using var stream = _selectedFile.OpenReadStream(10 * 1024 * 1024);
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+            _fileContent = memoryStream.ToArray();
+
+            using var content = new MultipartFormDataContent();
+            var fileContent = new ByteArrayContent(_fileContent);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(_fileContentType);
+            content.Add(fileContent, "file", _fileName);
+
+            var response = await ApiService.PostMultipartAsync<PreviewResponse>(
+                "org-units/upload/preview", content);
+
+            if (response?.Success == true)
+            {
+                _fileHeaders = response.Headers ?? new();
+                _availableFields = response.AvailableFields ?? new();
+                _columnMappings = response.SuggestedMappings != null
+                    ? new Dictionary<string, string>(response.SuggestedMappings)
+                    : new();
+                _currentStep = UploadStep.ColumnMapping;
+                _modalTitle = "מיפוי עמודות מוסדות";
+                _statusMessage = string.Empty;
+            }
+            else
+            {
+                _statusMessage = $"❌ שגיאה: {response?.Message ?? "לא ניתן לקרוא את הקובץ"}";
+                _statusType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"❌ שגיאה בקריאת הקובץ: {ex.Message}";
+            _statusType = "error";
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private void BackToFileSelection()
+    {
+        _currentStep = UploadStep.FileSelection;
+        _modalTitle = "העלאת מוסדות מקובץ";
+        _statusMessage = string.Empty;
+    }
+
+    private async Task HandleFileUpload()
+    {
+        if (_fileContent == null)
+        {
+            _statusMessage = "לא נבחר קובץ";
+            _statusType = "error";
+            return;
+        }
+
+        var reverseMapping = new Dictionary<string, string>();
+        foreach (var kvp in _columnMappings)
+        {
+            if (!string.IsNullOrEmpty(kvp.Value) && kvp.Value != "ignore")
+            {
+                if (reverseMapping.ContainsKey(kvp.Value))
+                {
+                    _statusMessage = "❌ אותו שדה מערכת ממופה ליותר מעמודת קובץ אחת";
+                    _statusType = "error";
+                    return;
+                }
+                reverseMapping[kvp.Value] = kvp.Key;
+            }
+        }
+
+        if (!reverseMapping.ContainsKey("name") || !reverseMapping.ContainsKey("institution_type"))
+        {
+            _statusMessage = "❌ יש למפות שם מוסד וסוג מוסד";
+            _statusType = "error";
+            return;
+        }
+
+        _isProcessing = true;
+        _statusMessage = "מעלה קובץ...";
+        _statusType = "loading";
+        StateHasChanged();
+
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            var fileContent = new ByteArrayContent(_fileContent);
+            fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(_fileContentType);
+            content.Add(fileContent, "file", _fileName);
+            content.Add(new StringContent(System.Text.Json.JsonSerializer.Serialize(reverseMapping)), "mappingJson");
+
+            var response = await ApiService.PostMultipartAsync<UploadResponse>(
+                $"org-units/upload?yearId={_yearId}", content);
+
+            if (response?.Success == true)
+            {
+                _uploadSucceeded = true;
+                var msg = $"✅ הקובץ עובד בהצלחה!<br><br>" +
+                          $"➕ נוצרו: {response.Created}<br>" +
+                          $"🔗 קושרו למוסד קיים: {response.LinkedExisting}<br>";
+                if (response.Errors > 0)
+                {
+                    msg += $"<br>❌ שגיאות: {response.Errors}";
+                    if (response.Details?.ErrorList != null)
+                    {
+                        msg += string.Join("", response.Details.ErrorList.Select(e =>
+                            $"<div style='padding: 8px; border-bottom: 1px solid #f0f0f0; background: #fff3cd;'>{e}</div>"));
+                    }
+                }
+                _statusMessage = msg;
+                _statusType = response.Errors > 0 ? "warning" : "success";
+                _currentStep = UploadStep.UploadComplete;
+                _modalTitle = "סיכום העלאה";
+            }
+            else
+            {
+                _statusMessage = $"❌ שגיאה: {response?.Message ?? "העלאה נכשלה"}";
+                _statusType = "error";
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = $"❌ שגיאה: {ex.Message}";
+            _statusType = "error";
+        }
+        finally
+        {
+            _isProcessing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CloseAndNotify()
+    {
+        _isVisible = false;
+        if (_uploadSucceeded && OnUploadCompleted.HasDelegate)
+            await OnUploadCompleted.InvokeAsync();
+    }
+
+    private void CloseModal()
+    {
+        var notify = _uploadSucceeded;
+        _isVisible = false;
+        if (notify && OnUploadCompleted.HasDelegate)
+            _ = OnUploadCompleted.InvokeAsync();
+    }
+
+    private class PreviewResponse
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public List<string>? Headers { get; set; }
+        public Dictionary<string, string>? SuggestedMappings { get; set; }
+        public Dictionary<string, string>? AvailableFields { get; set; }
+    }
+
+    private class UploadResponse
+    {
+        public bool Success { get; set; }
+        public string? Message { get; set; }
+        public int Created { get; set; }
+        public int LinkedExisting { get; set; }
+        public int Errors { get; set; }
+        public UploadDetails? Details { get; set; }
+    }
+
+    private class UploadDetails
+    {
+        public List<string>? ErrorList { get; set; }
+    }
+}

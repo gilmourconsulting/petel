@@ -167,20 +167,34 @@ SQL alter for participation field: `add-class-assistant-budget-hours-participati
 
 ## Institutions (schools and kindergartens)
 
-Each local authority maintains its own list of schools and kindergartens as rows in `assist_schema.institutions` with mandatory `entity_id` (the owning authority). Institutions are **not** shared across tenants.
+Each local authority owns institution **identity** rows in `assist_schema.institutions` (`entity_id` required; not shared across tenants). Stable `institutions.id` is the FK used by entitlements, Meitar SHARATIM, etc.
+
+**Year roster (source of truth for a Hebrew year):** `assist_schema.institution_year_settings` — a row for `(entity_id, institution_id, hebrew_year_id)` means the institution is in that year’s list. Year-scoped attributes:
 
 | Field | Values | Notes |
 |---|---|---|
+| `name` | string | Display name for that year (may change year to year) |
+| `symbol` | VARCHAR(20) nullable | סמל מוסד; unique per entity × year when set |
 | `institution_type` | `school`, `kindergarten` | Required |
-| `school_level` | `elementary` (יסודי בלבד), `high_school` (חט"ב + עליונה) | Required for schools; null for kindergartens (UI shows גן ילדים בלבד) |
-| `is_special_education` | bool | חינוך מיוחד — applies to any institution |
-| `symbol` | VARCHAR(20) nullable | Israeli educational institution code (סמל מוסד); unique per tenant when set |
+| `school_level` | `elementary` / `high_school` | Required for schools; null for kindergartens |
+| `is_special_education` | bool | חינוך מיוחד |
 
-CRUD UI remains at `/org-units` (`api/org-units`); storage is `institutions`. Entry: main dashboard context button **בתי ספר וגנים** (`maindashboard_org_units`).
+Master `institutions` keeps a last-known template of the same fields (synced on create/update). Year-aware APIs (entitlements, uploads, budget calculate, Meitar match) read the **year roster** row.
 
-### Institution year settings (per institution × Hebrew year)
+**UI:** `/year/{YearId}/org-units` (`api/org-units?yearId=`). Entry is **only** from the Year Management hub card **בתי ספר וגנים** (`yearmanagement_org_units`). Side-menu `org_units` is inactive; there is no main-dashboard button.
 
-Tenant table `assist_schema.institution_year_settings` stores school-calendar inputs used later for MoE topic **502** (medical companion) daily-hour averages:
+**Seed an empty year (mutually exclusive with an existing roster):**
+
+1. **Copy from previous year** — `GET api/org-units/copy-status?yearId=`, `POST api/org-units/copy-from-previous?yearId=` (clones attributes + calendar fields; 400 if target already has rows). Action: `org_units_copy_from_previous`.
+2. **First-time Excel/CSV upload** — `POST api/org-units/upload/preview`, `POST api/org-units/upload?yearId=` (preview → map → upload; match/create master by symbol; 400 if roster not empty). Action: `org_units_upload`.
+
+After seed: manual add/edit; remove-from-year (`PUT api/org-units/{id}/remove-from-year?yearId=`) deletes the year row (blocked if active last-version entitlements exist). No re-upload/replace in v1.
+
+SQL: `add-institutions.sql`, `add-institution-year-settings.sql`, `add-institution-year-roster.sql`.
+
+### Institution year calendar settings
+
+Same `institution_year_settings` table also stores school-calendar inputs for MoE topic **502** (medical companion) daily-hour averages — only for institutions **already in the year roster**:
 
 | Column | Meaning |
 |---|---|
@@ -188,7 +202,7 @@ Tenant table `assist_schema.institution_year_settings` stores school-calendar in
 | `weekly_hours` | שעות שבועיות במוסד |
 | `has_extended_school_day` | משתתף ביוח״א / יום לימודים ארוך |
 
-Unique `(entity_id, institution_id, hebrew_year_id)`. UI: `/year/{YearId}/institution-year-settings` (Year Management hub card). API: `GET/PUT api/institution-year-settings?yearId=`. SQL: `add-institution-year-settings.sql`. Security: `institution_year_settings_page_action`, `institution_year_settings_back`, `institution_year_settings_refresh`, `institution_year_settings_save`, `yearmanagement_institution_year_settings`.
+UI: `/year/{YearId}/institution-year-settings`. API: `GET/PUT api/institution-year-settings?yearId=`. Security: `institution_year_settings_*`, `yearmanagement_institution_year_settings`.
 
 **Later (not wired yet):** יוח״א weekly hours (beyond the flag) for the 502 addition; monthly hours = dailyAvg × study days from `hebrew_year_month_study_days`.
 

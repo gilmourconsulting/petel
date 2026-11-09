@@ -142,7 +142,18 @@ namespace PetelAssistants.Api.Services
                 .Where(at => assistantTypeIds.Contains(at.Id))
                 .ToDictionaryAsync(at => at.Id, at => at.DisplayName);
 
-            var schools = institutionIds.Count == 0
+            var yearRoster = institutionIds.Count == 0
+                ? new List<InstitutionYearSettings>()
+                : await _context.InstitutionYearSettings
+                    .AsNoTracking()
+                    .Where(s => institutionIds.Contains(s.InstitutionId)
+                                && hebrewYearIds.Contains(s.HebrewYearId))
+                    .ToListAsync();
+            var schoolsByYear = yearRoster
+                .GroupBy(s => (s.HebrewYearId, s.InstitutionId))
+                .ToDictionary(g => g.Key, g => g.First().Name);
+
+            var masterFallback = institutionIds.Count == 0
                 ? new Dictionary<int, string>()
                 : await _context.Institutions
                     .AsNoTracking()
@@ -156,7 +167,12 @@ namespace PetelAssistants.Api.Services
 
             return rows.Select(r =>
             {
-                schools.TryGetValue(r.Entitlement.InstitutionId ?? 0, out var schoolName);
+                string? schoolName = null;
+                if (r.Entitlement.InstitutionId.HasValue)
+                {
+                    if (!schoolsByYear.TryGetValue((r.Entitlement.HebrewYearId, r.Entitlement.InstitutionId.Value), out schoolName))
+                        masterFallback.TryGetValue(r.Entitlement.InstitutionId.Value, out schoolName);
+                }
                 assistantTypes.TryGetValue(r.Entitlement.AssistantTypeId, out var typeName);
                 hebrewYears.TryGetValue(r.Entitlement.HebrewYearId, out var yearName);
 
@@ -174,7 +190,7 @@ namespace PetelAssistants.Api.Services
                     HoursUnit         = r.Allocation.HoursUnit,
                     IsActive          = r.Allocation.IsActive,
                     AssistantTypeName = typeName,
-                    SchoolName        = r.Entitlement.InstitutionId.HasValue ? schoolName : null
+                    SchoolName        = schoolName
                 };
             }).ToList();
         }
@@ -315,7 +331,7 @@ namespace PetelAssistants.Api.Services
             }
 
             if (request.InstitutionId.HasValue)
-                await ValidateInstitutionBelongsToTenantAsync(request.InstitutionId.Value);
+                await ValidateInstitutionInYearAsync(request.HebrewYearId, request.InstitutionId.Value);
             else if (!allowInvalid)
                 throw new InvalidOperationException("יש לבחור בית ספר או גן");
 
@@ -483,11 +499,11 @@ namespace PetelAssistants.Api.Services
             _ = await LoadHebrewYearAsync(yearId, requireActive: false);
             var type = await LoadSecondHelpTypeAsync();
 
-            var kindergartens = await _context.Institutions
+            var kindergartens = await _context.InstitutionYearSettings
                 .AsNoTracking()
-                .Where(i => i.IsActive
-                            && i.InstitutionType == InstitutionTypes.Kindergarten)
-                .OrderBy(i => i.Name)
+                .Where(s => s.HebrewYearId == yearId
+                            && s.InstitutionType == InstitutionTypes.Kindergarten)
+                .OrderBy(s => s.Name)
                 .ToListAsync();
 
             var entitlements = await _context.Entitlements
@@ -535,10 +551,10 @@ namespace PetelAssistants.Api.Services
 
             return kindergartens.Select(k =>
             {
-                byInstitution.TryGetValue(k.Id, out var entitlement);
+                byInstitution.TryGetValue(k.InstitutionId, out var entitlement);
                 return new SecondHelpKindergartenStatusDto
                 {
-                    InstitutionId = k.Id,
+                    InstitutionId = k.InstitutionId,
                     InstitutionName = k.Name,
                     Symbol = k.Symbol,
                     HasEntitlement = entitlement != null,
@@ -600,10 +616,11 @@ namespace PetelAssistants.Api.Services
 
                 try
                 {
-                    var institution = await _context.Institutions
+                    var institution = await _context.InstitutionYearSettings
                         .AsNoTracking()
-                        .FirstOrDefaultAsync(i => i.Id == institutionId && i.IsActive)
-                        ?? throw new InvalidOperationException("גן לא נמצא או אינו פעיל");
+                        .FirstOrDefaultAsync(s => s.HebrewYearId == request.YearId
+                                                  && s.InstitutionId == institutionId)
+                        ?? throw new InvalidOperationException("גן לא נמצא ברשימת השנה");
 
                     if (!string.Equals(institution.InstitutionType, InstitutionTypes.Kindergarten,
                             StringComparison.OrdinalIgnoreCase))
@@ -701,7 +718,7 @@ namespace PetelAssistants.Api.Services
                 entitlement.MasterEntitlementId = entitlement.Id;
 
             if (institutionId.HasValue)
-                await ValidateInstitutionBelongsToTenantAsync(institutionId.Value);
+                await ValidateInstitutionInYearAsync(entitlement.HebrewYearId, institutionId.Value);
 
             await ValidateClassClassificationAsync(classClassificationId);
 
@@ -764,7 +781,7 @@ namespace PetelAssistants.Api.Services
             ValidateDates(startDate, endDate, year);
 
             if (institutionId.HasValue)
-                await ValidateInstitutionBelongsToTenantAsync(institutionId.Value);
+                await ValidateInstitutionInYearAsync(entitlement.HebrewYearId, institutionId.Value);
 
             var firstName = NormalizeRequiredText(pupilFirstName, "שם פרטי תלמיד");
             var lastName = NormalizeRequiredText(pupilLastName, "שם משפחה תלמיד");
@@ -856,7 +873,7 @@ namespace PetelAssistants.Api.Services
                 if (!request.InstitutionId.HasValue || request.InstitutionId.Value <= 0)
                     throw new InvalidOperationException("יש לבחור מוסד");
 
-                await ValidateInstitutionBelongsToTenantAsync(request.InstitutionId.Value);
+                await ValidateInstitutionInYearAsync(entitlement.HebrewYearId, request.InstitutionId.Value);
 
                 if (!isPersonal)
                 {
@@ -1100,7 +1117,26 @@ namespace PetelAssistants.Api.Services
                 .Where(at => assistantTypeIds.Contains(at.Id))
                 .ToDictionaryAsync(at => at.Id, at => at);
 
-            var schools = institutionIds.Count == 0
+            var hebrewYearIds = items.Select(i => i.HebrewYearId).Distinct().ToList();
+            var hebrewYearNames = await _sharedContext.HebrewYears
+                .AsNoTracking()
+                .Where(y => hebrewYearIds.Contains(y.Id))
+                .ToDictionaryAsync(y => y.Id, y => y.YearName);
+
+            var yearRoster = institutionIds.Count == 0
+                ? new List<InstitutionYearSettings>()
+                : await _context.InstitutionYearSettings
+                    .AsNoTracking()
+                    .Where(s => institutionIds.Contains(s.InstitutionId)
+                                && hebrewYearIds.Contains(s.HebrewYearId))
+                    .ToListAsync();
+            var schoolsByYear = yearRoster
+                .GroupBy(s => (s.HebrewYearId, s.InstitutionId))
+                .ToDictionary(
+                    g => g.Key,
+                    g => (Name: g.First().Name, TypeName: g.First().InstitutionType, SchoolLevel: g.First().SchoolLevel));
+
+            var masterFallback = institutionIds.Count == 0
                 ? new Dictionary<int, (string Name, string TypeName, string? SchoolLevel)>()
                 : await _context.Institutions
                     .AsNoTracking()
@@ -1116,15 +1152,12 @@ namespace PetelAssistants.Api.Services
                     .ToListAsync())
                     .ToDictionary(c => c.Id, c => $"{c.Id} - {c.Name}");
 
-            var hebrewYearIds = items.Select(i => i.HebrewYearId).Distinct().ToList();
-            var hebrewYearNames = await _sharedContext.HebrewYears
-                .AsNoTracking()
-                .Where(y => hebrewYearIds.Contains(y.Id))
-                .ToDictionaryAsync(y => y.Id, y => y.YearName);
-
             return items.Select(item =>
             {
-                schools.TryGetValue(item.InstitutionId ?? 0, out var school);
+                (string Name, string TypeName, string? SchoolLevel) school = default;
+                var hasSchool = item.InstitutionId.HasValue &&
+                    (schoolsByYear.TryGetValue((item.HebrewYearId, item.InstitutionId.Value), out school)
+                     || masterFallback.TryGetValue(item.InstitutionId.Value, out school));
                 assistantTypes.TryGetValue(item.AssistantTypeId, out var atype);
                 string? classificationName = null;
                 if (item.ClassClassificationId.HasValue)
@@ -1153,9 +1186,9 @@ namespace PetelAssistants.Api.Services
                     HoursUnit                = item.HoursUnit,
                     MinistryParticipationPct = item.MinistryParticipationPct,
                     InstitutionId            = item.InstitutionId,
-                    SchoolName               = item.InstitutionId.HasValue ? school.Name : null,
-                    OrgUnitType              = item.InstitutionId.HasValue ? school.TypeName : null,
-                    SchoolLevel              = item.InstitutionId.HasValue ? school.SchoolLevel : null,
+                    SchoolName               = hasSchool ? school.Name : null,
+                    OrgUnitType              = hasSchool ? school.TypeName : null,
+                    SchoolLevel              = hasSchool ? school.SchoolLevel : null,
                     ClassName                = item.ClassName,
                     ClassClassificationId    = item.ClassClassificationId,
                     ClassClassificationName  = classificationName,
@@ -1216,14 +1249,14 @@ namespace PetelAssistants.Api.Services
             return year;
         }
 
-        private async Task ValidateInstitutionBelongsToTenantAsync(int institutionId)
+        private async Task ValidateInstitutionInYearAsync(int yearId, int institutionId)
         {
-            var valid = await _context.Institutions
+            var valid = await _context.InstitutionYearSettings
                 .AsNoTracking()
-                .AnyAsync(e => e.Id == institutionId && e.IsActive);
+                .AnyAsync(s => s.HebrewYearId == yearId && s.InstitutionId == institutionId);
 
             if (!valid)
-                throw new InvalidOperationException("מוסד חינוך לא תקין עבור הרשות");
+                throw new InvalidOperationException("מוסד חינוך לא נמצא ברשימת השנה");
         }
 
         private static void ValidateHoursUnit(string hoursUnit)

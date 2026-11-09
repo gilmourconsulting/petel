@@ -4,6 +4,7 @@
 @inherits SecurePageBase
 @using PetelAssistants.BlazorServer.Models
 @using PetelAssistants.BlazorServer.DTOs
+@using PetelAssistants.BlazorServer.Components.Modals
 @inject ApiService ApiService
 
 <div class="page-title-section">
@@ -16,21 +17,55 @@
                       OnClick="RefreshData" CssClass="context-btn">
             רענן נתונים
         </SecureButton>
-        <SecureButton ActionName="org_units_add" ScreenName="@PageName" FunctionName="ShowCreateDialog"
-                      OnClick="ShowCreateDialog" CssClass="context-btn">
-            הוסף מוסד
-        </SecureButton>
+        @if (_effectiveYearId > 0 && _orgUnits.Count > 0)
+        {
+            <SecureButton ActionName="org_units_add" ScreenName="@PageName" FunctionName="ShowCreateDialog"
+                          OnClick="ShowCreateDialog" CssClass="context-btn">
+                הוסף מוסד
+            </SecureButton>
+        }
         <SecureButton ActionName="org_units_back" ScreenName="@PageName" FunctionName="NavigateBack"
                       OnClick="NavigateBack" CssClass="context-navigation-btn">
-            @(YearId > 0 ? "חזרה לניהול שנה" : "חזרה לדף ראשי")
+            חזרה לניהול שנה
         </SecureButton>
     </div>
 
     <div class="students-content">
         <div class="content-card">
-            <h2 class="page-title">רשימת מוסדות</h2>
+            <h2 class="page-title">רשימת מוסדות לשנה</h2>
 
-            @if (!_isLoading && _orgUnits.Count > 0)
+            @if (_isLoading)
+            {
+                <div class="loading-spinner">טוען נתונים...</div>
+            }
+            else if (_effectiveYearId <= 0)
+            {
+                <div class="no-data-message">יש לבחור שנת לימודים</div>
+            }
+            else if (_orgUnits.Count == 0)
+            {
+                <div class="no-data-message" style="margin-bottom: 16px;">
+                    אין מוסדות לשנה זו. ניתן להעתיק משנה קודמת או להעלות מקובץ בפעם הראשונה.
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 12px; justify-content: center;">
+                    @if (_copyStatus?.CanCopy == true)
+                    {
+                        <SecureButton ActionName="org_units_copy_from_previous" ScreenName="@PageName" FunctionName="CopyFromPrevious"
+                                      OnClick="CopyFromPrevious" CssClass="context-btn" HideIfNoAccess="true">
+                            העתק משנת @_copyStatus.PreviousYearName
+                        </SecureButton>
+                    }
+                    <SecureButton ActionName="org_units_upload" ScreenName="@PageName" FunctionName="ShowUpload"
+                                  OnClick="ShowUpload" CssClass="context-btn" HideIfNoAccess="true">
+                        העלאה מקובץ
+                    </SecureButton>
+                    <SecureButton ActionName="org_units_add" ScreenName="@PageName" FunctionName="ShowCreateDialog"
+                                  OnClick="ShowCreateDialog" CssClass="context-btn" HideIfNoAccess="true">
+                        הוסף מוסד ידנית
+                    </SecureButton>
+                </div>
+            }
+            else
             {
                 <div class="filter-bar" style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; align-items: flex-end;">
                     <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 220px; max-width: 320px;">
@@ -45,97 +80,63 @@
                             <option value="kindergarten">גן ילדים</option>
                         </select>
                     </div>
-                    <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-size: 0.82em; font-weight: 600;">סטטוס</label>
-                        <select class="form-control" style="min-width: 120px;" @bind="_filterStatus">
-                            <option value="">הכל</option>
-                            <option value="active">פעיל</option>
-                            <option value="inactive">לא פעיל</option>
-                        </select>
-                    </div>
                     @if (HasActiveFilters)
                     {
                         <button type="button" class="btn btn-secondary" style="align-self: flex-end;" @onclick="ClearFilters">נקה סינון</button>
                     }
                 </div>
-            }
 
-            @if (_isLoading)
-            {
-                <div class="loading-spinner">טוען נתונים...</div>
-            }
-            else if (_orgUnits.Count == 0)
-            {
-                <div class="no-data-message">לא נמצאו מוסדות</div>
-            }
-            else if (FilteredOrgUnits.Count == 0)
-            {
-                <div class="no-data-message">לא נמצאו מוסדות התואמים לסינון</div>
-            }
-            else
-            {
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>פעולות</th>
-                                <th @onclick='() => SortTable(nameof(OrgUnitDto.Symbol))' style="cursor: pointer;">
-                                    סמל מוסד @GetSortArrow(nameof(OrgUnitDto.Symbol))
-                                </th>
-                                <th @onclick='() => SortTable(nameof(OrgUnitDto.Name))' style="cursor: pointer;">
-                                    שם @GetSortArrow(nameof(OrgUnitDto.Name))
-                                </th>
-                                <th @onclick='() => SortTable(nameof(OrgUnitDto.OrgUnitType))' style="cursor: pointer;">
-                                    סוג @GetSortArrow(nameof(OrgUnitDto.OrgUnitType))
-                                </th>
-                                <th @onclick='() => SortTable(nameof(OrgUnitDto.SchoolLevel))' style="cursor: pointer;">
-                                    רמה @GetSortArrow(nameof(OrgUnitDto.SchoolLevel))
-                                </th>
-                                <th>חינוך מיוחד</th>
-                                <th @onclick='() => SortTable(nameof(OrgUnitDto.IsActive))' style="cursor: pointer;">
-                                    סטטוס @GetSortArrow(nameof(OrgUnitDto.IsActive))
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var unit in FilteredOrgUnits)
-                            {
-                                <tr class="@(unit.IsActive ? "" : "row-inactive")">
-                                    <td class="actions-cell">
-                                        <SecureButton ActionName="org_units_edit" ScreenName="@PageName" FunctionName="EditOrgUnit"
-                                                      OnClick="() => ShowEditDialog(unit)" CssClass="btn-icon" Title="עריכה" HideIfNoAccess="true">
-                                            <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural" />
-                                        </SecureButton>
-                                        @if (unit.IsActive)
-                                        {
-                                            <SecureButton ActionName="org_units_deactivate" ScreenName="@PageName" FunctionName="DeactivateOrgUnit"
-                                                          OnClick="() => DeactivateOrgUnit(unit)" CssClass="btn-icon btn-danger" Title="השבת" HideIfNoAccess="true">
-                                                <img src="/images/deactivate_icon.png" alt="השבת" class="action-icon-natural" />
-                                            </SecureButton>
-                                        }
-                                        else
-                                        {
-                                            <SecureButton ActionName="org_units_activate" ScreenName="@PageName" FunctionName="ActivateOrgUnit"
-                                                          OnClick="() => ActivateOrgUnit(unit)" CssClass="btn-icon btn-success" Title="הפעל" HideIfNoAccess="true">
-                                                <img src="/images/activate_icon.png" alt="הפעל" class="action-icon-natural" />
-                                            </SecureButton>
-                                        }
-                                    </td>
-                                    <td>@(unit.Symbol ?? "—")</td>
-                                    <td>@unit.Name</td>
-                                    <td>@GetOrgUnitTypeLabel(unit.OrgUnitType)</td>
-                                    <td>@SchoolLevelLabels.GetDisplayName(unit.SchoolLevel, unit.OrgUnitType)</td>
-                                    <td>@(unit.IsSpecialEducation ? "כן" : "לא")</td>
-                                    <td>
-                                        <span class="status-badge @(unit.IsActive ? "status-active" : "status-inactive")">
-                                            @(unit.IsActive ? "פעיל" : "לא פעיל")
-                                        </span>
-                                    </td>
+                @if (FilteredOrgUnits.Count == 0)
+                {
+                    <div class="no-data-message">לא נמצאו מוסדות התואמים לסינון</div>
+                }
+                else
+                {
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>פעולות</th>
+                                    <th @onclick='() => SortTable(nameof(OrgUnitDto.Symbol))' style="cursor: pointer;">
+                                        סמל מוסד @GetSortArrow(nameof(OrgUnitDto.Symbol))
+                                    </th>
+                                    <th @onclick='() => SortTable(nameof(OrgUnitDto.Name))' style="cursor: pointer;">
+                                        שם @GetSortArrow(nameof(OrgUnitDto.Name))
+                                    </th>
+                                    <th @onclick='() => SortTable(nameof(OrgUnitDto.OrgUnitType))' style="cursor: pointer;">
+                                        סוג @GetSortArrow(nameof(OrgUnitDto.OrgUnitType))
+                                    </th>
+                                    <th @onclick='() => SortTable(nameof(OrgUnitDto.SchoolLevel))' style="cursor: pointer;">
+                                        רמה @GetSortArrow(nameof(OrgUnitDto.SchoolLevel))
+                                    </th>
+                                    <th>חינוך מיוחד</th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody>
+                                @foreach (var unit in FilteredOrgUnits)
+                                {
+                                    <tr>
+                                        <td class="actions-cell">
+                                            <SecureButton ActionName="org_units_edit" ScreenName="@PageName" FunctionName="EditOrgUnit"
+                                                          OnClick="() => ShowEditDialog(unit)" CssClass="btn-icon" Title="עריכה" HideIfNoAccess="true">
+                                                <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural" />
+                                            </SecureButton>
+                                            <SecureButton ActionName="org_units_deactivate" ScreenName="@PageName" FunctionName="RemoveFromYear"
+                                                          OnClick="() => RemoveFromYear(unit)" CssClass="btn-icon btn-danger" Title="הסר מהשנה" HideIfNoAccess="true">
+                                                <img src="/images/deactivate_icon.png" alt="הסר" class="action-icon-natural" />
+                                            </SecureButton>
+                                        </td>
+                                        <td>@(unit.Symbol ?? "—")</td>
+                                        <td>@unit.Name</td>
+                                        <td>@GetOrgUnitTypeLabel(unit.OrgUnitType)</td>
+                                        <td>@SchoolLevelLabels.GetDisplayName(unit.SchoolLevel, unit.OrgUnitType)</td>
+                                        <td>@(unit.IsSpecialEducation ? "כן" : "לא")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
             }
         </div>
     </div>
@@ -146,27 +147,17 @@
     <div class="modal-overlay" @onclick="CloseDialog">
         <div class="modal-content modal-large" @onclick:stopPropagation="true">
             <div class="modal-header">
-                <h3>@(_editUnit == null ? "הוספת מוסד" : "עריכת מוסד")</h3>
+                <h3>@(_editUnit == null ? "הוספת מוסד לשנה" : "עריכת מוסד לשנה")</h3>
                 <button class="modal-close" @onclick="CloseDialog">✕</button>
             </div>
             <div class="modal-body">
-                @if (_editUnit == null)
-                {
-                    <div class="form-group">
-                        <label>סוג מוסד <span class="required">*</span></label>
-                        <select class="form-control" @bind="_formOrgUnitType" @bind:after="OnTypeChanged">
-                            <option value="school">בית ספר</option>
-                            <option value="kindergarten">גן ילדים</option>
-                        </select>
-                    </div>
-                }
-                else
-                {
-                    <div class="form-group">
-                        <label>סוג מוסד</label>
-                        <input class="form-control" value="@GetOrgUnitTypeLabel(_editUnit.OrgUnitType)" disabled />
-                    </div>
-                }
+                <div class="form-group">
+                    <label>סוג מוסד <span class="required">*</span></label>
+                    <select class="form-control" @bind="_formOrgUnitType" @bind:after="OnTypeChanged">
+                        <option value="school">בית ספר</option>
+                        <option value="kindergarten">גן ילדים</option>
+                    </select>
+                </div>
                 <div class="form-group">
                     <label>סמל מוסד</label>
                     <input type="text" class="form-control" @bind="_formSymbol" placeholder="סמל מוסד" maxlength="20" />
@@ -206,17 +197,20 @@
     </div>
 }
 
+<InstitutionRosterUploadModal @ref="_uploadModal" OnUploadCompleted="OnUploadCompleted" />
+
 @code {
     [Parameter] public int YearId { get; set; }
 
     protected override string PageName => "org_units";
 
+    private int _effectiveYearId;
     private string _yearName = "";
     private List<OrgUnitDto> _orgUnits = new();
+    private OrgUnitCopyStatusDto? _copyStatus;
     private bool _isLoading = true;
     private string _filterText = "";
     private string _filterType = "";
-    private string _filterStatus = "";
     private string _sortColumn = nameof(OrgUnitDto.Name);
     private bool _sortAscending = true;
     private bool _showFormDialog;
@@ -228,19 +222,49 @@
     private string _formOrgUnitType = "school";
     private string _formSchoolLevel = "elementary";
     private bool _formIsSpecialEducation;
+    private InstitutionRosterUploadModal? _uploadModal;
 
     protected override async Task OnPageInitializedAsync()
     {
-        if (YearId > 0)
-            await LoadYearAsync();
-        await LoadDataAsync();
+        await ResolveYearAsync();
+        if (_effectiveYearId > 0)
+            await LoadDataAsync();
+        else
+            _isLoading = false;
     }
 
-    private async Task LoadYearAsync()
+    private async Task ResolveYearAsync()
+    {
+        if (YearId > 0)
+        {
+            _effectiveYearId = YearId;
+            await LoadYearNameAsync(_effectiveYearId);
+            return;
+        }
+
+        try
+        {
+            var context = await ApiService.GetAsync<YearContextDto>("years/context");
+            var currentId = context?.CurrentYear?.Id ?? 0;
+            if (currentId > 0)
+            {
+                Navigation.NavigateTo($"/year/{currentId}/org-units", replace: true);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error resolving current year: {ex.Message}");
+        }
+
+        _effectiveYearId = 0;
+    }
+
+    private async Task LoadYearNameAsync(int yearId)
     {
         try
         {
-            var year = await ApiService.GetAsync<YearDto>($"years/{YearId}");
+            var year = await ApiService.GetAsync<YearDto>($"years/{yearId}");
             _yearName = year?.YearName ?? "";
         }
         catch (Exception ex)
@@ -254,8 +278,12 @@
         try
         {
             _isLoading = true;
-            var response = await ApiService.GetAsync<ApiResponse<List<OrgUnitDto>>>("org-units");
-            _orgUnits = response?.Data ?? new();
+            var listTask = ApiService.GetAsync<ApiResponse<List<OrgUnitDto>>>($"org-units?yearId={_effectiveYearId}");
+            var copyTask = ApiService.GetAsync<ApiResponse<OrgUnitCopyStatusDto>>($"org-units/copy-status?yearId={_effectiveYearId}");
+            await Task.WhenAll(listTask, copyTask);
+
+            _orgUnits = listTask.Result?.Data ?? new();
+            _copyStatus = copyTask.Result?.Data;
         }
         catch (Exception ex)
         {
@@ -269,16 +297,42 @@
 
     private async Task RefreshData() => await LoadDataAsync();
 
+    private async Task OnUploadCompleted() => await LoadDataAsync();
+
+    private void ShowUpload() => _uploadModal?.Show(_effectiveYearId, _yearName);
+
+    private async Task CopyFromPrevious()
+    {
+        if (_copyStatus?.CanCopy != true)
+            return;
+
+        if (!await JSRuntime.InvokeAsync<bool>("confirm",
+                $"להעתיק את רשימת המוסדות משנת {_copyStatus.PreviousYearName}?"))
+            return;
+
+        try
+        {
+            var response = await ApiService.PostAsync<object?, ApiResponse<object>>(
+                $"org-units/copy-from-previous?yearId={_effectiveYearId}", null);
+            if (response?.Success == true)
+                await LoadDataAsync();
+            else
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "העתקה נכשלה");
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה: {ex.Message}");
+        }
+    }
+
     private bool HasActiveFilters =>
         !string.IsNullOrWhiteSpace(_filterText) ||
-        !string.IsNullOrEmpty(_filterType) ||
-        !string.IsNullOrEmpty(_filterStatus);
+        !string.IsNullOrEmpty(_filterType);
 
     private void ClearFilters()
     {
         _filterText = "";
         _filterType = "";
-        _filterStatus = "";
     }
 
     private List<OrgUnitDto> FilteredOrgUnits
@@ -289,9 +343,7 @@
                 (string.IsNullOrWhiteSpace(_filterText) ||
                  u.Name.Contains(_filterText, StringComparison.OrdinalIgnoreCase) ||
                  (u.Symbol?.Contains(_filterText, StringComparison.OrdinalIgnoreCase) ?? false)) &&
-                (string.IsNullOrEmpty(_filterType) || u.OrgUnitType == _filterType) &&
-                (string.IsNullOrEmpty(_filterStatus) ||
-                 (_filterStatus == "active") == u.IsActive));
+                (string.IsNullOrEmpty(_filterType) || u.OrgUnitType == _filterType));
 
             query = _sortColumn switch
             {
@@ -304,9 +356,6 @@
                 nameof(OrgUnitDto.SchoolLevel) => _sortAscending
                     ? query.OrderBy(u => SchoolLevelLabels.GetDisplayName(u.SchoolLevel, u.OrgUnitType))
                     : query.OrderByDescending(u => SchoolLevelLabels.GetDisplayName(u.SchoolLevel, u.OrgUnitType)),
-                nameof(OrgUnitDto.IsActive) => _sortAscending
-                    ? query.OrderBy(u => u.IsActive)
-                    : query.OrderByDescending(u => u.IsActive),
                 _ => _sortAscending
                     ? query.OrderBy(u => u.Name)
                     : query.OrderByDescending(u => u.Name)
@@ -393,7 +442,7 @@
             if (_editUnit == null)
             {
                 response = await ApiService.PostAsync<CreateOrgUnitRequest, ApiResponse<object>>(
-                    "org-units",
+                    $"org-units?yearId={_effectiveYearId}",
                     new CreateOrgUnitRequest
                     {
                         Name = _formName,
@@ -406,11 +455,12 @@
             else
             {
                 response = await ApiService.PutAsync<UpdateOrgUnitRequest, ApiResponse<object>>(
-                    $"org-units/{_editUnit.Id}",
+                    $"org-units/{_editUnit.Id}?yearId={_effectiveYearId}",
                     new UpdateOrgUnitRequest
                     {
                         Name = _formName,
                         Symbol = string.IsNullOrWhiteSpace(_formSymbol) ? null : _formSymbol.Trim(),
+                        OrgUnitType = _formOrgUnitType,
                         SchoolLevel = _formOrgUnitType == "school" ? _formSchoolLevel : null,
                         IsSpecialEducation = _formIsSpecialEducation
                     });
@@ -436,25 +486,17 @@
         }
     }
 
-    private async Task DeactivateOrgUnit(OrgUnitDto unit)
+    private async Task RemoveFromYear(OrgUnitDto unit)
     {
-        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"האם להשבית את '{unit.Name}'?"))
+        if (!await JSRuntime.InvokeAsync<bool>("confirm", $"האם להסיר את '{unit.Name}' מרשימת השנה?"))
             return;
 
-        var response = await ApiService.PutAsync<object, ApiResponse<object>>($"org-units/{unit.Id}/deactivate", new { });
+        var response = await ApiService.PutAsync<object, ApiResponse<object>>(
+            $"org-units/{unit.Id}/remove-from-year?yearId={_effectiveYearId}", new { });
         if (response?.Success == true)
             await LoadDataAsync();
         else
-            await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בהשבתת המוסד");
-    }
-
-    private async Task ActivateOrgUnit(OrgUnitDto unit)
-    {
-        var response = await ApiService.PutAsync<object, ApiResponse<object>>($"org-units/{unit.Id}/activate", new { });
-        if (response?.Success == true)
-            await LoadDataAsync();
-        else
-            await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בהפעלת המוסד");
+            await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בהסרת המוסד");
     }
 
     private static string GetOrgUnitTypeLabel(string type) => type switch
@@ -464,5 +506,6 @@
         _ => type
     };
 
-    private void NavigateBack() => Navigation.NavigateTo(YearId > 0 ? $"/year/{YearId}" : "/maindashboard");
+    private void NavigateBack() =>
+        Navigation.NavigateTo(_effectiveYearId > 0 ? $"/year/{_effectiveYearId}" : "/maindashboard");
 }
