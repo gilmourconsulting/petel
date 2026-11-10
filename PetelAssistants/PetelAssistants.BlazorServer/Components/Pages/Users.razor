@@ -71,101 +71,103 @@
                 }
                 else
                 {
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>פעולות</th>
-                                    <th @onclick="() => SortTable(nameof(UserDto.Username))" style="cursor: pointer;">
-                                        שם משתמש @GetSortArrow(nameof(UserDto.Username))
-                                    </th>
-                                    <th @onclick="() => SortTable(nameof(UserDto.FullName))" style="cursor: pointer;">
-                                        שם מלא @GetSortArrow(nameof(UserDto.FullName))
-                                    </th>
-                                    <th @onclick="() => SortTable(nameof(UserDto.Email))" style="cursor: pointer;">
-                                        אימייל @GetSortArrow(nameof(UserDto.Email))
-                                    </th>
-                                    <th @onclick="() => SortTable(nameof(UserDto.Phone))" style="cursor: pointer;">
-                                        טלפון @GetSortArrow(nameof(UserDto.Phone))
-                                    </th>
-                                    <th @onclick="() => SortTable(nameof(UserDto.IsActive))" style="cursor: pointer;">
-                                        סטטוס @GetSortArrow(nameof(UserDto.IsActive))
-                                    </th>
-                                    <th @onclick="() => SortTable(nameof(UserDto.LastLogin))" style="cursor: pointer;">
-                                        כניסה אחרונה @GetSortArrow(nameof(UserDto.LastLogin))
-                                    </th>
-                                    <th @onclick="() => SortTable(nameof(UserDto.FailedPasswordAttempts))" style="cursor: pointer;">
-                                        נסיונות סיסמה כושלים @GetSortArrow(nameof(UserDto.FailedPasswordAttempts))
-                                    </th>
-                                    <th @onclick="() => SortTable(nameof(UserDto.FailedOtpAttempts))" style="cursor: pointer;">
-                                        נסיונות OTP כושלים @GetSortArrow(nameof(UserDto.FailedOtpAttempts))
-                                    </th>
-                                    <th @onclick="() => SortTable(nameof(UserDto.OtpVerified))" style="cursor: pointer;">
-                                        OTP מאומת @GetSortArrow(nameof(UserDto.OtpVerified))
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var user in _users)
-                                {
+                    <TableExcelExport>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td>
-                                            <SecureButton ActionName="users_edit" ScreenName="@PageName" FunctionName="EditUser" OnClick="() => EditUser(user)" CssClass="btn-icon" Title="ערוך משתמש">
-                                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
-                                            </SecureButton>
-                                            <SecureButton ActionName="users_changepassword" ScreenName="@PageName" FunctionName="ShowChangePasswordDialog" OnClick="() => ShowChangePasswordDialog(user)" CssClass="btn-icon" Title="שנה סיסמה">
-                                                <img src="/images/change_password.png" alt="שנה סיסמה" class="action-icon-natural">
-                                            </SecureButton>
-                                            <SecureButton ActionName="users_manageroles" ScreenName="@PageName" FunctionName="ManageUserRoles" OnClick="() => ManageUserRoles(user)" CssClass="btn-icon" Title="נהל תפקידים">
-                                                <img src="/images/stats_icon.png" alt="תפקידים" class="action-icon-natural">
-                                            </SecureButton>
-                                            @if (user.IsLocked)
-                                            {
-                                                <SecureButton ActionName="users_unlock" ScreenName="@PageName" FunctionName="UnlockUser" OnClick="() => UnlockUser(user)" CssClass="btn-icon" Title="בטל נעילה">
-                                                    <img src="/images/unlock_icon.png" alt="בטל נעילה" class="action-icon-natural">
-                                                </SecureButton>
-                                            }
-                                            else
-                                            {
-                                                <SecureButton ActionName="users_lock" ScreenName="@PageName" FunctionName="LockUser" OnClick="() => LockUser(user)" CssClass="btn-icon" Title="נעל משתמש">
-                                                    <img src="/images/lock_icon.png" alt="נעל" class="action-icon-natural">
-                                                </SecureButton>
-                                            }
-                                            <SecureButton ActionName="users_resetotp" ScreenName="@PageName" FunctionName="ResetOtpVerification" OnClick="() => ResetOtpVerification(user)" CssClass="btn-icon" Title="אפס אימות דו-שלבי">
-                                                <img src="/images/reset_icon.png" alt="אפס OTP" class="action-icon-natural">
-                                            </SecureButton>
-                                            <SecureButton ActionName="users_resetfailedattempts" ScreenName="@PageName" FunctionName="ResetFailedAttempts" OnClick="() => ResetFailedAttempts(user)" CssClass="btn-icon" Title="אפס נסיונות כושלים">
-                                                <img src="/images/unlock_icon.png" alt="אפס נסיונות" class="action-icon-natural">
-                                            </SecureButton>
-                                        </td>
-                                        <td>@user.Username</td>
-                                        <td>@user.FullName</td>
-                                        <td>@user.Email</td>
-                                        <td>@(user.Phone ?? "")</td>
-                                        <td>
-                                            <span class="status-badge @(user.IsActive ? "active" : "inactive")">
-                                                @(user.IsActive ? "פעיל" : "לא פעיל")
-                                            </span>
-                                            @if (user.IsLocked)
-                                            {
-                                                <span class="status-badge locked" title="@(user.LockReasonName ?? "נעול")">
-                                                    נעול — @(user.LockReasonName ?? "סיבה לא ידועה")
-                                                </span>
-                                            }
-                                        </td>
-                                        <td>@(user.LastLogin?.ToString("dd/MM/yyyy HH:mm") ?? "אף פעם")</td>
-                                        <td style="text-align: center;">@(user.FailedPasswordAttempts > 0 ? user.FailedPasswordAttempts.ToString() : "-")</td>
-                                        <td style="text-align: center;">@(user.FailedOtpAttempts > 0 ? user.FailedOtpAttempts.ToString() : "-")</td>
-                                        <td style="text-align: center;">
-                                            <span class="status-badge @(user.OtpVerified ? "active" : "inactive")">
-                                                @(user.OtpVerified ? "כן" : "לא")
-                                            </span>
-                                        </td>
+                                        <th>פעולות</th>
+                                        <th @onclick="() => SortTable(nameof(UserDto.Username))" style="cursor: pointer;">
+                                            שם משתמש @GetSortArrow(nameof(UserDto.Username))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(UserDto.FullName))" style="cursor: pointer;">
+                                            שם מלא @GetSortArrow(nameof(UserDto.FullName))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(UserDto.Email))" style="cursor: pointer;">
+                                            אימייל @GetSortArrow(nameof(UserDto.Email))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(UserDto.Phone))" style="cursor: pointer;">
+                                            טלפון @GetSortArrow(nameof(UserDto.Phone))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(UserDto.IsActive))" style="cursor: pointer;">
+                                            סטטוס @GetSortArrow(nameof(UserDto.IsActive))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(UserDto.LastLogin))" style="cursor: pointer;">
+                                            כניסה אחרונה @GetSortArrow(nameof(UserDto.LastLogin))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(UserDto.FailedPasswordAttempts))" style="cursor: pointer;">
+                                            נסיונות סיסמה כושלים @GetSortArrow(nameof(UserDto.FailedPasswordAttempts))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(UserDto.FailedOtpAttempts))" style="cursor: pointer;">
+                                            נסיונות OTP כושלים @GetSortArrow(nameof(UserDto.FailedOtpAttempts))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(UserDto.OtpVerified))" style="cursor: pointer;">
+                                            OTP מאומת @GetSortArrow(nameof(UserDto.OtpVerified))
+                                        </th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @foreach (var user in _users)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <SecureButton ActionName="users_edit" ScreenName="@PageName" FunctionName="EditUser" OnClick="() => EditUser(user)" CssClass="btn-icon" Title="ערוך משתמש">
+                                                    <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                                                </SecureButton>
+                                                <SecureButton ActionName="users_changepassword" ScreenName="@PageName" FunctionName="ShowChangePasswordDialog" OnClick="() => ShowChangePasswordDialog(user)" CssClass="btn-icon" Title="שנה סיסמה">
+                                                    <img src="/images/change_password.png" alt="שנה סיסמה" class="action-icon-natural">
+                                                </SecureButton>
+                                                <SecureButton ActionName="users_manageroles" ScreenName="@PageName" FunctionName="ManageUserRoles" OnClick="() => ManageUserRoles(user)" CssClass="btn-icon" Title="נהל תפקידים">
+                                                    <img src="/images/stats_icon.png" alt="תפקידים" class="action-icon-natural">
+                                                </SecureButton>
+                                                @if (user.IsLocked)
+                                                {
+                                                    <SecureButton ActionName="users_unlock" ScreenName="@PageName" FunctionName="UnlockUser" OnClick="() => UnlockUser(user)" CssClass="btn-icon" Title="בטל נעילה">
+                                                        <img src="/images/unlock_icon.png" alt="בטל נעילה" class="action-icon-natural">
+                                                    </SecureButton>
+                                                }
+                                                else
+                                                {
+                                                    <SecureButton ActionName="users_lock" ScreenName="@PageName" FunctionName="LockUser" OnClick="() => LockUser(user)" CssClass="btn-icon" Title="נעל משתמש">
+                                                        <img src="/images/lock_icon.png" alt="נעל" class="action-icon-natural">
+                                                    </SecureButton>
+                                                }
+                                                <SecureButton ActionName="users_resetotp" ScreenName="@PageName" FunctionName="ResetOtpVerification" OnClick="() => ResetOtpVerification(user)" CssClass="btn-icon" Title="אפס אימות דו-שלבי">
+                                                    <img src="/images/reset_icon.png" alt="אפס OTP" class="action-icon-natural">
+                                                </SecureButton>
+                                                <SecureButton ActionName="users_resetfailedattempts" ScreenName="@PageName" FunctionName="ResetFailedAttempts" OnClick="() => ResetFailedAttempts(user)" CssClass="btn-icon" Title="אפס נסיונות כושלים">
+                                                    <img src="/images/unlock_icon.png" alt="אפס נסיונות" class="action-icon-natural">
+                                                </SecureButton>
+                                            </td>
+                                            <td>@user.Username</td>
+                                            <td>@user.FullName</td>
+                                            <td>@user.Email</td>
+                                            <td>@(user.Phone ?? "")</td>
+                                            <td>
+                                                <span class="status-badge @(user.IsActive ? "active" : "inactive")">
+                                                    @(user.IsActive ? "פעיל" : "לא פעיל")
+                                                </span>
+                                                @if (user.IsLocked)
+                                                {
+                                                    <span class="status-badge locked" title="@(user.LockReasonName ?? "נעול")">
+                                                        נעול — @(user.LockReasonName ?? "סיבה לא ידועה")
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td>@(user.LastLogin?.ToString("dd/MM/yyyy HH:mm") ?? "אף פעם")</td>
+                                            <td style="text-align: center;">@(user.FailedPasswordAttempts > 0 ? user.FailedPasswordAttempts.ToString() : "-")</td>
+                                            <td style="text-align: center;">@(user.FailedOtpAttempts > 0 ? user.FailedOtpAttempts.ToString() : "-")</td>
+                                            <td style="text-align: center;">
+                                                <span class="status-badge @(user.OtpVerified ? "active" : "inactive")">
+                                                    @(user.OtpVerified ? "כן" : "לא")
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div></TableExcelExport>
+
                 }
             </div>
         </div>

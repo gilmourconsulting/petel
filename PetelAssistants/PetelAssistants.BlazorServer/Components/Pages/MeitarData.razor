@@ -101,31 +101,33 @@
                 }
                 else
                 {
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>סוג סייעת</th>
-                                    <th>מוסד</th>
-                                    <th>כיתה</th>
-                                    <th>שעות</th>
-                                    <th>תאריכים</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var row in _mucarimMatchRows)
-                                {
+                    <TableExcelExport>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td>@(row.AssistantTypeName ?? "—")</td>
-                                        <td>@(row.EntitlementInstitutionName ?? "—")</td>
-                                        <td>@(row.ClassName ?? "—")</td>
-                                        <td>@row.Hours.ToString("0.##")</td>
-                                        <td>@row.StartDate.ToString("dd/MM/yyyy") – @row.EndDate.ToString("dd/MM/yyyy")</td>
+                                        <th>סוג סייעת</th>
+                                        <th>מוסד</th>
+                                        <th>כיתה</th>
+                                        <th>שעות</th>
+                                        <th>תאריכים</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @foreach (var row in _mucarimMatchRows)
+                                    {
+                                        <tr>
+                                            <td>@(row.AssistantTypeName ?? "—")</td>
+                                            <td>@(row.EntitlementInstitutionName ?? "—")</td>
+                                            <td>@(row.ClassName ?? "—")</td>
+                                            <td>@row.Hours.ToString("0.##")</td>
+                                            <td>@row.StartDate.ToString("dd/MM/yyyy") – @row.EndDate.ToString("dd/MM/yyyy")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div></TableExcelExport>
+
                 }
             </div>
             <div class="modal-footer">
@@ -264,59 +266,61 @@
                     }
                     else
                     {
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th @onclick='() => SortTable("CalcDate")' style="cursor:pointer">
-                                            תאריך חישוב @GetSortArrow("CalcDate", _sortColumn, _sortAscending)
-                                        </th>
-                                        <th @onclick='() => SortTable("EffectiveDate")' style="cursor:pointer">
-                                            תאריך תחולה @GetSortArrow("EffectiveDate", _sortColumn, _sortAscending)
-                                        </th>
-                                        <th @onclick='() => SortTable("TopicCode")' style="cursor:pointer">
-                                            קוד נושא @GetSortArrow("TopicCode", _sortColumn, _sortAscending)
-                                        </th>
-                                        <th>תיאור נושא</th>
-                                        <th @onclick='() => SortTable("UnitCount")' style="cursor:pointer">
-                                            מספר יחידות @GetSortArrow("UnitCount", _sortColumn, _sortAscending)
-                                        </th>
-                                        <th @onclick='() => SortTable("Cost")' style="cursor:pointer">
-                                            עלות @GetSortArrow("Cost", _sortColumn, _sortAscending)
-                                        </th>
-                                        <th @onclick='() => SortTable("ParticipationPercent")' style="cursor:pointer">
-                                            אחוז השתתפות @GetSortArrow("ParticipationPercent", _sortColumn, _sortAscending)
-                                        </th>
-                                        <th @onclick='() => SortTable("CalculatedAmount")' style="cursor:pointer">
-                                            סכום מחושב @GetSortArrow("CalculatedAmount", _sortColumn, _sortAscending)
-                                        </th>
-                                        <th @onclick='() => SortTable("PreviousCalculatedAmount")' style="cursor:pointer">
-                                            סכום קודם @GetSortArrow("PreviousCalculatedAmount", _sortColumn, _sortAscending)
-                                        </th>
-                                        <th @onclick='() => SortTable("CalculatedDifference")' style="cursor:pointer">
-                                            הפרש @GetSortArrow("CalculatedDifference", _sortColumn, _sortAscending)
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var item in FilteredItems)
-                                    {
+                        <TableExcelExport>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
                                         <tr>
-                                            <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
-                                            <td>@(item.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
-                                            <td>@(item.TopicCode ?? "—")</td>
-                                            <td>@(item.TopicDescription ?? "—")</td>
-                                            <td>@(item.UnitCount?.ToString("0.##") ?? "—")</td>
-                                            <td>@(item.Cost?.ToString("N2") ?? "—")</td>
-                                            <td>@(item.ParticipationPercent is not null ? $"{item.ParticipationPercent:0.##}%" : "—")</td>
-                                            <td>@item.CalculatedAmount.ToString("N2")</td>
-                                            <td>@(item.PreviousCalculatedAmount?.ToString("N2") ?? "—")</td>
-                                            <td>@(item.CalculatedDifference?.ToString("N2") ?? "—")</td>
+                                            <th @onclick='() => SortTable("CalcDate")' style="cursor:pointer">
+                                                תאריך חישוב @GetSortArrow("CalcDate", _sortColumn, _sortAscending)
+                                            </th>
+                                            <th @onclick='() => SortTable("EffectiveDate")' style="cursor:pointer">
+                                                תאריך תחולה @GetSortArrow("EffectiveDate", _sortColumn, _sortAscending)
+                                            </th>
+                                            <th @onclick='() => SortTable("TopicCode")' style="cursor:pointer">
+                                                קוד נושא @GetSortArrow("TopicCode", _sortColumn, _sortAscending)
+                                            </th>
+                                            <th>תיאור נושא</th>
+                                            <th @onclick='() => SortTable("UnitCount")' style="cursor:pointer">
+                                                מספר יחידות @GetSortArrow("UnitCount", _sortColumn, _sortAscending)
+                                            </th>
+                                            <th @onclick='() => SortTable("Cost")' style="cursor:pointer">
+                                                עלות @GetSortArrow("Cost", _sortColumn, _sortAscending)
+                                            </th>
+                                            <th @onclick='() => SortTable("ParticipationPercent")' style="cursor:pointer">
+                                                אחוז השתתפות @GetSortArrow("ParticipationPercent", _sortColumn, _sortAscending)
+                                            </th>
+                                            <th @onclick='() => SortTable("CalculatedAmount")' style="cursor:pointer">
+                                                סכום מחושב @GetSortArrow("CalculatedAmount", _sortColumn, _sortAscending)
+                                            </th>
+                                            <th @onclick='() => SortTable("PreviousCalculatedAmount")' style="cursor:pointer">
+                                                סכום קודם @GetSortArrow("PreviousCalculatedAmount", _sortColumn, _sortAscending)
+                                            </th>
+                                            <th @onclick='() => SortTable("CalculatedDifference")' style="cursor:pointer">
+                                                הפרש @GetSortArrow("CalculatedDifference", _sortColumn, _sortAscending)
+                                            </th>
                                         </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in FilteredItems)
+                                        {
+                                            <tr>
+                                                <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
+                                                <td>@(item.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                                <td>@(item.TopicCode ?? "—")</td>
+                                                <td>@(item.TopicDescription ?? "—")</td>
+                                                <td>@(item.UnitCount?.ToString("0.##") ?? "—")</td>
+                                                <td>@(item.Cost?.ToString("N2") ?? "—")</td>
+                                                <td>@(item.ParticipationPercent is not null ? $"{item.ParticipationPercent:0.##}%" : "—")</td>
+                                                <td>@item.CalculatedAmount.ToString("N2")</td>
+                                                <td>@(item.PreviousCalculatedAmount?.ToString("N2") ?? "—")</td>
+                                                <td>@(item.CalculatedDifference?.ToString("N2") ?? "—")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div></TableExcelExport>
+
                     }
                 }
                 else if (_activeTab == DataTab.Mucarim)
@@ -372,83 +376,85 @@
                     }
                     else
                     {
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>זכאויות</th>
-                                        <th @onclick='() => SortMucarimTable("CalcDate")' style="cursor:pointer">
-                                            תאריך חישוב @GetSortArrow("CalcDate", _mucarimSortColumn, _mucarimSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortMucarimTable("EffectiveDate")' style="cursor:pointer">
-                                            תאריך תחולה @GetSortArrow("EffectiveDate", _mucarimSortColumn, _mucarimSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortMucarimTable("InstitutionCode")' style="cursor:pointer">
-                                            סמל מוסד @GetSortArrow("InstitutionCode", _mucarimSortColumn, _mucarimSortAscending)
-                                        </th>
-                                        <th>שם מוסד</th>
-                                        <th @onclick='() => SortMucarimTable("TopicCode")' style="cursor:pointer">
-                                            קוד נושא @GetSortArrow("TopicCode", _mucarimSortColumn, _mucarimSortAscending)
-                                        </th>
-                                        <th>נושא</th>
-                                        <th>סטטוס</th>
-                                        <th @onclick='() => SortMucarimTable("UnitCount")' style="cursor:pointer">
-                                            מספר יחידות @GetSortArrow("UnitCount", _mucarimSortColumn, _mucarimSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortMucarimTable("Percent")' style="cursor:pointer">
-                                            אחוז @GetSortArrow("Percent", _mucarimSortColumn, _mucarimSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortMucarimTable("Cost")' style="cursor:pointer">
-                                            עלות @GetSortArrow("Cost", _mucarimSortColumn, _mucarimSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortMucarimTable("CalculatedAmount")' style="cursor:pointer">
-                                            סכום מחושב @GetSortArrow("CalculatedAmount", _mucarimSortColumn, _mucarimSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortMucarimTable("PreviousCalculatedAmount")' style="cursor:pointer">
-                                            סכום קודם @GetSortArrow("PreviousCalculatedAmount", _mucarimSortColumn, _mucarimSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortMucarimTable("CalculatedDifference")' style="cursor:pointer">
-                                            הפרש @GetSortArrow("CalculatedDifference", _mucarimSortColumn, _mucarimSortAscending)
-                                        </th>
-                                        <th>תאור יחידה</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var item in FilteredMucarimItems)
-                                    {
+                        <TableExcelExport>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
                                         <tr>
-                                            <td>
-                                                @if (item.ActiveMatchCount > 0)
-                                                {
-                                                    <button type="button" class="btn btn-secondary" style="padding: 2px 8px;"
-                                                            @onclick="() => ShowMucarimMatches(item)">
-                                                        @item.ActiveMatchCount
-                                                    </button>
-                                                }
-                                                else
-                                                {
-                                                    <span style="color: var(--text-muted);">0</span>
-                                                }
-                                            </td>
-                                            <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
-                                            <td>@(item.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
-                                            <td>@(item.InstitutionCode ?? "—")</td>
-                                            <td>@(item.InstitutionName ?? "—")</td>
-                                            <td>@(item.TopicCode ?? "—")</td>
-                                            <td>@(item.TopicDescription ?? "—")</td>
-                                            <td>@(item.Status ?? "—")</td>
-                                            <td>@(item.UnitCount?.ToString("0.##") ?? "—")</td>
-                                            <td>@(item.Percent is not null ? $"{item.Percent:0.##}%" : "—")</td>
-                                            <td>@(item.Cost?.ToString("N2") ?? "—")</td>
-                                            <td>@item.CalculatedAmount.ToString("N2")</td>
-                                            <td>@(item.PreviousCalculatedAmount?.ToString("N2") ?? "—")</td>
-                                            <td>@(item.CalculatedDifference?.ToString("N2") ?? "—")</td>
-                                            <td>@(item.UnitDescription ?? "—")</td>
+                                            <th>זכאויות</th>
+                                            <th @onclick='() => SortMucarimTable("CalcDate")' style="cursor:pointer">
+                                                תאריך חישוב @GetSortArrow("CalcDate", _mucarimSortColumn, _mucarimSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortMucarimTable("EffectiveDate")' style="cursor:pointer">
+                                                תאריך תחולה @GetSortArrow("EffectiveDate", _mucarimSortColumn, _mucarimSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortMucarimTable("InstitutionCode")' style="cursor:pointer">
+                                                סמל מוסד @GetSortArrow("InstitutionCode", _mucarimSortColumn, _mucarimSortAscending)
+                                            </th>
+                                            <th>שם מוסד</th>
+                                            <th @onclick='() => SortMucarimTable("TopicCode")' style="cursor:pointer">
+                                                קוד נושא @GetSortArrow("TopicCode", _mucarimSortColumn, _mucarimSortAscending)
+                                            </th>
+                                            <th>נושא</th>
+                                            <th>סטטוס</th>
+                                            <th @onclick='() => SortMucarimTable("UnitCount")' style="cursor:pointer">
+                                                מספר יחידות @GetSortArrow("UnitCount", _mucarimSortColumn, _mucarimSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortMucarimTable("Percent")' style="cursor:pointer">
+                                                אחוז @GetSortArrow("Percent", _mucarimSortColumn, _mucarimSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortMucarimTable("Cost")' style="cursor:pointer">
+                                                עלות @GetSortArrow("Cost", _mucarimSortColumn, _mucarimSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortMucarimTable("CalculatedAmount")' style="cursor:pointer">
+                                                סכום מחושב @GetSortArrow("CalculatedAmount", _mucarimSortColumn, _mucarimSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortMucarimTable("PreviousCalculatedAmount")' style="cursor:pointer">
+                                                סכום קודם @GetSortArrow("PreviousCalculatedAmount", _mucarimSortColumn, _mucarimSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortMucarimTable("CalculatedDifference")' style="cursor:pointer">
+                                                הפרש @GetSortArrow("CalculatedDifference", _mucarimSortColumn, _mucarimSortAscending)
+                                            </th>
+                                            <th>תאור יחידה</th>
                                         </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in FilteredMucarimItems)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    @if (item.ActiveMatchCount > 0)
+                                                    {
+                                                        <button type="button" class="btn btn-secondary" style="padding: 2px 8px;"
+                                                                @onclick="() => ShowMucarimMatches(item)">
+                                                            @item.ActiveMatchCount
+                                                        </button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span style="color: var(--text-muted);">0</span>
+                                                    }
+                                                </td>
+                                                <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
+                                                <td>@(item.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                                <td>@(item.InstitutionCode ?? "—")</td>
+                                                <td>@(item.InstitutionName ?? "—")</td>
+                                                <td>@(item.TopicCode ?? "—")</td>
+                                                <td>@(item.TopicDescription ?? "—")</td>
+                                                <td>@(item.Status ?? "—")</td>
+                                                <td>@(item.UnitCount?.ToString("0.##") ?? "—")</td>
+                                                <td>@(item.Percent is not null ? $"{item.Percent:0.##}%" : "—")</td>
+                                                <td>@(item.Cost?.ToString("N2") ?? "—")</td>
+                                                <td>@item.CalculatedAmount.ToString("N2")</td>
+                                                <td>@(item.PreviousCalculatedAmount?.ToString("N2") ?? "—")</td>
+                                                <td>@(item.CalculatedDifference?.ToString("N2") ?? "—")</td>
+                                                <td>@(item.UnitDescription ?? "—")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div></TableExcelExport>
+
                     }
                 }
                 else if (_activeTab == DataTab.Sharatim)
@@ -491,43 +497,45 @@
                     }
                     else
                     {
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th @onclick='() => SortSharatimTable("CalcDate")' style="cursor:pointer">
-                                            תאריך חישוב @GetSortArrow("CalcDate", _sharatimSortColumn, _sharatimSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortSharatimTable("EffectiveDate")' style="cursor:pointer">
-                                            תאריך תחולה @GetSortArrow("EffectiveDate", _sharatimSortColumn, _sharatimSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortSharatimTable("InstitutionCode")' style="cursor:pointer">
-                                            סמל מוסד @GetSortArrow("InstitutionCode", _sharatimSortColumn, _sharatimSortAscending)
-                                        </th>
-                                        <th>שם מוסד</th>
-                                        <th @onclick='() => SortSharatimTable("TopicCode")' style="cursor:pointer">
-                                            קוד נושא @GetSortArrow("TopicCode", _sharatimSortColumn, _sharatimSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortSharatimTable("ClassCount")' style="cursor:pointer">
-                                            מספר כיתות @GetSortArrow("ClassCount", _sharatimSortColumn, _sharatimSortAscending)
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var item in FilteredSharatimItems)
-                                    {
+                        <TableExcelExport>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
                                         <tr>
-                                            <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
-                                            <td>@item.EffectiveDate.ToString("dd/MM/yyyy")</td>
-                                            <td>@(item.InstitutionCode ?? "—")</td>
-                                            <td>@(item.InstitutionName ?? "—")</td>
-                                            <td>@(item.TopicCode ?? "—")</td>
-                                            <td>@item.ClassCount</td>
+                                            <th @onclick='() => SortSharatimTable("CalcDate")' style="cursor:pointer">
+                                                תאריך חישוב @GetSortArrow("CalcDate", _sharatimSortColumn, _sharatimSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortSharatimTable("EffectiveDate")' style="cursor:pointer">
+                                                תאריך תחולה @GetSortArrow("EffectiveDate", _sharatimSortColumn, _sharatimSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortSharatimTable("InstitutionCode")' style="cursor:pointer">
+                                                סמל מוסד @GetSortArrow("InstitutionCode", _sharatimSortColumn, _sharatimSortAscending)
+                                            </th>
+                                            <th>שם מוסד</th>
+                                            <th @onclick='() => SortSharatimTable("TopicCode")' style="cursor:pointer">
+                                                קוד נושא @GetSortArrow("TopicCode", _sharatimSortColumn, _sharatimSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortSharatimTable("ClassCount")' style="cursor:pointer">
+                                                מספר כיתות @GetSortArrow("ClassCount", _sharatimSortColumn, _sharatimSortAscending)
+                                            </th>
                                         </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in FilteredSharatimItems)
+                                        {
+                                            <tr>
+                                                <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
+                                                <td>@item.EffectiveDate.ToString("dd/MM/yyyy")</td>
+                                                <td>@(item.InstitutionCode ?? "—")</td>
+                                                <td>@(item.InstitutionName ?? "—")</td>
+                                                <td>@(item.TopicCode ?? "—")</td>
+                                                <td>@item.ClassCount</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div></TableExcelExport>
+
                     }
                 }
                 else
@@ -576,61 +584,63 @@
                     }
                     else
                     {
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>קוד מוטב</th>
-                                        <th @onclick='() => SortCheshbonitTable("CalcDate")' style="cursor:pointer">
-                                            תאריך חישוב @GetSortArrow("CalcDate", _cheshbonitSortColumn, _cheshbonitSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortCheshbonitTable("EffectiveDate")' style="cursor:pointer">
-                                            תאריך תחולה @GetSortArrow("EffectiveDate", _cheshbonitSortColumn, _cheshbonitSortAscending)
-                                        </th>
-                                        <th>יחידה חשבונאית</th>
-                                        <th @onclick='() => SortCheshbonitTable("TopicCode")' style="cursor:pointer">
-                                            קוד נושא @GetSortArrow("TopicCode", _cheshbonitSortColumn, _cheshbonitSortAscending)
-                                        </th>
-                                        <th>תיאור נושא</th>
-                                        <th @onclick='() => SortCheshbonitTable("TotalDue")' style="cursor:pointer">
-                                            סה״כ לתשלום @GetSortArrow("TotalDue", _cheshbonitSortColumn, _cheshbonitSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortCheshbonitTable("PaidAmount")' style="cursor:pointer">
-                                            שולם @GetSortArrow("PaidAmount", _cheshbonitSortColumn, _cheshbonitSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortCheshbonitTable("PaymentDifference")' style="cursor:pointer">
-                                            הפרש תשלום @GetSortArrow("PaymentDifference", _cheshbonitSortColumn, _cheshbonitSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortCheshbonitTable("DebtBalance")' style="cursor:pointer">
-                                            יתרת חוב @GetSortArrow("DebtBalance", _cheshbonitSortColumn, _cheshbonitSortAscending)
-                                        </th>
-                                        <th @onclick='() => SortCheshbonitTable("MonthlyExecutionBalance")' style="cursor:pointer">
-                                            יתרת ביצוע חודשי @GetSortArrow("MonthlyExecutionBalance", _cheshbonitSortColumn, _cheshbonitSortAscending)
-                                        </th>
-                                        <th>הערות</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var item in FilteredCheshbonitItems)
-                                    {
+                        <TableExcelExport>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
                                         <tr>
-                                            <td>@item.BeneficiaryCode</td>
-                                            <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
-                                            <td>@(item.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
-                                            <td>@(item.AccountingUnit ?? "—")</td>
-                                            <td>@(item.TopicCode ?? "—")</td>
-                                            <td>@(item.TopicDescription ?? "—")</td>
-                                            <td>@(item.TotalDue?.ToString("N2") ?? "—")</td>
-                                            <td>@(item.PaidAmount?.ToString("N2") ?? "—")</td>
-                                            <td>@(item.PaymentDifference?.ToString("N2") ?? "—")</td>
-                                            <td>@(item.DebtBalance?.ToString("N2") ?? "—")</td>
-                                            <td>@(item.MonthlyExecutionBalance?.ToString("N2") ?? "—")</td>
-                                            <td>@(item.Notes ?? "—")</td>
+                                            <th>קוד מוטב</th>
+                                            <th @onclick='() => SortCheshbonitTable("CalcDate")' style="cursor:pointer">
+                                                תאריך חישוב @GetSortArrow("CalcDate", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortCheshbonitTable("EffectiveDate")' style="cursor:pointer">
+                                                תאריך תחולה @GetSortArrow("EffectiveDate", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                            </th>
+                                            <th>יחידה חשבונאית</th>
+                                            <th @onclick='() => SortCheshbonitTable("TopicCode")' style="cursor:pointer">
+                                                קוד נושא @GetSortArrow("TopicCode", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                            </th>
+                                            <th>תיאור נושא</th>
+                                            <th @onclick='() => SortCheshbonitTable("TotalDue")' style="cursor:pointer">
+                                                סה״כ לתשלום @GetSortArrow("TotalDue", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortCheshbonitTable("PaidAmount")' style="cursor:pointer">
+                                                שולם @GetSortArrow("PaidAmount", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortCheshbonitTable("PaymentDifference")' style="cursor:pointer">
+                                                הפרש תשלום @GetSortArrow("PaymentDifference", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortCheshbonitTable("DebtBalance")' style="cursor:pointer">
+                                                יתרת חוב @GetSortArrow("DebtBalance", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                            </th>
+                                            <th @onclick='() => SortCheshbonitTable("MonthlyExecutionBalance")' style="cursor:pointer">
+                                                יתרת ביצוע חודשי @GetSortArrow("MonthlyExecutionBalance", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                            </th>
+                                            <th>הערות</th>
                                         </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in FilteredCheshbonitItems)
+                                        {
+                                            <tr>
+                                                <td>@item.BeneficiaryCode</td>
+                                                <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
+                                                <td>@(item.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                                <td>@(item.AccountingUnit ?? "—")</td>
+                                                <td>@(item.TopicCode ?? "—")</td>
+                                                <td>@(item.TopicDescription ?? "—")</td>
+                                                <td>@(item.TotalDue?.ToString("N2") ?? "—")</td>
+                                                <td>@(item.PaidAmount?.ToString("N2") ?? "—")</td>
+                                                <td>@(item.PaymentDifference?.ToString("N2") ?? "—")</td>
+                                                <td>@(item.DebtBalance?.ToString("N2") ?? "—")</td>
+                                                <td>@(item.MonthlyExecutionBalance?.ToString("N2") ?? "—")</td>
+                                                <td>@(item.Notes ?? "—")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div></TableExcelExport>
+
                     }
                 }
             }

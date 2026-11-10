@@ -47,30 +47,32 @@ else
     <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 12px;">
         חודשי שנת הלימודים (בדרך כלל ספטמבר–אוגוסט) נוצרים אוטומטית. ניתן לערוך רק את מספר ימי הלימוד; שדה ריק = עדיין לא הוגדר.
     </p>
-    <div class="table-container" style="width: fit-content; max-width: 100%;">
-        <table class="data-table" style="width: auto; table-layout: auto;">
-            <thead>
-                <tr>
-                    <th style="white-space: nowrap; width: 1%; padding-inline: 10px;">חודש</th>
-                    <th style="white-space: nowrap; width: 1%; padding-inline: 10px;">ימי לימוד</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var item in _items)
-                {
+    <TableExcelExport>
+        <div class="table-container" style="width: fit-content; max-width: 100%;">
+            <table class="data-table" style="width: auto; table-layout: auto;">
+                <thead>
                     <tr>
-                        <td style="white-space: nowrap; width: 1%; padding-inline: 10px;">@GetMonthLabel(item.PeriodMonth) @item.PeriodYear</td>
-                        <td style="white-space: nowrap; width: 1%; padding-inline: 10px;">
-                            <input type="number" class="form-control" style="width: 4.5rem; min-width: 0;"
-                                   step="0.5" min="0" max="31"
-                                   value="@FormatStudyDays(item.StudyDays)"
-                                   @onchange="e => OnStudyDaysChanged(item, e)" />
-                        </td>
+                        <th style="white-space: nowrap; width: 1%; padding-inline: 10px;">חודש</th>
+                        <th style="white-space: nowrap; width: 1%; padding-inline: 10px;">ימי לימוד</th>
                     </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+                </thead>
+                <tbody>
+                    @foreach (var item in _items)
+                    {
+                        <tr>
+                            <td style="white-space: nowrap; width: 1%; padding-inline: 10px;">@GetMonthLabel(item.PeriodMonth) @item.PeriodYear</td>
+                            <td style="white-space: nowrap; width: 1%; padding-inline: 10px;">
+                                <input type="number" class="form-control" style="width: 4.5rem; min-width: 0;"
+                                       step="0.5" min="0" max="31"
+                                       value="@FormatStudyDays(item.StudyDays)"
+                                       @onchange="e => OnStudyDaysChanged(item, e)" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div></TableExcelExport>
+
 }
 
 @code {

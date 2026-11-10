@@ -81,27 +81,29 @@
                 else
                 {
                     <div class="yearly-budget-year-scroll">
-                        <table class="data-table yearly-budget-year-table">
-                            <thead>
-                                <tr>
-                                    <th>סוג סייעת</th>
-                                    <th>משרות</th>
-                                    <th>שעות</th>
-                                    <th>סכום</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var detail in _budget.Details)
-                                {
+                        <TableExcelExport>
+                            <table class="data-table yearly-budget-year-table">
+                                <thead>
                                     <tr>
-                                        <td>@detail.AssistantTypeName</td>
-                                        <td>@detail.Fte.ToString("N2")</td>
-                                        <td>@detail.Hours.ToString("N2")</td>
-                                        <td>@detail.Amount.ToString("N2")</td>
+                                        <th>סוג סייעת</th>
+                                        <th>משרות</th>
+                                        <th>שעות</th>
+                                        <th>סכום</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    @foreach (var detail in _budget.Details)
+                                    {
+                                        <tr>
+                                            <td>@detail.AssistantTypeName</td>
+                                            <td>@detail.Fte.ToString("N2")</td>
+                                            <td>@detail.Hours.ToString("N2")</td>
+                                            <td>@detail.Amount.ToString("N2")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table></TableExcelExport>
+
                     </div>
                 }
 
@@ -112,56 +114,58 @@
                 }
                 else
                 {
-                    <div class="table-container monthly-budget-scroll">
-                        <table class="data-table monthly-budget-matrix">
-                            <thead>
-                                <tr>
-                                    <th rowspan="2" class="monthly-budget-sticky">סוג סייעת</th>
-                                    @for (var mi = 0; mi < MonthColumns.Count; mi++)
-                                    {
-                                        var month = MonthColumns[mi];
-                                        <th colspan="3" class="@(mi > 0 ? "month-separator" : null)" style="text-align: center; white-space: nowrap;">
-                                            @GetMonthLabel(month.PeriodMonth)
-                                        </th>
-                                    }
-                                </tr>
-                                <tr>
-                                    @for (var mi = 0; mi < MonthColumns.Count; mi++)
-                                    {
-                                        <th class="metric-header @(mi > 0 ? "month-separator" : null)">משרות</th>
-                                        <th class="metric-header">שעות</th>
-                                        <th class="metric-header">סכום</th>
-                                    }
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var type in AssistantTypeRows)
-                                {
+                    <TableExcelExport>
+                        <div class="table-container monthly-budget-scroll">
+                            <table class="data-table monthly-budget-matrix">
+                                <thead>
                                     <tr>
-                                        <td class="monthly-budget-sticky type-name">@type.AssistantTypeName</td>
+                                        <th rowspan="2" class="monthly-budget-sticky">סוג סייעת</th>
                                         @for (var mi = 0; mi < MonthColumns.Count; mi++)
                                         {
                                             var month = MonthColumns[mi];
-                                            var cell = GetMonthCell(type.AssistantTypeId, month.PeriodYear, month.PeriodMonth);
-                                            var sep = mi > 0 ? "month-separator" : null;
-                                            @if (cell != null)
-                                            {
-                                                <td class="@sep" style="text-align: center; white-space: nowrap;">@cell.Fte.ToString("N2")</td>
-                                                <td style="text-align: center; white-space: nowrap;">@cell.Hours.ToString("N2")</td>
-                                                <td style="text-align: center; white-space: nowrap;">@cell.Amount.ToString("N2")</td>
-                                            }
-                                            else
-                                            {
-                                                <td class="@sep" style="text-align: center; color: var(--text-muted);">—</td>
-                                                <td style="text-align: center; color: var(--text-muted);">—</td>
-                                                <td style="text-align: center; color: var(--text-muted);">—</td>
-                                            }
+                                            <th colspan="3" class="@(mi > 0 ? "month-separator" : null)" style="text-align: center; white-space: nowrap;">
+                                                @GetMonthLabel(month.PeriodMonth)
+                                            </th>
                                         }
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                    <tr>
+                                        @for (var mi = 0; mi < MonthColumns.Count; mi++)
+                                        {
+                                            <th class="metric-header @(mi > 0 ? "month-separator" : null)">משרות</th>
+                                            <th class="metric-header">שעות</th>
+                                            <th class="metric-header">סכום</th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var type in AssistantTypeRows)
+                                    {
+                                        <tr>
+                                            <td class="monthly-budget-sticky type-name">@type.AssistantTypeName</td>
+                                            @for (var mi = 0; mi < MonthColumns.Count; mi++)
+                                            {
+                                                var month = MonthColumns[mi];
+                                                var cell = GetMonthCell(type.AssistantTypeId, month.PeriodYear, month.PeriodMonth);
+                                                var sep = mi > 0 ? "month-separator" : null;
+                                                @if (cell != null)
+                                                {
+                                                    <td class="@sep" style="text-align: center; white-space: nowrap;">@cell.Fte.ToString("N2")</td>
+                                                    <td style="text-align: center; white-space: nowrap;">@cell.Hours.ToString("N2")</td>
+                                                    <td style="text-align: center; white-space: nowrap;">@cell.Amount.ToString("N2")</td>
+                                                }
+                                                else
+                                                {
+                                                    <td class="@sep" style="text-align: center; color: var(--text-muted);">—</td>
+                                                    <td style="text-align: center; color: var(--text-muted);">—</td>
+                                                    <td style="text-align: center; color: var(--text-muted);">—</td>
+                                                }
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div></TableExcelExport>
+
                 }
             }
         </div>

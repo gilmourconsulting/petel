@@ -95,39 +95,41 @@
                         </div>
                     </div>
 
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>סוג סייעת</th>
-                                    <th>רשומות</th>
-                                    <th>משרות בפועל</th>
-                                    <th>שעות בפועל</th>
-                                    <th>סכום בפועל</th>
-                                    <th>משרות תקציב</th>
-                                    <th>שעות תקציב</th>
-                                    <th>סכום תקציב</th>
-                                    <th>הפרש סכום</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var line in _summary.Lines)
-                                {
+                    <TableExcelExport>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td>@line.AssistantTypeName</td>
-                                        <td>@line.RowCount</td>
-                                        <td>@line.Fte.ToString("N2")</td>
-                                        <td>@line.Hours.ToString("N2")</td>
-                                        <td>@line.Amount.ToString("N2")</td>
-                                        <td>@(line.HasBudget ? line.BudgetFte?.ToString("N2") : "—")</td>
-                                        <td>@(line.HasBudget ? line.BudgetHours?.ToString("N2") : "—")</td>
-                                        <td>@(line.HasBudget ? line.BudgetAmount?.ToString("N2") : "—")</td>
-                                        <td>@(line.HasBudget ? line.AmountVariance.ToString("N2") : "—")</td>
+                                        <th>סוג סייעת</th>
+                                        <th>רשומות</th>
+                                        <th>משרות בפועל</th>
+                                        <th>שעות בפועל</th>
+                                        <th>סכום בפועל</th>
+                                        <th>משרות תקציב</th>
+                                        <th>שעות תקציב</th>
+                                        <th>סכום תקציב</th>
+                                        <th>הפרש סכום</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @foreach (var line in _summary.Lines)
+                                    {
+                                        <tr>
+                                            <td>@line.AssistantTypeName</td>
+                                            <td>@line.RowCount</td>
+                                            <td>@line.Fte.ToString("N2")</td>
+                                            <td>@line.Hours.ToString("N2")</td>
+                                            <td>@line.Amount.ToString("N2")</td>
+                                            <td>@(line.HasBudget ? line.BudgetFte?.ToString("N2") : "—")</td>
+                                            <td>@(line.HasBudget ? line.BudgetHours?.ToString("N2") : "—")</td>
+                                            <td>@(line.HasBudget ? line.BudgetAmount?.ToString("N2") : "—")</td>
+                                            <td>@(line.HasBudget ? line.AmountVariance.ToString("N2") : "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div></TableExcelExport>
+
                 }
             }
         </div>

@@ -6,38 +6,40 @@
 }
 else
 {
-    <div class="table-container">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>פעולות</th>
-                    <th>קובץ</th>
-                    <th>שדה סינון</th>
-                    <th>ערך</th>
-                    <th>סדר</th>
-                    <th>סטטוס</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var item in _items)
-                {
-                    <tr class="@(item.IsActive ? "" : "row-inactive")">
-                        <td>
-                            <SecureButton ActionName="system_data_meitar_filters_edit" ScreenName="@ScreenName" FunctionName="Edit"
-                                          OnClick="() => ShowEditDialog(item)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
-                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
-                            </SecureButton>
-                        </td>
-                        <td>@item.FileName</td>
-                        <td>@item.FilterField</td>
-                        <td>@item.FilterValue</td>
-                        <td>@item.DisplayOrder</td>
-                        <td>@(item.IsActive ? "פעיל" : "לא פעיל")</td>
+    <TableExcelExport>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>פעולות</th>
+                        <th>קובץ</th>
+                        <th>שדה סינון</th>
+                        <th>ערך</th>
+                        <th>סדר</th>
+                        <th>סטטוס</th>
                     </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+                </thead>
+                <tbody>
+                    @foreach (var item in _items)
+                    {
+                        <tr class="@(item.IsActive ? "" : "row-inactive")">
+                            <td>
+                                <SecureButton ActionName="system_data_meitar_filters_edit" ScreenName="@ScreenName" FunctionName="Edit"
+                                              OnClick="() => ShowEditDialog(item)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
+                                    <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                                </SecureButton>
+                            </td>
+                            <td>@item.FileName</td>
+                            <td>@item.FilterField</td>
+                            <td>@item.FilterValue</td>
+                            <td>@item.DisplayOrder</td>
+                            <td>@(item.IsActive ? "פעיל" : "לא פעיל")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div></TableExcelExport>
+
 }
 
 @if (_showFormDialog)

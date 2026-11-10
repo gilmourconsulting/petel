@@ -194,63 +194,65 @@
                 }
                 else
                 {
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>חריגה</th>
-                                    <th>מזהה</th>
-                                    <th @onclick='() => SortTable("NationalId")' style="cursor:pointer">
-                                        ת"ז @GetSortArrow("NationalId")
-                                    </th>
-                                    <th @onclick='() => SortTable("MatchedPersonName")' style="cursor:pointer">
-                                        שם @GetSortArrow("MatchedPersonName")
-                                    </th>
-                                    <th @onclick='() => SortTable("DepartmentId")' style="cursor:pointer">
-                                        מחלקה @GetSortArrow("DepartmentId")
-                                    </th>
-                                    <th>שם מחלקה</th>
-                                    <th @onclick='() => SortTable("PositionPercentage")' style="cursor:pointer">
-                                        אחוז משרה @GetSortArrow("PositionPercentage")
-                                    </th>
-                                    <th @onclick='() => SortTable("TotalSalary")' style="cursor:pointer">
-                                        שכר כולל @GetSortArrow("TotalSalary")
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in FilteredItems)
-                                {
+                    <TableExcelExport>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td>
-                                            @if (_anomaliesBySalaryId.TryGetValue(item.Id, out var anomaly))
-                                            {
-                                                <button type="button" class="btn-icon salary-anomaly-bell"
-                                                        title="הצג חריגת שכר"
-                                                        @onclick="() => ShowAnomaly(anomaly)">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
-                                                         viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                                        <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm6-6V11a6 6 0 1 0-12 0v5l-1.7 1.7A1 1 0 0 0 5 20h14a1 1 0 0 0 .7-1.7L18 16z"/>
-                                                    </svg>
-                                                </button>
-                                            }
-                                        </td>
-                                        <td>
-                                            <EntityFocusLink Screen="@EntityFocus.AssistantsScreen"
-                                                             YearId="@_selectedYearId"
-                                                             Id="@item.MatchedPersonId" />
-                                        </td>
-                                        <td style="@(item.HasIdWarning ? "color: var(--color-danger); font-weight: 600;" : null)">@item.NationalId</td>
-                                        <td>@(item.MatchedPersonName ?? "—")</td>
-                                        <td>@item.DepartmentId</td>
-                                        <td>@(item.DepartmentName ?? "—")</td>
-                                        <td>@item.PositionPercentage.ToString("0.##")%</td>
-                                        <td>@item.TotalSalary.ToString("N2")</td>
+                                        <th>חריגה</th>
+                                        <th>מזהה</th>
+                                        <th @onclick='() => SortTable("NationalId")' style="cursor:pointer">
+                                            ת"ז @GetSortArrow("NationalId")
+                                        </th>
+                                        <th @onclick='() => SortTable("MatchedPersonName")' style="cursor:pointer">
+                                            שם @GetSortArrow("MatchedPersonName")
+                                        </th>
+                                        <th @onclick='() => SortTable("DepartmentId")' style="cursor:pointer">
+                                            מחלקה @GetSortArrow("DepartmentId")
+                                        </th>
+                                        <th>שם מחלקה</th>
+                                        <th @onclick='() => SortTable("PositionPercentage")' style="cursor:pointer">
+                                            אחוז משרה @GetSortArrow("PositionPercentage")
+                                        </th>
+                                        <th @onclick='() => SortTable("TotalSalary")' style="cursor:pointer">
+                                            שכר כולל @GetSortArrow("TotalSalary")
+                                        </th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in FilteredItems)
+                                    {
+                                        <tr>
+                                            <td>
+                                                @if (_anomaliesBySalaryId.TryGetValue(item.Id, out var anomaly))
+                                                {
+                                                    <button type="button" class="btn-icon salary-anomaly-bell"
+                                                            title="הצג חריגת שכר"
+                                                            @onclick="() => ShowAnomaly(anomaly)">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"
+                                                             viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                            <path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm6-6V11a6 6 0 1 0-12 0v5l-1.7 1.7A1 1 0 0 0 5 20h14a1 1 0 0 0 .7-1.7L18 16z"/>
+                                                        </svg>
+                                                    </button>
+                                                }
+                                            </td>
+                                            <td>
+                                                <EntityFocusLink Screen="@EntityFocus.AssistantsScreen"
+                                                                 YearId="@_selectedYearId"
+                                                                 Id="@item.MatchedPersonId" />
+                                            </td>
+                                            <td style="@(item.HasIdWarning ? "color: var(--color-danger); font-weight: 600;" : null)">@item.NationalId</td>
+                                            <td>@(item.MatchedPersonName ?? "—")</td>
+                                            <td>@item.DepartmentId</td>
+                                            <td>@(item.DepartmentName ?? "—")</td>
+                                            <td>@item.PositionPercentage.ToString("0.##")%</td>
+                                            <td>@item.TotalSalary.ToString("N2")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div></TableExcelExport>
+
                 }
             }
         </div>

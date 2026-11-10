@@ -4,6 +4,10 @@
     <ProjectReference Include="..\..\shared\Petel.BlazorCore\Petel.BlazorCore.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="EPPlus" Version="7.0.0" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>

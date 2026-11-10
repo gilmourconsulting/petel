@@ -54,33 +54,35 @@
                     </div>
                     @if (_periodResults.Count > 0)
                     {
-                        <div class="table-container" style="margin-top: 12px; max-height: 260px; overflow-y: auto;">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>תקופה</th>
-                                        <th>מוטבים</th>
-                                        <th>מוכרים</th>
-                                        <th>שרתים</th>
-                                        <th>חשבונית</th>
-                                        <th>סטטוס</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var period in _periodResults)
-                                    {
+                        <TableExcelExport>
+                            <div class="table-container" style="margin-top: 12px; max-height: 260px; overflow-y: auto;">
+                                <table class="data-table">
+                                    <thead>
                                         <tr>
-                                            <td>@FormatPeriod(period.Year, period.Month)</td>
-                                            <td>@(period.Success ? period.RowCount.ToString() : "—")</td>
-                                            <td>@(period.Success ? period.MucarimRowCount.ToString() : "—")</td>
-                                            <td>@(period.Success ? period.SharatimRowCount.ToString() : "—")</td>
-                                            <td>@(period.Success ? period.CheshbonitRowCount.ToString() : "—")</td>
-                                            <td>@(period.Skipped ? "דולג" : period.Success ? "הושלם" : "נכשל")</td>
+                                            <th>תקופה</th>
+                                            <th>מוטבים</th>
+                                            <th>מוכרים</th>
+                                            <th>שרתים</th>
+                                            <th>חשבונית</th>
+                                            <th>סטטוס</th>
                                         </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var period in _periodResults)
+                                        {
+                                            <tr>
+                                                <td>@FormatPeriod(period.Year, period.Month)</td>
+                                                <td>@(period.Success ? period.RowCount.ToString() : "—")</td>
+                                                <td>@(period.Success ? period.MucarimRowCount.ToString() : "—")</td>
+                                                <td>@(period.Success ? period.SharatimRowCount.ToString() : "—")</td>
+                                                <td>@(period.Success ? period.CheshbonitRowCount.ToString() : "—")</td>
+                                                <td>@(period.Skipped ? "דולג" : period.Success ? "הושלם" : "נכשל")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div></TableExcelExport>
+
                     }
                 }
             </div>

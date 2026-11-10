@@ -166,113 +166,115 @@
                 }
                 else
                 {
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>פעולות</th>
-                                    <th @onclick='() => SortTable("Kind")' style="cursor: pointer;">
-                                        סוג @GetSortArrow("Kind")
-                                    </th>
-                                    <th @onclick='() => SortTable("InstitutionType")' style="cursor: pointer;">
-                                        סוג מוסד @GetSortArrow("InstitutionType")
-                                    </th>
-                                    <th @onclick='() => SortTable("SchoolName")' style="cursor: pointer;">
-                                        מוסד @GetSortArrow("SchoolName")
-                                    </th>
-                                    <th @onclick='() => SortTable("AssistantTypeName")' style="cursor: pointer;">
-                                        סוג סייעת @GetSortArrow("AssistantTypeName")
-                                    </th>
-                                    <th @onclick='() => SortTable("Hours")' style="cursor: pointer;">
-                                        שעות @GetSortArrow("Hours")
-                                    </th>
-                                    <th @onclick='() => SortTable("MinistryParticipationPct")' style="cursor: pointer;">
-                                        השתתפות משרד @GetSortArrow("MinistryParticipationPct")
-                                    </th>
-                                    <th @onclick='() => SortTable("AllocationStatus")' style="cursor: pointer;">
-                                        הקצאה @GetSortArrow("AllocationStatus")
-                                    </th>
-                                    <th @onclick='() => SortTable("StartDate")' style="cursor: pointer;">
-                                        תאריכים @GetSortArrow("StartDate")
-                                    </th>
-                                    <th @onclick='() => SortTable("Status")' style="cursor: pointer;">
-                                        סטטוס @GetSortArrow("Status")
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in FilteredItems)
-                                {
-                                    bool isPersonal = IsPersonalLevel(item.AssistantTypeLevel);
-                                    bool isSelected = _selectedEntitlement?.Id == item.Id;
-                                    <tr id="@EntityFocus.RowElementId(item.Id)"
-                                        class="@(item.IsActive ? "" : "row-inactive") @(isSelected ? "row-selected" : "")"
-                                        style="cursor: pointer;"
-                                        @onclick="() => SelectEntitlement(item)">
-                                        <td @onclick:stopPropagation="true">
-                                            @if (!item.IsCancelled)
-                                            {
-                                                <SecureButton ActionName="entitlements_edit" ScreenName="@PageName" FunctionName="EditItem"
-                                                              OnClick="() => ShowEditDialog(item)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
-                                                    <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
-                                                </SecureButton>
-                                                @if (!item.IsValid)
+                    <TableExcelExport>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>פעולות</th>
+                                        <th @onclick='() => SortTable("Kind")' style="cursor: pointer;">
+                                            סוג @GetSortArrow("Kind")
+                                        </th>
+                                        <th @onclick='() => SortTable("InstitutionType")' style="cursor: pointer;">
+                                            סוג מוסד @GetSortArrow("InstitutionType")
+                                        </th>
+                                        <th @onclick='() => SortTable("SchoolName")' style="cursor: pointer;">
+                                            מוסד @GetSortArrow("SchoolName")
+                                        </th>
+                                        <th @onclick='() => SortTable("AssistantTypeName")' style="cursor: pointer;">
+                                            סוג סייעת @GetSortArrow("AssistantTypeName")
+                                        </th>
+                                        <th @onclick='() => SortTable("Hours")' style="cursor: pointer;">
+                                            שעות @GetSortArrow("Hours")
+                                        </th>
+                                        <th @onclick='() => SortTable("MinistryParticipationPct")' style="cursor: pointer;">
+                                            השתתפות משרד @GetSortArrow("MinistryParticipationPct")
+                                        </th>
+                                        <th @onclick='() => SortTable("AllocationStatus")' style="cursor: pointer;">
+                                            הקצאה @GetSortArrow("AllocationStatus")
+                                        </th>
+                                        <th @onclick='() => SortTable("StartDate")' style="cursor: pointer;">
+                                            תאריכים @GetSortArrow("StartDate")
+                                        </th>
+                                        <th @onclick='() => SortTable("Status")' style="cursor: pointer;">
+                                            סטטוס @GetSortArrow("Status")
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in FilteredItems)
+                                    {
+                                        bool isPersonal = IsPersonalLevel(item.AssistantTypeLevel);
+                                        bool isSelected = _selectedEntitlement?.Id == item.Id;
+                                        <tr id="@EntityFocus.RowElementId(item.Id)"
+                                            class="@(item.IsActive ? "" : "row-inactive") @(isSelected ? "row-selected" : "")"
+                                            style="cursor: pointer;"
+                                            @onclick="() => SelectEntitlement(item)">
+                                            <td @onclick:stopPropagation="true">
+                                                @if (!item.IsCancelled)
                                                 {
-                                                    <SecureButton ActionName="entitlements_resolve_invalid" ScreenName="@PageName" FunctionName="ResolveInvalid"
-                                                                  OnClick="() => ShowResolveValidityDialog(item)" CssClass="btn-icon" Title="טיפול בזכאות לא תקינה" HideIfNoAccess="true">
-                                                        <span class="status-badge status-invalid">לא תקינה</span>
+                                                    <SecureButton ActionName="entitlements_edit" ScreenName="@PageName" FunctionName="EditItem"
+                                                                  OnClick="() => ShowEditDialog(item)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
+                                                        <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                                                    </SecureButton>
+                                                    @if (!item.IsValid)
+                                                    {
+                                                        <SecureButton ActionName="entitlements_resolve_invalid" ScreenName="@PageName" FunctionName="ResolveInvalid"
+                                                                      OnClick="() => ShowResolveValidityDialog(item)" CssClass="btn-icon" Title="טיפול בזכאות לא תקינה" HideIfNoAccess="true">
+                                                            <span class="status-badge status-invalid">לא תקינה</span>
+                                                        </SecureButton>
+                                                    }
+                                                }
+                                                @if (item.IsActive && !item.IsCancelled)
+                                                {
+                                                    <SecureButton ActionName="entitlements_deactivate" ScreenName="@PageName" FunctionName="DeactivateItem"
+                                                                  OnClick="() => DeactivateItem(item)" CssClass="btn-icon btn-danger" Title="ביטול זכאות" HideIfNoAccess="true">
+                                                        <img src="/images/deactivate_icon.png" alt="ביטול" class="action-icon-natural">
                                                     </SecureButton>
                                                 }
-                                            }
-                                            @if (item.IsActive && !item.IsCancelled)
-                                            {
-                                                <SecureButton ActionName="entitlements_deactivate" ScreenName="@PageName" FunctionName="DeactivateItem"
-                                                              OnClick="() => DeactivateItem(item)" CssClass="btn-icon btn-danger" Title="ביטול זכאות" HideIfNoAccess="true">
-                                                    <img src="/images/deactivate_icon.png" alt="ביטול" class="action-icon-natural">
-                                                </SecureButton>
-                                            }
-                                        </td>
-                                        <td>
-                                            <span class="status-badge @(isPersonal ? "status-personal" : "status-institutional")">
-                                                @(isPersonal ? "אישי" : "מוסדי")
-                                            </span>
-                                        </td>
-                                        <td>@GetInstitutionTypeLabel(item)</td>
-                                        <td>@(item.SchoolName ?? (string.IsNullOrEmpty(item.SourceInstitutionSymbol) ? "—" : $"סמל {item.SourceInstitutionSymbol}"))</td>
-                                        <td>@item.AssistantTypeName</td>
-                                        <td>@item.Hours @GetHoursUnitLabel(item.HoursUnit)</td>
-                                        <td>@item.MinistryParticipationPct.ToString("0.##")%</td>
-                                        <td class="alloc-cell">
-                                            @if (item.AllocationStatus == "none")
-                                            {
-                                                <span class="alloc-indicator alloc-none" title="לא מוקצה" aria-label="לא מוקצה"></span>
-                                            }
-                                            else
-                                            {
-                                                <span class="alloc-indicator @(item.AllocationStatus == "full" ? "alloc-full" : "alloc-partial")"
-                                                      title="@GetAllocationStatusLabel(item.AllocationStatus)"
-                                                      aria-label="@GetAllocationStatusLabel(item.AllocationStatus)">
-                                                    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-                                                        <path fill="currentColor" d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/>
-                                                    </svg>
+                                            </td>
+                                            <td>
+                                                <span class="status-badge @(isPersonal ? "status-personal" : "status-institutional")">
+                                                    @(isPersonal ? "אישי" : "מוסדי")
                                                 </span>
-                                            }
-                                        </td>
-                                        <td>@item.StartDate.ToString("dd/MM/yyyy") – @item.EndDate.ToString("dd/MM/yyyy")</td>
-                                        <td>
-                                            <span class="status-badge @(item.IsCancelled ? "status-inactive" : item.IsActive ? "status-active" : "status-inactive")">
-                                                @(item.IsCancelled ? "בוטל" : item.IsActive ? "פעיל" : "לא פעיל")
-                                            </span>
-                                            @if (!item.IsValid && !item.IsCancelled)
-                                            {
-                                                <span class="status-badge status-invalid" title="@item.InvalidReasonsDisplay">לא תקינה</span>
-                                            }
-                                        </td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                            </td>
+                                            <td>@GetInstitutionTypeLabel(item)</td>
+                                            <td>@(item.SchoolName ?? (string.IsNullOrEmpty(item.SourceInstitutionSymbol) ? "—" : $"סמל {item.SourceInstitutionSymbol}"))</td>
+                                            <td>@item.AssistantTypeName</td>
+                                            <td>@item.Hours @GetHoursUnitLabel(item.HoursUnit)</td>
+                                            <td>@item.MinistryParticipationPct.ToString("0.##")%</td>
+                                            <td class="alloc-cell">
+                                                @if (item.AllocationStatus == "none")
+                                                {
+                                                    <span class="alloc-indicator alloc-none" title="לא מוקצה" aria-label="לא מוקצה"></span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="alloc-indicator @(item.AllocationStatus == "full" ? "alloc-full" : "alloc-partial")"
+                                                          title="@GetAllocationStatusLabel(item.AllocationStatus)"
+                                                          aria-label="@GetAllocationStatusLabel(item.AllocationStatus)">
+                                                        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+                                                            <path fill="currentColor" d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.75.75 0 0 1 1.06-1.06L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0z"/>
+                                                        </svg>
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td>@item.StartDate.ToString("dd/MM/yyyy") – @item.EndDate.ToString("dd/MM/yyyy")</td>
+                                            <td>
+                                                <span class="status-badge @(item.IsCancelled ? "status-inactive" : item.IsActive ? "status-active" : "status-inactive")">
+                                                    @(item.IsCancelled ? "בוטל" : item.IsActive ? "פעיל" : "לא פעיל")
+                                                </span>
+                                                @if (!item.IsValid && !item.IsCancelled)
+                                                {
+                                                    <span class="status-badge status-invalid" title="@item.InvalidReasonsDisplay">לא תקינה</span>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div></TableExcelExport>
+
                 }
             }
         </div>
@@ -393,37 +395,39 @@
                             }
                             else
                             {
-                                <div class="table-container">
-                                    <table class="data-table">
-                                        <thead>
-                                            <tr>
-                                                <th>תקופה</th>
-                                                <th>תחולה</th>
-                                                <th>סמל מוסד</th>
-                                                <th>קוד נושא</th>
-                                                <th>נושא</th>
-                                                <th>יחידות</th>
-                                                <th>סכום מחושב</th>
-                                                <th>הפרש</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach (var row in FilteredMeitarMatches)
-                                            {
+                                <TableExcelExport>
+                                    <div class="table-container">
+                                        <table class="data-table">
+                                            <thead>
                                                 <tr>
-                                                    <td>@row.PeriodMonth/@row.PeriodYear</td>
-                                                    <td>@(row.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
-                                                    <td>@(row.InstitutionCode ?? "—")</td>
-                                                    <td>@(row.TopicCode ?? "—")</td>
-                                                    <td>@(row.TopicDescription ?? "—")</td>
-                                                    <td>@(row.UnitCount?.ToString("0.##") ?? "—")</td>
-                                                    <td>@row.CalculatedAmount.ToString("N2")</td>
-                                                    <td>@(row.CalculatedDifference?.ToString("N2") ?? "—")</td>
+                                                    <th>תקופה</th>
+                                                    <th>תחולה</th>
+                                                    <th>סמל מוסד</th>
+                                                    <th>קוד נושא</th>
+                                                    <th>נושא</th>
+                                                    <th>יחידות</th>
+                                                    <th>סכום מחושב</th>
+                                                    <th>הפרש</th>
                                                 </tr>
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var row in FilteredMeitarMatches)
+                                                {
+                                                    <tr>
+                                                        <td>@row.PeriodMonth/@row.PeriodYear</td>
+                                                        <td>@(row.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                                        <td>@(row.InstitutionCode ?? "—")</td>
+                                                        <td>@(row.TopicCode ?? "—")</td>
+                                                        <td>@(row.TopicDescription ?? "—")</td>
+                                                        <td>@(row.UnitCount?.ToString("0.##") ?? "—")</td>
+                                                        <td>@row.CalculatedAmount.ToString("N2")</td>
+                                                        <td>@(row.CalculatedDifference?.ToString("N2") ?? "—")</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div></TableExcelExport>
+
                             }
                         }
                     }

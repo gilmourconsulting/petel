@@ -55,38 +55,40 @@
                 }
                 else
                 {
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>שנת לימודים</th>
-                                    <th>מוסד</th>
-                                    <th>סוג סייעת</th>
-                                    <th>שעות</th>
-                                    <th>הקצאה</th>
-                                    <th>תאריכים</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in FilteredItems)
-                                {
+                    <TableExcelExport>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td>
-                                            <EntityFocusLink Screen="@EntityFocus.EntitlementsScreen"
-                                                             YearId="@item.HebrewYearId" Id="@item.Id">
-                                                @(string.IsNullOrEmpty(item.HebrewYearName) ? item.HebrewYearId.ToString() : item.HebrewYearName)
-                                            </EntityFocusLink>
-                                        </td>
-                                        <td>@(item.SchoolName ?? "—")</td>
-                                        <td>@item.AssistantTypeName</td>
-                                        <td>@item.Hours.ToString("N1")</td>
-                                        <td>@AllocationLabel(item.AllocationStatus)</td>
-                                        <td>@item.StartDate.ToString("dd/MM/yyyy") – @item.EndDate.ToString("dd/MM/yyyy")</td>
+                                        <th>שנת לימודים</th>
+                                        <th>מוסד</th>
+                                        <th>סוג סייעת</th>
+                                        <th>שעות</th>
+                                        <th>הקצאה</th>
+                                        <th>תאריכים</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in FilteredItems)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <EntityFocusLink Screen="@EntityFocus.EntitlementsScreen"
+                                                                 YearId="@item.HebrewYearId" Id="@item.Id">
+                                                    @(string.IsNullOrEmpty(item.HebrewYearName) ? item.HebrewYearId.ToString() : item.HebrewYearName)
+                                                </EntityFocusLink>
+                                            </td>
+                                            <td>@(item.SchoolName ?? "—")</td>
+                                            <td>@item.AssistantTypeName</td>
+                                            <td>@item.Hours.ToString("N1")</td>
+                                            <td>@AllocationLabel(item.AllocationStatus)</td>
+                                            <td>@item.StartDate.ToString("dd/MM/yyyy") – @item.EndDate.ToString("dd/MM/yyyy")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div></TableExcelExport>
+
                 }
             }
         </div>

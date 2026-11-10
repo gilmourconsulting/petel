@@ -49,36 +49,38 @@
                 }
                 else
                 {
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>מזהה</th>
-                                    <th>מספר זהות</th>
-                                    <th>שם מלא</th>
-                                    <th>טלפונים</th>
-                                    <th>שנת לימודים</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in FilteredItems)
-                                {
+                    <TableExcelExport>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td>
-                                            <EntityFocusLink Screen="@EntityFocus.AssistantsScreen"
-                                                             YearId="@item.HebrewYearId" Id="@item.Id">
-                                                @item.Id
-                                            </EntityFocusLink>
-                                        </td>
-                                        <td>@item.IdNumber</td>
-                                        <td>@item.FullName</td>
-                                        <td>@(item.PhoneSummary ?? "—")</td>
-                                        <td>@(string.IsNullOrEmpty(item.HebrewYearName) ? "—" : item.HebrewYearName)</td>
+                                        <th>מזהה</th>
+                                        <th>מספר זהות</th>
+                                        <th>שם מלא</th>
+                                        <th>טלפונים</th>
+                                        <th>שנת לימודים</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in FilteredItems)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <EntityFocusLink Screen="@EntityFocus.AssistantsScreen"
+                                                                 YearId="@item.HebrewYearId" Id="@item.Id">
+                                                    @item.Id
+                                                </EntityFocusLink>
+                                            </td>
+                                            <td>@item.IdNumber</td>
+                                            <td>@item.FullName</td>
+                                            <td>@(item.PhoneSummary ?? "—")</td>
+                                            <td>@(string.IsNullOrEmpty(item.HebrewYearName) ? "—" : item.HebrewYearName)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div></TableExcelExport>
+
                 }
             }
         </div>

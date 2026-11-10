@@ -74,37 +74,39 @@
                     }
                     else
                     {
-                        <div class="table-container" style="margin-bottom: 16px;">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>שנה</th>
-                                        <th>סוג סייעת</th>
-                                        <th>מוסד</th>
-                                        <th>שעות</th>
-                                        <th>תאריכים</th>
-                                        <th>סטטוס</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var alloc in _allocations)
-                                    {
-                                        <tr class="@(alloc.IsActive ? "" : "row-inactive")">
-                                            <td>@(alloc.HebrewYearName ?? "—")</td>
-                                            <td>@(alloc.AssistantTypeName ?? "—")</td>
-                                            <td>@(alloc.SchoolName ?? "—")</td>
-                                            <td>@alloc.Hours @GetHoursUnitLabel(alloc.HoursUnit)</td>
-                                            <td>@alloc.StartDate.ToString("dd/MM/yyyy") – @alloc.EndDate.ToString("dd/MM/yyyy")</td>
-                                            <td>
-                                                <span class="status-badge @(alloc.IsActive ? "status-active" : "status-inactive")">
-                                                    @(alloc.IsActive ? "פעיל" : "לא פעיל")
-                                                </span>
-                                            </td>
+                        <TableExcelExport>
+                            <div class="table-container" style="margin-bottom: 16px;">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>שנה</th>
+                                            <th>סוג סייעת</th>
+                                            <th>מוסד</th>
+                                            <th>שעות</th>
+                                            <th>תאריכים</th>
+                                            <th>סטטוס</th>
                                         </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var alloc in _allocations)
+                                        {
+                                            <tr class="@(alloc.IsActive ? "" : "row-inactive")">
+                                                <td>@(alloc.HebrewYearName ?? "—")</td>
+                                                <td>@(alloc.AssistantTypeName ?? "—")</td>
+                                                <td>@(alloc.SchoolName ?? "—")</td>
+                                                <td>@alloc.Hours @GetHoursUnitLabel(alloc.HoursUnit)</td>
+                                                <td>@alloc.StartDate.ToString("dd/MM/yyyy") – @alloc.EndDate.ToString("dd/MM/yyyy")</td>
+                                                <td>
+                                                    <span class="status-badge @(alloc.IsActive ? "status-active" : "status-inactive")">
+                                                        @(alloc.IsActive ? "פעיל" : "לא פעיל")
+                                                    </span>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div></TableExcelExport>
+
                     }
 
                     <h4>היסטוריית שכר</h4>
@@ -114,31 +116,33 @@
                     }
                     else
                     {
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>תקופה</th>
-                                        <th>מחלקה</th>
-                                        <th>אחוז משרה</th>
-                                        <th>שכר כולל</th>
-                                        <th>אזהרת זהות</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var salary in _salaries)
-                                    {
-                                        <tr class="@(salary.HasIdWarning ? "row-inactive" : "")">
-                                            <td>@salary.PeriodMonth.ToString("00")/@salary.PeriodYear</td>
-                                            <td>@(salary.DepartmentName ?? salary.DepartmentId)</td>
-                                            <td>@salary.PositionPercentage.ToString("0.##")%</td>
-                                            <td>@salary.TotalSalary.ToString("N2")</td>
-                                            <td>@(salary.HasIdWarning ? "כן" : "לא")</td>
+                        <TableExcelExport>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>תקופה</th>
+                                            <th>מחלקה</th>
+                                            <th>אחוז משרה</th>
+                                            <th>שכר כולל</th>
+                                            <th>אזהרת זהות</th>
                                         </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var salary in _salaries)
+                                        {
+                                            <tr class="@(salary.HasIdWarning ? "row-inactive" : "")">
+                                                <td>@salary.PeriodMonth.ToString("00")/@salary.PeriodYear</td>
+                                                <td>@(salary.DepartmentName ?? salary.DepartmentId)</td>
+                                                <td>@salary.PositionPercentage.ToString("0.##")%</td>
+                                                <td>@salary.TotalSalary.ToString("N2")</td>
+                                                <td>@(salary.HasIdWarning ? "כן" : "לא")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div></TableExcelExport>
+
                     }
                 }
 

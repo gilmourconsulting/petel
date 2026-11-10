@@ -35,64 +35,66 @@
             }
             else
             {
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>פעולות</th>
-                                <th>שם רשות</th>
-                                <th>סמל</th>
-                                <th>סוג</th>
-                                <th>משתמשים פעילים</th>
-                                <th>סטטוס</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var tenant in _tenants)
-                            {
-                                <tr class="@(tenant.IsActive ? "" : "row-inactive")">
-                                    <td class="actions-cell">
-                                        <SecureButton ActionName="tenants_edit" ScreenName="@PageName" FunctionName="EditTenant"
-                                                      ActionParams="@($"tenantId={tenant.Id}")"
-                                                      OnClick="() => ShowEditDialog(tenant)" CssClass="btn-icon" Title="עריכה" HideIfNoAccess="true">
-                                            <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural" />
-                                        </SecureButton>
-                                        <SecureButton ActionName="tenants_manageusers" ScreenName="@PageName" FunctionName="ManageUsers"
-                                                      ActionParams="@($"tenantId={tenant.Id}")"
-                                                      OnClick="() => ManageUsers(tenant)" CssClass="btn-icon btn-users" Title="ניהול משתמשים" HideIfNoAccess="true">
-                                            <img src="/images/users_icon.png" alt="משתמשים" class="action-icon-natural" />
-                                        </SecureButton>
-                                        @if (tenant.IsActive)
-                                        {
-                                            <SecureButton ActionName="tenants_deactivate" ScreenName="@PageName" FunctionName="DeactivateTenant"
-                                                          ActionParams="@($"tenantId={tenant.Id}")"
-                                                          OnClick="() => DeactivateTenant(tenant)" CssClass="btn-icon btn-danger" Title="השבת רשות" HideIfNoAccess="true">
-                                                <img src="/images/deactivate_icon.png" alt="השבת" class="action-icon-natural" />
-                                            </SecureButton>
-                                        }
-                                        else
-                                        {
-                                            <SecureButton ActionName="tenants_activate" ScreenName="@PageName" FunctionName="ActivateTenant"
-                                                          ActionParams="@($"tenantId={tenant.Id}")"
-                                                          OnClick="() => ActivateTenant(tenant)" CssClass="btn-icon btn-success" Title="הפעל רשות" HideIfNoAccess="true">
-                                                <img src="/images/activate_icon.png" alt="הפעל" class="action-icon-natural" />
-                                            </SecureButton>
-                                        }
-                                    </td>
-                                    <td>@tenant.Name</td>
-                                    <td>@(tenant.SymbolCode ?? "—")</td>
-                                    <td>@(tenant.EntityTypeName ?? "—")</td>
-                                    <td>@tenant.UserCount</td>
-                                    <td>
-                                        <span class="status-badge @(tenant.IsActive ? "status-active" : "status-inactive")">
-                                            @(tenant.IsActive ? "פעיל" : "לא פעיל")
-                                        </span>
-                                    </td>
+                <TableExcelExport>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>פעולות</th>
+                                    <th>שם רשות</th>
+                                    <th>סמל</th>
+                                    <th>סוג</th>
+                                    <th>משתמשים פעילים</th>
+                                    <th>סטטוס</th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody>
+                                @foreach (var tenant in _tenants)
+                                {
+                                    <tr class="@(tenant.IsActive ? "" : "row-inactive")">
+                                        <td class="actions-cell">
+                                            <SecureButton ActionName="tenants_edit" ScreenName="@PageName" FunctionName="EditTenant"
+                                                          ActionParams="@($"tenantId={tenant.Id}")"
+                                                          OnClick="() => ShowEditDialog(tenant)" CssClass="btn-icon" Title="עריכה" HideIfNoAccess="true">
+                                                <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural" />
+                                            </SecureButton>
+                                            <SecureButton ActionName="tenants_manageusers" ScreenName="@PageName" FunctionName="ManageUsers"
+                                                          ActionParams="@($"tenantId={tenant.Id}")"
+                                                          OnClick="() => ManageUsers(tenant)" CssClass="btn-icon btn-users" Title="ניהול משתמשים" HideIfNoAccess="true">
+                                                <img src="/images/users_icon.png" alt="משתמשים" class="action-icon-natural" />
+                                            </SecureButton>
+                                            @if (tenant.IsActive)
+                                            {
+                                                <SecureButton ActionName="tenants_deactivate" ScreenName="@PageName" FunctionName="DeactivateTenant"
+                                                              ActionParams="@($"tenantId={tenant.Id}")"
+                                                              OnClick="() => DeactivateTenant(tenant)" CssClass="btn-icon btn-danger" Title="השבת רשות" HideIfNoAccess="true">
+                                                    <img src="/images/deactivate_icon.png" alt="השבת" class="action-icon-natural" />
+                                                </SecureButton>
+                                            }
+                                            else
+                                            {
+                                                <SecureButton ActionName="tenants_activate" ScreenName="@PageName" FunctionName="ActivateTenant"
+                                                              ActionParams="@($"tenantId={tenant.Id}")"
+                                                              OnClick="() => ActivateTenant(tenant)" CssClass="btn-icon btn-success" Title="הפעל רשות" HideIfNoAccess="true">
+                                                    <img src="/images/activate_icon.png" alt="הפעל" class="action-icon-natural" />
+                                                </SecureButton>
+                                            }
+                                        </td>
+                                        <td>@tenant.Name</td>
+                                        <td>@(tenant.SymbolCode ?? "—")</td>
+                                        <td>@(tenant.EntityTypeName ?? "—")</td>
+                                        <td>@tenant.UserCount</td>
+                                        <td>
+                                            <span class="status-badge @(tenant.IsActive ? "status-active" : "status-inactive")">
+                                                @(tenant.IsActive ? "פעיל" : "לא פעיל")
+                                            </span>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div></TableExcelExport>
+
             }
         </div>
     </div>

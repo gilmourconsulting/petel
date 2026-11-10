@@ -428,6 +428,8 @@ PetelAssistants.BlazorServer uses **pure Blazor Server** with `@rendermode Inter
 
 **See [core/blazor-patterns.md](../core/blazor-patterns.md)** for the canonical Blazor page template, SecurePageBase usage, ApiService call patterns, modal pattern, table pattern, icon usage, and anti-patterns. Those patterns apply to both PetelATH and PetelAssistants.
 
+**Table Excel download:** every Assistants `data-table` is wrapped in `TableExcelExport` (same client-side pattern as ATH). See [core/blazor-patterns.md](../core/blazor-patterns.md) § Generic Client-Side Excel Export.
+
 Both projects reference the shared libraries:
 
 - `PetelAssistants.Api` → `shared/Petel.Core`

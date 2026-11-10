@@ -74,60 +74,62 @@
                 }
                 else
                 {
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>מזהה</th>
-                                    <th>ת"ז</th>
-                                    <th>מחלקה</th>
-                                    <th>% משרה</th>
-                                    <th>שכר</th>
-                                    <th>סייעת</th>
-                                    <th>סוג ממופה</th>
-                                    <th>סוג הקצאה</th>
-                                    <th>סיבה</th>
-                                    <th>סטטוס</th>
-                                    <th>הערה</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var item in FilteredItems)
-                                {
+                    <TableExcelExport>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td>
-                                            <EntityFocusLink Screen="@EntityFocus.AssistantsScreen"
-                                                             YearId="@AssistantsYearId"
-                                                             Id="@item.MatchedPersonId" />
-                                        </td>
-                                        <td>@item.NationalId</td>
-                                        <td>@item.DepartmentId @(string.IsNullOrEmpty(item.DepartmentName) ? "" : $"({item.DepartmentName})")</td>
-                                        <td>@item.PositionPercentage.ToString("N2")</td>
-                                        <td>@item.TotalSalary.ToString("N2")</td>
-                                        <td>@(item.MatchedPersonName ?? "—")</td>
-                                        <td>@(item.MappedAssistantTypeName ?? "—")</td>
-                                        <td>@(item.AllocationAssistantTypeName ?? "—")</td>
-                                        <td>@item.Message</td>
-                                        <td>
-                                            <select class="form-control" style="min-width: 110px;"
-                                                    value="@item.StatusId"
-                                                    @onchange="e => OnStatusChanged(item, e)">
-                                                @foreach (var status in _statuses)
-                                                {
-                                                    <option value="@status.Id">@status.Name</option>
-                                                }
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <input class="form-control" style="min-width: 140px;"
-                                                   value="@item.Notes"
-                                                   @onchange="e => OnNotesChanged(item, e)" />
-                                        </td>
+                                        <th>מזהה</th>
+                                        <th>ת"ז</th>
+                                        <th>מחלקה</th>
+                                        <th>% משרה</th>
+                                        <th>שכר</th>
+                                        <th>סייעת</th>
+                                        <th>סוג ממופה</th>
+                                        <th>סוג הקצאה</th>
+                                        <th>סיבה</th>
+                                        <th>סטטוס</th>
+                                        <th>הערה</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in FilteredItems)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <EntityFocusLink Screen="@EntityFocus.AssistantsScreen"
+                                                                 YearId="@AssistantsYearId"
+                                                                 Id="@item.MatchedPersonId" />
+                                            </td>
+                                            <td>@item.NationalId</td>
+                                            <td>@item.DepartmentId @(string.IsNullOrEmpty(item.DepartmentName) ? "" : $"({item.DepartmentName})")</td>
+                                            <td>@item.PositionPercentage.ToString("N2")</td>
+                                            <td>@item.TotalSalary.ToString("N2")</td>
+                                            <td>@(item.MatchedPersonName ?? "—")</td>
+                                            <td>@(item.MappedAssistantTypeName ?? "—")</td>
+                                            <td>@(item.AllocationAssistantTypeName ?? "—")</td>
+                                            <td>@item.Message</td>
+                                            <td>
+                                                <select class="form-control" style="min-width: 110px;"
+                                                        value="@item.StatusId"
+                                                        @onchange="e => OnStatusChanged(item, e)">
+                                                    @foreach (var status in _statuses)
+                                                    {
+                                                        <option value="@status.Id">@status.Name</option>
+                                                    }
+                                                </select>
+                                            </td>
+                                            <td>
+                                                <input class="form-control" style="min-width: 140px;"
+                                                       value="@item.Notes"
+                                                       @onchange="e => OnNotesChanged(item, e)" />
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div></TableExcelExport>
+
                 }
             }
         </div>

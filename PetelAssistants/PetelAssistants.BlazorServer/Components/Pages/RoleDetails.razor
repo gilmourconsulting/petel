@@ -82,45 +82,47 @@
                         </div>
                     </div>
                     <div class="detail-card-content">
-                        <div class="table-container">
-                            @if (_roleData.Users == null || _roleData.Users.Count == 0)
-                            {
-                                <p class="info-message">אין משתמשים המשויכים לתפקיד זה</p>
-                            }
-                            else
-                            {
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>שם משתמש</th>
-                                            <th>שם מלא</th>
-                                            <th>סטטוס</th>
-                                            <th>פעולות</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var user in _roleData.Users)
-                                        {
+                        <TableExcelExport>
+                            <div class="table-container">
+                                @if (_roleData.Users == null || _roleData.Users.Count == 0)
+                                {
+                                    <p class="info-message">אין משתמשים המשויכים לתפקיד זה</p>
+                                }
+                                else
+                                {
+                                    <table class="data-table">
+                                        <thead>
                                             <tr>
-                                                <td>@user.Username</td>
-                                                <td>@user.FullName</td>
-                                                <td>
-                                                    <span class="status-badge @(user.IsActive ? "active" : "inactive")">
-                                                        @(user.IsActive ? "פעיל" : "לא פעיל")
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <SecureButton ActionName="roledetails_removeUser" ScreenName="@PageName" FunctionName="RemoveUser"
-                                                                  OnClick="() => RemoveUser(user.Id)" CssClass="btn-icon" Title="הסר משתמש">
-                                                        <img src="/images/delete_icon.png" alt="הסר" class="action-icon-natural">
-                                                    </SecureButton>
-                                                </td>
+                                                <th>שם משתמש</th>
+                                                <th>שם מלא</th>
+                                                <th>סטטוס</th>
+                                                <th>פעולות</th>
                                             </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            }
-                        </div>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var user in _roleData.Users)
+                                            {
+                                                <tr>
+                                                    <td>@user.Username</td>
+                                                    <td>@user.FullName</td>
+                                                    <td>
+                                                        <span class="status-badge @(user.IsActive ? "active" : "inactive")">
+                                                            @(user.IsActive ? "פעיל" : "לא פעיל")
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        <SecureButton ActionName="roledetails_removeUser" ScreenName="@PageName" FunctionName="RemoveUser"
+                                                                      OnClick="() => RemoveUser(user.Id)" CssClass="btn-icon" Title="הסר משתמש">
+                                                            <img src="/images/delete_icon.png" alt="הסר" class="action-icon-natural">
+                                                        </SecureButton>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                            </div></TableExcelExport>
+
                     </div>
                 </div>
 
@@ -141,41 +143,43 @@
                                    placeholder="חיפוש פעולה לפי שם, הפניה או סוג..."
                                    style="width: 100%; padding: 8px; border: 1px solid #dee2e6; border-radius: 4px; direction: rtl; font-size: 14px;">
                         </div>
-                        <div class="table-container">
-                            @if (_filteredActions == null || _filteredActions.Count == 0)
-                            {
-                                <p class="info-message">לא נמצאו פעולות</p>
-                            }
-                            else
-                            {
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>שם הפעולה</th>
-                                            <th>הפניה</th>
-                                            <th>סוג</th>
-                                            <th>פעולות</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var action in _filteredActions)
-                                        {
+                        <TableExcelExport>
+                            <div class="table-container">
+                                @if (_filteredActions == null || _filteredActions.Count == 0)
+                                {
+                                    <p class="info-message">לא נמצאו פעולות</p>
+                                }
+                                else
+                                {
+                                    <table class="data-table">
+                                        <thead>
                                             <tr>
-                                                <td>@action.DisplayName</td>
-                                                <td>@action.Reference</td>
-                                                <td>@action.ActionTypeName</td>
-                                                <td>
-                                                    <SecureButton ActionName="roledetails_removeAction" ScreenName="@PageName" FunctionName="RemoveAction"
-                                                                  OnClick="() => RemoveAction(action.ActionId)" CssClass="btn-icon" Title="הסר פעולה">
-                                                        <img src="/images/delete_icon.png" alt="הסר" class="action-icon-natural">
-                                                    </SecureButton>
-                                                </td>
+                                                <th>שם הפעולה</th>
+                                                <th>הפניה</th>
+                                                <th>סוג</th>
+                                                <th>פעולות</th>
                                             </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            }
-                        </div>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var action in _filteredActions)
+                                            {
+                                                <tr>
+                                                    <td>@action.DisplayName</td>
+                                                    <td>@action.Reference</td>
+                                                    <td>@action.ActionTypeName</td>
+                                                    <td>
+                                                        <SecureButton ActionName="roledetails_removeAction" ScreenName="@PageName" FunctionName="RemoveAction"
+                                                                      OnClick="() => RemoveAction(action.ActionId)" CssClass="btn-icon" Title="הסר פעולה">
+                                                            <img src="/images/delete_icon.png" alt="הסר" class="action-icon-natural">
+                                                        </SecureButton>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                }
+                            </div></TableExcelExport>
+
                     </div>
                 </div>
             }

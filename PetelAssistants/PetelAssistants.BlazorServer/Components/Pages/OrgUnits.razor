@@ -108,66 +108,68 @@
                 }
                 else
                 {
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>פעולות</th>
-                                    <th @onclick='() => SortTable(nameof(OrgUnitDto.Symbol))' style="cursor: pointer;">
-                                        סמל מוסד @GetSortArrow(nameof(OrgUnitDto.Symbol))
-                                    </th>
-                                    <th @onclick='() => SortTable(nameof(OrgUnitDto.Name))' style="cursor: pointer;">
-                                        שם @GetSortArrow(nameof(OrgUnitDto.Name))
-                                    </th>
-                                    <th @onclick='() => SortTable(nameof(OrgUnitDto.OrgUnitType))' style="cursor: pointer;">
-                                        סוג @GetSortArrow(nameof(OrgUnitDto.OrgUnitType))
-                                    </th>
-                                    <th @onclick='() => SortTable(nameof(OrgUnitDto.SchoolLevel))' style="cursor: pointer;">
-                                        רמה @GetSortArrow(nameof(OrgUnitDto.SchoolLevel))
-                                    </th>
-                                    <th>חינוך מיוחד</th>
-                                    <th>ימי לימוד בשבוע</th>
-                                    <th>שעות שבועיות</th>
-                                    <th>יום לימודים ארוך</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var unit in FilteredOrgUnits)
-                                {
+                    <TableExcelExport>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td class="actions-cell">
-                                            <SecureButton ActionName="org_units_edit" ScreenName="@PageName" FunctionName="EditOrgUnit"
-                                                          OnClick="() => ShowEditDialog(unit)" CssClass="btn-icon" Title="עריכה" HideIfNoAccess="true">
-                                                <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural" />
-                                            </SecureButton>
-                                            <SecureButton ActionName="org_units_deactivate" ScreenName="@PageName" FunctionName="RemoveFromYear"
-                                                          OnClick="() => RemoveFromYear(unit)" CssClass="btn-icon btn-danger" Title="הסר מהשנה" HideIfNoAccess="true">
-                                                <img src="/images/deactivate_icon.png" alt="הסר" class="action-icon-natural" />
-                                            </SecureButton>
-                                        </td>
-                                        <td>@(unit.Symbol ?? "—")</td>
-                                        <td>@unit.Name</td>
-                                        <td>@GetOrgUnitTypeLabel(unit.OrgUnitType)</td>
-                                        <td>@SchoolLevelLabels.GetDisplayName(unit.SchoolLevel, unit.OrgUnitType)</td>
-                                        <td>@(unit.IsSpecialEducation ? "כן" : "לא")</td>
-                                        <td>
-                                            <input type="number" class="form-control" style="min-width: 90px; max-width: 120px;"
-                                                   step="0.5" min="0" max="7"
-                                                   @bind="unit.SchoolDaysPerWeek" @bind:event="onchange" />
-                                        </td>
-                                        <td>
-                                            <input type="number" class="form-control" style="min-width: 90px; max-width: 120px;"
-                                                   step="0.01" min="0"
-                                                   @bind="unit.WeeklyHours" @bind:event="onchange" />
-                                        </td>
-                                        <td style="text-align: center;">
-                                            <input type="checkbox" @bind="unit.HasExtendedSchoolDay" />
-                                        </td>
+                                        <th>פעולות</th>
+                                        <th @onclick='() => SortTable(nameof(OrgUnitDto.Symbol))' style="cursor: pointer;">
+                                            סמל מוסד @GetSortArrow(nameof(OrgUnitDto.Symbol))
+                                        </th>
+                                        <th @onclick='() => SortTable(nameof(OrgUnitDto.Name))' style="cursor: pointer;">
+                                            שם @GetSortArrow(nameof(OrgUnitDto.Name))
+                                        </th>
+                                        <th @onclick='() => SortTable(nameof(OrgUnitDto.OrgUnitType))' style="cursor: pointer;">
+                                            סוג @GetSortArrow(nameof(OrgUnitDto.OrgUnitType))
+                                        </th>
+                                        <th @onclick='() => SortTable(nameof(OrgUnitDto.SchoolLevel))' style="cursor: pointer;">
+                                            רמה @GetSortArrow(nameof(OrgUnitDto.SchoolLevel))
+                                        </th>
+                                        <th>חינוך מיוחד</th>
+                                        <th>ימי לימוד בשבוע</th>
+                                        <th>שעות שבועיות</th>
+                                        <th>יום לימודים ארוך</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @foreach (var unit in FilteredOrgUnits)
+                                    {
+                                        <tr>
+                                            <td class="actions-cell">
+                                                <SecureButton ActionName="org_units_edit" ScreenName="@PageName" FunctionName="EditOrgUnit"
+                                                              OnClick="() => ShowEditDialog(unit)" CssClass="btn-icon" Title="עריכה" HideIfNoAccess="true">
+                                                    <img src="/images/edit_icon.png" alt="עריכה" class="action-icon-natural" />
+                                                </SecureButton>
+                                                <SecureButton ActionName="org_units_deactivate" ScreenName="@PageName" FunctionName="RemoveFromYear"
+                                                              OnClick="() => RemoveFromYear(unit)" CssClass="btn-icon btn-danger" Title="הסר מהשנה" HideIfNoAccess="true">
+                                                    <img src="/images/deactivate_icon.png" alt="הסר" class="action-icon-natural" />
+                                                </SecureButton>
+                                            </td>
+                                            <td>@(unit.Symbol ?? "—")</td>
+                                            <td>@unit.Name</td>
+                                            <td>@GetOrgUnitTypeLabel(unit.OrgUnitType)</td>
+                                            <td>@SchoolLevelLabels.GetDisplayName(unit.SchoolLevel, unit.OrgUnitType)</td>
+                                            <td>@(unit.IsSpecialEducation ? "כן" : "לא")</td>
+                                            <td>
+                                                <input type="number" class="form-control" style="min-width: 90px; max-width: 120px;"
+                                                       step="0.5" min="0" max="7"
+                                                       @bind="unit.SchoolDaysPerWeek" @bind:event="onchange" />
+                                            </td>
+                                            <td>
+                                                <input type="number" class="form-control" style="min-width: 90px; max-width: 120px;"
+                                                       step="0.01" min="0"
+                                                       @bind="unit.WeeklyHours" @bind:event="onchange" />
+                                            </td>
+                                            <td style="text-align: center;">
+                                                <input type="checkbox" @bind="unit.HasExtendedSchoolDay" />
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </TableExcelExport>
                 }
             }
         </div>

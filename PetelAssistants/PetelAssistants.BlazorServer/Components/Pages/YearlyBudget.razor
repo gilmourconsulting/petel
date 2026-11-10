@@ -118,51 +118,53 @@
                 {
                             <h2 style="font-size: 1.15em; margin-bottom: 12px;">פירוט שנתי</h2>
                             <div class="yearly-budget-year-scroll">
-                                <table class="data-table yearly-budget-year-table">
-                                    <thead>
-                                        <tr>
-                                            <th>סוג סייעת</th>
-                                            <th>משרות</th>
-                                            <th>שעות</th>
-                                            <th>סכום</th>
-                                            <th>הערות</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var detail in _editDetails)
-                                        {
+                                <TableExcelExport>
+                                    <table class="data-table yearly-budget-year-table">
+                                        <thead>
                                             <tr>
-                                                <td>@detail.AssistantTypeName</td>
-                                                @if (_budget.CanEdit)
-                                                {
-                                                    <td>
-                                                        <input type="number" class="form-control" step="0.01" min="0"
-                                                               @bind="detail.Fte" @bind:event="onchange" />
-                                                    </td>
-                                                    <td>
-                                                        <input type="number" class="form-control" step="0.01" min="0"
-                                                               @bind="detail.Hours" @bind:event="onchange" />
-                                                    </td>
-                                                    <td>
-                                                        <input type="number" class="form-control" step="0.01" min="0"
-                                                               @bind="detail.Amount" @bind:event="onchange" />
-                                                    </td>
-                                                    <td>
-                                                        <input type="text" class="form-control remarks-input"
-                                                               @bind="detail.Remarks" @bind:event="onchange" />
-                                                    </td>
-                                                }
-                                                else
-                                                {
-                                                    <td>@detail.Fte.ToString("N2")</td>
-                                                    <td>@detail.Hours.ToString("N2")</td>
-                                                    <td>@detail.Amount.ToString("N2")</td>
-                                                    <td>@(detail.Remarks ?? "—")</td>
-                                                }
+                                                <th>סוג סייעת</th>
+                                                <th>משרות</th>
+                                                <th>שעות</th>
+                                                <th>סכום</th>
+                                                <th>הערות</th>
                                             </tr>
-                                        }
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var detail in _editDetails)
+                                            {
+                                                <tr>
+                                                    <td>@detail.AssistantTypeName</td>
+                                                    @if (_budget.CanEdit)
+                                                    {
+                                                        <td>
+                                                            <input type="number" class="form-control" step="0.01" min="0"
+                                                                   @bind="detail.Fte" @bind:event="onchange" />
+                                                        </td>
+                                                        <td>
+                                                            <input type="number" class="form-control" step="0.01" min="0"
+                                                                   @bind="detail.Hours" @bind:event="onchange" />
+                                                        </td>
+                                                        <td>
+                                                            <input type="number" class="form-control" step="0.01" min="0"
+                                                                   @bind="detail.Amount" @bind:event="onchange" />
+                                                        </td>
+                                                        <td>
+                                                            <input type="text" class="form-control remarks-input"
+                                                                   @bind="detail.Remarks" @bind:event="onchange" />
+                                                        </td>
+                                                    }
+                                                    else
+                                                    {
+                                                        <td>@detail.Fte.ToString("N2")</td>
+                                                        <td>@detail.Hours.ToString("N2")</td>
+                                                        <td>@detail.Amount.ToString("N2")</td>
+                                                        <td>@(detail.Remarks ?? "—")</td>
+                                                    }
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table></TableExcelExport>
+
                             </div>
 
                             <h2 style="font-size: 1.15em; margin: 28px 0 12px;">פירוט חודשי</h2>
@@ -176,57 +178,59 @@
                             }
                             else
                             {
-                                <div class="table-container monthly-budget-scroll">
-                                    <table class="data-table monthly-budget-matrix">
-                                        <thead>
-                                            <tr>
-                                                <th rowspan="2" class="monthly-budget-sticky">סוג סייעת</th>
-                                                @for (var mi = 0; mi < MonthColumns.Count; mi++)
-                                                {
-                                                    var month = MonthColumns[mi];
-                                                    <th colspan="3" class="@(mi > 0 ? "month-separator" : null)" style="text-align: center; white-space: nowrap;">
-                                                        @GetMonthLabel(month.PeriodMonth)
-                                                        <span class="month-year"> @month.PeriodYear</span>
-                                                    </th>
-                                                }
-                                            </tr>
-                                            <tr>
-                                                @for (var mi = 0; mi < MonthColumns.Count; mi++)
-                                                {
-                                                    <th class="metric-header @(mi > 0 ? "month-separator" : null)">משרות</th>
-                                                    <th class="metric-header">שעות</th>
-                                                    <th class="metric-header">סכום</th>
-                                                }
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @foreach (var type in AssistantTypeRows)
-                                            {
+                                <TableExcelExport>
+                                    <div class="table-container monthly-budget-scroll">
+                                        <table class="data-table monthly-budget-matrix">
+                                            <thead>
                                                 <tr>
-                                                    <td class="monthly-budget-sticky type-name">@type.AssistantTypeName</td>
+                                                    <th rowspan="2" class="monthly-budget-sticky">סוג סייעת</th>
                                                     @for (var mi = 0; mi < MonthColumns.Count; mi++)
                                                     {
                                                         var month = MonthColumns[mi];
-                                                        var cell = GetMonthCell(type.AssistantTypeId, month.PeriodYear, month.PeriodMonth);
-                                                        var sep = mi > 0 ? "month-separator" : null;
-                                                        @if (cell != null)
-                                                        {
-                                                            <td class="@sep" style="text-align: center; white-space: nowrap;" title="@(cell.Remarks ?? "")">@cell.Fte.ToString("N2")</td>
-                                                            <td style="text-align: center; white-space: nowrap;" title="@(cell.Remarks ?? "")">@cell.Hours.ToString("N2")</td>
-                                                            <td style="text-align: center; white-space: nowrap;" title="@(cell.Remarks ?? "")">@cell.Amount.ToString("N2")</td>
-                                                        }
-                                                        else
-                                                        {
-                                                            <td class="@sep" style="text-align: center; color: var(--text-muted);">—</td>
-                                                            <td style="text-align: center; color: var(--text-muted);">—</td>
-                                                            <td style="text-align: center; color: var(--text-muted);">—</td>
-                                                        }
+                                                        <th colspan="3" class="@(mi > 0 ? "month-separator" : null)" style="text-align: center; white-space: nowrap;">
+                                                            @GetMonthLabel(month.PeriodMonth)
+                                                            <span class="month-year"> @month.PeriodYear</span>
+                                                        </th>
                                                     }
                                                 </tr>
-                                            }
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                <tr>
+                                                    @for (var mi = 0; mi < MonthColumns.Count; mi++)
+                                                    {
+                                                        <th class="metric-header @(mi > 0 ? "month-separator" : null)">משרות</th>
+                                                        <th class="metric-header">שעות</th>
+                                                        <th class="metric-header">סכום</th>
+                                                    }
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var type in AssistantTypeRows)
+                                                {
+                                                    <tr>
+                                                        <td class="monthly-budget-sticky type-name">@type.AssistantTypeName</td>
+                                                        @for (var mi = 0; mi < MonthColumns.Count; mi++)
+                                                        {
+                                                            var month = MonthColumns[mi];
+                                                            var cell = GetMonthCell(type.AssistantTypeId, month.PeriodYear, month.PeriodMonth);
+                                                            var sep = mi > 0 ? "month-separator" : null;
+                                                            @if (cell != null)
+                                                            {
+                                                                <td class="@sep" style="text-align: center; white-space: nowrap;" title="@(cell.Remarks ?? "")">@cell.Fte.ToString("N2")</td>
+                                                                <td style="text-align: center; white-space: nowrap;" title="@(cell.Remarks ?? "")">@cell.Hours.ToString("N2")</td>
+                                                                <td style="text-align: center; white-space: nowrap;" title="@(cell.Remarks ?? "")">@cell.Amount.ToString("N2")</td>
+                                                            }
+                                                            else
+                                                            {
+                                                                <td class="@sep" style="text-align: center; color: var(--text-muted);">—</td>
+                                                                <td style="text-align: center; color: var(--text-muted);">—</td>
+                                                                <td style="text-align: center; color: var(--text-muted);">—</td>
+                                                            }
+                                                        }
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div></TableExcelExport>
+
                             }
                 }
             }
@@ -260,27 +264,29 @@
                     {
                         <h4 style="margin: 16px 0 8px;">כשלונות חישוב (@_calculateResult.Failures.Count)</h4>
                         <div class="table-responsive">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>מזהה זכאות</th>
-                                        <th>מוסד</th>
-                                        <th>כיתה</th>
-                                        <th>סיבה</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var failure in _calculateResult.Failures)
-                                    {
+                            <TableExcelExport>
+                                <table class="data-table">
+                                    <thead>
                                         <tr>
-                                            <td>@failure.EntitlementId</td>
-                                            <td>@(failure.InstitutionName ?? "—")</td>
-                                            <td>@(failure.ClassName ?? "—")</td>
-                                            <td>@failure.Reason</td>
+                                            <th>מזהה זכאות</th>
+                                            <th>מוסד</th>
+                                            <th>כיתה</th>
+                                            <th>סיבה</th>
                                         </tr>
-                                    }
-                                </tbody>
-                            </table>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var failure in _calculateResult.Failures)
+                                        {
+                                            <tr>
+                                                <td>@failure.EntitlementId</td>
+                                                <td>@(failure.InstitutionName ?? "—")</td>
+                                                <td>@(failure.ClassName ?? "—")</td>
+                                                <td>@failure.Reason</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table></TableExcelExport>
+
                         </div>
                     }
                 }

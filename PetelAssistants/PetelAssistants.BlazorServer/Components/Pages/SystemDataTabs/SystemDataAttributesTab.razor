@@ -6,36 +6,38 @@
 }
 else
 {
-    <div class="table-container">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>פעולות</th>
-                    <th>שם</th>
-                    <th>ערך</th>
-                    <th>סוג</th>
-                    <th>תיאור</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var attr in _items)
-                {
+    <TableExcelExport>
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <td>
-                            <SecureButton ActionName="system_data_attributes_edit" ScreenName="@ScreenName" FunctionName="Edit"
-                                          OnClick="() => ShowEditDialog(attr)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
-                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
-                            </SecureButton>
-                        </td>
-                        <td>@attr.Name</td>
-                        <td>@attr.Value</td>
-                        <td>@attr.ValueType</td>
-                        <td>@(attr.Description ?? "—")</td>
+                        <th>פעולות</th>
+                        <th>שם</th>
+                        <th>ערך</th>
+                        <th>סוג</th>
+                        <th>תיאור</th>
                     </tr>
-                }
-            </tbody>
-        </table>
-    </div>
+                </thead>
+                <tbody>
+                    @foreach (var attr in _items)
+                    {
+                        <tr>
+                            <td>
+                                <SecureButton ActionName="system_data_attributes_edit" ScreenName="@ScreenName" FunctionName="Edit"
+                                              OnClick="() => ShowEditDialog(attr)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
+                                    <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                                </SecureButton>
+                            </td>
+                            <td>@attr.Name</td>
+                            <td>@attr.Value</td>
+                            <td>@attr.ValueType</td>
+                            <td>@(attr.Description ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div></TableExcelExport>
+
 }
 
 @if (_showFormDialog)

@@ -599,7 +599,7 @@ Do **not** use emoji (🔍, ✏️, 🗑️) as icon replacements.
 
 ## Generic Client-Side Excel Export
 
-ATH `data-table` tables download through `TableExcelExport` (`Components/Shared/TableExcelExport.razor`). Wrap the scrolling container (or the table, when it has no container). Do not add a second download button on the page.
+ATH and Assistants `data-table` tables download through `TableExcelExport` (`Components/Shared/TableExcelExport.razor` in each Blazor app). Wrap the scrolling container (or the table, when it has no container). Do not add a second download button on the page.
 
 ```razor
 <TableExcelExport>
@@ -614,9 +614,9 @@ ATH `data-table` tables download through `TableExcelExport` (`Components/Shared/
 The button reads the rows currently on screen, so filters and sort are included. `tableExcelExport.extract` in `wwwroot/js/blazorHelpers.js` drops:
 
 - the actions column (`פעולות`, `actions-column`, or an empty header)
-- columns whose cells are only buttons, icons, or checkboxes
+- columns whose cells are only buttons or icons (no visible text / input value)
 
-Anchor text is kept as plain text. The URL is not written and the cell is not an Excel hyperlink. The file name is the nearest card or page title plus `yyyyMMdd`.
+Assistants also exports `INPUT` values (including checkbox `כן`/`לא`) and `SELECT` selected text. ATH keeps the stricter skip for raw inputs. Anchor text is kept as plain text. The URL is not written and the cell is not an Excel hyperlink. The file name is the nearest card or page title plus `yyyyMMdd`.
 
 `TableExcelExport` calls `ExcelExportService` (scoped in `Program.cs`; EPPlus in the Blazor project). No extra API endpoint.
 

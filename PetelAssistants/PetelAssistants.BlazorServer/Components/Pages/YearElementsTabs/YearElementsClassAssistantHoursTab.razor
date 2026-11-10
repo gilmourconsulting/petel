@@ -48,57 +48,59 @@ else
         בחישוב התקציב השעות מוכפלות באחוז ההשתתפות של הזכאות. ערך כספי לשעה מוגדר בטאב ערך שעה.
     </p>
     <div class="table-responsive">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th rowspan="2">סיווג כיתה</th>
-                    <th colspan="2" style="text-align: center;">@SchoolLevelLabels.ElementaryDisplay</th>
-                    <th colspan="2" style="text-align: center;">@SchoolLevelLabels.HighSchoolDisplay</th>
-                </tr>
-                <tr>
-                    <th>שעות</th>
-                    <th>השתתפות %</th>
-                    <th>שעות</th>
-                    <th>השתתפות %</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var row in _classifications)
-                {
+        <TableExcelExport>
+            <table class="data-table">
+                <thead>
                     <tr>
-                        <td>@row.Name</td>
-                        <td>
-                            <input type="number" class="form-control" step="0.01" min="0"
-                                   style="width: 100px;"
-                                   @bind="row.ElementaryHours" @bind:event="onchange" />
-                        </td>
-                        <td>
-                            <select class="form-control" style="width: 100px;"
-                                    @bind="row.ElementaryParticipation" @bind:event="onchange">
-                                @foreach (var pct in _participationOptions)
-                                {
-                                    <option value="@pct">@pct.ToString("0.##")%</option>
-                                }
-                            </select>
-                        </td>
-                        <td>
-                            <input type="number" class="form-control" step="0.01" min="0"
-                                   style="width: 100px;"
-                                   @bind="row.HighSchoolHours" @bind:event="onchange" />
-                        </td>
-                        <td>
-                            <select class="form-control" style="width: 100px;"
-                                    @bind="row.HighSchoolParticipation" @bind:event="onchange">
-                                @foreach (var pct in _participationOptions)
-                                {
-                                    <option value="@pct">@pct.ToString("0.##")%</option>
-                                }
-                            </select>
-                        </td>
+                        <th rowspan="2">סיווג כיתה</th>
+                        <th colspan="2" style="text-align: center;">@SchoolLevelLabels.ElementaryDisplay</th>
+                        <th colspan="2" style="text-align: center;">@SchoolLevelLabels.HighSchoolDisplay</th>
                     </tr>
-                }
-            </tbody>
-        </table>
+                    <tr>
+                        <th>שעות</th>
+                        <th>השתתפות %</th>
+                        <th>שעות</th>
+                        <th>השתתפות %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in _classifications)
+                    {
+                        <tr>
+                            <td>@row.Name</td>
+                            <td>
+                                <input type="number" class="form-control" step="0.01" min="0"
+                                       style="width: 100px;"
+                                       @bind="row.ElementaryHours" @bind:event="onchange" />
+                            </td>
+                            <td>
+                                <select class="form-control" style="width: 100px;"
+                                        @bind="row.ElementaryParticipation" @bind:event="onchange">
+                                    @foreach (var pct in _participationOptions)
+                                    {
+                                        <option value="@pct">@pct.ToString("0.##")%</option>
+                                    }
+                                </select>
+                            </td>
+                            <td>
+                                <input type="number" class="form-control" step="0.01" min="0"
+                                       style="width: 100px;"
+                                       @bind="row.HighSchoolHours" @bind:event="onchange" />
+                            </td>
+                            <td>
+                                <select class="form-control" style="width: 100px;"
+                                        @bind="row.HighSchoolParticipation" @bind:event="onchange">
+                                    @foreach (var pct in _participationOptions)
+                                    {
+                                        <option value="@pct">@pct.ToString("0.##")%</option>
+                                    }
+                                </select>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table></TableExcelExport>
+
     </div>
 }
 

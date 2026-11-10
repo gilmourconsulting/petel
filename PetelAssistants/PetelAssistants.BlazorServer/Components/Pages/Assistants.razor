@@ -86,60 +86,62 @@
             }
             else
             {
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>פעולות</th>
-                                <th @onclick="() => SortTable(nameof(PersonListItemDto.Id))" style="cursor: pointer;">
-                                    מזהה @GetSortArrow(nameof(PersonListItemDto.Id))
-                                </th>
-                                <th @onclick="() => SortTable(nameof(PersonListItemDto.IdNumber))" style="cursor: pointer;">
-                                    מספר זהות @GetSortArrow(nameof(PersonListItemDto.IdNumber))
-                                </th>
-                                <th @onclick="() => SortTable(nameof(PersonListItemDto.FullName))" style="cursor: pointer;">
-                                    שם מלא @GetSortArrow(nameof(PersonListItemDto.FullName))
-                                </th>
-                                <th>טלפונים</th>
-                                <th>הקצאה</th>
-                                <th @onclick="() => SortTable(nameof(PersonListItemDto.UpdatedAt))" style="cursor: pointer;">
-                                    עודכן @GetSortArrow(nameof(PersonListItemDto.UpdatedAt))
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var person in FilteredPersons)
-                            {
-                                bool isSelected = _selectedPerson?.Id == person.Id;
-                                <tr id="@EntityFocus.RowElementId(person.Id)"
-                                    class="@(isSelected ? "row-selected" : "")"
-                                    style="cursor: pointer;"
-                                    @onclick="() => SelectPerson(person)">
-                                    <td @onclick:stopPropagation="true">
-                                        <SecureButton ActionName="assistants_view_details" ScreenName="@PageName" FunctionName="ViewDetails"
-                                                      OnClick="() => ViewDetails(person.Id)" CssClass="btn-icon" Title="צפייה">
-                                            <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
-                                        </SecureButton>
-                                        <SecureButton ActionName="assistants_edit" ScreenName="@PageName" FunctionName="EditPerson"
-                                                      OnClick="() => EditPerson(person.Id)" CssClass="btn-icon" Title="ערוך">
-                                            <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
-                                        </SecureButton>
-                                        <SecureButton ActionName="assistants_view_history" ScreenName="@PageName" FunctionName="ViewHistory"
-                                                      OnClick="() => ViewHistory(person.Id)" CssClass="btn-icon" Title="היסטוריה">
-                                            <img src="/images/stats_icon.png" alt="היסטוריה" class="action-icon-natural">
-                                        </SecureButton>
-                                    </td>
-                                    <td>@person.Id</td>
-                                    <td>@person.IdNumber</td>
-                                    <td>@person.FullName</td>
-                                    <td>@(person.PhoneSummary ?? "—")</td>
-                                    <td>@(person.HasAllocation ? "מוקצה" : "לא מוקצה")</td>
-                                    <td>@person.UpdatedAt.ToString("dd/MM/yyyy")</td>
+                <TableExcelExport>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>פעולות</th>
+                                    <th @onclick="() => SortTable(nameof(PersonListItemDto.Id))" style="cursor: pointer;">
+                                        מזהה @GetSortArrow(nameof(PersonListItemDto.Id))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(PersonListItemDto.IdNumber))" style="cursor: pointer;">
+                                        מספר זהות @GetSortArrow(nameof(PersonListItemDto.IdNumber))
+                                    </th>
+                                    <th @onclick="() => SortTable(nameof(PersonListItemDto.FullName))" style="cursor: pointer;">
+                                        שם מלא @GetSortArrow(nameof(PersonListItemDto.FullName))
+                                    </th>
+                                    <th>טלפונים</th>
+                                    <th>הקצאה</th>
+                                    <th @onclick="() => SortTable(nameof(PersonListItemDto.UpdatedAt))" style="cursor: pointer;">
+                                        עודכן @GetSortArrow(nameof(PersonListItemDto.UpdatedAt))
+                                    </th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
+                            </thead>
+                            <tbody>
+                                @foreach (var person in FilteredPersons)
+                                {
+                                    bool isSelected = _selectedPerson?.Id == person.Id;
+                                    <tr id="@EntityFocus.RowElementId(person.Id)"
+                                        class="@(isSelected ? "row-selected" : "")"
+                                        style="cursor: pointer;"
+                                        @onclick="() => SelectPerson(person)">
+                                        <td @onclick:stopPropagation="true">
+                                            <SecureButton ActionName="assistants_view_details" ScreenName="@PageName" FunctionName="ViewDetails"
+                                                          OnClick="() => ViewDetails(person.Id)" CssClass="btn-icon" Title="צפייה">
+                                                <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                            </SecureButton>
+                                            <SecureButton ActionName="assistants_edit" ScreenName="@PageName" FunctionName="EditPerson"
+                                                          OnClick="() => EditPerson(person.Id)" CssClass="btn-icon" Title="ערוך">
+                                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                                            </SecureButton>
+                                            <SecureButton ActionName="assistants_view_history" ScreenName="@PageName" FunctionName="ViewHistory"
+                                                          OnClick="() => ViewHistory(person.Id)" CssClass="btn-icon" Title="היסטוריה">
+                                                <img src="/images/stats_icon.png" alt="היסטוריה" class="action-icon-natural">
+                                            </SecureButton>
+                                        </td>
+                                        <td>@person.Id</td>
+                                        <td>@person.IdNumber</td>
+                                        <td>@person.FullName</td>
+                                        <td>@(person.PhoneSummary ?? "—")</td>
+                                        <td>@(person.HasAllocation ? "מוקצה" : "לא מוקצה")</td>
+                                        <td>@person.UpdatedAt.ToString("dd/MM/yyyy")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div></TableExcelExport>
+
             }
         </div>
 
@@ -211,31 +213,33 @@
                         }
                         else
                         {
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>תקופה</th>
-                                            <th>מחלקה</th>
-                                            <th>אחוז משרה</th>
-                                            <th>שכר כולל</th>
-                                            <th>אזהרת ת"ז</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var salary in YearSalaries)
-                                        {
-                                            <tr class="@(salary.HasIdWarning ? "row-inactive" : "")">
-                                                <td>@salary.PeriodMonth.ToString("00")/@salary.PeriodYear</td>
-                                                <td>@(salary.DepartmentName ?? salary.DepartmentId)</td>
-                                                <td>@salary.PositionPercentage.ToString("0.##")%</td>
-                                                <td>@salary.TotalSalary.ToString("N2")</td>
-                                                <td>@(salary.HasIdWarning ? "כן" : "לא")</td>
+                            <TableExcelExport>
+                                <div class="table-container">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>תקופה</th>
+                                                <th>מחלקה</th>
+                                                <th>אחוז משרה</th>
+                                                <th>שכר כולל</th>
+                                                <th>אזהרת ת"ז</th>
                                             </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var salary in YearSalaries)
+                                            {
+                                                <tr class="@(salary.HasIdWarning ? "row-inactive" : "")">
+                                                    <td>@salary.PeriodMonth.ToString("00")/@salary.PeriodYear</td>
+                                                    <td>@(salary.DepartmentName ?? salary.DepartmentId)</td>
+                                                    <td>@salary.PositionPercentage.ToString("0.##")%</td>
+                                                    <td>@salary.TotalSalary.ToString("N2")</td>
+                                                    <td>@(salary.HasIdWarning ? "כן" : "לא")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div></TableExcelExport>
+
                         }
                     }
                 </div>
@@ -477,35 +481,37 @@
                 }
                 else
                 {
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>גרסה</th>
-                                    <th>תחילה</th>
-                                    <th>סיום</th>
-                                    <th>שם</th>
-                                    <th>אימייל</th>
-                                    <th>תפקיד</th>
-                                    <th>פעיל</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var row in _history)
-                                {
+                    <TableExcelExport>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td>@row.Version</td>
-                                        <td>@row.StartDate.ToString("dd/MM/yyyy")</td>
-                                        <td>@(row.EndDate?.ToString("dd/MM/yyyy") ?? "—")</td>
-                                        <td>@row.FirstName @row.LastName</td>
-                                        <td>@(row.Email ?? "—")</td>
-                                        <td>@(row.Position ?? "—")</td>
-                                        <td>@(row.IsLastVersion ? "כן" : "לא")</td>
+                                        <th>גרסה</th>
+                                        <th>תחילה</th>
+                                        <th>סיום</th>
+                                        <th>שם</th>
+                                        <th>אימייל</th>
+                                        <th>תפקיד</th>
+                                        <th>פעיל</th>
                                     </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody>
+                                    @foreach (var row in _history)
+                                    {
+                                        <tr>
+                                            <td>@row.Version</td>
+                                            <td>@row.StartDate.ToString("dd/MM/yyyy")</td>
+                                            <td>@(row.EndDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                            <td>@row.FirstName @row.LastName</td>
+                                            <td>@(row.Email ?? "—")</td>
+                                            <td>@(row.Position ?? "—")</td>
+                                            <td>@(row.IsLastVersion ? "כן" : "לא")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div></TableExcelExport>
+
                 }
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" @onclick="CloseHistoryDialog">סגור</button>

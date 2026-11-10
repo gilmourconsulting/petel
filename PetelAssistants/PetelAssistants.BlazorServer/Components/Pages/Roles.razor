@@ -56,65 +56,67 @@
                 }
                 else
                 {
-                    <div class="table-container">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>פעולות</th>
-                                    <th @onclick="() => SortTable(nameof(RoleDto.Name))" style="cursor: pointer;">
-                                        שם התפקיד @GetSortArrow(nameof(RoleDto.Name))
-                                    </th>
-                                    <th @onclick="() => SortTable(nameof(RoleDto.Description))" style="cursor: pointer;">
-                                        תיאור @GetSortArrow(nameof(RoleDto.Description))
-                                    </th>
-                                    <th @onclick="() => SortTable(nameof(RoleDto.UserCount))" style="cursor: pointer;">
-                                        משתמשים @GetSortArrow(nameof(RoleDto.UserCount))
-                                    </th>
-                                    <th @onclick="() => SortTable(nameof(RoleDto.ActionCount))" style="cursor: pointer;">
-                                        פעולות @GetSortArrow(nameof(RoleDto.ActionCount))
-                                    </th>
-                                    <th @onclick="() => SortTable(nameof(RoleDto.CreatedAt))" style="cursor: pointer;">
-                                        נוצר @GetSortArrow(nameof(RoleDto.CreatedAt))
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @if (_roles.Count == 0)
-                                {
+                    <TableExcelExport>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
                                     <tr>
-                                        <td colspan="6" class="no-data-message">לא נמצאו תפקידים</td>
+                                        <th>פעולות</th>
+                                        <th @onclick="() => SortTable(nameof(RoleDto.Name))" style="cursor: pointer;">
+                                            שם התפקיד @GetSortArrow(nameof(RoleDto.Name))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(RoleDto.Description))" style="cursor: pointer;">
+                                            תיאור @GetSortArrow(nameof(RoleDto.Description))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(RoleDto.UserCount))" style="cursor: pointer;">
+                                            משתמשים @GetSortArrow(nameof(RoleDto.UserCount))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(RoleDto.ActionCount))" style="cursor: pointer;">
+                                            פעולות @GetSortArrow(nameof(RoleDto.ActionCount))
+                                        </th>
+                                        <th @onclick="() => SortTable(nameof(RoleDto.CreatedAt))" style="cursor: pointer;">
+                                            נוצר @GetSortArrow(nameof(RoleDto.CreatedAt))
+                                        </th>
                                     </tr>
-                                }
-                                else
-                                {
-                                    @foreach (var role in _roles)
+                                </thead>
+                                <tbody>
+                                    @if (_roles.Count == 0)
                                     {
                                         <tr>
-                                            <td>
-                                                <SecureButton ActionName="roles_view" ScreenName="@PageName" FunctionName="ViewRoleDetails" OnClick="() => ViewRoleDetails(role)" CssClass="btn-icon" Title="צפה בפרטי תפקיד">
-                                                    <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
-                                                </SecureButton>
-                                                <SecureButton ActionName="roles_edit" ScreenName="@PageName" FunctionName="EditRole" OnClick="() => EditRole(role)" CssClass="btn-icon" Title="ערוך תפקיד">
-                                                    <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
-                                                </SecureButton>
-                                                <SecureButton ActionName="roles_manageusers" ScreenName="@PageName" FunctionName="ManageRoleUsers" OnClick="() => ManageRoleUsers(role)" CssClass="btn-icon" Title="נהל משתמשים">
-                                                    <img src="/images/stats_icon.png" alt="משתמשים" class="action-icon-natural">
-                                                </SecureButton>
-                                                <SecureButton ActionName="roles_delete" ScreenName="@PageName" FunctionName="DeleteRole" OnClick="() => DeleteRole(role)" CssClass="btn-icon" Title="מחק תפקיד">
-                                                    <img src="/images/delete_icon.png" alt="מחק" class="action-icon-natural">
-                                                </SecureButton>
-                                            </td>
-                                            <td>@role.Name</td>
-                                            <td>@(role.Description ?? "")</td>
-                                            <td>@role.UserCount</td>
-                                            <td>@role.ActionCount</td>
-                                            <td>@role.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                            <td colspan="6" class="no-data-message">לא נמצאו תפקידים</td>
                                         </tr>
                                     }
-                                }
-                            </tbody>
-                        </table>
-                    </div>
+                                    else
+                                    {
+                                        @foreach (var role in _roles)
+                                        {
+                                            <tr>
+                                                <td>
+                                                    <SecureButton ActionName="roles_view" ScreenName="@PageName" FunctionName="ViewRoleDetails" OnClick="() => ViewRoleDetails(role)" CssClass="btn-icon" Title="צפה בפרטי תפקיד">
+                                                        <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural">
+                                                    </SecureButton>
+                                                    <SecureButton ActionName="roles_edit" ScreenName="@PageName" FunctionName="EditRole" OnClick="() => EditRole(role)" CssClass="btn-icon" Title="ערוך תפקיד">
+                                                        <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
+                                                    </SecureButton>
+                                                    <SecureButton ActionName="roles_manageusers" ScreenName="@PageName" FunctionName="ManageRoleUsers" OnClick="() => ManageRoleUsers(role)" CssClass="btn-icon" Title="נהל משתמשים">
+                                                        <img src="/images/stats_icon.png" alt="משתמשים" class="action-icon-natural">
+                                                    </SecureButton>
+                                                    <SecureButton ActionName="roles_delete" ScreenName="@PageName" FunctionName="DeleteRole" OnClick="() => DeleteRole(role)" CssClass="btn-icon" Title="מחק תפקיד">
+                                                        <img src="/images/delete_icon.png" alt="מחק" class="action-icon-natural">
+                                                    </SecureButton>
+                                                </td>
+                                                <td>@role.Name</td>
+                                                <td>@(role.Description ?? "")</td>
+                                                <td>@role.UserCount</td>
+                                                <td>@role.ActionCount</td>
+                                                <td>@role.CreatedAt.ToString("dd/MM/yyyy")</td>
+                                            </tr>
+                                        }
+                                    }
+                                </tbody>
+                            </table>
+                        </div></TableExcelExport>
+
                 }
             </div>
         </div>

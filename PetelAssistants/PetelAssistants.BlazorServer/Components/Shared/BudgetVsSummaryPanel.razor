@@ -86,96 +86,98 @@ else
                       ShowBudget="_showBudget"
                       MonthSelected="OnTrendMonthSelected" />
 
-    <div class="table-container">
-        @if (ComparisonRows.Count == 0)
-        {
-            <p>אין נתונים לחודש שנבחר.</p>
-        }
-        else
-        {
-            <table class="data-table budget-vs-table">
-                <thead>
-                    <tr>
-                        <th class="assistant-type-col">סוג סייעת</th>
-                        @if (_showBudget)
-                        {
-                            <th>סכום תקציב</th>
-                        }
-                        <th>סכום שכר</th>
-                        <th>הכנסת מיתר</th>
-                        @if (_showBudget)
-                        {
-                            <th>הפרש שכר</th>
-                            <th>משרות תקציב</th>
-                        }
-                        <th>משרות שכר</th>
-                        @if (_showBudget)
-                        {
-                            <th>הפרש משרות</th>
-                        }
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var row in ComparisonRows)
-                    {
+    <TableExcelExport>
+        <div class="table-container">
+            @if (ComparisonRows.Count == 0)
+            {
+                <p>אין נתונים לחודש שנבחר.</p>
+            }
+            else
+            {
+                <table class="data-table budget-vs-table">
+                    <thead>
                         <tr>
-                            <td class="assistant-type-col">
-                                @if (row.IsUnmapped)
-                                {
-                                    <button type="button"
-                                            class="link-button"
-                                            @onclick="ShowUnmappedModalAsync">
-                                        לא ממופה
-                                    </button>
-                                }
-                                else
-                                {
-                                    @row.AssistantTypeName
-                                }
-                            </td>
+                            <th class="assistant-type-col">סוג סייעת</th>
                             @if (_showBudget)
                             {
-                                <td>@row.BudgetAmount.ToString("N2")</td>
+                                <th>סכום תקציב</th>
                             }
-                            <td>@row.SalaryAmount.ToString("N2")</td>
-                            <td>@row.MeitarAmount.ToString("N2")</td>
+                            <th>סכום שכר</th>
+                            <th>הכנסת מיתר</th>
                             @if (_showBudget)
                             {
-                                <td>@row.SalaryAmountVariance.ToString("N2")</td>
-                                <td>@row.BudgetFte.ToString("N2")</td>
+                                <th>הפרש שכר</th>
+                                <th>משרות תקציב</th>
                             }
-                            <td>@row.SalaryFte.ToString("N2")</td>
+                            <th>משרות שכר</th>
                             @if (_showBudget)
                             {
-                                <td>@row.SalaryFteVariance.ToString("N2")</td>
+                                <th>הפרש משרות</th>
                             }
                         </tr>
-                    }
-                </tbody>
-                <tfoot>
-                    <tr class="budget-vs-total-row">
-                        <td class="assistant-type-col">סה״כ</td>
-                        @if (_showBudget)
+                    </thead>
+                    <tbody>
+                        @foreach (var row in ComparisonRows)
                         {
-                            <td>@SelectedBudgetAmount.ToString("N2")</td>
+                            <tr>
+                                <td class="assistant-type-col">
+                                    @if (row.IsUnmapped)
+                                    {
+                                        <button type="button"
+                                                class="link-button"
+                                                @onclick="ShowUnmappedModalAsync">
+                                            לא ממופה
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        @row.AssistantTypeName
+                                    }
+                                </td>
+                                @if (_showBudget)
+                                {
+                                    <td>@row.BudgetAmount.ToString("N2")</td>
+                                }
+                                <td>@row.SalaryAmount.ToString("N2")</td>
+                                <td>@row.MeitarAmount.ToString("N2")</td>
+                                @if (_showBudget)
+                                {
+                                    <td>@row.SalaryAmountVariance.ToString("N2")</td>
+                                    <td>@row.BudgetFte.ToString("N2")</td>
+                                }
+                                <td>@row.SalaryFte.ToString("N2")</td>
+                                @if (_showBudget)
+                                {
+                                    <td>@row.SalaryFteVariance.ToString("N2")</td>
+                                }
+                            </tr>
                         }
-                        <td>@SelectedSalaryAmount.ToString("N2")</td>
-                        <td>@SelectedMeitarAmount.ToString("N2")</td>
-                        @if (_showBudget)
-                        {
-                            <td>@SelectedSalaryVariance.ToString("N2")</td>
-                            <td>@SelectedBudgetFte.ToString("N2")</td>
-                        }
-                        <td>@SelectedSalaryFte.ToString("N2")</td>
-                        @if (_showBudget)
-                        {
-                            <td>@SelectedSalaryFteVariance.ToString("N2")</td>
-                        }
-                    </tr>
-                </tfoot>
-            </table>
-        }
-    </div>
+                    </tbody>
+                    <tfoot>
+                        <tr class="budget-vs-total-row">
+                            <td class="assistant-type-col">סה״כ</td>
+                            @if (_showBudget)
+                            {
+                                <td>@SelectedBudgetAmount.ToString("N2")</td>
+                            }
+                            <td>@SelectedSalaryAmount.ToString("N2")</td>
+                            <td>@SelectedMeitarAmount.ToString("N2")</td>
+                            @if (_showBudget)
+                            {
+                                <td>@SelectedSalaryVariance.ToString("N2")</td>
+                                <td>@SelectedBudgetFte.ToString("N2")</td>
+                            }
+                            <td>@SelectedSalaryFte.ToString("N2")</td>
+                            @if (_showBudget)
+                            {
+                                <td>@SelectedSalaryFteVariance.ToString("N2")</td>
+                            }
+                        </tr>
+                    </tfoot>
+                </table>
+            }
+        </div></TableExcelExport>
+
 }
 
 @if (_showUnmappedModal)
@@ -200,29 +202,31 @@ else
                     }
                     else
                     {
-                        <div class="table-container" style="margin-bottom: 20px;">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>מזהה מחלקה</th>
-                                        <th>שם מחלקה</th>
-                                        <th>רשומות</th>
-                                        <th>סה"כ שכר</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var item in _unmappedDepartments)
-                                    {
+                        <TableExcelExport>
+                            <div class="table-container" style="margin-bottom: 20px;">
+                                <table class="data-table">
+                                    <thead>
                                         <tr>
-                                            <td>@item.DepartmentId</td>
-                                            <td>@(item.DepartmentName ?? "—")</td>
-                                            <td>@item.RowCount</td>
-                                            <td>@item.TotalSalary.ToString("N2")</td>
+                                            <th>מזהה מחלקה</th>
+                                            <th>שם מחלקה</th>
+                                            <th>רשומות</th>
+                                            <th>סה"כ שכר</th>
                                         </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in _unmappedDepartments)
+                                        {
+                                            <tr>
+                                                <td>@item.DepartmentId</td>
+                                                <td>@(item.DepartmentName ?? "—")</td>
+                                                <td>@item.RowCount</td>
+                                                <td>@item.TotalSalary.ToString("N2")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div></TableExcelExport>
+
                     }
 
                     <h4 style="margin-bottom: 8px;">נושאי מיתר</h4>
@@ -232,29 +236,31 @@ else
                     }
                     else
                     {
-                        <div class="table-container">
-                            <table class="data-table">
-                                <thead>
-                                    <tr>
-                                        <th>קוד נושא</th>
-                                        <th>תיאור</th>
-                                        <th>רשומות</th>
-                                        <th>סה"כ סכום</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var item in _unmappedMeitarTopics)
-                                    {
+                        <TableExcelExport>
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
                                         <tr>
-                                            <td>@(item.TopicCode ?? "—")</td>
-                                            <td>@(item.TopicDescription ?? "—")</td>
-                                            <td>@item.RowCount</td>
-                                            <td>@item.TotalAmount.ToString("N2")</td>
+                                            <th>קוד נושא</th>
+                                            <th>תיאור</th>
+                                            <th>רשומות</th>
+                                            <th>סה"כ סכום</th>
                                         </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in _unmappedMeitarTopics)
+                                        {
+                                            <tr>
+                                                <td>@(item.TopicCode ?? "—")</td>
+                                                <td>@(item.TopicDescription ?? "—")</td>
+                                                <td>@item.RowCount</td>
+                                                <td>@item.TotalAmount.ToString("N2")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div></TableExcelExport>
+
                     }
                 }
             </div>

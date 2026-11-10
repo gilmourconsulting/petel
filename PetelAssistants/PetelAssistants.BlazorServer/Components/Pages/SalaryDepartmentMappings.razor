@@ -35,68 +35,72 @@
                 @if (_unmapped.Count > 0)
                 {
                     <p style="margin-bottom: 12px; font-weight: 600;">מחלקות מהקובץ שעדיין לא ממופות</p>
-                    <div class="table-container" style="margin-bottom: 24px;">
+                    <TableExcelExport>
+                        <div class="table-container" style="margin-bottom: 24px;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>פעולות</th>
+                                        <th>מזהה מחלקה</th>
+                                        <th>שם מחלקה</th>
+                                        <th>רשומות</th>
+                                        <th>סה"כ שכר</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in _unmapped)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <SecureButton ActionName="salary_dept_map_save" ScreenName="@PageName" FunctionName="MapUnmapped"
+                                                              OnClick="() => ShowCreateDialog(item)" CssClass="btn-icon" Title="מפה" HideIfNoAccess="true">
+                                                    מפה
+                                                </SecureButton>
+                                            </td>
+                                            <td>@item.DepartmentId</td>
+                                            <td>@(item.DepartmentName ?? "—")</td>
+                                            <td>@item.RowCount</td>
+                                            <td>@item.TotalSalary.ToString("N2")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div></TableExcelExport>
+
+                }
+
+                <TableExcelExport>
+                    <div class="table-container">
                         <table class="data-table">
                             <thead>
                                 <tr>
                                     <th>פעולות</th>
                                     <th>מזהה מחלקה</th>
                                     <th>שם מחלקה</th>
-                                    <th>רשומות</th>
-                                    <th>סה"כ שכר</th>
+                                    <th>סוג סייעת</th>
+                                    <th>סטטוס</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @foreach (var item in _unmapped)
+                                @foreach (var item in _items)
                                 {
-                                    <tr>
+                                    <tr class="@(item.IsActive ? "" : "row-inactive")">
                                         <td>
-                                            <SecureButton ActionName="salary_dept_map_save" ScreenName="@PageName" FunctionName="MapUnmapped"
-                                                          OnClick="() => ShowCreateDialog(item)" CssClass="btn-icon" Title="מפה" HideIfNoAccess="true">
-                                                מפה
+                                            <SecureButton ActionName="salary_dept_map_save" ScreenName="@PageName" FunctionName="Edit"
+                                                          OnClick="() => ShowEditDialog(item)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
+                                                <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
                                             </SecureButton>
                                         </td>
                                         <td>@item.DepartmentId</td>
                                         <td>@(item.DepartmentName ?? "—")</td>
-                                        <td>@item.RowCount</td>
-                                        <td>@item.TotalSalary.ToString("N2")</td>
+                                        <td>@item.AssistantTypeName</td>
+                                        <td>@(item.IsActive ? "פעיל" : "לא פעיל")</td>
                                     </tr>
                                 }
                             </tbody>
                         </table>
-                    </div>
-                }
+                    </div></TableExcelExport>
 
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>פעולות</th>
-                                <th>מזהה מחלקה</th>
-                                <th>שם מחלקה</th>
-                                <th>סוג סייעת</th>
-                                <th>סטטוס</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var item in _items)
-                            {
-                                <tr class="@(item.IsActive ? "" : "row-inactive")">
-                                    <td>
-                                        <SecureButton ActionName="salary_dept_map_save" ScreenName="@PageName" FunctionName="Edit"
-                                                      OnClick="() => ShowEditDialog(item)" CssClass="btn-icon" Title="ערוך" HideIfNoAccess="true">
-                                            <img src="/images/edit_icon.png" alt="ערוך" class="action-icon-natural">
-                                        </SecureButton>
-                                    </td>
-                                    <td>@item.DepartmentId</td>
-                                    <td>@(item.DepartmentName ?? "—")</td>
-                                    <td>@item.AssistantTypeName</td>
-                                    <td>@(item.IsActive ? "פעיל" : "לא פעיל")</td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
             }
         </div>
     </div>

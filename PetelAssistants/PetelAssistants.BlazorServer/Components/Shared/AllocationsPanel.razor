@@ -33,76 +33,78 @@
     }
     else
     {
-        <div class="table-container">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>פעולות</th>
-                        @if (ViewMode == AllocationsViewMode.ByEntitlement)
-                        {
-                            <th>מזהה</th>
-                        }
-                        <th>@(ViewMode == AllocationsViewMode.ByEntitlement ? "שם הסייעת" : "זכאות")</th>
-                        <th>שעות</th>
-                        <th>תאריכים</th>
-                        <th>סטטוס</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var alloc in Allocations)
-                    {
-                        <tr id="@EntityFocus.RowElementId(alloc.Id)"
-                            class="@GetAllocationRowClass(alloc)">
-                            <td>
-                                @if (ShowViewButton)
-                                {
-                                    <button type="button" class="btn-icon" title="צפייה בהקצאה בזכאויות"
-                                            @onclick="() => OnViewAllocation.InvokeAsync(alloc)"
-                                            @onclick:stopPropagation="true">
-                                        <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural" />
-                                    </button>
-                                }
-                                @if (alloc.IsActive)
-                                {
-                                    <SecureButton ActionName="entitlements_deactivate_allocation" ScreenName="@SecurityScreenName"
-                                                  FunctionName="DeactivateAllocation"
-                                                  OnClick="() => OnDeactivateAllocation.InvokeAsync(alloc)"
-                                                  CssClass="btn-icon btn-danger" Title="השבת" HideIfNoAccess="true">
-                                        <img src="/images/deactivate_icon.png" alt="השבת" class="action-icon-natural">
-                                    </SecureButton>
-                                }
-                            </td>
+        <TableExcelExport>
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>פעולות</th>
                             @if (ViewMode == AllocationsViewMode.ByEntitlement)
                             {
-                                <td>
-                                    <EntityFocusLink Screen="@EntityFocus.AssistantsScreen"
-                                                     YearId="@YearId"
-                                                     Id="@alloc.PersonId" />
-                                </td>
+                                <th>מזהה</th>
                             }
-                            <td>
+                            <th>@(ViewMode == AllocationsViewMode.ByEntitlement ? "שם הסייעת" : "זכאות")</th>
+                            <th>שעות</th>
+                            <th>תאריכים</th>
+                            <th>סטטוס</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var alloc in Allocations)
+                        {
+                            <tr id="@EntityFocus.RowElementId(alloc.Id)"
+                                class="@GetAllocationRowClass(alloc)">
+                                <td>
+                                    @if (ShowViewButton)
+                                    {
+                                        <button type="button" class="btn-icon" title="צפייה בהקצאה בזכאויות"
+                                                @onclick="() => OnViewAllocation.InvokeAsync(alloc)"
+                                                @onclick:stopPropagation="true">
+                                            <img src="/images/view_icon.png" alt="צפייה" class="action-icon-natural" />
+                                        </button>
+                                    }
+                                    @if (alloc.IsActive)
+                                    {
+                                        <SecureButton ActionName="entitlements_deactivate_allocation" ScreenName="@SecurityScreenName"
+                                                      FunctionName="DeactivateAllocation"
+                                                      OnClick="() => OnDeactivateAllocation.InvokeAsync(alloc)"
+                                                      CssClass="btn-icon btn-danger" Title="השבת" HideIfNoAccess="true">
+                                            <img src="/images/deactivate_icon.png" alt="השבת" class="action-icon-natural">
+                                        </SecureButton>
+                                    }
+                                </td>
                                 @if (ViewMode == AllocationsViewMode.ByEntitlement)
                                 {
-                                    @alloc.PersonFullName
+                                    <td>
+                                        <EntityFocusLink Screen="@EntityFocus.AssistantsScreen"
+                                                         YearId="@YearId"
+                                                         Id="@alloc.PersonId" />
+                                    </td>
                                 }
-                                else
-                                {
-                                    @alloc.AssistantTypeName
-                                    @(alloc.SchoolName != null ? $" — {alloc.SchoolName}" : "")
-                                }
-                            </td>
-                            <td>@alloc.Hours @GetHoursUnitLabel(alloc.HoursUnit)</td>
-                            <td>@alloc.StartDate.ToString("dd/MM/yyyy") – @alloc.EndDate.ToString("dd/MM/yyyy")</td>
-                            <td>
-                                <span class="status-badge @(alloc.IsActive ? "status-active" : "status-inactive")">
-                                    @(alloc.IsActive ? "פעיל" : "לא פעיל")
-                                </span>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
+                                <td>
+                                    @if (ViewMode == AllocationsViewMode.ByEntitlement)
+                                    {
+                                        @alloc.PersonFullName
+                                    }
+                                    else
+                                    {
+                                        @alloc.AssistantTypeName
+                                        @(alloc.SchoolName != null ? $" — {alloc.SchoolName}" : "")
+                                    }
+                                </td>
+                                <td>@alloc.Hours @GetHoursUnitLabel(alloc.HoursUnit)</td>
+                                <td>@alloc.StartDate.ToString("dd/MM/yyyy") – @alloc.EndDate.ToString("dd/MM/yyyy")</td>
+                                <td>
+                                    <span class="status-badge @(alloc.IsActive ? "status-active" : "status-inactive")">
+                                        @(alloc.IsActive ? "פעיל" : "לא פעיל")
+                                    </span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div></TableExcelExport>
+
     }
 </div>
 

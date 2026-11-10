@@ -30,6 +30,7 @@ builder.Services.AddScoped<ApiService>();
 builder.Services.AddScoped<SessionStateService>();
 builder.Services.AddScoped<SessionTimeoutService>();
 builder.Services.AddScoped<ActionSecurityService>();
+builder.Services.AddScoped<ExcelExportService>();
 
 // ── Blazor Server circuit options ──────────────────────────────────────────
 builder.Services.AddServerSideBlazor()
