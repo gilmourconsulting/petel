@@ -112,7 +112,7 @@ namespace PetelAssistants.Api.Controllers
                     m.EffectiveDate,
                     m.TopicCode,
                     m.UnitCount,
-                    m.CalculatedAmount
+                    Amount = m.CalculatedDifference ?? 0m
                 })
                 .ToListAsync();
 
@@ -122,7 +122,7 @@ namespace PetelAssistants.Api.Controllers
                     m.CalcDate,
                     m.EffectiveDate,
                     m.TopicCode,
-                    m.CalculatedAmount
+                    Amount = m.CalculatedDifference ?? 0m
                 })
                 .ToListAsync();
 
@@ -154,9 +154,9 @@ namespace PetelAssistants.Api.Controllers
             }
 
             foreach (var r in mutavimRows)
-                AddBucket(byEffective ? r.EffectiveDate : r.CalcDate, r.TopicCode, r.UnitCount ?? 0m, r.CalculatedAmount);
+                AddBucket(byEffective ? r.EffectiveDate : r.CalcDate, r.TopicCode, r.UnitCount ?? 0m, r.Amount);
             foreach (var r in mucarimRows)
-                AddBucket(byEffective ? r.EffectiveDate : r.CalcDate, r.TopicCode, 0m, r.CalculatedAmount);
+                AddBucket(byEffective ? r.EffectiveDate : r.CalcDate, r.TopicCode, 0m, r.Amount);
             foreach (var r in cheshbonitRows)
                 AddBucket(byEffective ? r.EffectiveDate : r.CalcDate, r.TopicCode, 0m, r.PaidAmount ?? 0m);
 
@@ -240,7 +240,7 @@ namespace PetelAssistants.Api.Controllers
                     m.EffectiveDate,
                     m.TopicCode,
                     m.TopicDescription,
-                    Amount = m.CalculatedAmount
+                    Amount = m.CalculatedDifference ?? 0m
                 })
                 .ToListAsync();
 
@@ -251,7 +251,7 @@ namespace PetelAssistants.Api.Controllers
                     m.EffectiveDate,
                     m.TopicCode,
                     m.TopicDescription,
-                    Amount = m.CalculatedAmount
+                    Amount = m.CalculatedDifference ?? 0m
                 })
                 .ToListAsync();
 

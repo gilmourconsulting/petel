@@ -349,7 +349,7 @@ namespace PetelAssistants.Api.Services
             return await _assistContext.MeitarMutavim.AsNoTracking()
                 .Where(m => (m.PeriodYear > from.Year || (m.PeriodYear == from.Year && m.PeriodMonth >= from.Month))
                          && (m.PeriodYear < to.Year || (m.PeriodYear == to.Year && m.PeriodMonth <= to.Month)))
-                .SumAsync(m => (decimal?)m.CalculatedAmount) ?? 0;
+                .SumAsync(m => (decimal?)(m.CalculatedDifference ?? 0m)) ?? 0;
         }
 
         private static List<(int Year, int Month)> GetYtdMonths(List<(int Year, int Month)> months)

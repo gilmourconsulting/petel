@@ -362,12 +362,12 @@ namespace PetelAssistants.Api.Services
             var contributions = mutavimRows
                 .Select(r => (
                     TypeId: ResolveType(r.TopicCode, typeByTopicCode),
-                    Amount: r.CalculatedAmount,
+                    Amount: r.CalculatedDifference ?? 0m,
                     Hours: r.UnitCount ?? 0m,
                     Rows: 1))
                 .Concat(mucarimRows.Select(r => (
                     TypeId: ResolveType(r.TopicCode, typeByTopicCode),
-                    Amount: r.CalculatedAmount,
+                    Amount: r.CalculatedDifference ?? 0m,
                     Hours: 0m,
                     Rows: 1)))
                 .Concat(cheshbonitRows.Select(r => (
