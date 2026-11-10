@@ -105,7 +105,7 @@ namespace PetelAssistants.Api.Controllers
                     return BadRequest(new { success = false, message = "שנת לימודים לא נמצאה" });
             }
 
-            var rows = await _context.MeitarMutavim.AsNoTracking()
+            var mutavimRows = await _context.MeitarMutavim.AsNoTracking()
                 .Select(m => new
                 {
                     m.CalcDate,
@@ -116,28 +116,49 @@ namespace PetelAssistants.Api.Controllers
                 })
                 .ToListAsync();
 
-            var bucketed = rows
-                .Select(r =>
+            var mucarimRows = await _context.MeitarMucarim.AsNoTracking()
+                .Select(m => new
                 {
-                    DateOnly? date = byEffective ? r.EffectiveDate : r.CalcDate;
-                    if (date is null)
-                        return null;
-                    return new
-                    {
-                        PeriodYear = date.Value.Year,
-                        PeriodMonth = date.Value.Month,
-                        r.TopicCode,
-                        Hours = r.UnitCount ?? 0m,
-                        r.CalculatedAmount
-                    };
+                    m.CalcDate,
+                    m.EffectiveDate,
+                    m.TopicCode,
+                    m.CalculatedAmount
                 })
-                .Where(r => r != null)
-                .Select(r => r!)
-                .Where(r =>
-                    allowedMonths != null
-                        ? allowedMonths.Contains((r.PeriodYear, r.PeriodMonth))
-                        : r.PeriodYear == year!.Value)
-                .ToList();
+                .ToListAsync();
+
+            var cheshbonitRows = await _context.MeitarCheshbonit.AsNoTracking()
+                .Select(m => new
+                {
+                    m.CalcDate,
+                    m.EffectiveDate,
+                    m.TopicCode,
+                    m.PaidAmount
+                })
+                .ToListAsync();
+
+            bool InScope(int periodYear, int periodMonth) =>
+                allowedMonths != null
+                    ? allowedMonths.Contains((periodYear, periodMonth))
+                    : periodYear == year!.Value;
+
+            var bucketed = new List<(int PeriodYear, int PeriodMonth, string? TopicCode, decimal Hours, decimal Amount)>();
+            void AddBucket(DateOnly? date, string? topicCode, decimal hours, decimal amount)
+            {
+                if (date is null)
+                    return;
+                var periodYear = date.Value.Year;
+                var periodMonth = date.Value.Month;
+                if (!InScope(periodYear, periodMonth))
+                    return;
+                bucketed.Add((periodYear, periodMonth, topicCode, hours, amount));
+            }
+
+            foreach (var r in mutavimRows)
+                AddBucket(byEffective ? r.EffectiveDate : r.CalcDate, r.TopicCode, r.UnitCount ?? 0m, r.CalculatedAmount);
+            foreach (var r in mucarimRows)
+                AddBucket(byEffective ? r.EffectiveDate : r.CalcDate, r.TopicCode, 0m, r.CalculatedAmount);
+            foreach (var r in cheshbonitRows)
+                AddBucket(byEffective ? r.EffectiveDate : r.CalcDate, r.TopicCode, 0m, r.PaidAmount ?? 0m);
 
             var topics = await _sharedContext.MeitarTopics.AsNoTracking()
                 .Where(t => t.IsActive && t.AssistantTypeId != null)
@@ -168,7 +189,7 @@ namespace PetelAssistants.Api.Controllers
                         ? typeNames.GetValueOrDefault(g.Key.TypeId.Value, g.Key.TypeId.Value.ToString())
                         : "לא ממופה",
                     RowCount = g.Count(),
-                    Amount = Math.Round(g.Sum(x => x.CalculatedAmount), 2, MidpointRounding.AwayFromZero),
+                    Amount = Math.Round(g.Sum(x => x.Amount), 2, MidpointRounding.AwayFromZero),
                     Hours = Math.Round(g.Sum(x => x.Hours), 4, MidpointRounding.AwayFromZero)
                 })
                 .OrderBy(x => x.PeriodYear)
@@ -201,18 +222,53 @@ namespace PetelAssistants.Api.Controllers
                     return BadRequest(new { success = false, message = "שנת לימודים לא נמצאה" });
             }
 
-            var rows = await _context.MeitarMutavim.AsNoTracking()
+            bool InScope(int periodYear, int periodMonth)
+            {
+                if (hebrewMonths != null)
+                    return hebrewMonths.Contains((periodYear, periodMonth));
+                if (year.HasValue && month.HasValue)
+                    return periodYear == year.Value && periodMonth == month.Value;
+                if (year.HasValue)
+                    return periodYear == year.Value;
+                return true;
+            }
+
+            var mutavimRows = await _context.MeitarMutavim.AsNoTracking()
                 .Select(m => new
                 {
                     m.CalcDate,
                     m.EffectiveDate,
                     m.TopicCode,
                     m.TopicDescription,
-                    m.CalculatedAmount
+                    Amount = m.CalculatedAmount
                 })
                 .ToListAsync();
 
-            var filtered = rows
+            var mucarimRows = await _context.MeitarMucarim.AsNoTracking()
+                .Select(m => new
+                {
+                    m.CalcDate,
+                    m.EffectiveDate,
+                    m.TopicCode,
+                    m.TopicDescription,
+                    Amount = m.CalculatedAmount
+                })
+                .ToListAsync();
+
+            var cheshbonitRows = await _context.MeitarCheshbonit.AsNoTracking()
+                .Select(m => new
+                {
+                    m.CalcDate,
+                    m.EffectiveDate,
+                    m.TopicCode,
+                    m.TopicDescription,
+                    Amount = m.PaidAmount ?? 0m
+                })
+                .ToListAsync();
+
+            var filtered = mutavimRows
+                .Concat(mucarimRows)
+                .Concat(cheshbonitRows)
                 .Select(r =>
                 {
                     DateOnly? date = byEffective ? r.EffectiveDate : r.CalcDate;
@@ -224,21 +280,12 @@ namespace PetelAssistants.Api.Controllers
                         PeriodMonth = date.Value.Month,
                         r.TopicCode,
                         r.TopicDescription,
-                        r.CalculatedAmount
+                        r.Amount
                     };
                 })
                 .Where(r => r != null)
                 .Select(r => r!)
-                .Where(r =>
-                {
-                    if (hebrewMonths != null)
-                        return hebrewMonths.Contains((r.PeriodYear, r.PeriodMonth));
-                    if (year.HasValue && month.HasValue)
-                        return r.PeriodYear == year.Value && r.PeriodMonth == month.Value;
-                    if (year.HasValue)
-                        return r.PeriodYear == year.Value;
-                    return true;
-                })
+                .Where(r => InScope(r.PeriodYear, r.PeriodMonth))
                 .ToList();
 
             var mappedTopicCodes = await _sharedContext.MeitarTopics.AsNoTracking()
@@ -255,7 +302,7 @@ namespace PetelAssistants.Api.Controllers
                     TopicCode = string.IsNullOrEmpty(g.Key) ? null : g.Key,
                     TopicDescription = g.Select(x => x.TopicDescription).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)),
                     RowCount = g.Count(),
-                    TotalAmount = g.Sum(x => x.CalculatedAmount)
+                    TotalAmount = g.Sum(x => x.Amount)
                 })
                 .OrderBy(x => x.TopicCode)
                 .ToList();

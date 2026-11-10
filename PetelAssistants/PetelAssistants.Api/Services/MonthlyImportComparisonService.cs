@@ -336,6 +336,9 @@ namespace PetelAssistants.Api.Services
             var mutavimRows = await _context.MeitarMutavim
                 .Where(m => m.ProcessId == process.Id)
                 .ToListAsync();
+            var mucarimRows = await _context.MeitarMucarim
+                .Where(m => m.ProcessId == process.Id)
+                .ToListAsync();
             var cheshbonitRows = await _context.MeitarCheshbonit
                 .Where(m => m.ProcessId == process.Id)
                 .ToListAsync();
@@ -362,6 +365,11 @@ namespace PetelAssistants.Api.Services
                     Amount: r.CalculatedAmount,
                     Hours: r.UnitCount ?? 0m,
                     Rows: 1))
+                .Concat(mucarimRows.Select(r => (
+                    TypeId: ResolveType(r.TopicCode, typeByTopicCode),
+                    Amount: r.CalculatedAmount,
+                    Hours: 0m,
+                    Rows: 1)))
                 .Concat(cheshbonitRows.Select(r => (
                     TypeId: ResolveType(r.TopicCode, typeByTopicCode),
                     Amount: r.PaidAmount ?? 0m,
