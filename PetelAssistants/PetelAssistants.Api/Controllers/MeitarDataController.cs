@@ -19,12 +19,14 @@ namespace PetelAssistants.Api.Controllers
         private readonly SharedDbContext _sharedContext;
         private readonly IMeitarDataService _meitarDataService;
         private readonly MonthlyImportComparisonService _comparisonService;
+        private readonly MeitarMucarimEntitlementMatchService _mucarimMatchService;
 
         public MeitarDataController(
             AssistDbContext context,
             SharedDbContext sharedContext,
             IMeitarDataService meitarDataService,
             MonthlyImportComparisonService comparisonService,
+            MeitarMucarimEntitlementMatchService mucarimMatchService,
             UserSessionService sessionService,
             ILogger<MeitarDataController> logger)
             : base(sessionService, logger)
@@ -33,6 +35,7 @@ namespace PetelAssistants.Api.Controllers
             _sharedContext = sharedContext;
             _meitarDataService = meitarDataService;
             _comparisonService = comparisonService;
+            _mucarimMatchService = mucarimMatchService;
         }
 
         [HttpGet]
@@ -358,6 +361,10 @@ namespace PetelAssistants.Api.Controllers
                     UnitDescription = m.UnitDescription
                 })
                 .ToListAsync();
+
+            var matchCounts = await _mucarimMatchService.GetActiveMatchCountsAsync(items.Select(i => i.Id));
+            foreach (var item in items)
+                item.ActiveMatchCount = matchCounts.GetValueOrDefault(item.Id);
 
             return Ok(new { success = true, data = items });
         }
@@ -1096,6 +1103,22 @@ namespace PetelAssistants.Api.Controllers
                 await _context.SaveChangesAsync();
 
                 await _comparisonService.RebuildMeitarProcessAsync(process.Id, userId);
+
+                if (mucarimError == null && mucarimInserted > 0)
+                {
+                    try
+                    {
+                        await _mucarimMatchService.MatchPeriodAsync(
+                            entityId, year, month, userId,
+                            MeitarEntitlementMatchTriggers.Retrieve);
+                    }
+                    catch (Exception matchEx)
+                    {
+                        _logger.LogWarning(matchEx,
+                            "MUCARIM entitlement matching failed after retrieve for process {ProcessId} (best-effort)",
+                            process.Id);
+                    }
+                }
 
                 var message = skipped > 0
                     ? $"מוטבים: נשלפו {inserted} שורות ({skipped} דולגו)."

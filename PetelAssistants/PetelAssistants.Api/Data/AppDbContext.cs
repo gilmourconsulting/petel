@@ -48,6 +48,8 @@ namespace PetelAssistants.Api.Data
         public DbSet<MeitarSharatim>         MeitarSharatim         { get; set; }
         public DbSet<MeitarCheshbonit>       MeitarCheshbonit       { get; set; }
         public DbSet<MeitarMonthSummary>     MeitarMonthSummaries   { get; set; }
+        public DbSet<MeitarEntitlementMatchProcess> MeitarEntitlementMatchProcesses { get; set; }
+        public DbSet<MeitarMucarimEntitlementMatch> MeitarMucarimEntitlementMatches { get; set; }
         public DbSet<YearlyBudget>             YearlyBudgets            { get; set; }
         public DbSet<YearlyBudgetDetail>       YearlyBudgetDetails      { get; set; }
         public DbSet<YearlyBudgetMonthDetail>  YearlyBudgetMonthDetails { get; set; }
@@ -523,6 +525,46 @@ namespace PetelAssistants.Api.Data
                     .WithMany()
                     .HasForeignKey(s => s.YearlyBudgetId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<MeitarEntitlementMatchProcess>(entity =>
+            {
+                entity.ToTable("meitar_entitlement_match_processes");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.PeriodYear, e.PeriodMonth });
+
+                entity.HasOne(e => e.Entitlement)
+                    .WithMany()
+                    .HasForeignKey(e => e.EntitlementId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<MeitarMucarimEntitlementMatch>(entity =>
+            {
+                entity.ToTable("meitar_mucarim_entitlement_matches");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => e.MeitarMucarimId);
+                entity.HasIndex(e => e.EntitlementId);
+                entity.HasIndex(e => e.MatchProcessId);
+
+                entity.HasOne(m => m.MeitarMucarim)
+                    .WithMany()
+                    .HasForeignKey(m => m.MeitarMucarimId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(m => m.Entitlement)
+                    .WithMany()
+                    .HasForeignKey(m => m.EntitlementId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(m => m.MatchProcess)
+                    .WithMany(p => p.Matches)
+                    .HasForeignKey(m => m.MatchProcessId)
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasQueryFilter(e => _tenantContext.EntityId != 0 && e.EntityId == _tenantContext.EntityId);
             });

@@ -301,9 +301,18 @@
                                     @onclick='() => _dockTab = "allocations"'>
                                 הקצאות
                             </button>
+                            <button type="button"
+                                    class="tab-button @(_dockTab == "meitar" ? "active" : "")"
+                                    @onclick="OpenMeitarDockTab">
+                                מוכרים (מיתר)
+                            </button>
                         </div>
                         <div class="dock-tab-actions">
                             @if (_dockTab == "allocations" && _isLoadingAllocations)
+                            {
+                                <span style="font-size: 0.85em; color: #6c757d;">טוען...</span>
+                            }
+                            @if (_dockTab == "meitar" && _isLoadingMeitarMatches)
                             {
                                 <span style="font-size: 0.85em; color: #6c757d;">טוען...</span>
                             }
@@ -317,6 +326,16 @@
                             @if (_dockTab == "allocations")
                             {
                                 <button class="btn btn-primary btn-sm" @onclick="ShowAddAllocationDialog">+ הוסף הקצאה</button>
+                            }
+                            @if (_dockTab == "meitar"
+                                 && !_selectedEntitlement.IsCancelled
+                                 && _selectedEntitlement.IsValid)
+                            {
+                                <SecureButton ActionName="entitlements_meitar_match_recheck" ScreenName="@PageName" FunctionName="RecheckMeitarMatches"
+                                              OnClick="RecheckMeitarMatches" CssClass="btn btn-primary btn-sm"
+                                              Disabled="_isRecheckingMeitarMatches" HideIfNoAccess="true">
+                                    @(_isRecheckingMeitarMatches ? "מתאים..." : "התאם מיתר")
+                                </SecureButton>
                             }
                             <button class="btn btn-secondary btn-sm" @onclick="ClearSelectedEntitlement" title="סגור">✕</button>
                         </div>
@@ -334,6 +353,79 @@
                                           SecurityScreenName="entitlements"
                                           OnAddAllocation="ShowAddAllocationDialog"
                                           OnDeactivateAllocation="DeactivateAllocation" />
+                    }
+                    else if (_dockTab == "meitar")
+                    {
+                        @if (!string.IsNullOrEmpty(_meitarMatchError))
+                        {
+                            <div class="alert alert-danger" style="margin-bottom: 8px;">@_meitarMatchError</div>
+                        }
+                        @if (_meitarMatchResult != null)
+                        {
+                            <div style="margin-bottom: 8px; font-size: 0.9em; color: var(--text-muted);">
+                                בוטלו @_meitarMatchResult.DisabledCount · נוצרו @_meitarMatchResult.MatchedCount התאמות
+                            </div>
+                        }
+                        @if (_isLoadingMeitarMatches)
+                        {
+                            <div class="loading-spinner">טוען נתוני מוכרים...</div>
+                        }
+                        else if (_meitarMatches.Count == 0)
+                        {
+                            <div class="no-data-message">אין שורות מוכרים מקושרות לזכאות זו</div>
+                        }
+                        else
+                        {
+                            <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 8px; font-size: 0.9em;">
+                                <label style="display: flex; align-items: center; gap: 6px; margin: 0; white-space: nowrap;">
+                                    <input type="checkbox" @bind="_meitarFilterNonZeroDifference" />
+                                    רק הפרש ≠ 0
+                                </label>
+                                <span>
+                                    סה״כ הפרש (שולם לזכאות):
+                                    <strong>@FilteredMeitarMatches.Sum(r => r.CalculatedDifference ?? 0).ToString("N2")</strong>
+                                    · מציג @FilteredMeitarMatches.Count מתוך @_meitarMatches.Count שורות
+                                </span>
+                            </div>
+                            @if (FilteredMeitarMatches.Count == 0)
+                            {
+                                <div class="no-data-message">אין שורות העומדות בסינון</div>
+                            }
+                            else
+                            {
+                                <div class="table-container">
+                                    <table class="data-table">
+                                        <thead>
+                                            <tr>
+                                                <th>תקופה</th>
+                                                <th>תחולה</th>
+                                                <th>סמל מוסד</th>
+                                                <th>קוד נושא</th>
+                                                <th>נושא</th>
+                                                <th>יחידות</th>
+                                                <th>סכום מחושב</th>
+                                                <th>הפרש</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var row in FilteredMeitarMatches)
+                                            {
+                                                <tr>
+                                                    <td>@row.PeriodMonth/@row.PeriodYear</td>
+                                                    <td>@(row.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                                    <td>@(row.InstitutionCode ?? "—")</td>
+                                                    <td>@(row.TopicCode ?? "—")</td>
+                                                    <td>@(row.TopicDescription ?? "—")</td>
+                                                    <td>@(row.UnitCount?.ToString("0.##") ?? "—")</td>
+                                                    <td>@row.CalculatedAmount.ToString("N2")</td>
+                                                    <td>@(row.CalculatedDifference?.ToString("N2") ?? "—")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        }
                     }
                     else
                     {
@@ -1029,6 +1121,19 @@
     private List<EntitlementAllocationDto> _allocations = new();
     private bool _isLoadingAllocations;
     private string _dockTab = "details";
+    private List<MeitarMucarimEntitlementMatchListItemDto> _meitarMatches = new();
+    private bool _isLoadingMeitarMatches;
+    private bool _isRecheckingMeitarMatches;
+    private bool _meitarFilterNonZeroDifference = true;
+    private string _meitarMatchError = string.Empty;
+    private MeitarMucarimEntitlementMatchResultDto? _meitarMatchResult;
+
+    private List<MeitarMucarimEntitlementMatchListItemDto> FilteredMeitarMatches =>
+        _meitarFilterNonZeroDifference
+            ? _meitarMatches
+                .Where(r => r.CalculatedDifference.HasValue && r.CalculatedDifference.Value != 0)
+                .ToList()
+            : _meitarMatches;
     private const int DockMinHeightPx = 140;
     private const int DockDefaultHeightPx = 280;
     private int _dockHeightPx = DockDefaultHeightPx;
@@ -1189,6 +1294,9 @@
                 {
                     _selectedEntitlement = null;
                     _allocations = new();
+                    _meitarMatches = new();
+                    _meitarMatchResult = null;
+                    _meitarMatchError = string.Empty;
                     _dockTab = "details";
                 }
             }
@@ -1232,12 +1340,18 @@
         {
             _selectedEntitlement = null;
             _allocations = new();
+            _meitarMatches = new();
+            _meitarMatchResult = null;
+            _meitarMatchError = string.Empty;
             _dockTab = "details";
             return;
         }
 
         _selectedEntitlement = item;
         _allocations = new();
+        _meitarMatches = new();
+        _meitarMatchResult = null;
+        _meitarMatchError = string.Empty;
         _dockTab = "details";
         await LoadAllocationsAsync(item.Id);
     }
@@ -1246,7 +1360,65 @@
     {
         _selectedEntitlement = null;
         _allocations = new();
+        _meitarMatches = new();
+        _meitarMatchResult = null;
+        _meitarMatchError = string.Empty;
         _dockTab = "details";
+    }
+
+    private async Task OpenMeitarDockTab()
+    {
+        _dockTab = "meitar";
+        if (_selectedEntitlement != null)
+            await LoadMeitarMatchesAsync(_selectedEntitlement.Id);
+    }
+
+    private async Task LoadMeitarMatchesAsync(int entitlementId)
+    {
+        _isLoadingMeitarMatches = true;
+        _meitarMatchError = string.Empty;
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<MeitarMucarimEntitlementMatchListItemDto>>>(
+                $"meitar-mucarim-entitlement-matches/by-entitlement/{entitlementId}");
+            _meitarMatches = response?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading meitar matches: {ex.Message}");
+            _meitarMatches = new();
+            _meitarMatchError = "שגיאה בטעינת התאמות מוכרים.";
+        }
+        finally
+        {
+            _isLoadingMeitarMatches = false;
+        }
+    }
+
+    private async Task RecheckMeitarMatches()
+    {
+        if (_selectedEntitlement == null)
+            return;
+
+        _isRecheckingMeitarMatches = true;
+        _meitarMatchError = string.Empty;
+        _meitarMatchResult = null;
+        try
+        {
+            var response = await ApiService.PostAsync<object, ApiResponse<MeitarMucarimEntitlementMatchResultDto>>(
+                $"meitar-mucarim-entitlement-matches/recheck-entitlement/{_selectedEntitlement.Id}", new { });
+            _meitarMatchResult = response?.Data;
+            await LoadMeitarMatchesAsync(_selectedEntitlement.Id);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error rechecking meitar matches: {ex.Message}");
+            _meitarMatchError = "שגיאה בהתאמת מוכרים לזכאות.";
+        }
+        finally
+        {
+            _isRecheckingMeitarMatches = false;
+        }
     }
 
     private async Task StartDockResize(PointerEventArgs e)

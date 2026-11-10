@@ -24,6 +24,13 @@
                   OnClick="RefreshData" CssClass="context-btn">
         רענן נתונים
     </SecureButton>
+    @if (_activeTab == DataTab.Mucarim)
+    {
+        <SecureButton ActionName="meitardata_mucarim_entitlement_recheck" ScreenName="@PageName" FunctionName="RecheckMucarimEntitlementMatches"
+                      OnClick="RecheckMucarimEntitlementMatches" CssClass="context-btn" Disabled="_isMatchRechecking" HideIfNoAccess="true">
+            @(_isMatchRechecking ? "בודק..." : "בדיקת התאמות זכאות מחדש")
+        </SecureButton>
+    }
     <SecureButton ActionName="meitardata_month_summary" ScreenName="@PageName" FunctionName="NavigateToMonthSummary"
                   OnClick="NavigateToMonthSummary" CssClass="context-btn" HideIfNoAccess="true">
         סיכום מול תקציב
@@ -35,6 +42,98 @@
 </div>
 
 <MeitarRetrieveModal @ref="_meitarRetrieveModal" YearId="_selectedYearId" />
+
+@if (_showMatchRecheckSummary)
+{
+    <div class="modal-overlay" @onclick="CloseMatchRecheckSummary">
+        <div class="modal-content" style="max-width: 480px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>סיכום התאמות זכאות</h3>
+                <button class="modal-close" @onclick="CloseMatchRecheckSummary">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (!string.IsNullOrEmpty(_matchRecheckError))
+                {
+                    <div class="alert alert-danger">@_matchRecheckError</div>
+                }
+                else if (_matchRecheckResult != null)
+                {
+                    <p>הותאמו מחדש שורות מוכרים לתקופה @_filterMonth/@_filterYear.</p>
+                    <ul>
+                        <li>התאמות ישנות שבוטלו: @_matchRecheckResult.DisabledCount</li>
+                        <li>התאמות חדשות: @_matchRecheckResult.MatchedCount</li>
+                        <li>שורות ללא התאמה: @_matchRecheckResult.UnmatchedLineCount</li>
+                    </ul>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseMatchRecheckSummary">סגור</button>
+            </div>
+        </div>
+    </div>
+}
+
+@if (_showMucarimMatchesModal)
+{
+    <div class="modal-overlay" @onclick="CloseMucarimMatchesModal">
+        <div class="modal-content" style="max-width: 720px;" @onclick:stopPropagation="true">
+            <div class="modal-header">
+                <h3>זכאויות מקושרות</h3>
+                <button class="modal-close" @onclick="CloseMucarimMatchesModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                @if (_selectedMucarimForMatches != null)
+                {
+                    <div style="margin-bottom: 12px; color: var(--text-muted); font-size: 0.9em;">
+                        מוסד: @(_selectedMucarimForMatches.InstitutionCode ?? "—")
+                        · נושא: @(_selectedMucarimForMatches.TopicCode ?? "—")
+                        · תחולה: @(_selectedMucarimForMatches.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")
+                        · הפרש (שולם): @(_selectedMucarimForMatches.CalculatedDifference?.ToString("N2") ?? "—")
+                    </div>
+                }
+                @if (_isLoadingMucarimMatches)
+                {
+                    <div class="loading-spinner">טוען...</div>
+                }
+                else if (_mucarimMatchRows.Count == 0)
+                {
+                    <div class="no-data-message">אין התאמות פעילות לשורה זו</div>
+                }
+                else
+                {
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>סוג סייעת</th>
+                                    <th>מוסד</th>
+                                    <th>כיתה</th>
+                                    <th>שעות</th>
+                                    <th>תאריכים</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var row in _mucarimMatchRows)
+                                {
+                                    <tr>
+                                        <td>@(row.AssistantTypeName ?? "—")</td>
+                                        <td>@(row.EntitlementInstitutionName ?? "—")</td>
+                                        <td>@(row.ClassName ?? "—")</td>
+                                        <td>@row.Hours.ToString("0.##")</td>
+                                        <td>@row.StartDate.ToString("dd/MM/yyyy") – @row.EndDate.ToString("dd/MM/yyyy")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseMucarimMatchesModal">סגור</button>
+            </div>
+        </div>
+    </div>
+}
 
 <div class="main-container">
     <div class="students-content">
@@ -111,6 +210,13 @@
                                @bind="_filterTopic" @bind:event="oninput"
                                placeholder="קוד או תיאור נושא..." />
                     </div>
+                    @if (_activeTab is DataTab.Mutavim or DataTab.Mucarim)
+                    {
+                        <label style="display: flex; align-items: center; gap: 6px; align-self: flex-end; margin: 0; font-size: 0.9em; white-space: nowrap;">
+                            <input type="checkbox" @bind="_filterNonZeroDifference" />
+                            רק הפרש ≠ 0
+                        </label>
+                    }
                     @if (HasActiveClientFilters)
                     {
                         <button class="btn btn-secondary" style="align-self: flex-end;" @onclick="ClearClientFilters">נקה סינון</button>
@@ -232,8 +338,20 @@
                             </div>
                             <div class="summary-card">
                                 <div class="summary-info">
+                                    <div class="summary-value">@_mucarimItems.Sum(i => i.CalculatedDifference ?? 0).ToString("N0")</div>
+                                    <div class="summary-label">סה"כ הפרש / שולם (₪)</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-info">
                                     <div class="summary-value">@_mucarimItems.Select(i => i.InstitutionCode).Distinct().Count()</div>
                                     <div class="summary-label">מוסדות ייחודיים</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-info">
+                                    <div class="summary-value">@_mucarimItems.Count(i => i.ActiveMatchCount > 0)</div>
+                                    <div class="summary-label">שורות עם התאמת זכאות</div>
                                 </div>
                             </div>
                         </div>
@@ -244,6 +362,7 @@
                         <div style="margin-bottom: 12px; color: var(--text-muted); font-size: 0.9em;">
                             מציג @FilteredMucarimItems.Count מתוך @_mucarimItems.Count רשומות
                             · סה״כ סכום מחושב: @FilteredMucarimItems.Sum(i => i.CalculatedAmount).ToString("N2")
+                            · סה״כ הפרש: @FilteredMucarimItems.Sum(i => i.CalculatedDifference ?? 0).ToString("N2")
                         </div>
                     }
 
@@ -257,6 +376,7 @@
                             <table class="data-table">
                                 <thead>
                                     <tr>
+                                        <th>זכאויות</th>
                                         <th @onclick='() => SortMucarimTable("CalcDate")' style="cursor:pointer">
                                             תאריך חישוב @GetSortArrow("CalcDate", _mucarimSortColumn, _mucarimSortAscending)
                                         </th>
@@ -297,6 +417,19 @@
                                     @foreach (var item in FilteredMucarimItems)
                                     {
                                         <tr>
+                                            <td>
+                                                @if (item.ActiveMatchCount > 0)
+                                                {
+                                                    <button type="button" class="btn btn-secondary" style="padding: 2px 8px;"
+                                                            @onclick="() => ShowMucarimMatches(item)">
+                                                        @item.ActiveMatchCount
+                                                    </button>
+                                                }
+                                                else
+                                                {
+                                                    <span style="color: var(--text-muted);">0</span>
+                                                }
+                                            </td>
                                             <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
                                             <td>@(item.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
                                             <td>@(item.InstitutionCode ?? "—")</td>
@@ -536,10 +669,21 @@
     private List<(int Year, int Month)> _schoolMonths = new();
     private MeitarRetrieveModal? _meitarRetrieveModal;
 
+    private bool _isMatchRechecking;
+    private bool _showMatchRecheckSummary;
+    private string _matchRecheckError = "";
+    private MeitarMucarimEntitlementMatchResultDto? _matchRecheckResult;
+
+    private bool _showMucarimMatchesModal;
+    private bool _isLoadingMucarimMatches;
+    private MeitarMucarimListItemDto? _selectedMucarimForMatches;
+    private List<MeitarMucarimEntitlementMatchListItemDto> _mucarimMatchRows = new();
+
     private int _filterYear;
     private int _filterMonth;
     private string _dateField = "calc";
     private string _filterTopic = "";
+    private bool _filterNonZeroDifference = true;
 
     private string _sortColumn = "CalcDate";
     private bool _sortAscending = true;
@@ -560,7 +704,8 @@
     };
 
     private bool HasActiveClientFilters =>
-        !string.IsNullOrWhiteSpace(_filterTopic);
+        !string.IsNullOrWhiteSpace(_filterTopic)
+        || ((_activeTab is DataTab.Mutavim or DataTab.Mucarim) && _filterNonZeroDifference);
 
     private List<MeitarMutavimListItemDto> FilteredItems
     {
@@ -577,6 +722,9 @@
                     (!string.IsNullOrEmpty(i.TopicDescription) &&
                      i.TopicDescription.Contains(term, StringComparison.OrdinalIgnoreCase)));
             }
+
+            if (_filterNonZeroDifference)
+                query = query.Where(i => i.CalculatedDifference.HasValue && i.CalculatedDifference.Value != 0);
 
             query = _sortColumn switch
             {
@@ -633,6 +781,9 @@
                     (!string.IsNullOrEmpty(i.InstitutionName) &&
                      i.InstitutionName.Contains(term, StringComparison.OrdinalIgnoreCase)));
             }
+
+            if (_filterNonZeroDifference)
+                query = query.Where(i => i.CalculatedDifference.HasValue && i.CalculatedDifference.Value != 0);
 
             query = _mucarimSortColumn switch
             {
@@ -959,9 +1110,68 @@
 
     private async Task RefreshData() => await LoadDataAsync();
 
+    private async Task RecheckMucarimEntitlementMatches()
+    {
+        _isMatchRechecking = true;
+        _matchRecheckError = "";
+        _matchRecheckResult = null;
+        try
+        {
+            var response = await ApiService.PostAsync<object, ApiResponse<MeitarMucarimEntitlementMatchResultDto>>(
+                $"meitar-mucarim-entitlement-matches/recheck?year={_filterYear}&month={_filterMonth}", new { });
+            _matchRecheckResult = response?.Data;
+            await LoadDataAsync(showSpinner: false);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error rechecking mucarim entitlement matches: {ex.Message}");
+            _matchRecheckError = "שגיאה בבדיקת התאמות הזכאות. נסה שוב.";
+        }
+        finally
+        {
+            _isMatchRechecking = false;
+            _showMatchRecheckSummary = true;
+        }
+    }
+
+    private void CloseMatchRecheckSummary() => _showMatchRecheckSummary = false;
+
+    private async Task ShowMucarimMatches(MeitarMucarimListItemDto item)
+    {
+        _selectedMucarimForMatches = item;
+        _showMucarimMatchesModal = true;
+        _isLoadingMucarimMatches = true;
+        _mucarimMatchRows = new();
+        try
+        {
+            var response = await ApiService.GetAsync<ApiResponse<List<MeitarMucarimEntitlementMatchListItemDto>>>(
+                $"meitar-mucarim-entitlement-matches?year={item.PeriodYear}&month={item.PeriodMonth}");
+            _mucarimMatchRows = (response?.Data ?? new())
+                .Where(m => m.MeitarMucarimId == item.Id)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading mucarim entitlement matches: {ex.Message}");
+            _mucarimMatchRows = new();
+        }
+        finally
+        {
+            _isLoadingMucarimMatches = false;
+        }
+    }
+
+    private void CloseMucarimMatchesModal()
+    {
+        _showMucarimMatchesModal = false;
+        _selectedMucarimForMatches = null;
+        _mucarimMatchRows = new();
+    }
+
     private void ClearClientFilters()
     {
         _filterTopic = "";
+        _filterNonZeroDifference = false;
     }
 
     private void NavigateBack()

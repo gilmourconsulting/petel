@@ -257,7 +257,7 @@ Additional fields:
 
 List/read current rows with `is_last_version = true`. History: `GET api/entitlements/history/{masterEntitlementId}`.
 
-**UI (entitlements screen):** Main table columns (client-side sortable except Actions): פעולות, סוג, סוג מוסד (גן / יסודי / תיכון from institution type + school level), מוסד, סוג סייעת, שעות, השתתפות משרד, הקצאה (icon: red dot none / yellow check partial / green check full), תאריכים, סטטוס. Class name, pupil name, national ID, and class classification are not in the table — they appear on the details tab. Selecting a row opens a height-resizable bottom dock with two tabs: **פרטי זכאות** (default; same fields as the edit modal, plus ערוך) and **הקצאות**. History remains available via `GET api/entitlements/history/{masterEntitlementId}`.
+**UI (entitlements screen):** Main table columns (client-side sortable except Actions): פעולות, סוג, סוג מוסד (גן / יסודי / תיכון from institution type + school level), מוסד, סוג סייעת, שעות, השתתפות משרד, הקצאה (icon: red dot none / yellow check partial / green check full), תאריכים, סטטוס. Class name, pupil name, national ID, and class classification are not in the table — they appear on the details tab. Selecting a row opens a height-resizable bottom dock with three tabs: **פרטי זכאות** (default; same fields as the edit modal, plus ערוך), **הקצאות**, and **מוכרים (מיתר)** (active MUCARIM match lines + **התאם מיתר** recheck). History remains available via `GET api/entitlements/history/{masterEntitlementId}`.
 
 **Cancel** creates a **new** version with `is_cancelled = true` / `is_active = false` (prior versions stay unchanged). Do not flip cancel in place. Route `PUT api/entitlements/{id}/deactivate` performs cancel-via-version.
 
@@ -428,7 +428,19 @@ MUCARIM ("recognised institutions") is pulled in the **same** `POST api/meitarda
 
 **Month summaries / hub live totals:** MUCARIM `calculated_difference` is included in `meitar_month_summaries` (and therefore `yearly_budget_comparisons.meitar_amount`) and in hub `GET api/MeitarData/comparison-totals`, grouped by `topic_code` → `meitar_topics.assistant_type_id` alongside MUTAVIM and CHESHBONIT. Hours remain MUTAVIM-only.
 
-SQL migration: `PetelAssistants/SQL/add-meitar-mucarim-retrieve.sql`.
+**Entitlement matching (v1):** each MUCARIM line can link to **all** matching last-version valid entitlements. Keys: `topic_code` → `meitar_topics.assistant_type_id`; `institution_code` → year-roster `institution_year_settings.symbol` for the Hebrew year covering `effective_date` (fallback master `institutions.symbol`); effective **month** must overlap entitlement `start_date`–`end_date` and that Hebrew year must equal entitlement `hebrew_year_id`. No class-name key (MUCARIM has none) — every entitlement of the mapped type at the institution that passes the date gate is linked (1→N).
+
+**Match tables (`assist_schema`):** `meitar_entitlement_match_processes` (run header: `source=mucarim`, `match_trigger` = `retrieve` | `period_recheck` | `entitlement`, optional period / entitlement, counts) and `meitar_mucarim_entitlement_matches` (`meitar_mucarim_id`, `entitlement_id`, `match_process_id`, `is_active`, `disabled_at` / `disable_user`). Unique active pair `(meitar_mucarim_id, entitlement_id)`. MUCARIM row delete (retrieve replace) cascades match rows.
+
+**Recreate / disable:** every run disables active matches in scope (`is_active=false`) then inserts fresh active rows. Scopes: after retrieve for that period (best-effort — does not fail MUTAVIM); standalone period recheck; from one entitlement (disable that entitlement’s active MUCARIM matches, then search MUCARIM across periods by type/topics + institution symbol + date overlap).
+
+**API:** `POST api/meitar-mucarim-entitlement-matches/recheck?year=&month=`, `POST …/recheck-entitlement/{entitlementId}`, `GET …?year=&month=`, `GET …/by-entitlement/{entitlementId}`. `GET api/meitardata/mucarim` includes `ActiveMatchCount` per row.
+
+**Paid amount signal:** MUCARIM `calculated_difference` (הפרש) is what was actually paid toward the line; entitlement dock and MUCARIM summaries show it per linked line and as a total. Client filter **רק הפרש ≠ 0** (default on) on MUTAVIM/MUCARIM tabs and the entitlements Meitar dock hides null/zero-difference rows.
+
+**UI:** `/meitar-data` MUCARIM tab — match-count column (opens linked entitlements), `calculated_difference` column + period total, context button **בדיקת התאמות זכאות מחדש** (`meitardata_mucarim_entitlement_recheck`). Entitlements dock tab **מוכרים (מיתר)** — list linked MUCARIM lines with הפרש + total paid + **התאם מיתר** (`entitlements_meitar_match_recheck`).
+
+SQL: `PetelAssistants/SQL/add-meitar-mucarim-retrieve.sql`, `PetelAssistants/SQL/add-meitar-mucarim-entitlement-matches.sql`.
 
 #### SHARATIM (special-needs class counts per school, best-effort)
 
@@ -471,15 +483,15 @@ SQL migration: `PetelAssistants/SQL/add-meitar-cheshbonit-retrieve.sql`.
 
 **MUTAVIM tab:** beneficiary code, calc date, effective date, topic code/description, unit count, cost, participation percent, calculated amount, previous calculated amount, calculated difference — import metadata is not shown. Client-side filter: topic code/description. Summary cards: record count, total calculated sum, distinct topics.
 
-**MUCARIM tab:** calc date, effective date, institution code/name, topic code/description, status, unit count, percent, cost, calculated amount, previous calculated amount, calculated difference, unit description. Client-side filter (shared text box): topic code/description or institution code/name. Summary cards: record count, total calculated sum, distinct institutions.
+**MUCARIM tab:** entitlement match count (click → linked entitlements modal), calc date, effective date, institution code/name, topic code/description, status, unit count, percent, cost, calculated amount, previous calculated amount, calculated difference (הפרש = paid), unit description. Client-side filter (shared text box): topic code/description or institution code/name. Summary cards: record count, total calculated sum, total calculated difference, distinct institutions, rows with entitlement matches. Period recheck button when this tab is active.
 
 **SHARATIM tab:** calc date, effective date, institution code/name, topic code, class count — no calculated-amount columns (this dataset is class counts, not budget). Client-side filter (shared text box): topic code or institution code/name. Summary cards: record count, distinct institutions, total class count.
 
 **CHESHBONIT tab:** beneficiary code, calc/effective date, accounting unit, topic code/description, total due, paid amount, payment difference, debt balance, monthly execution balance, notes. Client-side filter: topic / accounting unit / beneficiary. Summary cards: record count, total paid, total due, distinct topics.
 
-**API:** `GET api/meitardata?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarMutavimListItemDto`. `GET api/meitardata/mucarim?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarMucarimListItemDto`. `GET api/meitardata/sharatim?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarSharatimListItemDto`. `GET api/meitardata/cheshbonit?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarCheshbonitListItemDto`. Month summary vs locked budget: `GET api/meitar-month-summaries?year=&month=` (`/meitar-data/month-summary`, MUTAVIM + MUCARIM + CHESHBONIT amounts).
+**API:** `GET api/meitardata?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarMutavimListItemDto`. `GET api/meitardata/mucarim?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarMucarimListItemDto` (includes `ActiveMatchCount`). `GET api/meitardata/sharatim?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarSharatimListItemDto`. `GET api/meitardata/cheshbonit?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarCheshbonitListItemDto`. Month summary vs locked budget: `GET api/meitar-month-summaries?year=&month=` (`/meitar-data/month-summary`, MUTAVIM + MUCARIM + CHESHBONIT amounts). MUCARIM entitlement matches: `api/meitar-mucarim-entitlement-matches` (see MUCARIM section).
 
-**Security actions:** `meitardata_page_action`, `meitardata_back`, `meitardata_refresh`, `maindashboard_meitar_view`, `yearmanagement_meitar_view`. SQL: `add-meitar-data-view.sql` (also adds the `effective_date` column). The MUCARIM, SHARATIM and CHESHBONIT tabs reuse these same actions — no new security actions were added.
+**Security actions:** `meitardata_page_action`, `meitardata_back`, `meitardata_refresh`, `meitardata_mucarim_entitlement_recheck`, `maindashboard_meitar_view`, `yearmanagement_meitar_view`. SQL: `add-meitar-data-view.sql` (also adds the `effective_date` column), `add-meitar-mucarim-entitlement-matches.sql`, `add-meitar-cheshbonit-retrieve.sql`. The MUCARIM, SHARATIM and CHESHBONIT tabs reuse the same page actions; entitlement-side match button uses `entitlements_meitar_match_recheck`.
 
 ## Related
 
