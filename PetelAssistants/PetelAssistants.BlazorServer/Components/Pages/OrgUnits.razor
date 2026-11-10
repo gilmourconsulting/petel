@@ -1,5 +1,6 @@
 @page "/org-units"
 @page "/year/{YearId:int}/org-units"
+@page "/year/{YearId:int}/institution-year-settings"
 @layout MainLayout
 @inherits SecurePageBase
 @using PetelAssistants.BlazorServer.Models
@@ -23,16 +24,23 @@
                           OnClick="ShowCreateDialog" CssClass="context-btn">
                 הוסף מוסד
             </SecureButton>
+            <SecureButton ActionName="org_units_save_calendar" ScreenName="@PageName" FunctionName="SaveCalendar"
+                          OnClick="SaveCalendar" CssClass="context-btn" HideIfNoAccess="true">
+                @(_isSavingCalendar ? "שומר..." : "שמור")
+            </SecureButton>
         }
         <SecureButton ActionName="org_units_back" ScreenName="@PageName" FunctionName="NavigateBack"
                       OnClick="NavigateBack" CssClass="context-navigation-btn">
-            חזרה לניהול שנה
+            @(_fromDashboard ? "חזרה לדף הבית" : "חזרה לניהול שנה")
         </SecureButton>
     </div>
 
     <div class="students-content">
         <div class="content-card">
             <h2 class="page-title">רשימת מוסדות לשנה</h2>
+            <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 16px;">
+                רשימת מוסדות לשנת הלימודים, כולל ימי לימוד בשבוע, שעות שבועיות והשתתפות ביום לימודים ארוך (יוח״א).
+            </p>
 
             @if (_isLoading)
             {
@@ -80,6 +88,14 @@
                             <option value="kindergarten">גן ילדים</option>
                         </select>
                     </div>
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <label style="font-size: 0.82em; font-weight: 600;">רמה</label>
+                        <select class="form-control" style="min-width: 140px;" @bind="_filterSchoolLevel">
+                            <option value="">הכל</option>
+                            <option value="elementary">@SchoolLevelLabels.ElementaryDisplay</option>
+                            <option value="high_school">@SchoolLevelLabels.HighSchoolDisplay</option>
+                        </select>
+                    </div>
                     @if (HasActiveFilters)
                     {
                         <button type="button" class="btn btn-secondary" style="align-self: flex-end;" @onclick="ClearFilters">נקה סינון</button>
@@ -110,6 +126,9 @@
                                         רמה @GetSortArrow(nameof(OrgUnitDto.SchoolLevel))
                                     </th>
                                     <th>חינוך מיוחד</th>
+                                    <th>ימי לימוד בשבוע</th>
+                                    <th>שעות שבועיות</th>
+                                    <th>יום לימודים ארוך</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -131,6 +150,19 @@
                                         <td>@GetOrgUnitTypeLabel(unit.OrgUnitType)</td>
                                         <td>@SchoolLevelLabels.GetDisplayName(unit.SchoolLevel, unit.OrgUnitType)</td>
                                         <td>@(unit.IsSpecialEducation ? "כן" : "לא")</td>
+                                        <td>
+                                            <input type="number" class="form-control" style="min-width: 90px; max-width: 120px;"
+                                                   step="0.5" min="0" max="7"
+                                                   @bind="unit.SchoolDaysPerWeek" @bind:event="onchange" />
+                                        </td>
+                                        <td>
+                                            <input type="number" class="form-control" style="min-width: 90px; max-width: 120px;"
+                                                   step="0.01" min="0"
+                                                   @bind="unit.WeeklyHours" @bind:event="onchange" />
+                                        </td>
+                                        <td style="text-align: center;">
+                                            <input type="checkbox" @bind="unit.HasExtendedSchoolDay" />
+                                        </td>
                                     </tr>
                                 }
                             </tbody>
@@ -202,6 +234,9 @@
 @code {
     [Parameter] public int YearId { get; set; }
 
+    [SupplyParameterFromQuery(Name = "fromDashboard")]
+    public string? FromDashboard { get; set; }
+
     protected override string PageName => "org_units";
 
     private int _effectiveYearId;
@@ -209,12 +244,15 @@
     private List<OrgUnitDto> _orgUnits = new();
     private OrgUnitCopyStatusDto? _copyStatus;
     private bool _isLoading = true;
+    private bool _fromDashboard;
     private string _filterText = "";
     private string _filterType = "";
+    private string _filterSchoolLevel = "";
     private string _sortColumn = nameof(OrgUnitDto.Name);
     private bool _sortAscending = true;
     private bool _showFormDialog;
     private bool _isSaving;
+    private bool _isSavingCalendar;
     private string _formError = string.Empty;
     private OrgUnitDto? _editUnit;
     private string _formName = string.Empty;
@@ -226,12 +264,31 @@
 
     protected override async Task OnPageInitializedAsync()
     {
+        _fromDashboard = IsFromDashboardFlag(FromDashboard);
+
+        if (IsLegacySettingsRoute())
+        {
+            var qs = _fromDashboard ? "?fromDashboard=1" : "";
+            Navigation.NavigateTo($"/year/{YearId}/org-units{qs}", replace: true);
+            return;
+        }
+
         await ResolveYearAsync();
         if (_effectiveYearId > 0)
             await LoadDataAsync();
         else
             _isLoading = false;
     }
+
+    private bool IsLegacySettingsRoute()
+    {
+        var path = new Uri(Navigation.Uri).AbsolutePath;
+        return path.Contains("/institution-year-settings", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsFromDashboardFlag(string? value) =>
+        string.Equals(value, "1", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(value, "true", StringComparison.OrdinalIgnoreCase);
 
     private async Task ResolveYearAsync()
     {
@@ -248,7 +305,8 @@
             var currentId = context?.CurrentYear?.Id ?? 0;
             if (currentId > 0)
             {
-                Navigation.NavigateTo($"/year/{currentId}/org-units", replace: true);
+                var qs = _fromDashboard ? "?fromDashboard=1" : "";
+                Navigation.NavigateTo($"/year/{currentId}/org-units{qs}", replace: true);
                 return;
             }
         }
@@ -327,12 +385,14 @@
 
     private bool HasActiveFilters =>
         !string.IsNullOrWhiteSpace(_filterText) ||
-        !string.IsNullOrEmpty(_filterType);
+        !string.IsNullOrEmpty(_filterType) ||
+        !string.IsNullOrEmpty(_filterSchoolLevel);
 
     private void ClearFilters()
     {
         _filterText = "";
         _filterType = "";
+        _filterSchoolLevel = "";
     }
 
     private List<OrgUnitDto> FilteredOrgUnits
@@ -343,7 +403,9 @@
                 (string.IsNullOrWhiteSpace(_filterText) ||
                  u.Name.Contains(_filterText, StringComparison.OrdinalIgnoreCase) ||
                  (u.Symbol?.Contains(_filterText, StringComparison.OrdinalIgnoreCase) ?? false)) &&
-                (string.IsNullOrEmpty(_filterType) || u.OrgUnitType == _filterType));
+                (string.IsNullOrEmpty(_filterType) || u.OrgUnitType == _filterType) &&
+                (string.IsNullOrEmpty(_filterSchoolLevel) ||
+                 string.Equals(u.SchoolLevel, _filterSchoolLevel, StringComparison.OrdinalIgnoreCase)));
 
             query = _sortColumn switch
             {
@@ -486,6 +548,63 @@
         }
     }
 
+    private async Task SaveCalendar()
+    {
+        if (_isSavingCalendar || _orgUnits.Count == 0)
+            return;
+
+        foreach (var unit in _orgUnits)
+        {
+            if (unit.SchoolDaysPerWeek < 0 || unit.SchoolDaysPerWeek > 7)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "ימי לימוד בשבוע חייבים להיות בין 0 ל-7");
+                return;
+            }
+            if (unit.WeeklyHours < 0)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "שעות שבועיות חייבות להיות אי-שליליות");
+                return;
+            }
+        }
+
+        _isSavingCalendar = true;
+        try
+        {
+            var request = new UpsertInstitutionYearSettingsRequest
+            {
+                YearId = _effectiveYearId,
+                Items = _orgUnits.Select(u => new InstitutionYearSettingsItemRequest
+                {
+                    InstitutionId = u.Id,
+                    SchoolDaysPerWeek = u.SchoolDaysPerWeek,
+                    WeeklyHours = u.WeeklyHours,
+                    HasExtendedSchoolDay = u.HasExtendedSchoolDay
+                }).ToList()
+            };
+
+            var response = await ApiService.PutAsync<UpsertInstitutionYearSettingsRequest, ApiResponse<object>>(
+                "institution-year-settings", request);
+
+            if (response?.Success == true)
+            {
+                await JSRuntime.InvokeVoidAsync("alert", "הגדרות המוסדות נשמרו בהצלחה");
+                await LoadDataAsync();
+            }
+            else
+            {
+                await JSRuntime.InvokeVoidAsync("alert", response?.Message ?? "שגיאה בשמירה");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", $"שגיאה בשמירה: {ex.Message}");
+        }
+        finally
+        {
+            _isSavingCalendar = false;
+        }
+    }
+
     private async Task RemoveFromYear(OrgUnitDto unit)
     {
         if (!await JSRuntime.InvokeAsync<bool>("confirm", $"האם להסיר את '{unit.Name}' מרשימת השנה?"))
@@ -506,6 +625,11 @@
         _ => type
     };
 
-    private void NavigateBack() =>
-        Navigation.NavigateTo(_effectiveYearId > 0 ? $"/year/{_effectiveYearId}" : "/maindashboard");
+    private void NavigateBack()
+    {
+        if (_fromDashboard)
+            Navigation.NavigateTo("/maindashboard");
+        else
+            Navigation.NavigateTo(_effectiveYearId > 0 ? $"/year/{_effectiveYearId}" : "/maindashboard");
+    }
 }

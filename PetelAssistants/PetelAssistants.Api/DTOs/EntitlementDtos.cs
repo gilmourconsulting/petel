@@ -66,6 +66,9 @@ namespace PetelAssistants.Api.DTOs
         public string? SchoolLevel { get; set; }
         public bool IsSpecialEducation { get; set; }
         public bool IsActive { get; set; }
+        public decimal SchoolDaysPerWeek { get; set; }
+        public decimal WeeklyHours { get; set; }
+        public bool HasExtendedSchoolDay { get; set; }
     }
 
     public class CreateOrgUnitRequest

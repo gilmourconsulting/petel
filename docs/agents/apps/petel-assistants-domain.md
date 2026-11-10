@@ -181,7 +181,7 @@ Each local authority owns institution **identity** rows in `assist_schema.instit
 
 Master `institutions` keeps a last-known template of the same fields (synced on create/update). Year-aware APIs (entitlements, uploads, budget calculate, Meitar match) read the **year roster** row.
 
-**UI:** `/year/{YearId}/org-units` (`api/org-units?yearId=`). Entry is **only** from the Year Management hub card **בתי ספר וגנים** (`yearmanagement_org_units`). Side-menu `org_units` is inactive; there is no main-dashboard button.
+**UI:** `/year/{YearId}/org-units` (`api/org-units?yearId=`). Entry from the Year Management hub card **בתי ספר וגנים** (`yearmanagement_org_units`) or main dashboard **בתי ספר וגנים** (`maindashboard_org_units` → `/org-units?fromDashboard=1`). Side-menu `org_units` is inactive. The same screen includes inline calendar fields (see below).
 
 **Seed an empty year (mutually exclusive with an existing roster):**
 
@@ -190,7 +190,7 @@ Master `institutions` keeps a last-known template of the same fields (synced on 
 
 After seed: manual add/edit; remove-from-year (`PUT api/org-units/{id}/remove-from-year?yearId=`) deletes the year row (blocked if active last-version entitlements exist). No re-upload/replace in v1.
 
-SQL: `add-institutions.sql`, `add-institution-year-settings.sql`, `add-institution-year-roster.sql`.
+SQL: `add-institutions.sql`, `add-institution-year-settings.sql`, `add-institution-year-roster.sql`, `merge-orgunits-calendar-settings.sql`.
 
 ### Institution year calendar settings
 
@@ -202,7 +202,7 @@ Same `institution_year_settings` table also stores school-calendar inputs for Mo
 | `weekly_hours` | שעות שבועיות במוסד |
 | `has_extended_school_day` | משתתף ביוח״א / יום לימודים ארוך |
 
-UI: `/year/{YearId}/institution-year-settings`. API: `GET/PUT api/institution-year-settings?yearId=`. Security: `institution_year_settings_*`, `yearmanagement_institution_year_settings`.
+UI: inline editable columns on `/year/{YearId}/org-units` (bulk save via `org_units_save_calendar`). Legacy route `/year/{YearId}/institution-year-settings` redirects to OrgUnits. API: calendar fields returned on `OrgUnitDto` from `GET api/org-units?yearId=`; bulk save `PUT api/institution-year-settings`.
 
 **Later (not wired yet):** יוח״א weekly hours (beyond the flag) for the 502 addition; monthly hours = dailyAvg × study days from `hebrew_year_month_study_days`.
 

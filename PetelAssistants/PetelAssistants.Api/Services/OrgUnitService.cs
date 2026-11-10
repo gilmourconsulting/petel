@@ -514,7 +514,10 @@ namespace PetelAssistants.Api.Services
             OrgUnitTypeDescription = GetTypeDescription(s.InstitutionType),
             SchoolLevel = s.SchoolLevel,
             IsSpecialEducation = s.IsSpecialEducation,
-            IsActive = true
+            IsActive = true,
+            SchoolDaysPerWeek = s.SchoolDaysPerWeek,
+            WeeklyHours = s.WeeklyHours,
+            HasExtendedSchoolDay = s.HasExtendedSchoolDay
         };
 
         internal static string? NormalizeSymbol(string? symbol)

@@ -31,6 +31,11 @@
                   OnClick="NavigateToDeptMap" CssClass="context-btn" HideIfNoAccess="true">
         מיפוי מחלקות שכר
     </SecureButton>
+
+    <SecureButton ActionName="maindashboard_org_units" ScreenName="@PageName" FunctionName="NavigateToOrgUnits"
+                  OnClick="NavigateToOrgUnits" CssClass="context-btn" HideIfNoAccess="true">
+        בתי ספר וגנים
+    </SecureButton>
 </div>
 
 <SalaryUploadModal @ref="_salaryUploadModal" />
@@ -238,4 +243,5 @@
     private void NavigateToSalaries() => Navigation.NavigateTo("/salaries");
     private void NavigateToMeitarData() => Navigation.NavigateTo("/meitar-data");
     private void NavigateToDeptMap() => Navigation.NavigateTo("/salary-department-mappings");
+    private void NavigateToOrgUnits() => Navigation.NavigateTo("/org-units?fromDashboard=1");
 }

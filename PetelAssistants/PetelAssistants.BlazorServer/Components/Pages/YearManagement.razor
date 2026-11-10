@@ -114,15 +114,6 @@
                             <div class="summary-value">רשימת שנה</div>
                         </div>
                     </SecureButton>
-
-                    <SecureButton ActionName="yearmanagement_institution_year_settings" ScreenName="@PageName" FunctionName="NavigateToInstitutionYearSettings"
-                                  OnClick="NavigateToInstitutionYearSettings" CssClass="summary-card summary-card-clickable year-hub-card" HideIfNoAccess="true">
-                        <div class="summary-info">
-                            <div class="summary-label">הגדרות מוסד</div>
-                            <div class="summary-value">ימים / שעות</div>
-                            <div class="summary-extra">יוח״א לפי מוסד</div>
-                        </div>
-                    </SecureButton>
                 </div>
 
                 @if (_showVsBudgetPanel)
@@ -308,7 +299,6 @@
     private void NavigateToSalaryAnomalies() => Navigation.NavigateTo($"/salaries/anomalies?fromYear={YearId}");
     private void NavigateToMeitarSummary() => Navigation.NavigateTo($"/meitar-data/month-summary?fromYear={YearId}");
     private void NavigateToOrgUnits() => Navigation.NavigateTo($"/year/{YearId}/org-units");
-    private void NavigateToInstitutionYearSettings() => Navigation.NavigateTo($"/year/{YearId}/institution-year-settings");
     private void NavigateBack()            => Navigation.NavigateTo("/maindashboard");
     private void ShowEntitlementUploadDialog() => _entitlementUploadModal?.Show(YearId, _yearName);
 }

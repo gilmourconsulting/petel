@@ -22,8 +22,7 @@ Domain context: assistants and entitlements are managed per Jewish school year. 
             ├── /year/{YearId}/assistants       (סייעות)
             ├── /year/{YearId}/entitlements     (זכאויות)
             ├── /year/{YearId}/yearly-budget    (תקציב שנתי)
-            ├── /year/{YearId}/org-units        (בתי ספר וגנים — year roster)
-            ├── /year/{YearId}/institution-year-settings  (הגדרות מוסד)
+            ├── /year/{YearId}/org-units        (בתי ספר וגנים — roster + calendar)
             ├── /salaries                       (שכר)
             └── /meitar-data                    (מיתר)
 
@@ -33,13 +32,12 @@ Side menu
             └── tab: hour-value
 ```
 
-- **Main dashboard** (`MainDashboard.razor`, `/maindashboard`): context buttons stay on the left — **העלאת קובץ שכר**, **נתוני שכר**, **שליפת נתוני מיתר**, **נתוני מיתר**, **מיפוי מחלקות שכר**. Institutions are opened from the school-year hub only. Center of the page is a two-column year picker (visual left = **שנה לועזית** current/previous + בחר שנה; visual right = **שנת לימודים** current/previous + בחר שנה). Gregorian click → `/gregorian/{Year}`. School-year click → `/year/{YearId}`.
+- **Main dashboard** (`MainDashboard.razor`, `/maindashboard`): context buttons stay on the left — **העלאת קובץ שכר**, **נתוני שכר**, **שליפת נתוני מיתר**, **נתוני מיתר**, **מיפוי מחלקות שכר**, **בתי ספר וגנים** (`maindashboard_org_units` → `/org-units?fromDashboard=1`, redirects to the current Hebrew year). Center of the page is a two-column year picker (visual left = **שנה לועזית** current/previous + בחר שנה; visual right = **שנת לימודים** current/previous + בחר שנה). Gregorian click → `/gregorian/{Year}`. School-year click → `/year/{YearId}`.
 - **Gregorian year hub** (`GregorianYearManagement.razor`, `/gregorian/{Year}`): treasurer view for calendar year Jan–Dec. A short KPI line (net municipal, salary-vs-budget variance, Meitar income) plus five **clickable** cards mirroring the school-year hub. Below the cards: **סיכום מול תקציב** panel (`BudgetVsSummaryPanel`) with Jan–Dec month buttons (labels only), KPI cards, trend chart (default **הכנסה מול הוצאות**), and comparison table. Toggle **תאריך חישוב** / **תאריך תחולה** rebuckets Meitar income (same as `/meitar-data`). Toggle **הצג ערכי תקציב** (off by default) shows/hides all budget stats and budget chart controls. Click **לא ממופה** opens a modal of unmapped salary departments and Meitar topics for the selected period. Budget/entitlements/assistants are **composed read-only** views; salaries/Meitar reuse existing screens with `?fromGregorianYear=`. Stitch: for each month of Y, take the last non-deleted yearly budget of the Hebrew year covering that month (typically Jan–Aug from the school year that started Sep Y−1, Sep–Dec from the school year that started Sep Y). Missing budget → zeros + warning; open (unlocked) last version is used and flagged **טרם ננעל**. Data: `GET api/gregorian-years/{year}/hub-summary` + `GET api/gregorian-years/{year}/budget` for the panel.
 - **Gregorian budget** (`GregorianBudget.razor`, `/gregorian/{Year}/budget`): read-only **תקציב** view (year + Jan–Dec month lines) with links to contributing school-year budgets. Vs-budget summary lives on the Gregorian year hub. `GET api/gregorian-years/{year}/budget`.
 - **Gregorian entitlements / assistants**: overlap lists (`/gregorian/{Year}/entitlements`, `/gregorian/{Year}/assistants`) with a school-year column and `EntityFocusLink` into the operational screens. No create/edit/upload.
-- **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name and clickable summary cards — **סייעות**, **זכאויות**, **תקציב**, **שכר**, **מיתר**, **בתי ספר וגנים**, **הגדרות מוסד**. Below the cards: **סיכום מול תקציב** panel (`BudgetVsSummaryPanel`) over Hebrew-year months (typically Sep–Aug), same chart/table behavior as the Gregorian hub (income-vs-expenses default; **תאריך חישוב**/**תאריך תחולה** for Meitar; **הצג ערכי תקציב** off by default hides all budget UI; **לא ממופה** drill-down). Context buttons remain for entitlements upload, department map, and salary/Meitar summaries. Salary upload and Meitar retrieve live on `/salaries` and `/meitar-data` respectively. Data: `GET api/years/{id}/hub-summary` + `GET api/yearly-budgets?yearId=` for the panel.
-- **Org units / year roster** (`OrgUnits.razor`, `/year/{YearId}/org-units`): institutions for that Hebrew year (name/symbol/type/level/special-ed). Empty year can **copy from previous** or **upload Excel/CSV once**. `GET/POST/PUT api/org-units?yearId=`, `GET copy-status`, `POST copy-from-previous`, `POST upload/preview` + `upload`. SQL: `add-institution-year-roster.sql`.
-- **Institution year settings** (`InstitutionYearSettings.razor`, `/year/{YearId}/institution-year-settings`): calendar fields for institutions **in the year roster** — ימי לימוד בשבוע, שעות שבועיות, יום לימודים ארוך. `GET/PUT api/institution-year-settings?yearId=`. SQL: `add-institution-year-settings.sql`.
+- **Year management hub** (`YearManagement.razor`, `/year/{YearId}`): displays the year name and clickable summary cards — **סייעות**, **זכאויות**, **תקציב**, **שכר**, **מיתר**, **בתי ספר וגנים**. Below the cards: **סיכום מול תקציב** panel (`BudgetVsSummaryPanel`) over Hebrew-year months (typically Sep–Aug), same chart/table behavior as the Gregorian hub (income-vs-expenses default; **תאריך חישוב**/**תאריך תחולה** for Meitar; **הצג ערכי תקציב** off by default hides all budget UI; **לא ממופה** drill-down). Context buttons remain for entitlements upload, department map, and salary/Meitar summaries. Salary upload and Meitar retrieve live on `/salaries` and `/meitar-data` respectively. Data: `GET api/years/{id}/hub-summary` + `GET api/yearly-budgets?yearId=` for the panel.
+- **Org units / year roster + calendar** (`OrgUnits.razor`, `/year/{YearId}/org-units`): institutions for that Hebrew year (name/symbol/type/level/special-ed) plus inline calendar fields (ימי לימוד בשבוע, שעות שבועיות, יום לימודים ארוך) with bulk **שמור**. Filters: name/symbol, type, school level. Empty year can **copy from previous** or **upload Excel/CSV once**. Entry from year hub or main dashboard. Legacy `/year/{YearId}/institution-year-settings` redirects here. `GET/POST/PUT api/org-units?yearId=`, `GET copy-status`, `POST copy-from-previous`, `POST upload/preview` + `upload`, `PUT api/institution-year-settings` for calendar save. SQL: `add-institution-year-roster.sql`, `merge-orgunits-calendar-settings.sql`.
 - **Year Elements hub** (`YearElements.razor`, `/year-elements`): shared admin multi-tab screen for year-scoped configuration (tabs: class assistant budget hours, hour monetary value, study days per month). Menu item **ניהול שנה**.
 - **Salaries view** (`Salaries.razor`, `/salaries`): read-only salary table with **העלאת קובץ שכר** context button (`SalaryUploadModal`; uses `yearmanagement_salary_upload` when opened via `?fromYear=`, else `maindashboard_salary_upload`). Period is a row of month buttons showing totals per month (`GET api/salaries/month-totals`). From the school-year hub (`?fromYear=`), months are that Hebrew year (typically Sept–Aug). From the gregorian hub (`?fromGregorianYear=`), months are Jan–Dec of that calendar year (no Hebrew-year dropdown; back returns to `/gregorian/{Year}`). From the main dashboard, a Hebrew-year dropdown appears above the buttons.
 - **Salary month summary** (`SalaryMonthSummary.razor`, `/salaries/month-summary`): debug comparison of all salary payments vs last locked budget. Month buttons follow the same range as salaries (`GET api/salary-month-summaries/for-year?yearId=` or `for-gregorian-year?year=`). From `?fromGregorianYear=`, months are Jan–Dec.
@@ -49,7 +47,7 @@ Side menu
 - **Meitar month summary** (`MeitarMonthSummary.razor`, `/meitar-data/month-summary`): debug Meitar income vs last locked budget.
 - **Assistants** (`Assistants.razor`, `/year/{YearId}/assistants`): person CRUD for the logged-in authority. Table IDs elsewhere (salaries, salary anomalies, entitlement allocations) link here via `EntityFocusLink` (`?focusId={persons.id}`), which selects and scrolls to that row. Selecting a person opens a resizable bottom dock with tabs **הקצאות** (allocations for the year; view button navigates to `/year/{YearId}/entitlements?focusId={entitlementId}&allocationFocusId={allocationId}`) and **היסטוריית שכר** (matched salary rows for school-year months via `GET api/persons/{id}/salaries`).
 - **Entitlements** (`Entitlements.razor`, `/year/{YearId}/entitlements`): combined personal + institutional entitlements for the year. Summary: total + allocated %, plus one wide card with all assistant-type counts and allocated %. Table includes **סוג מוסד** (גן / יסודי / תיכון); class name, pupil name, ID, and class classification appear on the **פרטי זכאות** dock tab (default). The dock is height-resizable. Supports deep links `?focusId={entitlementId}` and `?allocationFocusId={allocationId}` (opens allocations tab and scrolls to the row). Context button **העלאת זכאויות אישיות** (`PersonalEntitlementUploadModal`) imports personal (`student_help`) entitlements from PDF or Excel (PDF convert → optional download → upsert + orphan review). Context button **זכאויות לסייעת שניה** (`SecondHelpEntitlementsModal`) grants/cancels `second_help` entitlements per active kindergarten via a dual-pane pick list.
-- **Org units** (`OrgUnits.razor`, `/year/{YearId}/org-units`): year-scoped institution roster, opened from the year hub only. `/org-units` redirects to the current Hebrew year (bookmark safety). Side menu item deactivated.
+- **Org units** (`OrgUnits.razor`, `/year/{YearId}/org-units`): year-scoped institution roster + calendar grid; opened from the year hub or main dashboard (`?fromDashboard=1`). `/org-units` redirects to the current Hebrew year (bookmark safety). Side menu item deactivated.
 - **Yearly budget** (`YearlyBudget.razor`, `/year/{YearId}/yearly-budget`): versioned yearly budget by assistant type, with equal monthly split and **חשב תקציב** on open versions. **תקציב** view only (year + month lines). Vs-budget summary (`yearly_budget_comparisons` chart/table) lives on the school-year hub. Context button **חשב סיכומים מחדש** force-rebuilds salary and Meitar month summaries for the Hebrew year (current mappings) and refreshes comparisons for the hub panel.
 
 **System admin (not year-scoped operational data):**
@@ -85,13 +83,14 @@ Downstream pages should read year from the route parameter `{YearId}` and/or ses
 | `PUT api/years/{id}` | System admin: update year dates and flags |
 | `GET api/assistant-types` | Active assistant types (optional `includeInactive`) |
 | `POST/PUT api/assistant-types` | System admin: manage assistant types |
-| `GET api/org-units?yearId=&type=` | Year roster institutions |
+| `GET api/org-units?yearId=&type=` | Year roster institutions including calendar fields (days/hours/יוח״א) |
 | `POST/PUT api/org-units?yearId=` | Create/update institution in year roster |
 | `PUT api/org-units/{id}/remove-from-year?yearId=` | Remove institution from year roster |
 | `GET api/org-units/copy-status?yearId=` | Whether copy-from-previous is allowed |
 | `POST api/org-units/copy-from-previous?yearId=` | Clone previous year’s roster into empty year |
 | `POST api/org-units/upload/preview` | Preview Excel/CSV headers for first-time roster upload |
 | `POST api/org-units/upload?yearId=` | First-time roster upload (empty year only) |
+| `PUT api/institution-year-settings` | Bulk update calendar fields for institutions already in the year roster |
 | `GET api/entitlements?yearId=&kind=` | List entitlements (institutional or personal) |
 | `GET api/entitlements/{id}` | Single entitlement |
 | `POST api/entitlements` | Create entitlement |
@@ -141,8 +140,6 @@ Downstream pages should read year from the route parameter `{YearId}` and/or ses
 | `PUT api/budget-hour-values` | Upsert hour value for a year |
 | `GET api/hebrew-year-month-study-days?yearId=` | Shared study days per Gregorian month in a Hebrew year |
 | `PUT api/hebrew-year-month-study-days` | Upsert study days for months in a year |
-| `GET api/institution-year-settings?yearId=` | Active institutions + school calendar settings for a Hebrew year |
-| `PUT api/institution-year-settings` | Bulk upsert institution year settings |
 
 ## Security actions
 
@@ -150,12 +147,12 @@ Run SQL scripts in order (see below). After running SQL, refresh the security ca
 
 | Screen | PageName | Page action | Button actions |
 |--------|----------|-------------|----------------|
-| Main dashboard | `maindashboard` | (page access not enforced) | `maindashboard_salary_upload`, `maindashboard_salaries_view`, `maindashboard_salary_dept_map` |
+| Main dashboard | `maindashboard` | (page access not enforced) | `maindashboard_salary_upload`, `maindashboard_salaries_view`, `maindashboard_salary_dept_map`, `maindashboard_org_units` |
 | Gregorian hub | `gregorian` | `gregorian_page_action` | `gregorian_back`, `gregorian_assistants`, `gregorian_entitlements`, `gregorian_budget`, `gregorian_salaries_view`, `gregorian_meitar_view`, `gregorian_salary_month_summary`, `gregorian_salary_anomalies`, `gregorian_meitar_month_summary` |
 | Gregorian budget | `gregorian_budget` | `gregorian_budget_page_action` | `gregorian_budget_back`, `gregorian_budget_refresh` |
 | Gregorian entitlements | `gregorian_entitlements` | `gregorian_entitlements_page_action` | `gregorian_entitlements_back`, `gregorian_entitlements_refresh` |
 | Gregorian assistants | `gregorian_assistants` | `gregorian_assistants_page_action` | `gregorian_assistants_back`, `gregorian_assistants_refresh` |
-| Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_entitlements`, `yearmanagement_yearly_budget`, `yearmanagement_org_units`, `yearmanagement_institution_year_settings`, `yearmanagement_salary_upload`, `yearmanagement_entitlements_upload`, `yearmanagement_salaries_view`, `yearmanagement_salary_dept_map`, `yearmanagement_salary_month_summary`, `yearmanagement_salary_anomalies`, `yearmanagement_meitar_month_summary` |
+| Year hub | `yearmanagement` | `yearmanagement_page_action` | `yearmanagement_back`, `yearmanagement_assistants`, `yearmanagement_entitlements`, `yearmanagement_yearly_budget`, `yearmanagement_org_units`, `yearmanagement_salary_upload`, `yearmanagement_entitlements_upload`, `yearmanagement_salaries_view`, `yearmanagement_salary_dept_map`, `yearmanagement_salary_month_summary`, `yearmanagement_salary_anomalies`, `yearmanagement_meitar_month_summary` |
 | Salaries view | `salaries` | `salaries_page_action` | `salaries_back`, `salaries_refresh`, `salaries_month_summary`, `salaries_anomalies` |
 | Salary month summary | `salary_month_summary` | `salary_month_summary_page_action` | `salary_month_summary_back`, `salary_month_summary_refresh` |
 | Salary anomalies | `salary_anomalies` | `salary_anomalies_page_action` | `salary_anomalies_back`, `salary_anomalies_refresh`, `salary_anomalies_status` |
@@ -165,9 +162,8 @@ Run SQL scripts in order (see below). After running SQL, refresh the security ca
 | Assistants | `assistants` | `assistants_page_action` | `assistants_back`, `assistants_refresh`, `assistants_add`, `assistants_upload`, `assistants_view_details`, `assistants_edit`, `assistants_view_history` |
 | Entitlements | `entitlements` | `entitlements_page_action` | back, refresh, add, edit, deactivate, allocations, `entitlements_personal_upload`, `entitlements_second_help` |
 | Yearly budget | `yearly_budget` | `yearly_budget_page_action` | `yearly_budget_back`, `yearly_budget_refresh`, `yearly_budget_calculate`, `yearly_budget_recalculate_summaries`, `yearly_budget_save`, `yearly_budget_lock`, `yearly_budget_new_version`, `yearly_budget_delete` |
-| Institution year settings | `institution_year_settings` | `institution_year_settings_page_action` | `institution_year_settings_back`, `institution_year_settings_refresh`, `institution_year_settings_save` |
 | Year Elements | `year_elements` | `year_elements_page_action` | `year_elements_back`, `year_elements_refresh`, `year_elements_class_hours_save`, `year_elements_hour_value_save`, `year_elements_study_days_save` |
-| Org units | `org_units` | `org_units_page_action` | back, refresh, add, edit, deactivate (remove-from-year), `org_units_copy_from_previous`, `org_units_upload` |
+| Org units | `org_units` | `org_units_page_action` | back, refresh, add, edit, deactivate (remove-from-year), `org_units_copy_from_previous`, `org_units_upload`, `org_units_save_calendar` |
 | Assistant types | `assistant_types` | `assistant_types_page_action` | back, refresh, add, edit |
 | Hebrew years | `hebrew_years` | `hebrew_years_page_action` | back, refresh, edit |
 
@@ -198,7 +194,7 @@ After user-management scripts:
 18. `PetelAssistants/SQL/add-personal-entitlement-upload.sql` — personal entitlement upload (`entitlements_personal_upload` + mappings table)
 18a. `PetelAssistants/SQL/add-second-help-entitlements-action.sql` — `entitlements_second_help` pick-list button
 19. `PetelAssistants/SQL/add-entitlement-validity.sql` — entitlement `is_valid` / source snapshot + `entitlements_resolve_invalid`
-20. `PetelAssistants/SQL/add-maindashboard-org-units.sql` — legacy dashboard org-units action (UI entry removed; use year hub)
+20. `PetelAssistants/SQL/add-maindashboard-org-units.sql` — dashboard org-units action (`maindashboard_org_units`; also ensured by `merge-orgunits-calendar-settings.sql`)
 21. `PetelAssistants/SQL/add-monthly-ops.sql` — statuses, department mapping, Meitar topic→type, month summaries, salary anomalies + debug screen actions
 22. `PetelAssistants/SQL/add-meitar-mucarim-retrieve.sql` — `meitar_mucarim` table + best-effort tracking columns on `meitar_retrieve_processes` (MUCARIM pulled alongside MUTAVIM, viewable via a tab on `/meitar-data`)
 22a. `PetelAssistants/SQL/add-meitar-mucarim-entitlement-matches.sql` — MUCARIM↔entitlement match process/match tables + recheck actions
@@ -206,9 +202,10 @@ After user-management scripts:
 24. `PetelAssistants/SQL/add-yearly-budget-recalculate-summaries-action.sql` — budget-screen button (`yearly_budget_recalculate_summaries`)
 25. `PetelAssistants/SQL/add-gregorian-year-actions.sql` — calendar-year hub + child screens
 26. `PetelAssistants/SQL/add-daily-hours-unit.sql` — allow `daily` on entitlements / allocations `hours_unit`
-27. `PetelAssistants/SQL/add-institution-year-settings.sql` — per-institution year calendar settings + hub card
+27. `PetelAssistants/SQL/add-institution-year-settings.sql` — per-institution year calendar table (+ legacy hub action; UI now on OrgUnits)
 28. `PetelAssistants/SQL/add-hebrew-year-month-study-days.sql` — shared study days per month + Year Elements save action
 29. `PetelAssistants/SQL/add-institution-year-roster.sql` — year-scoped name/symbol/type/level on roster + copy/upload actions
+30. `PetelAssistants/SQL/merge-orgunits-calendar-settings.sql` — `org_units_save_calendar` + restore dashboard org-units entry (calendar UI on OrgUnits)
 
 ## Files
 
@@ -224,7 +221,6 @@ After user-management scripts:
 | `YearElementsTabs/YearElementsClassAssistantHoursTab.razor` | (tab under year-elements) |
 | `YearElementsTabs/YearElementsHourValueTab.razor` | (tab under year-elements) |
 | `YearElementsTabs/YearElementsStudyDaysTab.razor` | (tab under year-elements) |
-| `InstitutionYearSettings.razor` | `/year/{YearId:int}/institution-year-settings` |
 | `SalaryUploadModal.razor` | (modal from dashboard / year hub) |
 | `Salaries.razor` | `/salaries` |
 | `SalaryMonthSummary.razor` | `/salaries/month-summary` |
@@ -236,7 +232,7 @@ After user-management scripts:
 | `Entitlements.razor` | `/year/{YearId:int}/entitlements` |
 | `PersonalEntitlementUploadModal.razor` | (modal from entitlements — personal PDF/Excel upload) |
 | `YearlyBudget.razor` | `/year/{YearId:int}/yearly-budget` |
-| `OrgUnits.razor` | `/org-units`, `/year/{YearId:int}/org-units` |
+| `OrgUnits.razor` | `/org-units`, `/year/{YearId:int}/org-units` (also redirects `/year/{YearId}/institution-year-settings`) |
 | `AssistantTypes.razor` | `/assistant-types` |
 | `HebrewYears.razor` | `/hebrew-years` |
 
