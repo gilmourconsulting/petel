@@ -46,6 +46,7 @@ namespace PetelAssistants.Api.Data
         public DbSet<MeitarMutavim>          MeitarMutavim          { get; set; }
         public DbSet<MeitarMucarim>          MeitarMucarim          { get; set; }
         public DbSet<MeitarSharatim>         MeitarSharatim         { get; set; }
+        public DbSet<MeitarCheshbonit>       MeitarCheshbonit       { get; set; }
         public DbSet<MeitarMonthSummary>     MeitarMonthSummaries   { get; set; }
         public DbSet<YearlyBudget>             YearlyBudgets            { get; set; }
         public DbSet<YearlyBudgetDetail>       YearlyBudgetDetails      { get; set; }
@@ -489,6 +490,20 @@ namespace PetelAssistants.Api.Data
                     .WithMany()
                     .HasForeignKey(m => m.InstitutionId)
                     .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasQueryFilter(m => _tenantContext.EntityId != 0 && m.EntityId == _tenantContext.EntityId);
+            });
+
+            modelBuilder.Entity<MeitarCheshbonit>(entity =>
+            {
+                entity.ToTable("meitar_cheshbonit");
+                entity.HasKey(e => e.Id);
+                entity.HasIndex(e => new { e.EntityId, e.PeriodYear, e.PeriodMonth });
+
+                entity.HasOne(m => m.Process)
+                    .WithMany(p => p.CheshbonitRows)
+                    .HasForeignKey(m => m.ProcessId)
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasQueryFilter(m => _tenantContext.EntityId != 0 && m.EntityId == _tenantContext.EntityId);
             });

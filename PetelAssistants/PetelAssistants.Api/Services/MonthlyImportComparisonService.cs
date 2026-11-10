@@ -333,7 +333,10 @@ namespace PetelAssistants.Api.Services
             if (existing.Count > 0)
                 _context.MeitarMonthSummaries.RemoveRange(existing);
 
-            var rows = await _context.MeitarMutavim
+            var mutavimRows = await _context.MeitarMutavim
+                .Where(m => m.ProcessId == process.Id)
+                .ToListAsync();
+            var cheshbonitRows = await _context.MeitarCheshbonit
                 .Where(m => m.ProcessId == process.Id)
                 .ToListAsync();
 
@@ -346,13 +349,28 @@ namespace PetelAssistants.Api.Services
 
             var budget = await ResolveLockedBudgetAsync(process.PeriodYear, process.PeriodMonth);
 
-            var groups = rows
-                .GroupBy(r =>
-                {
-                    if (string.IsNullOrWhiteSpace(r.TopicCode))
-                        return (int?)null;
-                    return typeByTopicCode.TryGetValue(r.TopicCode, out var typeId) ? typeId : null;
-                })
+            static int? ResolveType(string? topicCode, Dictionary<string, int?> typeByTopicCode)
+            {
+                if (string.IsNullOrWhiteSpace(topicCode))
+                    return null;
+                return typeByTopicCode.TryGetValue(topicCode, out var typeId) ? typeId : null;
+            }
+
+            var contributions = mutavimRows
+                .Select(r => (
+                    TypeId: ResolveType(r.TopicCode, typeByTopicCode),
+                    Amount: r.CalculatedAmount,
+                    Hours: r.UnitCount ?? 0m,
+                    Rows: 1))
+                .Concat(cheshbonitRows.Select(r => (
+                    TypeId: ResolveType(r.TopicCode, typeByTopicCode),
+                    Amount: r.PaidAmount ?? 0m,
+                    Hours: 0m,
+                    Rows: 1)))
+                .ToList();
+
+            var groups = contributions
+                .GroupBy(c => c.TypeId)
                 .ToList();
 
             var now = DateTime.UtcNow;
@@ -368,10 +386,10 @@ namespace PetelAssistants.Api.Services
                     PeriodYear = process.PeriodYear,
                     PeriodMonth = process.PeriodMonth,
                     AssistantTypeId = group.Key,
-                    RowCount = group.Count(),
+                    RowCount = group.Sum(c => c.Rows),
                     Fte = 0,
-                    Hours = Round4(group.Sum(r => r.UnitCount ?? 0)),
-                    Amount = Round2(group.Sum(r => r.CalculatedAmount)),
+                    Hours = Round4(group.Sum(c => c.Hours)),
+                    Amount = Round2(group.Sum(c => c.Amount)),
                     YearlyBudgetId = hasBudget ? budget!.BudgetId : null,
                     BudgetFte = budgetFte,
                     BudgetHours = budgetHours,

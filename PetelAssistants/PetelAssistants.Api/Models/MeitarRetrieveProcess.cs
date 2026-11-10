@@ -64,9 +64,19 @@ namespace PetelAssistants.Api.Models
         [Column("sharatim_error")]
         public string? SharatimError { get; set; }
 
+        [Column("cheshbonit_row_count")]
+        public int? CheshbonitRowCount { get; set; }
+
+        [Column("cheshbonit_total_paid_sum")]
+        public decimal? CheshbonitTotalPaidSum { get; set; }
+
+        [Column("cheshbonit_error")]
+        public string? CheshbonitError { get; set; }
+
         public virtual ICollection<MeitarMutavim> Rows { get; set; } = new List<MeitarMutavim>();
         public virtual ICollection<MeitarMucarim> MucarimRows { get; set; } = new List<MeitarMucarim>();
         public virtual ICollection<MeitarSharatim> SharatimRows { get; set; } = new List<MeitarSharatim>();
+        public virtual ICollection<MeitarCheshbonit> CheshbonitRows { get; set; } = new List<MeitarCheshbonit>();
         public virtual ICollection<MeitarMonthSummary> Summaries { get; set; } = new List<MeitarMonthSummary>();
         public virtual ICollection<YearlyBudgetComparison> BudgetComparisons { get; set; } = new List<YearlyBudgetComparison>();
     }

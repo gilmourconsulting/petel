@@ -218,9 +218,9 @@ Convert Ministry “אישור תומכת חינוך אישית” PDF (one appr
 
 Domain/extraction rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Personal entitlements file upload. Screen map: [year-management-screens.md](../../PetelAssistants/docs/year-management-screens.md).
 
-## Meitar MUTAVIM retrieve
+## Meitar period retrieve
 
-Pull ministry MUTAVIM rows for the logged-in authority’s period from PetelMeitar into Assistants. Entry points: context buttons on Main Dashboard and Year Management (`MeitarRetrieveModal` → `MeitarDataController`). SQL: `PetelAssistants/SQL/add-meitar-mutavim-retrieve.sql`.
+Pull ministry rows for the logged-in authority’s period from PetelMeitar into Assistants (MUTAVIM required; MUCARIM / SHARATIM / CHESHBONIT best-effort). Entry points: context buttons on Main Dashboard and Year Management (`MeitarRetrieveModal` → `MeitarDataController`). SQL: `add-meitar-mutavim-retrieve.sql`, `add-meitar-mucarim-retrieve.sql`, `add-meitar-sharatim-retrieve.sql`, `add-meitar-cheshbonit-retrieve.sql`.
 
 | Endpoint | Purpose |
 |---|---|
@@ -228,9 +228,10 @@ Pull ministry MUTAVIM rows for the logged-in authority’s period from PetelMeit
 | `POST api/meitardata/retrieve` | Query Meitar + persist for a single period (`replaceExisting` for override); builds month summary |
 | `GET api/meitardata/period-exists-range` | Same check across a `from`–`to` period range (max 24 months) |
 | `POST api/meitardata/retrieve-range` | Same as `retrieve`, looped per period across a `from`–`to` range (max 24 months); one modal (`MeitarRetrieveModal`) drives both single- and multi-period retrieve using `YYYY/MM` inputs |
-| `GET api/meitar-month-summaries?year=&month=` | Latest process summary vs locked budget |
+| `GET api/meitardata/cheshbonit` | Stored CHESHBONIT rows for year/month (`dateField=calc\|effective`) |
+| `GET api/meitar-month-summaries?year=&month=` | Latest process summary vs locked budget (MUTAVIM + CHESHBONIT amounts) |
 
-Tables: `meitar_retrieve_processes`, `meitar_mutavim`, `meitar_month_summaries`. `meitar_topics.assistant_type_id` is the shared topic→type map. Actions: `maindashboard_meitar_retrieve`, `yearmanagement_meitar_retrieve`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Meitar data integration.
+Tables: `meitar_retrieve_processes`, `meitar_mutavim`, `meitar_mucarim`, `meitar_sharatim`, `meitar_cheshbonit`, `meitar_month_summaries`. `meitar_topics.assistant_type_id` is the shared topic→type map (codes are not shared across Meitar files). Actions: `maindashboard_meitar_retrieve`, `yearmanagement_meitar_retrieve`. Domain rules: [petel-assistants-domain.md](petel-assistants-domain.md) § Meitar data integration.
 
 ---
 
@@ -271,7 +272,7 @@ Admin UI for shared lookups: `/system-data` (הגדרות מערכת). SQL: `Pet
 - `institutions` — schools and kindergartens owned by the authority
 - `persons` — assistants, pupils (each row is owned by exactly one authority)
 - `salaries`, `salary_department_mappings`, `salary_month_summaries`, `salary_anomalies`, `yearly_budget_comparisons`
-- `meitar_mutavim`, `meitar_month_summaries`
+- `meitar_mutavim`, `meitar_mucarim`, `meitar_sharatim`, `meitar_cheshbonit`, `meitar_month_summaries`
 - `assignments`, `placements`, `attendance`
 - Any table that stores data entered by a specific authority
 

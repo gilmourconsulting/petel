@@ -91,7 +91,7 @@ After salary upload / recheck, after Meitar retrieve, and on demand from the bud
 
 **Salary summaries** (`salary_month_summaries`): **include every imported payment row** — anomalies never exclude, reduce, or move money. Unmapped (or inactive) departments roll into a null `assistant_type_id` bucket that still holds those amounts. Type-mismatch rows stay under the **mapped department type**. `amount` = sum of `total_salary`; `fte` = sum of `position_percentage` / 100; `hours` = fte × `assistant_types.position_hours` when set. Process `row_count` / `total_salary_sum` must match the sum of summary `row_count` / `amount`. Debug UI: `/salaries/month-summary`. These latest-process lines also feed `yearly_budget_comparisons` (budget-screen vs-budget tab).
 
-**Meitar summaries** (`meitar_month_summaries`): map `topic_code` → `meitar_topics.assistant_type_id` (shared, cross-system). Unmapped topics → null-type bucket. `amount` = sum of `calculated_amount`; `hours` = sum of `unit_count`; `fte` = 0. Debug UI: `/meitar-data/month-summary`.
+**Meitar summaries** (`meitar_month_summaries`): map `topic_code` → `meitar_topics.assistant_type_id` (shared, cross-system; topic codes are not shared across Meitar files). Unmapped topics → null-type bucket. Contributions: MUTAVIM `calculated_amount` + CHESHBONIT `paid_amount`. `hours` = sum of MUTAVIM `unit_count` only; `fte` = 0. Debug UI: `/meitar-data/month-summary`.
 
 ### Salary anomalies
 
@@ -391,27 +391,28 @@ Ministry budget data is queried from **PetelMeitar** via `MeitarDataService` (`I
 
 SQL migration: `PetelAssistants/SQL/add-meitar-data-integration.sql`. API reference: `PetelAssistants/docs/ApiReference.md`.
 
-### MUTAVIM + MUCARIM retrieve (period pull into Assistants)
+### MUTAVIM + MUCARIM + SHARATIM + CHESHBONIT retrieve (period pull into Assistants)
 
-Manual retrieve from Main Dashboard / Year Management context buttons (`MeitarRetrieveModal` → `MeitarDataController`). One retrieve action pulls **both** MUTAVIM and MUCARIM for the period into the same `meitar_retrieve_processes` row. SQL: `PetelAssistants/SQL/add-meitar-mutavim-retrieve.sql`, `PetelAssistants/SQL/add-meitar-mucarim-retrieve.sql`.
+Manual retrieve from Main Dashboard / Year Management context buttons (`MeitarRetrieveModal` → `MeitarDataController`). One retrieve action pulls MUTAVIM (required) plus MUCARIM / SHARATIM / CHESHBONIT (best-effort) for the period into the same `meitar_retrieve_processes` row. SQL: `PetelAssistants/SQL/add-meitar-mutavim-retrieve.sql`, `PetelAssistants/SQL/add-meitar-mucarim-retrieve.sql`, `PetelAssistants/SQL/add-meitar-sharatim-retrieve.sql`, `PetelAssistants/SQL/add-meitar-cheshbonit-retrieve.sql`.
 
 | Endpoint | Purpose |
 |---|---|
 | `GET api/meitardata/period-exists?year=&month=` | Whether MUTAVIM rows already exist for the current entity + period |
-| `POST api/meitardata/retrieve` | Pull MUTAVIM (required) + MUCARIM (best-effort) for the authority’s `symbol_code` and a single period; body: `{ periodYear, periodMonth, replaceExisting }` |
+| `POST api/meitardata/retrieve` | Pull MUTAVIM (required) + MUCARIM / SHARATIM / CHESHBONIT (best-effort) for the authority’s `symbol_code` and a single period; body: `{ periodYear, periodMonth, replaceExisting }` |
 | `GET api/meitardata/period-exists-range?fromYear=&fromMonth=&toYear=&toMonth=` | Per-period existence + row counts for every period in the range (max 24 months) |
 | `POST api/meitardata/retrieve-range` | Same as `retrieve`, looped once per period in `{ fromYear, fromMonth, toYear, toMonth, replaceExisting }` (max 24 months); continue-on-error across periods — one failed/skipped period does not abort the rest |
 | `GET api/meitardata/mucarim?year=&month=&dateField=calc|effective` | Tenant-scoped list of stored `MeitarMucarimListItemDto` |
+| `GET api/meitardata/cheshbonit?year=&month=&dateField=calc|effective` | Tenant-scoped list of stored `MeitarCheshbonitListItemDto` |
 
-**Period:** calendar `period_year` + `period_month` (1–12) — for the range endpoints, an inclusive sequence of such periods, capped at 24. `MeitarDataController.RetrieveOnePeriodAsync` holds the single-period logic (MUTAVIM + MUCARIM + SHARATIM, one `meitar_retrieve_processes` row per period); both `retrieve` and `retrieve-range` call it — `retrieve` once, `retrieve-range` once per period in the range. If a period in a range already has data and `replaceExisting` is `false`, that period is skipped (not deleted, not duplicated) rather than failing the batch.
+**Period:** calendar `period_year` + `period_month` (1–12) — for the range endpoints, an inclusive sequence of such periods, capped at 24. `MeitarDataController.RetrieveOnePeriodAsync` holds the single-period logic (MUTAVIM + MUCARIM + SHARATIM + CHESHBONIT, one `meitar_retrieve_processes` row per period); both `retrieve` and `retrieve-range` call it — `retrieve` once, `retrieve-range` once per period in the range. If a period in a range already has data and `replaceExisting` is `false`, that period is skipped (not deleted, not duplicated) rather than failing the batch.
 
 **Range UI bounds (`MeitarRetrieveModal`, format `YYYY/MM`):** from Main Dashboard (no year context) the allowed range is a fixed floor of **2024/09** through the previous calendar month; from Year Management (`/year/{YearId}`) the allowed range is clamped to that school year's own `StartDate`–`EndDate` (via `GET years/{id}`). Existing-data confirmation is a single uniform prompt (period count + total existing rows) — no per-period picker.
 
 **Scope:** session entity only — never queries other authorities’ symbols. Requires `entities.symbol_code` on the logged-in authority.
 
-**Single-call filtering (provider-side):** Meitar's `data/query` endpoint accepts multiple `{ field, valueList }` entries in `filters` plus a `periodList` (`MM/yyyy` months matched against `calcDate`) in one request; everything supplied is combined server-side with **AND**. `QueryMutavimForSymbolAndPeriodAsync`/`QueryMucarimForSymbolAndPeriodAsync` build `filters` from **every** distinct `filter_field` group configured in `meitar_data_filter_values` for the file (e.g. `TopicCode`), plus `periodList = [MM/yyyy]` for the selected period, and send them together in a single call — the provider does all the filtering, so the returned rows need no local re-filtering. MUTAVIM's filter config is required; fails the whole retrieve if none configured. MUCARIM has its **own** filter config row (`file_name = 'MUCARIM'`) — see MUCARIM section below for what happens if it's missing. `shared_schema.meitar_topics` is an admin lookup (hub tab) used for **monthly summary rollup** via optional `assistant_type_id`; it does **not** drive which topics are retrieved.
+**Single-call filtering (provider-side):** Meitar's `data/query` endpoint accepts multiple `{ field, valueList }` entries in `filters` plus a `periodList` (`MM/yyyy` months matched against `calcDate`) in one request; everything supplied is combined server-side with **AND**. Per-file helpers (`QueryMutavim…` / `QueryMucarim…` / `QuerySharatim…` / `QueryCheshbonit…`) build `filters` from **every** distinct `filter_field` group configured in `meitar_data_filter_values` for that file (e.g. `TopicCode`), plus `periodList = [MM/yyyy]` for the selected period, and send them together in a single call — the provider does all the filtering, so the returned rows need no local re-filtering. MUTAVIM's filter config is required; fails the whole retrieve if none configured. MUCARIM / SHARATIM / CHESHBONIT each have their **own** filter config (`file_name`) — missing config is best-effort (see sections below). `shared_schema.meitar_topics` is an admin lookup (hub tab) used for **monthly summary rollup** via optional `assistant_type_id`; it does **not** drive which topics are retrieved. Topic codes are not shared across Meitar files.
 
-**Override:** re-retrieve for an existing period requires confirmation; on continue, prior `meitar_mutavim` **and** `meitar_mucarim` rows for that period are deleted, then a new `meitar_retrieve_processes` row and fresh fact rows are inserted for both files. After insert, `MonthlyImportComparisonService` builds `meitar_month_summaries` for the process (MUTAVIM rows only — see MUCARIM section).
+**Override:** re-retrieve for an existing period requires confirmation; on continue, prior `meitar_mutavim`, `meitar_mucarim`, `meitar_sharatim`, and `meitar_cheshbonit` rows for that period are deleted, then a new `meitar_retrieve_processes` row and fresh fact rows are inserted. After insert, `MonthlyImportComparisonService` builds `meitar_month_summaries` for the process from MUTAVIM + CHESHBONIT.
 
 **Tables (assist_schema):** `meitar_retrieve_processes`, `meitar_mutavim`. Rows store the full Meitar MUTAVIM payload except import metadata (`Id`, `SourceFile`, `ImportedAt`, `ImportRunId`): optional `effective_date`, `unit_count`, `cost`, `participation_percent`, `previous_calculated_amount`, `calculated_difference` were added by `add-meitar-data-view.sql` (rows retrieved before those columns existed have nulls until re-retrieved).
 
@@ -425,7 +426,7 @@ MUCARIM ("recognised institutions") is pulled in the **same** `POST api/meitarda
 
 **Table (assist_schema):** `meitar_mucarim` — `beneficiary_code`, `calc_date`, `effective_date`, `institution_code`, `institution_name`, `topic_code`, `topic_description`, `status`, `unit_count`, `percent`, `cost`, `calculated_amount`, `previous_calculated_amount`, `calculated_difference`, `unit_description`, plus the standard `process_id` FK / tenant / audit columns. `meitar_retrieve_processes` gained `mucarim_row_count`, `mucarim_total_calculated_sum`, `mucarim_error` (all nullable — null `mucarim_row_count` on old processes means MUCARIM wasn't attempted).
 
-**Not in month summaries (open item):** MUCARIM rows are stored and viewable but are **not** included in `meitar_month_summaries` (the income-vs-locked-budget rollup only reads `meitar_mutavim`, grouped by `topic_code` → `meitar_topics.assistant_type_id`). Whether MUCARIM should eventually feed that rollup is undecided — revisit if needed.
+**Not in month summaries:** MUCARIM rows are stored and viewable but are **not** included in `meitar_month_summaries` (income rollup uses MUTAVIM + CHESHBONIT only).
 
 SQL migration: `PetelAssistants/SQL/add-meitar-mucarim-retrieve.sql`.
 
@@ -443,13 +444,27 @@ SHARATIM is pulled in the **same** `POST api/meitardata/retrieve` call, right af
 
 **Table (assist_schema):** `meitar_sharatim` — `calc_date`, `effective_date` (both required — rows are only kept when equal), `institution_code`, `institution_name`, `topic_code`, `class_count` (`INTEGER`), `institution_id`, `hebrew_year_id`, plus the standard `process_id` FK / tenant / audit columns. `meitar_retrieve_processes` gained `sharatim_row_count`, `sharatim_total_class_count`, `sharatim_error` (all nullable, same convention as the `mucarim_*` columns).
 
-**Not in month summaries (deferred):** like MUCARIM, SHARATIM rows have no month-summary rollup — only the list/view screen described below.
+**Not in month summaries:** like MUCARIM, SHARATIM rows have no month-summary rollup — only the list/view screen described below.
 
 SQL migration: `PetelAssistants/SQL/add-meitar-sharatim-retrieve.sql`.
 
+#### CHESHBONIT (invoice summary, best-effort)
+
+CHESHBONIT is pulled in the **same** `POST api/meitardata/retrieve` call, after SHARATIM, via `IMeitarDataService.QueryCheshbonitForSymbolAndPeriodAsync()`, tied to the same `meitar_retrieve_processes.Id`.
+
+**Filter config:** `meitar_data_filter_values` rows with `file_name = 'CHESHBONIT'` (typically `TopicCode` values) configured in System Data — not SQL-seeded.
+
+**Best-effort semantics:** same as MUCARIM/SHARATIM — missing filter config or query/mapping failure is recorded on the process (`cheshbonit_error`) and does not fail MUTAVIM. Response includes `cheshbonit: { rowCount, skipped, totalPaid, error }` and a fourth message line.
+
+**Table (assist_schema):** `meitar_cheshbonit` — `beneficiary_code`, `calc_date`, `effective_date`, `accounting_unit`, `topic_code`, `topic_description`, `total_due`, `paid_amount`, `payment_difference`, `debt_balance`, `monthly_execution_balance`, `notes`, plus standard `process_id` / tenant / audit columns. Process columns: `cheshbonit_row_count`, `cheshbonit_total_paid_sum`, `cheshbonit_error`.
+
+**Month summaries:** CHESHBONIT `paid_amount` is included in `meitar_month_summaries` (and therefore `yearly_budget_comparisons.meitar_amount`), grouped by `topic_code` → `meitar_topics.assistant_type_id` alongside MUTAVIM. Hours remain MUTAVIM-only.
+
+SQL migration: `PetelAssistants/SQL/add-meitar-cheshbonit-retrieve.sql`.
+
 ### Meitar data view screen
 
-**View screen:** `/meitar-data` (`MeitarData.razor`) — read-only tables of stored `meitar_mutavim`, `meitar_mucarim` and `meitar_sharatim` rows, switched via a MUTAVIM/MUCARIM/SHARATIM tab toggle (all three datasets are loaded together on each period change; switching tabs is client-side only). Entry points: context button on Main Dashboard (`/meitar-data`); hub card on Year Management (`/meitar-data?fromYear={yearId}`). Period filter is calendar year + month (server reload) applied to a date column, not to `period_year`/`period_month`, and is shared by all tabs:
+**View screen:** `/meitar-data` (`MeitarData.razor`) — read-only tables of stored `meitar_mutavim`, `meitar_mucarim`, `meitar_sharatim` and `meitar_cheshbonit` rows, switched via a MUTAVIM/MUCARIM/SHARATIM/CHESHBONIT tab toggle (all four datasets are loaded together on each period change; switching tabs is client-side only). Entry points: context button on Main Dashboard (`/meitar-data`); hub card on Year Management (`/meitar-data?fromYear={yearId}`). Period filter is calendar year + month (server reload) applied to a date column, not to `period_year`/`period_month`, and is shared by all tabs:
 
 - **From Year Management:** defaults to September of the Gregorian year in which the Hebrew year starts (via `GET years/{id}` → `StartDate`); filters by **calc date** only (date-field selector hidden). Back returns to `/year/{yearId}`.
 - **From Main Dashboard:** a selector chooses the filter column — **calc date (תאריך חישוב)** or **effective date (תאריך תחולה)** (rows with null `effective_date` are excluded when filtering by effective date). Defaults to the previous calendar month. Back returns to `/maindashboard`.
@@ -460,9 +475,11 @@ SQL migration: `PetelAssistants/SQL/add-meitar-sharatim-retrieve.sql`.
 
 **SHARATIM tab:** calc date, effective date, institution code/name, topic code, class count — no calculated-amount columns (this dataset is class counts, not budget). Client-side filter (shared text box): topic code or institution code/name. Summary cards: record count, distinct institutions, total class count.
 
-**API:** `GET api/meitardata?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarMutavimListItemDto`. `GET api/meitardata/mucarim?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarMucarimListItemDto`. `GET api/meitardata/sharatim?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarSharatimListItemDto`. Month summary vs locked budget: `GET api/meitar-month-summaries?year=&month=` (`/meitar-data/month-summary`, MUTAVIM only).
+**CHESHBONIT tab:** beneficiary code, calc/effective date, accounting unit, topic code/description, total due, paid amount, payment difference, debt balance, monthly execution balance, notes. Client-side filter: topic / accounting unit / beneficiary. Summary cards: record count, total paid, total due, distinct topics.
 
-**Security actions:** `meitardata_page_action`, `meitardata_back`, `meitardata_refresh`, `maindashboard_meitar_view`, `yearmanagement_meitar_view`. SQL: `add-meitar-data-view.sql` (also adds the `effective_date` column). The MUCARIM and SHARATIM tabs reuse these same actions — no new security actions were added.
+**API:** `GET api/meitardata?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarMutavimListItemDto`. `GET api/meitardata/mucarim?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarMucarimListItemDto`. `GET api/meitardata/sharatim?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarSharatimListItemDto`. `GET api/meitardata/cheshbonit?year=&month=&dateField=calc|effective` — tenant-scoped list of `MeitarCheshbonitListItemDto`. Month summary vs locked budget: `GET api/meitar-month-summaries?year=&month=` (`/meitar-data/month-summary`, MUTAVIM + CHESHBONIT amounts).
+
+**Security actions:** `meitardata_page_action`, `meitardata_back`, `meitardata_refresh`, `maindashboard_meitar_view`, `yearmanagement_meitar_view`. SQL: `add-meitar-data-view.sql` (also adds the `effective_date` column). The MUCARIM, SHARATIM and CHESHBONIT tabs reuse these same actions — no new security actions were added.
 
 ## Related
 

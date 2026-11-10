@@ -61,6 +61,10 @@
                             @onclick='() => SetTab(DataTab.Sharatim)'>
                         שרתים (SHARATIM)
                     </button>
+                    <button type="button" class="btn @(_activeTab == DataTab.Cheshbonit ? "btn-primary" : "btn-secondary")"
+                            @onclick='() => SetTab(DataTab.Cheshbonit)'>
+                        חשבונית (CHESHBONIT)
+                    </button>
                 </div>
 
                 <div class="filter-bar" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
@@ -314,7 +318,7 @@
                         </div>
                     }
                 }
-                else
+                else if (_activeTab == DataTab.Sharatim)
                 {
                     @if (_sharatimItems.Count > 0)
                     {
@@ -393,6 +397,109 @@
                         </div>
                     }
                 }
+                else
+                {
+                    @if (_cheshbonitItems.Count > 0)
+                    {
+                        <div class="summary-grid" style="margin-bottom: 16px;">
+                            <div class="summary-card">
+                                <div class="summary-info">
+                                    <div class="summary-value">@_cheshbonitItems.Count</div>
+                                    <div class="summary-label">סה"כ רשומות</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-info">
+                                    <div class="summary-value">@_cheshbonitItems.Sum(i => i.PaidAmount ?? 0).ToString("N0")</div>
+                                    <div class="summary-label">סה"כ שולם</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-info">
+                                    <div class="summary-value">@_cheshbonitItems.Sum(i => i.TotalDue ?? 0).ToString("N0")</div>
+                                    <div class="summary-label">סה"כ לתשלום</div>
+                                </div>
+                            </div>
+                            <div class="summary-card">
+                                <div class="summary-info">
+                                    <div class="summary-value">@_cheshbonitItems.Select(i => i.TopicCode).Where(c => !string.IsNullOrEmpty(c)).Distinct().Count()</div>
+                                    <div class="summary-label">נושאים ייחודיים</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    @if (_cheshbonitItems.Count > 0)
+                    {
+                        <div style="margin-bottom: 12px; color: var(--text-muted); font-size: 0.9em;">
+                            מציג @FilteredCheshbonitItems.Count מתוך @_cheshbonitItems.Count רשומות
+                            · סה״כ שולם: @FilteredCheshbonitItems.Sum(i => i.PaidAmount ?? 0).ToString("N2")
+                        </div>
+                    }
+
+                    @if (FilteredCheshbonitItems.Count == 0)
+                    {
+                        <div class="no-data-message">לא נמצאו נתוני חשבונית לתקופה זו</div>
+                    }
+                    else
+                    {
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>קוד מוטב</th>
+                                        <th @onclick='() => SortCheshbonitTable("CalcDate")' style="cursor:pointer">
+                                            תאריך חישוב @GetSortArrow("CalcDate", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortCheshbonitTable("EffectiveDate")' style="cursor:pointer">
+                                            תאריך תחולה @GetSortArrow("EffectiveDate", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                        </th>
+                                        <th>יחידה חשבונאית</th>
+                                        <th @onclick='() => SortCheshbonitTable("TopicCode")' style="cursor:pointer">
+                                            קוד נושא @GetSortArrow("TopicCode", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                        </th>
+                                        <th>תיאור נושא</th>
+                                        <th @onclick='() => SortCheshbonitTable("TotalDue")' style="cursor:pointer">
+                                            סה״כ לתשלום @GetSortArrow("TotalDue", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortCheshbonitTable("PaidAmount")' style="cursor:pointer">
+                                            שולם @GetSortArrow("PaidAmount", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortCheshbonitTable("PaymentDifference")' style="cursor:pointer">
+                                            הפרש תשלום @GetSortArrow("PaymentDifference", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortCheshbonitTable("DebtBalance")' style="cursor:pointer">
+                                            יתרת חוב @GetSortArrow("DebtBalance", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                        </th>
+                                        <th @onclick='() => SortCheshbonitTable("MonthlyExecutionBalance")' style="cursor:pointer">
+                                            יתרת ביצוע חודשי @GetSortArrow("MonthlyExecutionBalance", _cheshbonitSortColumn, _cheshbonitSortAscending)
+                                        </th>
+                                        <th>הערות</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in FilteredCheshbonitItems)
+                                    {
+                                        <tr>
+                                            <td>@item.BeneficiaryCode</td>
+                                            <td>@item.CalcDate.ToString("dd/MM/yyyy")</td>
+                                            <td>@(item.EffectiveDate?.ToString("dd/MM/yyyy") ?? "—")</td>
+                                            <td>@(item.AccountingUnit ?? "—")</td>
+                                            <td>@(item.TopicCode ?? "—")</td>
+                                            <td>@(item.TopicDescription ?? "—")</td>
+                                            <td>@(item.TotalDue?.ToString("N2") ?? "—")</td>
+                                            <td>@(item.PaidAmount?.ToString("N2") ?? "—")</td>
+                                            <td>@(item.PaymentDifference?.ToString("N2") ?? "—")</td>
+                                            <td>@(item.DebtBalance?.ToString("N2") ?? "—")</td>
+                                            <td>@(item.MonthlyExecutionBalance?.ToString("N2") ?? "—")</td>
+                                            <td>@(item.Notes ?? "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
             }
         </div>
     </div>
@@ -411,7 +518,8 @@
     {
         Mutavim,
         Mucarim,
-        Sharatim
+        Sharatim,
+        Cheshbonit
     }
 
     private DataTab _activeTab = DataTab.Mutavim;
@@ -419,6 +527,7 @@
     private List<MeitarMutavimListItemDto> _items = new();
     private List<MeitarMucarimListItemDto> _mucarimItems = new();
     private List<MeitarSharatimListItemDto> _sharatimItems = new();
+    private List<MeitarCheshbonitListItemDto> _cheshbonitItems = new();
     private bool _isLoading = true;
     private int? _returnYearId;
     private int? _returnGregorianYear;
@@ -440,6 +549,9 @@
 
     private string _sharatimSortColumn = "CalcDate";
     private bool _sharatimSortAscending = true;
+
+    private string _cheshbonitSortColumn = "CalcDate";
+    private bool _cheshbonitSortAscending = true;
 
     private static readonly string[] MonthNames =
     {
@@ -596,6 +708,59 @@
                 "ClassCount" => _sharatimSortAscending
                     ? query.OrderBy(i => i.ClassCount)
                     : query.OrderByDescending(i => i.ClassCount),
+                _ => query
+            };
+
+            return query.ToList();
+        }
+    }
+
+    private List<MeitarCheshbonitListItemDto> FilteredCheshbonitItems
+    {
+        get
+        {
+            IEnumerable<MeitarCheshbonitListItemDto> query = _cheshbonitItems;
+
+            if (!string.IsNullOrWhiteSpace(_filterTopic))
+            {
+                var term = _filterTopic.Trim();
+                query = query.Where(i =>
+                    (!string.IsNullOrEmpty(i.TopicCode) &&
+                     i.TopicCode.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(i.TopicDescription) &&
+                     i.TopicDescription.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(i.AccountingUnit) &&
+                     i.AccountingUnit.Contains(term, StringComparison.OrdinalIgnoreCase)) ||
+                    (!string.IsNullOrEmpty(i.BeneficiaryCode) &&
+                     i.BeneficiaryCode.Contains(term, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            query = _cheshbonitSortColumn switch
+            {
+                "CalcDate" => _cheshbonitSortAscending
+                    ? query.OrderBy(i => i.CalcDate)
+                    : query.OrderByDescending(i => i.CalcDate),
+                "EffectiveDate" => _cheshbonitSortAscending
+                    ? query.OrderBy(i => i.EffectiveDate ?? DateOnly.MinValue)
+                    : query.OrderByDescending(i => i.EffectiveDate ?? DateOnly.MinValue),
+                "TopicCode" => _cheshbonitSortAscending
+                    ? query.OrderBy(i => i.TopicCode ?? "")
+                    : query.OrderByDescending(i => i.TopicCode ?? ""),
+                "TotalDue" => _cheshbonitSortAscending
+                    ? query.OrderBy(i => i.TotalDue ?? 0)
+                    : query.OrderByDescending(i => i.TotalDue ?? 0),
+                "PaidAmount" => _cheshbonitSortAscending
+                    ? query.OrderBy(i => i.PaidAmount ?? 0)
+                    : query.OrderByDescending(i => i.PaidAmount ?? 0),
+                "PaymentDifference" => _cheshbonitSortAscending
+                    ? query.OrderBy(i => i.PaymentDifference ?? 0)
+                    : query.OrderByDescending(i => i.PaymentDifference ?? 0),
+                "DebtBalance" => _cheshbonitSortAscending
+                    ? query.OrderBy(i => i.DebtBalance ?? 0)
+                    : query.OrderByDescending(i => i.DebtBalance ?? 0),
+                "MonthlyExecutionBalance" => _cheshbonitSortAscending
+                    ? query.OrderBy(i => i.MonthlyExecutionBalance ?? 0)
+                    : query.OrderByDescending(i => i.MonthlyExecutionBalance ?? 0),
                 _ => query
             };
 
@@ -761,6 +926,18 @@
             Console.WriteLine($"Error loading meitar sharatim data: {ex.Message}");
             _sharatimItems = new();
         }
+
+        try
+        {
+            var cheshbonitResponse = await ApiService.GetAsync<ApiResponse<List<MeitarCheshbonitListItemDto>>>(
+                $"meitardata/cheshbonit?year={_filterYear}&month={_filterMonth}&dateField={_dateField}");
+            _cheshbonitItems = cheshbonitResponse?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading meitar cheshbonit data: {ex.Message}");
+            _cheshbonitItems = new();
+        }
         finally
         {
             if (showSpinner)
@@ -837,6 +1014,17 @@
         {
             _sharatimSortColumn = column;
             _sharatimSortAscending = true;
+        }
+    }
+
+    private void SortCheshbonitTable(string column)
+    {
+        if (_cheshbonitSortColumn == column)
+            _cheshbonitSortAscending = !_cheshbonitSortAscending;
+        else
+        {
+            _cheshbonitSortColumn = column;
+            _cheshbonitSortAscending = true;
         }
     }
 

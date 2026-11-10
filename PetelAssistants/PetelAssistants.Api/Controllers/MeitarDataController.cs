@@ -356,6 +356,55 @@ namespace PetelAssistants.Api.Controllers
             return Ok(new { success = true, data = items });
         }
 
+        [HttpGet("cheshbonit")]
+        public async Task<IActionResult> GetAllCheshbonit(
+            [FromQuery] int year,
+            [FromQuery] int month,
+            [FromQuery] string? dateField)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (month < 1 || month > 12)
+                return BadRequest(new { success = false, message = "חודש לא תקין" });
+
+            var byEffectiveDate = string.Equals(dateField, "effective", StringComparison.OrdinalIgnoreCase);
+
+            var query = _context.MeitarCheshbonit.AsNoTracking();
+
+            query = byEffectiveDate
+                ? query.Where(m => m.EffectiveDate != null &&
+                                   m.EffectiveDate.Value.Year == year &&
+                                   m.EffectiveDate.Value.Month == month)
+                : query.Where(m => m.CalcDate.Year == year && m.CalcDate.Month == month);
+
+            var items = await query
+                .OrderBy(m => m.TopicCode)
+                .ThenBy(m => m.BeneficiaryCode)
+                .Select(m => new MeitarCheshbonitListItemDto
+                {
+                    Id = m.Id,
+                    PeriodYear = m.PeriodYear,
+                    PeriodMonth = m.PeriodMonth,
+                    BeneficiaryCode = m.BeneficiaryCode,
+                    CalcDate = m.CalcDate,
+                    EffectiveDate = m.EffectiveDate,
+                    AccountingUnit = m.AccountingUnit,
+                    TopicCode = m.TopicCode,
+                    TopicDescription = m.TopicDescription,
+                    TotalDue = m.TotalDue,
+                    PaidAmount = m.PaidAmount,
+                    PaymentDifference = m.PaymentDifference,
+                    DebtBalance = m.DebtBalance,
+                    MonthlyExecutionBalance = m.MonthlyExecutionBalance,
+                    Notes = m.Notes
+                })
+                .ToListAsync();
+
+            return Ok(new { success = true, data = items });
+        }
+
         [HttpGet("period-exists")]
         public async Task<IActionResult> PeriodExists([FromQuery] int year, [FromQuery] int month)
         {
@@ -437,6 +486,13 @@ namespace PetelAssistants.Api.Controllers
                     skipped = result.SharatimSkipped,
                     totalClassCount = result.SharatimTotalClassCount,
                     error = result.SharatimError
+                },
+                cheshbonit = new
+                {
+                    rowCount = result.CheshbonitRowCount,
+                    skipped = result.CheshbonitSkipped,
+                    totalPaid = result.CheshbonitTotalPaid,
+                    error = result.CheshbonitError
                 },
                 message = result.Message
             });
@@ -539,6 +595,7 @@ namespace PetelAssistants.Api.Controllers
                     rowCount = result.RowCount,
                     mucarimRowCount = result.MucarimRowCount,
                     sharatimRowCount = result.SharatimRowCount,
+                    cheshbonitRowCount = result.CheshbonitRowCount,
                     message = result.Message
                 });
             }
@@ -900,6 +957,93 @@ namespace PetelAssistants.Api.Controllers
                 process.SharatimRowCount = sharatimInserted;
                 process.SharatimTotalClassCount = sharatimSum;
                 process.SharatimError = sharatimError;
+
+                // CHESHBONIT is best-effort: invoice rows; PaidAmount feeds month summaries.
+                decimal cheshbonitPaidSum = 0;
+                var cheshbonitInserted = 0;
+                var cheshbonitSkipped = 0;
+                string? cheshbonitError = null;
+
+                try
+                {
+                    if (replaceExisting && exists)
+                    {
+                        var oldCheshbonitRows = await _context.MeitarCheshbonit
+                            .Where(m => m.PeriodYear == year && m.PeriodMonth == month)
+                            .ToListAsync();
+                        if (oldCheshbonitRows.Count > 0)
+                        {
+                            _context.MeitarCheshbonit.RemoveRange(oldCheshbonitRows);
+                            await _context.SaveChangesAsync();
+                        }
+                    }
+
+                    var cheshbonitResult = await _meitarDataService.QueryCheshbonitForSymbolAndPeriodAsync(symbolCode, year, month);
+
+                    _logger.LogInformation(
+                        "CHESHBONIT retrieve for process {ProcessId}: Success={Success}, RowCount={RowCount}, Message={Message}",
+                        process.Id, cheshbonitResult.Success, cheshbonitResult.RowCount, cheshbonitResult.Message);
+
+                    if (!cheshbonitResult.Success)
+                    {
+                        cheshbonitError = cheshbonitResult.Message ?? "שליפת נתוני חשבונית (CHESHBONIT) נכשלה.";
+                    }
+                    else
+                    {
+                        foreach (var row in cheshbonitResult.Rows)
+                        {
+                            if (!TryMapCheshbonitRow(row, out var mappedCheshbonit))
+                            {
+                                cheshbonitSkipped++;
+                                continue;
+                            }
+
+                            cheshbonitPaidSum += mappedCheshbonit.PaidAmount ?? 0;
+                            _context.MeitarCheshbonit.Add(new MeitarCheshbonit
+                            {
+                                EntityId = entityId,
+                                PeriodYear = year,
+                                PeriodMonth = month,
+                                BeneficiaryCode = mappedCheshbonit.BeneficiaryCode,
+                                CalcDate = mappedCheshbonit.CalcDate,
+                                EffectiveDate = mappedCheshbonit.EffectiveDate,
+                                AccountingUnit = mappedCheshbonit.AccountingUnit,
+                                TopicCode = mappedCheshbonit.TopicCode,
+                                TopicDescription = mappedCheshbonit.TopicDescription,
+                                TotalDue = mappedCheshbonit.TotalDue,
+                                PaidAmount = mappedCheshbonit.PaidAmount,
+                                PaymentDifference = mappedCheshbonit.PaymentDifference,
+                                DebtBalance = mappedCheshbonit.DebtBalance,
+                                MonthlyExecutionBalance = mappedCheshbonit.MonthlyExecutionBalance,
+                                Notes = mappedCheshbonit.Notes,
+                                ProcessId = process.Id,
+                                CreatedAt = now,
+                                UserId = userId,
+                                UpdatedAt = now,
+                                UpdateUser = userId
+                            });
+                            cheshbonitInserted++;
+                        }
+
+                        _logger.LogInformation(
+                            "CHESHBONIT retrieve for process {ProcessId}: mapped {Inserted} row(s), skipped {Skipped} row(s) out of {RawCount} returned",
+                            process.Id, cheshbonitInserted, cheshbonitSkipped, cheshbonitResult.RowCount);
+                    }
+                }
+                catch (InvalidOperationException ex)
+                {
+                    cheshbonitError = ex.Message;
+                    _logger.LogWarning(ex, "CHESHBONIT retrieve skipped (best-effort) for process {ProcessId}", process.Id);
+                }
+                catch (Exception ex)
+                {
+                    cheshbonitError = "שגיאה בשליפת נתוני חשבונית (CHESHBONIT).";
+                    _logger.LogError(ex, "CHESHBONIT retrieve failed unexpectedly (best-effort) for process {ProcessId}", process.Id);
+                }
+
+                process.CheshbonitRowCount = cheshbonitInserted;
+                process.CheshbonitTotalPaidSum = cheshbonitPaidSum;
+                process.CheshbonitError = cheshbonitError;
                 process.UpdatedAt = DateTime.UtcNow;
                 process.UpdateUser = userId;
                 await _context.SaveChangesAsync();
@@ -919,11 +1063,17 @@ namespace PetelAssistants.Api.Controllers
                     : sharatimSkipped > 0
                         ? $"\nשרתים: נשלפו {sharatimInserted} שורות ({sharatimSkipped} דולגו)."
                         : $"\nשרתים: נשלפו {sharatimInserted} שורות בהצלחה.";
+                message += cheshbonitError != null
+                    ? $"\nחשבונית: לא נשלפו — {cheshbonitError}"
+                    : cheshbonitSkipped > 0
+                        ? $"\nחשבונית: נשלפו {cheshbonitInserted} שורות ({cheshbonitSkipped} דולגו)."
+                        : $"\nחשבונית: נשלפו {cheshbonitInserted} שורות בהצלחה.";
 
                 return PeriodRetrieveResult.SuccessResult(
                     process.Id, inserted, skipped, sum,
                     mucarimInserted, mucarimSkipped, mucarimSum, mucarimError,
                     sharatimInserted, sharatimSkipped, sharatimSum, sharatimError,
+                    cheshbonitInserted, cheshbonitSkipped, cheshbonitPaidSum, cheshbonitError,
                     message);
             }
             catch (InvalidOperationException ex)
@@ -956,6 +1106,10 @@ namespace PetelAssistants.Api.Controllers
             public int SharatimSkipped { get; private init; }
             public int SharatimTotalClassCount { get; private init; }
             public string? SharatimError { get; private init; }
+            public int CheshbonitRowCount { get; private init; }
+            public int CheshbonitSkipped { get; private init; }
+            public decimal CheshbonitTotalPaid { get; private init; }
+            public string? CheshbonitError { get; private init; }
             public string? ErrorMessage { get; private init; }
             public string Message { get; private init; } = string.Empty;
 
@@ -976,6 +1130,7 @@ namespace PetelAssistants.Api.Controllers
                 int processId, int rowCount, int skippedRows, decimal totalCalculated,
                 int mucarimRowCount, int mucarimSkipped, decimal mucarimTotalCalculated, string? mucarimError,
                 int sharatimRowCount, int sharatimSkipped, int sharatimTotalClassCount, string? sharatimError,
+                int cheshbonitRowCount, int cheshbonitSkipped, decimal cheshbonitTotalPaid, string? cheshbonitError,
                 string message) => new()
             {
                 Success = true,
@@ -991,6 +1146,10 @@ namespace PetelAssistants.Api.Controllers
                 SharatimSkipped = sharatimSkipped,
                 SharatimTotalClassCount = sharatimTotalClassCount,
                 SharatimError = sharatimError,
+                CheshbonitRowCount = cheshbonitRowCount,
+                CheshbonitSkipped = cheshbonitSkipped,
+                CheshbonitTotalPaid = cheshbonitTotalPaid,
+                CheshbonitError = cheshbonitError,
                 Message = message
             };
         }
@@ -1163,6 +1322,57 @@ namespace PetelAssistants.Api.Controllers
             return true;
         }
 
+        private static bool TryMapCheshbonitRow(JsonElement row, out MappedCheshbonitRow mapped)
+        {
+            mapped = default!;
+            if (row.ValueKind != JsonValueKind.Object)
+                return false;
+
+            if (!TryGetString(row, "beneficiaryCode", out var beneficiary) &&
+                !TryGetString(row, "BeneficiaryCode", out beneficiary))
+                return false;
+
+            if (!TryGetDateOnly(row, "calcDate", out var calcDate) &&
+                !TryGetDateOnly(row, "CalcDate", out calcDate))
+                return false;
+
+            DateOnly? effectiveDate = null;
+            if (TryGetDateOnly(row, "effectiveDate", out var effective) ||
+                TryGetDateOnly(row, "EffectiveDate", out effective))
+                effectiveDate = effective;
+
+            TryGetString(row, "accountingUnit", out var accountingUnit);
+            if (accountingUnit == null)
+                TryGetString(row, "AccountingUnit", out accountingUnit);
+
+            TryGetString(row, "topicCode", out var topicCode);
+            if (topicCode == null)
+                TryGetString(row, "TopicCode", out topicCode);
+
+            TryGetString(row, "topicDescription", out var topicDescription);
+            if (topicDescription == null)
+                TryGetString(row, "TopicDescription", out topicDescription);
+
+            TryGetString(row, "notes", out var notes);
+            if (notes == null)
+                TryGetString(row, "Notes", out notes);
+
+            mapped = new MappedCheshbonitRow(
+                beneficiary!,
+                calcDate,
+                effectiveDate,
+                accountingUnit,
+                topicCode,
+                topicDescription,
+                TryGetOptionalDecimal(row, "totalDue", "TotalDue"),
+                TryGetOptionalDecimal(row, "paidAmount", "PaidAmount"),
+                TryGetOptionalDecimal(row, "paymentDifference", "PaymentDifference"),
+                TryGetOptionalDecimal(row, "debtBalance", "DebtBalance"),
+                TryGetOptionalDecimal(row, "monthlyExecutionBalance", "MonthlyExecutionBalance"),
+                notes);
+            return true;
+        }
+
         private static string NormalizeSymbol(string symbol)
         {
             var trimmed = symbol.Trim();
@@ -1326,6 +1536,20 @@ namespace PetelAssistants.Api.Controllers
             string? InstitutionName,
             string? TopicCode,
             int ClassCount);
+
+        private sealed record MappedCheshbonitRow(
+            string BeneficiaryCode,
+            DateOnly CalcDate,
+            DateOnly? EffectiveDate,
+            string? AccountingUnit,
+            string? TopicCode,
+            string? TopicDescription,
+            decimal? TotalDue,
+            decimal? PaidAmount,
+            decimal? PaymentDifference,
+            decimal? DebtBalance,
+            decimal? MonthlyExecutionBalance,
+            string? Notes);
 
         private async Task<HashSet<(int Year, int Month)>?> ResolveHebrewYearMonthsAsync(int hebrewYearId)
         {

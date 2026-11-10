@@ -396,6 +396,48 @@ namespace PetelAssistants.Api.Services
             return result;
         }
 
+        public async Task<MeitarDataQueryResult> QueryCheshbonitForSymbolAndPeriodAsync(
+            string symbolCode,
+            int periodYear,
+            int periodMonth,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(symbolCode))
+                throw new InvalidOperationException("לא הוגדר קוד מוטב (symbol_code) לרשות הנוכחית.");
+
+            if (periodMonth < 1 || periodMonth > 12)
+                throw new InvalidOperationException("חודש לא תקין.");
+
+            // Same pattern as MUCARIM — filters + periodList sent together; Meitar ANDs server-side.
+            var filters = await GetFilterGroupsAsync(MeitarDataFileNames.Cheshbonit, cancellationToken);
+            var periodList = new List<string> { FormatCalcDateFilterValue(periodYear, periodMonth) };
+
+            _logger.LogInformation(
+                "CHESHBONIT retrieve: Period={PeriodYear}/{PeriodMonth}, SymbolCode={SymbolCode}, PeriodList=[{PeriodList}], Filters=[{Filters}]",
+                periodYear, periodMonth, symbolCode, string.Join(", ", periodList),
+                string.Join("; ", filters.Select(f => $"{f.Field} IN ({string.Join(", ", f.ValueList)})")));
+
+            var result = await QueryAsync(new MeitarDataQueryRequest
+            {
+                SymbolList = new List<string> { symbolCode.Trim() },
+                FileName = MeitarDataFileNames.Cheshbonit,
+                Filters = filters,
+                PeriodList = periodList
+            }, cancellationToken);
+
+            if (!result.Success)
+            {
+                _logger.LogWarning("CHESHBONIT retrieve: query failed — {Message}", result.Message);
+                return result;
+            }
+
+            _logger.LogInformation(
+                "CHESHBONIT retrieve: {RowCount} row(s) returned by Meitar for period {PeriodYear}/{PeriodMonth}",
+                result.Rows.Count, periodYear, periodMonth);
+
+            return result;
+        }
+
         private static string FormatCalcDateFilterValue(int periodYear, int periodMonth)
             => $"{periodMonth:D2}/{periodYear}";
 

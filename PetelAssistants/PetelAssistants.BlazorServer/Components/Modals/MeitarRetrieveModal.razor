@@ -62,6 +62,7 @@
                                         <th>מוטבים</th>
                                         <th>מוכרים</th>
                                         <th>שרתים</th>
+                                        <th>חשבונית</th>
                                         <th>סטטוס</th>
                                     </tr>
                                 </thead>
@@ -73,6 +74,7 @@
                                             <td>@(period.Success ? period.RowCount.ToString() : "—")</td>
                                             <td>@(period.Success ? period.MucarimRowCount.ToString() : "—")</td>
                                             <td>@(period.Success ? period.SharatimRowCount.ToString() : "—")</td>
+                                            <td>@(period.Success ? period.CheshbonitRowCount.ToString() : "—")</td>
                                             <td>@(period.Skipped ? "דולג" : period.Success ? "הושלם" : "נכשל")</td>
                                         </tr>
                                     }
@@ -407,6 +409,7 @@
         public int RowCount { get; set; }
         public int MucarimRowCount { get; set; }
         public int SharatimRowCount { get; set; }
+        public int CheshbonitRowCount { get; set; }
         public string? Message { get; set; }
     }
 }
