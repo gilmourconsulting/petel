@@ -218,6 +218,7 @@ namespace PetelAssistants.BlazorServer.DTOs
         public bool IsActive { get; set; }
         public int? EntityTypeId { get; set; }
         public string? EntityTypeName { get; set; }
+        public string? SymbolCode { get; set; }
         public int UserCount { get; set; }
     }
 
@@ -233,11 +234,13 @@ namespace PetelAssistants.BlazorServer.DTOs
     {
         public string Name         { get; set; } = string.Empty;
         public int?   EntityTypeId { get; set; }
+        public string? SymbolCode  { get; set; }
     }
 
     public class UpdateTenantRequest
     {
         public string Name         { get; set; } = string.Empty;
         public int?   EntityTypeId { get; set; }
+        public string? SymbolCode  { get; set; }
     }
 }

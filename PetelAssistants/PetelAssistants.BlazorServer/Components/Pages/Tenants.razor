@@ -41,6 +41,7 @@
                             <tr>
                                 <th>פעולות</th>
                                 <th>שם רשות</th>
+                                <th>סמל</th>
                                 <th>סוג</th>
                                 <th>משתמשים פעילים</th>
                                 <th>סטטוס</th>
@@ -79,6 +80,7 @@
                                         }
                                     </td>
                                     <td>@tenant.Name</td>
+                                    <td>@(tenant.SymbolCode ?? "—")</td>
                                     <td>@(tenant.EntityTypeName ?? "—")</td>
                                     <td>@tenant.UserCount</td>
                                     <td>
@@ -109,6 +111,10 @@
                 <div class="form-group">
                     <label>שם רשות <span class="required">*</span></label>
                     <input type="text" class="form-control" @bind="_formName" placeholder="שם הרשות" />
+                </div>
+                <div class="form-group">
+                    <label>סמל</label>
+                    <input type="text" class="form-control" @bind="_formSymbolCode" placeholder="סמל רשות" maxlength="20" />
                 </div>
                 <div class="form-group">
                     <label>סוג רשות</label>
@@ -147,6 +153,7 @@
     private string _formError = string.Empty;
     private TenantDto? _editTenant;
     private string _formName = string.Empty;
+    private string _formSymbolCode = string.Empty;
     private int? _formEntityTypeId;
 
     protected override async Task OnPageInitializedAsync()
@@ -191,6 +198,7 @@
     {
         _editTenant = null;
         _formName = string.Empty;
+        _formSymbolCode = string.Empty;
         _formEntityTypeId = null;
         _formError = string.Empty;
         _showFormDialog = true;
@@ -200,6 +208,7 @@
     {
         _editTenant = tenant;
         _formName = tenant.Name;
+        _formSymbolCode = tenant.SymbolCode ?? string.Empty;
         _formEntityTypeId = tenant.EntityTypeId;
         _formError = string.Empty;
         _showFormDialog = true;
@@ -226,17 +235,19 @@
         {
             ApiResponse<object>? response;
 
+            var symbolCode = string.IsNullOrWhiteSpace(_formSymbolCode) ? null : _formSymbolCode.Trim();
+
             if (_editTenant == null)
             {
                 response = await ApiService.PostAsync<CreateTenantRequest, ApiResponse<object>>(
                     "tenants",
-                    new CreateTenantRequest { Name = _formName, EntityTypeId = _formEntityTypeId });
+                    new CreateTenantRequest { Name = _formName, EntityTypeId = _formEntityTypeId, SymbolCode = symbolCode });
             }
             else
             {
                 response = await ApiService.PutAsync<UpdateTenantRequest, ApiResponse<object>>(
                     $"tenants/{_editTenant.Id}",
-                    new UpdateTenantRequest { Name = _formName, EntityTypeId = _formEntityTypeId });
+                    new UpdateTenantRequest { Name = _formName, EntityTypeId = _formEntityTypeId, SymbolCode = symbolCode });
             }
 
             if (response?.Success == true)

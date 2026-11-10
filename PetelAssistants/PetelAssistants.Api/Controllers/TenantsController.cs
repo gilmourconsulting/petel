@@ -42,6 +42,7 @@ namespace PetelAssistants.Api.Controllers
                         e.Name,
                         e.IsActive,
                         e.EntityTypeId,
+                        e.SymbolCode,
                         EntityTypeName = e.EntityType != null ? e.EntityType.Name : null
                     })
                     .OrderBy(e => e.Name)
@@ -64,6 +65,7 @@ namespace PetelAssistants.Api.Controllers
                     e.Name,
                     e.IsActive,
                     e.EntityTypeId,
+                    e.SymbolCode,
                     e.EntityTypeName,
                     UserCount = countDict.TryGetValue(e.Id, out var c) ? c : 0
                 }).ToList();
@@ -114,16 +116,29 @@ namespace PetelAssistants.Api.Controllers
                 if (string.IsNullOrWhiteSpace(request.Name))
                     return BadRequest(new { success = false, message = "שם רשות הוא שדה חובה" });
 
+                var name = request.Name.Trim();
+                if (!TryNormalizeSymbolCode(request.SymbolCode, out var symbolCode, out var symbolError))
+                    return BadRequest(new { success = false, message = symbolError });
+
                 var exists = await _sharedContext.Entities
-                    .AnyAsync(e => e.Name == request.Name.Trim());
+                    .AnyAsync(e => e.Name == name);
 
                 if (exists)
                     return BadRequest(new { success = false, message = "רשות עם שם זה כבר קיימת" });
 
+                if (symbolCode != null)
+                {
+                    var symbolTaken = await _sharedContext.Entities
+                        .AnyAsync(e => e.SymbolCode == symbolCode);
+                    if (symbolTaken)
+                        return BadRequest(new { success = false, message = "רשות עם סמל זה כבר קיימת" });
+                }
+
                 var entity = new Entity
                 {
-                    Name         = request.Name.Trim(),
+                    Name         = name,
                     EntityTypeId = request.EntityTypeId,
+                    SymbolCode   = symbolCode,
                     IsActive     = true
                 };
 
@@ -156,8 +171,21 @@ namespace PetelAssistants.Api.Controllers
                 if (entity == null)
                     return NotFound(new { success = false, message = "רשות לא נמצאה" });
 
-                entity.Name         = request.Name.Trim();
+                var name = request.Name.Trim();
+                if (!TryNormalizeSymbolCode(request.SymbolCode, out var symbolCode, out var symbolError))
+                    return BadRequest(new { success = false, message = symbolError });
+
+                if (symbolCode != null)
+                {
+                    var symbolTaken = await _sharedContext.Entities
+                        .AnyAsync(e => e.SymbolCode == symbolCode && e.Id != id);
+                    if (symbolTaken)
+                        return BadRequest(new { success = false, message = "רשות עם סמל זה כבר קיימת" });
+                }
+
+                entity.Name         = name;
                 entity.EntityTypeId = request.EntityTypeId;
+                entity.SymbolCode   = symbolCode;
 
                 await _sharedContext.SaveChangesAsync();
                 return Ok(new { success = true, message = "פרטי רשות עודכנו בהצלחה" });
@@ -167,6 +195,25 @@ namespace PetelAssistants.Api.Controllers
                 _logger.LogError(ex, "Error updating tenant {TenantId}", id);
                 return StatusCode(500, new { success = false, message = "שגיאה בעדכון רשות", error = ex.Message });
             }
+        }
+
+        private static bool TryNormalizeSymbolCode(string? symbolCode, out string? normalized, out string error)
+        {
+            normalized = null;
+            error = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(symbolCode))
+                return true;
+
+            normalized = symbolCode.Trim();
+            if (normalized.Length > 20)
+            {
+                error = "סמל רשות ארוך מדי";
+                normalized = null;
+                return false;
+            }
+
+            return true;
         }
 
         [HttpPut("{id}/activate")]
@@ -225,11 +272,13 @@ namespace PetelAssistants.Api.Controllers
     {
         public string Name          { get; set; } = string.Empty;
         public int?   EntityTypeId  { get; set; }
+        public string? SymbolCode   { get; set; }
     }
 
     public class UpdateTenantRequest
     {
         public string Name          { get; set; } = string.Empty;
         public int?   EntityTypeId  { get; set; }
+        public string? SymbolCode   { get; set; }
     }
 }
