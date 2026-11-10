@@ -20,5 +20,6 @@ namespace PetelAssistants.Api.DTOs.Meitar
         public decimal? PreviousCalculatedAmount { get; set; }
         public decimal? CalculatedDifference { get; set; }
         public string? UnitDescription { get; set; }
+        public int ActiveMatchCount { get; set; }
     }
 }

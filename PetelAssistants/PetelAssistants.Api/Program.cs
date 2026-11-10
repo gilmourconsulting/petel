@@ -99,6 +99,7 @@ builder.Services.AddHttpClient("MeitarApi", client =>
     client.Timeout = TimeSpan.FromSeconds(meitarSettings?.TimeoutSeconds ?? 60);
 });
 builder.Services.AddScoped<IMeitarDataService, MeitarDataService>();
+builder.Services.AddScoped<MeitarMucarimEntitlementMatchService>();
 
 var app = builder.Build();
 

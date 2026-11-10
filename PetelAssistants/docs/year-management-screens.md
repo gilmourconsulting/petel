@@ -122,7 +122,11 @@ Downstream pages should read year from the route parameter `{YearId}` and/or ses
 | `PUT api/salary-anomalies/{id}/status` | Update anomaly status + notes |
 | `GET api/statuses?object=` | Shared statuses |
 | `GET api/meitar-month-summaries?year=&month=` | Meitar vs locked budget summary (latest process) |
-| `GET api/meitardata/mucarim?year=&month=&dateField=` | Stored MUCARIM rows for period (MUCARIM tab on `/meitar-data`) |
+| `GET api/meitardata/mucarim?year=&month=&dateField=` | Stored MUCARIM rows for period (MUCARIM tab on `/meitar-data`; includes `ActiveMatchCount`) |
+| `GET api/meitar-mucarim-entitlement-matches?year=&month=` | Active MUCARIM↔entitlement matches for retrieve period |
+| `GET api/meitar-mucarim-entitlement-matches/by-entitlement/{id}` | Active MUCARIM matches for one entitlement |
+| `POST api/meitar-mucarim-entitlement-matches/recheck?year=&month=` | Disable/recreate MUCARIM entitlement matches for period |
+| `POST api/meitar-mucarim-entitlement-matches/recheck-entitlement/{id}` | Disable/recreate MUCARIM matches for one entitlement |
 | `GET api/yearly-budgets?yearId=` | Last yearly budget for year (includes `Comparisons`), or empty shell if none |
 | `GET api/yearly-budgets/{id}` | Specific budget version |
 | `PUT api/yearly-budgets/{id}` | Save open budget (year lines; months re-split) |
@@ -197,6 +201,7 @@ After user-management scripts:
 20. `PetelAssistants/SQL/add-maindashboard-org-units.sql` — legacy dashboard org-units action (UI entry removed; use year hub)
 21. `PetelAssistants/SQL/add-monthly-ops.sql` — statuses, department mapping, Meitar topic→type, month summaries, salary anomalies + debug screen actions
 22. `PetelAssistants/SQL/add-meitar-mucarim-retrieve.sql` — `meitar_mucarim` table + best-effort tracking columns on `meitar_retrieve_processes` (MUCARIM pulled alongside MUTAVIM, viewable via a tab on `/meitar-data`)
+22a. `PetelAssistants/SQL/add-meitar-mucarim-entitlement-matches.sql` — MUCARIM↔entitlement match process/match tables + recheck actions
 23. `PetelAssistants/SQL/add-yearly-budget-comparisons.sql` — per-budget-version salary/Meitar comparison table (`yearly_budget_comparisons`)
 24. `PetelAssistants/SQL/add-yearly-budget-recalculate-summaries-action.sql` — budget-screen button (`yearly_budget_recalculate_summaries`)
 25. `PetelAssistants/SQL/add-gregorian-year-actions.sql` — calendar-year hub + child screens
