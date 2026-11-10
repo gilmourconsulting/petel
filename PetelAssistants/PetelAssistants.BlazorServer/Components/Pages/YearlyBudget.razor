@@ -108,28 +108,14 @@
                     </div>
                 }
 
-                <div class="tabs-header">
-                    <button type="button" class="tab-button @(_activeTab == "budget" ? "active" : "")"
-                            @onclick='() => SelectTab("budget")'>
-                        תקציב
-                    </button>
-                    <button type="button" class="tab-button @(_activeTab == "vs-budget" ? "active" : "")"
-                            @onclick='() => SelectTab("vs-budget")'>
-                        סיכום מול תקציב
-                    </button>
-                </div>
-
-                <div class="tab-content">
-                    @if (_activeTab == "budget")
-                    {
-                        @if (_budget == null || _budget.Id == 0)
-                        {
-                            <div style="color: var(--text-muted);">
-                                אין עדיין גרסת תקציב לשנה זו. לחץ על <strong>גרסה חדשה</strong> ליצירת גרסה 0.
-                            </div>
-                        }
-                        else
-                        {
+                @if (_budget == null || _budget.Id == 0)
+                {
+                    <div style="color: var(--text-muted);">
+                        אין עדיין גרסת תקציב לשנה זו. לחץ על <strong>גרסה חדשה</strong> ליצירת גרסה 0.
+                    </div>
+                }
+                else
+                {
                             <h2 style="font-size: 1.15em; margin-bottom: 12px;">פירוט שנתי</h2>
                             <div class="yearly-budget-year-scroll">
                                 <table class="data-table yearly-budget-year-table">
@@ -242,104 +228,7 @@
                                     </table>
                                 </div>
                             }
-                        }
-                    }
-                    else if (_activeTab == "vs-budget")
-                    {
-                        @if (ComparisonMonths.Count > 0)
-                        {
-                            <div class="salary-month-buttons">
-                                <button type="button"
-                                        class="salary-month-btn @(_compareMonthYear == 0 ? "active" : null)"
-                                        @onclick="() => SelectCompareMonth(0, 0)">
-                                    <span class="month-name">שנתי</span>
-                                    <span class="month-total">₪ @YearActualTotal.ToString("N0")</span>
-                                </button>
-                                @foreach (var period in ComparisonMonths)
-                                {
-                                    var year = period.PeriodYear;
-                                    var month = period.PeriodMonth;
-                                    <button type="button"
-                                            class="salary-month-btn @(_compareMonthYear == year && _compareMonth == month ? "active" : null)"
-                                            @onclick="() => SelectCompareMonth(year, month)">
-                                        <span class="month-name">@GetMonthLabel(month)</span>
-                                        <span class="month-total">₪ @GetActualMonthTotal(year, month).ToString("N0")</span>
-                                    </button>
-                                }
-                            </div>
-                        }
-
-                        @if (ComparisonRows.Count == 0)
-                        {
-                            <p>אין נתוני שכר או תקציב להשוואה.</p>
-                        }
-                        else
-                        {
-                            <div class="summary-grid" style="margin-bottom: 16px;">
-                                <div class="summary-card">
-                                    <div class="summary-info">
-                                        <div class="summary-value">@ComparisonRows.Sum(r => r.BudgetAmount).ToString("N0")</div>
-                                        <div class="summary-label">תקציב (₪)</div>
-                                    </div>
-                                </div>
-                                <div class="summary-card">
-                                    <div class="summary-info">
-                                        <div class="summary-value">@ComparisonRows.Sum(r => r.SalaryAmount).ToString("N0")</div>
-                                        <div class="summary-label">סה"כ שכר בפועל (₪)</div>
-                                    </div>
-                                </div>
-                                <div class="summary-card">
-                                    <div class="summary-info">
-                                        <div class="summary-value">@ComparisonRows.Sum(r => r.MeitarAmount).ToString("N0")</div>
-                                        <div class="summary-label">הכנסת מיתר (₪)</div>
-                                    </div>
-                                </div>
-                                <div class="summary-card">
-                                    <div class="summary-info">
-                                        <div class="summary-value">@ComparisonRows.Sum(r => r.SalaryAmountVariance).ToString("N0")</div>
-                                        <div class="summary-label">הפרש שכר (₪)</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <BudgetTrendChart Comparisons="_budget?.Comparisons ?? new List<YearlyBudgetComparisonDto>()"
-                                              Months="ComparisonMonths"
-                                              MonthSelected="OnTrendMonthSelected" />
-
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>סוג סייעת</th>
-                                            <th>סכום תקציב</th>
-                                            <th>סכום שכר</th>
-                                            <th>הכנסת מיתר</th>
-                                            <th>הפרש שכר</th>
-                                            <th>משרות תקציב</th>
-                                            <th>משרות שכר</th>
-                                            <th>הפרש משרות</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var row in ComparisonRows)
-                                        {
-                                            <tr>
-                                                <td>@row.AssistantTypeName</td>
-                                                <td>@row.BudgetAmount.ToString("N2")</td>
-                                                <td>@row.SalaryAmount.ToString("N2")</td>
-                                                <td>@row.MeitarAmount.ToString("N2")</td>
-                                                <td>@row.SalaryAmountVariance.ToString("N2")</td>
-                                                <td>@row.BudgetFte.ToString("N2")</td>
-                                                <td>@row.SalaryFte.ToString("N2")</td>
-                                                <td>@row.SalaryFteVariance.ToString("N2")</td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                    }
-                </div>
+                }
             }
         </div>
     </div>
@@ -514,8 +403,6 @@
     private bool _isLoading = true;
     private string _error = "";
     private string _yearName = "";
-    private DateOnly? _yearStart;
-    private DateOnly? _yearEnd;
     private YearlyBudgetDto? _budget;
     private List<YearlyBudgetDetailDto> _editDetails = new();
     private bool _showCalculateResult;
@@ -523,10 +410,6 @@
     private List<AssistantTypeDto> _assistantTypes = new();
     private bool _showAddTypesModal;
     private HashSet<int> _selectedTypeIdsToAdd = new();
-    private string _activeTab = "budget";
-    private int _compareMonthYear;
-    private int _compareMonth;
-
     private List<AssistantTypeDto> MissingAssistantTypes =>
         _assistantTypes.Where(t => !_editDetails.Any(d => d.AssistantTypeId == t.Id)).ToList();
 
@@ -550,76 +433,6 @@
             m.AssistantTypeId == assistantTypeId &&
             m.PeriodYear == periodYear &&
             m.PeriodMonth == periodMonth);
-
-    private List<(int PeriodYear, int PeriodMonth)> ComparisonMonths
-    {
-        get
-        {
-            if (MonthColumns.Count > 0)
-                return MonthColumns;
-
-            if (_yearStart is null || _yearEnd is null)
-                return new();
-
-            var start = new DateOnly(_yearStart.Value.Year, _yearStart.Value.Month, 1);
-            var end = new DateOnly(_yearEnd.Value.Year, _yearEnd.Value.Month, 1);
-            if (end < start)
-                return new();
-
-            var months = new List<(int PeriodYear, int PeriodMonth)>();
-            for (var cursor = start; cursor <= end; cursor = cursor.AddMonths(1))
-                months.Add((cursor.Year, cursor.Month));
-            return months;
-        }
-    }
-
-    private IEnumerable<YearlyBudgetComparisonDto> ComparisonSource =>
-        (_budget?.Comparisons ?? new List<YearlyBudgetComparisonDto>())
-            .Where(l => _compareMonthYear == 0
-                || (l.PeriodYear == _compareMonthYear && l.PeriodMonth == _compareMonth));
-
-    private decimal YearActualTotal =>
-        (_budget?.Comparisons ?? new List<YearlyBudgetComparisonDto>()).Sum(l => l.SalaryAmount);
-
-    private decimal GetActualMonthTotal(int year, int month) =>
-        (_budget?.Comparisons ?? new List<YearlyBudgetComparisonDto>())
-            .Where(l => l.PeriodYear == year && l.PeriodMonth == month)
-            .Sum(l => l.SalaryAmount);
-
-    private List<ComparisonRow> ComparisonRows
-    {
-        get
-        {
-            const int unmappedKey = -1;
-            return ComparisonSource
-                .GroupBy(l => l.AssistantTypeId ?? unmappedKey)
-                .OrderBy(g => g.Key == unmappedKey)
-                .ThenBy(g => g.Key)
-                .Select(g => new ComparisonRow
-                {
-                    AssistantTypeName = g.Select(x => x.AssistantTypeName).FirstOrDefault(n => !string.IsNullOrEmpty(n))
-                        ?? "לא ממופה",
-                    BudgetAmount = g.Sum(x => x.BudgetAmount),
-                    SalaryAmount = g.Sum(x => x.SalaryAmount),
-                    MeitarAmount = g.Sum(x => x.MeitarAmount),
-                    BudgetFte = g.Sum(x => x.BudgetFte),
-                    SalaryFte = g.Sum(x => x.SalaryFte)
-                })
-                .ToList();
-        }
-    }
-
-    private sealed class ComparisonRow
-    {
-        public string AssistantTypeName { get; set; } = string.Empty;
-        public decimal BudgetAmount { get; set; }
-        public decimal SalaryAmount { get; set; }
-        public decimal MeitarAmount { get; set; }
-        public decimal BudgetFte { get; set; }
-        public decimal SalaryFte { get; set; }
-        public decimal SalaryAmountVariance => SalaryAmount - BudgetAmount;
-        public decimal SalaryFteVariance => SalaryFte - BudgetFte;
-    }
 
     protected override async Task OnPageInitializedAsync()
     {
@@ -651,14 +464,10 @@
         {
             var year = await ApiService.GetAsync<YearDto>($"years/{YearId}");
             _yearName = year?.YearName ?? "";
-            _yearStart = year?.StartDate;
-            _yearEnd = year?.EndDate;
         }
         catch
         {
             _yearName = "";
-            _yearStart = null;
-            _yearEnd = null;
         }
     }
 
@@ -673,22 +482,6 @@
         {
             _assistantTypes = new();
         }
-    }
-
-    private void SelectTab(string tab)
-    {
-        _activeTab = tab;
-    }
-
-    private void SelectCompareMonth(int year, int month)
-    {
-        _compareMonthYear = year;
-        _compareMonth = month;
-    }
-
-    private void OnTrendMonthSelected((int PeriodYear, int PeriodMonth) period)
-    {
-        SelectCompareMonth(period.PeriodYear, period.PeriodMonth);
     }
 
     private void ShowAddAssistantTypesModal()
@@ -870,7 +663,6 @@
             if (response?.Success == true && response.Data != null)
             {
                 ApplyBudget(response.Data);
-                _activeTab = "vs-budget";
                 await JSRuntime.InvokeVoidAsync("alert", "סיכומי השכר והמיתר חושבו מחדש");
             }
             else

@@ -83,6 +83,186 @@ namespace PetelAssistants.Api.Controllers
             return Ok(new { success = true, data = items });
         }
 
+        [HttpGet("comparison-totals")]
+        public async Task<IActionResult> GetComparisonTotals(
+            [FromQuery] string? dateField,
+            [FromQuery] int? hebrewYearId,
+            [FromQuery] int? year)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            if (!hebrewYearId.HasValue && !year.HasValue)
+                return BadRequest(new { success = false, message = "יש לספק שנת לימודים או שנה לועזית" });
+
+            var byEffective = string.Equals(dateField, "effective", StringComparison.OrdinalIgnoreCase);
+            HashSet<(int Year, int Month)>? allowedMonths = null;
+            if (hebrewYearId.HasValue)
+            {
+                allowedMonths = await ResolveHebrewYearMonthsAsync(hebrewYearId.Value);
+                if (allowedMonths == null)
+                    return BadRequest(new { success = false, message = "שנת לימודים לא נמצאה" });
+            }
+
+            var rows = await _context.MeitarMutavim.AsNoTracking()
+                .Select(m => new
+                {
+                    m.CalcDate,
+                    m.EffectiveDate,
+                    m.TopicCode,
+                    m.UnitCount,
+                    m.CalculatedAmount
+                })
+                .ToListAsync();
+
+            var bucketed = rows
+                .Select(r =>
+                {
+                    DateOnly? date = byEffective ? r.EffectiveDate : r.CalcDate;
+                    if (date is null)
+                        return null;
+                    return new
+                    {
+                        PeriodYear = date.Value.Year,
+                        PeriodMonth = date.Value.Month,
+                        r.TopicCode,
+                        Hours = r.UnitCount ?? 0m,
+                        r.CalculatedAmount
+                    };
+                })
+                .Where(r => r != null)
+                .Select(r => r!)
+                .Where(r =>
+                    allowedMonths != null
+                        ? allowedMonths.Contains((r.PeriodYear, r.PeriodMonth))
+                        : r.PeriodYear == year!.Value)
+                .ToList();
+
+            var topics = await _sharedContext.MeitarTopics.AsNoTracking()
+                .Where(t => t.IsActive && t.AssistantTypeId != null)
+                .Select(t => new { t.Code, t.AssistantTypeId })
+                .ToListAsync();
+            var typeByTopic = topics
+                .GroupBy(t => t.Code, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First().AssistantTypeId, StringComparer.Ordinal);
+
+            var typeNames = await _sharedContext.AssistantTypes.AsNoTracking()
+                .ToDictionaryAsync(t => t.Id, t => t.DisplayName);
+
+            var items = bucketed
+                .GroupBy(r =>
+                {
+                    int? typeId = null;
+                    if (!string.IsNullOrWhiteSpace(r.TopicCode) &&
+                        typeByTopic.TryGetValue(r.TopicCode, out var mapped))
+                        typeId = mapped;
+                    return new { r.PeriodYear, r.PeriodMonth, TypeId = typeId };
+                })
+                .Select(g => new MeitarPeriodTotalDto
+                {
+                    PeriodYear = g.Key.PeriodYear,
+                    PeriodMonth = g.Key.PeriodMonth,
+                    AssistantTypeId = g.Key.TypeId,
+                    AssistantTypeName = g.Key.TypeId.HasValue
+                        ? typeNames.GetValueOrDefault(g.Key.TypeId.Value, g.Key.TypeId.Value.ToString())
+                        : "לא ממופה",
+                    RowCount = g.Count(),
+                    Amount = Math.Round(g.Sum(x => x.CalculatedAmount), 2, MidpointRounding.AwayFromZero),
+                    Hours = Math.Round(g.Sum(x => x.Hours), 4, MidpointRounding.AwayFromZero)
+                })
+                .OrderBy(x => x.PeriodYear)
+                .ThenBy(x => x.PeriodMonth)
+                .ThenBy(x => x.AssistantTypeId == null)
+                .ThenBy(x => x.AssistantTypeId)
+                .ToList();
+
+            return Ok(new { success = true, data = items });
+        }
+
+        [HttpGet("unmapped-topics")]
+        public async Task<IActionResult> GetUnmappedTopics(
+            [FromQuery] int? year,
+            [FromQuery] int? month,
+            [FromQuery] int? hebrewYearId,
+            [FromQuery] string? dateField)
+        {
+            var session = GetCurrentSession();
+            if (session == null)
+                return Unauthorized(new { success = false, message = "נדרש אימות" });
+
+            var byEffective = string.Equals(dateField, "effective", StringComparison.OrdinalIgnoreCase);
+
+            HashSet<(int Year, int Month)>? hebrewMonths = null;
+            if (hebrewYearId.HasValue && !year.HasValue && !month.HasValue)
+            {
+                hebrewMonths = await ResolveHebrewYearMonthsAsync(hebrewYearId.Value);
+                if (hebrewMonths == null)
+                    return BadRequest(new { success = false, message = "שנת לימודים לא נמצאה" });
+            }
+
+            var rows = await _context.MeitarMutavim.AsNoTracking()
+                .Select(m => new
+                {
+                    m.CalcDate,
+                    m.EffectiveDate,
+                    m.TopicCode,
+                    m.TopicDescription,
+                    m.CalculatedAmount
+                })
+                .ToListAsync();
+
+            var filtered = rows
+                .Select(r =>
+                {
+                    DateOnly? date = byEffective ? r.EffectiveDate : r.CalcDate;
+                    if (date is null)
+                        return null;
+                    return new
+                    {
+                        PeriodYear = date.Value.Year,
+                        PeriodMonth = date.Value.Month,
+                        r.TopicCode,
+                        r.TopicDescription,
+                        r.CalculatedAmount
+                    };
+                })
+                .Where(r => r != null)
+                .Select(r => r!)
+                .Where(r =>
+                {
+                    if (hebrewMonths != null)
+                        return hebrewMonths.Contains((r.PeriodYear, r.PeriodMonth));
+                    if (year.HasValue && month.HasValue)
+                        return r.PeriodYear == year.Value && r.PeriodMonth == month.Value;
+                    if (year.HasValue)
+                        return r.PeriodYear == year.Value;
+                    return true;
+                })
+                .ToList();
+
+            var mappedTopicCodes = await _sharedContext.MeitarTopics.AsNoTracking()
+                .Where(t => t.IsActive && t.AssistantTypeId != null)
+                .Select(t => t.Code)
+                .ToListAsync();
+            var mappedSet = mappedTopicCodes.ToHashSet(StringComparer.Ordinal);
+
+            var items = filtered
+                .Where(r => string.IsNullOrWhiteSpace(r.TopicCode) || !mappedSet.Contains(r.TopicCode))
+                .GroupBy(r => r.TopicCode ?? "", StringComparer.Ordinal)
+                .Select(g => new UnmappedMeitarTopicDto
+                {
+                    TopicCode = string.IsNullOrEmpty(g.Key) ? null : g.Key,
+                    TopicDescription = g.Select(x => x.TopicDescription).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)),
+                    RowCount = g.Count(),
+                    TotalAmount = g.Sum(x => x.CalculatedAmount)
+                })
+                .OrderBy(x => x.TopicCode)
+                .ToList();
+
+            return Ok(new { success = true, data = items });
+        }
+
         [HttpGet("mucarim")]
         public async Task<IActionResult> GetAllMucarim(
             [FromQuery] int year,
@@ -1146,5 +1326,23 @@ namespace PetelAssistants.Api.Controllers
             string? InstitutionName,
             string? TopicCode,
             int ClassCount);
+
+        private async Task<HashSet<(int Year, int Month)>?> ResolveHebrewYearMonthsAsync(int hebrewYearId)
+        {
+            var year = await _sharedContext.HebrewYears.AsNoTracking()
+                .FirstOrDefaultAsync(y => y.Id == hebrewYearId);
+            if (year?.StartDate is null || year.EndDate is null)
+                return null;
+
+            var start = new DateOnly(year.StartDate.Value.Year, year.StartDate.Value.Month, 1);
+            var end = new DateOnly(year.EndDate.Value.Year, year.EndDate.Value.Month, 1);
+            if (end < start)
+                return new HashSet<(int Year, int Month)>();
+
+            var months = new HashSet<(int Year, int Month)>();
+            for (var cursor = start; cursor <= end; cursor = cursor.AddMonths(1))
+                months.Add((cursor.Year, cursor.Month));
+            return months;
+        }
     }
 }

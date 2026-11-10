@@ -124,6 +124,16 @@
                         </div>
                     </SecureButton>
                 </div>
+
+                @if (_showVsBudgetPanel)
+                {
+                    <div class="content-card" style="margin-top: 24px;">
+                        <h2 style="font-size: 1.15em; margin-bottom: 12px;">סיכום מול תקציב</h2>
+                        <BudgetVsSummaryPanel Comparisons="_comparisons"
+                                              Months="_comparisonMonths"
+                                              HebrewYearId="YearId" />
+                    </div>
+                }
             </div>
         }
     </div>
@@ -138,6 +148,11 @@
     private bool   _isLoading = true;
     private YearHubSummaryDto _summary = new();
     private EntitlementUploadModal? _entitlementUploadModal;
+    private bool _showVsBudgetPanel;
+    private List<YearlyBudgetComparisonDto> _comparisons = new();
+    private List<(int PeriodYear, int PeriodMonth)> _comparisonMonths = new();
+    private DateOnly? _yearStart;
+    private DateOnly? _yearEnd;
 
     private string LastSalaryMonthLabel =>
         _summary.LastSalaryPeriodYear.HasValue && _summary.LastSalaryPeriodMonth.HasValue
@@ -148,6 +163,7 @@
     {
         await LoadYearAsync();
         await LoadSummaryDataAsync();
+        await LoadVsBudgetAsync();
         _isLoading = false;
     }
 
@@ -157,6 +173,7 @@
         {
             await LoadYearAsync();
             await LoadSummaryDataAsync();
+            await LoadVsBudgetAsync();
         }
     }
 
@@ -173,6 +190,64 @@
             Console.WriteLine($"Error loading summary data: {ex.Message}");
             _summary = new();
         }
+    }
+
+    private async Task LoadVsBudgetAsync()
+    {
+        _showVsBudgetPanel = false;
+        _comparisons = new();
+        _comparisonMonths = new();
+
+        try
+        {
+            var allowed = await ActionSecurity.VerifyActionAsync(
+                actionName: "yearmanagement_yearly_budget",
+                screenName: PageName,
+                functionName: "NavigateToYearlyBudget",
+                eventType: "BUTTON_VISIBLE_CHECK",
+                reference: PageName);
+            if (!allowed)
+                return;
+
+            var response = await ApiService.GetAsync<ApiResponse<YearlyBudgetDto>>(
+                $"yearly-budgets?yearId={YearId}");
+            if (response?.Success != true || response.Data == null)
+                return;
+
+            _comparisons = response.Data.Comparisons ?? new();
+            _comparisonMonths = BuildComparisonMonths(response.Data);
+            _showVsBudgetPanel = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading vs-budget panel: {ex.Message}");
+            _showVsBudgetPanel = false;
+        }
+    }
+
+    private List<(int PeriodYear, int PeriodMonth)> BuildComparisonMonths(YearlyBudgetDto budget)
+    {
+        var fromBudget = (budget.MonthDetails ?? new List<YearlyBudgetMonthDetailDto>())
+            .Select(m => (m.PeriodYear, m.PeriodMonth))
+            .Distinct()
+            .OrderBy(m => m.PeriodYear)
+            .ThenBy(m => m.PeriodMonth)
+            .ToList();
+        if (fromBudget.Count > 0)
+            return fromBudget;
+
+        if (_yearStart is null || _yearEnd is null)
+            return new();
+
+        var start = new DateOnly(_yearStart.Value.Year, _yearStart.Value.Month, 1);
+        var end = new DateOnly(_yearEnd.Value.Year, _yearEnd.Value.Month, 1);
+        if (end < start)
+            return new();
+
+        var months = new List<(int PeriodYear, int PeriodMonth)>();
+        for (var cursor = start; cursor <= end; cursor = cursor.AddMonths(1))
+            months.Add((cursor.Year, cursor.Month));
+        return months;
     }
 
     private static string GetMonthLabel(int month) => month switch
@@ -198,11 +273,15 @@
         {
             var year = await ApiService.GetAsync<YearDto>($"years/{YearId}");
             _yearName = year?.YearName ?? "";
+            _yearStart = year?.StartDate;
+            _yearEnd = year?.EndDate;
             await StoreYearInSession();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error loading year name: {ex.Message}");
+            _yearStart = null;
+            _yearEnd = null;
         }
     }
 

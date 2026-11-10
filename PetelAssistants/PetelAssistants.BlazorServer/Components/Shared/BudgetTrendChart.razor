@@ -3,25 +3,28 @@
 
 <div class="trend-chart">
     <div class="trend-chart-toolbar">
-        <div class="trend-seg" role="group" aria-label="השוואה">
-            <button type="button"
-                    class="trend-seg-btn @(_pair == PairBudgetIncome ? "active" : null)"
-                    disabled="@FteBlocksMeitar"
-                    @onclick="() => SetPair(PairBudgetIncome)">
-                תקציב מול הכנסה
-            </button>
-            <button type="button"
-                    class="trend-seg-btn @(_pair == PairBudgetExpense ? "active" : null)"
-                    @onclick="() => SetPair(PairBudgetExpense)">
-                תקציב מול הוצאות
-            </button>
-            <button type="button"
-                    class="trend-seg-btn @(_pair == PairIncomeExpense ? "active" : null)"
-                    disabled="@FteBlocksMeitar"
-                    @onclick="() => SetPair(PairIncomeExpense)">
-                הכנסה מול הוצאות
-            </button>
-        </div>
+        @if (ShowBudget)
+        {
+            <div class="trend-seg" role="group" aria-label="השוואה">
+                <button type="button"
+                        class="trend-seg-btn @(_pair == PairBudgetIncome ? "active" : null)"
+                        disabled="@FteBlocksMeitar"
+                        @onclick="() => SetPair(PairBudgetIncome)">
+                    תקציב מול הכנסה
+                </button>
+                <button type="button"
+                        class="trend-seg-btn @(_pair == PairBudgetExpense ? "active" : null)"
+                        @onclick="() => SetPair(PairBudgetExpense)">
+                    תקציב מול הוצאות
+                </button>
+                <button type="button"
+                        class="trend-seg-btn @(_pair == PairIncomeExpense ? "active" : null)"
+                        disabled="@FteBlocksMeitar"
+                        @onclick="() => SetPair(PairIncomeExpense)">
+                    הכנסה מול הוצאות
+                </button>
+            </div>
+        }
 
         <div class="trend-seg" role="group" aria-label="יחידה">
             <button type="button"
@@ -29,11 +32,14 @@
                     @onclick="() => SetUnit(UnitMoney)">
                 כסף
             </button>
-            <button type="button"
-                    class="trend-seg-btn @(_unit == UnitFte ? "active" : null)"
-                    @onclick="() => SetUnit(UnitFte)">
-                משרות
-            </button>
+            @if (ShowBudget)
+            {
+                <button type="button"
+                        class="trend-seg-btn @(_unit == UnitFte ? "active" : null)"
+                        @onclick="() => SetUnit(UnitFte)">
+                    משרות
+                </button>
+            }
         </div>
 
         <div class="trend-seg" role="group" aria-label="סדרה">
@@ -87,11 +93,12 @@
 
     [Parameter] public List<YearlyBudgetComparisonDto> Comparisons { get; set; } = new();
     [Parameter] public List<(int PeriodYear, int PeriodMonth)> Months { get; set; } = new();
+    [Parameter] public bool ShowBudget { get; set; }
     [Parameter] public EventCallback<(int PeriodYear, int PeriodMonth)> MonthSelected { get; set; }
 
     private readonly string _canvasId = $"budget-trend-{Guid.NewGuid():N}";
     private DotNetObjectReference<BudgetTrendChart>? _dotNetRef;
-    private string _pair = PairBudgetExpense;
+    private string _pair = PairIncomeExpense;
     private string _unit = UnitMoney;
     private string _seriesMode = ModeCumulative;
     private string _typeFilter = TypeAll;
@@ -124,6 +131,15 @@
                     ?? "לא ממופה"))
             .ToList();
 
+    protected override void OnParametersSet()
+    {
+        if (!ShowBudget)
+        {
+            _pair = PairIncomeExpense;
+            _unit = UnitMoney;
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -141,6 +157,8 @@
 
     private void SetPair(string pair)
     {
+        if (!ShowBudget && pair != PairIncomeExpense)
+            return;
         if (FteBlocksMeitar && pair != PairBudgetExpense)
             return;
         _pair = pair;
@@ -148,6 +166,8 @@
 
     private void SetUnit(string unit)
     {
+        if (!ShowBudget && unit == UnitFte)
+            return;
         _unit = unit;
         if (unit == UnitFte && PairUsesMeitar)
             _pair = PairBudgetExpense;

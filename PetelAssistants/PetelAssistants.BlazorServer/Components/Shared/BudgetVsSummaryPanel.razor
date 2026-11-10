@@ -1,0 +1,577 @@
+@using PetelAssistants.BlazorServer.DTOs
+@using PetelAssistants.BlazorServer.Models
+@inject ApiService ApiService
+
+@if (Months.Count > 0)
+{
+    <div class="salary-month-buttons">
+        <button type="button"
+                class="salary-month-btn @(_compareMonthYear == 0 && _compareMonth == 0 ? "active" : null)"
+                @onclick="() => SelectCompareMonth(0, 0)">
+            <span class="month-name">שנתי</span>
+        </button>
+        @foreach (var period in Months)
+        {
+            var year = period.PeriodYear;
+            var month = period.PeriodMonth;
+            <button type="button"
+                    class="salary-month-btn @(_compareMonthYear == year && _compareMonth == month ? "active" : null)"
+                    @onclick="() => SelectCompareMonth(year, month)">
+                <span class="month-name">@GetMonthLabel(month)</span>
+            </button>
+        }
+    </div>
+}
+
+@if (_displayComparisons.Count == 0)
+{
+    <p>אין נתוני שכר או תקציב להשוואה.</p>
+}
+else
+{
+    <div style="display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 16px; margin: 0 0 12px;">
+        <div class="trend-seg" role="group" aria-label="שדה תאריך מיתר">
+            <button type="button"
+                    class="trend-seg-btn @(_dateField == DateFieldCalc ? "active" : null)"
+                    @onclick="() => SetDateFieldAsync(DateFieldCalc)">
+                תאריך חישוב
+            </button>
+            <button type="button"
+                    class="trend-seg-btn @(_dateField == DateFieldEffective ? "active" : null)"
+                    @onclick="() => SetDateFieldAsync(DateFieldEffective)">
+                תאריך תחולה
+            </button>
+        </div>
+        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none;">
+            <input type="checkbox" @bind="_showBudget" />
+            הצג ערכי תקציב
+        </label>
+    </div>
+
+    <div class="summary-grid" style="margin-bottom: 16px;">
+        @if (_showBudget)
+        {
+            <div class="summary-card">
+                <div class="summary-info">
+                    <div class="summary-value">@SelectedBudgetAmount.ToString("N0")</div>
+                    <div class="summary-label">תקציב (₪)</div>
+                </div>
+            </div>
+        }
+        <div class="summary-card">
+            <div class="summary-info">
+                <div class="summary-value">@SelectedSalaryAmount.ToString("N0")</div>
+                <div class="summary-label">סה"כ שכר בפועל (₪)</div>
+            </div>
+        </div>
+        <div class="summary-card">
+            <div class="summary-info">
+                <div class="summary-value">@SelectedMeitarAmount.ToString("N0")</div>
+                <div class="summary-label">הכנסת מיתר (₪)</div>
+            </div>
+        </div>
+        @if (_showBudget)
+        {
+            <div class="summary-card">
+                <div class="summary-info">
+                    <div class="summary-value">@SelectedSalaryVariance.ToString("N0")</div>
+                    <div class="summary-label">הפרש שכר (₪)</div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <BudgetTrendChart Comparisons="_displayComparisons"
+                      Months="Months"
+                      ShowBudget="_showBudget"
+                      MonthSelected="OnTrendMonthSelected" />
+
+    <div class="table-container">
+        @if (ComparisonRows.Count == 0)
+        {
+            <p>אין נתונים לחודש שנבחר.</p>
+        }
+        else
+        {
+            <table class="data-table budget-vs-table">
+                <thead>
+                    <tr>
+                        <th class="assistant-type-col">סוג סייעת</th>
+                        @if (_showBudget)
+                        {
+                            <th>סכום תקציב</th>
+                        }
+                        <th>סכום שכר</th>
+                        <th>הכנסת מיתר</th>
+                        @if (_showBudget)
+                        {
+                            <th>הפרש שכר</th>
+                            <th>משרות תקציב</th>
+                        }
+                        <th>משרות שכר</th>
+                        @if (_showBudget)
+                        {
+                            <th>הפרש משרות</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in ComparisonRows)
+                    {
+                        <tr>
+                            <td class="assistant-type-col">
+                                @if (row.IsUnmapped)
+                                {
+                                    <button type="button"
+                                            class="link-button"
+                                            @onclick="ShowUnmappedModalAsync">
+                                        לא ממופה
+                                    </button>
+                                }
+                                else
+                                {
+                                    @row.AssistantTypeName
+                                }
+                            </td>
+                            @if (_showBudget)
+                            {
+                                <td>@row.BudgetAmount.ToString("N2")</td>
+                            }
+                            <td>@row.SalaryAmount.ToString("N2")</td>
+                            <td>@row.MeitarAmount.ToString("N2")</td>
+                            @if (_showBudget)
+                            {
+                                <td>@row.SalaryAmountVariance.ToString("N2")</td>
+                                <td>@row.BudgetFte.ToString("N2")</td>
+                            }
+                            <td>@row.SalaryFte.ToString("N2")</td>
+                            @if (_showBudget)
+                            {
+                                <td>@row.SalaryFteVariance.ToString("N2")</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+                <tfoot>
+                    <tr class="budget-vs-total-row">
+                        <td class="assistant-type-col">סה״כ</td>
+                        @if (_showBudget)
+                        {
+                            <td>@SelectedBudgetAmount.ToString("N2")</td>
+                        }
+                        <td>@SelectedSalaryAmount.ToString("N2")</td>
+                        <td>@SelectedMeitarAmount.ToString("N2")</td>
+                        @if (_showBudget)
+                        {
+                            <td>@SelectedSalaryVariance.ToString("N2")</td>
+                            <td>@SelectedBudgetFte.ToString("N2")</td>
+                        }
+                        <td>@SelectedSalaryFte.ToString("N2")</td>
+                        @if (_showBudget)
+                        {
+                            <td>@SelectedSalaryFteVariance.ToString("N2")</td>
+                        }
+                    </tr>
+                </tfoot>
+            </table>
+        }
+    </div>
+}
+
+@if (_showUnmappedModal)
+{
+    <div class="modal-overlay" @onclick="CloseUnmappedModal">
+        <div class="modal-content" @onclick:stopPropagation="true" style="max-width: 720px;">
+            <div class="modal-header">
+                <h3>לא ממופה</h3>
+                <button class="modal-close" @onclick="CloseUnmappedModal">✕</button>
+            </div>
+            <div class="modal-body">
+                @if (_unmappedLoading)
+                {
+                    <div class="loading-spinner">טוען...</div>
+                }
+                else
+                {
+                    <h4 style="margin-bottom: 8px;">מחלקות שכר</h4>
+                    @if (_unmappedDepartments.Count == 0)
+                    {
+                        <p style="color: var(--text-muted); margin-bottom: 16px;">אין מחלקות לא ממופות בתקופה זו.</p>
+                    }
+                    else
+                    {
+                        <div class="table-container" style="margin-bottom: 20px;">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>מזהה מחלקה</th>
+                                        <th>שם מחלקה</th>
+                                        <th>רשומות</th>
+                                        <th>סה"כ שכר</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in _unmappedDepartments)
+                                    {
+                                        <tr>
+                                            <td>@item.DepartmentId</td>
+                                            <td>@(item.DepartmentName ?? "—")</td>
+                                            <td>@item.RowCount</td>
+                                            <td>@item.TotalSalary.ToString("N2")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    <h4 style="margin-bottom: 8px;">נושאי מיתר</h4>
+                    @if (_unmappedMeitarTopics.Count == 0)
+                    {
+                        <p style="color: var(--text-muted);">אין נושאי מיתר לא ממופים בתקופה זו.</p>
+                    }
+                    else
+                    {
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>קוד נושא</th>
+                                        <th>תיאור</th>
+                                        <th>רשומות</th>
+                                        <th>סה"כ סכום</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in _unmappedMeitarTopics)
+                                    {
+                                        <tr>
+                                            <td>@(item.TopicCode ?? "—")</td>
+                                            <td>@(item.TopicDescription ?? "—")</td>
+                                            <td>@item.RowCount</td>
+                                            <td>@item.TotalAmount.ToString("N2")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                }
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" @onclick="CloseUnmappedModal">סגור</button>
+            </div>
+        </div>
+    </div>
+}
+
+<style>
+    .link-button {
+        background: none;
+        border: none;
+        padding: 0;
+        margin: 0;
+        color: var(--primary-color, #007bff);
+        text-decoration: underline;
+        cursor: pointer;
+        font: inherit;
+    }
+
+    .budget-vs-table .assistant-type-col {
+        width: 1%;
+        white-space: nowrap;
+    }
+
+    .budget-vs-table .budget-vs-total-row td {
+        font-weight: 700;
+        border-top: 2px solid var(--border-color, #dee2e6);
+    }
+</style>
+
+@code {
+    private const string DateFieldCalc = "calc";
+    private const string DateFieldEffective = "effective";
+
+    [Parameter] public List<YearlyBudgetComparisonDto> Comparisons { get; set; } = new();
+    [Parameter] public List<(int PeriodYear, int PeriodMonth)> Months { get; set; } = new();
+    [Parameter] public int? HebrewYearId { get; set; }
+    [Parameter] public int? GregorianYear { get; set; }
+
+    private int _compareMonthYear;
+    private int _compareMonth;
+    private bool _showBudget;
+    private string _dateField = DateFieldCalc;
+    private bool _showUnmappedModal;
+    private bool _unmappedLoading;
+    private List<UnmappedSalaryDepartmentDto> _unmappedDepartments = new();
+    private List<UnmappedMeitarTopicDto> _unmappedMeitarTopics = new();
+    private List<MeitarPeriodTotalDto> _meitarTotals = new();
+    private List<YearlyBudgetComparisonDto> _displayComparisons = new();
+    private int? _loadedHebrewYearId;
+    private int? _loadedGregorianYear;
+    private string _loadedDateField = "";
+
+    private IEnumerable<YearlyBudgetComparisonDto> ComparisonSource =>
+        _displayComparisons.Where(l => _compareMonthYear == 0
+            || (l.PeriodYear == _compareMonthYear && l.PeriodMonth == _compareMonth));
+
+    private List<ComparisonRow> ComparisonRows
+    {
+        get
+        {
+            const int unmappedKey = -1;
+            return ComparisonSource
+                .GroupBy(l => l.AssistantTypeId ?? unmappedKey)
+                .OrderBy(g => g.Key == unmappedKey)
+                .ThenBy(g => g.Key)
+                .Select(g => new ComparisonRow
+                {
+                    IsUnmapped = g.Key == unmappedKey,
+                    AssistantTypeName = g.Select(x => x.AssistantTypeName).FirstOrDefault(n => !string.IsNullOrEmpty(n))
+                        ?? "לא ממופה",
+                    BudgetAmount = g.Sum(x => x.BudgetAmount),
+                    SalaryAmount = g.Sum(x => x.SalaryAmount),
+                    MeitarAmount = g.Sum(x => x.MeitarAmount),
+                    BudgetFte = g.Sum(x => x.BudgetFte),
+                    SalaryFte = g.Sum(x => x.SalaryFte)
+                })
+                .ToList();
+        }
+    }
+
+    private decimal SelectedBudgetAmount => ComparisonRows.Sum(r => r.BudgetAmount);
+    private decimal SelectedSalaryAmount => ComparisonRows.Sum(r => r.SalaryAmount);
+    private decimal SelectedMeitarAmount => ComparisonRows.Sum(r => r.MeitarAmount);
+    private decimal SelectedSalaryVariance => ComparisonRows.Sum(r => r.SalaryAmountVariance);
+    private decimal SelectedBudgetFte => ComparisonRows.Sum(r => r.BudgetFte);
+    private decimal SelectedSalaryFte => ComparisonRows.Sum(r => r.SalaryFte);
+    private decimal SelectedSalaryFteVariance => ComparisonRows.Sum(r => r.SalaryFteVariance);
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await EnsureMeitarTotalsAsync();
+        RebuildDisplayComparisons();
+    }
+
+    private async Task SetDateFieldAsync(string dateField)
+    {
+        if (_dateField == dateField)
+            return;
+        _dateField = dateField;
+        await EnsureMeitarTotalsAsync(force: true);
+        RebuildDisplayComparisons();
+    }
+
+    private async Task EnsureMeitarTotalsAsync(bool force = false)
+    {
+        if (!force &&
+            _loadedDateField == _dateField &&
+            _loadedHebrewYearId == HebrewYearId &&
+            _loadedGregorianYear == GregorianYear)
+            return;
+
+        _meitarTotals = new();
+        try
+        {
+            var query = BuildMeitarTotalsQuery();
+            if (string.IsNullOrEmpty(query))
+                return;
+
+            var response = await ApiService.GetAsync<ApiResponse<List<MeitarPeriodTotalDto>>>(
+                $"MeitarData/comparison-totals{query}");
+            _meitarTotals = response?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading Meitar period totals: {ex.Message}");
+            _meitarTotals = new();
+        }
+        finally
+        {
+            _loadedDateField = _dateField;
+            _loadedHebrewYearId = HebrewYearId;
+            _loadedGregorianYear = GregorianYear;
+        }
+    }
+
+    private string BuildMeitarTotalsQuery()
+    {
+        if (HebrewYearId.HasValue)
+            return $"?dateField={_dateField}&hebrewYearId={HebrewYearId.Value}";
+        if (GregorianYear.HasValue)
+            return $"?dateField={_dateField}&year={GregorianYear.Value}";
+        return "";
+    }
+
+    private void RebuildDisplayComparisons()
+    {
+        const int unmappedKey = -1;
+        var monthSet = Months.ToHashSet();
+
+        var baseByKey = Comparisons
+            .Where(c => monthSet.Contains((c.PeriodYear, c.PeriodMonth)))
+            .GroupBy(c => (c.PeriodYear, c.PeriodMonth, TypeId: c.AssistantTypeId ?? unmappedKey))
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    AssistantTypeName = g.Select(x => x.AssistantTypeName).FirstOrDefault(n => !string.IsNullOrEmpty(n))
+                        ?? "לא ממופה",
+                    BudgetAmount = g.Sum(x => x.BudgetAmount),
+                    BudgetFte = g.Sum(x => x.BudgetFte),
+                    BudgetHours = g.Sum(x => x.BudgetHours),
+                    SalaryAmount = g.Sum(x => x.SalaryAmount),
+                    SalaryFte = g.Sum(x => x.SalaryFte),
+                    SalaryHours = g.Sum(x => x.SalaryHours),
+                    SalaryRowCount = g.Sum(x => x.SalaryRowCount)
+                });
+
+        var meitarByKey = _meitarTotals
+            .Where(t => monthSet.Contains((t.PeriodYear, t.PeriodMonth)))
+            .GroupBy(t => (t.PeriodYear, t.PeriodMonth, TypeId: t.AssistantTypeId ?? unmappedKey))
+            .ToDictionary(
+                g => g.Key,
+                g => new
+                {
+                    AssistantTypeName = g.Select(x => x.AssistantTypeName).FirstOrDefault(n => !string.IsNullOrEmpty(n))
+                        ?? "לא ממופה",
+                    Amount = g.Sum(x => x.Amount),
+                    Hours = g.Sum(x => x.Hours),
+                    RowCount = g.Sum(x => x.RowCount)
+                });
+
+        _displayComparisons = baseByKey.Keys
+            .Union(meitarByKey.Keys)
+            .OrderBy(k => k.PeriodYear)
+            .ThenBy(k => k.PeriodMonth)
+            .ThenBy(k => k.TypeId == unmappedKey)
+            .ThenBy(k => k.TypeId)
+            .Select(key =>
+            {
+                baseByKey.TryGetValue(key, out var budgetSalary);
+                meitarByKey.TryGetValue(key, out var meitar);
+                return new YearlyBudgetComparisonDto
+                {
+                    PeriodYear = key.PeriodYear,
+                    PeriodMonth = key.PeriodMonth,
+                    AssistantTypeId = key.TypeId == unmappedKey ? null : key.TypeId,
+                    AssistantTypeName = budgetSalary?.AssistantTypeName
+                        ?? meitar?.AssistantTypeName
+                        ?? "לא ממופה",
+                    BudgetAmount = budgetSalary?.BudgetAmount ?? 0,
+                    BudgetFte = budgetSalary?.BudgetFte ?? 0,
+                    BudgetHours = budgetSalary?.BudgetHours ?? 0,
+                    SalaryAmount = budgetSalary?.SalaryAmount ?? 0,
+                    SalaryFte = budgetSalary?.SalaryFte ?? 0,
+                    SalaryHours = budgetSalary?.SalaryHours ?? 0,
+                    SalaryRowCount = budgetSalary?.SalaryRowCount ?? 0,
+                    MeitarAmount = meitar?.Amount ?? 0,
+                    MeitarHours = meitar?.Hours ?? 0,
+                    MeitarRowCount = meitar?.RowCount ?? 0
+                };
+            })
+            .ToList();
+    }
+
+    private void SelectCompareMonth(int year, int month)
+    {
+        _compareMonthYear = year;
+        _compareMonth = month;
+    }
+
+    private async Task OnTrendMonthSelected((int PeriodYear, int PeriodMonth) period)
+    {
+        SelectCompareMonth(period.PeriodYear, period.PeriodMonth);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ShowUnmappedModalAsync()
+    {
+        _showUnmappedModal = true;
+        _unmappedLoading = true;
+        _unmappedDepartments = new();
+        _unmappedMeitarTopics = new();
+
+        try
+        {
+            var salaryQuery = BuildSalaryUnmappedQuery();
+            var meitarQuery = BuildMeitarUnmappedQuery();
+            var salaryTask = ApiService.GetAsync<ApiResponse<List<UnmappedSalaryDepartmentDto>>>(
+                $"salary-department-mappings/unmapped{salaryQuery}");
+            var meitarTask = ApiService.GetAsync<ApiResponse<List<UnmappedMeitarTopicDto>>>(
+                $"MeitarData/unmapped-topics{meitarQuery}");
+
+            await Task.WhenAll(salaryTask, meitarTask);
+
+            _unmappedDepartments = (await salaryTask)?.Data ?? new();
+            _unmappedMeitarTopics = (await meitarTask)?.Data ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading unmapped detail: {ex.Message}");
+            _unmappedDepartments = new();
+            _unmappedMeitarTopics = new();
+        }
+        finally
+        {
+            _unmappedLoading = false;
+        }
+    }
+
+    private string BuildSalaryUnmappedQuery()
+    {
+        if (_compareMonthYear > 0 && _compareMonth > 0)
+            return $"?year={_compareMonthYear}&month={_compareMonth}";
+
+        if (HebrewYearId.HasValue)
+            return $"?hebrewYearId={HebrewYearId.Value}";
+
+        if (GregorianYear.HasValue)
+            return $"?year={GregorianYear.Value}";
+
+        return "";
+    }
+
+    private string BuildMeitarUnmappedQuery()
+    {
+        var baseQuery = BuildSalaryUnmappedQuery();
+        if (string.IsNullOrEmpty(baseQuery))
+            return $"?dateField={_dateField}";
+        return $"{baseQuery}&dateField={_dateField}";
+    }
+
+    private void CloseUnmappedModal()
+    {
+        _showUnmappedModal = false;
+    }
+
+    private static string GetMonthLabel(int month) => month switch
+    {
+        1 => "ינואר",
+        2 => "פברואר",
+        3 => "מרץ",
+        4 => "אפריל",
+        5 => "מאי",
+        6 => "יוני",
+        7 => "יולי",
+        8 => "אוגוסט",
+        9 => "ספטמבר",
+        10 => "אוקטובר",
+        11 => "נובמבר",
+        12 => "דצמבר",
+        _ => month.ToString()
+    };
+
+    private sealed class ComparisonRow
+    {
+        public bool IsUnmapped { get; set; }
+        public string AssistantTypeName { get; set; } = string.Empty;
+        public decimal BudgetAmount { get; set; }
+        public decimal SalaryAmount { get; set; }
+        public decimal MeitarAmount { get; set; }
+        public decimal BudgetFte { get; set; }
+        public decimal SalaryFte { get; set; }
+        public decimal SalaryAmountVariance => SalaryAmount - BudgetAmount;
+        public decimal SalaryFteVariance => SalaryFte - BudgetFte;
+    }
+}

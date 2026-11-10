@@ -100,6 +100,16 @@
                         </div>
                     </SecureButton>
                 </div>
+
+                @if (_showVsBudgetPanel)
+                {
+                    <div class="content-card" style="margin-top: 24px;">
+                        <h2 style="font-size: 1.15em; margin-bottom: 12px;">סיכום מול תקציב</h2>
+                        <BudgetVsSummaryPanel Comparisons="_comparisons"
+                                              Months="_comparisonMonths"
+                                              GregorianYear="_year" />
+                    </div>
+                }
             </div>
         }
     </div>
@@ -113,6 +123,9 @@
     private int _year;
     private bool _isLoading = true;
     private GregorianHubSummaryDto _summary = new();
+    private bool _showVsBudgetPanel;
+    private List<YearlyBudgetComparisonDto> _comparisons = new();
+    private List<(int PeriodYear, int PeriodMonth)> _comparisonMonths = new();
 
     private string LastSalaryMonthLabel =>
         _summary.LastSalaryPeriodYear.HasValue && _summary.LastSalaryPeriodMonth.HasValue
@@ -123,6 +136,7 @@
     {
         _year = Year;
         await LoadSummaryAsync();
+        await LoadVsBudgetAsync();
         _isLoading = false;
     }
 
@@ -132,6 +146,7 @@
         {
             _year = Year;
             await LoadSummaryAsync();
+            await LoadVsBudgetAsync();
         }
     }
 
@@ -147,6 +162,38 @@
         {
             Console.WriteLine($"Error loading gregorian summary: {ex.Message}");
             _summary = new();
+        }
+    }
+
+    private async Task LoadVsBudgetAsync()
+    {
+        _showVsBudgetPanel = false;
+        _comparisons = new();
+        _comparisonMonths = Enumerable.Range(1, 12).Select(m => (_year, m)).ToList();
+
+        try
+        {
+            var allowed = await ActionSecurity.VerifyActionAsync(
+                actionName: "gregorian_budget",
+                screenName: PageName,
+                functionName: "NavigateToBudget",
+                eventType: "BUTTON_VISIBLE_CHECK",
+                reference: PageName);
+            if (!allowed)
+                return;
+
+            var response = await ApiService.GetAsync<ApiResponse<GregorianBudgetDto>>(
+                $"gregorian-years/{_year}/budget");
+            if (response?.Success != true || response.Data == null)
+                return;
+
+            _comparisons = response.Data.Comparisons ?? new();
+            _showVsBudgetPanel = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading gregorian vs-budget panel: {ex.Message}");
+            _showVsBudgetPanel = false;
         }
     }
 

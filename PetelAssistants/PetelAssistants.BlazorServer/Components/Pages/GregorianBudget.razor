@@ -73,203 +73,96 @@
                     }
                 </div>
 
-                <div class="tabs-header">
-                    <button type="button" class="tab-button @(_activeTab == "budget" ? "active" : "")"
-                            @onclick='() => SelectTab("budget")'>
-                        תקציב
-                    </button>
-                    <button type="button" class="tab-button @(_activeTab == "vs-budget" ? "active" : "")"
-                            @onclick='() => SelectTab("vs-budget")'>
-                        סיכום מול תקציב
-                    </button>
-                </div>
+                <h2 style="font-size: 1.15em; margin-bottom: 12px;">פירוט שנתי (ינואר–דצמבר)</h2>
+                @if (_budget.Details.Count == 0)
+                {
+                    <div style="color: var(--text-muted);">אין שורות תקציב לחודשי שנה זו.</div>
+                }
+                else
+                {
+                    <div class="yearly-budget-year-scroll">
+                        <table class="data-table yearly-budget-year-table">
+                            <thead>
+                                <tr>
+                                    <th>סוג סייעת</th>
+                                    <th>משרות</th>
+                                    <th>שעות</th>
+                                    <th>סכום</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var detail in _budget.Details)
+                                {
+                                    <tr>
+                                        <td>@detail.AssistantTypeName</td>
+                                        <td>@detail.Fte.ToString("N2")</td>
+                                        <td>@detail.Hours.ToString("N2")</td>
+                                        <td>@detail.Amount.ToString("N2")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
 
-                <div class="tab-content">
-                    @if (_activeTab == "budget")
-                    {
-                        <h2 style="font-size: 1.15em; margin-bottom: 12px;">פירוט שנתי (ינואר–דצמבר)</h2>
-                        @if (_budget.Details.Count == 0)
-                        {
-                            <div style="color: var(--text-muted);">אין שורות תקציב לחודשי שנה זו.</div>
-                        }
-                        else
-                        {
-                            <div class="yearly-budget-year-scroll">
-                                <table class="data-table yearly-budget-year-table">
-                                    <thead>
-                                        <tr>
-                                            <th>סוג סייעת</th>
-                                            <th>משרות</th>
-                                            <th>שעות</th>
-                                            <th>סכום</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var detail in _budget.Details)
+                <h2 style="font-size: 1.15em; margin: 28px 0 12px;">פירוט חודשי</h2>
+                @if (MonthColumns.Count == 0 || AssistantTypeRows.Count == 0)
+                {
+                    <div>אין נתונים חודשיים.</div>
+                }
+                else
+                {
+                    <div class="table-container monthly-budget-scroll">
+                        <table class="data-table monthly-budget-matrix">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2" class="monthly-budget-sticky">סוג סייעת</th>
+                                    @for (var mi = 0; mi < MonthColumns.Count; mi++)
+                                    {
+                                        var month = MonthColumns[mi];
+                                        <th colspan="3" class="@(mi > 0 ? "month-separator" : null)" style="text-align: center; white-space: nowrap;">
+                                            @GetMonthLabel(month.PeriodMonth)
+                                        </th>
+                                    }
+                                </tr>
+                                <tr>
+                                    @for (var mi = 0; mi < MonthColumns.Count; mi++)
+                                    {
+                                        <th class="metric-header @(mi > 0 ? "month-separator" : null)">משרות</th>
+                                        <th class="metric-header">שעות</th>
+                                        <th class="metric-header">סכום</th>
+                                    }
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var type in AssistantTypeRows)
+                                {
+                                    <tr>
+                                        <td class="monthly-budget-sticky type-name">@type.AssistantTypeName</td>
+                                        @for (var mi = 0; mi < MonthColumns.Count; mi++)
                                         {
-                                            <tr>
-                                                <td>@detail.AssistantTypeName</td>
-                                                <td>@detail.Fte.ToString("N2")</td>
-                                                <td>@detail.Hours.ToString("N2")</td>
-                                                <td>@detail.Amount.ToString("N2")</td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-
-                        <h2 style="font-size: 1.15em; margin: 28px 0 12px;">פירוט חודשי</h2>
-                        @if (MonthColumns.Count == 0 || AssistantTypeRows.Count == 0)
-                        {
-                            <div>אין נתונים חודשיים.</div>
-                        }
-                        else
-                        {
-                            <div class="table-container monthly-budget-scroll">
-                                <table class="data-table monthly-budget-matrix">
-                                    <thead>
-                                        <tr>
-                                            <th rowspan="2" class="monthly-budget-sticky">סוג סייעת</th>
-                                            @for (var mi = 0; mi < MonthColumns.Count; mi++)
+                                            var month = MonthColumns[mi];
+                                            var cell = GetMonthCell(type.AssistantTypeId, month.PeriodYear, month.PeriodMonth);
+                                            var sep = mi > 0 ? "month-separator" : null;
+                                            @if (cell != null)
                                             {
-                                                var month = MonthColumns[mi];
-                                                <th colspan="3" class="@(mi > 0 ? "month-separator" : null)" style="text-align: center; white-space: nowrap;">
-                                                    @GetMonthLabel(month.PeriodMonth)
-                                                </th>
+                                                <td class="@sep" style="text-align: center; white-space: nowrap;">@cell.Fte.ToString("N2")</td>
+                                                <td style="text-align: center; white-space: nowrap;">@cell.Hours.ToString("N2")</td>
+                                                <td style="text-align: center; white-space: nowrap;">@cell.Amount.ToString("N2")</td>
                                             }
-                                        </tr>
-                                        <tr>
-                                            @for (var mi = 0; mi < MonthColumns.Count; mi++)
+                                            else
                                             {
-                                                <th class="metric-header @(mi > 0 ? "month-separator" : null)">משרות</th>
-                                                <th class="metric-header">שעות</th>
-                                                <th class="metric-header">סכום</th>
+                                                <td class="@sep" style="text-align: center; color: var(--text-muted);">—</td>
+                                                <td style="text-align: center; color: var(--text-muted);">—</td>
+                                                <td style="text-align: center; color: var(--text-muted);">—</td>
                                             }
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var type in AssistantTypeRows)
-                                        {
-                                            <tr>
-                                                <td class="monthly-budget-sticky type-name">@type.AssistantTypeName</td>
-                                                @for (var mi = 0; mi < MonthColumns.Count; mi++)
-                                                {
-                                                    var month = MonthColumns[mi];
-                                                    var cell = GetMonthCell(type.AssistantTypeId, month.PeriodYear, month.PeriodMonth);
-                                                    var sep = mi > 0 ? "month-separator" : null;
-                                                    @if (cell != null)
-                                                    {
-                                                        <td class="@sep" style="text-align: center; white-space: nowrap;">@cell.Fte.ToString("N2")</td>
-                                                        <td style="text-align: center; white-space: nowrap;">@cell.Hours.ToString("N2")</td>
-                                                        <td style="text-align: center; white-space: nowrap;">@cell.Amount.ToString("N2")</td>
-                                                    }
-                                                    else
-                                                    {
-                                                        <td class="@sep" style="text-align: center; color: var(--text-muted);">—</td>
-                                                        <td style="text-align: center; color: var(--text-muted);">—</td>
-                                                        <td style="text-align: center; color: var(--text-muted);">—</td>
-                                                    }
-                                                }
-                                            </tr>
                                         }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                    }
-                    else if (_activeTab == "vs-budget")
-                    {
-                        <div class="salary-month-buttons">
-                            <button type="button"
-                                    class="salary-month-btn @(_compareMonth == 0 ? "active" : null)"
-                                    @onclick="() => SelectCompareMonth(0)">
-                                <span class="month-name">שנתי</span>
-                                <span class="month-total">₪ @YearActualTotal.ToString("N0")</span>
-                            </button>
-                            @foreach (var period in ComparisonMonths)
-                            {
-                                var month = period.PeriodMonth;
-                                <button type="button"
-                                        class="salary-month-btn @(_compareMonth == month ? "active" : null)"
-                                        @onclick="() => SelectCompareMonth(month)">
-                                    <span class="month-name">@GetMonthLabel(month)</span>
-                                    <span class="month-total">₪ @GetActualMonthTotal(month).ToString("N0")</span>
-                                </button>
-                            }
-                        </div>
-
-                        @if (ComparisonRows.Count == 0)
-                        {
-                            <p>אין נתוני שכר או תקציב להשוואה.</p>
-                        }
-                        else
-                        {
-                            <div class="summary-grid" style="margin-bottom: 16px;">
-                                <div class="summary-card">
-                                    <div class="summary-info">
-                                        <div class="summary-value">@ComparisonRows.Sum(r => r.BudgetAmount).ToString("N0")</div>
-                                        <div class="summary-label">תקציב (₪)</div>
-                                    </div>
-                                </div>
-                                <div class="summary-card">
-                                    <div class="summary-info">
-                                        <div class="summary-value">@ComparisonRows.Sum(r => r.SalaryAmount).ToString("N0")</div>
-                                        <div class="summary-label">סה"כ שכר בפועל (₪)</div>
-                                    </div>
-                                </div>
-                                <div class="summary-card">
-                                    <div class="summary-info">
-                                        <div class="summary-value">@ComparisonRows.Sum(r => r.MeitarAmount).ToString("N0")</div>
-                                        <div class="summary-label">הכנסת מיתר (₪)</div>
-                                    </div>
-                                </div>
-                                <div class="summary-card">
-                                    <div class="summary-info">
-                                        <div class="summary-value">@ComparisonRows.Sum(r => r.SalaryAmountVariance).ToString("N0")</div>
-                                        <div class="summary-label">הפרש שכר (₪)</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <BudgetTrendChart Comparisons="_budget.Comparisons"
-                                              Months="ComparisonMonths"
-                                              MonthSelected="OnTrendMonthSelected" />
-
-                            <div class="table-container">
-                                <table class="data-table">
-                                    <thead>
-                                        <tr>
-                                            <th>סוג סייעת</th>
-                                            <th>סכום תקציב</th>
-                                            <th>סכום שכר</th>
-                                            <th>הכנסת מיתר</th>
-                                            <th>הפרש שכר</th>
-                                            <th>משרות תקציב</th>
-                                            <th>משרות שכר</th>
-                                            <th>הפרש משרות</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach (var row in ComparisonRows)
-                                        {
-                                            <tr>
-                                                <td>@row.AssistantTypeName</td>
-                                                <td>@row.BudgetAmount.ToString("N2")</td>
-                                                <td>@row.SalaryAmount.ToString("N2")</td>
-                                                <td>@row.MeitarAmount.ToString("N2")</td>
-                                                <td>@row.SalaryAmountVariance.ToString("N2")</td>
-                                                <td>@row.BudgetFte.ToString("N2")</td>
-                                                <td>@row.SalaryFte.ToString("N2")</td>
-                                                <td>@row.SalaryFteVariance.ToString("N2")</td>
-                                            </tr>
-                                        }
-                                    </tbody>
-                                </table>
-                            </div>
-                        }
-                    }
-                </div>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
             }
         </div>
     </div>
@@ -345,8 +238,6 @@
 
     private bool _isLoading = true;
     private string _error = "";
-    private string _activeTab = "budget";
-    private int _compareMonth;
     private GregorianBudgetDto? _budget;
 
     private List<(int PeriodYear, int PeriodMonth)> MonthColumns =>
@@ -364,55 +255,6 @@
             m.AssistantTypeId == assistantTypeId &&
             m.PeriodYear == periodYear &&
             m.PeriodMonth == periodMonth);
-
-    private List<(int PeriodYear, int PeriodMonth)> ComparisonMonths => MonthColumns;
-
-    private IEnumerable<YearlyBudgetComparisonDto> ComparisonSource =>
-        (_budget?.Comparisons ?? new List<YearlyBudgetComparisonDto>())
-            .Where(l => _compareMonth == 0 || l.PeriodMonth == _compareMonth);
-
-    private decimal YearActualTotal =>
-        (_budget?.Comparisons ?? new List<YearlyBudgetComparisonDto>()).Sum(l => l.SalaryAmount);
-
-    private decimal GetActualMonthTotal(int month) =>
-        (_budget?.Comparisons ?? new List<YearlyBudgetComparisonDto>())
-            .Where(l => l.PeriodMonth == month)
-            .Sum(l => l.SalaryAmount);
-
-    private List<ComparisonRow> ComparisonRows
-    {
-        get
-        {
-            const int unmappedKey = -1;
-            return ComparisonSource
-                .GroupBy(l => l.AssistantTypeId ?? unmappedKey)
-                .OrderBy(g => g.Key == unmappedKey)
-                .ThenBy(g => g.Key)
-                .Select(g => new ComparisonRow
-                {
-                    AssistantTypeName = g.Select(x => x.AssistantTypeName).FirstOrDefault(n => !string.IsNullOrEmpty(n))
-                        ?? "לא ממופה",
-                    BudgetAmount = g.Sum(x => x.BudgetAmount),
-                    SalaryAmount = g.Sum(x => x.SalaryAmount),
-                    MeitarAmount = g.Sum(x => x.MeitarAmount),
-                    BudgetFte = g.Sum(x => x.BudgetFte),
-                    SalaryFte = g.Sum(x => x.SalaryFte)
-                })
-                .ToList();
-        }
-    }
-
-    private sealed class ComparisonRow
-    {
-        public string AssistantTypeName { get; set; } = string.Empty;
-        public decimal BudgetAmount { get; set; }
-        public decimal SalaryAmount { get; set; }
-        public decimal MeitarAmount { get; set; }
-        public decimal BudgetFte { get; set; }
-        public decimal SalaryFte { get; set; }
-        public decimal SalaryAmountVariance => SalaryAmount - BudgetAmount;
-        public decimal SalaryFteVariance => SalaryFte - BudgetFte;
-    }
 
     protected override async Task OnPageInitializedAsync() => await LoadAsync();
 
@@ -439,13 +281,6 @@
         }
     }
 
-    private void SelectTab(string tab) => _activeTab = tab;
-    private void SelectCompareMonth(int month) => _compareMonth = month;
-
-    private void OnTrendMonthSelected((int PeriodYear, int PeriodMonth) period)
-    {
-        SelectCompareMonth(period.PeriodMonth);
-    }
     private void NavigateBack() => Navigation.NavigateTo($"/gregorian/{Year}");
     private void OpenSchoolBudget(int hebrewYearId) => Navigation.NavigateTo($"/year/{hebrewYearId}/yearly-budget");
 

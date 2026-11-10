@@ -52,4 +52,23 @@ namespace PetelAssistants.BlazorServer.DTOs
         public string? TopicCode { get; set; }
         public int ClassCount { get; set; }
     }
+
+    public class UnmappedMeitarTopicDto
+    {
+        public string? TopicCode { get; set; }
+        public string? TopicDescription { get; set; }
+        public int RowCount { get; set; }
+        public decimal TotalAmount { get; set; }
+    }
+
+    public class MeitarPeriodTotalDto
+    {
+        public int PeriodYear { get; set; }
+        public int PeriodMonth { get; set; }
+        public int? AssistantTypeId { get; set; }
+        public string AssistantTypeName { get; set; } = string.Empty;
+        public int RowCount { get; set; }
+        public decimal Amount { get; set; }
+        public decimal Hours { get; set; }
+    }
 }

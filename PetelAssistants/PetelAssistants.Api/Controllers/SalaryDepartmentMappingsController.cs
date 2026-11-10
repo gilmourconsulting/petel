@@ -55,7 +55,10 @@ namespace PetelAssistants.Api.Controllers
         }
 
         [HttpGet("unmapped")]
-        public async Task<IActionResult> GetUnmapped([FromQuery] int? year, [FromQuery] int? month)
+        public async Task<IActionResult> GetUnmapped(
+            [FromQuery] int? year,
+            [FromQuery] int? month,
+            [FromQuery] int? hebrewYearId)
         {
             var session = GetCurrentSession();
             if (session == null)
@@ -67,6 +70,14 @@ namespace PetelAssistants.Api.Controllers
                 .ToListAsync();
             var mappedSet = mappedIds.ToHashSet(StringComparer.Ordinal);
 
+            HashSet<(int Year, int Month)>? hebrewMonths = null;
+            if (hebrewYearId.HasValue && !year.HasValue && !month.HasValue)
+            {
+                hebrewMonths = await ResolveHebrewYearMonthsAsync(hebrewYearId.Value);
+                if (hebrewMonths == null)
+                    return BadRequest(new { success = false, message = "שנת לימודים לא נמצאה" });
+            }
+
             var query = _context.Salaries.AsNoTracking();
             if (year.HasValue)
                 query = query.Where(s => s.PeriodYear == year.Value);
@@ -74,8 +85,11 @@ namespace PetelAssistants.Api.Controllers
                 query = query.Where(s => s.PeriodMonth == month.Value);
 
             var salaries = await query
-                .Select(s => new { s.DepartmentId, s.DepartmentName, s.TotalSalary })
+                .Select(s => new { s.PeriodYear, s.PeriodMonth, s.DepartmentId, s.DepartmentName, s.TotalSalary })
                 .ToListAsync();
+
+            if (hebrewMonths != null)
+                salaries = salaries.Where(s => hebrewMonths.Contains((s.PeriodYear, s.PeriodMonth))).ToList();
 
             var items = salaries
                 .Where(s => !mappedSet.Contains(s.DepartmentId))
@@ -91,6 +105,24 @@ namespace PetelAssistants.Api.Controllers
                 .ToList();
 
             return Ok(new { success = true, data = items });
+        }
+
+        private async Task<HashSet<(int Year, int Month)>?> ResolveHebrewYearMonthsAsync(int hebrewYearId)
+        {
+            var year = await _shared.HebrewYears.AsNoTracking()
+                .FirstOrDefaultAsync(y => y.Id == hebrewYearId);
+            if (year?.StartDate is null || year.EndDate is null)
+                return null;
+
+            var start = new DateOnly(year.StartDate.Value.Year, year.StartDate.Value.Month, 1);
+            var end = new DateOnly(year.EndDate.Value.Year, year.EndDate.Value.Month, 1);
+            if (end < start)
+                return new HashSet<(int Year, int Month)>();
+
+            var months = new HashSet<(int Year, int Month)>();
+            for (var cursor = start; cursor <= end; cursor = cursor.AddMonths(1))
+                months.Add((cursor.Year, cursor.Month));
+            return months;
         }
 
         [HttpPost]
