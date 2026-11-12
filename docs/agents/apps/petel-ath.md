@@ -641,7 +641,7 @@ await _pricingService.RecalculateAndSaveInPlaceAsync(historicalStudentId);
 await _studentService.CreateNewStudentVersionAsync(historicalStudentId, ...);
 ```
 
-Excel registry `Students` / `StudentsWithSchool` / `StudentsWithPricingElements` / `CouncilStats` use `IsLastVersion || IncludeInCouncilSummary` and exclude `StatusId = 8` (נמחק). `StudentsWithSchool` / `StudentsWithPricingElements` emit **one row per billable period** (the same student can appear twice for the same council with different dates). `council_summary_vw` applies the same exclusion so municipality letter counts match. Council student lists still show the student once.
+Excel registry `Students` / `StudentsWithSchool` / `StudentsWithPricingElements` / `CouncilStats` use `IsLastVersion || IncludeInCouncilSummary` and exclude `StatusId = 8` (נמחק). `StudentsWithSchool` / `StudentsWithPricingElements` emit **one row per billable period** (the same student can appear twice for the same council with different dates). `council_summary_vw` applies the same exclusion so municipality letter counts match; the view selects `councils.name AS council_name` (there is no `council_short_name` column). Council student lists still show the student once.
 
 ### Student History Tab
 

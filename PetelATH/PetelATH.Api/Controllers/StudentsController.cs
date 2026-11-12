@@ -94,7 +94,7 @@ namespace PetelATH.Api.Controllers
                                 .FirstOrDefault())
                             .FirstOrDefault(),
 
-                        // LEFT JOIN with Councils - uses council_short_name, falls back to council_long_name
+                        // LEFT JOIN with Councils — column is name (not council_short_name)
                         CouncilName = _context.Councils
                             .Where(c => c.Id == s.SendingCouncil)
                             .Select(c => c.Name)

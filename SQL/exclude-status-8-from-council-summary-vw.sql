@@ -4,7 +4,7 @@
 CREATE OR REPLACE VIEW petel_schema.council_summary_vw AS
 SELECT
     c.id AS council_id,
-    c.council_short_name AS council_name,
+    c.name AS council_name,
     sy.year_id,
     sch.owner AS owner_id,
     e.name AS owner_name,
@@ -23,7 +23,7 @@ WHERE
     sy.year_id IS NOT NULL
 GROUP BY
     c.id,
-    c.council_short_name,
+    c.name,
     sy.year_id,
     sch.owner,
     e.name;
