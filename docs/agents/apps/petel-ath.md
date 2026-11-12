@@ -547,7 +547,7 @@ Blocked questions use the same lists plus `התקופות חופפות. לא נ�
 
 **Overlap** (inclusive `DateOnly`): `newStart <= existingEnd && newEnd >= existingStart`.
 
-Students list stays one row (`is_last_version`). **Council view** lists the student **once** per council (`DISTINCT master_student_id`). Council summary counts and basic-cost calculations use `is_last_version OR include_in_council_summary`, counting `DISTINCT master_student_id` per council.
+Students list stays one row (`is_last_version`). **Council view** lists the student **once** per council (`DISTINCT master_student_id`). Council summary counts and basic-cost calculations use `is_last_version OR include_in_council_summary`, counting `DISTINCT master_student_id` per council, and exclude soft-deleted rows (`StatusId = 8` / נמחק).
 
 Last version always has `include_in_council_summary = false`. Every other **current** billable period has the flag true (including a second date range of the same council when the user chose KeepBoth). Never two billable rows with the same `(start, end, council)`.
 
@@ -641,7 +641,7 @@ await _pricingService.RecalculateAndSaveInPlaceAsync(historicalStudentId);
 await _studentService.CreateNewStudentVersionAsync(historicalStudentId, ...);
 ```
 
-Excel registry `Students` uses `IsLastVersion || IncludeInCouncilSummary`. `StudentsWithSchool` / `StudentsWithPricingElements` emit **one row per billable period** (the same student can appear twice for the same council with different dates). Council student lists still show the student once.
+Excel registry `Students` / `StudentsWithSchool` / `StudentsWithPricingElements` / `CouncilStats` use `IsLastVersion || IncludeInCouncilSummary` and exclude `StatusId = 8` (נמחק). `StudentsWithSchool` / `StudentsWithPricingElements` emit **one row per billable period** (the same student can appear twice for the same council with different dates). `council_summary_vw` applies the same exclusion so municipality letter counts match. Council student lists still show the student once.
 
 ### Student History Tab
 

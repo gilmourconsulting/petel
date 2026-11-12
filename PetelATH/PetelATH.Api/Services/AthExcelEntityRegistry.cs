@@ -107,7 +107,7 @@ namespace PetelATH.Api.Services
 
             var students = await _context.SchoolStudents
                 .AsNoTracking()
-                .Where(s => yearIds.Contains(s.SchoolYearId) && (s.IsLastVersion || s.IncludeInCouncilSummary))
+                .Where(s => yearIds.Contains(s.SchoolYearId) && (s.IsLastVersion || s.IncludeInCouncilSummary) && s.StatusId != 8)
                 .Select(s => new
                 {
                     s.Id,
@@ -353,7 +353,7 @@ namespace PetelATH.Api.Services
             // ── Build student → council map ───────────────────────────────
             var studentCouncilMap = await _context.SchoolStudents
                 .AsNoTracking()
-                .Where(s => yearIds.Contains(s.SchoolYearId) && (s.IsLastVersion || s.IncludeInCouncilSummary) && s.SendingCouncil.HasValue)
+                .Where(s => yearIds.Contains(s.SchoolYearId) && (s.IsLastVersion || s.IncludeInCouncilSummary) && s.StatusId != 8 && s.SendingCouncil.HasValue)
                 .Select(s => new { s.Id, CouncilId = s.SendingCouncil!.Value })
                 .ToListAsync(ct);
 
@@ -449,7 +449,7 @@ namespace PetelATH.Api.Services
             // Pre-load class names
             var students = await _context.SchoolStudents
                 .AsNoTracking()
-                .Where(s => yearIds.Contains(s.SchoolYearId) && (s.IsLastVersion || s.IncludeInCouncilSummary))
+                .Where(s => yearIds.Contains(s.SchoolYearId) && (s.IsLastVersion || s.IncludeInCouncilSummary) && s.StatusId != 8)
                 .ToListAsync(ct);
 
             var classIds = students
@@ -573,7 +573,7 @@ namespace PetelATH.Api.Services
             // ── Students + class info ──────────────────────────────────────
             var students = await _context.SchoolStudents
                 .AsNoTracking()
-                .Where(s => yearIds.Contains(s.SchoolYearId) && (s.IsLastVersion || s.IncludeInCouncilSummary))
+                .Where(s => yearIds.Contains(s.SchoolYearId) && (s.IsLastVersion || s.IncludeInCouncilSummary) && s.StatusId != 8)
                 .ToListAsync(ct);
 
             var classIds = students

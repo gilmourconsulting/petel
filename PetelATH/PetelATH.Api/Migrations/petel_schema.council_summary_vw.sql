@@ -1,7 +1,8 @@
 -- Create view for council summary by year with ownership filtering
 -- Each council-year-owner combination gets a row (for multi-owner councils)
 -- Includes last-version students and historical split-council periods
--- (include_in_council_summary = true). Count is distinct per student identity.
+-- (include_in_council_summary = true). Excludes soft-deleted status 8 (נמחק).
+-- Count is distinct per student identity.
 CREATE OR REPLACE VIEW petel_schema.council_summary_vw AS
 SELECT
     c.id AS council_id,
@@ -16,6 +17,7 @@ FROM
     INNER JOIN petel_schema.school_students ss
         ON c.id = ss.sending_council
         AND (ss.is_last_version = true OR ss.include_in_council_summary = true)
+        AND (ss.status IS DISTINCT FROM 8)
     INNER JOIN petel_schema.school_years sy ON ss.school_year_id = sy.id
     INNER JOIN petel_schema.schools sch ON ss.school_year_id = sch.school_year_id AND sch.is_last_version = true
     LEFT JOIN petel_schema.entities e ON sch.owner = e.id

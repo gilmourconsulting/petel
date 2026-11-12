@@ -48,6 +48,7 @@ END
 $$;
 
 -- 3. council_summary_vw — last-version students plus flagged historical split periods
+--    (excludes soft-deleted status 8 / נמחק)
 
 CREATE OR REPLACE VIEW petel_schema.council_summary_vw AS
 SELECT
@@ -63,6 +64,7 @@ FROM
     INNER JOIN petel_schema.school_students ss
         ON c.id = ss.sending_council
         AND (ss.is_last_version = true OR ss.include_in_council_summary = true)
+        AND (ss.status IS DISTINCT FROM 8)
     INNER JOIN petel_schema.school_years sy ON ss.school_year_id = sy.id
     INNER JOIN petel_schema.schools sch ON ss.school_year_id = sch.school_year_id AND sch.is_last_version = true
     LEFT JOIN petel_schema.entities e ON sch.owner = e.id
